@@ -2,6 +2,8 @@ import zmq
 import os
 import json
 from logging import Handler
+import sge
+from subprocess import CalledProcessError
 
 REQUEST_TIMEOUT = 3000
 REQUEST_RETRIES = 3
@@ -28,6 +30,15 @@ class Job(object):
             self.name = os.getenv("JOB_NAME")
         else:
             self.name = name
+
+        # Try to get job_details
+        try:
+            self.job_info = sge.qstat_details(self.jid)[self.jid]
+            if self.name is None:
+                self.name = self.job_info['job_name']
+        except CalledProcessError:
+            self.job_info = None
+
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.connect()
         self.register()
@@ -89,7 +100,19 @@ class Job(object):
         return reply
 
     def register(self):
-        msg = {'action': 'create_job', 'args': [self.jid, self.name]}
+        if self.job_info is not None:
+            msg = {
+                'action': 'create_job',
+                'args': [self.jid],
+                'kwargs': {
+                    'name': self.name,
+                    'runfile': self.job_info['script_file'],
+                    'args': self.job_info['job_args']}}
+        else:
+            msg = {
+                'action': 'create_job',
+                'args': [self.jid],
+                'kwargs': {'name': self.name}}
         self.send_request(msg)
 
     def start(self):

@@ -32,15 +32,14 @@ class JobMonitor(object):
             session.rollback()
         return session
 
-    def create_job(self, jid, name, runfile="", args=[]):
+    def create_job(self, jid, name, *args, **kwargs):
         job = self.session.query(models.Job).filter_by(jid=jid).first()
         if job is None:
             job = models.Job(
                 jid=jid,
                 name=name,
-                runfile=runfile,
-                args=json.dumps(args),
-                current_status=1)
+                current_status=1,
+                **kwargs)
             self.session.add(job)
             self.session.commit()
         return job
@@ -100,7 +99,11 @@ class JobMonitor(object):
                 else:
                     msg = json.loads(msg)
                     tocall = getattr(self, msg['action'])
-                    tocall(*msg['args'])
+                    if 'kwargs' in msg.keys():
+                        kwargs = msg['kwargs']
+                    else:
+                        kwargs = {}
+                    tocall(*msg['args'], **kwargs)
                     self.socket.send(b"OK")
             except Exception, e:
                 print e
