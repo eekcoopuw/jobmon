@@ -13,6 +13,7 @@ class JobMonitor(object):
 
     def __init__(self, out_dir):
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
+        self.out_dir = os.path.realpath(self.out_dir)
         self.port, self.socket = self.start_server()
         try:
             os.makedirs(self.out_dir)
