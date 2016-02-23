@@ -1,10 +1,17 @@
 import zmq
-import models
+from . import models
+import sqlite3
 import sqlalchemy as sql
 from sqlalchemy.orm import sessionmaker
 from socket import gethostname
 import os
+import sys
 import json
+
+
+assert sys.version_info > (3, 0), """
+    Sorry, only Python version 3+ are supported at this time"""
+
 
 Session = sessionmaker()
 
@@ -14,16 +21,19 @@ class JobMonitor(object):
     def __init__(self, out_dir):
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.out_dir = os.path.realpath(self.out_dir)
-        self.port, self.socket = self.start_server()
         try:
             os.makedirs(self.out_dir)
         except:
             pass
+        self.port, self.socket = self.start_server()
         self.session = self.create_job_db()
 
     def create_job_db(self):
-        eng = sql.create_engine(
-            'sqlite:///%s/job_monitor.sqlite' % self.out_dir)
+        dbfile = '%s/job_monitor.sqlite' % self.out_dir
+
+        def creator():
+            return sqlite3.connect('file:%s?vfs=unix-none' % dbfile, uri=True)
+        eng = sql.create_engine('sqlite://', creator=creator)
         models.Base.metadata.create_all(eng)
         Session.configure(bind=eng)
         session = Session()
@@ -67,18 +77,18 @@ class JobMonitor(object):
             json.dump({'host': host, 'port': port}, f)
 
     def start_server(self):
-        print 'Starting server...'
+        print('Starting server...')
         context = zmq.Context()
         self.socket = context.socket(zmq.REP)
         self.port = self.socket.bind_to_random_port('tcp://*')
         self.write_connection_info(self.node_name(), self.port)
-        print 'Server started.'
+        print('Server started.')
         return self.port, self.socket
 
     def stop_server(self):
-        print 'Stopping server...'
+        print('Stopping server...')
         self.socket.close()
-        print 'Server stopped.'
+        print('Server stopped.')
         return True
 
     def restart_server(self):
@@ -87,11 +97,12 @@ class JobMonitor(object):
 
     def run(self):
         if self.socket.closed:
-            print 'Server offline, starting...'
+            print('Server offline, starting...')
             self.start_server()
         keep_alive = True
         while keep_alive:
             msg = self.socket.recv()
+            msg = msg.decode('utf-8')
             try:
                 if msg == 'stop':
                     keep_alive = False
@@ -106,6 +117,6 @@ class JobMonitor(object):
                         kwargs = {}
                     tocall(*msg['args'], **kwargs)
                     self.socket.send(b"OK")
-            except Exception, e:
-                print e
+            except Exception as e:
+                print(e)
                 self.socket.send(b"Uh oh, something went wrong")

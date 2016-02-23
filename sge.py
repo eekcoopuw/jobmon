@@ -204,7 +204,7 @@ def qsub(
 
     # Convert all parameters to strings
     assert (isinstance(parameters, (list, tuple)) and not
-            isinstance(parameters, basestring)), (
+            isinstance(parameters, str)), (
             "'parameters' cannot be a string. Must be a list or a tuple.")
     parameters = [str(p) for p in parameters]
     parameters = [p.strip(' \t\r\n') for p in parameters]
@@ -240,7 +240,7 @@ def qsub(
 
     # Submit job
     submission_msg = subprocess.check_output(submission_params)
-    print submission_msg
+    print(submission_msg)
     jid = submission_msg.split()[2]
     return jid
 
