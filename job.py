@@ -34,9 +34,9 @@ class Job(object):
     def __init__(self, out_dir, jid=None, name=None):
         """set class defaults. attempt to connect and register with server."""
         if jid is None:
-            self.jid = os.getenv("JOB_ID")
+            self.jid = int(os.getenv("JOB_ID"))
         else:
-            self.jid = jid
+            self.jid = int(jid)
         if name is None:
             self.name = os.getenv("JOB_NAME")
         else:
