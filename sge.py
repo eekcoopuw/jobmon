@@ -101,7 +101,7 @@ def qstat_details(jids):
     deets = subprocess.check_output(cmd)
     deets = deets.splitlines()
     jobid = 0
-    jobdf = {}
+    jobdict = {}
     for key, group in itertools.groupby(deets, group_separator):
         for line in group:
             if group_separator(line):
@@ -111,10 +111,24 @@ def qstat_details(jids):
             v = ":".join(ws[1:]).strip()
             if k == 'job_number':
                 v = int(v)
-                jobdf[v] = {}
+                jobdict[v] = {}
                 jobid = v
-            jobdf[jobid][k] = v
-    return jobdf
+            jobdict[jobid][k] = v
+    return jobdict
+
+
+def qstat_usage(jids):
+    jids = np.atleast_1d(jids)
+    deets = qstat_details(jids)
+    usage = {}
+    for jid, info in deets.iteritems():
+        usage[jid] = {}
+        usagestr = info['usage                 1']
+        parsus = {u.split("=")[0]: u.split("=")[1]
+                  for u in usagestr.split(", ")}
+        usage[jid]['usage_str'] = usagestr
+        usage[jid].update(parsus)
+    return usage
 
 
 def long_jobs(hour, min, sec, jobdf=None):

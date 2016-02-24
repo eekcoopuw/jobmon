@@ -14,6 +14,11 @@ class Job(Base):
     name = Column(String(150))
     runfile = Column(String(150))
     args = Column(String(1000))
+    usage_str = Column(String(250))
+    wallclock = Column(String(50))
+    maxvmem = Column(String(50))
+    cpu = Column(String(50))
+    io = Column(String(50))
     current_status = Column(Integer, nullable=False)
     submitted_date = Column(DateTime, default=func.now())
 
