@@ -23,7 +23,11 @@ class Job(object):
 
     def __init__(self, out_dir, jid=None, name=None):
         if jid is None:
-            self.jid = int(os.getenv("JOB_ID"))
+            self.jid = os.getenv("JOB_ID")
+            if self.jid is None:
+                self.jid = int(999999999)
+            else:
+                self.jid = int(self.jid)
         else:
             self.jid = int(jid)
         if name is None:
