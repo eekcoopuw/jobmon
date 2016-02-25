@@ -147,12 +147,11 @@ class SGEJob(Job):
         name (string, optional): name current process. If name is not specified
             will attempt to use environment variable JOB_NAME.
     """
-    def __init__(self, jid=None, name=None, *args, **kwargs):
+    def __init__(self, out_dir, jid=None, name=None):
         """set SGE job id and job name as class attributes. discover from
-        environment if not specified. args & kwargs passed through to super
-        class aka "Job"
+        environment if not specified.
         """
-        super(SGEJob, self).__init__(*args, **kwargs)
+        super(SGEJob, self).__init__(out_dir)
 
         if jid is None:
             self.jid = int(os.getenv("JOB_ID"))
