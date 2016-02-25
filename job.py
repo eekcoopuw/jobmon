@@ -9,6 +9,18 @@ REQUEST_TIMEOUT = 3000
 REQUEST_RETRIES = 3
 
 
+def log_exceptions(job):
+    def wrapper(func):
+        def catch_and_send(*args, **kwargs):
+            try:
+                func(*args, **kwargs)
+            except Exception, e:
+                job.log_error(str(e))
+                raise
+        return catch_and_send
+    return wrapper
+
+
 class ZmqHandler(Handler):
 
     def __init__(self, job):
@@ -20,51 +32,28 @@ class ZmqHandler(Handler):
 
 
 class Job(object):
-    """client node job status logger. Pushes job status to server node through
-    zmq. Status is logged by server into sqlite database
+    """client node. connects to server node through
+    zmq. sends messages to server via request dictionaries which the server
+    node consumes and responds to.
 
     Args
         out_dir (string): file path where the server configuration is
             stored.
-        jid (int, optional): job id of current process on SGE. If job id is not
-            specified, will attempt to use environment variable JOB_ID.
-        name (string, optional): name current process. If name is not specified
-            will attempt to use environment variable JOB_NAME.
     """
-    def __init__(self, out_dir, jid=None, name=None):
-        """set class defaults. attempt to connect and register with server."""
-        if jid is None:
-            self.jid = int(os.getenv("JOB_ID"))
-        else:
-            self.jid = int(jid)
-        if name is None:
-            self.name = os.getenv("JOB_NAME")
-        else:
-            self.name = name
-
-        # Try to get job_details
-        try:
-            self.job_info = sge.qstat_details(self.jid)[self.jid]
-            if self.name is None:
-                self.name = self.job_info['job_name']
-        except CalledProcessError:
-            self.job_info = None
-
-        # connect and register with server
+    def __init__(self, out_dir):
+        """set class defaults. attempt to connect with server."""
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.connect()
-        self.register()
 
     def connect(self):
         """Connect to server. Reads config file from out_dir specified during
-        class instantiation to get socket. Client will block on send unless it
-        has successfully received a reply back from server. Not an API method,
+        class instantiation to get socket. Not an API method,
         needs to be underscored"""
         with open("%s/monitor_info.json" % self.out_dir) as f:
             mi = json.load(f)
         context = zmq.Context()  # default 1 i/o thread
         self.socket = context.socket(zmq.REQ)  # blocks socket on send
-        self.socket.setsockopt(zmq.LINGER, 0)  # do not block on send.
+        self.socket.setsockopt(zmq.LINGER, 0)  # do not pile requests in queue.
         print 'Connecting...'
 
         # use host and port from network filesystem cofig. option "out_dir"
@@ -143,10 +132,48 @@ class Job(object):
                     self.socket.send(message)
         return reply
 
+
+class SGEJob(Job):
+    """client node job status logger. Pushes job status to server node through
+    zmq. Status is logged by server into sqlite database
+
+    Args
+        out_dir (string): file path where the server configuration is
+            stored.
+        jid (int, optional): job id of current process on SGE. If job id is not
+            specified, will attempt to use environment variable JOB_ID.
+        name (string, optional): name current process. If name is not specified
+            will attempt to use environment variable JOB_NAME.
+    """
+    def __init__(self, jid=None, name=None, *args, **kwargs):
+        """set SGE job id and job name as class attributes. discover from
+        environment if not specified. args & kwargs passed through to super
+        class aka "Job"
+
+        """
+        super(SGEJob, self).__init__(*args, **kwargs)
+
+        if jid is None:
+            self.jid = int(os.getenv("JOB_ID"))
+        else:
+            self.jid = int(jid)
+        if name is None:
+            self.name = os.getenv("JOB_NAME")
+        else:
+            self.name = name
+
+        try:
+            self.job_info = sge.qstat_details(self.jid)[self.jid]
+            if self.name is None:
+                self.name = self.job_info['job_name']
+        except CalledProcessError:
+            self.job_info = None
+
+        self.register()
+
     def register(self):
         """send registration request to server. server will create database
-        entry for this job. This is not an API method so should probably be
-        masked with an underscore"""
+        entry for this job."""
         if self.job_info is not None:
             msg = {
                 'action': 'create_job',
@@ -183,15 +210,3 @@ class Job(object):
         """log job complete with server"""
         msg = {'action': 'update_job_status', 'args': [self.jid, 4]}
         self.send_request(msg)
-
-
-def log_exceptions(job):
-    def wrapper(func):
-        def catch_and_send(*args, **kwargs):
-            try:
-                func(*args, **kwargs)
-            except Exception, e:
-                job.log_error(str(e))
-                raise
-        return catch_and_send
-    return wrapper
