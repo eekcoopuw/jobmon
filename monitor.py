@@ -7,6 +7,8 @@ from socket import gethostname
 import os
 import sys
 import json
+import pickle
+import pandas as pd
 
 
 assert sys.version_info > (3, 0), """
@@ -95,14 +97,19 @@ class JobMonitor(object):
 
                     response = tocall(*msg['args'], **kwargs)
                     if self.valid_response(response):
-                        self.socket.send(response)
+                        p = pickle.dumps(response, protocol=2)
+                        self.socket.send(p)
                     else:
-                        self.socket.send(
-                            (1, b"action has invalid reponse format"))
+                        p = pickle.dumps(
+                            (1, b"action has invalid reponse format"),
+                            protocol=2)
+                        self.socket.send(p)
 
             except Exception as e:
                 print(e)
-                self.socket.send(2, b"Uh oh, something went wrong")
+                p = pickle.dumps((2, b"Uh oh, something went wrong"),
+                                 protocol=2)
+                self.socket.send(p)
 
     def valid_response(self, response):
         """validate that action method returns value in expected format.
@@ -201,3 +208,29 @@ class SGEJobMonitor(JobMonitor):
         self.session.add(error)
         self.session.commit()
         return (0,)
+
+    def query(self, query):
+        """execute raw sql query on sqlite database
+
+        Args:
+            query (string): raw sql query string to execute on sqlite database
+        """
+        try:
+            # run query
+            r_proxy = self.session.execute(query)
+
+            # load dataframe
+            try:
+                df = pd.DataFrame(r_proxy.fetchall())
+                df.columns = r_proxy.keys()
+                response = (0, df)
+            except ValueError:
+                df = pd.DataFrame(columns=(r_proxy.keys()))
+                response = (0, df)
+            except:
+                response = (1, b"query failed to execute")
+
+        except:
+            response = (1, b"query failed to execute")
+
+        return response

@@ -1,6 +1,7 @@
 import zmq
 import os
 import json
+import pickle
 from logging import Handler
 import sge
 from subprocess import CalledProcessError
@@ -117,6 +118,7 @@ class Job(object):
                         reply = 0
                         break
                     else:
+                        reply = pickle.loads(reply)
                         retries_left = 0
                         expect_reply = False
                 else:
@@ -149,7 +151,6 @@ class SGEJob(Job):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified. args & kwargs passed through to super
         class aka "Job"
-
         """
         super(SGEJob, self).__init__(*args, **kwargs)
 
@@ -210,3 +211,13 @@ class SGEJob(Job):
         """log job complete with server"""
         msg = {'action': 'update_job_status', 'args': [self.jid, 4]}
         self.send_request(msg)
+
+    def query(self, query):
+        """execute query on sqlite database through server
+        Args:
+            query (string): raw sql query string to execute on sqlite monitor
+                database
+        """
+        msg = {'action': 'query', 'args': [query]}
+        response = self.send_request(msg)
+        return response
