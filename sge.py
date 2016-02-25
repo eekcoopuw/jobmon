@@ -9,29 +9,21 @@ this_path = os.path.dirname(os.path.abspath(__file__))
 
 
 def qstat(status=None, pattern=None, user=None):
+
     cmd = ["qstat", "-r"]
     if status is not None:
         cmd.extend(["-s", status])
     if user is not None:
         cmd.extend(["-u", user])
-    if user == '"*"':
-        p1 = subprocess.Popen(
-            " ".join(cmd),
-            stdout=subprocess.PIPE,
-            shell=True)
-    else:
-        p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
-    if pattern is None:
-        p2 = subprocess.Popen(
-            ["grep", "Full jobname:", "-B1"],
-            stdin=p1.stdout,
-            stdout=subprocess.PIPE)
-    else:
-        p2 = subprocess.Popen(
-            ["grep", "Full jobname:[[:blank:]]*"+pattern+"$", "-B1"],
-            stdin=p1.stdout,
-            stdout=subprocess.PIPE)
+    p1 = subprocess.Popen(
+        " ".join(cmd),
+        stdout=subprocess.PIPE,
+        shell=True)
+    p2 = subprocess.Popen(
+        ["grep", "Full jobname:", "-B1"],
+        stdin=p1.stdout,
+        stdout=subprocess.PIPE)
     p1.stdout.close()
     output, err = p2.communicate()
     p2.stdout.close()
@@ -86,6 +78,8 @@ def qstat(status=None, pattern=None, user=None):
         'status': job_statuses,
         'status_start': job_datetimes,
         'runtime': job_runtimes})
+    if pattern is not None:
+        df = df[df.name.str.contains(pattern)]
     return df[['job_id', 'name', 'slots', 'user', 'status', 'status_start',
                'runtime']]
 
