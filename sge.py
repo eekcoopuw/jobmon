@@ -9,29 +9,21 @@ this_path = os.path.dirname(os.path.abspath(__file__))
 
 
 def qstat(status=None, pattern=None, user=None):
+
     cmd = ["qstat", "-r"]
     if status is not None:
         cmd.extend(["-s", status])
     if user is not None:
         cmd.extend(["-u", user])
-    if user == '"*"':
-        p1 = subprocess.Popen(
-            " ".join(cmd),
-            stdout=subprocess.PIPE,
-            shell=True)
-    else:
-        p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
 
-    if pattern is None:
-        p2 = subprocess.Popen(
-            ["grep", "Full jobname:", "-B1"],
-            stdin=p1.stdout,
-            stdout=subprocess.PIPE)
-    else:
-        p2 = subprocess.Popen(
-            ["grep", "Full jobname:[[:blank:]]*"+pattern+"$", "-B1"],
-            stdin=p1.stdout,
-            stdout=subprocess.PIPE)
+    p1 = subprocess.Popen(
+        " ".join(cmd),
+        stdout=subprocess.PIPE,
+        shell=True)
+    p2 = subprocess.Popen(
+        ["grep", "Full jobname:", "-B1"],
+        stdin=p1.stdout,
+        stdout=subprocess.PIPE)
     p1.stdout.close()
     output, err = p2.communicate()
     p2.stdout.close()
@@ -86,6 +78,8 @@ def qstat(status=None, pattern=None, user=None):
         'status': job_statuses,
         'status_start': job_datetimes,
         'runtime': job_runtimes})
+    if pattern is not None:
+        df = df[df.name.str.contains(pattern)]
     return df[['job_id', 'name', 'slots', 'user', 'status', 'status_start',
                'runtime']]
 
@@ -101,7 +95,7 @@ def qstat_details(jids):
     deets = subprocess.check_output(cmd)
     deets = deets.splitlines()
     jobid = 0
-    jobdf = {}
+    jobdict = {}
     for key, group in itertools.groupby(deets, group_separator):
         for line in group:
             if group_separator(line):
@@ -111,10 +105,24 @@ def qstat_details(jids):
             v = ":".join(ws[1:]).strip()
             if k == 'job_number':
                 v = int(v)
-                jobdf[v] = {}
+                jobdict[v] = {}
                 jobid = v
-            jobdf[jobid][k] = v
-    return jobdf
+            jobdict[jobid][k] = v
+    return jobdict
+
+
+def qstat_usage(jids):
+    jids = np.atleast_1d(jids)
+    deets = qstat_details(jids)
+    usage = {}
+    for jid, info in deets.iteritems():
+        usage[jid] = {}
+        usagestr = info['usage                 1']
+        parsus = {u.split("=")[0]: u.split("=")[1]
+                  for u in usagestr.split(", ")}
+        usage[jid]['usage_str'] = usagestr
+        usage[jid].update(parsus)
+    return usage
 
 
 def long_jobs(hour, min, sec, jobdf=None):

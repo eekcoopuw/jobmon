@@ -80,6 +80,14 @@ class JobMonitor(object):
         self.session.commit()
         return status
 
+    def update_job_usage(self, jid, *args, **kwargs):
+        job = self.session.query(models.Job).filter_by(jid=jid).first()
+        for k, v in kwargs.items():
+            setattr(job, k, v)
+        self.session.add(job)
+        self.session.commit()
+        return job
+
     def log_error(self, jid, error):
         """log an error"""
         error = models.JobError(jid=jid, description=error)
