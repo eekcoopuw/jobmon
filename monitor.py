@@ -197,6 +197,14 @@ class SGEJobMonitor(JobMonitor):
         self.session.commit()
         return (0,)
 
+    def update_job_usage(self, jid, *args, **kwargs):
+        job = self.session.query(models.Job).filter_by(jid=jid).first()
+        for k, v in kwargs.items():
+            setattr(job, k, v)
+        self.session.add(job)
+        self.session.commit()
+        return (0,)
+
     def log_error(self, jid, error):
         """log error for given job id
 

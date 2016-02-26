@@ -154,7 +154,11 @@ class SGEJob(Job):
         super(SGEJob, self).__init__(out_dir)
 
         if jid is None:
-            self.jid = int(os.getenv("JOB_ID"))
+            self.jid = os.getenv("JOB_ID")
+            if self.jid is None:
+                self.jid = int(999999999)
+            else:
+                self.jid = int(self.jid)
         else:
             self.jid = int(jid)
         if name is None:
@@ -162,12 +166,16 @@ class SGEJob(Job):
         else:
             self.name = name
 
+        # Try to get job_details
         try:
             self.job_info = sge.qstat_details(self.jid)[self.jid]
             if self.name is None:
                 self.name = self.job_info['job_name']
         except CalledProcessError:
-            self.job_info = None
+            self.job_info = {'script_file': 'N/A', 'args': 'N/A'}
+        for reqdkey in ['script_file', 'job_args']:
+            if reqdkey not in self.job_info.keys():
+                self.job_info[reqdkey] = 'N/A'
 
         self.register()
 
@@ -210,6 +218,18 @@ class SGEJob(Job):
         """log job complete with server"""
         msg = {'action': 'update_job_status', 'args': [self.jid, 4]}
         self.send_request(msg)
+        try:
+            self.usage = sge.qstat_usage(self.jid)[self.jid]
+            dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
+            kwargs = {k: self.usage[k] for k in dbukeys}
+            print kwargs
+            msg = {
+                'action': 'update_job_usage',
+                'args': [self.jid],
+                'kwargs': kwargs}
+            self.send_request(msg)
+        except Exception as e:
+            print(e)
 
     def query(self, query):
         """execute query on sqlite database through server
