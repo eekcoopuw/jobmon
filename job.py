@@ -247,4 +247,5 @@ class Manager(Client):
 
     def stop_server(self):
         """stop a running server"""
-        self.send_reqest('stop')
+        response = self.send_request('stop')
+        print(response[1])

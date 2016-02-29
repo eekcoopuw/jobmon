@@ -85,7 +85,8 @@ class Server(object):
             try:
                 if msg == 'stop':
                     keep_alive = False
-                    self.socket.send(b"Monitor stopped")
+                    p = pickle.dumps((0, b"Monitor stopped"), protocol=2)
+                    self.socket.send(p)
                     self.stop_server()
                 else:
                     msg = json.loads(msg)
