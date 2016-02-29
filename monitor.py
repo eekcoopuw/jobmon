@@ -15,7 +15,7 @@ assert sys.version_info > (3, 0), """
     Sorry, only Python version 3+ are supported at this time"""
 
 
-class JobMonitor(object):
+class Server(object):
     """server node.
 
     Args:
@@ -125,10 +125,11 @@ class JobMonitor(object):
         else:
             return False
 
+
 Session = sessionmaker()
 
 
-class SGEJobMonitor(JobMonitor):
+class JobMonitor(Server):
     """server node job status logger.
 
     Args:

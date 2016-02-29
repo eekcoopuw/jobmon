@@ -32,7 +32,7 @@ class ZmqHandler(Handler):
         self.job.log_error(record.message)
 
 
-class Job(object):
+class Client(object):
     """client node. connects to server node through
     zmq. sends messages to server via request dictionaries which the server
     node consumes and responds to.
@@ -135,7 +135,7 @@ class Job(object):
         return reply
 
 
-class SGEJob(Job):
+class Job(Client):
     """client node job status logger. Pushes job status to server node through
     zmq. Status is logged by server into sqlite database
 
@@ -151,7 +151,7 @@ class SGEJob(Job):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified.
         """
-        super(SGEJob, self).__init__(out_dir)
+        super(Job, self).__init__(out_dir)
 
         if jid is None:
             self.jid = os.getenv("JOB_ID")
@@ -240,3 +240,11 @@ class SGEJob(Job):
         msg = {'action': 'query', 'args': [query]}
         response = self.send_request(msg)
         return response
+
+
+class Manager(Client):
+    """client node with method to stop server"""
+
+    def stop_server(self):
+        """stop a running server"""
+        self.send_reqest('stop')
