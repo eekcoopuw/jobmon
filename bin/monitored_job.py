@@ -22,7 +22,7 @@ for param in args["pass_through"]:
 sys.argv = [args["runfile"]] + passed_params
 
 #
-j1 = job.Job(args["mon_dir"])
+j1 = job.Job(args["mon_dir"], jid=args["jid"])
 try:
     j1.start()
     execfile(args["runfile"])

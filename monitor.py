@@ -178,11 +178,21 @@ class JobMonitor(Server):
         if job is None:
             job = models.Job(
                 jid=jid,
-                name=name,
-                current_status=1,
-                **kwargs)
+                current_status=1)
             self.session.add(job)
             self.session.commit()
+
+        # try:
+        sgejob = models.SGEJob(
+            jid=jid,
+            name=name,
+            **kwargs)
+        #     print(sgejob)
+        self.session.add(sgejob)
+        self.session.commit()
+        # except:
+        #     self.session.rollback()
+
         return (0,)
 
     def update_job_status(self, jid, status_id):
@@ -199,8 +209,8 @@ class JobMonitor(Server):
         self.session.commit()
         return (0,)
 
-    def update_job_usage(self, jid, *args, **kwargs):
-        job = self.session.query(models.Job).filter_by(jid=jid).first()
+    def update_job_usage(self, sgeid, *args, **kwargs):
+        job = self.session.query(models.SGEJob).filter_by(sgeid=sgeid).first()
         for k, v in kwargs.items():
             setattr(job, k, v)
         self.session.add(job)

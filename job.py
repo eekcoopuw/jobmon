@@ -142,8 +142,9 @@ class Job(Client):
     Args
         out_dir (string): file path where the server configuration is
             stored.
-        jid (int, optional): job id of current process on SGE. If job id is not
-            specified, will attempt to use environment variable JOB_ID.
+        jid (int, optional): job id to use when registering with jobmon
+            database. If job id is not specified, will attempt to use
+            environment variable JOB_ID.
         name (string, optional): name current process. If name is not specified
             will attempt to use environment variable JOB_NAME.
     """
@@ -153,14 +154,19 @@ class Job(Client):
         """
         super(Job, self).__init__(out_dir)
 
+        # get sge_id from envirnoment
+        self.sge_id = os.getenv("JOB_ID")
+        if self.sge_id is not None:
+            self.sge_id = int(self.sge_id)
+
         if jid is None:
-            self.jid = os.getenv("JOB_ID")
-            if self.jid is None:
+            if self.sge_id is None:
                 self.jid = int(999999999)
             else:
-                self.jid = int(self.jid)
+                self.jid = self.sge_id
         else:
             self.jid = int(jid)
+
         if name is None:
             self.name = os.getenv("JOB_NAME")
         else:
@@ -168,7 +174,7 @@ class Job(Client):
 
         # Try to get job_details
         try:
-            self.job_info = sge.qstat_details(self.jid)[self.jid]
+            self.job_info = sge.qstat_details(self.sge_id)[self.sge_id]
             if self.name is None:
                 self.name = self.job_info['job_name']
         except CalledProcessError:
@@ -176,18 +182,21 @@ class Job(Client):
         for reqdkey in ['script_file', 'job_args']:
             if reqdkey not in self.job_info.keys():
                 self.job_info[reqdkey] = 'N/A'
-
+        print self.jid
+        print self.sge_id
+        print self.job_info
         self.register()
 
     def register(self):
         """send registration request to server. server will create database
         entry for this job."""
-        if self.job_info is not None:
+        if self.sge_id is not None:
             msg = {
                 'action': 'create_job',
                 'args': [self.jid],
                 'kwargs': {
                     'name': self.name,
+                    'sgeid': self.sge_id,
                     'runfile': self.job_info['script_file'],
                     'args': self.job_info['job_args']}}
         else:
@@ -195,6 +204,8 @@ class Job(Client):
                 'action': 'create_job',
                 'args': [self.jid],
                 'kwargs': {'name': self.name}}
+        print "\n\n\n\n registration req"
+        print msg
         self.send_request(msg)
 
     def start(self):
@@ -219,13 +230,12 @@ class Job(Client):
         msg = {'action': 'update_job_status', 'args': [self.jid, 4]}
         self.send_request(msg)
         try:
-            self.usage = sge.qstat_usage(self.jid)[self.jid]
+            self.usage = sge.qstat_usage(self.sge_id)[self.sge_id]
             dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
             kwargs = {k: self.usage[k] for k in dbukeys}
-            print kwargs
             msg = {
                 'action': 'update_job_usage',
-                'args': [self.jid],
+                'args': [self.sge_id],
                 'kwargs': kwargs}
             self.send_request(msg)
         except Exception as e:
