@@ -8,7 +8,7 @@ import itertools
 this_path = os.path.dirname(os.path.abspath(__file__))
 
 
-def qstat(status=None, pattern=None, user=None):
+def qstat(status=None, pattern=None, user=None, jids=None):
     """parse sge qstat information into DataFrame
 
     Args:
@@ -17,6 +17,8 @@ def qstat(status=None, pattern=None, user=None):
         pattern (string, optional): pattern filter to use when running qstat
             command
         user (string, optional): user filter to use when running qstat command
+        jids (list, optional): list of job ids to use when running qstat
+            command
 
     Returns:
         DataFrame of qstat return values
@@ -91,6 +93,8 @@ def qstat(status=None, pattern=None, user=None):
         'runtime': job_runtimes})
     if pattern is not None:
         df = df[df.name.str.contains(pattern)]
+    if jids is not None:
+        df = df[df.job_id.isin(jids)]
     return df[['job_id', 'name', 'slots', 'user', 'status', 'status_start',
                'runtime']]
 
@@ -263,9 +267,7 @@ def qsub(
     Args:
         runfile (string): absolute path of script to run
         jobname (string): what to call the job
-        parameters (tuple or list, optional): added parameters to include in
-            qsub command. Must be of the form (-sge_option_1, command_1, ...
-            -sge_option_#, command_#)
+        parameters (tuple or list, optional): arguments to pass to runfile.
         project (string, option): What project to submit the job under. Default
             is ihme_general.
         slots (int, optional): How many slots to request for the job.
@@ -328,7 +330,7 @@ def qsub(
 
     # Define script to run and pass parameters
     if shfile is None:
-        shfile = "%s/submit_master.sh" % (this_path)
+        shfile = "%s/bin/submit_master.sh" % (this_path)
     else:
         shfile = os.path.abspath(os.path.expanduser(shfile))
     runfile = runfile.strip(' \t\r\n')
@@ -354,7 +356,7 @@ def qsub(
 
     # Creat full submission array
     submission_params.extend(parameters)
-
+    print submission_params
     # Submit job
     submission_msg = subprocess.check_output(submission_params)
     print(submission_msg)
