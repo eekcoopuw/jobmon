@@ -11,6 +11,7 @@ this_dir = os.path.dirname(os.path.realpath(this_file))
 
 
 class IgnorantQ(object):
+    """keep track of jobs submitted to sun grid engine"""
 
     def __init__(self):
         # internal tracking
@@ -19,7 +20,7 @@ class IgnorantQ(object):
 
     def qsub(self, *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. see sge module for
-        documentation
+        documentation.
 
         Returns:
             sge job id
@@ -31,13 +32,12 @@ class IgnorantQ(object):
 
     def qblock(self, poll_interval=10):
         """wait until all jobs submitted through this qmaster instance have
-        left the sge queue. check sge queue each poll_interval until q is clear
-        run qmanage each poll_interval.
+        left the sge queue. check sge queue each poll_interval until q is
+        clear. Run qmanage each poll_interval.
 
         Args:
-            poll_interval (int, optional): time in seconds between each qmanage
-            call
-
+            poll_interval (int, optional): time in seconds between each
+            qcomplete()
         """
         while not self.qcomplete():
             time.sleep(poll_interval)
@@ -122,8 +122,14 @@ class MonitoredQ(IgnorantQ):
 
     @classmethod
     def get_monitor_state(cls, out_dir):
-        """return incremented auto incremented i value. This value will be
-        unique within a python instance"""
+        """return MonitorState object for given out_dir
+
+        Args:
+            out_dir (string): full path to directory where logging will happen
+
+        Returns:
+            MonitorState object associated with specified directory
+        """
         try:
             mon_state = cls.monitors[out_dir]
         except KeyError:
@@ -133,17 +139,29 @@ class MonitoredQ(IgnorantQ):
 
     @classmethod
     def set_monitor_state(cls, out_dir, mon_state):
+        """add new MonitorState object to MonitoredQ.monitors dictionary where
+        out_dir is the key and mon_state is the MonitorState object
+
+        Args:
+            out_dir (string): full path to directory where logging will happen
+            mon_state (object): MonitorState object
+        """
         cls.monitors[out_dir] = mon_state
 
     @property
     def i(self):
+        """get the current iterator for mon_state"""
         mon_state = self.get_monitor_state(self.out_dir)
         return mon_state.i
 
     def start_monitor(self, out_dir):
         """start a jobmonitor server in a subprocess. MonitoredQ's share
         monitor servers and auto increments if they are initialized with the
-        same out_dir"""
+        same out_dir in the same python instance.
+
+        Args:
+            out_dir (string): full path to directory where logging will happen
+        """
         mon_state = self.get_monitor_state(self.out_dir)
 
         if mon_state.status == "stopped":
@@ -154,7 +172,7 @@ class MonitoredQ(IgnorantQ):
             mon_state.status = "running"
 
     def stop_monitor(self):
-        """stop jobmonitor server tied to this instance"""
+        """stop jobmonitor server tied to this MonitoredQ instance"""
         mon_state = self.get_monitor_state(self.out_dir)
         if mon_state.status == "running":
             mon_state.monitor = None
@@ -163,7 +181,8 @@ class MonitoredQ(IgnorantQ):
 
     def qsub(self, runfile, jobname, jid=None, parameters=[],
              *args, **kwargs):
-        """submit jobs to sge scheduler using sge.qsub.
+        """submit jobs to sge scheduler using sge.qsub. They will automatically
+        register with server and sqlite database.
 
         Args:
             runfile (sting): full path to python executable file.
@@ -209,6 +228,13 @@ class MonitoredQ(IgnorantQ):
         return sgeid
 
     def manage_exit_q(self, exit_jobs):
+        """custom exit queue management. Jobs that have logged a failed state
+        automagically resubmit themselves 'retries' times. default is 0.
+
+        Args:
+            exit_jobs (int): sge job id of any jobs that have left the queue
+                between concurrent qmanage() calls
+        """
 
         query_status = """
         SELECT
