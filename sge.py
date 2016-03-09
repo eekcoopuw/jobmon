@@ -356,10 +356,9 @@ def qsub(
 
     # Creat full submission array
     submission_params.extend(parameters)
-    print submission_params
+
     # Submit job
     submission_msg = subprocess.check_output(submission_params)
-    print(submission_msg)
     jid = submission_msg.split()[2]
     return jid
 

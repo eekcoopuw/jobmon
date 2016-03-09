@@ -51,7 +51,7 @@ class MonitoredQ(object):
 
         # internal variables
         self.scheduled_jobs = []
-        self.jobid_monid = pd.DataFrame(columns=["monid", "jid"])
+        self.jobs = {}
 
         # internal objects
         self.monitor = self.start_monitor(out_dir)
@@ -93,21 +93,42 @@ class MonitoredQ(object):
             parameters = base_params
 
         # submit
-        jid = sge.qsub(runfile=this_dir + "/bin/monitored_job.py",
-                       jobname=jobname, parameters=parameters, *args, **kwargs)
-        self.scheduled_jobs.append(jid)
-
-        # # add to internal tracker
-        # self.jobid_monid.loc[len(self.jobid_monid)] = [jid, self.i]
-        # self.i = self.i + 1
-        return jid
+        sgeid = sge.qsub(runfile=this_dir + "/bin/monitored_job.py",
+                         jobname=jobname, parameters=parameters, *args,
+                         **kwargs)
+        self.scheduled_jobs.append(sgeid)
+        self.jobs[jid] = {"runfile": runfile,
+                          "jobname": jobname,
+                          "parameters": parameters,
+                          "args": args,
+                          "kwargs": kwargs}
+        return sgeid
 
     def qmonitor(self):
         """wait until all jobs submitted through this qmaster instance have
         left the sge queue. resubmit each job 'retries' times if it fails.
         """
-        q_num_succeed = "SELECT count(*) FROM job_status WHERE status = 4"
-        q_num_failed = "SELECT count(*) FROM job_status WHERE status = 3"
+        query_status = """
+        SELECT
+            current_status, jid
+        FROM
+            job
+        JOIN
+            sgejob USING (jid)
+        WHERE
+        """
+        query_failed = """
+        SELECT
+            COUNT(*) as num,
+            jid
+        FROM
+            job
+        JOIN
+            sgejob USING (jid)
+        JOIN
+            job_status USING (jid)
+        WHERE
+            status = 3"""
 
         while len(self.scheduled_jobs) > 0:
 
@@ -125,8 +146,44 @@ class MonitoredQ(object):
             # find the database ids for
 
             # loop through jobs that have left the sge queue
-            for jid in missing_jobs:
-                self.scheduled_jobs.remove(jid)
+            for sgeid in missing_jobs:
+                # remove from sge tracker
+                self.scheduled_jobs.remove(sgeid)
+                result = self.manager.query(
+                    query_status + "sgeid = {sgeid};".format(sgeid=sgeid)
+                    )[1]
+                current_status = result["current_status"].item()
+                jid = result["jid"].item()
+
+                if current_status == 1:
+                    warnings.warn(("sge job {id} left the sge queue without "
+                                   "starting job execution. this is probably "
+                                   "bad.").format(id=sgeid))
+                elif current_status == 2:
+                    warnings.warn(("sge job {id} left the sge queue after "
+                                   "starting job execution. but did not "
+                                   "register an error and did not register "
+                                   "completed. This is probably bad."
+                                   ).format(id=sgeid))
+                elif current_status == 3:
+                    fails = self.manager.query(
+                        query_failed + " AND sgeid = {id};".format(id=sgeid)
+                        )[1]
+                    if fails["num"].item() < self.retries + 1:
+                        jid = fails["jid"].item()
+                        print "retrying " + str(jid)
+                        self.qsub(runfile=self.jobs[jid]["runfile"],
+                                  jobname=self.jobs[jid]["jobname"],
+                                  jid=jid,
+                                  parameters=self.jobs[jid]["parameters"],
+                                  *self.jobs[jid]["args"],
+                                  **self.jobs[jid]["kwargs"])
+                elif current_status == 4:
+                    del(self.jobs[jid])
+                else:
+                    warnings.warn(("sge job {id} left the sge queue after "
+                                   "after registering an unknown status "
+                                   ).format(id=sgeid))
 
 
 class ManageJobMonitor(job.Manager):

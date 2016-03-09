@@ -182,9 +182,6 @@ class Job(Client):
         for reqdkey in ['script_file', 'job_args']:
             if reqdkey not in self.job_info.keys():
                 self.job_info[reqdkey] = 'N/A'
-        print self.jid
-        print self.sge_id
-        print self.job_info
         self.register()
 
     def register(self):
@@ -204,8 +201,6 @@ class Job(Client):
                 'action': 'create_job',
                 'args': [self.jid],
                 'kwargs': {'name': self.name}}
-        print "\n\n\n\n registration req"
-        print msg
         self.send_request(msg)
 
     def start(self):

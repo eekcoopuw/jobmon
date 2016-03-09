@@ -182,16 +182,15 @@ class JobMonitor(Server):
             self.session.add(job)
             self.session.commit()
 
-        # try:
-        sgejob = models.SGEJob(
-            jid=jid,
-            name=name,
-            **kwargs)
-        #     print(sgejob)
-        self.session.add(sgejob)
-        self.session.commit()
-        # except:
-        #     self.session.rollback()
+        try:
+            sgejob = models.SGEJob(
+                jid=jid,
+                name=name,
+                **kwargs)
+            self.session.add(sgejob)
+            self.session.commit()
+        except:
+            self.session.rollback()
 
         return (0,)
 
