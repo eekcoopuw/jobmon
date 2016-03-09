@@ -254,3 +254,16 @@ class Manager(Client):
         """stop a running server"""
         response = self.send_request('stop')
         print(response[1])
+
+
+class ManageJobMonitor(Manager):
+
+    def query(self, query):
+        """execute query on sqlite database through server
+        Args:
+            query (string): raw sql query string to execute on sqlite monitor
+                database
+        """
+        msg = {'action': 'query', 'args': [query]}
+        response = self.send_request(msg)
+        return response
