@@ -43,7 +43,8 @@ class IgnorantQ(object):
             time.sleep(poll_interval)
 
     def qmanage(self):
-        """run """
+        """run manage_exit_q and manage_current_q based on the changes to those
+        queues between the current qmanage call and the previous call"""
         print 'Polling jobs ... {}'.format(datetime.now())
 
         # manage all jobs currently in sge queue
@@ -62,7 +63,7 @@ class IgnorantQ(object):
     def qcomplete(self):
         """check if qmaster instance has done all possible work currently"""
         self.qmanage()
-        return len(self.scheduled_jobs == 0)
+        return len(self.scheduled_jobs) == 0
 
     def manage_exit_q(self, exit_jobs):
         """action to take when job has left the q. delete job from jobs dict
