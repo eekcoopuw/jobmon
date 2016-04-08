@@ -261,7 +261,8 @@ def qsub(
         shfile=None,
         jobtype='python',
         stdout=None,
-        stderr=None):
+        stderr=None,
+        custom_python=None):
     """Submit job to sun grid engine queue
 
     Args:
@@ -337,7 +338,10 @@ def qsub(
     runfile = os.path.abspath(os.path.expanduser(runfile))
     submission_params.append(shfile)
     if jobtype == "python":
-        submission_params.append("/ihme/code/central_comp/anaconda/bin/python")
+        if custom_python:
+            submission_params.append(custom_python)
+        else:
+            submission_params.append("/ihme/code/central_comp/anaconda/bin/python")
         submission_params.append(runfile)
     elif jobtype == "stata":
         submission_params.append("/usr/local/bin/stata-mp")

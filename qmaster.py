@@ -108,7 +108,7 @@ class MonitoredQ(IgnorantQ):
 
     monitors = {}
 
-    def __init__(self, out_dir, retries=0):
+    def __init__(self, out_dir, custom_python=None, retries=0):
         self.out_dir = out_dir
         self.retries = retries
 
@@ -117,7 +117,7 @@ class MonitoredQ(IgnorantQ):
         self.jobs = {}
 
         # internal server and client
-        self.start_monitor(out_dir)
+        self.start_monitor(out_dir, custom_python)
         time.sleep(5)  # this solution is unsatisfying
         self.manager = job.ManageJobMonitor(out_dir)
 
@@ -155,21 +155,28 @@ class MonitoredQ(IgnorantQ):
         mon_state = self.get_monitor_state(self.out_dir)
         return mon_state.i
 
-    def start_monitor(self, out_dir):
+    def start_monitor(self, out_dir, custom_python=None):
         """start a jobmonitor server in a subprocess. MonitoredQ's share
         monitor servers and auto increments if they are initialized with the
         same out_dir in the same python instance.
 
         Args:
             out_dir (string): full path to directory where logging will happen
+            custom_python: If specified, the path to the specific python
+                executable that you want to run bin/launch_monitor.py in
+                the subprocess
         """
         mon_state = self.get_monitor_state(self.out_dir)
 
+        if custom_python:
+            python_path = custom_python
+        else:
+            python_path = ('/ihme/code/central_comp/anaconda/envs/no_jobmon'
+                           '/bin/python')
+
         if mon_state.status == "stopped":
             mon_state.monitor = subprocess.Popen(
-                ['/ihme/code/central_comp/anaconda/envs/py35/bin/python',
-                 this_dir + '/bin/launch_monitor.py',
-                 out_dir])
+                [python_path, this_dir + '/bin/launch_monitor.py', out_dir])
             mon_state.status = "running"
 
     def stop_monitor(self):

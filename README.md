@@ -39,7 +39,6 @@ from jobmon.qmaster import MonitoredQ
 # start job queue before submitting jobs
 log_dir = './logs'
 jobQueue = MonitoredQ(log_dir, retries=1)
-jobQueue.start_monitor(log_dir)
 
 # launch SGE jobs that the Queue will track
 # MonitoredQ.qsub will take a runfile (not necessarily python)
