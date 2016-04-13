@@ -3,7 +3,7 @@ import sys
 import os
 this_file = os.path.abspath(os.path.expanduser(__file__))
 this_dir = os.path.dirname(os.path.realpath(this_file))
-os.chdir(this_dir + "/..")
+sys.path.append(this_dir + "/..")
 from jobmon import monitor
 
 

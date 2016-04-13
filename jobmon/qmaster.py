@@ -103,7 +103,7 @@ class MonitoredQ(IgnorantQ):
         # make sure server is booted
         if not self.manager.isalive():
             try:
-                self.start_monitor()
+                self.start_monitor(self.out_dir)
             except job.ServerRunning:
                 pass
             except job.ServerStartLocked:
@@ -162,7 +162,8 @@ class MonitoredQ(IgnorantQ):
 
         # configure arguments for parsing by ./bin/monitored_job.py
         if jid is None:
-            r = self.manager.send_request({"action": "create_job", "args": ""})
+            msg = {'action': 'create_job', 'args': ''}
+            r = self.manager.send_request(msg)
             jid = r[1]
         base_params = ["--mon_dir", self.out_dir, "--runfile", runfile,
                        "--jid", jid]
@@ -178,10 +179,16 @@ class MonitoredQ(IgnorantQ):
         else:
             parameters = base_params
 
-        # submit. store submission params in self.jobs dict in case resubmit
-        sgeid = sge.qsub(runfile=this_dir + "/bin/monitored_job.py",
+        # submit.
+        sgeid = sge.qsub(runfile=this_dir + "/monitored_job.py",
                          jobname=jobname, parameters=parameters, *args,
                          **kwargs)
+
+        # update database to reflect submitted status
+        msg = {'action': 'update_job_status', 'args': [jid, 2]}
+        self.manager.send_request(msg)
+
+        # store submission params in self.jobs dict in case of resubmit
         self.scheduled_jobs.append(sgeid)
         self.jobs[jid] = {"runfile": runfile,
                           "jobname": jobname,
@@ -225,20 +232,31 @@ class MonitoredQ(IgnorantQ):
             result = self.manager.query(
                 query_status + "sgeid = {sgeid};".format(sgeid=sgeid)
                 )[1]
-            current_status = result["current_status"].item()
-            jid = result["jid"].item()
+            try:
+                current_status = result["current_status"].item()
+                jid = result["jid"].item()
+            except ValueError:
+                current_status = None
 
+            if current_status is None:
+                warnings.warn(("sge job {id} left the sge queue without "
+                               "registering in 'sgejob' table"
+                               ).format(id=sgeid))
             if current_status == 1:
+                warnings.warn(("sge job {id} left the sge queue without "
+                               "ever changing status to submitted. This is "
+                               "highly unlikely.").format(id=sgeid))
+            elif current_status == 2:
                 warnings.warn(("sge job {id} left the sge queue without "
                                "starting job execution. this is probably "
                                "bad.").format(id=sgeid))
-            elif current_status == 2:
+            elif current_status == 3:
                 warnings.warn(("sge job {id} left the sge queue after "
                                "starting job execution. but did not "
                                "register an error and did not register "
                                "completed. This is probably bad."
                                ).format(id=sgeid))
-            elif current_status == 3:
+            elif current_status == 4:
                 fails = self.manager.query(
                     query_failed + " AND sgeid = {id};".format(id=sgeid)
                     )[1]
@@ -251,7 +269,7 @@ class MonitoredQ(IgnorantQ):
                               parameters=self.jobs[jid]["parameters"],
                               *self.jobs[jid]["args"],
                               **self.jobs[jid]["kwargs"])
-            elif current_status == 4:
+            elif current_status == 5:
                 del(self.jobs[jid])
             else:
                 warnings.warn(("sge job {id} left the sge queue after "
