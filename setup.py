@@ -21,7 +21,7 @@ setup(
         'sqlalchemy',
         'numpy',
         'pymysql',
-        'pyzmq'
+        'pyzmq',
         'setuptools_scm'],
     package_data={'jobmon': ['*.sh']},
     packages=['jobmon'])
