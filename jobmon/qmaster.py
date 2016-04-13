@@ -113,8 +113,8 @@ class MonitoredQ(IgnorantQ):
                     raise Exception("could not start jobmonitor server")
 
     def start_monitor(self, out_dir,
-                      prepend_to_path="/ihme/code/central_comp/anaconda/bin",
-                      conda_env="35test", restart=False, nolock=False):
+                      prepend_to_path="/usr/local/software/anaconda/bin",
+                      conda_env="jobmon35", restart=False, nolock=False):
         """start a jobmonitor server in a subprocess. MonitoredQ's share
         monitor servers and auto increments if they are initialized with the
         same out_dir in the same python instance.
