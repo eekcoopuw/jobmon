@@ -63,6 +63,7 @@ class Server(object):
     def stop_server(self):
         """stops listening at network socket/port."""
         print('Stopping server...')
+        os.remove('%s/monitor_info.json' % self.out_dir)
         self.socket.close()
         print('Server stopped.')
         return True
@@ -85,7 +86,7 @@ class Server(object):
             try:
                 if msg == 'stop':
                     keep_alive = False
-                    p = pickle.dumps((0, b"Monitor stopped"), protocol=2)
+                    p = pickle.dumps((0, b"Server stopping"), protocol=2)
                     self.socket.send(p)
                     self.stop_server()
                 else:
@@ -125,6 +126,9 @@ class Server(object):
             return True
         else:
             return False
+
+    def alive(self):
+        return (0, "alive")
 
 
 Session = sessionmaker()
