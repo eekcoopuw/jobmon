@@ -16,6 +16,14 @@ this_file = os.path.abspath(os.path.expanduser(__file__))
 this_dir = os.path.dirname(os.path.realpath(this_file))
 
 
+class ServerRunning(Exception):
+    pass
+
+
+class ServerStartLocked(Exception):
+    pass
+
+
 def log_exceptions(job):
     def wrapper(func):
         def catch_and_send(*args, **kwargs):
@@ -170,12 +178,9 @@ class Job(Client):
             self.sge_id = int(self.sge_id)
 
         if jid is None:
-            if self.sge_id is None:
-                self.jid = int(999999999)
-            else:
-                self.jid = self.sge_id
+            self.reserve_jid()
         else:
-            self.jid = int(jid)
+            self.jid = jid
 
         if name is None:
             self.name = os.getenv("JOB_NAME")
@@ -192,35 +197,44 @@ class Job(Client):
         for reqdkey in ['script_file', 'job_args']:
             if reqdkey not in self.job_info.keys():
                 self.job_info[reqdkey] = 'N/A'
-        self.register()
+        self.register_sgejob()
 
-    def register(self):
+    def reserve_jid(self):
         """send registration request to server. server will create database
         entry for this job."""
+        msg = {'action': 'create_job', 'args': ''}
+        r = self.send_request(msg)
+        self.jid = r[1]
+
+    def register_sgejob(self):
+        """log specific details related to sge job status."""
         if self.sge_id is not None:
             msg = {
-                'action': 'create_job',
-                'args': [self.jid],
+                'action': 'create_sgejob',
+                'args': '',
                 'kwargs': {
+                    'jid': self.jid,
                     'name': self.name,
                     'sgeid': self.sge_id,
                     'runfile': self.job_info['script_file'],
                     'args': self.job_info['job_args']}}
         else:
             msg = {
-                'action': 'create_job',
-                'args': [self.jid],
-                'kwargs': {'name': self.name}}
+                'action': 'create_sgejob',
+                'args': '',
+                'kwargs': {
+                    'jid': self.jid,
+                    'name': self.name}}
         self.send_request(msg)
 
     def start(self):
         """log job start with server"""
-        msg = {'action': 'update_job_status', 'args': [self.jid, 2]}
+        msg = {'action': 'update_job_status', 'args': [self.jid, 3]}
         self.send_request(msg)
 
     def failed(self):
         """log job failure with server"""
-        msg = {'action': 'update_job_status', 'args': [self.jid, 3]}
+        msg = {'action': 'update_job_status', 'args': [self.jid, 4]}
         self.send_request(msg)
 
     def log_error(self, msg):
@@ -232,7 +246,7 @@ class Job(Client):
 
     def finish(self):
         """log job complete with server"""
-        msg = {'action': 'update_job_status', 'args': [self.jid, 4]}
+        msg = {'action': 'update_job_status', 'args': [self.jid, 5]}
         self.send_request(msg)
         try:
             self.usage = sge.qstat_usage(self.jid)[self.jid]
@@ -298,13 +312,16 @@ class Manager(Client):
             conda_env (string): python >= 3.5 conda env to run server in.
             restart (bool, optional): whether to force a new server instance to
                 start. Will shutdown existing server instance if one exists.
+            nolock (bool, optional): ignore any boot locks for the specified
+                directory. Highly not recommended.
 
-
+        Returns:
+            Boolean whether the server started successfully or not.
         """
         # check if there is already a server here
         if self.isalive():
             if not restart:
-                raise Exception("server is already alive")
+                raise ServerRunning("server is already alive")
             else:
                 print("server is already alive. will stop previous server.")
                 self.stop_server()
@@ -312,9 +329,10 @@ class Manager(Client):
         # check if there is a start lock in the file system.
         if os.path.isfile(out_dir + "/start.lock"):
             if not nolock:
-                raise Exception("server is already starting. If this is not "
-                                "the case either remove 'start.lock' from "
-                                "server directory or use option 'force'")
+                raise ServerStartLocked(
+                    "server is already starting. If this is not the case "
+                    "either remove 'start.lock' from server directory or use "
+                    "option 'force'")
             else:
                 warnings.warn("bypassing startlock. not recommended!!!!")
 

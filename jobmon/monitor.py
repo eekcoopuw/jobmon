@@ -167,7 +167,13 @@ class JobMonitor(Server):
             session.rollback()
         return session
 
-    def create_job(self, jid, name, *args, **kwargs):
+    def create_job(self, jid=None):
+        job = models.Job(current_status=1)
+        self.session.add(job)
+        self.session.commit()
+        return (0, job.jid)
+
+    def create_sgejob(self, name, jid=None, *args, **kwargs):
         """create job entry in database job table.
 
         Args:
@@ -178,13 +184,14 @@ class JobMonitor(Server):
                 statements for the specified jid where the keys are the column
                 names and the values are the column values.
         """
-        job = self.session.query(models.Job).filter_by(jid=jid).first()
-        if job is None:
-            job = models.Job(
-                jid=jid,
-                current_status=1)
-            self.session.add(job)
-            self.session.commit()
+        if jid is None:
+            r = self.create_job()
+            jid = r[1]
+        else:
+            job = self.session.query(models.Job).filter_by(jid=jid).first()
+            if job is None:
+                return (2, "jid does not exist in db. Run"
+                        "{'action': 'create_job'}")
 
         try:
             sgejob = models.SGEJob(

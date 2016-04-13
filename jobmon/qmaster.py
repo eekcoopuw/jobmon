@@ -1,6 +1,5 @@
 import os
 import time
-import subprocess
 import warnings
 from datetime import datetime
 from . import sge, job
@@ -85,30 +84,12 @@ class IgnorantQ(object):
         pass
 
 
-class MonitorState(object):
-
-    def __init__(self):
-        self.monitor = None
-        self.i = 0
-        self.status = "stopped"
-
-    @property
-    def i(self):
-        """auto increment for job id"""
-        i = self._i
-        self._i = self._i + 1
-        return i
-
-    @i.setter
-    def i(self, value):
-        self._i = value
-
-
 class MonitoredQ(IgnorantQ):
+    """monitored Q supports monitoring of a single job queue by using a sqlite
+    back monitoring server that all sge jobs automatically connect to after
+    they get scheduled."""
 
-    monitors = {}
-
-    def __init__(self, out_dir, custom_python=None, retries=0):
+    def __init__(self, out_dir, retries=0):
         self.out_dir = out_dir
         self.retries = retries
 
@@ -116,75 +97,48 @@ class MonitoredQ(IgnorantQ):
         self.scheduled_jobs = []
         self.jobs = {}
 
-        # internal server and client
-        self.start_monitor(out_dir, custom_python)
-        time.sleep(5)  # this solution is unsatisfying
+        # internal server manager
         self.manager = job.ManageJobMonitor(out_dir)
 
-    @classmethod
-    def get_monitor_state(cls, out_dir):
-        """return MonitorState object for given out_dir
+        # make sure server is booted
+        if not self.manager.isalive():
+            try:
+                self.start_monitor()
+            except job.ServerRunning:
+                pass
+            except job.ServerStartLocked:
+                time.sleep(5)
+            finally:
+                if not self.manager.isalive():
+                    raise Exception("could not start jobmonitor server")
 
-        Args:
-            out_dir (string): full path to directory where logging will happen
-
-        Returns:
-            MonitorState object associated with specified directory
-        """
-        try:
-            mon_state = cls.monitors[out_dir]
-        except KeyError:
-            cls.monitors[out_dir] = MonitorState()
-            mon_state = cls.monitors[out_dir]
-        return mon_state
-
-    @classmethod
-    def set_monitor_state(cls, out_dir, mon_state):
-        """add new MonitorState object to MonitoredQ.monitors dictionary where
-        out_dir is the key and mon_state is the MonitorState object
-
-        Args:
-            out_dir (string): full path to directory where logging will happen
-            mon_state (object): MonitorState object
-        """
-        cls.monitors[out_dir] = mon_state
-
-    @property
-    def i(self):
-        """get the current iterator for mon_state"""
-        mon_state = self.get_monitor_state(self.out_dir)
-        return mon_state.i
-
-    def start_monitor(self, out_dir, custom_python=None):
+    def start_monitor(self, out_dir,
+                      prepend_to_path="/ihme/code/central_comp/anaconda/bin",
+                      conda_env="35test", restart=False, nolock=False):
         """start a jobmonitor server in a subprocess. MonitoredQ's share
         monitor servers and auto increments if they are initialized with the
         same out_dir in the same python instance.
 
         Args:
             out_dir (string): full path to directory where logging will happen
-            custom_python: If specified, the path to the specific python
-                executable that you want to run bin/launch_monitor.py in
-                the subprocess
+            prepend_to_path (string, optional): anaconda bin to prepend to path
+            conda_env (string, optional): python >= 3.5 conda env to run server
+                in.
+            restart (bool, optional): whether to force a new server instance to
+                start. Will shutdown existing server instance if one exists.
+            nolock (bool, optional): ignore any boot locks for the specified
+                directory. Highly not recommended.
+
+        Returns:
+            Boolean whether the server started successfully or not.
         """
-        mon_state = self.get_monitor_state(self.out_dir)
-
-        if custom_python:
-            python_path = custom_python
-        else:
-            python_path = ('/ihme/code/central_comp/anaconda/envs/no_jobmon'
-                           '/bin/python')
-
-        if mon_state.status == "stopped":
-            mon_state.monitor = subprocess.Popen(
-                [python_path, this_dir + '/bin/launch_monitor.py', out_dir])
-            mon_state.status = "running"
+        self.manager.start_server(out_dir, prepend_to_path=prepend_to_path,
+                                  conda_env=conda_env, restart=restart,
+                                  nolock=nolock)
 
     def stop_monitor(self):
         """stop jobmonitor server tied to this MonitoredQ instance"""
-        mon_state = self.get_monitor_state(self.out_dir)
-        if mon_state.status == "running":
-            mon_state.monitor = None
-            mon_state.status = "stopped"
+        if self.manager.isalive():
             self.manager.stop_server()
 
     def qsub(self, runfile, jobname, jid=None, parameters=[],
@@ -208,7 +162,8 @@ class MonitoredQ(IgnorantQ):
 
         # configure arguments for parsing by ./bin/monitored_job.py
         if jid is None:
-            jid = self.i
+            r = self.manager.send_request({"action": "create_job", "args": ""})
+            jid = r[1]
         base_params = ["--mon_dir", self.out_dir, "--runfile", runfile,
                        "--jid", jid]
 

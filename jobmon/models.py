@@ -68,7 +68,8 @@ class JobError(Base):
 
 def default_statuses(session):
     statuses = []
-    for i, s in enumerate(['submitted', 'running', 'failed', 'complete']):
+    for i, s in enumerate(['reserved', 'submitted', 'running', 'failed',
+                           'complete']):
         statuses.append(Status(id=i+1, label=s))
     session.add_all(statuses)
     session.commit()
