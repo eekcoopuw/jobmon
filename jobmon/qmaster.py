@@ -110,7 +110,7 @@ class MonitoredQ(IgnorantQ):
                 time.sleep(5)
             finally:
                 if not self.manager.isalive():
-                    raise Exception("could not start jobmonitor server")
+                    warnings.warn("could not start jobmonitor server")
 
     def start_monitor(self, out_dir,
                       prepend_to_path="/usr/local/software/anaconda/bin",

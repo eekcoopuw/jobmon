@@ -1,6 +1,6 @@
 # Command line interface for starting a jobmon monitor
 import sys
-from .jobmon import monitor
+from jobmon import monitor
 
 
 if __name__ == '__main__':
