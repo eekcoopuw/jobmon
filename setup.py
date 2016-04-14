@@ -25,10 +25,8 @@ setup(
         'setuptools_scm'],
     package_data={'jobmon': ['*.sh']},
     packages=['jobmon'],
-    entry_points={
-            'console_scripts': [
-                'env_submit_master = jobmon.env_submit_master',
-                'submit_master = jobmon.submit_master'
-            ]
-        }
+    scripts=["bin/env_submit_master.sh",
+             "bin/submit_master.sh",
+             "bin/launch_monitor.py",
+             "bin/monitored_job.py"]
     )

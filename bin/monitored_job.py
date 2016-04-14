@@ -1,10 +1,6 @@
 import sys
-import os
 import traceback
 import argparse
-this_file = os.path.abspath(os.path.expanduser(__file__))
-this_dir = os.path.dirname(os.path.realpath(this_file))
-sys.path.append(this_dir + "/../..")
 from jobmon import job
 
 # parse arguments
