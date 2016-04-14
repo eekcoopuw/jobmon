@@ -337,9 +337,9 @@ def qsub(
 
     # Define script to run and pass parameters
     if shfile is None and conda_env is None:
-        shfile = "%s/submit_master.sh" % (this_path)
+        shfile = "submit_master.sh"
     elif shfile is None and conda_env is not None:
-        shfile = "%s/env_submit_master.sh" % (this_path)
+        shfile = "env_submit_master.sh"
     else:
         shfile = os.path.abspath(os.path.expanduser(shfile))
     runfile = runfile.strip(' \t\r\n')
