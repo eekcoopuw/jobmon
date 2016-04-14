@@ -180,9 +180,8 @@ class MonitoredQ(IgnorantQ):
             parameters = base_params
 
         # submit.
-        sgeid = sge.qsub(runfile=this_dir + "/monitored_job.py",
-                         jobname=jobname, parameters=parameters, *args,
-                         **kwargs)
+        sgeid = sge.qsub(runfile="monitored_job.py", jobname=jobname,
+                         jobtype=None, parameters=parameters, *args, **kwargs)
 
         # update database to reflect submitted status
         msg = {'action': 'update_job_status', 'args': [jid, 2]}

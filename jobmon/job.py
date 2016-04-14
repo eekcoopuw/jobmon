@@ -337,8 +337,7 @@ class Manager(Client):
 
         # Pop open a new server instance on current node.
         open(self.out_dir + "/start.lock", 'w').close()
-        subprocess.Popen(["env_submit_master.sh",
-                          prepend_to_path, conda_env, "python",
+        subprocess.Popen(["env_submit_master.sh", prepend_to_path, conda_env,
                           "launch_monitor.py", self.out_dir])
         time.sleep(5)
         os.remove(self.out_dir + "/start.lock")
