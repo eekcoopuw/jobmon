@@ -132,7 +132,7 @@ class MonitoredQ(IgnorantQ):
         Returns:
             Boolean whether the server started successfully or not.
         """
-        self.manager.start_server(out_dir, prepend_to_path=prepend_to_path,
+        self.manager.start_server(prepend_to_path=prepend_to_path,
                                   conda_env=conda_env, restart=restart,
                                   nolock=nolock)
 
@@ -141,8 +141,8 @@ class MonitoredQ(IgnorantQ):
         if self.manager.isalive():
             self.manager.stop_server()
 
-    def qsub(self, runfile, jobname, jid=None, parameters=[],
-             *args, **kwargs):
+    def qsub(self, runfile, jobname, prepend_to_path, conda_env, jid=None,
+             parameters=[], *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. They will automatically
         register with server and sqlite database.
 
@@ -181,6 +181,7 @@ class MonitoredQ(IgnorantQ):
 
         # submit.
         sgeid = sge.qsub(runfile="monitored_job.py", jobname=jobname,
+                         prepend_to_path=prepend_to_path, conda_env=conda_env,
                          jobtype=None, parameters=parameters, *args, **kwargs)
 
         # update database to reflect submitted status

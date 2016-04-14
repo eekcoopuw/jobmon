@@ -339,7 +339,7 @@ class Manager(Client):
         open(self.out_dir + "/start.lock", 'w').close()
         subprocess.Popen(["env_submit_master.sh", prepend_to_path, conda_env,
                           "launch_monitor.py", self.out_dir])
-        time.sleep(5)
+        time.sleep(15)
         os.remove(self.out_dir + "/start.lock")
 
         # check if it booted properly
