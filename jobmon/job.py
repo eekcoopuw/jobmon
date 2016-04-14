@@ -302,12 +302,11 @@ class Manager(Client):
         else:
             return False
 
-    def start_server(self, out_dir, prepend_to_path, conda_env, restart=False,
+    def start_server(self, prepend_to_path, conda_env, restart=False,
                      nolock=False):
         """Start new server instance
 
         Args:
-            out_dir (string): a directory to open server instance in
             prepend_to_path (string): anaconda bin to prepend to path
             conda_env (string): python >= 3.5 conda env to run server in.
             restart (bool, optional): whether to force a new server instance to
@@ -327,7 +326,7 @@ class Manager(Client):
                 self.stop_server()
 
         # check if there is a start lock in the file system.
-        if os.path.isfile(out_dir + "/start.lock"):
+        if os.path.isfile(self.out_dir + "/start.lock"):
             if not nolock:
                 raise ServerStartLocked(
                     "server is already starting. If this is not the case "
@@ -337,12 +336,12 @@ class Manager(Client):
                 warnings.warn("bypassing startlock. not recommended!!!!")
 
         # Pop open a new server instance on current node.
-        open(out_dir + "/start.lock", 'w').close()
+        open(self.out_dir + "/start.lock", 'w').close()
         subprocess.Popen([this_dir + "/env_submit_master.sh",
                           prepend_to_path, conda_env, "python",
-                          this_dir + "/launch_monitor.py", out_dir])
+                          this_dir + "/launch_monitor.py", self.out_dir])
         time.sleep(5)
-        os.remove(out_dir + "/start.lock")
+        os.remove(self.out_dir + "/start.lock")
 
         # check if it booted properly
         if self.isalive():
