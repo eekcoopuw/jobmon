@@ -63,6 +63,7 @@ class Server(object):
     def stop_server(self):
         """stops listening at network socket/port."""
         print('Stopping server...')
+        os.remove('%s/monitor_info.json' % self.out_dir)
         self.socket.close()
         print('Server stopped.')
         return True
@@ -85,7 +86,7 @@ class Server(object):
             try:
                 if msg == 'stop':
                     keep_alive = False
-                    p = pickle.dumps((0, b"Monitor stopped"), protocol=2)
+                    p = pickle.dumps((0, b"Server stopping"), protocol=2)
                     self.socket.send(p)
                     self.stop_server()
                 else:
@@ -126,6 +127,9 @@ class Server(object):
         else:
             return False
 
+    def alive(self):
+        return (0, "alive")
+
 
 Session = sessionmaker()
 
@@ -163,7 +167,13 @@ class JobMonitor(Server):
             session.rollback()
         return session
 
-    def create_job(self, jid, name, *args, **kwargs):
+    def create_job(self, jid=None):
+        job = models.Job(current_status=1)
+        self.session.add(job)
+        self.session.commit()
+        return (0, job.jid)
+
+    def create_sgejob(self, name, jid=None, *args, **kwargs):
         """create job entry in database job table.
 
         Args:
@@ -174,15 +184,25 @@ class JobMonitor(Server):
                 statements for the specified jid where the keys are the column
                 names and the values are the column values.
         """
-        job = self.session.query(models.Job).filter_by(jid=jid).first()
-        if job is None:
-            job = models.Job(
+        if jid is None:
+            r = self.create_job()
+            jid = r[1]
+        else:
+            job = self.session.query(models.Job).filter_by(jid=jid).first()
+            if job is None:
+                return (2, "jid does not exist in db. Run"
+                        "{'action': 'create_job'}")
+
+        try:
+            sgejob = models.SGEJob(
                 jid=jid,
                 name=name,
-                current_status=1,
                 **kwargs)
-            self.session.add(job)
+            self.session.add(sgejob)
             self.session.commit()
+        except:
+            self.session.rollback()
+
         return (0,)
 
     def update_job_status(self, jid, status_id):
@@ -199,8 +219,8 @@ class JobMonitor(Server):
         self.session.commit()
         return (0,)
 
-    def update_job_usage(self, jid, *args, **kwargs):
-        job = self.session.query(models.Job).filter_by(jid=jid).first()
+    def update_job_usage(self, sgeid, *args, **kwargs):
+        job = self.session.query(models.SGEJob).filter_by(sgeid=sgeid).first()
         for k, v in kwargs.items():
             setattr(job, k, v)
         self.session.add(job)
