@@ -5,7 +5,16 @@ import pandas as pd
 import numpy as np
 import itertools
 
-this_path = os.path.dirname(os.path.abspath(__file__))
+
+def true_path(file_or_dir=None, executable=None):
+    """Get true path to file or executable"""
+    if file is not None:
+        f = file
+    if executable is not None:
+        f = subprocess.check_output(["which", executable])
+    f = os.path.abspath(os.path.expanduser(f))
+    f = f.strip(' \t\r\n')
+    return f
 
 
 def qstat(status=None, pattern=None, user=None, jids=None):
@@ -337,13 +346,12 @@ def qsub(
 
     # Define script to run and pass parameters
     if shfile is None and conda_env is None:
-        shfile = "submit_master.sh"
+        shfile = true_path(executable="submit_master.sh")
     elif shfile is None and conda_env is not None:
-        shfile = "env_submit_master.sh"
+        shfile = true_path(executable="env_submit_master.sh")
     else:
-        shfile = os.path.abspath(os.path.expanduser(shfile))
-    runfile = runfile.strip(' \t\r\n')
-    runfile = os.path.abspath(os.path.expanduser(runfile))
+        shfile = true_path(file_or_dir=shfile)
+    runfile = true_path(file_or_dir=runfile)
     submission_params.append(shfile)
     if prepend_to_path is not None:
         submission_params.append(prepend_to_path)

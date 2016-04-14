@@ -132,6 +132,7 @@ class MonitoredQ(IgnorantQ):
         Returns:
             Boolean whether the server started successfully or not.
         """
+        prepend_to_path = sge.true_path(file_or_dir=prepend_to_path)
         self.manager.start_server(prepend_to_path=prepend_to_path,
                                   conda_env=conda_env, restart=restart,
                                   nolock=nolock)
@@ -179,8 +180,12 @@ class MonitoredQ(IgnorantQ):
         else:
             parameters = base_params
 
+        # get full paths for submission
+        runfile = sge.true_path(executable="monitored_job.py")
+        prepend_to_path = sge.true_path(file_or_dir=prepend_to_path)
+
         # submit.
-        sgeid = sge.qsub(runfile="monitored_job.py", jobname=jobname,
+        sgeid = sge.qsub(runfile=runfile, jobname=jobname,
                          prepend_to_path=prepend_to_path, conda_env=conda_env,
                          jobtype=None, parameters=parameters, *args, **kwargs)
 
