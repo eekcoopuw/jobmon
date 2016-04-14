@@ -1,4 +1,4 @@
-# Command line interface for starting a jobmon monitor
+#!/usr/bin/env python
 import sys
 from jobmon import monitor
 
