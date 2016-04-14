@@ -249,13 +249,13 @@ class Job(Client):
         msg = {'action': 'update_job_status', 'args': [self.jid, 5]}
         self.send_request(msg)
         try:
-            self.usage = sge.qstat_usage(self.jid)[self.jid]
+            self.usage = sge.qstat_usage(self.sge_id)[self.sge_id]
             dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
             kwargs = {k: self.usage[k] for k in dbukeys
                       if k in self.usage.keys()}
             msg = {
                 'action': 'update_job_usage',
-                'args': [self.jid],
+                'args': [self.sge_id],
                 'kwargs': kwargs}
             self.send_request(msg)
         except Exception as e:

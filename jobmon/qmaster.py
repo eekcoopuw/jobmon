@@ -108,8 +108,7 @@ class MonitoredQ(IgnorantQ):
             self.runfile = sge.true_path(executable="monitored_job.py")
         else:
             if "/.conda/" in python:
-                self.prepend_to_path = (
-                    "/usr/local/software/anaconda/bin/python")
+                self.prepend_to_path = "/usr/local/software/anaconda/bin"
                 self.conda_env = python.split("/")[-3]
                 self.runfile = sge.true_path(executable="monitored_job.py")
             elif "/ihme/code/central_comp/anaconda" in python:
@@ -203,7 +202,7 @@ class MonitoredQ(IgnorantQ):
             parameters = base_params
 
         # submit.
-        sgeid = sge.qsub(runfile=runfile, jobname=jobname,
+        sgeid = sge.qsub(runfile=self.runfile, jobname=jobname,
                          prepend_to_path=self.prepend_to_path,
                          conda_env=self.conda_env,
                          jobtype=None, parameters=parameters, *args, **kwargs)
