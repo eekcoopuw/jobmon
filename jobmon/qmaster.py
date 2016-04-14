@@ -91,6 +91,15 @@ class MonitoredQ(IgnorantQ):
 
     def __init__(self, out_dir, retries=0, prepend_to_path=None,
                  conda_env=None):
+        """
+        Args:
+            out_dir (string): directory where monitor server is running
+            retries (int, optional): how many times to resubmit failed jobs
+            prepend_to_path (string, optional): which conda bin you are using.
+                only use if MonitoredQ can't figure it out on it's own.
+            conda_env (string, optional): which conda environment you are
+                using. only use if MonitoredQ can't figure it out on it's own.
+        """
         self.out_dir = out_dir
         self.retries = retries
 
@@ -134,7 +143,7 @@ class MonitoredQ(IgnorantQ):
                     warnings.warn("could not start jobmonitor server")
 
     def start_monitor(self, out_dir,
-                      prepend_to_path="/usr/local/software/anaconda/bin",
+                      prepend_to_path="/ihme/code/central_comp/anaconda/bin",
                       conda_env="jobmon35", restart=False, nolock=False):
         """start a jobmonitor server in a subprocess. MonitoredQ's share
         monitor servers and auto increments if they are initialized with the
