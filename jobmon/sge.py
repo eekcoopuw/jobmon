@@ -8,8 +8,8 @@ import itertools
 
 def true_path(file_or_dir=None, executable=None):
     """Get true path to file or executable"""
-    if file is not None:
-        f = file
+    if file_or_dir is not None:
+        f = file_or_dir
     if executable is not None:
         f = subprocess.check_output(["which", executable])
     f = os.path.abspath(os.path.expanduser(f))

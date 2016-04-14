@@ -181,8 +181,8 @@ class MonitoredQ(IgnorantQ):
             parameters = base_params
 
         # get full paths for submission
-        runfile = sge.true_path(executable="monitored_job.py")
         prepend_to_path = sge.true_path(file_or_dir=prepend_to_path)
+        runfile = sge.true_path(executable="monitored_job.py")
 
         # submit.
         sgeid = sge.qsub(runfile=runfile, jobname=jobname,

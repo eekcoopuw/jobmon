@@ -338,9 +338,9 @@ class Manager(Client):
         # Pop open a new server instance on current node.
         open(self.out_dir + "/start.lock", 'w').close()
         shell = sge.true_path(executable="env_submit_master.sh")
-        launcher = sge.true_path(executable="launch_monitor.py")
-        subprocess.Popen([shell, prepend_to_path, conda_env, launcher,
-                          self.out_dir])
+        prepend_to_path = sge.true_path(file_or_dir=prepend_to_path)
+        subprocess.Popen([shell, prepend_to_path, conda_env,
+                         "launch_monitor.py", self.out_dir])
         time.sleep(15)
         os.remove(self.out_dir + "/start.lock")
 
