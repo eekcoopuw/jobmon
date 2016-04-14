@@ -89,13 +89,35 @@ class MonitoredQ(IgnorantQ):
     back monitoring server that all sge jobs automatically connect to after
     they get scheduled."""
 
-    def __init__(self, out_dir, retries=0):
+    def __init__(self, out_dir, retries=0, prepend_to_path=None,
+                 conda_env=None):
         self.out_dir = out_dir
         self.retries = retries
 
         # internal tracking
         self.scheduled_jobs = []
         self.jobs = {}
+
+        # environment stuffs
+        python = sge.true_path(executable="python")
+        if prepend_to_path is not None and conda_env is not None:
+            self.prepend_to_path = prepend_to_path
+            self.conda_env = conda_env
+            assert conda_env in python, ("specified env does not match current"
+                                         " python path")
+            self.runfile = sge.true_path(executable="monitored_job.py")
+        else:
+            if "/.conda/" in python:
+                self.prepend_to_path = (
+                    "/usr/local/software/anaconda/bin/python")
+                self.conda_env = python.split("/")[-3]
+                self.runfile = sge.true_path(executable="monitored_job.py")
+            elif "/ihme/code/central_comp/anaconda" in python:
+                self.prepend_to_path = "/ihme/code/central_comp/anaconda/bin"
+                self.conda_env = python.split("/")[-3]
+                self.runfile = sge.true_path(executable="monitored_job.py")
+            else:
+                raise Exception("unable to determine conda env")
 
         # internal server manager
         self.manager = job.ManageJobMonitor(out_dir)
@@ -107,7 +129,7 @@ class MonitoredQ(IgnorantQ):
             except job.ServerRunning:
                 pass
             except job.ServerStartLocked:
-                time.sleep(5)
+                time.sleep(15)
             finally:
                 if not self.manager.isalive():
                     warnings.warn("could not start jobmonitor server")
@@ -142,7 +164,7 @@ class MonitoredQ(IgnorantQ):
         if self.manager.isalive():
             self.manager.stop_server()
 
-    def qsub(self, runfile, jobname, prepend_to_path, conda_env, jid=None,
+    def qsub(self, runfile, jobname, jid=None,
              parameters=[], *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. They will automatically
         register with server and sqlite database.
@@ -180,13 +202,10 @@ class MonitoredQ(IgnorantQ):
         else:
             parameters = base_params
 
-        # get full paths for submission
-        prepend_to_path = sge.true_path(file_or_dir=prepend_to_path)
-        runfile = sge.true_path(executable="monitored_job.py")
-
         # submit.
         sgeid = sge.qsub(runfile=runfile, jobname=jobname,
-                         prepend_to_path=prepend_to_path, conda_env=conda_env,
+                         prepend_to_path=self.prepend_to_path,
+                         conda_env=self.conda_env,
                          jobtype=None, parameters=parameters, *args, **kwargs)
 
         # update database to reflect submitted status
