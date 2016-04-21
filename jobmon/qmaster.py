@@ -89,19 +89,21 @@ class MonitoredQ(IgnorantQ):
     back monitoring server that all sge jobs automatically connect to after
     they get scheduled."""
 
-    def __init__(self, out_dir, retries=0, prepend_to_path=None,
-                 conda_env=None):
+    def __init__(self, out_dir, resubmits=0, prepend_to_path=None,
+                 conda_env=None, request_timeout=None, request_retries=None):
         """
         Args:
             out_dir (string): directory where monitor server is running
-            retries (int, optional): how many times to resubmit failed jobs
+            resubmits (int, optional): how many times to resubmit failed jobs
             prepend_to_path (string, optional): which conda bin you are using.
                 only use if MonitoredQ can't figure it out on it's own.
             conda_env (string, optional): which conda environment you are
                 using. only use if MonitoredQ can't figure it out on it's own.
         """
         self.out_dir = out_dir
-        self.retries = retries
+        self.request_timeout = request_timeout
+        self.request_retries = request_retries
+        self.resubmits = resubmits
 
         # internal tracking
         self.scheduled_jobs = []
@@ -128,7 +130,9 @@ class MonitoredQ(IgnorantQ):
                 raise Exception("unable to determine conda env")
 
         # internal server manager
-        self.manager = job.ManageJobMonitor(out_dir)
+        self.manager = job.ManageJobMonitor(
+            out_dir, request_retries=self.request_retries,
+            request_timeout=self.request_timeout)
 
         # make sure server is booted
         if not self.manager.isalive():
@@ -172,8 +176,7 @@ class MonitoredQ(IgnorantQ):
         if self.manager.isalive():
             self.manager.stop_server()
 
-    def qsub(self, runfile, jobname, jid=None,
-             parameters=[], *args, **kwargs):
+    def qsub(self, runfile, jobname, jid=None, parameters=[], *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. They will automatically
         register with server and sqlite database.
 
@@ -198,6 +201,10 @@ class MonitoredQ(IgnorantQ):
             jid = r[1]
         base_params = ["--mon_dir", self.out_dir, "--runfile", runfile,
                        "--jid", jid]
+        if self.request_timeout is not None:
+            base_params.extend(["--request_timeout", self.request_timeout])
+        if self.request_retries is not None:
+            base_params.extend(["--request_retries", self.request_retries])
 
         # replace -- with ## to allow for passthrough in monitored job
         passed_params = []
@@ -262,8 +269,7 @@ class MonitoredQ(IgnorantQ):
 
         for sgeid in exit_jobs:
             result = self.manager.query(
-                query_status + "sgeid = {sgeid};".format(sgeid=sgeid)
-                )[1]
+                query_status + "sgeid = {sgeid};".format(sgeid=sgeid))[1]
             try:
                 current_status = result["current_status"].item()
                 jid = result["jid"].item()
@@ -290,9 +296,8 @@ class MonitoredQ(IgnorantQ):
                                ).format(id=sgeid))
             elif current_status == 4:
                 fails = self.manager.query(
-                    query_failed + " AND sgeid = {id};".format(id=sgeid)
-                    )[1]
-                if fails["num"].item() < self.retries + 1:
+                    query_failed + " AND sgeid = {id};".format(id=sgeid))[1]
+                if fails["num"].item() < self.resubmits + 1:
                     jid = fails["jid"].item()
                     print "retrying " + str(jid)
                     self.qsub(runfile=self.jobs[jid]["runfile"],

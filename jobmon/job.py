@@ -9,12 +9,6 @@ from logging import Handler
 import sge
 from subprocess import CalledProcessError
 
-REQUEST_TIMEOUT = 3000
-REQUEST_RETRIES = 3
-
-this_file = os.path.abspath(os.path.expanduser(__file__))
-this_dir = os.path.dirname(os.path.realpath(this_file))
-
 
 class ServerRunning(Exception):
     pass
@@ -55,9 +49,11 @@ class Client(object):
         out_dir (string): file path where the server configuration is
             stored.
     """
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, request_retries=3, request_timeout=3000):
         """set class defaults. attempt to connect with server."""
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
+        self.request_retries = request_retries
+        self.request_timeout = request_timeout
         try:
             self.connect()
         except IOError:
@@ -120,7 +116,7 @@ class Client(object):
         Returns:
             Server reply message
         """
-        retries_left = REQUEST_RETRIES  # this should be configurable
+        retries_left = self.request_retries
         print 'Sending message...'
         while retries_left:
             if self.socket.closed:  # connect to socket if disconnected?
@@ -129,7 +125,7 @@ class Client(object):
             expect_reply = True
             while expect_reply:
                 # ask for response from server. wait until REQUEST_TIMEOUT
-                socks = dict(self.poller.poll(REQUEST_TIMEOUT))
+                socks = dict(self.poller.poll(self.request_timeout))
                 if socks.get(self.socket) == zmq.POLLIN:
                     reply = self.socket.recv()
                     if not reply:
@@ -166,11 +162,11 @@ class Job(Client):
         name (string, optional): name current process. If name is not specified
             will attempt to use environment variable JOB_NAME.
     """
-    def __init__(self, out_dir, jid=None, name=None):
+    def __init__(self, out_dir, jid=None, name=None, **kwargs):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified.
         """
-        super(Job, self).__init__(out_dir)
+        super(Job, self).__init__(out_dir, **kwargs)
 
         # get sge_id from envirnoment
         self.sge_id = os.getenv("JOB_ID")
