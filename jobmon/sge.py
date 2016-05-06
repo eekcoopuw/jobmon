@@ -78,7 +78,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
             job_datetime = datetime.strptime(
                 " ".join([job_date, job_time]),
                 time_format)
-            job_runtimes.append(str(now-job_datetime))
+            job_runtimes.append(str(now - job_datetime))
             job_datetimes.append(datetime.strftime(job_datetime, time_format))
             append_jobid = False
             append_jobname = True
@@ -118,7 +118,7 @@ def qstat_details(jids):
         dictionary of detailted qstat values
     """
     jids = np.atleast_1d(jids)
-    cmd = ["qstat", "-j",  "%s" % ",".join([str(j) for j in jids])]
+    cmd = ["qstat", "-j", "%s" % ",".join([str(j) for j in jids])]
 
     def group_separator(line):
         delim = "".join(["=" for i in range(62)])
@@ -273,7 +273,6 @@ def qsub(
         stderr=None,
         prepend_to_path=None,
         conda_env=None):
-
     """Submit job to sun grid engine queue
 
     Args:
@@ -340,7 +339,7 @@ def qsub(
     # Convert all parameters to strings
     assert (isinstance(parameters, (list, tuple)) and not
             isinstance(parameters, str)), (
-            "'parameters' cannot be a string. Must be a list or a tuple.")
+        "'parameters' cannot be a string. Must be a list or a tuple.")
     parameters = [str(p) for p in parameters]
     parameters = [p.strip(' \t\r\n') for p in parameters]
 
@@ -351,7 +350,7 @@ def qsub(
         shfile = true_path(executable="env_submit_master.sh")
     else:
         shfile = true_path(file_or_dir=shfile)
-    runfile = true_path(file_or_dir=runfile)
+    runfile = os.path.expanduser(runfile)
     submission_params.append(shfile)
     if prepend_to_path is not None:
         submission_params.append(prepend_to_path)

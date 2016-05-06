@@ -1,8 +1,14 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import sys
-import traceback
 import argparse
+from subprocess import Popen, PIPE
 from jobmon import job
+
+
+# for sge logging of standard error
+def eprint(*args, **kwargs):
+    print(*args, file=sys.stderr, **kwargs)
 
 # parse arguments
 parser = argparse.ArgumentParser()
@@ -27,14 +33,21 @@ for param in args["pass_through"]:
     passed_params.append(str(param).replace("##", "--", 1))
 sys.argv = [args["runfile"]] + passed_params
 
-#
+# start monitoring
 j1 = job.Job(args["mon_dir"], jid=args["jid"], **kwargs)
-try:
-    j1.start()
-    execfile(args["runfile"])
-except:
-    tb = traceback.format_exc()
-    j1.log_error(tb)
+j1.start()
+
+# open subprocess
+p = Popen(["python"] + sys.argv, stdout=PIPE, stderr=PIPE)
+output, error = p.communicate()
+if p.returncode != 0:
+
+    # sge logging
+    eprint(error)
+    print(output)
+
+    # jobmon logging
+    j1.log_error(error)
     j1.failed()
 else:
     j1.finish()

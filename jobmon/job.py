@@ -337,7 +337,7 @@ class Manager(Client):
         prepend_to_path = sge.true_path(file_or_dir=prepend_to_path)
         subprocess.Popen([shell, prepend_to_path, conda_env,
                          "launch_monitor.py", self.out_dir])
-        time.sleep(15)
+        time.sleep(45)
         os.remove(self.out_dir + "/start.lock")
 
         # check if it booted properly
