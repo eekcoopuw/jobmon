@@ -1,14 +1,35 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import sys
+import os
 import argparse
-from subprocess import Popen, PIPE
+import subprocess
+import traceback
 from jobmon import job
+
+
+class ForceIOStream:
+    def __init__(self, stream):
+        self.stream = stream
+
+    def write(self, data):
+        self.stream.write(data)
+        self.stream.flush()
+        if not self.stream.isatty():
+            os.fsync(self.stream.fileno())
+
+    def __getattr__(self, attr):
+        return getattr(self.stream, attr)
+
+
+sys.stdout = ForceIOStream(sys.stdout)
+sys.stderr = ForceIOStream(sys.stderr)
 
 
 # for sge logging of standard error
 def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
+
 
 # parse arguments
 parser = argparse.ArgumentParser()
@@ -38,16 +59,18 @@ j1 = job.Job(args["mon_dir"], jid=args["jid"], **kwargs)
 j1.start()
 
 # open subprocess
-p = Popen(["python"] + sys.argv, stdout=PIPE, stderr=PIPE)
-output, error = p.communicate()
-if p.returncode != 0:
-
-    # sge logging
-    eprint(error)
-    print(output)
-
-    # jobmon logging
-    j1.log_error(error)
+try:
+    out = subprocess.check_output(["python"] + sys.argv,
+                                  stderr=subprocess.STDOUT)
+except subprocess.CalledProcessError as exc:
+    eprint(exc.output)
+    j1.log_error(exc.output)
+    j1.failed()
+except:
+    tb = traceback.format_exc()
+    eprint(tb)
+    j1.log_error(tb)
     j1.failed()
 else:
+    print(out)
     j1.finish()
