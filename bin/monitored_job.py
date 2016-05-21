@@ -1,29 +1,10 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import sys
-import os
 import argparse
 import subprocess
 import traceback
 from jobmon import job
-
-
-class ForceIOStream:
-    def __init__(self, stream):
-        self.stream = stream
-
-    def write(self, data):
-        self.stream.write(data)
-        self.stream.flush()
-        if not self.stream.isatty():
-            os.fsync(self.stream.fileno())
-
-    def __getattr__(self, attr):
-        return getattr(self.stream, attr)
-
-
-sys.stdout = ForceIOStream(sys.stdout)
-sys.stderr = ForceIOStream(sys.stderr)
 
 
 # for sge logging of standard error
