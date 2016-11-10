@@ -41,7 +41,7 @@ setup(
     author_email='tomflem@uw.edu, mlsandar@uw.edu',
     install_requires=[
         'pandas',
-        'sqlalchemy'
+        'sqlalchemy',
         'numpy',
         'pymysql',
         'pyzmq'
