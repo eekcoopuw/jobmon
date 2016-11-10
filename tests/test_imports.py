@@ -1,4 +1,4 @@
 def test_imports():
-    import sge
-    import job
-    import monitor
+    from jobmon import sge
+    from jobmon import job
+    from jobmon import monitor
