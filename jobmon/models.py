@@ -10,17 +10,7 @@ class Job(Base):
     __tablename__ = 'job'
 
     jid = Column(Integer, primary_key=True)
-    current_status = Column(Integer, nullable=False)
-
-
-class SGEJob(Base):
-    __tablename__ = 'sgejob'
-
-    sgeid = Column(Integer, primary_key=True)
-    jid = Column(
-            Integer,
-            ForeignKey('job.jid'),
-            nullable=False)
+    sge_jid = Column(Integer)
     name = Column(String(150))
     runfile = Column(String(150))
     args = Column(String(1000))
@@ -29,6 +19,7 @@ class SGEJob(Base):
     maxvmem = Column(String(50))
     cpu = Column(String(50))
     io = Column(String(50))
+    current_status = Column(Integer, nullable=False)
     submitted_date = Column(DateTime, default=func.now())
 
 
@@ -68,8 +59,7 @@ class JobError(Base):
 
 def default_statuses(session):
     statuses = []
-    for i, s in enumerate(['reserved', 'submitted', 'running', 'failed',
-                           'complete']):
+    for i, s in enumerate(['submitted', 'running', 'failed', 'complete']):
         statuses.append(Status(id=i+1, label=s))
     session.add_all(statuses)
     session.commit()

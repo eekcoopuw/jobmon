@@ -2,26 +2,12 @@ import zmq
 import os
 import json
 import pickle
-import subprocess
-import time
-import warnings
 from logging import Handler
 import sge
 from subprocess import CalledProcessError
 
 REQUEST_TIMEOUT = 3000
 REQUEST_RETRIES = 3
-
-this_file = os.path.abspath(os.path.expanduser(__file__))
-this_dir = os.path.dirname(os.path.realpath(this_file))
-
-
-class ServerRunning(Exception):
-    pass
-
-
-class ServerStartLocked(Exception):
-    pass
 
 
 def log_exceptions(job):
@@ -58,11 +44,7 @@ class Client(object):
     def __init__(self, out_dir):
         """set class defaults. attempt to connect with server."""
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
-        try:
-            self.connect()
-        except IOError:
-            warnings.warn("no monitor_info.json found in specified directory."
-                          " Unable to connect to server")
+        self.connect()
 
     def connect(self):
         """Connect to server. Reads config file from out_dir specified during
@@ -160,9 +142,8 @@ class Job(Client):
     Args
         out_dir (string): file path where the server configuration is
             stored.
-        jid (int, optional): job id to use when registering with jobmon
-            database. If job id is not specified, will attempt to use
-            environment variable JOB_ID.
+        jid (int, optional): job id of current process on SGE. If job id is not
+            specified, will attempt to use environment variable JOB_ID.
         name (string, optional): name current process. If name is not specified
             will attempt to use environment variable JOB_NAME.
     """
@@ -172,16 +153,14 @@ class Job(Client):
         """
         super(Job, self).__init__(out_dir)
 
-        # get sge_id from envirnoment
-        self.sge_id = os.getenv("JOB_ID")
-        if self.sge_id is not None:
-            self.sge_id = int(self.sge_id)
-
         if jid is None:
-            self.reserve_jid()
+            self.jid = os.getenv("JOB_ID")
+            if self.jid is None:
+                self.jid = int(999999999)
+            else:
+                self.jid = int(self.jid)
         else:
-            self.jid = jid
-
+            self.jid = int(jid)
         if name is None:
             self.name = os.getenv("JOB_NAME")
         else:
@@ -189,7 +168,7 @@ class Job(Client):
 
         # Try to get job_details
         try:
-            self.job_info = sge.qstat_details(self.sge_id)[self.sge_id]
+            self.job_info = sge.qstat_details(self.jid)[self.jid]
             if self.name is None:
                 self.name = self.job_info['job_name']
         except CalledProcessError:
@@ -197,44 +176,35 @@ class Job(Client):
         for reqdkey in ['script_file', 'job_args']:
             if reqdkey not in self.job_info.keys():
                 self.job_info[reqdkey] = 'N/A'
-        self.register_sgejob()
 
-    def reserve_jid(self):
+        self.register()
+
+    def register(self):
         """send registration request to server. server will create database
         entry for this job."""
-        msg = {'action': 'create_job', 'args': ''}
-        r = self.send_request(msg)
-        self.jid = r[1]
-
-    def register_sgejob(self):
-        """log specific details related to sge job status."""
-        if self.sge_id is not None:
+        if self.job_info is not None:
             msg = {
-                'action': 'create_sgejob',
-                'args': '',
+                'action': 'create_job',
+                'args': [self.jid],
                 'kwargs': {
-                    'jid': self.jid,
                     'name': self.name,
-                    'sgeid': self.sge_id,
                     'runfile': self.job_info['script_file'],
                     'args': self.job_info['job_args']}}
         else:
             msg = {
-                'action': 'create_sgejob',
-                'args': '',
-                'kwargs': {
-                    'jid': self.jid,
-                    'name': self.name}}
+                'action': 'create_job',
+                'args': [self.jid],
+                'kwargs': {'name': self.name}}
         self.send_request(msg)
 
     def start(self):
         """log job start with server"""
-        msg = {'action': 'update_job_status', 'args': [self.jid, 3]}
+        msg = {'action': 'update_job_status', 'args': [self.jid, 2]}
         self.send_request(msg)
 
     def failed(self):
         """log job failure with server"""
-        msg = {'action': 'update_job_status', 'args': [self.jid, 4]}
+        msg = {'action': 'update_job_status', 'args': [self.jid, 3]}
         self.send_request(msg)
 
     def log_error(self, msg):
@@ -246,16 +216,16 @@ class Job(Client):
 
     def finish(self):
         """log job complete with server"""
-        msg = {'action': 'update_job_status', 'args': [self.jid, 5]}
+        msg = {'action': 'update_job_status', 'args': [self.jid, 4]}
         self.send_request(msg)
         try:
-            self.usage = sge.qstat_usage(self.sge_id)[self.sge_id]
+            self.usage = sge.qstat_usage(self.jid)[self.jid]
             dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
-            kwargs = {k: self.usage[k] for k in dbukeys
-                      if k in self.usage.keys()}
+            kwargs = {k: self.usage[k] for k in dbukeys}
+            print kwargs
             msg = {
                 'action': 'update_job_usage',
-                'args': [self.sge_id],
+                'args': [self.jid],
                 'kwargs': kwargs}
             self.send_request(msg)
         except Exception as e:
@@ -273,94 +243,9 @@ class Job(Client):
 
 
 class Manager(Client):
-    """client node with methods to start/stop server"""
+    """client node with method to stop server"""
 
     def stop_server(self):
         """stop a running server"""
         response = self.send_request('stop')
         print(response[1])
-
-    def isalive(self):
-        """check whether server is alive.
-
-        Returns:
-            boolean True of False if it is alive."""
-
-        # will return false here if no monitor_info.json exists
-        try:
-            self.connect()
-        except IOError:
-            return False
-
-        # next we ping to see if server is alive under the monitor_info.json
-        r = self.send_request({"action": "alive", "args": ""})
-        if isinstance(r, tuple):
-            if r[0] == 0:
-                return True
-            else:
-                return False
-        else:
-            return False
-
-    def start_server(self, prepend_to_path, conda_env, restart=False,
-                     nolock=False):
-        """Start new server instance
-
-        Args:
-            prepend_to_path (string): anaconda bin to prepend to path
-            conda_env (string): python >= 3.5 conda env to run server in.
-            restart (bool, optional): whether to force a new server instance to
-                start. Will shutdown existing server instance if one exists.
-            nolock (bool, optional): ignore any boot locks for the specified
-                directory. Highly not recommended.
-
-        Returns:
-            Boolean whether the server started successfully or not.
-        """
-        # check if there is already a server here
-        if self.isalive():
-            if not restart:
-                raise ServerRunning("server is already alive")
-            else:
-                print("server is already alive. will stop previous server.")
-                self.stop_server()
-
-        # check if there is a start lock in the file system.
-        if os.path.isfile(self.out_dir + "/start.lock"):
-            if not nolock:
-                raise ServerStartLocked(
-                    "server is already starting. If this is not the case "
-                    "either remove 'start.lock' from server directory or use "
-                    "option 'force'")
-            else:
-                warnings.warn("bypassing startlock. not recommended!!!!")
-
-        # Pop open a new server instance on current node.
-        open(self.out_dir + "/start.lock", 'w').close()
-        shell = sge.true_path(executable="env_submit_master.sh")
-        prepend_to_path = sge.true_path(file_or_dir=prepend_to_path)
-        subprocess.Popen([shell, prepend_to_path, conda_env,
-                         "launch_monitor.py", self.out_dir])
-        time.sleep(15)
-        os.remove(self.out_dir + "/start.lock")
-
-        # check if it booted properly
-        if self.isalive():
-            print("successfully started server")
-            return True
-        else:
-            print("server failed to start successfully")
-            return False
-
-
-class ManageJobMonitor(Manager):
-
-    def query(self, query):
-        """execute query on sqlite database through server
-        Args:
-            query (string): raw sql query string to execute on sqlite monitor
-                database
-        """
-        msg = {'action': 'query', 'args': [query]}
-        response = self.send_request(msg)
-        return response
