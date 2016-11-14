@@ -39,6 +39,7 @@ setup(
     url='https://stash.ihme.washington.edu/projects/CC/repos/jobmon',
     author='CentralComp',
     author_email='tomflem@uw.edu, mlsandar@uw.edu',
+    include_package_data=True,
     install_requires=[
         'pandas',
         'sqlalchemy',
