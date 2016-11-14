@@ -4,3 +4,4 @@ include build/*.ado
 include versioneer.py
 include autowrap.cfg
 include jobmon/_version.py
+include jobmon/*.sh
