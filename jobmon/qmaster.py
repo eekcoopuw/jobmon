@@ -1,12 +1,18 @@
+import logging
 import os
 import time
 import warnings
-from datetime import datetime
-from . import sge, job
 
+import jobmon.job
+import jobmon.sge as sge
+from jobmon.central_job_monitor_launcher import CentralJobMonitorLauncher, CentralJobMonitorRunning, \
+    CentralJobMonitorStartLocked
 
 this_file = os.path.abspath(os.path.expanduser(__file__))
 this_dir = os.path.dirname(os.path.realpath(this_file))
+
+__mod_name__ = "jobmon"
+logger = logging.getLogger(__mod_name__)
 
 
 class IgnorantQ(object):
@@ -24,7 +30,8 @@ class IgnorantQ(object):
         Returns:
             sge job id
         """
-        sgeid = sge.qsub(*args, **kwargs)
+        sgeid = jobmon.sge.qsub(*args, **kwargs)
+        logger.debug("Submitting job, sgeid {}: {} {}".format(sgeid, args, kwargs))
         self.scheduled_jobs.append(sgeid)
         self.jobs[sgeid] = {"args": args, "kwargs": kwargs}
         return sgeid
@@ -35,21 +42,23 @@ class IgnorantQ(object):
         clear. Run qmanage each poll_interval.
 
         Args:
-            poll_interval (int, optional): time in seconds between each
-            qcomplete()
+            poll_interval (int, optional): time in seconds between each qcomplete()
         """
+        logger.debug("qblock entered")
         while not self.qcomplete():
+            logger.debug("qblock sleeping")
             time.sleep(poll_interval)
+        logger.debug("qblock complete")
 
     def qmanage(self):
         """run manage_exit_q and manage_current_q based on the changes to those
         queues between the current qmanage call and the previous call"""
-        print 'Polling jobs ... {}'.format(datetime.now())
+        logger.debug('{}: Polling jobs...'.format(os.getpid()))
 
         # manage all jobs currently in sge queue
         current_jobs = set(sge.qstat(jids=self.scheduled_jobs
                                      ).job_id.tolist())
-        print '             ... ' + str(len(current_jobs)) + ' active jobs'
+        logger.debug('             ... ' + str(len(current_jobs)) + ' active jobs')
         self.manage_current_q(current_jobs)
 
         # manage each job that has left the sge q
@@ -78,7 +87,7 @@ class IgnorantQ(object):
         is no management by default. override to add custom handling
 
         Args:
-            current_jobs (list): list of sge job ids that are currently in the
+            current_jobs (set): set of sge job ids that are currently in the
                 sge queue
         """
         pass
@@ -89,70 +98,72 @@ class MonitoredQ(IgnorantQ):
     back monitoring server that all sge jobs automatically connect to after
     they get scheduled."""
 
-    def __init__(self, out_dir, prepend_to_path=None,
-                 conda_env=None, request_timeout=10000, request_retries=3):
+    def __init__(self, out_dir, path_to_conda_bin_on_target_vm,
+                 conda_env, request_timeout=10000, request_retries=3, maximum_boot_sleep_time=45):
         """
         Args:
             out_dir (string): directory where monitor server is running
-            resubmits (int, optional): how many times to resubmit failed jobs
-            prepend_to_path (string, optional): which conda bin you are using.
+            path_to_conda_bin_on_target_vm (string, optional): which conda bin you are using.
                 only use if MonitoredQ can't figure it out on it's own.
             conda_env (string, optional): which conda environment you are
                 using. only use if MonitoredQ can't figure it out on it's own.
+            request_retries (int, optional): how many times to resubmit failed jobs
         """
+        super(MonitoredQ, self).__init__()
         self.out_dir = out_dir
         self.request_timeout = request_timeout
         self.request_retries = request_retries
+        self.boot_sleep_time = maximum_boot_sleep_time
 
         # internal tracking
         self.scheduled_jobs = []
         self.jobs = {}
 
-        # environment stuffs
-        python = sge.true_path(executable="python")
-        if prepend_to_path is not None and conda_env is not None:
-            self.prepend_to_path = prepend_to_path
-            self.conda_env = conda_env
-            self.runfile = "monitored_job.py"
-        else:
-            if "/.conda/" in python:
-                self.prepend_to_path = "/usr/local/software/anaconda/bin"
-                self.conda_env = python.split("/")[-3]
-                self.runfile = "monitored_job.py"
-            elif "/ihme/code/central_comp/anaconda" in python:
-                self.prepend_to_path = "/ihme/code/central_comp/anaconda/bin"
-                self.conda_env = python.split("/")[-3]
-                self.runfile = "monitored_job.py"
-            else:
-                raise Exception("unable to determine conda env")
+        # environment for distributed applications
 
-        # internal server manager
-        self.manager = job.ManageJobMonitor(
+        self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm
+        self.conda_env = conda_env
+        self.runfile = "monitored_job.py"
+
+        # internal server central_job_monitor_launcher
+        self.central_job_monitor_launcher = CentralJobMonitorLauncher(
             out_dir, request_retries=self.request_retries,
             request_timeout=self.request_timeout)
 
         # make sure server is booted
-        if not self.manager.isalive():
+        # Use a busy wait loop with a maximum time out out
+        time_spent = 0
+        while not self.central_job_monitor_launcher.is_alive():
             try:
-                self.start_monitor(self.out_dir)
-            except job.ServerRunning:
-                pass
-            except job.ServerStartLocked:
-                time.sleep(45)
-            finally:
-                if not self.manager.isalive():
-                    warnings.warn("could not start jobmonitor server")
+                self.start_central_monitor(conda_env=conda_env,
+                                           path_to_conda_bin_on_target_vm=path_to_conda_bin_on_target_vm)
+            except CentralJobMonitorRunning:
+                logger.debug("Central Job Monitor is running after {} seconds".format(time_spent))
+                break
+            except CentralJobMonitorStartLocked:
+                logger.debug("Start lock is present, sleeping for {} seconds".format(maximum_boot_sleep_time))
+                time.sleep(5)
+                time_spent += 5
+            if time_spent > maximum_boot_sleep_time:
+                if not self.central_job_monitor_launcher.is_alive():
+                    warnings.warn("QMaster could not start the CentralJobMonitorLauncher")
+                    # TODO Give up completely? raise an exception?
+                    break
+                else:
+                    logger.debug("Central Job Monitor is running after {} seconds".format(time_spent))
+                    break
+                    # Strictly No need for else - if it is running the except CentralJobMonitorRunning will catch it,
+                    # but it feels dangerous not to have an else and a break
 
-    def start_monitor(self, out_dir,
-                      prepend_to_path="/ihme/code/central_comp/anaconda/bin",
-                      conda_env="jobmon35", restart=False, nolock=False):
-        """start a jobmonitor server in a subprocess. MonitoredQ's share
+    def start_central_monitor(self,
+                              path_to_conda_bin_on_target_vm="/ihme/code/central_comp/anaconda/bin",
+                              conda_env="jobmon35", restart=False, nolock=False):
+        """Start a CentralMonitor server in a subprocess. MonitoredQ's share
         monitor servers and auto increments if they are initialized with the
         same out_dir in the same python instance.
 
         Args:
-            out_dir (string): full path to directory where logging will happen
-            prepend_to_path (string, optional): anaconda bin to prepend to path
+            path_to_conda_bin_on_target_vm (string, optional): anaconda bin to prepend to path
             conda_env (string, optional): python >= 3.5 conda env to run server
                 in.
             restart (bool, optional): whether to force a new server instance to
@@ -163,15 +174,15 @@ class MonitoredQ(IgnorantQ):
         Returns:
             Boolean whether the server started successfully or not.
         """
-        prepend_to_path = sge.true_path(file_or_dir=prepend_to_path)
-        self.manager.start_server(prepend_to_path=prepend_to_path,
-                                  conda_env=conda_env, restart=restart,
-                                  nolock=nolock)
+        path_to_conda_bin_on_target_vm = sge.true_path(file_or_dir=path_to_conda_bin_on_target_vm)
+        self.central_job_monitor_launcher.start_server(path_to_conda_bin_on_target_vm=path_to_conda_bin_on_target_vm,
+                                                       conda_env=conda_env, restart=restart,
+                                                       nolock=nolock)
 
     def stop_monitor(self):
         """stop jobmonitor server tied to this MonitoredQ instance"""
-        if self.manager.isalive():
-            self.manager.stop_server()
+        if self.central_job_monitor_launcher.is_alive():
+            self.central_job_monitor_launcher.stop_server()
 
     def qsub(self, runfile, jobname, jid=None, parameters=[], *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. They will automatically
@@ -194,7 +205,7 @@ class MonitoredQ(IgnorantQ):
         # configure arguments for parsing by ./bin/monitored_job.py
         if jid is None:
             msg = {'action': 'create_job', 'args': ''}
-            r = self.manager.send_request(msg)
+            r = self.central_job_monitor_launcher.sender.send_request(msg)
             jid = r[1]
         base_params = ["--mon_dir", self.out_dir, "--runfile", runfile,
                        "--jid", jid]
@@ -214,15 +225,21 @@ class MonitoredQ(IgnorantQ):
         else:
             parameters = base_params
 
+        logger.debug("{}: Submitting job to qsub:"
+                     " runfile {}; jobname {}; parameters {}; path: {}".format(os.getpid(),
+                                                                               self.runfile,
+                                                                               jobname,
+                                                                               parameters,
+                                                                               self.path_to_conda_bin_on_target_vm))
         # submit.
         sgeid = sge.qsub(runfile=self.runfile, jobname=jobname,
-                         prepend_to_path=self.prepend_to_path,
+                         prepend_to_path=self.path_to_conda_bin_on_target_vm,
                          conda_env=self.conda_env,
                          jobtype=None, parameters=parameters, *args, **kwargs)
 
         # update database to reflect submitted status
         msg = {'action': 'update_job_status', 'args': [jid, 2]}
-        self.manager.send_request(msg)
+        self.central_job_monitor_launcher.sender.send_request(msg)
 
         # store submission params in self.jobs dict in case of resubmit
         self.scheduled_jobs.append(sgeid)

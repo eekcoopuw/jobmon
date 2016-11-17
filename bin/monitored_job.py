@@ -6,6 +6,9 @@ import subprocess
 import traceback
 from jobmon import job
 
+# This script executeson the target node and wraps the target applicaiton.
+# Could be in any language, anything that can execute on linux.
+# Similar to a stub or a container
 
 # for sge logging of standard error
 def eprint(*args, **kwargs):

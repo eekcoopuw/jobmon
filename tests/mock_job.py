@@ -1,5 +1,9 @@
+import os
+import signal
 import sys
 import time
+
+# TODO Should this be moved to a IHME testing utils repo? It is broadly useful
 
 
 class MockJob(object):
@@ -32,10 +36,11 @@ class MockJob(object):
         if self.exception_to_raise is not None and self.exception_to_raise != "":
             if self.exception_to_raise == MockJob.DIE_COMMAND:
                 # Die silently without trace
-                os.si
-                sys.exit(17)
+                # kill -9
+                os.kill(os.getpid(), signal.SIGKILL)
+                # I am now dead
             else:
-                # Die "nicely"
+                # Die "gracefully"
                 print("raising exception '{}'".format(self.exception_to_raise))
                 raise Exception(self.exception_to_raise)
         else:

@@ -30,6 +30,7 @@ class CentralJobMonitorLauncher:
         self.sender = Sender(out_dir, request_retries, request_timeout)
         self.lock_file_path = self.sender.out_dir + "/start.lock"
         # kwargs expected request_retries=3, request_timeout=3000
+        self.max_boot_time=45
 
     def stop_server(self):
         """stop a running server"""
@@ -45,7 +46,7 @@ class CentralJobMonitorLauncher:
 
         # will return false here if no monitor_info.json exists
         try:
-            # Causes too many connections, use a ping instead
+            # Always connecting auses too many connections, use a ping instead
             if not self.sender.is_connected():
                 self.sender.connect()
         except IOError:
@@ -113,17 +114,21 @@ class CentralJobMonitorLauncher:
             pop = subprocess.Popen([shell, prepend_to_path, conda_env,
                                     "launch_central_monitor.py", self.sender.out_dir])
             logger.debug("Sleeping to allow server to start, child process id is {}".format(pop.pid))
-            # TODO  replace by busy-wait loop
-            time.sleep(45)
-            self._remove_lock_file()
 
-            # check if it booted properly
-            if self.is_alive():
-                logger.info("{}: Successfully started CentralJobMonitor".format(os.getpid()))
-                return True
-            else:
-                logger.info("{}: Server failed to start CentralJobMonitor".format(os.getpid()))
-                return False
+            # Use a sleep-wait loop
+            boot_time_so_far = 0
+            while not self.is_alive():
+                if boot_time_so_far > self.max_boot_time:
+                    logger.info("{}: Server failed to start CentralJobMonitor".format(os.getpid()))
+                    self._remove_lock_file()
+                    return False
+                time.sleep(5)
+            boot_time_so_far += 5
+
+            # The server is alive
+            self._remove_lock_file()
+            logger.info("{}: Successfully started CentralJobMonitor".format(os.getpid()))
+
         except Exception as e:
             warnings.warn("Could not start the server: '{}', removing start lock at {}".format(e, self.lock_file_path))
 

@@ -9,14 +9,21 @@ import sys
 import json
 import pickle
 import pandas as pd
+import logging
 
+from jobmon.setup_logger import setup_logger
+
+__mod_name__ = "jobmon"
+logger = logging.getLogger(__mod_name__)
+setup_logger(logger.name, "/tmp/central-job-monitor.log", logging.DEBUG)
 
 assert sys.version_info > (3, 0), """
     Sorry, only Python version 3+ are supported at this time"""
 
 
 class Server(object):
-    """This is a serve, in that it listens on a Recevier object (a zmq channel).
+    """This really is a server, in that there is one of these, it listens on a Receiver object (a zmq channel)
+    and does stuff as a result of those commands.
     A singleton in the directory.
 
     Args:
@@ -30,7 +37,7 @@ class Server(object):
         self.out_dir = os.path.realpath(self.out_dir)
         try:
             os.makedirs(self.out_dir)
-        except:
+        except FileExistsError:  # It throws if the directory already exists!
             pass
         self.port, self.socket = self.start_server()
 
@@ -47,38 +54,41 @@ class Server(object):
             host (string): node name that server is running on
             port (int): port that server is listening at
         """
-        with open('%s/monitor_info.json' % self.out_dir, 'w') as f:
+        filename = '%s/monitor_info.json' % self.out_dir
+        logger.debug('{}: Writing connection info to {}'.format(os.getpid(), filename))
+        with open(filename, 'w') as f:
             json.dump({'host': host, 'port': port}, f)
 
     def start_server(self):
         """configure server and set to listen. returns tuple (port, socket).
         doesn't actually run server."""
-        print('Starting server...')
+        logger.info('{}: Starting server...'.format(os.getpid()))
         context = zmq.Context()
-        self.socket = context.socket(zmq.REP)  # server blocks on recieve
+        self.socket = context.socket(zmq.REP)  # server blocks on receive
         self.port = self.socket.bind_to_random_port('tcp://*')
         self.write_connection_info(self.node_name, self.port)  # dump config
-        print('Server started.')
+        logger.info('Server started.')
         return self.port, self.socket
 
     def stop_server(self):
         """stops listening at network socket/port."""
-        print('Stopping server...')
+        logger.info('Stopping server...')
         os.remove('%s/monitor_info.json' % self.out_dir)
         self.socket.close()
-        print('Server stopped.')
+        logger.info('Server stopped.')
         return True
 
     def restart_server(self):
         """restart listening at new network socket/port"""
+        logger.info('Restarting server...')
         self.stop_server()
         self.start_server()
 
     def run(self):
         """Run server. Start consuming registration and status updates from
-        jobs."""
+        jobs. Use introspection to call the handler method"""
         if self.socket.closed:
-            print('Server offline, starting...')
+            logger.info('Server offline, starting...')
             self.start_server()
         keep_alive = True
         while keep_alive:
@@ -87,10 +97,12 @@ class Server(object):
             try:
                 if msg == 'stop':
                     keep_alive = False
+                    logger.info("{}: Server Stopping".format(os.getpid()))
                     p = pickle.dumps((0, b"Server stopping"), protocol=2)
                     self.socket.send(p)
                     self.stop_server()
                 else:
+                    # An actual application message, use introspection to find the handler
                     msg = json.loads(msg)
                     tocall = getattr(self, msg['action'])
                     if 'kwargs' in msg.keys():
@@ -99,22 +111,22 @@ class Server(object):
                         kwargs = {}
 
                     response = tocall(*msg['args'], **kwargs)
-                    if self.valid_response(response):
+                    if self.is_valid_response(response):
                         p = pickle.dumps(response, protocol=2)
+                        logger.debug('{}: Server sending response {}'.format(os.getpid(), response))
                         self.socket.send(p)
                     else:
                         p = pickle.dumps(
-                            (1, b"action has invalid reponse format"),
+                            (1, b"action has invalid response format"),
                             protocol=2)
                         self.socket.send(p)
-
             except Exception as e:
-                print(e)
+                logger.debug('{}: Server sending "generic problem" error {}'.format(os.getpid(), e))
                 p = pickle.dumps((2, b"Uh oh, something went wrong"),
                                  protocol=2)
                 self.socket.send(p)
 
-    def valid_response(self, response):
+    def is_valid_response(self, response):
         """validate that action method returns value in expected format.
 
         Args:
@@ -123,13 +135,11 @@ class Server(object):
                 considered valid responses. response_code must be an integer.
                 response message can by any byte string.
         """
-        if isinstance(response, tuple) & isinstance(response[0], int):
-            return True
-        else:
-            return False
+        return isinstance(response, tuple) and isinstance(response[0], int)
 
     def alive(self):
-        return (0, "alive")
+        logger.debug("{}: Server received is_alive?".format(os.getpid()))
+        return 0, "alive"
 
 
 Session = sessionmaker()
@@ -140,6 +150,8 @@ class CentralJobMonitor(Server):
     writes to sqllite server node.
     server node job status logger.
 
+    Runs as a separate process.
+
     Args:
         out_dir (string): full filepath of directory to create job monitor
             sqlite database in.
@@ -148,8 +160,10 @@ class CentralJobMonitor(Server):
     def __init__(self, out_dir):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema"""
-        super().__init__(out_dir)
+        logger.debug("{}: Initialize CentralJobMonitor in '{}'".format(os.getpid(), out_dir))
+        super(CentralJobMonitor, self).__init__(out_dir)
         self.session = self.create_job_db()
+        logger.debug("   {}: Initialize CentralJobMonitor complete".format(os.getpid()))
 
     def create_job_db(self):
         """create sqlite database from models schema"""
@@ -174,7 +188,7 @@ class CentralJobMonitor(Server):
         job = models.Job(current_status=1)
         self.session.add(job)
         self.session.commit()
-        return (0, job.jid)
+        return 0, job.jid
 
     def create_sgejob(self, name, jid=None, *args, **kwargs):
         """create job entry in database job table.
@@ -235,7 +249,7 @@ class CentralJobMonitor(Server):
 
         Args:
             jid (int): job id to update status of
-            error (sting): error message to log
+            error (string): error message to log
         """
         error = models.JobError(jid=jid, description=error)
         self.session.add(error)
@@ -260,10 +274,10 @@ class CentralJobMonitor(Server):
             except ValueError:
                 df = pd.DataFrame(columns=(r_proxy.keys()))
                 response = (0, df)
-            except:
-                response = (1, b"query failed to execute")
+            except Exception as e:
+                response = (1, "dataframe failed to load {}".format(e).encode())
 
-        except:
-            response = (1, b"query failed to execute")
+        except Exception as e:
+            response = (1, "query failed to execute {}".format(e).encode())
 
         return response

@@ -3,6 +3,7 @@ import os
 
 from jobmon import qmaster
 from jobmon.setup_logger import setup_logger
+from .mock_job import MockJob
 
 __mod_name__ = "jobmon.test"
 logger = logging.getLogger(__mod_name__)
