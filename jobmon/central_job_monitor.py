@@ -16,7 +16,8 @@ assert sys.version_info > (3, 0), """
 
 
 class Server(object):
-    """server node.
+    """This is a serve, in that it listens on a Recevier object (a zmq channel).
+    A singleton in the directory.
 
     Args:
         out_dir (string): full filepath of directory to write server config in
@@ -81,7 +82,7 @@ class Server(object):
             self.start_server()
         keep_alive = True
         while keep_alive:
-            msg = self.socket.recv()  # server blocks on recieve
+            msg = self.socket.recv()  # server blocks on receive
             msg = msg.decode('utf-8')  # json is byte stream. decode to unicode
             try:
                 if msg == 'stop':
@@ -134,8 +135,10 @@ class Server(object):
 Session = sessionmaker()
 
 
-class JobMonitor(Server):
-    """server node job status logger.
+class CentralJobMonitor(Server):
+    """Listens for job status update messages,
+    writes to sqllite server node.
+    server node job status logger.
 
     Args:
         out_dir (string): full filepath of directory to create job monitor
