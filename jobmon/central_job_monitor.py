@@ -9,7 +9,6 @@ import sys
 import json
 import pickle
 import pandas as pd
-import logging
 
 from jobmon.setup_logger import setup_logger
 
@@ -31,8 +30,7 @@ class Server(object):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read"""
         if not Server.logger:
-            Server.logger = logging.getLogger(__name__)
-            setup_logger(Server.logger.name, "./CentralMonitor.log", logging.DEBUG)
+            Server.logger = setup_logger('central_monitor', 'central_monitor_logging.yaml')
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.out_dir = os.path.realpath(self.out_dir)
         try:

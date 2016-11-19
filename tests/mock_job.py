@@ -38,7 +38,7 @@ class MockJob(object):
                 # Die silently without trace
                 # kill -9
                 os.kill(os.getpid(), signal.SIGKILL)
-                # I am now dead
+                # I am now dead, no point writing any more code here!
             else:
                 # Die "gracefully"
                 print("raising exception '{}'".format(self.exception_to_raise))

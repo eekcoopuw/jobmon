@@ -1,4 +1,3 @@
-import logging
 import os
 
 from jobmon import qmaster
@@ -17,8 +16,7 @@ def test_five_jobs():
     """
 
     # Start the root logger, not just the logger for my name
-    logger = logging.getLogger("jobmon")
-    setup_logger(logger.name, "./TestFiveJobs.log", logging.DEBUG)
+    logger = setup_logger("jobmon", "jobmon_logging.yaml")
     logger.info('{}: test_five_jobs started'.format(os.getpid()))
 
     root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")

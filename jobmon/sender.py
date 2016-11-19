@@ -8,7 +8,7 @@ import zmq
 
 
 class Sender(object):
-    """Sends messages to a Receiver node through
+    """Sends messages to a Receiver (Server) node through
     zmq. sends messages to a Receiver via request dictionaries which the Receiver
     node consumes and responds to. A common use case is where the swarm of application
     jobs send status messages to a Receiver in the CentralJobStateMonitor
