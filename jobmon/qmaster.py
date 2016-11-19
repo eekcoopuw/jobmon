@@ -11,9 +11,6 @@ from jobmon.central_job_monitor_launcher import CentralJobMonitorLauncher, Centr
 this_file = os.path.abspath(os.path.expanduser(__file__))
 this_dir = os.path.dirname(os.path.realpath(this_file))
 
-__mod_name__ = "jobmon"
-logger = logging.getLogger(__mod_name__)
-
 
 class IgnorantQ(object):
     """keep track of jobs submitted to sun grid engine"""
@@ -22,6 +19,7 @@ class IgnorantQ(object):
         # internal tracking
         self.scheduled_jobs = []
         self.jobs = {}
+        self.logger = logging.getLogger(__name__)
 
     def qsub(self, *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. see sge module for
@@ -31,7 +29,7 @@ class IgnorantQ(object):
             sge job id
         """
         sgeid = jobmon.sge.qsub(*args, **kwargs)
-        logger.debug("Submitting job, sgeid {}: {} {}".format(sgeid, args, kwargs))
+        self.logger.debug("Submitting job, sgeid {}: {} {}".format(sgeid, args, kwargs))
         self.scheduled_jobs.append(sgeid)
         self.jobs[sgeid] = {"args": args, "kwargs": kwargs}
         return sgeid
@@ -44,21 +42,21 @@ class IgnorantQ(object):
         Args:
             poll_interval (int, optional): time in seconds between each qcomplete()
         """
-        logger.debug("qblock entered")
+        self.logger.debug("qblock entered")
         while not self.qcomplete():
-            logger.debug("qblock sleeping")
+            self.logger.debug("qblock sleeping")
             time.sleep(poll_interval)
-        logger.debug("qblock complete")
+        self.logger.debug("qblock complete")
 
     def qmanage(self):
         """run manage_exit_q and manage_current_q based on the changes to those
         queues between the current qmanage call and the previous call"""
-        logger.debug('{}: Polling jobs...'.format(os.getpid()))
+        self.logger.debug('{}: Polling jobs...'.format(os.getpid()))
 
         # manage all jobs currently in sge queue
         current_jobs = set(sge.qstat(jids=self.scheduled_jobs
                                      ).job_id.tolist())
-        logger.debug('             ... ' + str(len(current_jobs)) + ' active jobs')
+        self.logger.debug('             ... ' + str(len(current_jobs)) + ' active jobs')
         self.manage_current_q(current_jobs)
 
         # manage each job that has left the sge q
@@ -138,19 +136,19 @@ class MonitoredQ(IgnorantQ):
                 self.start_central_monitor(conda_env=conda_env,
                                            path_to_conda_bin_on_target_vm=path_to_conda_bin_on_target_vm)
             except CentralJobMonitorRunning:
-                logger.debug("Central Job Monitor is running after {} seconds".format(time_spent))
+                self.logger.debug("Central Job Monitor is running after {} seconds".format(time_spent))
                 break
             except CentralJobMonitorStartLocked:
-                logger.debug("Start lock is present, sleeping for {} seconds".format(maximum_boot_sleep_time))
-                time.sleep(5)
-                time_spent += 5
+                self.logger.debug("Start lock is present, sleeping for {} seconds".format(maximum_boot_sleep_time))
+            time.sleep(5)
+            time_spent += 5
             if time_spent > maximum_boot_sleep_time:
                 if not self.central_job_monitor_launcher.is_alive():
                     warnings.warn("QMaster could not start the CentralJobMonitorLauncher")
                     # TODO Give up completely? raise an exception?
                     break
                 else:
-                    logger.debug("Central Job Monitor is running after {} seconds".format(time_spent))
+                    self.logger.debug("Central Job Monitor is running after {} seconds".format(time_spent))
                     break
                     # Strictly No need for else - if it is running the except CentralJobMonitorRunning will catch it,
                     # but it feels dangerous not to have an else and a break
@@ -225,12 +223,12 @@ class MonitoredQ(IgnorantQ):
         else:
             parameters = base_params
 
-        logger.debug("{}: Submitting job to qsub:"
-                     " runfile {}; jobname {}; parameters {}; path: {}".format(os.getpid(),
-                                                                               self.runfile,
-                                                                               jobname,
-                                                                               parameters,
-                                                                               self.path_to_conda_bin_on_target_vm))
+        self.logger.debug("{}: Submitting job to qsub:"
+                          " runfile {}; jobname {}; parameters {}; path: {}".format(os.getpid(),
+                                                                                    self.runfile,
+                                                                                    jobname,
+                                                                                    parameters,
+                                                                                    self.path_to_conda_bin_on_target_vm))
         # submit.
         sgeid = sge.qsub(runfile=self.runfile, jobname=jobname,
                          prepend_to_path=self.path_to_conda_bin_on_target_vm,

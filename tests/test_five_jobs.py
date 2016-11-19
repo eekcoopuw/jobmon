@@ -5,10 +5,6 @@ from jobmon import qmaster
 from jobmon.setup_logger import setup_logger
 from .mock_job import MockJob
 
-__mod_name__ = "jobmon.test"
-logger = logging.getLogger(__mod_name__)
-setup_logger(logger.name, "./TestFiveJobs.log", logging.DEBUG)
-
 
 def test_five_jobs():
     """Submit five jobs through the job monitor.
@@ -20,6 +16,9 @@ def test_five_jobs():
     CONDA_ENV   name of the environment for the central_monitor process and the remote jobs
     """
 
+    # Start the root logger, not just the logger for my name
+    logger = logging.getLogger("jobmon")
+    setup_logger(logger.name, "./TestFiveJobs.log", logging.DEBUG)
     logger.info('{}: test_five_jobs started'.format(os.getpid()))
 
     root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")

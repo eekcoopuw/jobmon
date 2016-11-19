@@ -7,10 +7,6 @@ from jobmon.sender import Sender
 import jobmon.sge as sge
 
 
-__mod_name__ = "jobmon"
-logger = logging.getLogger(__mod_name__)
-
-
 class CentralJobMonitorRunning(Exception):
     pass
 
@@ -23,8 +19,10 @@ class CentralJobMonitorLauncher:
     """Runs on the central node. Is only responsible for starting/stopping the
     CentralJobMonitor.  This is NOT the CentralJobMonitor"""
 
+
     def __init__(self, out_dir, request_retries, request_timeout):
-        logger.debug("CentralJobMonitorLauncher created in dir '{}', retries {}, timeout {}".format(out_dir,
+        self.logger = logging.getLogger(__name__)
+        self.logger.debug("CentralJobMonitorLauncher created in dir '{}', retries {}, timeout {}".format(out_dir,
                                                                                                     request_retries,
                                                                                                     request_timeout))
         self.sender = Sender(out_dir, request_retries, request_timeout)
@@ -34,7 +32,7 @@ class CentralJobMonitorLauncher:
 
     def stop_server(self):
         """stop a running server"""
-        logger.info("Attempting to stop the CentralJobMonitor")
+        self.logger.info("{}: Attempting to stop the CentralJobMonitor".format(os.getpid()))
         response = self.sender.send_request('stop')
         print(response[1])
 
@@ -46,7 +44,7 @@ class CentralJobMonitorLauncher:
 
         # will return false here if no monitor_info.json exists
         try:
-            # Always connecting auses too many connections, use a ping instead
+            # Always connecting uses too many connections, use a ping instead
             if not self.sender.is_connected():
                 self.sender.connect()
         except IOError:
@@ -77,22 +75,22 @@ class CentralJobMonitorLauncher:
         Returns:
             Boolean whether the server started successfully or not.
         """
-        logger.debug("Launcher attempting to start the server, restart is {}, nolock is {}".format(restart, nolock))
+        self.logger.debug("Launcher attempting to start the server, restart is {}, nolock is {}".format(restart, nolock))
         # check if there is already a server here
         if self.is_alive():
             if not restart:
-                logger.debug("Server is already alive, no action taken")
+                self.logger.debug("Server is already alive, no action taken")
                 raise CentralJobMonitorRunning("Server is already alive, no action taken")
             else:
-                logger.info("Server is already alive. will stop previous server and restart.")
+                self.logger.info("Server is already alive. will stop previous server and restart.")
                 self.stop_server()
 
         # check if there is a start lock in the file system.
-
-        logger.debug("Launcher checking start lock file at {}".format(self.lock_file_path))
+        self.logger.debug("Launcher checking start lock file at {}".format(self.lock_file_path))
         if os.path.isfile(self.lock_file_path):
             if not nolock:
-                logger.debug(" lock file is present, and locking is enforced. Raising exception")
+                self.logger.info("Lock file is present at {}, and locking is enforced. Raising exception".format(
+                    self.lock_file_path))
                 raise CentralJobMonitorStartLocked(
                     "Server is already starting. If this is not the case "
                     "either remove 'start.lock' from server directory or use "
@@ -100,7 +98,7 @@ class CentralJobMonitorLauncher:
             else:
                 warnings.warn("bypassing startlock. not recommended!!!!")
         else:
-            logger.debug("    lock file not present")
+            self.logger.debug("    lock file not present")
 
         # Pop open a new server instance on current node.
 
@@ -110,34 +108,35 @@ class CentralJobMonitorLauncher:
             prepend_to_path = sge.true_path(file_or_dir=path_to_conda_bin_on_target_vm)
 
             # launch_central_monitor.py creates CentralJobMonitor
-            logger.debug("Calling popen, my pid is {}".format(os.getpid()))
+            self.logger.debug("{}: Calling popen".format(os.getpid()))
             pop = subprocess.Popen([shell, prepend_to_path, conda_env,
                                     "launch_central_monitor.py", self.sender.out_dir])
-            logger.debug("Sleeping to allow server to start, child process id is {}".format(pop.pid))
+            self.logger.debug(
+                "{}: Sleeping to allow server to start, child process id is {}".format(os.getpid(), pop.pid))
 
             # Use a sleep-wait loop
             boot_time_so_far = 0
             while not self.is_alive():
                 if boot_time_so_far > self.max_boot_time:
-                    logger.info("{}: Server failed to start CentralJobMonitor".format(os.getpid()))
+                    self.logger.info("{}: Server failed to start CentralJobMonitor".format(os.getpid()))
                     self._remove_lock_file()
                     return False
                 time.sleep(5)
-            boot_time_so_far += 5
+                boot_time_so_far += 5
 
             # The server is alive
             self._remove_lock_file()
-            logger.info("{}: Successfully started CentralJobMonitor".format(os.getpid()))
+            self.logger.info("{}: Successfully started CentralJobMonitor".format(os.getpid()))
 
         except Exception as e:
             warnings.warn("Could not start the server: '{}', removing start lock at {}".format(e, self.lock_file_path))
 
     def _create_lock_file(self):
-        logger.debug("Creating start lock file {}".format(self.lock_file_path))
+        self.logger.debug("Creating start lock file {}".format(self.lock_file_path))
         open(self.lock_file_path, 'w').close()
 
     def _remove_lock_file(self):
-        logger.debug("Removing start lock file {}".format(self.lock_file_path))
+        self.logger.debug("Removing start lock file {}".format(self.lock_file_path))
         os.remove(self.lock_file_path)
 
     def query(self, query):

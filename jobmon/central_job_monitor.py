@@ -13,10 +13,6 @@ import logging
 
 from jobmon.setup_logger import setup_logger
 
-__mod_name__ = "jobmon"
-logger = logging.getLogger(__mod_name__)
-setup_logger(logger.name, "/tmp/central-job-monitor.log", logging.DEBUG)
-
 assert sys.version_info > (3, 0), """
     Sorry, only Python version 3+ are supported at this time"""
 
@@ -24,15 +20,19 @@ assert sys.version_info > (3, 0), """
 class Server(object):
     """This really is a server, in that there is one of these, it listens on a Receiver object (a zmq channel)
     and does stuff as a result of those commands.
-    A singleton in the directory.
+    A singleton in the directory. Runs as a separate process, not in the same process that started the qmaster.
 
     Args:
         out_dir (string): full filepath of directory to write server config in
     """
+    logger = None
 
     def __init__(self, out_dir):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read"""
+        if not Server.logger:
+            Server.logger = logging.getLogger(__name__)
+            setup_logger(Server.logger.name, "./CentralMonitor.log", logging.DEBUG)
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.out_dir = os.path.realpath(self.out_dir)
         try:
@@ -55,32 +55,32 @@ class Server(object):
             port (int): port that server is listening at
         """
         filename = '%s/monitor_info.json' % self.out_dir
-        logger.debug('{}: Writing connection info to {}'.format(os.getpid(), filename))
+        Server.logger.debug('{}: Writing connection info to {}'.format(os.getpid(), filename))
         with open(filename, 'w') as f:
             json.dump({'host': host, 'port': port}, f)
 
     def start_server(self):
         """configure server and set to listen. returns tuple (port, socket).
         doesn't actually run server."""
-        logger.info('{}: Starting server...'.format(os.getpid()))
+        Server.logger.info('{}: Starting server...'.format(os.getpid()))
         context = zmq.Context()
         self.socket = context.socket(zmq.REP)  # server blocks on receive
         self.port = self.socket.bind_to_random_port('tcp://*')
         self.write_connection_info(self.node_name, self.port)  # dump config
-        logger.info('Server started.')
+        Server.logger.info('Server started.')
         return self.port, self.socket
 
     def stop_server(self):
         """stops listening at network socket/port."""
-        logger.info('Stopping server...')
+        Server.logger.info('Stopping server...')
         os.remove('%s/monitor_info.json' % self.out_dir)
         self.socket.close()
-        logger.info('Server stopped.')
+        Server.logger.info('Server stopped.')
         return True
 
     def restart_server(self):
         """restart listening at new network socket/port"""
-        logger.info('Restarting server...')
+        Server.logger.info('Restarting server...')
         self.stop_server()
         self.start_server()
 
@@ -88,7 +88,7 @@ class Server(object):
         """Run server. Start consuming registration and status updates from
         jobs. Use introspection to call the handler method"""
         if self.socket.closed:
-            logger.info('Server offline, starting...')
+            Server.logger.info('Server offline, starting...')
             self.start_server()
         keep_alive = True
         while keep_alive:
@@ -97,7 +97,7 @@ class Server(object):
             try:
                 if msg == 'stop':
                     keep_alive = False
-                    logger.info("{}: Server Stopping".format(os.getpid()))
+                    Server.logger.info("{}: Server Stopping".format(os.getpid()))
                     p = pickle.dumps((0, b"Server stopping"), protocol=2)
                     self.socket.send(p)
                     self.stop_server()
@@ -113,7 +113,7 @@ class Server(object):
                     response = tocall(*msg['args'], **kwargs)
                     if self.is_valid_response(response):
                         p = pickle.dumps(response, protocol=2)
-                        logger.debug('{}: Server sending response {}'.format(os.getpid(), response))
+                        Server.logger.debug('{}: Server sending response {}'.format(os.getpid(), response))
                         self.socket.send(p)
                     else:
                         p = pickle.dumps(
@@ -121,7 +121,7 @@ class Server(object):
                             protocol=2)
                         self.socket.send(p)
             except Exception as e:
-                logger.debug('{}: Server sending "generic problem" error {}'.format(os.getpid(), e))
+                Server.logger.debug('{}: Server sending "generic problem" error {}'.format(os.getpid(), e))
                 p = pickle.dumps((2, b"Uh oh, something went wrong"),
                                  protocol=2)
                 self.socket.send(p)
@@ -138,7 +138,7 @@ class Server(object):
         return isinstance(response, tuple) and isinstance(response[0], int)
 
     def alive(self):
-        logger.debug("{}: Server received is_alive?".format(os.getpid()))
+        Server.logger.debug("{}: Server received is_alive?".format(os.getpid()))
         return 0, "alive"
 
 
@@ -160,10 +160,10 @@ class CentralJobMonitor(Server):
     def __init__(self, out_dir):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema"""
-        logger.debug("{}: Initialize CentralJobMonitor in '{}'".format(os.getpid(), out_dir))
         super(CentralJobMonitor, self).__init__(out_dir)
+        Server.logger.debug("{}: Initialize CentralJobMonitor in '{}'".format(os.getpid(), out_dir))
         self.session = self.create_job_db()
-        logger.debug("   {}: Initialize CentralJobMonitor complete".format(os.getpid()))
+        Server.logger.debug("   {}: Initialize CentralJobMonitor complete".format(os.getpid()))
 
     def create_job_db(self):
         """create sqlite database from models schema"""

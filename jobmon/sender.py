@@ -6,12 +6,6 @@ import pickle
 import warnings
 import zmq
 
-from jobmon.setup_logger import setup_logger
-
-__mod_name__ = "jobmon"
-logger = logging.getLogger(__mod_name__)
-setup_logger(logger.name, "./jobmon.log", logging.DEBUG)
-
 
 class Sender(object):
     """Sends messages to a Receiver node through
@@ -25,6 +19,7 @@ class Sender(object):
     """
     def __init__(self, out_dir, request_retries=3, request_timeout=3000):
         """set class defaults. attempt to connect with server."""
+        self.logger = logging.getLogger(__name__)
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.request_retries = request_retries
         self.request_timeout = request_timeout
@@ -34,20 +29,19 @@ class Sender(object):
         try:
             self.connect()
         except IOError as e:
-            logger.error("Failed to connect in Sender.__init__, exception: {}".format(e))
+            self.logger.error("Failed to connect in Sender.__init__, exception: {}".format(e))
             warnings.warn("Unable to connect to server")
 
     def connect(self):
         """Connect to server. Reads config file from out_dir specified during
         class instantiation to get socket. Not an API method,
-        needs to be underscored. This will ALWASY connect."""
-        logger.debug("{}: Sender attempting to read monitor_info.json".format(os.getpid()))
+        needs to be underscored. This will ALWAYS connect."""
         with open("%s/monitor_info.json" % self.out_dir) as f:
             mi = json.load(f)
         context = zmq.Context()  # default 1 i/o thread
         self.socket = context.socket(zmq.REQ)  # blocks socket on send
         self.socket.setsockopt(zmq.LINGER, 0)  # do not pile requests in queue.
-        logger.info('{}: Connecting...'.format(os.getpid()))
+        self.logger.info('{}: Connecting...'.format(os.getpid()))
 
         # use host and port from network filesystem cofig. option "out_dir"
         self.socket.connect(
@@ -64,7 +58,7 @@ class Sender(object):
     def disconnect(self):
         """disconnect from socket and unregister with poller. Is this an API
         method? Should be underscored if not"""
-        logger.info('{}: Disconnecting...'.format(os.getpid()))
+        self.logger.info('{}: Disconnecting...'.format(os.getpid()))
         self.socket.close()
         self.poller.unregister(self.socket)
         # Good idea to release these so that they get garbage collected. They might have OS memory
@@ -87,7 +81,7 @@ class Sender(object):
             message = json.dumps(message)
         reply = self._send_lazy_pirate(message)
         if verbose is True:
-            logger.debug(reply)
+            self.logger.debug(reply)
         return reply
 
     def _send_lazy_pirate(self, message):
@@ -101,7 +95,7 @@ class Sender(object):
         """
         self.message_id += 1
         retries_left = self.request_retries
-        logger.debug('{}: Sending message id {}: {}'.format(os.getpid(), self.message_id, message))
+        self.logger.debug('{}: Sending message id {}: {}'.format(os.getpid(), self.message_id, message))
         reply = 0
         while retries_left:
             if self.socket is None or self.socket.closed:  # connect to socket if disconnected?
@@ -120,18 +114,18 @@ class Sender(object):
                         reply = pickle.loads(reply)
                         retries_left = 0
                         expect_reply = False
-                        logger.debug('{}: Received reply for message id {}: {}'.format(os.getpid(), self.message_id,
+                        self.logger.debug('{}: Received reply for message id {}: {}'.format(os.getpid(), self.message_id,
                                                                                        reply))
                 else:
-                    logger.info("No response from server, retrying...")
+                    self.logger.info("No response from server, retrying...")
                     self.disconnect()
                     retries_left -= 1
                     if retries_left == 0:
-                        logger.info("{}: Server seems to be offline, abandoning message id {}".format(os.getpid(),
+                        self.logger.info("{}: Server seems to be offline, abandoning message id {}".format(os.getpid(),
                                                                                                       self.message_id))
                         reply = 0
                         break
                     self.connect()
-                    logger.debug('  {}: resending message...{}'.format(os.getpid(), message))
+                    self.logger.debug('  {}: resending message...{}'.format(os.getpid(), message))
                     self.socket.send_string(message)
         return reply

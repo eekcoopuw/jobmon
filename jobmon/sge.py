@@ -7,8 +7,7 @@ import numpy as np
 import itertools
 
 
-__mod_name__ = "jobmon"
-logger = logging.getLogger(__mod_name__)
+logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
@@ -23,7 +22,7 @@ def true_path(file_or_dir=None, executable=None):
 
         Both arguments cannot be null
     """
-    logger.debug("{}: true_path   file_or_dir={},   executable={}".format(os.getpid(),file_or_dir, executable))
+    logger = logging.getLogger(__name__)
     if file_or_dir is None and executable is None:
         raise ValueError("true_path: file_or_dir and executable cannot both be null")
 
@@ -37,7 +36,6 @@ def true_path(file_or_dir=None, executable=None):
     if not isinstance(f, str):
         f = f.decode('utf-8')
     g = f.strip(' \t\r\n')
-    logger.debug("   result '{}'".format(g))
     return g
 
 
