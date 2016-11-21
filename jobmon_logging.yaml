@@ -45,6 +45,6 @@ loggers:
         handlers: [console, debug_file_handler, info_file_handler, error_file_handler]
         propagate: no
 
-root:
-    level: DEBUG
-    handlers: [console, info_file_handler, error_file_handler]
+    root:
+        level: DEBUG
+        handlers: [console, info_file_handler, error_file_handler]

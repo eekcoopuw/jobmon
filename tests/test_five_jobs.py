@@ -8,7 +8,10 @@ from .mock_job import MockJob
 def test_five_jobs():
     """Submit five jobs through the job monitor.
     Three run to successful completion,
-    one raises an exception, and thone simply kills its own python executable.
+    one raises an exception, and one simply kills its own python executable.
+
+    Note that logging to console is captured by pytest, only file logs are available.
+    See http://doc.pytest.org/en/latest/capture.html
 
     Uses two environment variables:
     CONDA_ROOT  path to the conda executable for the central_monitor process and the remote jobs

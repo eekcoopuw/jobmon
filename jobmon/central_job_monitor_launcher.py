@@ -19,16 +19,15 @@ class CentralJobMonitorLauncher:
     """Runs on the central node. Is only responsible for starting/stopping the
     CentralJobMonitor.  This is NOT the CentralJobMonitor"""
 
-
     def __init__(self, out_dir, request_retries, request_timeout):
         self.logger = logging.getLogger(__name__)
         self.logger.debug("CentralJobMonitorLauncher created in dir '{}', retries {}, timeout {}".format(out_dir,
-                                                                                                    request_retries,
-                                                                                                    request_timeout))
+                                                                                                         request_retries,
+                                                                                                         request_timeout))
         self.sender = Sender(out_dir, request_retries, request_timeout)
         self.lock_file_path = self.sender.out_dir + "/start.lock"
         # kwargs expected request_retries=3, request_timeout=3000
-        self.max_boot_time=45
+        self.max_boot_time = 45
 
     def stop_server(self):
         """stop a running server"""
