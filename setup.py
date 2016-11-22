@@ -35,7 +35,8 @@ setup(
     version=versioneer.get_version(),
     cmdclass=cmds,
     name='jobmon',
-    description='A centralized logging and management utility for a batch of SGE jobs',
+    description=('A centralized logging and management utility for a batch of'
+                 'SGE jobs'),
     url='https://stash.ihme.washington.edu/projects/CC/repos/jobmon',
     author='CentralComp',
     author_email='tomflem@uw.edu, mlsandar@uw.edu',
@@ -45,9 +46,10 @@ setup(
         'sqlalchemy',
         'numpy',
         'pymysql',
+        'pyyaml',
         'pyzmq'
     ],
     packages=['jobmon'],
-    scripts=["bin/launch_monitor.py",
+    scripts=["bin/launch_central_monitor.py",
              "bin/monitored_job.py"],
     entry_points={'console_scripts': []})

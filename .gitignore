@@ -4,6 +4,9 @@
 # editor files
 *.sublime*
 
+# log files
+*.log
+
 # Setuptools distribution folder.
 __pycache__
 
