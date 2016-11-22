@@ -27,6 +27,6 @@ setup(
     packages=['jobmon'],
     scripts=["bin/env_submit_master.sh",
              "bin/submit_master.sh",
-             "bin/launch_monitor.py",
+             "bin/launch_central_monitor.py",
              "bin/monitored_job.py"]
     )

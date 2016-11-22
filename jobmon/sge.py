@@ -1,3 +1,4 @@
+import logging
 import os
 import subprocess
 from datetime import datetime, time
@@ -6,15 +7,36 @@ import numpy as np
 import itertools
 
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+
+# TODO Consider replacing all of this by DRMAA
+
+#TODO Should this be two separate functions?
 def true_path(file_or_dir=None, executable=None):
-    """Get true path to file or executable"""
+    """Get true path to file or executable.
+    Args:
+        :param file_or_dir partial file path, to be expanded as per the current user
+        :param executable  the name of an executable, which will be resolved using "which"
+
+        Both arguments cannot be null
+    """
+    logger = logging.getLogger(__name__)
+    if file_or_dir is None and executable is None:
+        raise ValueError("true_path: file_or_dir and executable cannot both be null")
+
     if file_or_dir is not None:
         f = file_or_dir
     if executable is not None:
         f = subprocess.check_output(["which", executable])
     f = os.path.abspath(os.path.expanduser(f))
-    f = f.strip(' \t\r\n')
-    return f
+
+    # Be careful, in python 3 check_output returns bytes
+    if not isinstance(f, str):
+        f = f.decode('utf-8')
+    g = f.strip(' \t\r\n')
+    return g
 
 
 def qstat(status=None, pattern=None, user=None, jids=None):
@@ -46,9 +68,16 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         ["grep", "Full jobname:", "-B1"],
         stdin=p1.stdout,
         stdout=subprocess.PIPE)
+
     p1.stdout.close()
     output, err = p2.communicate()
     p2.stdout.close()
+
+    logger.debug("qstat OUTPUT ={}=".format(output))
+
+    # Careful, python 2 vs 3 - bytes versus strings
+    if not isinstance(output, str):
+        output=output.decode('utf-8')
 
     lines = output.splitlines()
 
@@ -109,7 +138,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
 
 
 def qstat_details(jids):
-    """get more detailted qstat information
+    """get more detailed qstat information
 
     Args:
         jids (list): list of jobs to get detailed qstat information from
@@ -380,7 +409,7 @@ def qsub(
 
     # Creat full submission array
     submission_params.extend(parameters)
-    print submission_params
+    print(submission_params)
 
     # Submit job
     submission_msg = subprocess.check_output(submission_params)
