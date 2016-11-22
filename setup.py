@@ -1,5 +1,4 @@
-import os
-from setuptools import setup
+
 from codecs import open
 import versioneer
 from setuptools import setup
@@ -68,10 +67,8 @@ with open(os.path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     version=versioneer.get_version(),
-
     cmdclass=cmds,
     name='jobmon',
-    use_scm_version=True,
     description="Database-backed job monitor",
     long_description=long_description,
     url='',
