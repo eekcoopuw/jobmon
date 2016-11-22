@@ -23,7 +23,7 @@ setup(
         'pymysql',
         'pyzmq',
         'setuptools_scm',
-        'yaml'],
+        'pyyaml'],
     package_data={'jobmon': ['*.sh']},
     packages=['jobmon'],
     scripts=["bin/env_submit_master.sh",
