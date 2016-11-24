@@ -9,7 +9,7 @@ Base = declarative_base()
 class Job(Base):
     __tablename__ = 'job'
 
-    jid = Column(Integer, primary_key=True)
+    monitored_jid = Column(Integer, primary_key=True)
     sge_jid = Column(Integer)
     name = Column(String(150))
     runfile = Column(String(150))
@@ -27,9 +27,9 @@ class JobStatus(Base):
     __tablename__ = 'job_status'
 
     id = Column(Integer, primary_key=True)
-    jid = Column(
+    monitored_jid = Column(
             Integer,
-            ForeignKey('job.jid'),
+            ForeignKey('job.monitored_jid'),
             nullable=False)
     status = Column(
             Integer,
@@ -49,9 +49,9 @@ class JobError(Base):
     __tablename__ = 'error'
 
     id = Column(Integer, primary_key=True)
-    jid = Column(
+    monitored_jid = Column(
             Integer,
-            ForeignKey('job.jid'),
+            ForeignKey('job.monitored_jid'),
             nullable=False)
     error_time = Column(DateTime, default=func.now())
     description = Column(String(1000), nullable=False)

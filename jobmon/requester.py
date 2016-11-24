@@ -1,17 +1,15 @@
-
 import json
 import logging
 import os
-import pickle
 import warnings
 import zmq
 
 
-class Sender(object):
-    """Sends messages to a Receiver (Server) node through
-    zmq. sends messages to a Receiver via request dictionaries which the Receiver
-    node consumes and responds to. A common use case is where the swarm of application
-    jobs send status messages to a Receiver in the CentralJobStateMonitor
+class Requester(object):
+    """Sends messages to a Responder node through zmq. sends messages to a
+    Responder via request dictionaries which the Responder node consumes and
+    responds to. A common use case is where the swarm of application jobs send
+    status messages to a Responder in the CentralJobStateMonitor
 
     Args
         out_dir (string): file path where the server configuration is
@@ -29,7 +27,8 @@ class Sender(object):
         try:
             self.connect()
         except IOError as e:
-            self.logger.error("Failed to connect in Sender.__init__, exception: {}".format(e))
+            self.logger.error("Failed to connect in Requester.__init__, "
+                              "exception: {}".format(e))
             warnings.warn("Unable to connect to server")
 
     def connect(self):
@@ -61,57 +60,73 @@ class Sender(object):
         self.logger.info('{}: Disconnecting...'.format(os.getpid()))
         self.socket.close()
         self.poller.unregister(self.socket)
-        # Good idea to release these so that they get garbage collected. They might have OS memory
+
+        # Good idea to release these so that they get garbage collected.
+        # They might have OS memory
         self.poller = None
         self.socket = None
 
     def send_request(self, message, verbose=False):
-        """send request dictionary to server. Need to document what form this
-        dict takes.
+        """send request to server. Need to document what form this message
+        takes.
 
         Args:
-            message (dict): what should this look like????????????
+            message (dict): The message dict must at minimum have an 'action'
+                keyword. For example, a valid message might be:
+
+                    {'action': 'write_msg_todb',
+                     'msg': 'some message to be written to the db'}
+
+                Valid actions and further key-value pairs are to be defined
+                in sub-class Requester=Responder pairs.
+
             verbose (bool, optional): Whether to print the servers reply to
                 stdout as well as return it. Defaults to False.
 
         Returns:
             Server reply message
         """
-        if isinstance(message, dict):
-            message = json.dumps(message)
         reply = self._send_lazy_pirate(message)
         if verbose is True:
             self.logger.debug(reply)
         return reply
 
     def _send_lazy_pirate(self, message):
-        """Safely send messages to server. This is not an api method, use send_request method instead
+        """Safely send messages to server. This is not an api method, use
+        send_request method instead
 
         Args:
-            message (dict): what should this look like????????????
+            message (dict): The message dict must at minimum have an 'action'
+                keyword. For example, a valid message might be:
 
-        Returns:
-            Server reply message
+                    {'action': 'write_msg_todb',
+                     'msg': 'some message to be written to the db'}
+
+                Valid actions and further key-value pairs are to be defined
+                in sub-class Requester=Responder pairs.
+
+
+        Returns: Server reply message
         """
         self.message_id += 1
         retries_left = self.request_retries
-        self.logger.debug('{}: Sending message id {}: {}'.format(os.getpid(), self.message_id, message))
+        self.logger.debug('{}: Sending message id {}: {}'.format(
+            os.getpid(), self.message_id, message))
         reply = 0
         while retries_left:
             if self.socket is None or self.socket.closed:  # connect to socket if disconnected?
                 self.connect()
-            self.socket.send_string(message)  # send message to server
+            self.socket.send_json(message)  # send message to server
             expect_reply = True
             while expect_reply:
                 # ask for response from server. wait until REQUEST_TIMEOUT
                 socks = dict(self.poller.poll(self.request_timeout))
                 if socks.get(self.socket) == zmq.POLLIN:
-                    reply = self.socket.recv()
+                    reply = self.socket.recv_json()
                     if not reply:
                         reply = 0
                         break
                     else:
-                        reply = pickle.loads(reply)
                         retries_left = 0
                         expect_reply = False
                         self.logger.debug('{}: Received reply for message id {}: {}'.format(os.getpid(), self.message_id,

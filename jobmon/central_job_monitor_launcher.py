@@ -3,7 +3,7 @@ import subprocess
 import time
 import warnings
 import logging
-from jobmon.sender import Sender
+from jobmon.requester import Requester
 import jobmon.sge as sge
 
 
@@ -24,15 +24,15 @@ class CentralJobMonitorLauncher:
         self.logger.debug("CentralJobMonitorLauncher created in dir '{}', retries {}, timeout {}".format(out_dir,
                                                                                                          request_retries,
                                                                                                          request_timeout))
-        self.sender = Sender(out_dir, request_retries, request_timeout)
-        self.lock_file_path = self.sender.out_dir + "/start.lock"
+        self.requester = Requester(out_dir, request_retries, request_timeout)
+        self.lock_file_path = self.requester.out_dir + "/start.lock"
         # kwargs expected request_retries=3, request_timeout=3000
         self.max_boot_time = 45
 
     def stop_server(self):
         """stop a running server"""
         self.logger.info("{}: Attempting to stop the CentralJobMonitor".format(os.getpid()))
-        response = self.sender.send_request('stop')
+        response = self.requester.send_request('stop')
         print(response[1])
 
     def is_alive(self):
@@ -44,13 +44,13 @@ class CentralJobMonitorLauncher:
         # will return false here if no monitor_info.json exists
         try:
             # Always connecting uses too many connections, use a ping instead
-            if not self.sender.is_connected():
-                self.sender.connect()
+            if not self.requester.is_connected():
+                self.requester.connect()
         except IOError:
             return False
 
         # next we ping to see if server is alive under the monitor_info.json
-        r = self.sender.send_request({"action": "alive", "args": ""})
+        r = self.requester.send_request({"action": "alive", "args": ""})
         if isinstance(r, tuple):
             if r[0] == 0:
                 return True
@@ -109,7 +109,7 @@ class CentralJobMonitorLauncher:
             # launch_central_monitor.py creates CentralJobMonitor
             self.logger.debug("{}: Calling popen".format(os.getpid()))
             pop = subprocess.Popen([shell, prepend_to_path, conda_env,
-                                    "launch_central_monitor.py", self.sender.out_dir])
+                                    "launch_central_monitor.py", self.requester.out_dir])
             self.logger.debug(
                 "{}: Sleeping to allow server to start, child process id is {}".format(os.getpid(), pop.pid))
 
@@ -145,5 +145,5 @@ class CentralJobMonitorLauncher:
                 database
         """
         msg = {'action': 'query', 'args': [query]}
-        response = self.sender.send_request(msg)
+        response = self.requester.send_request(msg)
         return response
