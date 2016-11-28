@@ -4,6 +4,7 @@ import os
 import sys
 import json
 import inspect
+from multiprocessing import Process
 
 from jobmon.setup_logger import setup_logger
 
@@ -63,6 +64,8 @@ class Responder(object):
             pass
         self.port = None
         self.socket = None
+        self.server_pid = None
+        self.server_proc = None
 
         self.actions = []
         self.register_object_actions(self)
@@ -93,14 +96,31 @@ class Responder(object):
         self.port = self.socket.bind_to_random_port('tcp://*')
         self.write_connection_info(self.node_name, self.port)  # dump config
 
-    def start_server(self):
+    def start_server(self, nonblocking=True):
         """configure server and set to listen. returns tuple (port, socket).
         doesn't actually run server."""
         Responder.logger.info('{}: Opening socket...'.format(os.getpid()))
-        self._open_socket()
         Responder.logger.info('{}: Responder starting...'.format(os.getpid()))
-        self.listen()
+        if nonblocking:
+            self.server_proc = Process(target=self.listen)
+            self.server_proc.start()
+            self.server_pid = self.server_proc.pid
+        else:
+            self._open_socket()
+            self.listen()
         return self.port, self.socket
+
+    def stop_server(self):
+        """Stops response server. Only applicable if listening in a
+        non-blocking subprocess"""
+        if self.server_proc is not None:
+            if self.server_proc.is_alive():
+                self.server_proc.terminate()
+                exitcode = self.server_proc.exitcode
+        else:
+            Responder.logger.info("Response server is already stopped")
+            exitcode = None
+        return exitcode
 
     def _close_socket(self):
         """stops listening at network socket/port."""
@@ -147,11 +167,14 @@ class Responder(object):
         #
         #   http://www.benfrederickson.com/dont-pickle-your-data/
         #
-        if self.socket.closed:
-            Responder.logger.info('Socket close. Attempting to re-open.')
+        if self.socket is None:
+            Responder.logger.info('Socket not created. Attempting to open.')
             self._open_socket()
         Responder.logger.info('Responder started.')
         keep_alive = True
+        print(self.socket)
+        print(self.port)
+        print(self.actions)
         while keep_alive:
             msg = self.socket.recv_json()  # server blocks on receive
             print(msg)

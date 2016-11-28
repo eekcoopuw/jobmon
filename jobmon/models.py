@@ -41,6 +41,11 @@ class JobStatus(Base):
 class Status(Base):
     __tablename__ = 'status'
 
+    SUBMITTED = 1
+    RUNNING = 2
+    FAILED = 3
+    COMPLETE = 4
+
     id = Column(Integer, primary_key=True)
     label = Column(String(150), nullable=False)
 
@@ -57,9 +62,9 @@ class JobError(Base):
     description = Column(String(1000), nullable=False)
 
 
-def default_statuses(session):
+def load_default_statuses(session):
     statuses = []
-    for i, s in enumerate(['submitted', 'running', 'failed', 'complete']):
-        statuses.append(Status(id=i+1, label=s))
+    for status in ['SUBMITTED', 'RUNNING', 'FAILED', 'COMPLETE']:
+        statuses.append(Status(id=getattr(Status, status), label=status))
     session.add_all(statuses)
     session.commit()

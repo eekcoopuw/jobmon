@@ -2,6 +2,7 @@ from . import models
 import sqlite3
 import sqlalchemy as sql
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import IntegrityError
 import os
 import pandas as pd
 from .responder import Responder
@@ -50,17 +51,32 @@ class CentralJobMonitor(object):
         eng = sql.create_engine('sqlite://', creator=creator)
 
         models.Base.metadata.create_all(eng)  # doesn't create if exists
-        Session.configure(bind=eng)
+        Session.configure(bind=eng, autocommit=False)
         session = Session()
 
         try:
-            models.default_statuses(session)
-        except Exception as e:
-            Responder.logger.exception(e)
+            models.load_default_statuses(session)
+        except IntegrityError:
+            Responder.logger.info(
+                "Status table already loaded. If you intended to use a fresh "
+                "database, you'll have to delete the "
+                "old database manually {}".format(dbfile))
+            session.rollback()
         return session
 
+    def responder_proc_is_alive(self):
+        return self.responder.server_proc.is_alive()
+
+    def stop_responder(self):
+        return self.responder.stop_server()
+
+    def jobs_with_status(self, status_id):
+        jobs = (
+            self.session.query(models.Job).filter_by(current_status=status_id))
+        return jobs
+
     def _action_register_job(self, name=None):
-        job = models.Job(current_status=1, name=name)
+        job = models.Job(current_status=models.Status.SUBMITTED, name=name)
         self.session.add(job)
         self.session.commit()
         return 0, job.monitored_jid
@@ -80,7 +96,7 @@ class CentralJobMonitor(object):
             job = models.Job(
                 sge_jid=sge_jid,
                 name=name,
-                current_status=1,
+                current_status=models.Status.SUBMITTED,
                 **kwargs)
             self.session.add(job)
             self.session.commit()

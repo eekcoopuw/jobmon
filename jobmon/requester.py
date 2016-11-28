@@ -114,7 +114,8 @@ class Requester(object):
             os.getpid(), self.message_id, message))
         reply = 0
         while retries_left:
-            if self.socket is None or self.socket.closed:  # connect to socket if disconnected?
+            # Reconnect if necessary
+            if self.socket is None or self.socket.closed:
                 self.connect()
             self.socket.send_json(message)  # send message to server
             expect_reply = True
@@ -142,5 +143,5 @@ class Requester(object):
                         break
                     self.connect()
                     self.logger.debug('  {}: resending message...{}'.format(os.getpid(), message))
-                    self.socket.send_string(message)
+                    self.socket.send_json(message)
         return reply
