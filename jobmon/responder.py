@@ -3,11 +3,33 @@ from socket import gethostname
 import os
 import sys
 import json
+import inspect
 
 from jobmon.setup_logger import setup_logger
 
 assert sys.version_info > (3, 0), """
     Sorry, only Python version 3+ are supported at this time"""
+
+
+def get_class_that_defined_method(meth):
+    """Utility for getting the class names of actions made available to the
+    responder
+
+    Lifted from this SO post:
+    http://stackoverflow.com/questions/3589311/get-defining-class-of-unbound-method-object-in-python-3/25959545#25959545
+    """
+    if inspect.ismethod(meth):
+        for cls in inspect.getmro(meth.__self__.__class__):
+            if cls.__dict__.get(meth.__name__) is meth:
+                return cls
+        meth = meth.__func__   # fallback to __qualname__ parsing
+    if inspect.isfunction(meth):
+        cls = getattr(inspect.getmodule(meth),
+                      meth.__qualname__.split(
+                          '.<locals>', 1)[0].rsplit('.', 1)[0])
+        if isinstance(cls, type):
+            return cls
+    return None  # not required since None would have been implicitly returned
 
 
 class Responder(object):
@@ -41,6 +63,9 @@ class Responder(object):
             pass
         self.port = None
         self.socket = None
+
+        self.actions = []
+        self.register_object_actions(self)
 
     @property
     def node_name(self):
@@ -110,6 +135,18 @@ class Responder(object):
         # return a tuple, where the first element is an integer error code.
         # The second element can pretty much be anything, as long as it is
         # json-serializable. See self.is_valid_response.
+
+        # TODO: I think this could be run in the background using a
+        # multiprocessing.Process, which would make it quite a bit easier to
+        # interact with at the python-object level. Will require
+        # some investigation.
+
+        # NOTE: JSON was chosen as the serialization method here over
+        # pickle as it does not tie the implementation to python and because
+        # JSON is arguable smaller and faster:
+        #
+        #   http://www.benfrederickson.com/dont-pickle-your-data/
+        #
         if self.socket.closed:
             Responder.logger.info('Socket close. Attempting to re-open.')
             self._open_socket()
@@ -128,7 +165,9 @@ class Responder(object):
                 else:
                     # An actual application message, use introspection to find
                     # the handler
-                    tocall = getattr(self, "_action_{}".format(msg['action']))
+                    tocall = [act for act in self.actions if
+                              act.__name__ == "_action_{}".format(
+                                  msg['action'])][0]
                     if 'kwargs' in msg.keys():
                         act_kwargs = msg['kwargs']
                     else:
@@ -179,3 +218,36 @@ class Responder(object):
         logmsg = "{}: Responder received is_alive?".format(os.getpid())
         Responder.logger.debug(logmsg)
         return 0, "Yes, I am alive"
+
+    def register_action(self, action):
+        """Register a method as an action that can be invoked
+        by a requester.
+
+        Args:
+            action (method): A method that can be invoked by a requester.
+                The name of the method should begin with "_action_" and the
+                remainder of the method name will be used for the invocation by
+                default. For example, the method _action_alive can be invoked
+                by a requester using the alias "alive" (Renaming or
+                calling-class scoping may be implemented later to avoid
+                name-conflicts across methods)
+        """
+        if not(action.__name__.startswith('_action_')):
+            raise NameError("Methods to be exposed to requesters as 'actions' "
+                            "must have names prefixed with _action_")
+        self.actions.append(action)
+
+    def register_object_actions(self, obj):
+        """Register all of obj's methods that are prefixed with _action_ as
+        invokable by a requester"""
+        for act_name in dir(obj):
+            if act_name.startswith('_action_'):
+                self.register_action(getattr(obj, act_name))
+
+    def inspect_actions(self):
+        """Return basic information about available actions... useful info
+        might be action name, class where method is defined, and the
+        arguments to the method"""
+        return [{'name': a.__name__,
+                 'defining-class': get_class_that_defined_method(a)}
+                for a in self.actions]

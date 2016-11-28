@@ -91,6 +91,9 @@ class IgnorantQ(object):
         pass
 
 
+# TODO: Study and determine whether this class can be used as a basis or
+# at least a template for tracking state of a "DAG" of jobs, and preferably
+# for handling submission+retry logic for said jobs.
 class MonitoredQ(IgnorantQ):
     """monitored Q supports monitoring of a single job queue by using a sqlite
     back monitoring server that all sge jobs automatically connect to after

@@ -9,7 +9,7 @@ from .responder import Responder
 Session = sessionmaker()
 
 
-class CentralJobMonitor(Responder):
+class CentralJobMonitor(object):
     """Listens for job status update messages,
     writes to sqllite server node.
     server node job status logger.
@@ -25,7 +25,7 @@ class CentralJobMonitor(Responder):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema"""
         self.out_dir = out_dir
-        super(CentralJobMonitor, self).__init__(out_dir)
+        self.responder = Responder(out_dir)
         logmsg = "{}: Responder initialized".format(os.getpid())
         Responder.logger.info(logmsg)
 
@@ -36,7 +36,9 @@ class CentralJobMonitor(Responder):
         self.session = self.create_job_db()
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
         Responder.logger.info(logmsg)
-        self.start_server()
+
+        self.responder.register_object_actions(self)
+        self.responder.start_server()
 
     def create_job_db(self):
         """create sqlite database from models schema"""
@@ -49,12 +51,12 @@ class CentralJobMonitor(Responder):
 
         models.Base.metadata.create_all(eng)  # doesn't create if exists
         Session.configure(bind=eng)
-        session = Session
+        session = Session()
 
         try:
             models.default_statuses(session)
         except Exception as e:
-            print(e)
+            Responder.logger.exception(e)
         return session
 
     def _action_register_job(self, name=None):
@@ -91,12 +93,13 @@ class CentralJobMonitor(Responder):
             jid (int): job id to update status of
             status_id (int): status id to update job to
         """
-        status = models.JobStatus(jid=jid, status=status_id)
-        job = self.session.query(models.Job).filter_by(jid=jid).first()
+        status = models.JobStatus(monitored_jid=jid, status=status_id)
+        job = self.session.query(models.Job).filter_by(
+            monitored_jid=jid).first()
         job.current_status = status_id
         self.session.add_all([status, job])
         self.session.commit()
-        return (0,)
+        return (0, jid, status_id)
 
     def _action_update_job_usage(self, jid, *args, **kwargs):
         job = self.session.query(models.Job).filter_by(jid=jid).first()
@@ -119,6 +122,13 @@ class CentralJobMonitor(Responder):
         return (0,)
 
     def _action_query(self, query):
+        # TODO: Deprecate this action or at leastrefactor in such away that
+        # responses are returnable via JSON. I don't know that
+        # we want to resurrect pickle as the serialization format, and
+        # I don't know that we really want message-passing to be able to
+        # generically 'query' the database... seems like we would want to
+        # expose more targeted actions on the DB to requesters, and keep
+        # large open-ended 'queries' server-side
         """execute raw sql query on sqlite database
 
         Args:
@@ -137,7 +147,8 @@ class CentralJobMonitor(Responder):
                 df = pd.DataFrame(columns=(r_proxy.keys()))
                 response = (0, df)
             except Exception as e:
-                response = (1, "dataframe failed to load {}".format(e).encode())
+                response = (1,
+                            "dataframe failed to load {}".format(e))
 
         except Exception as e:
             response = (1, "query failed to execute {}".format(e).encode())

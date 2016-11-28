@@ -103,7 +103,8 @@ class Job(object):
             print(e)
 
 
-class SGEJob(object):
+# TODO: Finish refactor such that SGEJob becomes a subclass of Job
+class SGEJob(Job):
     """client node job status logger. Pushes job status to server node through
     zmq. Status is logged by server into sqlite database
 
