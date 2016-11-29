@@ -473,13 +473,14 @@ def qsub(
         template.jobEnvironment = environment_variables
         logger.debug("qsub environment {}".format(template.jobEnvironment))
 
+    single_job = True
     if parameters:
         if isinstance(parameters, types.GeneratorType):
-            pass
+            single_job = False
         elif isinstance(parameters[0], str):
             parameters = [parameters]
         elif isinstance(parameters[0], collections.abc.Sequence):
-            pass
+            single_job = False
         else:
             parameters = [parameters]
     else:
@@ -517,7 +518,7 @@ def qsub(
 
         job_ids.append(session.runJob(template))
 
-    if len(job_ids) == 1:
+    if single_job:
         return job_ids[0]
     else:
         return job_ids
