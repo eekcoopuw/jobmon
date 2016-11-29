@@ -1,44 +1,73 @@
+"""
+Interface to the dynamic resource manager (DRM), aka the scheduler.
+"""
+import atexit
+import collections.abc
+from datetime import datetime, time
+import itertools
 import logging
 import os
+import re
 import subprocess
-from datetime import datetime, time
 import pandas as pd
 import numpy as np
-import itertools
+import drmaa
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+DRMAA_PATH = "/usr/local/UGE-{}/lib/lx-amd64/libdrmaa.so.1.0"
+# Comes from object_name in `man sge_types`. Also, * excluded.
+UGE_NAME_POLICY = re.compile("^[.#\n\t\r /\\\[\]:´{}|\(\)@%,*]|"
+                             "[\n\t\r /\\\[\]:´{}|\(\)@%,*]")
 
 
-# TODO Consider replacing all of this by DRMAA
+def _drmaa_session():
+    """
+    Get the global DRMAA session or initialize it if this is the first call.
+    Can set this by setting DRMAA_LIBRARY_PATH. This should be the complete
+    path the the library with .so at the end.
+    """
+    if "session" not in vars(_drmaa_session):
+        if "DRMAA_LIBRARY_PATH" not in os.environ:
+            os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(
+                os.environ["SGE_CLUSTER_NAME"])
+        session = drmaa.Session()
+        session.initialize()
+        atexit.register(_drmaa_exit)
+        _drmaa_session.session = session
+    return _drmaa_session.session
+
+
+def _drmaa_exit():
+    _drmaa_session.session.exit()
+
 
 #TODO Should this be two separate functions?
 def true_path(file_or_dir=None, executable=None):
     """Get true path to file or executable.
     Args:
-        :param file_or_dir partial file path, to be expanded as per the current user
-        :param executable  the name of an executable, which will be resolved using "which"
+        :param file_or_dir partial file path, to be expanded
+               as per the current user
+        :param executable  the name of an executable, which
+               will be resolved using "which"
 
-        Both arguments cannot be null
+        Specify one of the two arguments, not both.
     """
-    logger = logging.getLogger(__name__)
-    if file_or_dir is None and executable is None:
-        raise ValueError("true_path: file_or_dir and executable cannot both be null")
-
     if file_or_dir is not None:
         f = file_or_dir
-    if executable is not None:
+    elif executable is not None:
         f = subprocess.check_output(["which", executable])
-    f = os.path.abspath(os.path.expanduser(f))
+    else:
+        raise ValueError("true_path: file_or_dir and executable "
+                         "cannot both be null")
 
     # Be careful, in python 3 check_output returns bytes
     if not isinstance(f, str):
         f = f.decode('utf-8')
-    g = f.strip(' \t\r\n')
-    return g
+    f = os.path.abspath(os.path.expanduser(f))
+    return f.strip(' \t\r\n')
 
 
 def qstat(status=None, pattern=None, user=None, jids=None):
@@ -289,135 +318,193 @@ def reqsub(job_id):
     return subprocess.check_output(['qmod', '-r', str(job_id)])
 
 
+DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
+
+
+def _find_conda_env(name):
+    """
+    Finds the given Conda environment on the local machine.
+    The remote machine may have a different setup, in which case
+    a rooted path will be clearer. This checks the CONDA_ENVS_PATH
+    variable, if given.
+    """
+    if "CONDA_ENVS_PATH" in os.environ:
+        paths = os.environ["CONDA_ENVS_PATH"].split(":")
+    else:
+        paths = [os.path.expanduser("~/.conda/envs")]
+    for p in paths:
+        base_dir = os.path.join(p, name)
+        if os.path.exists(base_dir):
+            logger.debug("find_conda_env base {}".format(base_dir))
+            return os.path.join(base_dir, "bin/python")
+    else:
+        return os.path.join(os.path.expanduser(
+            "{}/{}/bin/python".format(DEFAULT_CONDA_ENV_LOCATION, name)))
+
+
 def qsub(
-        runfile,
-        jobname,
-        parameters=[],
+        run_file,
+        job_name,
+        parameters=None,
         project=None,
         slots=4,
         memory=10,
         hold_pattern=None,
         holds=None,
-        shfile=None,
-        jobtype='python',
+        job_type='python',
         stdout=None,
         stderr=None,
         prepend_to_path=None,
         conda_env=None):
-    """Submit job to sun grid engine queue
+    """Submits job to Grid Engine Queue.
+    This function provides a convenient way to call scripts for
+    R, Python, and Stata using the job_type parameter.
+    If the job_type is None, then it executes whatever path
+    is in run_file, which may be a shell script or a binary.
 
     Args:
-        runfile (string): absolute path of script to run
-        jobname (string): what to call the job
-        parameters (tuple or list, optional): arguments to pass to runfile.
+        run_file (string): absolute path of script or binary to run
+        job_name (string): what to call the job
+        parameters (tuple or list, optional): arguments to pass to run_file.
         project (string, option): What project to submit the job under. Default
             is ihme_general.
         slots (int, optional): How many slots to request for the job.
             approximate using 1 core == 1 slot, 1 slot = 2GB of RAM
-        memory (int, optional): How much ram to requestion for the job.
+        memory (int, optional): How much ram to request for the job.
         hold_pattern (string, optional): looks up scheduled jobs with names
             matching the specified patten and sets them as holds for the
             requested job.
         holds (list, optional): explicit list of job ids to hold based on.
-        shfile (string, optional): shell file to execute in job
-        jobtype (string, optional): joint purpose argument for specifying what
-            to pass into the shfile. can be arbitrary string or one of the
+        job_type (string, optional): joint purpose argument for specifying what
+            to pass into the shell_file. can be arbitrary string or one of the
             below options. default is 'python'
                 'python':
-                    /ihme/code/central_comp/anaconda/bin/python runfile
+                    Uses the default python on the path to execute run_file.
                 'stata':
-                    /usr/local/bin/stata-mp -b do runfile
+                    /usr/local/bin/stata-mp -b do run_file
                 'R':
                     /usr/local/bin/R < runfile --no-save --args
+                None:
+                    This means the run_file is, itself, the executable.
         stdout (string, optional): where to pipe standard out to. default is
-            /dev/null
+            /dev/null. Recognizes $HOME, $USER, $JOB_ID, $JOB_NAME, $HOSTNAME,
+            and $TASK_ID.
         stderr (string, optional): where to pipe standard error to. default is
-            /dev/null
-        prepend_to_path (string, optional): optionally prepend directory to
-            environment path
-        conda_env (string, optional): optionally select which conda environment
-            to run python from.
+            /dev/null.  Recognizes $HOME, $USER, $JOB_ID, $JOB_NAME, $HOSTNAME,
+            and $TASK_ID.
+        prepend_to_path (string, optional): Copies the current shell's
+            environment variables and prepends the given one. Without this,
+            the PATH is typically very short (/usr/local/bin:/usr/bin).
+        conda_env (string, optional): If the job_type is Python, this
+            finds the Conda environment by with the given name on the
+            submitting host. If conda_env
+            is a rooted path (starts with "/"), then this uses the
+            path as given.
 
     Returns:
         job_id of submitted job
     """
-
-    # Set CPU and memory
-    submission_params = [
-        "qsub", "-pe", "multi_slot", str(slots), "-l", "mem_free=%sg" % memory]
-    if project is not None:
-        submission_params.extend(["-P", project])
+    assert slots > 0
+    assert not (holds and hold_pattern)
+    assert len(str(job_name)) > 0
+    assert not (conda_env and not job_type == "python")
+    parameters = parameters or list()
+    assert (isinstance(parameters, collections.abc.Sequence) and not
+            isinstance(parameters, str)), (
+        "'parameters' cannot be a string. Must be a list or a tuple.")
 
     # Set holds, if requested
     if hold_pattern is not None:
         holds = qstat(hold_pattern)[1]
 
-    if holds is not None and len(holds) > 0:
-        if isinstance(holds, (list, tuple)):
-            submission_params.extend(['-hold_jid', ",".join(holds)])
+    if isinstance(holds, str):
+        holds = holds.replace(" ", "")
+    elif isinstance(holds, collections.abc.Sequence):
+        holds = ",".join([str(hold_job_id) for hold_job_id in holds])
+    elif holds:
+        logger.error("Holds not a string or list {}".format(holds))
+        raise ValueError("Holds not a string or list {}".format(holds))
+    else:
+        pass  # No holds
+
+    session = _drmaa_session()
+    template = session.createJobTemplate()
+
+    native = [
+        "-P {}".format(project) if project else None,
+        "-w n",  # Needed for mem_free to work. Turns off validation.
+        "-pe multi_slot {}".format(str(slots)),
+        "-l mem_free={!s}G".format(memory) if memory else None,
+        "-hold_jid {}".format(holds) if holds else None,
+    ]
+    template.nativeSpecification = " ".join(
+            [str(native_arg) for native_arg in native if native_arg])
+    logger.debug("qsub native {}".format(template.nativeSpecification))
+    template.jobName = UGE_NAME_POLICY.sub("", job_name)
+    template.outputPath = ":" + (stdout or "/dev/null")
+    template.errorPath = ":" + (stderr or "/dev/null")
+
+    shell_args = list()
+
+    run_file = os.path.expanduser(run_file)
+
+    # Allows someone to choose the executable.
+    if prepend_to_path:
+        path = "{}:{}".format(prepend_to_path, os.environ["PATH"])
+        template.jobEnvironment = {"PATH": path}
+        logger.debug("qsub environment {}".format(template.jobEnvironment))
+
+    str_params = [str(param).strip() for param in parameters]
+    if job_type == "python":
+        if conda_env:
+            if not os.path.isabs(conda_env):
+                python_binary = _find_conda_env(conda_env)
+            else:
+                python_binary = os.path.join(conda_env, "bin/python")
         else:
-            submission_params.extend(['-hold_jid', str(holds)])
-
-    # Set job name
-    submission_params.extend(["-N", jobname])
-
-    # Write stdout/stderr to files
-    if stdout is not None:
-        submission_params.extend(['-o', stdout])
-    if stderr is not None:
-        submission_params.extend(['-e', stderr])
-
-    # Convert all parameters to strings
-    assert (isinstance(parameters, (list, tuple)) and not
-            isinstance(parameters, str)), (
-        "'parameters' cannot be a string. Must be a list or a tuple.")
-    parameters = [str(p) for p in parameters]
-    parameters = [p.strip(' \t\r\n') for p in parameters]
-
-    # Define script to run and pass parameters
-    if shfile is None and conda_env is None:
-        shfile = "{}/submit_master.sh".format(this_path)
-    elif shfile is None and conda_env is not None:
-        shfile = "{}/env_submit_master.sh".format(this_path)
+            python_binary = "python"
+        shell_args.append(python_binary)
+        shell_args.append(run_file)
+        shell_args.extend(str_params)
+    elif job_type == "stata":
+        shell_args.extend(["/usr/local/bin/stata-mp", "-b", "do", run_file])
+        shell_args.extend(str_params)
+    elif job_type == "R":
+        shell_args.append("/usr/local/bin/R")
+        # For R, arguments need to be a single entry in ARGV, so join them.
+        r_args = "--args {}".format(" ".join(str_params))
+        shell_args.extend(["--vanilla", "-f", run_file, r_args])
+    elif job_type:
+        raise ValueError("sge.qsub unknown job type {}".format(job_type))
     else:
-        shfile = true_path(file_or_dir=shfile)
-    runfile = os.path.expanduser(runfile)
-    submission_params.append(shfile)
-    if prepend_to_path is not None:
-        submission_params.append(prepend_to_path)
-    else:
-        submission_params.append("")
-    if conda_env is not None:
-        submission_params.append(conda_env)
-    if jobtype == "python":
-        submission_params.append("python")
-        submission_params.append(runfile)
-    elif jobtype == "stata":
-        submission_params.append("/usr/local/bin/stata-mp")
-        submission_params.append("-b")
-        submission_params.append("do")
-        submission_params.append(runfile)
-    elif jobtype == "R":
-        submission_params.append("/usr/local/bin/R")
-        submission_params.append("<")
-        submission_params.append(runfile)
-        submission_params.append("--no-save")
-        submission_params.append("--args")
-    elif jobtype is not None:
-        submission_params.append(jobtype)
-        submission_params.append(runfile)
-    else:
-        submission_params.append(runfile)
+        shell_args.append(run_file)
+        shell_args.extend(str_params)
+    logger.info("qsub {}".format(shell_args))
 
-    # Creat full submission array
-    submission_params.extend(parameters)
-    print(submission_params)
+    template.remoteCommand = shell_args[0]
+    template.args = shell_args[1:]
 
-    # Submit job
-    submission_msg = subprocess.check_output(submission_params)
-    print(submission_msg)
-    jid = submission_msg.split()[2]
-    return jid
+    return session.runJob(template)
+
+
+def _wait_done(job_ids):
+    """
+    For unit tests. Ensures the jobs are done or running.
+    If the queue is long, this will give spurious errors.
+    """
+    session = _drmaa_session()
+    wait_duration = 5 * 60  # seconds
+    try:
+        session.synchronize(job_ids, wait_duration)
+    except drmaa.errors.ExitTimeoutException:
+        return False
+    for status_check in job_ids:
+        status = session.jobStatus(status_check)
+        if status not in {drmaa.JobState.DONE, drmaa.JobState.RUNNING}:
+            logger.error("job_id {} has status {}".format(status_check, status))
+            raise RuntimeError("job status not done or running {}".format(
+                    status_check))
+    return True
 
 
 def get_commit_hash(dir="."):
