@@ -336,10 +336,10 @@ def _find_conda_env(name):
         base_dir = os.path.join(p, name)
         if os.path.exists(base_dir):
             logger.debug("find_conda_env base {}".format(base_dir))
-            return os.path.join(base_dir, "bin/python")
+            return base_dir
     else:
-        return os.path.join(os.path.expanduser(
-            "{}/{}/bin/python".format(DEFAULT_CONDA_ENV_LOCATION, name)))
+        return os.path.expanduser(
+                "{}/{}".format(DEFAULT_CONDA_ENV_LOCATION, name))
 
 
 def qsub(
@@ -448,19 +448,26 @@ def qsub(
 
     run_file = os.path.expanduser(run_file)
 
-    # Allows someone to choose the executable.
+    environment_variables = dict()
     if prepend_to_path:
         path = "{}:{}".format(prepend_to_path, os.environ["PATH"])
-        template.jobEnvironment = {"PATH": path}
-        logger.debug("qsub environment {}".format(template.jobEnvironment))
+        environment_variables["PATH"] = path
 
     str_params = [str(param).strip() for param in parameters]
     if job_type == "python":
         if conda_env:
             if not os.path.isabs(conda_env):
-                python_binary = _find_conda_env(conda_env)
+                python_base = _find_conda_env(conda_env)
+                python_binary = os.path.join(python_base, "bin/python")
             else:
+                python_base = conda_env
                 python_binary = os.path.join(conda_env, "bin/python")
+            r_path = os.path.join(python_base, "lib/R/lib")
+            if "LD_LIBRARY_PATH" in os.environ:
+                environment_variables["LD_LIBRARY_PATH"] = (
+                    "{}:{}".format(r_path, os.environ["LD_LIBRARY_PATH"]))
+            else:
+                environment_variables["LD_LIBRARY_PATH"] = r_path
         else:
             python_binary = "python"
         shell_args.append(python_binary)
@@ -480,6 +487,10 @@ def qsub(
         shell_args.append(run_file)
         shell_args.extend(str_params)
     logger.info("qsub {}".format(shell_args))
+
+    if environment_variables:
+        template.jobEnvironment = environment_variables
+        logger.debug("qsub environment {}".format(template.jobEnvironment))
 
     template.remoteCommand = shell_args[0]
     template.args = shell_args[1:]
