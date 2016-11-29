@@ -57,6 +57,23 @@ def test_basic_submit():
     assert glob.glob(os.path.expanduser("~/whatsleep*{}".format(sleep_id)))
 
 
+def example_job_args(tag):
+    for idx in range(4):
+        yield [tag, idx]
+
+
+def test_multi_submit():
+    logging.basicConfig(level=logging.DEBUG)
+    true_ids = sge.qsub("/bin/sleep", "howdy",
+                        parameters=[[1], [2], [1]], job_type=None)
+    assert len(true_ids)==3
+
+    gen_ids = sge.qsub("/bin/true", "generated", job_type=None,
+                       parameters=example_job_args("today"))
+    assert len(gen_ids)==4
+    assert sge._wait_done(true_ids + gen_ids)
+
+
 def test_path_manipulation():
     """
     Compares what happens when you specify a prepend_to_path versus

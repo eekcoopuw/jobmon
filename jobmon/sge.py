@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import subprocess
+import types
 import pandas as pd
 import numpy as np
 import drmaa
@@ -361,6 +362,8 @@ def qsub(
     R, Python, and Stata using the job_type parameter.
     If the job_type is None, then it executes whatever path
     is in run_file, which may be a shell script or a binary.
+    If the parameters argument is a list of lists of parameters or a
+    generator of lists of parameters, then this will submit multiple jobs.
 
     Args:
         run_file (string): absolute path of script or binary to run
@@ -408,9 +411,7 @@ def qsub(
     assert not (holds and hold_pattern)
     assert len(str(job_name)) > 0
     assert not (conda_env and not job_type == "python")
-    parameters = parameters or list()
-    assert (isinstance(parameters, collections.abc.Sequence) and not
-            isinstance(parameters, str)), (
+    assert not isinstance(parameters, str), (
         "'parameters' cannot be a string. Must be a list or a tuple.")
 
     # Set holds, if requested
@@ -444,58 +445,82 @@ def qsub(
     template.outputPath = ":" + (stdout or "/dev/null")
     template.errorPath = ":" + (stderr or "/dev/null")
 
-    shell_args = list()
-
     run_file = os.path.expanduser(run_file)
-
     environment_variables = dict()
+    # Moved this out of Python section because it calls os.path.exist
+    # which shouldn't be called in a loop.
+    if conda_env:
+        if not os.path.isabs(conda_env):
+            python_base = _find_conda_env(conda_env)
+            python_binary = os.path.join(python_base, "bin/python")
+        else:
+            python_base = conda_env
+            python_binary = os.path.join(conda_env, "bin/python")
+        r_path = os.path.join(python_base, "lib/R/lib")
+        if "LD_LIBRARY_PATH" in os.environ:
+            environment_variables["LD_LIBRARY_PATH"] = (
+                "{}:{}".format(r_path, os.environ["LD_LIBRARY_PATH"]))
+        else:
+            environment_variables["LD_LIBRARY_PATH"] = r_path
+    else:
+        python_binary = "python"
+
     if prepend_to_path:
         path = "{}:{}".format(prepend_to_path, os.environ["PATH"])
         environment_variables["PATH"] = path
-
-    str_params = [str(param).strip() for param in parameters]
-    if job_type == "python":
-        if conda_env:
-            if not os.path.isabs(conda_env):
-                python_base = _find_conda_env(conda_env)
-                python_binary = os.path.join(python_base, "bin/python")
-            else:
-                python_base = conda_env
-                python_binary = os.path.join(conda_env, "bin/python")
-            r_path = os.path.join(python_base, "lib/R/lib")
-            if "LD_LIBRARY_PATH" in os.environ:
-                environment_variables["LD_LIBRARY_PATH"] = (
-                    "{}:{}".format(r_path, os.environ["LD_LIBRARY_PATH"]))
-            else:
-                environment_variables["LD_LIBRARY_PATH"] = r_path
-        else:
-            python_binary = "python"
-        shell_args.append(python_binary)
-        shell_args.append(run_file)
-        shell_args.extend(str_params)
-    elif job_type == "stata":
-        shell_args.extend(["/usr/local/bin/stata-mp", "-b", "do", run_file])
-        shell_args.extend(str_params)
-    elif job_type == "R":
-        shell_args.append("/usr/local/bin/R")
-        # For R, arguments need to be a single entry in ARGV, so join them.
-        r_args = "--args {}".format(" ".join(str_params))
-        shell_args.extend(["--vanilla", "-f", run_file, r_args])
-    elif job_type:
-        raise ValueError("sge.qsub unknown job type {}".format(job_type))
-    else:
-        shell_args.append(run_file)
-        shell_args.extend(str_params)
-    logger.info("qsub {}".format(shell_args))
 
     if environment_variables:
         template.jobEnvironment = environment_variables
         logger.debug("qsub environment {}".format(template.jobEnvironment))
 
-    template.remoteCommand = shell_args[0]
-    template.args = shell_args[1:]
+    if parameters:
+        if isinstance(parameters, types.GeneratorType):
+            pass
+        elif isinstance(parameters[0], str):
+            parameters = [parameters]
+        elif isinstance(parameters[0], collections.abc.Sequence):
+            pass
+        else:
+            parameters = [parameters]
+    else:
+        parameters = [list()]
 
-    return session.runJob(template)
+    job_ids = list()
+    for params in parameters:
+        str_params = [str(bare_arg).strip() for bare_arg in params]
+        shell_args = list()
+        if job_type == "python":
+            shell_args.append(python_binary)
+            shell_args.append(run_file)
+            if str_params:
+                shell_args.extend(str_params)
+        elif job_type == "stata":
+            shell_args.extend(["/usr/local/bin/stata-mp", "-b", "do", run_file])
+            if str_params:
+                shell_args.extend(str_params)
+        elif job_type == "R":
+            shell_args.append("/usr/local/bin/R")
+            # For R, arguments need to be a single entry in ARGV, so join them.
+            r_args = "--args {}".format(" ".join(str_params))
+            shell_args.extend(["--vanilla", "-f", run_file, r_args])
+        elif job_type:
+            raise ValueError("sge.qsub unknown job type {}".format(job_type))
+        else:
+            shell_args.append(run_file)
+            if str_params:
+                shell_args.extend(str_params)
+        logger.info("qsub {}".format(shell_args))
+
+        template.remoteCommand = shell_args[0]
+        if len(shell_args) > 1:
+            template.args = shell_args[1:]
+
+        job_ids.append(session.runJob(template))
+
+    if len(job_ids) == 1:
+        return job_ids[0]
+    else:
+        return job_ids
 
 
 def _wait_done(job_ids):
