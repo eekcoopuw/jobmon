@@ -34,23 +34,24 @@ def test_session_creation():
     LOGGER.debug(s.drmsInfo)
 
 
+@pytest.mark.slowtest
 def test_basic_submit():
     logging.basicConfig(level=logging.DEBUG)
-    true_id = sge.qsub("/bin/true", "so true", memory=0, job_type=None)
+    true_id = sge.qsub("/bin/true", "so true", memory=0)
     assert true_id
 
     mem_id = sge.qsub("/bin/true", "still true", slots=1,
-                      project="proj_forecasting", memory=1, job_type=None)
+                      project="proj_forecasting", memory=1)
     assert mem_id
 
     sleep_id = sge.qsub("/bin/sleep", "wh#@$@&(*!",
-                        parameters=[50], job_type=None,
+                        parameters=[50],
                         stdout="whatsleep.o$JOB_ID")
     wait_id_a = sge.qsub("/bin/true", "dsf897  ",
-                         holds=[sleep_id], job_type=None)
+                         holds=[sleep_id], jobtype="plain")
     assert wait_id_a
     wait_id_b = sge.qsub("/bin/true", "flou;nd  ",
-                         holds=[sleep_id], job_type=None)
+                         holds=[sleep_id])
     assert wait_id_b
     assert sge._wait_done([true_id, mem_id, sleep_id, wait_id_a, wait_id_b])
     assert not glob.glob(os.path.expanduser("~/sotrue*{}".format(true_id)))
@@ -62,18 +63,20 @@ def example_job_args(tag):
         yield [tag, idx]
 
 
+@pytest.mark.slowtest
 def test_multi_submit():
     logging.basicConfig(level=logging.DEBUG)
     true_ids = sge.qsub("/bin/sleep", "howdy",
-                        parameters=[[1], [2], [1]], job_type=None)
+                        parameters=[[1], [2], [1]])
     assert len(true_ids)==3
 
-    gen_ids = sge.qsub("/bin/true", "generated", job_type=None,
+    gen_ids = sge.qsub("/bin/true", "generated",
                        parameters=example_job_args("today"))
     assert len(gen_ids)==4
     assert sge._wait_done(true_ids + gen_ids)
 
 
+@pytest.mark.slowtest
 def test_path_manipulation():
     """
     Compares what happens when you specify a prepend_to_path versus
@@ -81,35 +84,39 @@ def test_path_manipulation():
     """
     logging.basicConfig(level=logging.DEBUG)
     sort_a = sge.qsub(sge.true_path("env_vars.sh"), "env-a",
-                      job_type=None, slots=1, memory=0,
+                      slots=1, memory=0,
                       stdout=os.path.abspath("env-a.out"))
     sort_b = sge.qsub(sge.true_path("env_vars.sh"), "env-b",
-                      job_type=None, slots=1, memory=0,
+                      jobtype="plain", slots=1, memory=0,
                       prepend_to_path="~/DonaldDuck",
                       stdout=os.path.abspath("env-b.out"))
     assert sge._wait_done([sort_a, sort_b])
     assert "DonaldDuck" in open("env-b.out").read()
 
 
+@pytest.mark.slowtest
 def test_python_submit():
     logging.basicConfig(level=logging.DEBUG)
     py_id = sge.qsub(sge.true_path("waiter.py"), ".hum",
-                     parameters=[5], job_type="python")
+                     parameters=[5], jobtype="python")
     assert py_id
 
     env_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
-                     parameters=[3], job_type="python",
+                      parameters=[3],
                       conda_env="fbd-0.1")
     assert env_id
     abs_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
-                     parameters=[3], job_type="python",
+                      parameters=[3],
                       conda_env="/ihme/forecasting/envs/fbd-0.1")
     assert abs_id
     assert sge._wait_done([py_id, env_id, abs_id])
 
 
+@pytest.mark.slowtest
 def test_r_submit():
     logging.basicConfig(level=logging.DEBUG)
     rscript_id = sge.qsub(sge.true_path("hi.R"), ".rstuff&*(",
-                     parameters=[5], job_type="R")
-    assert sge._wait_done([rscript_id])
+                          parameters=[5], jobtype="R")
+    notype_id = sge.qsub(sge.true_path("hi.R"), "##rb+@",
+                          parameters=[3])
+    assert sge._wait_done([rscript_id, notype_id])

@@ -2,7 +2,10 @@
 Interface to the dynamic resource manager (DRM), aka the scheduler.
 """
 import atexit
-import collections.abc
+try:
+    from collections.abc import Sequence
+except ImportError:
+    from collections import Sequence
 from datetime import datetime, time
 import itertools
 import logging
@@ -14,14 +17,16 @@ import pandas as pd
 import numpy as np
 import drmaa
 
+
 this_path = os.path.dirname(os.path.abspath(__file__))
-
-
 logger = logging.getLogger(__name__)
 DRMAA_PATH = "/usr/local/UGE-{}/lib/lx-amd64/libdrmaa.so.1.0"
 # Comes from object_name in `man sge_types`. Also, * excluded.
-UGE_NAME_POLICY = re.compile("^[.#\n\t\r /\\\[\]:´{}|\(\)@%,*]|"
-                             "[\n\t\r /\\\[\]:´{}|\(\)@%,*]")
+UGE_NAME_POLICY = re.compile(
+    "[.#\n\t\r /\\\[\]:'{}\|\(\)@%,*]|[\n\t\r /\\\[\]:'{}\|\(\)@%,*]")
+STATA_BINARY = "/usr/local/bin/stata-mp"
+R_BINARY = "/usr/local/bin/R"
+DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
 
 
 def _drmaa_session():
@@ -214,9 +219,9 @@ def qstat_usage(jids):
         Usage details.
     """
     jids = np.atleast_1d(jids)
-    deets = qstat_details(jids)
+    details = qstat_details(jids)
     usage = {}
-    for jid, info in deets.iteritems():
+    for jid, info in details.items():
         usage[jid] = {}
         usagestr = info['usage                 1']
         parsus = {u.split("=")[0]: u.split("=")[1]
@@ -319,9 +324,6 @@ def reqsub(job_id):
     return subprocess.check_output(['qmod', '-r', str(job_id)])
 
 
-DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
-
-
 def _find_conda_env(name):
     """
     Finds the given Conda environment on the local machine.
@@ -332,27 +334,42 @@ def _find_conda_env(name):
     if "CONDA_ENVS_PATH" in os.environ:
         paths = os.environ["CONDA_ENVS_PATH"].split(":")
     else:
-        paths = [os.path.expanduser("~/.conda/envs")]
+        paths = [os.path.expanduser(DEFAULT_CONDA_ENV_LOCATION)]
     for p in paths:
         base_dir = os.path.join(p, name)
         if os.path.exists(base_dir):
             logger.debug("find_conda_env base {}".format(base_dir))
             return base_dir
     else:
-        return os.path.expanduser(
-                "{}/{}".format(DEFAULT_CONDA_ENV_LOCATION, name))
+        return os.path.expanduser(os.path.join(
+                DEFAULT_CONDA_ENV_LOCATION, name))
+
+
+def _suffix(path):
+    """Suffix of a filesystem path."""
+    if isinstance(path, str):
+        name = path.split(os.sep)[-1]
+        dot_location = name.rfind(".")
+        if dot_location > 0:
+            return name[dot_location:]
+        else:
+            return None
+    else:
+        # Assume it's a pathlib.Path object.
+        return path.suffix
 
 
 def qsub(
-        run_file,
-        job_name,
+        runfile,
+        jobname,
         parameters=None,
         project=None,
         slots=4,
         memory=10,
         hold_pattern=None,
         holds=None,
-        job_type='python',
+        shfile=None,
+        jobtype=None,
         stdout=None,
         stderr=None,
         prepend_to_path=None,
@@ -365,9 +382,13 @@ def qsub(
     If the parameters argument is a list of lists of parameters or a
     generator of lists of parameters, then this will submit multiple jobs.
 
+    If a shell file is given as shfile, then this function will submit the
+    shell file as a job but construct the arguments to that shell file
+    using the given job_type.
+
     Args:
-        run_file (string): absolute path of script or binary to run
-        job_name (string): what to call the job
+        runfile (string): absolute path of script or binary to run
+        jobname (string): what to call the job
         parameters (tuple or list, optional): arguments to pass to run_file.
         project (string, option): What project to submit the job under. Default
             is ihme_general.
@@ -378,7 +399,7 @@ def qsub(
             matching the specified patten and sets them as holds for the
             requested job.
         holds (list, optional): explicit list of job ids to hold based on.
-        job_type (string, optional): joint purpose argument for specifying what
+        jobtype (string, optional): joint purpose argument for specifying what
             to pass into the shell_file. can be arbitrary string or one of the
             below options. default is 'python'
                 'python':
@@ -387,8 +408,11 @@ def qsub(
                     /usr/local/bin/stata-mp -b do run_file
                 'R':
                     /usr/local/bin/R < runfile --no-save --args
+                'plain':
+                    Don't use any interpreter, even if the runfile suffix
+                    is known.
                 None:
-                    This means the run_file is, itself, the executable.
+                    Look at runfile's suffix to pick interpreter, if it's known.
         stdout (string, optional): where to pipe standard out to. default is
             /dev/null. Recognizes $HOME, $USER, $JOB_ID, $JOB_NAME, $HOSTNAME,
             and $TASK_ID.
@@ -409,10 +433,24 @@ def qsub(
     """
     assert slots > 0
     assert not (holds and hold_pattern)
-    assert len(str(job_name)) > 0
-    assert not (conda_env and not job_type == "python")
+    assert len(str(jobname)) > 0
     assert not isinstance(parameters, str), (
         "'parameters' cannot be a string. Must be a list or a tuple.")
+
+    # Known suffix, has job_type, shfile
+    # N             N             N      Run runfile.
+    # Y             N             N      Find jobtype and run interpreter.
+    # N             Y             N      Run given jobtype's interpreter.
+    # Y             Y             N      Run given jobtype's interpreter
+    # N             N             Y      Run shfile with runfile as arg.
+    # Y             N             Y      Build args to shfile for found jobtype.
+    # N             Y             Y      Build args to shfile for jobtype.
+    # Y             Y             Y      Use given jobtype and build args.
+    if not jobtype:
+        job_types = { ".py": "python", ".do": "stata", ".sh": "plain",
+                      ".r": "R", ".R": "R"}
+        jobtype = job_types.get(_suffix(runfile), None)
+    assert not (conda_env and not jobtype == "python")
 
     # Set holds, if requested
     if hold_pattern is not None:
@@ -420,7 +458,7 @@ def qsub(
 
     if isinstance(holds, str):
         holds = holds.replace(" ", "")
-    elif isinstance(holds, collections.abc.Sequence):
+    elif isinstance(holds, Sequence):
         holds = ",".join([str(hold_job_id) for hold_job_id in holds])
     elif holds:
         logger.error("Holds not a string or list {}".format(holds))
@@ -441,21 +479,21 @@ def qsub(
     template.nativeSpecification = " ".join(
             [str(native_arg) for native_arg in native if native_arg])
     logger.debug("qsub native {}".format(template.nativeSpecification))
-    template.jobName = UGE_NAME_POLICY.sub("", job_name)
+    template.jobName = UGE_NAME_POLICY.sub("", jobname)
     template.outputPath = ":" + (stdout or "/dev/null")
     template.errorPath = ":" + (stderr or "/dev/null")
 
-    run_file = os.path.expanduser(run_file)
+    runfile = os.path.expanduser(runfile)
     environment_variables = dict()
     # Moved this out of Python section because it calls os.path.exist
     # which shouldn't be called in a loop.
-    if conda_env:
+    if conda_env and not shfile:
         if not os.path.isabs(conda_env):
             python_base = _find_conda_env(conda_env)
-            python_binary = os.path.join(python_base, "bin/python")
+            python_env_binary = os.path.join(python_base, "bin/python")
         else:
             python_base = conda_env
-            python_binary = os.path.join(conda_env, "bin/python")
+            python_env_binary = os.path.join(conda_env, "bin/python")
         r_path = os.path.join(python_base, "lib/R/lib")
         if "LD_LIBRARY_PATH" in os.environ:
             environment_variables["LD_LIBRARY_PATH"] = (
@@ -463,7 +501,7 @@ def qsub(
         else:
             environment_variables["LD_LIBRARY_PATH"] = r_path
     else:
-        python_binary = "python"
+        python_env_binary = "python"
 
     if prepend_to_path:
         path = "{}:{}".format(prepend_to_path, os.environ["PATH"])
@@ -479,7 +517,7 @@ def qsub(
             single_job = False
         elif isinstance(parameters[0], str):
             parameters = [parameters]
-        elif isinstance(parameters[0], collections.abc.Sequence):
+        elif isinstance(parameters[0], Sequence):
             single_job = False
         else:
             parameters = [parameters]
@@ -489,32 +527,55 @@ def qsub(
     job_ids = list()
     for params in parameters:
         str_params = [str(bare_arg).strip() for bare_arg in params]
-        shell_args = list()
-        if job_type == "python":
-            shell_args.append(python_binary)
-            shell_args.append(run_file)
-            if str_params:
-                shell_args.extend(str_params)
-        elif job_type == "stata":
-            shell_args.extend(["/usr/local/bin/stata-mp", "-b", "do", run_file])
-            if str_params:
-                shell_args.extend(str_params)
-        elif job_type == "R":
-            shell_args.append("/usr/local/bin/R")
-            # For R, arguments need to be a single entry in ARGV, so join them.
-            r_args = "--args {}".format(" ".join(str_params))
-            shell_args.extend(["--vanilla", "-f", run_file, r_args])
-        elif job_type:
-            raise ValueError("sge.qsub unknown job type {}".format(job_type))
+        if shfile:
+            qsub_args = [shfile]
         else:
-            shell_args.append(run_file)
+            qsub_args = list()
+        if jobtype == "python":
+            if shfile:
+                if conda_env:
+                    qsub_args.append(conda_env)
+                qsub_args.append(["python", runfile])
+                if str_params:
+                    qsub_args.extend(str_params)
+            else:
+                qsub_args.extend([python_env_binary, runfile])
+                if str_params:
+                    qsub_args.extend(str_params)
+        elif jobtype == "stata":
+            if shfile:
+                qsub_args.extend([STATA_BINARY, runfile])
+            else:
+                qsub_args.extend([STATA_BINARY, "-b", "do", runfile])
             if str_params:
-                shell_args.extend(str_params)
-        logger.info("qsub {}".format(shell_args))
+                qsub_args.extend(str_params)
+        elif jobtype == "R":
+            if shfile:
+                qsub_args.append(R_BINARY)
+                if str_params:
+                    qsub_args.extend(str_params)
+            else:
+                qsub_args.extend([R_BINARY, "--vanilla", "-f", runfile])
+                if str_params:
+                    # For R, arguments need to be a single entry in ARGV,
+                    # so join them.
+                    r_args = "--args {}".format(" ".join(str_params))
+                    qsub_args.append(r_args)
+        elif jobtype == "plain":
+            qsub_args.append(runfile)
+            if str_params:
+                qsub_args.extend(str_params)
+        elif jobtype:
+            raise ValueError("sge.qsub unknown job type {}".format(jobtype))
+        else:
+            qsub_args.append(runfile)
+            if str_params:
+                qsub_args.extend(str_params)
+        logger.info("qsub {}".format(qsub_args))
 
-        template.remoteCommand = shell_args[0]
-        if len(shell_args) > 1:
-            template.args = shell_args[1:]
+        template.remoteCommand = qsub_args[0]
+        if len(qsub_args) > 1:
+            template.args = qsub_args[1:]
 
         job_ids.append(session.runJob(template))
 
@@ -592,7 +653,6 @@ def git_dict(dir="."):
     Returns:
         dictionary
     """
-
     branch = get_branch(dir)
     commit = get_commit_hash(dir)
     return {'branch': branch, 'commit': commit}
