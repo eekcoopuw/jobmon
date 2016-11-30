@@ -408,6 +408,8 @@ def qsub(
                     /usr/local/bin/stata-mp -b do run_file
                 'R':
                     /usr/local/bin/R < runfile --no-save --args
+                'shell':
+                    For shell scripts. Add -shell y to the arguments.
                 'plain':
                     Don't use any interpreter, even if the runfile suffix
                     is known.
@@ -447,9 +449,10 @@ def qsub(
     # N             Y             Y      Build args to shfile for jobtype.
     # Y             Y             Y      Use given jobtype and build args.
     if not jobtype:
-        job_types = { ".py": "python", ".do": "stata", ".sh": "plain",
+        job_types = { ".py": "python", ".do": "stata", ".sh": "shell",
                       ".r": "R", ".R": "R"}
-        jobtype = job_types.get(_suffix(runfile), None)
+        jobtype = job_types.get(_suffix(runfile), "plain")
+        logger.debug("qsub chose jobtype {}".format(jobtype))
     assert not (conda_env and not jobtype == "python")
 
     # Set holds, if requested
@@ -475,6 +478,9 @@ def qsub(
         "-pe multi_slot {}".format(str(slots)),
         "-l mem_free={!s}G".format(memory) if memory else None,
         "-hold_jid {}".format(holds) if holds else None,
+        # Because DRMAA defaults to -shell n, as opposed to qsub default.
+        # And because it defaults to -b y.
+        "-shell y" if (shfile or jobtype == "shell") else None
     ]
     template.nativeSpecification = " ".join(
             [str(native_arg) for native_arg in native if native_arg])
@@ -561,16 +567,12 @@ def qsub(
                     # so join them.
                     r_args = "--args {}".format(" ".join(str_params))
                     qsub_args.append(r_args)
-        elif jobtype == "plain":
+        elif jobtype == "plain" or jobtype == "shell":
             qsub_args.append(runfile)
             if str_params:
                 qsub_args.extend(str_params)
-        elif jobtype:
-            raise ValueError("sge.qsub unknown job type {}".format(jobtype))
         else:
-            qsub_args.append(runfile)
-            if str_params:
-                qsub_args.extend(str_params)
+            raise ValueError("sge.qsub unknown job type {}".format(jobtype))
         logger.info("qsub {}".format(qsub_args))
 
         template.remoteCommand = qsub_args[0]

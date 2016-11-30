@@ -87,7 +87,7 @@ def test_path_manipulation():
                       slots=1, memory=0,
                       stdout=os.path.abspath("env-a.out"))
     sort_b = sge.qsub(sge.true_path("env_vars.sh"), "env-b",
-                      jobtype="plain", slots=1, memory=0,
+                      jobtype="shell", slots=1, memory=0,
                       prepend_to_path="~/DonaldDuck",
                       stdout=os.path.abspath("env-b.out"))
     assert sge._wait_done([sort_a, sort_b])
@@ -120,3 +120,31 @@ def test_r_submit():
     notype_id = sge.qsub(sge.true_path("hi.R"), "##rb+@",
                           parameters=[3])
     assert sge._wait_done([rscript_id, notype_id])
+
+
+@pytest.mark.slowtest
+def test_sh_submit():
+    logging.basicConfig(level=logging.DEBUG)
+    rscript_id = sge.qsub(sge.true_path("env_vars.sh"), ".rstuff&*(",
+                          parameters=[5], jobtype="shell")
+    notype_id = sge.qsub(sge.true_path("env_vars.sh"), "##rb+@",
+                          parameters=[3])
+    assert sge._wait_done([rscript_id, notype_id])
+
+
+@pytest.mark.slowtest
+def test_sh_loop():
+    """
+    This demonstrates that when you submit a shell file DRMAA
+    doesn't copy the shell file. It uses a reference to the
+    file and runs from whatever file is currently on disk.
+    """
+    logging.basicConfig(level=logging.DEBUG)
+    jobs = list()
+    for modify_idx in range(5):
+        with open("modout.sh", "w") as shell_file:
+            shell_file.write("echo I am {}\n".format(modify_idx))
+        jobs.append(sge.qsub(sge.true_path("modout.sh"), "modshell",
+                             stdout="out{}.txt".format(modify_idx),
+                             stderr="err{}.txt".format(modify_idx)))
+    assert sge._wait_done(jobs)
