@@ -1,11 +1,12 @@
-from . import models
+import os
 import sqlite3
+import pandas as pd
 import sqlalchemy as sql
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
-import os
-import pandas as pd
-from .responder import Responder
+
+from jobmon import models
+from jobmon.responder import Responder
 
 Session = sessionmaker()
 
@@ -25,7 +26,7 @@ class CentralJobMonitor(object):
     def __init__(self, out_dir):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema"""
-        self.out_dir = out_dir
+        self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.responder = Responder(out_dir)
         logmsg = "{}: Responder initialized".format(os.getpid())
         Responder.logger.info(logmsg)
@@ -81,7 +82,7 @@ class CentralJobMonitor(object):
         self.session.commit()
         return 0, job.monitored_jid
 
-    def _action_register_sgejob(self, sge_jid, name, *args, **kwargs):
+    def _action_register_sgejob(self, sge_id, name, *args, **kwargs):
         """create job entry in database job table.
 
         Args:
@@ -91,10 +92,10 @@ class CentralJobMonitor(object):
                 statements for the specified jid where the keys are the column
                 names and the values are the column values.
         """
-        job = self.session.query(models.Job).filter_by(sge_jid=sge_jid).first()
+        job = self.session.query(models.Job).filter_by(sge_id=sge_id).first()
         if job is None:
             job = models.Job(
-                sge_jid=sge_jid,
+                sge_id=sge_id,
                 name=name,
                 current_status=models.Status.SUBMITTED,
                 **kwargs)

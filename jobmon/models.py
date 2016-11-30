@@ -10,7 +10,7 @@ class Job(Base):
     __tablename__ = 'job'
 
     monitored_jid = Column(Integer, primary_key=True)
-    sge_jid = Column(Integer)
+    sge_id = Column(Integer)
     name = Column(String(150))
     runfile = Column(String(150))
     args = Column(String(1000))

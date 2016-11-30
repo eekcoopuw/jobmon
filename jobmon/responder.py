@@ -33,6 +33,14 @@ def get_class_that_defined_method(meth):
     return None  # not required since None would have been implicitly returned
 
 
+class MonitorAlreadyRunning(Exception):
+    def __init__(self, monfile):
+        super(MonitorAlreadyRunning, self).__init__(
+            "A monitor already exists. To safely create a new monitor, "
+            "terminate the process listed in '{}' and delete the "
+            "file".format(monfile))
+
+
 class Responder(object):
     """This really is a server, in that there is one of these, it listens on a
     Receiver object (a zmq channel) and does stuff as a result of those
@@ -83,12 +91,14 @@ class Responder(object):
             host (string): node name that server is running on
             port (int): port that server is listening at
         """
-        filename = '%s/monitor_info.json' % self.out_dir
+        monfn = '%s/monitor_info.json' % self.out_dir
         logmsg = '{}: Writing connection info to {}'.format(os.getpid(),
-                                                            filename)
+                                                            monfn)
         Responder.logger.debug(logmsg)
-        with open(filename, 'w') as f:
-            json.dump({'host': host, 'port': port}, f)
+        if os.path.exists(monfn):
+            raise MonitorAlreadyRunning(monfn)
+        with open(monfn, 'w') as f:
+            json.dump({'host': host, 'port': port, 'pid': os.getpid()}, f)
 
     def _open_socket(self):
         context = zmq.Context()
@@ -117,6 +127,11 @@ class Responder(object):
             if self.server_proc.is_alive():
                 self.server_proc.terminate()
                 exitcode = self.server_proc.exitcode
+                try:
+                    os.remove('%s/monitor_info.json' % self.out_dir)
+                except Exception:
+                    Responder.logger.info("monitor_info.json file already "
+                                          "deleted")
         else:
             Responder.logger.info("Response server is already stopped")
             exitcode = None
