@@ -148,3 +148,24 @@ def test_sh_loop():
                              stdout="out{}.txt".format(modify_idx),
                              stderr="err{}.txt".format(modify_idx)))
     assert sge._wait_done(jobs)
+
+
+@pytest.mark.slowtest
+def test_sh_wrap():
+    logging.basicConfig(level=logging.DEBUG)
+    sh0_id = sge.qsub(sge.true_path("waiter.py"),
+                     shfile=sge.true_path("sample.sh"),
+                     stdout="shellwaitPython.txt",
+                     stderr="shellwaitererr.txt",
+                     jobname="shellwaiter")
+    sh1_id = sge.qsub(sge.true_path("waiter.R"),
+                     shfile=sge.true_path("sample.sh"),
+                     stdout="shellwaitR.txt",
+                     stderr="shellwaitererr.txt",
+                     jobname="shellwaiter")
+    sh2_id = sge.qsub(sge.true_path("waiter.do"),
+                     shfile=sge.true_path("sample.sh"),
+                     stdout="shellwaitStata.txt",
+                     stderr="shellwaitererr.txt",
+                     jobname="shellwaiter")
+    assert sge._wait_done([sh0_id, sh1_id, sh2_id])

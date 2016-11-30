@@ -399,6 +399,9 @@ def qsub(
             matching the specified patten and sets them as holds for the
             requested job.
         holds (list, optional): explicit list of job ids to hold based on.
+        shfile (string, optional): All arguments are sent to the given
+            shell script to execute. This shell script is NOT copied to
+            the execution host. This is equivalent to "-b y" on qsub.
         jobtype (string, optional): joint purpose argument for specifying what
             to pass into the shell_file. can be arbitrary string or one of the
             below options. default is 'python'
@@ -410,6 +413,9 @@ def qsub(
                     /usr/local/bin/R < runfile --no-save --args
                 'shell':
                     For shell scripts. Add -shell y to the arguments.
+                    This also ensures SGE copies the shell script
+                    so that if you modify it after submission the original
+                    submitted script is what runs.
                 'plain':
                     Don't use any interpreter, even if the runfile suffix
                     is known.
@@ -480,7 +486,8 @@ def qsub(
         "-hold_jid {}".format(holds) if holds else None,
         # Because DRMAA defaults to -shell n, as opposed to qsub default.
         # And because it defaults to -b y.
-        "-shell y" if (shfile or jobtype == "shell") else None
+        "-shell y" if (shfile or jobtype == "shell") else None,
+        "-b n" if jobtype == "shell" else None
     ]
     template.nativeSpecification = " ".join(
             [str(native_arg) for native_arg in native if native_arg])
@@ -541,7 +548,7 @@ def qsub(
             if shfile:
                 if conda_env:
                     qsub_args.append(conda_env)
-                qsub_args.append(["python", runfile])
+                qsub_args.extend(["python", runfile])
                 if str_params:
                     qsub_args.extend(str_params)
             else:
@@ -557,7 +564,7 @@ def qsub(
                 qsub_args.extend(str_params)
         elif jobtype == "R":
             if shfile:
-                qsub_args.append(R_BINARY)
+                qsub_args.extend([R_BINARY, runfile])
                 if str_params:
                     qsub_args.extend(str_params)
             else:
