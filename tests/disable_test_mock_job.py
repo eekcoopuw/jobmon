@@ -2,7 +2,7 @@ import os
 import pytest
 import signal
 import subprocess as sp
-from .mock_job import MockJob
+from mock_job import MockJob
 
 
 def test_good_job():
