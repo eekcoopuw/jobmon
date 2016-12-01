@@ -91,6 +91,9 @@ class IgnorantQ(object):
         pass
 
 
+# TODO: Study and determine whether this class can be used as a basis or
+# at least a template for tracking state of a "DAG" of jobs, and preferably
+# for handling submission+retry logic for said jobs.
 class MonitoredQ(IgnorantQ):
     """monitored Q supports monitoring of a single job queue by using a sqlite
     back monitoring server that all sge jobs automatically connect to after
@@ -203,7 +206,7 @@ class MonitoredQ(IgnorantQ):
         # configure arguments for parsing by ./bin/monitored_job.py
         if jid is None:
             msg = {'action': 'create_job', 'args': ''}
-            r = self.central_job_monitor_launcher.sender.send_request(msg)
+            r = self.central_job_monitor_launcher.requester.send_request(msg)
             jid = r[1]
 
         if not isinstance( jid, int):
@@ -241,7 +244,7 @@ class MonitoredQ(IgnorantQ):
 
         # update database to reflect submitted status
         msg = {'action': 'update_job_status', 'args': [jid, 2]}
-        self.central_job_monitor_launcher.sender.send_request(msg)
+        self.central_job_monitor_launcher.requester.send_request(msg)
 
         # store submission params in self.jobs dict in case of resubmit
         self.scheduled_jobs.append(sgeid)

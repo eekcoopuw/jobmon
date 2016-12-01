@@ -1,6 +1,6 @@
 import logging
+from logging.config import dictConfig
 import os
-import time
 
 import yaml
 
@@ -8,10 +8,11 @@ import yaml
 # TODO reconcile this with the same code in dalynator
 
 
-def setup_logger(logger_name, default_path="logging.yaml", default_level=logging.DEBUG,
-                 env_key="LOG_CFG"):
-    """Utility function to set up loggers, but only attach handlers if they are not already present.
-    Looks for an environment value for the path, and then for a logging config file"""
+def setup_logger(logger_name, default_path="logging.yaml",
+                 default_level=logging.DEBUG, env_key="LOG_CFG"):
+    """Utility function to set up loggers, but only attach handlers if they are
+    not already present.  Looks for an environment value for the path, and then
+    for a logging config file"""
     path = default_path
     value = os.getenv(env_key, None)
 
@@ -20,7 +21,7 @@ def setup_logger(logger_name, default_path="logging.yaml", default_level=logging
     if os.path.exists(path):
         with open(path, 'rt') as f:
             config = yaml.safe_load(f.read())
-        logging.config.dictConfig(config)
+        dictConfig(config)
     else:
         # fall back if it can't find the file
         logging.basicConfig(level=default_level)
