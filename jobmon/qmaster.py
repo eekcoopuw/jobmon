@@ -205,6 +205,10 @@ class MonitoredQ(IgnorantQ):
             msg = {'action': 'create_job', 'args': ''}
             r = self.central_job_monitor_launcher.sender.send_request(msg)
             jid = r[1]
+
+        if not isinstance( jid, int):
+            raise "Could not create job, jid = '{}'".format(jid
+                                                            )
         base_params = ["--mon_dir", self.out_dir, "--runfile", runfile,
                        "--jid", jid]
         if self.request_timeout is not None:

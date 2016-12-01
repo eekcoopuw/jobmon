@@ -36,8 +36,8 @@ class ZmqHandler(Handler):
     def emit(self, record):
         self.job.log_error(record.message)
 
+    class Job(Sender):
 
-class Job(Sender):
     """client node job status logger. Pushes job status to server node through
     zmq. Status is logged by server into sqlite database
 

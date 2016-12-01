@@ -53,6 +53,7 @@ class CentralJobMonitorLauncher:
         r = self.sender.send_request({"action": "alive", "args": ""})
         if isinstance(r, tuple):
             if r[0] == 0:
+                self.logger.info("{}: CentralJobMonitor is alive, its pid is {}".format(os.getpid(), r[1]))
                 return True
             else:
                 return False

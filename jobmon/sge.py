@@ -146,7 +146,7 @@ def qstat_details(jids):
         jids (list): list of jobs to get detailed qstat information from
 
     Returns:
-        dictionary of detailted qstat values
+        dictionary of detailed qstat values
     """
     jids = np.atleast_1d(jids)
     cmd = ["qstat", "-j", "%s" % ",".join([str(j) for j in jids])]
@@ -160,6 +160,7 @@ def qstat_details(jids):
     jobid = 0
     jobdict = {}
     for key, group in itertools.groupby(deets, group_separator):
+        logger.warning("TYPE in sge {}".format(type(line)))
         for line in group:
             if group_separator(line):
                 continue

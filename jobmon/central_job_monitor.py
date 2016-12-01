@@ -87,6 +87,7 @@ class Server(object):
     def run(self):
         """Run server. Start consuming registration and status updates from
         jobs. Use introspection to call the handler method"""
+        Server.logger.debug("{}: Server run loop starting".format(os.getpid()))
         if self.socket.closed:
             Server.logger.info('Server offline, starting...')
             self.start_server()
@@ -94,6 +95,7 @@ class Server(object):
         while keep_alive:
             msg = self.socket.recv()  # server blocks on receive
             msg = msg.decode('utf-8')  # json is byte stream. decode to unicode
+            Server.logger.debug("{}: Server received message {} ".format(os.getpid(), msg))
             try:
                 if msg == 'stop':
                     keep_alive = False
@@ -121,8 +123,9 @@ class Server(object):
                             protocol=2)
                         self.socket.send(p)
             except Exception as e:
-                Server.logger.debug('{}: Server sending "generic problem" error {}'.format(os.getpid(), e))
-                p = pickle.dumps((2, b"Uh oh, something went wrong"),
+                Server.logger.error('{}: Server sending "generic problem" error {}'.format(os.getpid(), e))
+                print('{}: Server sending "generic problem" error {}'.format(os.getpid(), e))
+                p = pickle.dumps((2, b"Uh ooooooh, something went wrong, error"),
                                  protocol=2)
                 self.socket.send(p)
 
@@ -139,7 +142,7 @@ class Server(object):
 
     def alive(self):
         Server.logger.debug("{}: Server received is_alive?".format(os.getpid()))
-        return 0, "alive"
+        return 0, "alive pid =".format(os.getpid())
 
 
 Session = sessionmaker()
@@ -271,3 +274,7 @@ class CentralJobMonitor(Server):
             response = (1, "query failed to execute {}".format(e).encode())
 
         return response
+
+if __name__ == "__main__":
+        m = CentralJobMonitor(sys.argv[1])
+        m.run()
