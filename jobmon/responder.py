@@ -4,7 +4,7 @@ import os
 import sys
 import json
 import inspect
-from jobmon.exceptions import OK, INVALID_RESPONSE_FORMAT, INVALID_ACTION, GENERIC_ERROR, NO_RESULTS
+from jobmon.exceptions import ReturnCodes
 from multiprocessing import Process
 
 from jobmon.setup_logger import setup_logger
@@ -205,7 +205,7 @@ class Responder(object):
                     keep_alive = False
                     logmsg = "{}: Responder Stopping".format(os.getpid())
                     Responder.logger.info(logmsg)
-                    self.socket.send_json((0, "Responder stopping"))
+                    self.socket.send_json((ReturnCodes.OK, "Responder stopping"))
                     self._close_socket()
                 else:
                     # An actual application message, use introspection to find
@@ -230,13 +230,13 @@ class Responder(object):
                         self.socket.send_json(response)
                     else:
                         Responder.logger.error("action has invalid response format: {}".format(response))
-                        response = (INVALID_RESPONSE_FORMAT, "action has invalid response format")
+                        response = (ReturnCodes.INVALID_RESPONSE_FORMAT, "action has invalid response format")
                         self.socket.send_json(response)
             except AttributeError as e:
                 logmsg = "{} is not a valid action for this Responder".format(
                     msg['action'])
                 Responder.logger.exception(logmsg)
-                response = (INVALID_ACTION, logmsg)
+                response = (ReturnCodes.INVALID_ACTION, logmsg)
                 self.socket.send_json(response)
                 raise e
             except Exception as e:
@@ -244,7 +244,7 @@ class Responder(object):
                     '{}: Responder sending "generic problem" error: '
                     '{}'.format(os.getpid(), e))
                 Responder.logger.debug(logmsg)
-                response = (GENERIC_ERROR, "Uh oh, something went wrong")
+                response = (ReturnCodes.GENERIC_ERROR, "Uh oh, something went wrong")
                 self.socket.send_json(response)
 
     def is_valid_response(self, response):
