@@ -1,5 +1,11 @@
 from logging import Handler
 
+# Responder message response codes codes
+OK = 0
+INVALID_RESPONSE_FORMAT = 1
+INVALID_ACTION = 2
+GENERIC_ERROR = 3
+NO_RESULTS = 4
 
 class ServerRunning(Exception):
     pass

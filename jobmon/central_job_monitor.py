@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from jobmon import models
 from jobmon.responder import Responder
+from jobmon.exceptions import OK, INVALID_RESPONSE_FORMAT, INVALID_ACTION, GENERIC_ERROR, NO_RESULTS
 
 Session = sessionmaker()
 
@@ -75,6 +76,17 @@ class CentralJobMonitor(object):
         jobs = (
             self.session.query(models.Job).filter_by(current_status=status_id))
         return jobs
+
+    def _action_get_job_information(self, sge_id):
+        job = self.session.query(models.Job).filter_by(sge_id=sge_id)
+        result = job.all()
+        length = len(result)
+        if length == 0:
+            return (NO_RESULTS, "Found no job with sge_id {}".format(sge_id))
+        elif length == 1:
+            return (0, result[0].to_json())
+        else:
+            return (GENERIC_ERROR, "Found too many results ({}) for sge_id {}".format(length, sge_id))
 
     def _action_register_job(self, name=None):
         job = models.Job(current_status=models.Status.SUBMITTED, name=name)

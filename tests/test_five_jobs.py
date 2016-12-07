@@ -5,6 +5,7 @@ from jobmon.setup_logger import setup_logger
 from .mock_job import MockJob
 
 
+#@pytest.mark.skip(reason="Can only be tested on the cluster")
 def test_five_jobs():
     """Submit five jobs through the job monitor.
     Three run to successful completion,

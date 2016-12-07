@@ -22,6 +22,14 @@ class Job(Base):
     current_status = Column(Integer, nullable=False)
     submitted_date = Column(DateTime, default=func.now())
 
+    def to_json(self):
+        return \
+            '{' + \
+                ' "monitored_jid": {}, "sge_id": {}, "name": "{}", "current_status": {}'.format(
+                    self.monitored_jid, self.sge_id, self.name, self.current_status
+                ) + \
+            '}'
+
 
 class JobStatus(Base):
     __tablename__ = 'job_status'
