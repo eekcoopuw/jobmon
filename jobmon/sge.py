@@ -15,12 +15,18 @@ import subprocess
 import types
 import pandas as pd
 import numpy as np
+
+# Because the drmaa package needs this library in order to load.
+DRMAA_PATH = "/usr/local/UGE-{}/lib/lx-amd64/libdrmaa.so.1.0"
+if "DRMAA_LIBRARY_PATH" not in os.environ:
+    os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(
+        os.environ["SGE_CLUSTER_NAME"])
+
 import drmaa
 
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
-DRMAA_PATH = "/usr/local/UGE-{}/lib/lx-amd64/libdrmaa.so.1.0"
 # Comes from object_name in `man sge_types`. Also, * excluded.
 UGE_NAME_POLICY = re.compile(
     "[.#\n\t\r /\\\[\]:'{}\|\(\)@%,*]|[\n\t\r /\\\[\]:'{}\|\(\)@%,*]")
@@ -36,9 +42,6 @@ def _drmaa_session():
     path the the library with .so at the end.
     """
     if "session" not in vars(_drmaa_session):
-        if "DRMAA_LIBRARY_PATH" not in os.environ:
-            os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(
-                os.environ["SGE_CLUSTER_NAME"])
         session = drmaa.Session()
         session.initialize()
         atexit.register(_drmaa_exit)
@@ -64,7 +67,7 @@ def true_path(file_or_dir=None, executable=None):
     if file_or_dir is not None:
         f = file_or_dir
     elif executable is not None:
-        f = subprocess.check_output(["which", executable])
+        f = subprocess.check_output(["which", str(executable)])
     else:
         raise ValueError("true_path: file_or_dir and executable "
                          "cannot both be null")
@@ -324,7 +327,7 @@ def reqsub(job_id):
     return subprocess.check_output(['qmod', '-r', str(job_id)])
 
 
-def _find_conda_env(name):
+def find_conda_env(name):
     """
     Finds the given Conda environment on the local machine.
     The remote machine may have a different setup, in which case
@@ -478,6 +481,8 @@ def qsub(
     session = _drmaa_session()
     template = session.createJobTemplate()
 
+    need_shell = shfile or jobtype == "shell" or (conda_env and
+                                                  not os.path.isabs(conda_env))
     native = [
         "-P {}".format(project) if project else None,
         "-w n",  # Needed for mem_free to work. Turns off validation.
@@ -486,7 +491,7 @@ def qsub(
         "-hold_jid {}".format(holds) if holds else None,
         # Because DRMAA defaults to -shell n, as opposed to qsub default.
         # And because it defaults to -b y.
-        "-shell y" if (shfile or jobtype == "shell") else None,
+        "-shell y" if need_shell else None,
         "-b n" if jobtype == "shell" else None
     ]
     template.nativeSpecification = " ".join(
@@ -498,23 +503,6 @@ def qsub(
 
     runfile = os.path.expanduser(runfile)
     environment_variables = dict()
-    # Moved this out of Python section because it calls os.path.exist
-    # which shouldn't be called in a loop.
-    if conda_env and not shfile:
-        if not os.path.isabs(conda_env):
-            python_base = _find_conda_env(conda_env)
-            python_env_binary = os.path.join(python_base, "bin/python")
-        else:
-            python_base = conda_env
-            python_env_binary = os.path.join(conda_env, "bin/python")
-        r_path = os.path.join(python_base, "lib/R/lib")
-        if "LD_LIBRARY_PATH" in os.environ:
-            environment_variables["LD_LIBRARY_PATH"] = (
-                "{}:{}".format(r_path, os.environ["LD_LIBRARY_PATH"]))
-        else:
-            environment_variables["LD_LIBRARY_PATH"] = r_path
-    else:
-        python_env_binary = "python"
 
     if prepend_to_path:
         path = "{}:{}".format(prepend_to_path, os.environ["PATH"])
@@ -552,7 +540,21 @@ def qsub(
                 if str_params:
                     qsub_args.extend(str_params)
             else:
-                qsub_args.extend([python_env_binary, runfile])
+                if conda_env:
+                    if os.path.isabs(conda_env):
+                        # We can skip using a shell in qsub if we have a
+                        # full path to a conda environment.
+                        python_env_bin = os.path.join(conda_env, "bin/python")
+                        qsub_args.extend([python_env_bin, runfile])
+                    else:
+                        # If there's no full path, we have to use a shell
+                        # and activate the environment, but still no need
+                        # for a shell script.
+                        cmd = "source activate {} && python".format(conda_env)
+                        qsub_args.extend(cmd.split())
+                        qsub_args.append(runfile)
+                else:
+                    qsub_args.extend(["python", runfile])
                 if str_params:
                     qsub_args.extend(str_params)
         elif jobtype == "stata":
@@ -580,7 +582,7 @@ def qsub(
                 qsub_args.extend(str_params)
         else:
             raise ValueError("sge.qsub unknown job type {}".format(jobtype))
-        logger.info("qsub {}".format(qsub_args))
+        logger.info("qsub args {}".format(qsub_args))
 
         template.remoteCommand = qsub_args[0]
         if len(qsub_args) > 1:
@@ -599,6 +601,8 @@ def _wait_done(job_ids):
     For unit tests. Ensures the jobs are done or running.
     If the queue is long, this will give spurious errors.
     """
+    if isinstance(job_ids, str):
+        job_ids = [job_ids]
     session = _drmaa_session()
     wait_duration = 5 * 60  # seconds
     try:

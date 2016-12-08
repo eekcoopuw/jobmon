@@ -99,17 +99,27 @@ def test_python_submit():
     logging.basicConfig(level=logging.DEBUG)
     py_id = sge.qsub(sge.true_path("waiter.py"), ".hum",
                      parameters=[5], jobtype="python")
+    LOGGER.debug("returned job id {}".format(py_id))
     assert py_id
 
     env_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
-                      parameters=[3],
+                      parameters=[3], stderr="env_id.e$JOB_ID",
                       conda_env="fbd-0.1")
+    LOGGER.debug("returned job id {}".format(env_id))
     assert env_id
     abs_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
-                      parameters=[3],
+                      parameters=[3], stderr="abs_id.e$JOB_ID",
                       conda_env="/ihme/forecasting/envs/fbd-0.1")
     assert abs_id
-    assert sge._wait_done([py_id, env_id, abs_id])
+    dones = list()
+    for idx, v in enumerate([py_id, env_id, abs_id]):
+        LOGGER.debug("test_python_submit waiting for {}".format((idx, v)))
+        if not sge._wait_done([v]):
+            dones.append((idx, v))
+    if dones:
+        LOGGER.error("Not finished {}".format(dones))
+    assert not dones
+
 
 
 @pytest.mark.slowtest
