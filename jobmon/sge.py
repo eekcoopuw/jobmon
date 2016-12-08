@@ -160,7 +160,6 @@ def qstat_details(jids):
     jobid = 0
     jobdict = {}
     for key, group in itertools.groupby(deets, group_separator):
-        logger.warning("TYPE in sge {}".format(type(line)))
         for line in group:
             if group_separator(line):
                 continue
@@ -410,7 +409,7 @@ def qsub(
     else:
         submission_params.append(runfile)
 
-    # Creat full submission array
+    # Create full submission array
     submission_params.extend(parameters)
     print(submission_params)
 

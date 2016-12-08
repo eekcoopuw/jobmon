@@ -22,13 +22,21 @@ class Job(Base):
     current_status = Column(Integer, nullable=False)
     submitted_date = Column(DateTime, default=func.now())
 
-    def to_json(self):
+    def to_wire_format_dict(self):
+        """Just the fields that we want to reutnr over the wire and that can be serialized to JSON"""
         return \
-            '{' + \
-                ' "monitored_jid": {}, "sge_id": {}, "name": "{}", "current_status": {}'.format(
-                    self.monitored_jid, self.sge_id, self.name, self.current_status
-                ) + \
-            '}'
+            {
+                "monitored_jid": self.monitored_jid,
+                "sge_id": self.sge_id,
+                "name": self.name,
+                "current_status": self.current_status
+            }
+        # return \
+        #     '{' + \
+        #         ' "monitored_jid": {}, "sge_id": {}, "name": "{}", "current_status": {}'.format(
+        #             self.monitored_jid, self.sge_id, self.name, self.current_status
+        #         ) + \
+        #     '}'
 
 
 class JobStatus(Base):

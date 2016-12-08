@@ -84,7 +84,9 @@ class CentralJobMonitor(object):
         if length == 0:
             return (ReturnCodes.NO_RESULTS, "Found no job with sge_id {}".format(sge_id))
         elif length == 1:
-            return (ReturnCodes.OK, result[0].to_json())
+            # Problem. Can't just pass in result[0].__dict__ to be serialized because it contains sqlalcehmy objects
+            # that are not serializable. So construct a "safe" dict
+            return (ReturnCodes.OK, result[0].to_wire_format_dict())
         else:
             return (ReturnCodes.GENERIC_ERROR, "Found too many results ({}) for sge_id {}".format(length, sge_id))
 

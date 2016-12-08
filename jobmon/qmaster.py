@@ -209,7 +209,7 @@ class MonitoredQ(IgnorantQ):
             r = self.central_job_monitor_launcher.requester.send_request(msg)
             jid = r[1]
 
-        if not isinstance( jid, int):
+        if not isinstance(jid, int):
             raise "Could not create job, jid = '{}'".format(jid
                                                             )
         base_params = ["--mon_dir", self.out_dir, "--runfile", runfile,

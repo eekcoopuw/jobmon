@@ -163,12 +163,8 @@ class Responder(object):
         jobs. Use introspection to call the handler method
 
         Upon receiving a message, replies with a tuple (error_code, message).
-        In this implementation, error codes are:
-            0 = Responder stopping
-            1 = Action has invalid response
-            2 = Requested action has not been implemented on this Responder
-            3 = Unhandled generic exception
-            4+ = ... To be defined on an Action-by-Action basis
+        In this implementation, return codes are defined in expections.py
+
         """
         # TODO: Actions should probably be their own class or interface. Think
         # about how that should be done. 'Alive' should be a good simple Action
