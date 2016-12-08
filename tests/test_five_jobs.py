@@ -7,7 +7,6 @@ from .mock_job import MockJob
 
 
 @pytest.mark.cluster
-@pytest.mark.slow
 def test_five_jobs():
     """Submit five jobs through the job monitor.
     Three run to successful completion,
