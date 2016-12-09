@@ -1,6 +1,17 @@
 from logging import Handler
 
 
+class ReturnCodes(object):
+    """Responder response codes.
+    OK means no error, all the rest are errors.
+    Please add more as the need arises."""
+    OK = 0
+    INVALID_RESPONSE_FORMAT = 1
+    INVALID_ACTION = 2
+    GENERIC_ERROR = 3
+    NO_RESULTS = 4
+
+
 class ServerRunning(Exception):
     pass
 

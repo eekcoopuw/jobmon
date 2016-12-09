@@ -7,13 +7,14 @@ from sqlalchemy.exc import IntegrityError
 
 from jobmon import models
 from jobmon.responder import Responder
+from jobmon.exceptions import ReturnCodes
 
 Session = sessionmaker()
 
 
 class CentralJobMonitor(object):
     """Listens for job status update messages,
-    writes to sqllite server node.
+    writes to sqlite server node.
     server node job status logger.
 
     Runs as a separate process.
@@ -76,6 +77,19 @@ class CentralJobMonitor(object):
             self.session.query(models.Job).filter_by(current_status=status_id))
         return jobs
 
+    def _action_get_job_information(self, sge_id):
+        job = self.session.query(models.Job).filter_by(sge_id=sge_id)
+        result = job.all()
+        length = len(result)
+        if length == 0:
+            return (ReturnCodes.NO_RESULTS, "Found no job with sge_id {}".format(sge_id))
+        elif length == 1:
+            # Problem. Can't just pass in result[0].__dict__ to be serialized because it contains sqlalcehmy objects
+            # that are not serializable. So construct a "safe" dict
+            return (ReturnCodes.OK, result[0].to_wire_format_dict())
+        else:
+            return (ReturnCodes.GENERIC_ERROR, "Found too many results ({}) for sge_id {}".format(length, sge_id))
+
     def _action_register_job(self, name=None):
         job = models.Job(current_status=models.Status.SUBMITTED, name=name)
         self.session.add(job)
@@ -101,7 +115,7 @@ class CentralJobMonitor(object):
                 **kwargs)
             self.session.add(job)
             self.session.commit()
-        return (0, job.monitored_jid)
+        return (ReturnCodes.OK, job.monitored_jid)
 
     def _action_update_job_status(self, jid, status_id):
         """update status of job.
@@ -116,7 +130,7 @@ class CentralJobMonitor(object):
         job.current_status = status_id
         self.session.add_all([status, job])
         self.session.commit()
-        return (0, jid, status_id)
+        return (ReturnCodes.OK, jid, status_id)
 
     def _action_update_job_usage(self, jid, *args, **kwargs):
         job = self.session.query(models.Job).filter_by(jid=jid).first()
@@ -124,7 +138,7 @@ class CentralJobMonitor(object):
             setattr(job, k, v)
         self.session.add(job)
         self.session.commit()
-        return (0,)
+        return (ReturnCodes.OK,)
 
     def _action_log_error(self, jid, error):
         """log error for given job id
@@ -136,10 +150,10 @@ class CentralJobMonitor(object):
         error = models.JobError(jid=jid, description=error)
         self.session.add(error)
         self.session.commit()
-        return (0,)
+        return (ReturnCodes.OK,)
 
     def _action_query(self, query):
-        # TODO: Deprecate this action or at leastrefactor in such away that
+        # TODO: Deprecate this action or at least refactor in such a way that
         # responses are returnable via JSON. I don't know that
         # we want to resurrect pickle as the serialization format, and
         # I don't know that we really want message-passing to be able to
@@ -159,10 +173,10 @@ class CentralJobMonitor(object):
             try:
                 df = pd.DataFrame(r_proxy.fetchall())
                 df.columns = r_proxy.keys()
-                response = (0, df)
+                response = (ReturnCodes.OK, df)
             except ValueError:
                 df = pd.DataFrame(columns=(r_proxy.keys()))
-                response = (0, df)
+                response = (ReturnCodes.OK, df)
             except Exception as e:
                 response = (1,
                             "dataframe failed to load {}".format(e))

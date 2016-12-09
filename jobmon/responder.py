@@ -4,12 +4,14 @@ import os
 import sys
 import json
 import inspect
+from jobmon.exceptions import ReturnCodes
 from multiprocessing import Process
 
 from jobmon.setup_logger import setup_logger
 
+
 assert sys.version_info > (3, 0), """
-    Sorry, only Python version 3+ are supported at this time"""
+    Sorry, only Python version 3+ is supported at this time"""
 
 
 def get_class_that_defined_method(meth):
@@ -46,6 +48,11 @@ class Responder(object):
     Receiver object (a zmq channel) and does stuff as a result of those
     commands.  A singleton in the directory. Runs as a separate process, not in
     the same process that started the qmaster.
+
+    Error Codes
+    INVALID_RESPONSE_FORMAT
+    INVALID_ACTION
+    GENERIC_ERROR
 
     Args:
         out_dir (string): full filepath of directory to write server config in
@@ -156,12 +163,8 @@ class Responder(object):
         jobs. Use introspection to call the handler method
 
         Upon receiving a message, replies with a tuple (error_code, message).
-        In this implementation, error codes are:
-            0 = Responder stopping
-            1 = Action has invalid response
-            2 = Requested action has not been implemented on this Responder
-            3 = Unhandled generic exception
-            4+ = ... To be defined on an Action-by-Action basis
+        In this implementation, return codes are defined in expections.py
+
         """
         # TODO: Actions should probably be their own class or interface. Think
         # about how that should be done. 'Alive' should be a good simple Action
@@ -198,7 +201,7 @@ class Responder(object):
                     keep_alive = False
                     logmsg = "{}: Responder Stopping".format(os.getpid())
                     Responder.logger.info(logmsg)
-                    self.socket.send_json((0, "Responder stopping"))
+                    self.socket.send_json((ReturnCodes.OK, "Responder stopping"))
                     self._close_socket()
                 else:
                     # An actual application message, use introspection to find
@@ -222,21 +225,22 @@ class Responder(object):
                         Responder.logger.debug(logmsg)
                         self.socket.send_json(response)
                     else:
-                        response = (1, "action has invalid response format")
+                        Responder.logger.error("action has invalid response format: {}".format(response))
+                        response = (ReturnCodes.INVALID_RESPONSE_FORMAT, "action has invalid response format")
                         self.socket.send_json(response)
             except AttributeError as e:
                 logmsg = "{} is not a valid action for this Responder".format(
                     msg['action'])
                 Responder.logger.exception(logmsg)
-                response = (2, logmsg)
+                response = (ReturnCodes.INVALID_ACTION, logmsg)
                 self.socket.send_json(response)
                 raise e
             except Exception as e:
                 logmsg = (
-                    '{}: Responder sending "generic problem" error '
+                    '{}: Responder sending "generic problem" error: '
                     '{}'.format(os.getpid(), e))
                 Responder.logger.debug(logmsg)
-                response = (3, "Uh oh, something went wrong")
+                response = (ReturnCodes.GENERIC_ERROR, "Uh oh, something went wrong")
                 self.socket.send_json(response)
 
     def is_valid_response(self, response):

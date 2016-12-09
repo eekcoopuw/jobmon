@@ -1,10 +1,12 @@
 import os
+import pytest
 
 from jobmon import qmaster
 from jobmon.setup_logger import setup_logger
 from .mock_job import MockJob
 
 
+@pytest.mark.cluster
 def test_five_jobs():
     """Submit five jobs through the job monitor.
     Three run to successful completion,

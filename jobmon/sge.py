@@ -146,7 +146,7 @@ def qstat_details(jids):
         jids (list): list of jobs to get detailed qstat information from
 
     Returns:
-        dictionary of detailted qstat values
+        dictionary of detailed qstat values
     """
     jids = np.atleast_1d(jids)
     cmd = ["qstat", "-j", "%s" % ",".join([str(j) for j in jids])]
@@ -409,7 +409,7 @@ def qsub(
     else:
         submission_params.append(runfile)
 
-    # Creat full submission array
+    # Create full submission array
     submission_params.extend(parameters)
     print(submission_params)
 
