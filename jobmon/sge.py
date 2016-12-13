@@ -327,27 +327,6 @@ def reqsub(job_id):
     return subprocess.check_output(['qmod', '-r', str(job_id)])
 
 
-def find_conda_env(name):
-    """
-    Finds the given Conda environment on the local machine.
-    The remote machine may have a different setup, in which case
-    a rooted path will be clearer. This checks the CONDA_ENVS_PATH
-    variable, if given.
-    """
-    if "CONDA_ENVS_PATH" in os.environ:
-        paths = os.environ["CONDA_ENVS_PATH"].split(":")
-    else:
-        paths = [os.path.expanduser(DEFAULT_CONDA_ENV_LOCATION)]
-    for p in paths:
-        base_dir = os.path.join(p, name)
-        if os.path.exists(base_dir):
-            logger.debug("find_conda_env base {}".format(base_dir))
-            return base_dir
-    else:
-        return os.path.expanduser(os.path.join(
-                DEFAULT_CONDA_ENV_LOCATION, name))
-
-
 def _suffix(path):
     """Suffix of a filesystem path."""
     if isinstance(path, str):
