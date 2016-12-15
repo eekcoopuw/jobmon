@@ -355,7 +355,8 @@ def qsub(
         stdout=None,
         stderr=None,
         prepend_to_path=None,
-        conda_env=None):
+        conda_env=None,
+        environment_variables={}):
     """Submits job to Grid Engine Queue.
     This function provides a convenient way to call scripts for
     R, Python, and Stata using the job_type parameter.
@@ -402,7 +403,8 @@ def qsub(
                     Don't use any interpreter, even if the runfile suffix
                     is known.
                 None:
-                    Look at runfile's suffix to pick interpreter, if it's known.
+                    Look at runfile's suffix to pick interpreter, if it's
+                    known.
         stdout (string, optional): where to pipe standard out to. default is
             /dev/null. Recognizes $HOME, $USER, $JOB_ID, $JOB_NAME, $HOSTNAME,
             and $TASK_ID.
@@ -417,6 +419,8 @@ def qsub(
             submitting host. If conda_env
             is a rooted path (starts with "/"), then this uses the
             path as given.
+        environment_variables (dict, optional): Dictionary of
+            environment variables to pass to the qsub job context.
 
     Returns:
         job_id of submitted job
@@ -481,13 +485,12 @@ def qsub(
     template.errorPath = ":" + (stderr or "/dev/null")
 
     runfile = os.path.expanduser(runfile)
-    environment_variables = dict()
 
     if prepend_to_path:
         path = "{}:{}".format(prepend_to_path, os.environ["PATH"])
         environment_variables["PATH"] = path
 
-    if environment_variables:
+    if len(environment_variables) > 0:
         template.jobEnvironment = environment_variables
         logger.debug("qsub environment {}".format(template.jobEnvironment))
 
