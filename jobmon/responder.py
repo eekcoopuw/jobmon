@@ -1,4 +1,6 @@
 import zmq
+import pydevd
+
 from socket import gethostname
 import os
 import sys
@@ -84,6 +86,7 @@ class Responder(object):
 
         self.actions = []
         self.register_object_actions(self)
+        # pydevd.settrace('69.91.174.90', port=21000, stdoutToServer=True, stderrToServer=True)
 
     @property
     def node_name(self):
@@ -207,10 +210,12 @@ class Responder(object):
                     tocall = [act for act in self.actions if
                               act.__name__ == "_action_{}".format(
                                   msg['action'])][0]
+
                     if 'kwargs' in msg.keys():
                         act_kwargs = msg['kwargs']
                     else:
                         act_kwargs = {}
+
                     if 'args' in msg.keys():
                         act_args = msg['args']
                     else:

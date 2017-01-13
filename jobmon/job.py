@@ -50,11 +50,14 @@ class Job(object):
                'args': [self.monitored_jid, Status.FAILED]}
         self.requester.send_request(msg)
 
-    def log_error(self, msg):
+    def log_error(self, error_msg):
         """log job error with server"""
-        msg = json.dumps({
+        # msg = json.dumps({
+        #     'action': 'log_error',
+        #     'args': [self.monitored_jid, error_msg]})
+        msg = {
             'action': 'log_error',
-            'args': [self.monitored_jid, msg]})
+            'args': [self.monitored_jid, error_msg]}
         self.requester.send_request(msg)
 
     def log_completed(self):

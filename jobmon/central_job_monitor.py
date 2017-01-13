@@ -147,7 +147,7 @@ class CentralJobMonitor(object):
             jid (int): job id to update status of
             error (string): error message to log
         """
-        error = models.JobError(jid=jid, description=error)
+        error = models.JobError(monitored_jid=jid, description=error)
         self.session.add(error)
         self.session.commit()
         return (ReturnCodes.OK,)
