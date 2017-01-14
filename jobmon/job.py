@@ -52,9 +52,6 @@ class Job(object):
 
     def log_error(self, error_msg):
         """log job error with server"""
-        # msg = json.dumps({
-        #     'action': 'log_error',
-        #     'args': [self.monitored_jid, error_msg]})
         msg = {
             'action': 'log_error',
             'args': [self.monitored_jid, error_msg]}

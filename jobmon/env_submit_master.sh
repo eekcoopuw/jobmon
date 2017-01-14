@@ -23,6 +23,7 @@ done
 
 if [ $tries -ge $max_tries ] ; then
   >&2 echo "jobmon.env_submit_master: source activate failed"
+  exit
 fi
 
 # get rid of the env name
