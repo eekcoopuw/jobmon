@@ -1,4 +1,5 @@
 import zmq
+
 from socket import gethostname
 import os
 import sys
@@ -188,14 +189,12 @@ class Responder(object):
         if self.socket is None:
             Responder.logger.info('Socket not created. Attempting to open.')
             self._open_socket()
-        Responder.logger.info('Responder started.')
+            Responder.logger.info('Socket opened successfully')
+        Responder.logger.info('Responder started, port {}.'.format(self.port))
         keep_alive = True
-        print(self.socket)
-        print(self.port)
-        print(self.actions)
         while keep_alive:
             msg = self.socket.recv_json()  # server blocks on receive
-            print(msg)
+            Responder.logger.debug("Received json {}".format(msg))
             try:
                 if msg == 'stop':
                     keep_alive = False
@@ -209,10 +208,12 @@ class Responder(object):
                     tocall = [act for act in self.actions if
                               act.__name__ == "_action_{}".format(
                                   msg['action'])][0]
+
                     if 'kwargs' in msg.keys():
                         act_kwargs = msg['kwargs']
                     else:
                         act_kwargs = {}
+
                     if 'args' in msg.keys():
                         act_args = msg['args']
                     else:
