@@ -15,6 +15,7 @@ class Requester(object):
         out_dir (string): file path where the server configuration is
             stored.
     """
+
     def __init__(self, out_dir, request_retries=3, request_timeout=3000):
         """set class defaults. attempt to connect with server."""
         self.logger = logging.getLogger(__name__)
@@ -130,18 +131,23 @@ class Requester(object):
                     else:
                         retries_left = 0
                         expect_reply = False
-                        self.logger.debug('{}: Received reply for message id {}: {}'.format(os.getpid(), self.message_id,
-                                                                                       reply))
+                        self.logger.debug(
+                            '{}: Received reply for message id {}: {}'.format(
+                                os.getpid(), self.message_id, reply))
                 else:
                     self.logger.info("No response from server, retrying...")
                     self.disconnect()
                     retries_left -= 1
                     if retries_left == 0:
-                        self.logger.info("{}: Server seems to be offline, abandoning message id {}".format(os.getpid(),
-                                                                                                      self.message_id))
+                        self.logger.info(
+                            ("{}: Server seems to be offline, abandoning"
+                             " message id {}").format(os.getpid(),
+                                                      self.message_id))
                         reply = 0
                         break
                     self.connect()
-                    self.logger.debug('  {}: resending message...{}'.format(os.getpid(), message))
+                    self.logger.debug(
+                        '  {}: resending message...{}'.format(os.getpid(),
+                                                              message))
                     self.socket.send_json(message)
         return reply

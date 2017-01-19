@@ -82,13 +82,17 @@ class CentralJobMonitor(object):
         result = job.all()
         length = len(result)
         if length == 0:
-            return (ReturnCodes.NO_RESULTS, "Found no job with sge_id {}".format(sge_id))
+            return (ReturnCodes.NO_RESULTS,
+                    "Found no job with sge_id {}".format(sge_id))
         elif length == 1:
-            # Problem. Can't just pass in result[0].__dict__ to be serialized because it contains sqlalcehmy objects
-            # that are not serializable. So construct a "safe" dict
+            # Problem. Can't just pass in result[0].__dict__ to be serialized
+            # because it contains sqlalcehmy objects that are not serializable.
+            # So construct a "safe" dict
             return (ReturnCodes.OK, result[0].to_wire_format_dict())
         else:
-            return (ReturnCodes.GENERIC_ERROR, "Found too many results ({}) for sge_id {}".format(length, sge_id))
+            return (ReturnCodes.GENERIC_ERROR,
+                    "Found too many results ({}) for sge_id {}".format(length,
+                                                                       sge_id))
 
     def _action_register_job(self, name=None):
         job = models.Job(current_status=models.Status.SUBMITTED, name=name)

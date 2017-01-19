@@ -20,6 +20,14 @@ class ServerStartLocked(Exception):
     pass
 
 
+class CannotConnectToCentralJobMonitor(Exception):
+    pass
+
+
+class CentralJobMonitorNotAlive(Exception):
+    pass
+
+
 def log_exceptions(job):
     def wrapper(func):
         def catch_and_send(*args, **kwargs):

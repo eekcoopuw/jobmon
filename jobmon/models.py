@@ -23,7 +23,8 @@ class Job(Base):
     submitted_date = Column(DateTime, default=func.now())
 
     def to_wire_format_dict(self):
-        """Just the fields that we want to reutnr over the wire and that can be serialized to JSON"""
+        """Just the fields that we want to reutnr over the wire and that can be
+        serialized to JSON"""
         return \
             {
                 "monitored_jid": self.monitored_jid,
@@ -44,13 +45,13 @@ class JobStatus(Base):
 
     id = Column(Integer, primary_key=True)
     monitored_jid = Column(
-            Integer,
-            ForeignKey('job.monitored_jid'),
-            nullable=False)
+        Integer,
+        ForeignKey('job.monitored_jid'),
+        nullable=False)
     status = Column(
-            Integer,
-            ForeignKey('status.id'),
-            nullable=False)
+        Integer,
+        ForeignKey('status.id'),
+        nullable=False)
     status_time = Column(DateTime, default=func.now())
 
 
@@ -71,9 +72,9 @@ class JobError(Base):
 
     id = Column(Integer, primary_key=True)
     monitored_jid = Column(
-            Integer,
-            ForeignKey('job.monitored_jid'),
-            nullable=False)
+        Integer,
+        ForeignKey('job.monitored_jid'),
+        nullable=False)
     error_time = Column(DateTime, default=func.now())
     description = Column(String(1000), nullable=False)
 

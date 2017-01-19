@@ -76,7 +76,7 @@ class Responder(object):
         self.out_dir = os.path.realpath(self.out_dir)
         try:
             os.makedirs(self.out_dir)
-        except FileExistsError:  # It throws if the directory already exists!
+        except OSError:  # It throws if the directory already exists!
             pass
         self.port = None
         self.socket = None
@@ -200,7 +200,8 @@ class Responder(object):
                     keep_alive = False
                     logmsg = "{}: Responder Stopping".format(os.getpid())
                     Responder.logger.info(logmsg)
-                    self.socket.send_json((ReturnCodes.OK, "Responder stopping"))
+                    self.socket.send_json(
+                        (ReturnCodes.OK, "Responder stopping"))
                     self._close_socket()
                 else:
                     # An actual application message, use introspection to find
@@ -226,8 +227,11 @@ class Responder(object):
                         Responder.logger.debug(logmsg)
                         self.socket.send_json(response)
                     else:
-                        Responder.logger.error("action has invalid response format: {}".format(response))
-                        response = (ReturnCodes.INVALID_RESPONSE_FORMAT, "action has invalid response format")
+                        Responder.logger.error(
+                            "action has invalid response format: {}".format(
+                                response))
+                        response = (ReturnCodes.INVALID_RESPONSE_FORMAT,
+                                    "action has invalid response format")
                         self.socket.send_json(response)
             except AttributeError as e:
                 logmsg = "{} is not a valid action for this Responder".format(
@@ -241,7 +245,8 @@ class Responder(object):
                     '{}: Responder sending "generic problem" error: '
                     '{}'.format(os.getpid(), e))
                 Responder.logger.debug(logmsg)
-                response = (ReturnCodes.GENERIC_ERROR, "Uh oh, something went wrong")
+                response = (ReturnCodes.GENERIC_ERROR,
+                            "Uh oh, something went wrong")
                 self.socket.send_json(response)
 
     def is_valid_response(self, response):
