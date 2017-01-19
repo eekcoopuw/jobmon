@@ -108,8 +108,7 @@ class SGEJob(Job):
             if reqdkey not in self.job_info.keys():
                 self.job_info[reqdkey] = 'Not Available'
 
-        if self.monitored_jid is None:
-            self.monitored_jid = self.register_with_monitor()
+        self.monitored_jid = self.register_with_monitor()
 
     def register_with_monitor(self):
         """send registration request to server. server will create database

@@ -177,13 +177,19 @@ class MonitoredQ(IgnorantQ):
 
         # configure arguments for parsing by ./bin/monitored_job.py
         if monitored_jid is None:
-            msg = {'action': 'register_job', 'kwargs': {'name': jobname}}
+            msg = {'action': 'register_job',
+                   'kwargs': {
+                       'name': jobname,
+                       'runfile': runfile,
+                       'args': ','.join(str(parameters)
+                                        ) if parameters else None}}
             r = self.request_sender.send_request(msg)
             monitored_jid = r[1]
 
         if not isinstance(monitored_jid, int):
-            raise "Could not create job, monitored_jid = '{}'".format(
-                monitored_jid)
+            raise Exception(
+                "Could not create job, monitored_jid = '{}'".format(
+                    monitored_jid))
         base_params = [
             "--mon_dir", self.mon_dir,
             "--runfile", runfile,
@@ -217,10 +223,6 @@ class MonitoredQ(IgnorantQ):
             conda_env=self.conda_env,
             parameters=parameters,
             *args, **kwargs)
-
-        # update database to reflect submitted status
-        msg = {'action': 'update_job_status', 'args': [jid, 2]}
-        self.request_sender.send_request(msg)
 
         # store submission params in self.jobs dict in case of resubmit
         self.scheduled_jobs.append(sgeid)
