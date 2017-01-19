@@ -6,6 +6,8 @@ from jobmon import requester, sge
 from jobmon.exceptions import (CannotConnectToCentralJobMonitor,
                                CentralJobMonitorNotAlive)
 
+here = os.path.dirname(os.path.abspath(__file__))
+
 
 class IgnorantQ(object):
     """keep track of jobs submitted to sun grid engine"""
@@ -119,11 +121,10 @@ class MonitoredQ(IgnorantQ):
         # environment for distributed applications
         self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm
         self.conda_env = conda_env
-        self.wrapperfile = "monitored_job.py"
+        self.wrapperfile = os.path.join(here, "monitored_job.py")
 
         # connect requester instance to central job monitor
-        self.request_sender = requester.Requester(
-            self.mon_dir, self.request_retries, self.request_timeout)
+        self.request_sender = requester.Requester(self.mon_dir)
         if not self.request_sender.is_connected():
             raise CannotConnectToCentralJobMonitor(
                 "unable to connect to central job monitor in {}".format(
@@ -144,7 +145,7 @@ class MonitoredQ(IgnorantQ):
 
     def _central_job_monitor_alive(self):
         try:
-            resp = self.requester.send_request({"action": "alive"})
+            resp = self.request_sender.send_request({"action": "alive"})
         except:
             # catch some class of errors?
             resp = [0, u"No, not alive"]
@@ -155,14 +156,15 @@ class MonitoredQ(IgnorantQ):
         else:
             return False
 
-    def qsub(self, runfile, jobname, jid=None, parameters=[], *args, **kwargs):
+    def qsub(self, runfile, jobname, monitored_jid=None, parameters=[],
+             *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. They will automatically
         register with server and sqlite database.
 
         Args:
             runfile (sting): full path to python executable file.
             jobname (sting): what name to register the sge job under.
-            jid (int, optional): what id to use for this job in the
+            monitored_jid (int, optional): what id to use for this job in the
                 jobmon database. by default will auto increment using get_i().
             parameters (list, optional): command line arguments to be passed
                 into runfile.
@@ -174,16 +176,19 @@ class MonitoredQ(IgnorantQ):
         """
 
         # configure arguments for parsing by ./bin/monitored_job.py
-        if jid is None:
-            msg = {'action': 'register_job', 'kwargs': {'name': self.name}}
+        if monitored_jid is None:
+            msg = {'action': 'register_job', 'kwargs': {'name': jobname}}
             r = self.request_sender.send_request(msg)
-            jid = r[1]
+            monitored_jid = r[1]
 
-        if not isinstance(jid, int):
-            raise "Could not create job, jid = '{}'".format(jid
-                                                            )
-        base_params = ["--mon_dir", self.mon_dir, "--runfile", runfile,
-                       "--jid", jid]
+        if not isinstance(monitored_jid, int):
+            raise "Could not create job, monitored_jid = '{}'".format(
+                monitored_jid)
+        base_params = [
+            "--mon_dir", self.mon_dir,
+            "--runfile", runfile,
+            "--monitored_jid", monitored_jid
+        ]
 
         # replace -- with ## to allow for passthrough in monitored job
         passed_params = []
@@ -205,10 +210,13 @@ class MonitoredQ(IgnorantQ):
                       parameters,
                       self.path_to_conda_bin_on_target_vm))
         # submit.
-        sgeid = sge.qsub(runfile=self.wrapperfile, jobname=jobname,
-                         prepend_to_path=self.path_to_conda_bin_on_target_vm,
-                         conda_env=self.conda_env,
-                         jobtype=None, parameters=parameters, *args, **kwargs)
+        sgeid = sge.qsub(
+            runfile=self.wrapperfile,
+            jobname=jobname,
+            prepend_to_path=self.path_to_conda_bin_on_target_vm,
+            conda_env=self.conda_env,
+            parameters=parameters,
+            *args, **kwargs)
 
         # update database to reflect submitted status
         msg = {'action': 'update_job_status', 'args': [jid, 2]}
@@ -216,9 +224,10 @@ class MonitoredQ(IgnorantQ):
 
         # store submission params in self.jobs dict in case of resubmit
         self.scheduled_jobs.append(sgeid)
-        self.jobs[jid] = {"runfile": runfile,
-                          "jobname": jobname,
-                          "parameters": parameters,
-                          "args": args,
-                          "kwargs": kwargs}
+        self.jobs[monitored_jid] = {
+            "runfile": runfile,
+            "jobname": jobname,
+            "parameters": parameters,
+            "args": args,
+            "kwargs": kwargs}
         return sgeid

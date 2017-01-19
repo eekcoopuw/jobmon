@@ -51,6 +51,5 @@ setup(
         'drmaa'
     ],
     packages=['jobmon'],
-    scripts=["bin/launch_central_monitor.py",
-             "bin/monitored_job.py"],
+    scripts=["bin/launch_central_monitor.py"],
     entry_points={'console_scripts': []})
