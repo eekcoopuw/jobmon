@@ -77,13 +77,14 @@ class CentralJobMonitor(object):
             self.session.query(models.Job).filter_by(current_status=status_id))
         return jobs
 
-    def _action_get_job_information(self, sge_id):
-        job = self.session.query(models.Job).filter_by(sge_id=sge_id)
+    def _action_get_job_information(self, monitored_jid):
+        job = self.session.query(models.Job).filter_by(
+            monitored_jid=monitored_jid)
         result = job.all()
         length = len(result)
         if length == 0:
             return (ReturnCodes.NO_RESULTS,
-                    "Found no job with sge_id {}".format(sge_id))
+                    "Found no job with sge_id {}".format(monitored_jid))
         elif length == 1:
             # Problem. Can't just pass in result[0].__dict__ to be serialized
             # because it contains sqlalcehmy objects that are not serializable.
@@ -91,35 +92,18 @@ class CentralJobMonitor(object):
             return (ReturnCodes.OK, result[0].to_wire_format_dict())
         else:
             return (ReturnCodes.GENERIC_ERROR,
-                    "Found too many results ({}) for sge_id {}".format(length,
-                                                                       sge_id))
+                    "Found too many results ({}) for monitored_jid {}".format(
+                        length, monitored_jid))
 
-    def _action_register_job(self, name=None):
-        job = models.Job(current_status=models.Status.SUBMITTED, name=name)
+    def _action_register_job(self, name=None, runfile=None, args=None):
+        job = models.Job(
+            current_status=models.Status.SUBMITTED,
+            name=name,
+            runfile=runfile,
+            args=args)
         self.session.add(job)
         self.session.commit()
         return 0, job.monitored_jid
-
-    def _action_register_sgejob(self, sge_id, name, *args, **kwargs):
-        """create job entry in database job table.
-
-        Args:
-            name (string): name of job to add to job table
-
-            **kwargs: any keyword args passed through will be treated as insert
-                statements for the specified jid where the keys are the column
-                names and the values are the column values.
-        """
-        job = self.session.query(models.Job).filter_by(sge_id=sge_id).first()
-        if job is None:
-            job = models.Job(
-                sge_id=sge_id,
-                name=name,
-                current_status=models.Status.SUBMITTED,
-                **kwargs)
-            self.session.add(job)
-            self.session.commit()
-        return (ReturnCodes.OK, job.monitored_jid)
 
     def _action_update_job_status(self, jid, status_id):
         """update status of job.
@@ -136,11 +120,81 @@ class CentralJobMonitor(object):
         self.session.commit()
         return (ReturnCodes.OK, jid, status_id)
 
-    def _action_update_job_usage(self, jid, *args, **kwargs):
-        job = self.session.query(models.Job).filter_by(jid=jid).first()
+    def _action_get_sgejob_information(self, sge_id):
+        sgejob = self.session.query(models.SGEJob).filter_by(sge_id=sge_id)
+        result = sgejob.all()
+        length = len(result)
+        if length == 0:
+            return (ReturnCodes.NO_RESULTS,
+                    "Found no job with sge_id {}".format(sge_id))
+        elif length == 1:
+            # Problem. Can't just pass in result[0].__dict__ to be serialized
+            # because it contains sqlalcehmy objects that are not serializable.
+            # So construct a "safe" dict
+            return (ReturnCodes.OK, result[0].to_wire_format_dict())
+        else:
+            return (ReturnCodes.GENERIC_ERROR,
+                    "Found too many results ({}) for sge_id {}".format(
+                        length, sge_id))
+
+    def _action_register_sgejob(self, sge_id, name, monitored_jid=None,
+                                *args, **kwargs):
+        """create job entry in database job table.
+
+        Args:
+            sge_id (int): unique job id assigned by univa grid engine
+            name (string): name of job to add to job table
+            monitored_jid (int, optional): auto incrementing id assigned by
+                central_job_monitor backend sqlite database. If not specified
+                a new entry will be created.
+
+            **kwargs: any keyword args passed through will be treated as insert
+                statements for the specified jid where the keys are the column
+                names and the values are the column values.
+        """
+        # if monitored_jid is not provided, create a new entry
+        if monitored_jid is None:
+            monitored_jid = self._action_register_job(
+                name=kwargs.get("name"),
+                runfile=kwargs.get("runfile"),
+                args=kwargs.get("args")
+            )[1]
+        sgejob = models.SGEJob(
+            sge_id=sge_id,
+            monitored_jid=monitored_jid,
+            name=name,
+            current_status=models.Status.SUBMITTED,
+            **kwargs)
+        self.session.add(sgejob)
+        self.session.commit()
+        return (ReturnCodes.OK, sgejob.monitored_jid)
+
+    def _action_update_sgejob_status(self, sge_id, status_id):
+        """update status of job.
+
+        Args:
+            jid (int): job id to update status of
+            status_id (int): status id to update job to
+        """
+        # update sge_job statuses
+        sgejob = self.session.query(models.SGEJob).filter_by(
+            sge_id=sge_id).first()
+        sgejob.current_status = status_id
+        status = models.SGEJobStatus(sge_id=sge_id, status=status_id)
+        self.session.add_all([status, sgejob])
+        self.session.commit()
+
+        # update job statuses
+        self._action_update_job_status(sgejob.monitored_jid, status_id)
+
+        return (ReturnCodes.OK, sge_id, status_id)
+
+    def _action_update_sgejob_usage(self, sge_id, *args, **kwargs):
+        sgejob = self.session.query(models.SGEJob).filter_by(
+            sge_id=sge_id).first()
         for k, v in kwargs.items():
-            setattr(job, k, v)
-        self.session.add(job)
+            setattr(sgejob, k, v)
+        self.session.add(sgejob)
         self.session.commit()
         return (ReturnCodes.OK,)
 

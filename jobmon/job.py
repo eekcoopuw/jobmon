@@ -1,5 +1,4 @@
 import os
-import json
 from subprocess import CalledProcessError
 
 from jobmon import sge
@@ -14,22 +13,29 @@ class Job(object):
     Args
         out_dir (string): file path where the server configuration is
             stored.
-        jid (int, optional): job id to use when registering with jobmon
-            database. If job id is not specified, will attempt to use
-            environment variable JOB_ID.
+        jid (int, optional): job id to use when communicating with jobmon
+            database. If job id is not specified, will register as a new job
+            and aquire the job id from the central job monitor.
         name (string, optional): name current process. If name is not specified
-            will attempt to use environment variable JOB_NAME.
+            will default to None.
     """
 
-    def __init__(self, out_dir, name=None):
+    _update_status_action_name = "update_job_status"
+    _update_status_attribute = "monitored_id"
+
+    def __init__(self, out_dir, monitored_jid=None, name=None):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified.
         """
-        self.name = name
         self.requester = Requester(out_dir)
 
         # get jid from monitor
-        self.monitored_jid = self.register_with_monitor()
+        self.name = name
+
+        if monitored_jid is not None:
+            self.monitored_jid = self.register_with_monitor()
+        else:
+            self.monitored_jid = monitored_jid
 
     def register_with_monitor(self):
         """send registration request to server. server will create database
@@ -40,14 +46,16 @@ class Job(object):
 
     def log_started(self):
         """log job start with server"""
-        msg = {'action': 'update_job_status',
-               'args': [self.monitored_jid, Status.RUNNING]}
+        msg = {'action': self._update_status_action_name,
+               'args': [getattr(self, self._update_status_attribute),
+                        Status.RUNNING]}
         self.requester.send_request(msg)
 
     def log_failed(self):
         """log job failure with server"""
-        msg = {'action': 'update_job_status',
-               'args': [self.monitored_jid, Status.FAILED]}
+        msg = {'action': self._update_status_action_name,
+               'args': [getattr(self, self._update_status_attribute),
+                        Status.FAILED]}
         self.requester.send_request(msg)
 
     def log_error(self, error_msg):
@@ -59,21 +67,10 @@ class Job(object):
 
     def log_completed(self):
         """log job complete with server"""
-        msg = {'action': 'update_job_status',
-               'args': [self.monitored_jid, Status.COMPLETE]}
+        msg = {'action': self._update_status_action_name,
+               'args': [getattr(self, self._update_status_attribute),
+                        Status.COMPLETE]}
         self.requester.send_request(msg)
-        try:
-            self.usage = sge.qstat_usage(self.sge_id)[self.sge_id]
-            dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
-            kwargs = {k: self.usage[k] for k in dbukeys
-                      if k in self.usage.keys()}
-            msg = {
-                'action': 'update_job_usage',
-                'args': [self.sge_id],
-                'kwargs': kwargs}
-            self.requester.send_request(msg)
-        except Exception as e:
-            print(e)
 
 
 class SGEJob(Job):
@@ -86,8 +83,10 @@ class SGEJob(Job):
         name (string, optional): name current process. If name is not specified
             will attempt to use environment variable JOB_NAME.
     """
+    _update_status_action_name = "update_sgejob_status"
+    _update_status_attribute = "sge_id"
 
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, monitored_jid=None):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified."""
         self.requester = Requester(out_dir)
@@ -108,13 +107,33 @@ class SGEJob(Job):
         for reqdkey in ['script_file', 'job_args']:
             if reqdkey not in self.job_info.keys():
                 self.job_info[reqdkey] = 'Not Available'
-        self.monitored_jid = self.register_with_monitor()
+
+        if monitored_jid is None:
+            self.monitored_jid = self.register_with_monitor()
+        else:
+            self.monitored_jid = monitored_jid
 
     def register_with_monitor(self):
         """send registration request to server. server will create database
         entry for this job."""
         msg = {'action': 'register_sgejob',
                'kwargs': {'name': self.name,
-                          'sge_id': self.sge_id}}
+                          'sge_id': self.sge_id,
+                          'monitored_jid': self.monitored_jid}}
         r = self.requester.send_request(msg)
         return r[1]
+
+    def log_completed(self):
+        super(SGEJob, self).log_completed()
+        try:
+            self.usage = sge.qstat_usage(self.sge_id)[self.sge_id]
+            dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
+            kwargs = {k: self.usage[k] for k in dbukeys
+                      if k in self.usage.keys()}
+            msg = {
+                'action': 'update_sgejob_usage',
+                'args': [self.sge_id],
+                'kwargs': kwargs}
+            self.requester.send_request(msg)
+        except Exception as e:
+            print(e)
