@@ -21,7 +21,7 @@ class Job(object):
     """
 
     _update_status_action_name = "update_job_status"
-    _update_status_attribute = "monitored_id"
+    _update_status_attribute = "monitored_jid"
 
     def __init__(self, out_dir, monitored_jid=None, name=None):
         """set SGE job id and job name as class attributes. discover from
@@ -31,11 +31,10 @@ class Job(object):
 
         # get jid from monitor
         self.name = name
+        self.monitored_jid = monitored_jid
 
-        if monitored_jid is not None:
+        if self.monitored_jid is None:
             self.monitored_jid = self.register_with_monitor()
-        else:
-            self.monitored_jid = monitored_jid
 
     def register_with_monitor(self):
         """send registration request to server. server will create database
@@ -94,6 +93,7 @@ class SGEJob(Job):
         # get sge_id and name from envirnoment
         self.sge_id = os.getenv("JOB_ID")
         self.name = os.getenv("JOB_NAME")
+        self.monitored_jid = monitored_jid
 
         # Try to get job_details
         try:
@@ -108,10 +108,8 @@ class SGEJob(Job):
             if reqdkey not in self.job_info.keys():
                 self.job_info[reqdkey] = 'Not Available'
 
-        if monitored_jid is None:
+        if self.monitored_jid is None:
             self.monitored_jid = self.register_with_monitor()
-        else:
-            self.monitored_jid = monitored_jid
 
     def register_with_monitor(self):
         """send registration request to server. server will create database
