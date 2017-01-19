@@ -20,17 +20,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mon_dir", required=True)
 parser.add_argument("--runfile", required=True)
 parser.add_argument("--jid", required=True, type=int)
-parser.add_argument("--request_timeout", required=False, type=int)
-parser.add_argument("--request_retries", required=False, type=int)
 parser.add_argument('pass_through', nargs='*')
 args = vars(parser.parse_args())
-
-# build kwargs list for optional stuff
-kwargs = {}
-if args["request_retries"] is not None:
-    kwargs["request_retries"] = args["request_retries"]
-if args["request_timeout"] is not None:
-    kwargs["request_timeout"] = args["request_timeout"]
 
 # reset sys.argv as if this parsing never happened
 passed_params = []
@@ -39,7 +30,7 @@ for param in args["pass_through"]:
 sys.argv = [args["runfile"]] + passed_params
 
 # start monitoring
-j1 = job.Job(args["mon_dir"], jid=args["jid"], **kwargs)
+j1 = job.Job(args["mon_dir"], jid=args["jid"])
 j1.start()
 
 # open subprocess

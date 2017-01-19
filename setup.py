@@ -47,7 +47,8 @@ setup(
         'numpy',
         'pymysql',
         'pyyaml',
-        'pyzmq'
+        'pyzmq',
+        'drmaa'
     ],
     packages=['jobmon'],
     scripts=["bin/launch_central_monitor.py",

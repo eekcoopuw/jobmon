@@ -98,8 +98,7 @@ class MonitoredQ(IgnorantQ):
     they get scheduled."""
 
     def __init__(self, mon_dir, path_to_conda_bin_on_target_vm,
-                 conda_env, request_timeout=10000, request_retries=3,
-                 max_alive_wait_time=45):
+                 conda_env, max_alive_wait_time=45):
         """
         Args:
             mon_dir (string): directory where monitor server is running
@@ -112,9 +111,6 @@ class MonitoredQ(IgnorantQ):
         """
         super(MonitoredQ, self).__init__()
         self.mon_dir = mon_dir
-        self.request_retries = request_retries
-        self.request_timeout = request_timeout
-        self.max_alive_wait_time = max_alive_wait_time
 
         # internal tracking
         self.scheduled_jobs = []
@@ -179,7 +175,7 @@ class MonitoredQ(IgnorantQ):
 
         # configure arguments for parsing by ./bin/monitored_job.py
         if jid is None:
-            msg = {'action': 'create_job', 'args': ''}
+            msg = {'action': 'register_job', 'kwargs': {'name': self.name}}
             r = self.request_sender.send_request(msg)
             jid = r[1]
 
@@ -188,10 +184,6 @@ class MonitoredQ(IgnorantQ):
                                                             )
         base_params = ["--mon_dir", self.mon_dir, "--runfile", runfile,
                        "--jid", jid]
-        if self.request_timeout is not None:
-            base_params.extend(["--request_timeout", self.request_timeout])
-        if self.request_retries is not None:
-            base_params.extend(["--request_retries", self.request_retries])
 
         # replace -- with ## to allow for passthrough in monitored job
         passed_params = []
