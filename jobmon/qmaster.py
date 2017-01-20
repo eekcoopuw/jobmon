@@ -100,16 +100,21 @@ class MonitoredQ(IgnorantQ):
     they get scheduled."""
 
     def __init__(self, mon_dir, path_to_conda_bin_on_target_vm,
-                 conda_env, max_alive_wait_time=45):
+                 conda_env, max_alive_wait_time=45, request_retries=3,
+                 request_timeout=30000):
         """
         Args:
             mon_dir (string): directory where monitor server is running
             path_to_conda_bin_on_target_vm (string, optional): which conda bin
                 to use on the target vm.
             conda_env (string, optional): which conda environment you are
-                using on the target vm
-            request_retries (int, optional): how many times to resubmit failed
-                jobs
+                using on the target vm.
+            max_alive_wait_time (int, optional): how long to wait for an alive
+                signal from the central job monitor
+            request_retries (int, optional): how many times to attempt to
+                communicate with the central job monitor per request
+            request_timeout (int, optional): how long till each communication
+                attempt times out
         """
         super(MonitoredQ, self).__init__()
         self.mon_dir = mon_dir
@@ -123,12 +128,16 @@ class MonitoredQ(IgnorantQ):
         self.conda_env = conda_env
         self.wrapperfile = os.path.join(here, "monitored_job.py")
 
+        # communication settings
+        self.request_retries = request_retries
+        self.request_timeout = request_timeout
+
         # connect requester instance to central job monitor
         self.request_sender = requester.Requester(self.mon_dir)
         if not self.request_sender.is_connected():
             raise CannotConnectToCentralJobMonitor(
                 "unable to connect to central job monitor in {}".format(
-                    self.mon_dir))
+                    self.mon_dir, self.request_retries, self.request_timeout))
 
         # make sure server is alive
         time_spent = 0
@@ -193,7 +202,9 @@ class MonitoredQ(IgnorantQ):
         base_params = [
             "--mon_dir", self.mon_dir,
             "--runfile", runfile,
-            "--monitored_jid", monitored_jid
+            "--monitored_jid", monitored_jid,
+            "--request_retries", self.request_retries,
+            "--request_timeout", self.request_timeout
         ]
 
         # replace -- with ## to allow for passthrough in monitored job
@@ -229,7 +240,7 @@ class MonitoredQ(IgnorantQ):
         self.jobs[monitored_jid] = {
             "runfile": runfile,
             "jobname": jobname,
-            "parameters": parameters,
+            "parameters": passed_params,
             "args": args,
             "kwargs": kwargs}
         return sgeid

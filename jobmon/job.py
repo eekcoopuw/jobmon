@@ -23,11 +23,12 @@ class Job(object):
     _update_status_action_name = "update_job_status"
     _update_status_attribute = "monitored_jid"
 
-    def __init__(self, out_dir, monitored_jid=None, name=None):
+    def __init__(self, out_dir, monitored_jid=None, name=None,
+                 *args, **kwargs):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified.
         """
-        self.requester = Requester(out_dir)
+        self.requester = Requester(out_dir, *args, **kwargs)
 
         # get jid from monitor
         self.name = name
@@ -85,10 +86,10 @@ class SGEJob(Job):
     _update_status_action_name = "update_sgejob_status"
     _update_status_attribute = "sge_id"
 
-    def __init__(self, out_dir, monitored_jid=None):
+    def __init__(self, out_dir, monitored_jid=None, *args, **kwargs):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified."""
-        self.requester = Requester(out_dir)
+        self.requester = Requester(out_dir, *args, **kwargs)
 
         # get sge_id and name from envirnoment
         self.sge_id = os.getenv("JOB_ID")

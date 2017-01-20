@@ -234,7 +234,7 @@ class CentralJobMonitor(object):
                 response = (ReturnCodes.OK, df)
             except ValueError:
                 df = pd.DataFrame(columns=(r_proxy.keys()))
-                response = (ReturnCodes.OK, df)
+                response = (ReturnCodes.OK, df.to_dict())
             except Exception as e:
                 response = (1,
                             "dataframe failed to load {}".format(e))
