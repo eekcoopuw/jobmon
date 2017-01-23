@@ -76,12 +76,6 @@ class Job(Base):
                 "name": self.name,
                 "current_status": self.current_status
             }
-        # return \
-        #     '{' + \
-        #         ' "monitored_jid": {}, "sge_id": {}, "name": "{}", "current_status": {}'.format(
-        #             self.monitored_jid, self.sge_id, self.name, self.current_status
-        #         ) + \
-        #     '}'
 
 
 class JobStatus(Base):

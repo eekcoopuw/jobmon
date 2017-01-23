@@ -5,9 +5,9 @@ import pandas as pd
 from jobmon import qmaster, central_job_monitor
 
 here = os.path.dirname(os.path.abspath(__file__))
-monitor_dir = "/homes/mlsandar/temp"
+monitor_dir = "/ihme/scratch/tmp/tests"
 
-# @pytest.mark.cluster
+@pytest.mark.cluster
 def test_many_jobs():
 
     try:

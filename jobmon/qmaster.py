@@ -143,9 +143,11 @@ class MonitoredQ(IgnorantQ):
         time_spent = 0
         while not self._central_job_monitor_alive():
             if time_spent > max_alive_wait_time:
-                raise CentralJobMonitorNotAlive(
-                    ("unable to confirm central job monitor is alive in {}"
-                     ).format(self.mon_dir))
+                msg = ("unable to confirm central job monitor is alive in {}."
+                       " Maximum boot time exceeded: {}").format(
+                           self.mon_dir, max_alive_wait_time)
+                self.logger.debug(msg)
+                raise CentralJobMonitorNotAlive(msg)
                 break
 
             # sleep and increment
@@ -155,12 +157,13 @@ class MonitoredQ(IgnorantQ):
     def _central_job_monitor_alive(self):
         try:
             resp = self.request_sender.send_request({"action": "alive"})
-        except:
+        except Exception as e:
+            self.logger.error('Error sending request', exc_info=e)
             # catch some class of errors?
             resp = [0, u"No, not alive"]
 
         # check response
-        if resp[1] == u"Yes, I am alive":
+        if resp[0] == 0:
             return True
         else:
             return False
