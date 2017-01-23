@@ -17,12 +17,12 @@ while [[ $rc -ne 0 && $tries -lt $max_tries ]]; do
      # Use an ethernet-style increasing backoff
      jitter=`expr $RANDOM % 10 + 1`
      sleep `expr $jitter \* $tries`
-     >&2 echo "jobmon.env_submit_master: source activate failed, retry number: $tries"
+     >&2 echo "jobmon.env_submit_master: WARNING source activate failed, retrying, attempt: $tries"
   fi
 done
 
 if [ $tries -ge $max_tries ] ; then
-  >&2 echo "jobmon.env_submit_master: source activate failed"
+  >&2 echo "jobmon.env_submit_master: ERROR source activate failed"
   exit
 fi
 
