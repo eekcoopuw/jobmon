@@ -53,7 +53,7 @@ def _drmaa_exit():
     _drmaa_session.session.exit()
 
 
-#TODO Should this be two separate functions?
+# TODO Should this be two separate functions?
 def true_path(file_or_dir=None, executable=None):
     """Get true path to file or executable.
     Args:
@@ -117,7 +117,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
 
     # Careful, python 2 vs 3 - bytes versus strings
     if not isinstance(output, str):
-        output=output.decode('utf-8')
+        output = output.decode('utf-8')
 
     lines = output.splitlines()
 
@@ -441,8 +441,8 @@ def qsub(
     # N             Y             Y      Build args to shfile for jobtype.
     # Y             Y             Y      Use given jobtype and build args.
     if not jobtype:
-        job_types = { ".py": "python", ".do": "stata", ".sh": "shell",
-                      ".r": "R", ".R": "R"}
+        job_types = {".py": "python", ".do": "stata", ".sh": "shell",
+                     ".r": "R", ".R": "R"}
         jobtype = job_types.get(_suffix(runfile), "plain")
         logger.debug("qsub chose jobtype {}".format(jobtype))
     assert not (conda_env and not jobtype == "python")
@@ -478,7 +478,7 @@ def qsub(
         "-b n" if jobtype == "shell" else None
     ]
     template.nativeSpecification = " ".join(
-            [str(native_arg) for native_arg in native if native_arg])
+        [str(native_arg) for native_arg in native if native_arg])
     logger.debug("qsub native {}".format(template.nativeSpecification))
     template.jobName = UGE_NAME_POLICY.sub("", jobname)
     template.outputPath = ":" + (stdout or "/dev/null")
@@ -594,9 +594,10 @@ def _wait_done(job_ids):
     for status_check in job_ids:
         status = session.jobStatus(status_check)
         if status not in {drmaa.JobState.DONE, drmaa.JobState.RUNNING}:
-            logger.error("job_id {} has status {}".format(status_check, status))
+            logger.error("job_id {} has status {}".format(
+                status_check, status))
             raise RuntimeError("job status not done or running {}".format(
-                    status_check))
+                status_check))
     return True
 
 

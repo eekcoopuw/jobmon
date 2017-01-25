@@ -1,6 +1,4 @@
-import json
 import os
-import pytest
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.job import Job, SGEJob
@@ -111,20 +109,20 @@ def test_get_job_information_query(central_jobmon):
     req.send_request({'action': 'register_sgejob',
                       'kwargs': {'sge_id': 17, 'name': 'red'}})
 
-    job_info = central_jobmon._action_get_job_information(17)
+    job_info = central_jobmon._action_get_sgejob_information(17)
     assert job_info[0] == ReturnCodes.OK
     status = job_info[1]['current_status']
     assert status == Status.SUBMITTED
 
     # No job with ID 99
-    job_info = central_jobmon._action_get_job_information(99)
+    job_info = central_jobmon._action_get_sgejob_information(99)
     assert job_info[0] == ReturnCodes.NO_RESULTS
 
     # Update a job's status and check that it gets committed to persistent
     # store
-    req.send_request({'action': 'update_job_status',
-                      'kwargs': {'jid': 1, 'status_id': Status.FAILED}})
-    job_info = central_jobmon._action_get_job_information(17)
+    req.send_request({'action': 'update_sgejob_status',
+                      'kwargs': {'sge_id': 17, 'status_id': Status.FAILED}})
+    job_info = central_jobmon._action_get_sgejob_information(17)
     assert job_info[0] == ReturnCodes.OK
     status = job_info[1]['current_status']
     assert status == Status.FAILED

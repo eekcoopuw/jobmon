@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 from __future__ import print_function
 import sys
 import argparse
@@ -19,7 +18,7 @@ def eprint(*args, **kwargs):
 parser = argparse.ArgumentParser()
 parser.add_argument("--mon_dir", required=True)
 parser.add_argument("--runfile", required=True)
-parser.add_argument("--jid", required=True, type=int)
+parser.add_argument("--monitored_jid", required=True, type=int)
 parser.add_argument("--request_timeout", required=False, type=int)
 parser.add_argument("--request_retries", required=False, type=int)
 parser.add_argument('pass_through', nargs='*')
@@ -39,8 +38,8 @@ for param in args["pass_through"]:
 sys.argv = [args["runfile"]] + passed_params
 
 # start monitoring
-j1 = job.Job(args["mon_dir"], jid=args["jid"], **kwargs)
-j1.start()
+j1 = job.SGEJob(args["mon_dir"], monitored_jid=args["monitored_jid"], **kwargs)
+j1.log_started()
 
 # open subprocess
 try:
@@ -49,12 +48,12 @@ try:
 except subprocess.CalledProcessError as exc:
     eprint(exc.output)
     j1.log_error(exc.output)
-    j1.failed()
+    j1.log_failed()
 except:
     tb = traceback.format_exc()
     eprint(tb)
     j1.log_error(tb)
-    j1.failed()
+    j1.log_failed()
 else:
     print(out)
-    j1.finish()
+    j1.log_completed()
