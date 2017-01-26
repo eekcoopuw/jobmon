@@ -95,12 +95,12 @@ class CentralJobMonitor(object):
                     "Found too many results ({}) for monitored_jid {}".format(
                         length, monitored_jid))
 
-    def _action_register_job(self, name=None, runfile=None, args=None):
+    def _action_register_job(self, name=None, runfile=None, job_args=None):
         job = models.Job(
             current_status=models.Status.SUBMITTED,
             name=name,
             runfile=runfile,
-            args=args)
+            args=job_args)
         self.session.add(job)
         self.session.commit()
         return 0, job.monitored_jid
@@ -231,13 +231,12 @@ class CentralJobMonitor(object):
             try:
                 df = pd.DataFrame(r_proxy.fetchall())
                 df.columns = r_proxy.keys()
-                response = (ReturnCodes.OK, df)
+                response = (ReturnCodes.OK, df.to_dict(orient='records'))
             except ValueError:
                 df = pd.DataFrame(columns=(r_proxy.keys()))
-                response = (ReturnCodes.OK, df.to_dict())
+                response = (ReturnCodes.OK, df.to_dict(orient='records'))
             except Exception as e:
-                response = (1,
-                            "dataframe failed to load {}".format(e))
+                response = (1, "dataframe failed to load {}".format(e))
 
         except Exception as e:
             response = (1, "query failed to execute {}".format(e).encode())

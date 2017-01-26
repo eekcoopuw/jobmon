@@ -3,6 +3,7 @@ import os
 import time
 
 from jobmon import requester, sge
+from jobmon.job import Job
 from jobmon.exceptions import (CannotConnectToCentralJobMonitor,
                                CentralJobMonitorNotAlive)
 
@@ -188,15 +189,12 @@ class MonitoredQ(IgnorantQ):
         """
 
         # configure arguments for parsing by ./bin/monitored_job.py
+        parameters = [str(param) for param in parameters]
         if monitored_jid is None:
-            msg = {'action': 'register_job',
-                   'kwargs': {
-                       'name': jobname,
-                       'runfile': runfile,
-                       'args': ','.join(str(parameters)
-                                        ) if parameters else None}}
-            r = self.request_sender.send_request(msg)
-            monitored_jid = r[1]
+            job_args = ','.join(parameters) if parameters else None
+            job = Job(self.mon_dir, name=jobname, runfile=runfile,
+                      job_args=job_args)
+            monitored_jid = job.monitored_jid
 
         if not isinstance(monitored_jid, int):
             raise Exception(
@@ -246,4 +244,4 @@ class MonitoredQ(IgnorantQ):
             "parameters": passed_params,
             "args": args,
             "kwargs": kwargs}
-        return sgeid
+        return monitored_jid, sgeid

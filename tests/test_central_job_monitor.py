@@ -1,9 +1,10 @@
 import os
+
+import pytest
+
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.job import Job, SGEJob
-
-
 from jobmon.exceptions import ReturnCodes
 
 
@@ -106,8 +107,9 @@ def test_get_job_information_query(central_jobmon):
     req = Requester(central_jobmon.out_dir)
 
     # Test job registration with sge-id's.  I like prime numbers.
-    req.send_request({'action': 'register_sgejob',
-                      'kwargs': {'sge_id': 17, 'name': 'red'}})
+    os.environ["JOB_ID"] = "17"
+    os.environ["JOB_NAME"] = "job1"
+    j17 = SGEJob(central_jobmon.out_dir)
 
     job_info = central_jobmon._action_get_sgejob_information(17)
     assert job_info[0] == ReturnCodes.OK
@@ -120,8 +122,7 @@ def test_get_job_information_query(central_jobmon):
 
     # Update a job's status and check that it gets committed to persistent
     # store
-    req.send_request({'action': 'update_sgejob_status',
-                      'kwargs': {'sge_id': 17, 'status_id': Status.FAILED}})
+    j17.log_failed()
     job_info = central_jobmon._action_get_sgejob_information(17)
     assert job_info[0] == ReturnCodes.OK
     status = job_info[1]['current_status']

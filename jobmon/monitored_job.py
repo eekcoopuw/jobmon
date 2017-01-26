@@ -47,11 +47,13 @@ try:
                                   stderr=subprocess.STDOUT)
 except subprocess.CalledProcessError as exc:
     eprint(exc.output)
-    j1.log_error(exc.output)
+    j1.log_job_stats()
+    j1.log_error(str(exc.output))
     j1.log_failed()
 except:
     tb = traceback.format_exc()
     eprint(tb)
+    j1.log_job_stats()
     j1.log_error(tb)
     j1.log_failed()
 else:

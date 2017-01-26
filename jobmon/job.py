@@ -23,8 +23,8 @@ class Job(object):
     _update_status_action_name = "update_job_status"
     _update_status_attribute = "monitored_jid"
 
-    def __init__(self, out_dir, monitored_jid=None, name=None,
-                 *args, **kwargs):
+    def __init__(self, out_dir, monitored_jid=None, name=None, runfile=None,
+                 job_args=None, *args, **kwargs):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified.
         """
@@ -33,6 +33,8 @@ class Job(object):
         # get jid from monitor
         self.name = name
         self.monitored_jid = monitored_jid
+        self.job_args = job_args
+        self.runfile = runfile
 
         if self.monitored_jid is None:
             self.monitored_jid = self.register_with_monitor()
@@ -40,7 +42,10 @@ class Job(object):
     def register_with_monitor(self):
         """send registration request to server. server will create database
         entry for this job."""
-        msg = {'action': 'register_job', 'kwargs': {'name': self.name}}
+        msg = {'action': 'register_job',
+               'kwargs': {'name': self.name,
+                          'runfile': self.runfile,
+                          'job_args': self.job_args}}
         r = self.requester.send_request(msg)
         return r[1]
 
@@ -83,6 +88,23 @@ class SGEJob(Job):
         name (string, optional): name current process. If name is not specified
             will attempt to use environment variable JOB_NAME.
     """
+    # TODO: I think the object model is broken for the qmaster use-case;
+    # basically, the way that functionality is currently designed, it interacts
+    # with Job/SGEJob in such a way that SGEJob shouldn't really be a subclass
+    # of Job, but rather a "Job" could have multiple SGEAttempts. The only
+    # reason for subclassing would be to share certain methods, but perhaps
+    # mixins might be better to share functionality rather than inheritance? Or
+    # maybe each SGEAttempt "has a" (potentially shared) "Job" parent?
+    #
+    # That probably stems from a misnomer in how this package was originally
+    # conceived. "Job" here is really just an individual process's handle to a
+    # central monitoring service, not the actual particulars of the Job itself
+    # (i.e. parameters, runfile, start/stop/retry logic, etc). Probably not
+    # worth fixing in this package, but something to think about in longer-term
+    # workflow solutions.
+    #
+    # --tom
+
     _update_status_action_name = "update_sgejob_status"
     _update_status_attribute = "sge_id"
 
@@ -92,9 +114,8 @@ class SGEJob(Job):
         self.requester = Requester(out_dir, *args, **kwargs)
 
         # get sge_id and name from envirnoment
-        self.sge_id = os.getenv("JOB_ID")
+        self.sge_id = int(os.getenv("JOB_ID"))
         self.name = os.getenv("JOB_NAME")
-        self.monitored_jid = monitored_jid
 
         # Try to get job_details
         try:
@@ -108,8 +129,14 @@ class SGEJob(Job):
         for reqdkey in ['script_file', 'job_args']:
             if reqdkey not in self.job_info.keys():
                 self.job_info[reqdkey] = 'Not Available'
+        self.runfile = self.job_info['script_file']
+        self.job_args = self.job_info['job_args']
 
-        self.monitored_jid = self.register_with_monitor()
+        if monitored_jid is None:
+            self.monitored_jid = super(SGEJob, self).register_with_monitor()
+        else:
+            self.monitored_jid = monitored_jid
+        self.register_with_monitor()
 
     def register_with_monitor(self):
         """send registration request to server. server will create database
@@ -121,8 +148,7 @@ class SGEJob(Job):
         r = self.requester.send_request(msg)
         return r[1]
 
-    def log_completed(self):
-        super(SGEJob, self).log_completed()
+    def log_job_stats(self):
         try:
             self.usage = sge.qstat_usage(self.sge_id)[self.sge_id]
             dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
@@ -134,4 +160,8 @@ class SGEJob(Job):
                 'kwargs': kwargs}
             self.requester.send_request(msg)
         except Exception as e:
-            print(e)
+            self.log_error(str(e))
+
+    def log_completed(self):
+        super(SGEJob, self).log_completed()
+        self.log_job_stats()

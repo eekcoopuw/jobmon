@@ -2,15 +2,11 @@
 Tests of jobmon/sge.py
 """
 import glob
-import logging
 import getpass
 import os
 import os.path as path
 import pytest
 import jobmon.sge as sge
-
-
-LOGGER = logging.getLogger("test_sge")
 
 
 def test_true_path():
@@ -27,16 +23,13 @@ def test_true_path():
 
 
 def test_session_creation():
-    logging.basicConfig(level=logging.DEBUG)
     s = sge._drmaa_session()
     assert s is not None
     assert s.drmsInfo is not None
-    LOGGER.debug(s.drmsInfo)
 
 
 @pytest.mark.slowtest
 def test_basic_submit():
-    logging.basicConfig(level=logging.DEBUG)
     true_id = sge.qsub("/bin/true", "so true", memory=0)
     assert true_id
 
@@ -65,7 +58,6 @@ def example_job_args(tag):
 
 @pytest.mark.slowtest
 def test_multi_submit():
-    logging.basicConfig(level=logging.DEBUG)
     true_ids = sge.qsub("/bin/sleep", "howdy",
                         parameters=[[1], [2], [1]])
     assert len(true_ids)==3
@@ -82,7 +74,6 @@ def test_path_manipulation():
     Compares what happens when you specify a prepend_to_path versus
         when you don't. Look at the output files and diff them to see.
     """
-    logging.basicConfig(level=logging.DEBUG)
     sort_a = sge.qsub(sge.true_path("env_vars.sh"), "env-a",
                       slots=1, memory=0,
                       stdout=os.path.abspath("env-a.out"))
@@ -96,16 +87,13 @@ def test_path_manipulation():
 
 @pytest.mark.slowtest
 def test_python_submit():
-    logging.basicConfig(level=logging.DEBUG)
     py_id = sge.qsub(sge.true_path("waiter.py"), ".hum",
                      parameters=[5], jobtype="python")
-    LOGGER.debug("returned job id {}".format(py_id))
     assert py_id
 
     env_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
                       parameters=[3], stderr="env_id.e$JOB_ID",
                       conda_env="fbd-0.1")
-    LOGGER.debug("returned job id {}".format(env_id))
     assert env_id
     abs_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
                       parameters=[3], stderr="abs_id.e$JOB_ID",
@@ -113,18 +101,13 @@ def test_python_submit():
     assert abs_id
     dones = list()
     for idx, v in enumerate([py_id, env_id, abs_id]):
-        LOGGER.debug("test_python_submit waiting for {}".format((idx, v)))
         if not sge._wait_done([v]):
             dones.append((idx, v))
-    if dones:
-        LOGGER.error("Not finished {}".format(dones))
     assert not dones
-
 
 
 @pytest.mark.slowtest
 def test_r_submit():
-    logging.basicConfig(level=logging.DEBUG)
     rscript_id = sge.qsub(sge.true_path("hi.R"), ".rstuff&*(",
                           parameters=[5], jobtype="R")
     notype_id = sge.qsub(sge.true_path("hi.R"), "##rb+@",
@@ -134,7 +117,6 @@ def test_r_submit():
 
 @pytest.mark.slowtest
 def test_sh_submit():
-    logging.basicConfig(level=logging.DEBUG)
     rscript_id = sge.qsub(sge.true_path("env_vars.sh"), ".rstuff&*(",
                           parameters=[5], jobtype="shell")
     notype_id = sge.qsub(sge.true_path("env_vars.sh"), "##rb+@",
@@ -149,7 +131,6 @@ def test_sh_loop():
     doesn't copy the shell file. It uses a reference to the
     file and runs from whatever file is currently on disk.
     """
-    logging.basicConfig(level=logging.DEBUG)
     jobs = list()
     for modify_idx in range(5):
         with open("modout.sh", "w") as shell_file:
@@ -162,7 +143,6 @@ def test_sh_loop():
 
 @pytest.mark.slowtest
 def test_sh_wrap():
-    logging.basicConfig(level=logging.DEBUG)
     sh0_id = sge.qsub(sge.true_path("waiter.py"),
                      shfile=sge.true_path("sample.sh"),
                      stdout="shellwaitPython.txt",

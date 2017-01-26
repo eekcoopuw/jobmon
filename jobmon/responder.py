@@ -245,8 +245,7 @@ class Responder(object):
                     '{}: Responder sending "generic problem" error: '
                     '{}'.format(os.getpid(), e))
                 Responder.logger.debug(logmsg)
-                response = (ReturnCodes.GENERIC_ERROR,
-                            "Uh oh, something went wrong")
+                response = (ReturnCodes.GENERIC_ERROR, logmsg)
                 self.socket.send_json(response)
 
     def is_valid_response(self, response):
