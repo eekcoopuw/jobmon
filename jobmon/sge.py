@@ -13,6 +13,8 @@ import os
 import re
 import subprocess
 import types
+
+from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 
@@ -186,6 +188,23 @@ def qstat_details(jids):
     Returns:
         dictionary of detailed qstat values
     """
+
+    # Explored parsing the xml output instead of the raw qstat stdout, but gave
+    # up after developing a headache trying to make sense of the schema.
+    # Anecdotally, also found qstat -xml itself to be slower than normal qstat.
+    # Found these useful to commiserate with:
+    #
+    #    http://wiki.gridengine.info/wiki/index.php/GridEngine_XML
+    #    http://arc.liv.ac.uk/pipermail/sge-discuss/2013-August/000473.html
+    #
+    # Feel free to switch to XML if you prefer that structure, but my opinion
+    # is it's more trouble than it's worth. IMHO - Beautiful Soup is great,
+    # XML itself less so:
+    #
+    #    https://www.crummy.com/software/BeautifulSoup/bs4/doc/
+    #
+    # -- tom
+
     jids = np.atleast_1d(jids)
     cmd = ["qstat", "-j", "%s" % ",".join([str(j) for j in jids])]
 
@@ -193,7 +212,7 @@ def qstat_details(jids):
         delim = "".join(["=" for i in range(62)])
         return line == delim
 
-    deets = subprocess.check_output(cmd)
+    deets = subprocess.check_output(cmd).decode("utf-8")
     deets = deets.splitlines()
     jobid = 0
     jobdict = {}
@@ -203,6 +222,7 @@ def qstat_details(jids):
                 continue
             ws = line.split(":")
             k = ws[0].strip()
+            k = re.sub('\s*1', '', k)  # remove inexplicable __1s in qstat keys
             v = ":".join(ws[1:]).strip()
             if k == 'job_number':
                 v = int(v)
@@ -226,7 +246,7 @@ def qstat_usage(jids):
     usage = {}
     for jid, info in details.items():
         usage[jid] = {}
-        usagestr = info['usage                 1']
+        usagestr = info['usage']
         parsus = {u.split("=")[0]: u.split("=")[1]
                   for u in usagestr.split(", ")}
         usage[jid]['usage_str'] = usagestr

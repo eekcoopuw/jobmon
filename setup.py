@@ -42,6 +42,7 @@ setup(
     author_email='tomflem@uw.edu, mlsandar@uw.edu',
     include_package_data=True,
     install_requires=[
+        'bs4',
         'pandas',
         'sqlalchemy',
         'numpy',
