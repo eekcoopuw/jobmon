@@ -79,7 +79,7 @@ class MonitoredQ(object):
         """
         job = Job(self.executor.mon_dir, name=jobname, runfile=runfile,
                   job_args=parameters)
-        self.jobs[job.monitored_jid] = job
+        self.jobs[job.jid] = job
         return job
 
     def queue_job(

@@ -9,7 +9,7 @@ Base = declarative_base()
 class Job(Base):
     __tablename__ = 'job'
 
-    monitored_jid = Column(Integer, primary_key=True)
+    jid = Column(Integer, primary_key=True)
     name = Column(String(150))
     runfile = Column(String(150))
     args = Column(String(1000))
@@ -20,18 +20,18 @@ class Job(Base):
         serialized to JSON"""
         return \
             {
-                "monitored_jid": self.monitored_jid,
+                "jid": self.jid,
                 "name": self.name
             }
 
 
-class SGEJob(Base):
-    __tablename__ = 'sge_job'
+class JobInstance(Base):
+    __tablename__ = 'job_instance'
 
-    sge_id = Column(Integer, primary_key=True)
-    monitored_jid = Column(
+    job_instance_id = Column(Integer, primary_key=True)
+    jid = Column(
         Integer,
-        ForeignKey('job.monitored_jid'),
+        ForeignKey('job.jid'),
         nullable=False)
     retry_number = Column(Integer)
     usage_str = Column(String(250))
@@ -49,31 +49,31 @@ class SGEJob(Base):
 
         return \
             {
-                "sge_id": self.sge_id,
-                "monitored_jid": self.monitored_jid,
+                "job_instance_id": self.job_instance_id,
+                "jid": self.jid,
                 "current_status": self.current_status
             }
 
 
-class SGEJobError(Base):
-    __tablename__ = 'sge_job_error'
+class JobInstanceError(Base):
+    __tablename__ = 'job_instance_error'
 
     id = Column(Integer, primary_key=True)
-    sge_id = Column(
+    job_instance_id = Column(
         Integer,
-        ForeignKey('sge_job.sge_id'),
+        ForeignKey('job_instance.job_instance_id'),
         nullable=False)
     error_time = Column(DateTime, default=func.now())
     description = Column(String(1000), nullable=False)
 
 
-class SGEJobStatus(Base):
-    __tablename__ = 'sge_job_status'
+class JobInstanceStatus(Base):
+    __tablename__ = 'job_instance_status'
 
     id = Column(Integer, primary_key=True)
-    sge_id = Column(
+    job_instance_id = Column(
         Integer,
-        ForeignKey('sge_job.sge_id'),
+        ForeignKey('job_instance.job_instance_id'),
         nullable=False)
     status = Column(
         Integer,

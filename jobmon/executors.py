@@ -65,7 +65,7 @@ class BaseExecutor(object):
             # reduce strain on the central job monitor so we wont construct the
             # job instance class
             job_instance_id = self.execute_async(
-                monitored_jid=job.monitored_jid,
+                jid=job.jid,
                 runfile=job.runfile,
                 jobname=job.name,
                 parameters=job.job_args,
@@ -101,13 +101,13 @@ class SGEExecutor(BaseExecutor):
         self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm
         self.conda_env = conda_env
 
-    def execute_async(self, monitored_jid, runfile, jobname, parameters=[],
+    def execute_async(self, jid, runfile, jobname, parameters=[],
                       *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. They will automatically
         register with server and sqlite database.
 
         Args:
-            monitored_jid (int): what id to use for this job in the jobmon
+            jid (int): what id to use for this job in the jobmon
                 database.
             runfile (sting): full path to python executable file.
             jobname (sting): what name to register the sge job under.
@@ -122,7 +122,7 @@ class SGEExecutor(BaseExecutor):
         base_params = [
             "--mon_dir", self.mon_dir,
             "--runfile", runfile,
-            "--monitored_jid", monitored_jid,
+            "--jid", jid,
             "--request_retries", self.request_retries,
             "--request_timeout", self.request_timeout
         ]
@@ -147,7 +147,7 @@ class SGEExecutor(BaseExecutor):
                       parameters,
                       self.path_to_conda_bin_on_target_vm))
         # submit.
-        sgeid = sge.qsub(
+        job_instance_id = sge.qsub(
             runfile=self.stub,
             jobname=jobname,
             prepend_to_path=self.path_to_conda_bin_on_target_vm,
@@ -157,7 +157,7 @@ class SGEExecutor(BaseExecutor):
 
         # ideally would create an sge job instance here and return it instead
         # of the id
-        return sgeid
+        return job_instance_id
 
     def sync(self):
 

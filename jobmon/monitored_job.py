@@ -18,7 +18,7 @@ def eprint(*args, **kwargs):
 parser = argparse.ArgumentParser()
 parser.add_argument("--mon_dir", required=True)
 parser.add_argument("--runfile", required=True)
-parser.add_argument("--monitored_jid", required=True, type=int)
+parser.add_argument("--jid", required=True, type=int)
 parser.add_argument("--request_timeout", required=False, type=int)
 parser.add_argument("--request_retries", required=False, type=int)
 parser.add_argument('pass_through', nargs='*')
@@ -38,7 +38,7 @@ for param in args["pass_through"]:
 sys.argv = [args["runfile"]] + passed_params
 
 # start monitoring
-j1 = job.SGEJob(args["mon_dir"], monitored_jid=args["monitored_jid"], **kwargs)
+j1 = job.JobInstance(args["mon_dir"], jid=args["jid"], **kwargs)
 j1.log_started()
 
 # open subprocess
