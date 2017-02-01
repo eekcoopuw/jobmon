@@ -105,21 +105,6 @@ class CentralJobMonitor(object):
         self.session.commit()
         return 0, job.monitored_jid
 
-    def _action_update_job_status(self, jid, status_id):
-        """update status of job.
-
-        Args:
-            jid (int): job id to update status of
-            status_id (int): status id to update job to
-        """
-        status = models.JobStatus(monitored_jid=jid, status=status_id)
-        job = self.session.query(models.Job).filter_by(
-            monitored_jid=jid).first()
-        job.current_status = status_id
-        self.session.add_all([status, job])
-        self.session.commit()
-        return (ReturnCodes.OK, jid, status_id)
-
     def _action_get_sgejob_information(self, sge_id):
         sgejob = self.session.query(models.SGEJob).filter_by(sge_id=sge_id)
         result = sgejob.all()
@@ -184,9 +169,6 @@ class CentralJobMonitor(object):
         self.session.add_all([status, sgejob])
         self.session.commit()
 
-        # update job statuses
-        self._action_update_job_status(sgejob.monitored_jid, status_id)
-
         return (ReturnCodes.OK, sge_id, status_id)
 
     def _action_update_sgejob_usage(self, sge_id, *args, **kwargs):
@@ -198,14 +180,14 @@ class CentralJobMonitor(object):
         self.session.commit()
         return (ReturnCodes.OK,)
 
-    def _action_log_error(self, jid, error):
+    def _action_log_sge_job_error(self, sge_id, error):
         """log error for given job id
 
         Args:
-            jid (int): job id to update status of
+            sge_id (int): sge_id to update status of
             error (string): error message to log
         """
-        error = models.JobError(monitored_jid=jid, description=error)
+        error = models.SGEJobError(sge_id=sge_id, description=error)
         self.session.add(error)
         self.session.commit()
         return (ReturnCodes.OK,)
