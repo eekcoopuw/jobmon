@@ -8,14 +8,10 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 class BaseExecutor(object):
 
-    def __init__(self, mon_dir, request_retries, request_timeout,
-                 parallelism=None):
+    def __init__(self, parallelism=None):
         self.logger = logging.getLogger(__name__)
 
-        # environment for distributed applications
-        self.mon_dir = mon_dir
-        self.request_retries = request_retries
-        self.request_timeout = request_timeout
+        self.parallelism = parallelism
 
         # track job state
         self.queued_jobs = []
@@ -66,18 +62,19 @@ class BaseExecutor(object):
             job = job_def.pop("job")
 
             # ideally execute async would return a job instance but we want to
-            # reduce strain on the central job monitor so we dont construct the
+            # reduce strain on the central job monitor so we wont construct the
             # job instance class
             job_instance_id = self.execute_async(
                 monitored_jid=job.monitored_jid,
                 runfile=job.runfile,
-                jobname=job.jobname,
+                jobname=job.name,
                 parameters=job.job_args,
                 *job_def["args"],
                 **job_def["kwargs"])
 
             # add reference to job class and the executor
             job.job_instances.append(job_instance_id)
+            self.running_jobs.append(job_instance_id)
 
 
 class SGEExecutor(BaseExecutor):
@@ -85,7 +82,7 @@ class SGEExecutor(BaseExecutor):
     stub = os.path.join(here, "monitored_job.py")
 
     def __init__(self, mon_dir, request_retries, request_timeout,
-                 path_to_conda_bin_on_target_vm, conda_env):
+                 path_to_conda_bin_on_target_vm, conda_env, parallelism=None):
         """
             path_to_conda_bin_on_target_vm (string, optional): which conda bin
                 to use on the target vm.
@@ -93,8 +90,12 @@ class SGEExecutor(BaseExecutor):
                 using on the target vm.
         """
 
-        super(SGEExecutor, self).__init__(
-            mon_dir, request_retries, request_timeout)
+        super(SGEExecutor, self).__init__(parallelism)
+
+        # environment for distributed applications
+        self.mon_dir = mon_dir
+        self.request_retries = request_retries
+        self.request_timeout = request_timeout
 
         # environment for distributed applications
         self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm
@@ -141,13 +142,13 @@ class SGEExecutor(BaseExecutor):
             ("{}: Submitting job to qsub:"
              " runfile {}; jobname {}; parameters {}; path: {}"
              ).format(os.getpid(),
-                      self.wrapperfile,
+                      self.stub,
                       jobname,
                       parameters,
                       self.path_to_conda_bin_on_target_vm))
         # submit.
         sgeid = sge.qsub(
-            runfile=self.wrapperfile,
+            runfile=self.stub,
             jobname=jobname,
             prepend_to_path=self.path_to_conda_bin_on_target_vm,
             conda_env=self.conda_env,
@@ -162,7 +163,7 @@ class SGEExecutor(BaseExecutor):
 
         # check state of all jobs currently in sge queue
         self.logger.debug('{}: Polling jobs...'.format(os.getpid()))
-        current_jobs = set(sge.qstat(jids=self.running).job_id.tolist())
+        current_jobs = set(sge.qstat(jids=self.running_jobs).job_id.tolist())
         self.logger.debug('             ... ' +
                           str(len(current_jobs)) + ' active jobs')
         self.running_jobs = list(current_jobs)

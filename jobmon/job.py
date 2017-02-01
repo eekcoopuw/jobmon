@@ -31,6 +31,7 @@ class Job(object):
         self.monitored_jid = monitored_jid
         self.name = name
         self.runfile = runfile
+
         self.job_args = job_args
 
         if self.monitored_jid is None:
@@ -41,10 +42,13 @@ class Job(object):
     def register_with_monitor(self):
         """send registration request to server. server will create database
         entry for this job."""
+        job_args = [str(param) for param in self.job_args]
+        job_args = ','.join(job_args) if job_args else None
+
         msg = {'action': 'register_job',
                'kwargs': {'name': self.name,
                           'runfile': self.runfile,
-                          'job_args': self.job_args}}
+                          'job_args': job_args}}
         r = self.requester.send_request(msg)
         return r[1]
 
@@ -85,7 +89,9 @@ class SGEJob(object):
         self.job_args = self.job_info['job_args']
 
         if monitored_jid is None:
-            self.monitored_jid = super(SGEJob, self).register_with_monitor()
+            job = Job(out_dir, monitored_jid, self.name, self.runfile,
+                      self.job_args, *args, **kwargs)
+            self.monitored_jid = job.monitored_jid
         else:
             self.monitored_jid = monitored_jid
         self.register_with_monitor()
@@ -116,19 +122,19 @@ class SGEJob(object):
     def log_started(self):
         """log job start with server"""
         msg = {'action': "update_sgejob_status",
-               'args': ["sge_id", Status.RUNNING]}
+               'args': [self.sge_id, Status.RUNNING]}
         self.requester.send_request(msg)
 
     def log_completed(self):
         """log job complete with server"""
         msg = {'action': "update_sgejob_status",
-               'args': ["sge_id", Status.COMPLETE]}
+               'args': [self.sge_id, Status.COMPLETE]}
         self.requester.send_request(msg)
 
     def log_failed(self):
         """log job failure with server"""
         msg = {'action': "update_sgejob_status",
-               'args': ["sge_id", Status.FAILED]}
+               'args': [self.sge_id, Status.FAILED]}
         self.requester.send_request(msg)
 
     def log_error(self, error_msg):

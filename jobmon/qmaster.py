@@ -43,7 +43,7 @@ class MonitoredQ(object):
             if time_spent > max_alive_wait_time:
                 msg = ("unable to confirm central job monitor is alive in {}."
                        " Maximum boot time exceeded: {}").format(
-                           self.mon_dir, max_alive_wait_time)
+                           self.executor.mon_dir, max_alive_wait_time)
                 self.logger.debug(msg)
                 raise CentralJobMonitorNotAlive(msg)
                 break
@@ -77,10 +77,8 @@ class MonitoredQ(object):
                 into runfile.
 
         """
-        parameters = [str(param) for param in parameters]
-        job_args = ','.join(parameters) if parameters else None
-        job = Job(self.mon_dir, name=jobname, runfile=runfile,
-                  job_args=job_args)
+        job = Job(self.executor.mon_dir, name=jobname, runfile=runfile,
+                  job_args=parameters)
         self.jobs[job.monitored_jid] = job
         return job
 
@@ -97,7 +95,15 @@ class MonitoredQ(object):
         self.executor.queue_job(job, *args, **kwargs)
 
     def check_pulse(self, poll_interval=60):
+        """continuously run executors heartbeat method until all queued jobs
+        have finished
 
-        while self.executor.queue_jobs | self.executor.running_jobs:
+        Args:
+            poll_interval (int, optional): how frequently to call the heartbeat
+                method which updates the queue.
+        """
+        sgexec = self.executor
+        sgexec.heartbeat()
+        while len(sgexec.queued_jobs) > 0 or len(sgexec.running_jobs) > 0:
             time.sleep(poll_interval)
-            self.executor.heartbeat()
+            sgexec.heartbeat()

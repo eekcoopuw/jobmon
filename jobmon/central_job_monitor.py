@@ -73,8 +73,11 @@ class CentralJobMonitor(object):
         return self.responder.stop_server()
 
     def jobs_with_status(self, status_id):
+        # TODO this query is maybe not right once/if we implement retries
         jobs = (
-            self.session.query(models.Job).filter_by(current_status=status_id))
+            self.session.query(models.Job).
+            filter(models.SGEJob.monitored_jid == models.Job.monitored_jid).
+            filter(models.SGEJob.current_status == status_id).all())
         return jobs
 
     def _action_get_job_information(self, monitored_jid):
@@ -97,7 +100,6 @@ class CentralJobMonitor(object):
 
     def _action_register_job(self, name=None, runfile=None, job_args=None):
         job = models.Job(
-            current_status=models.Status.SUBMITTED,
             name=name,
             runfile=runfile,
             args=job_args)
@@ -122,8 +124,8 @@ class CentralJobMonitor(object):
                     "Found too many results ({}) for sge_id {}".format(
                         length, sge_id))
 
-    def _action_register_sgejob(self, sge_id, name, monitored_jid=None,
-                                *args, **kwargs):
+    def _action_register_sgejob(
+            self, sge_id, monitored_jid=None, *args, **kwargs):
         """create job entry in database job table.
 
         Args:
@@ -147,7 +149,6 @@ class CentralJobMonitor(object):
         sgejob = models.SGEJob(
             sge_id=sge_id,
             monitored_jid=monitored_jid,
-            name=name,
             current_status=models.Status.SUBMITTED,
             **kwargs)
         self.session.add(sgejob)

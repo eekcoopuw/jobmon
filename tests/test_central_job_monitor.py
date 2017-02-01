@@ -1,10 +1,8 @@
 import os
 
-import pytest
-
 from jobmon.requester import Requester
 from jobmon.models import Status
-from jobmon.job import Job, SGEJob
+from jobmon.job import SGEJob
 from jobmon.exceptions import ReturnCodes
 
 
@@ -16,38 +14,14 @@ def test_req_jobmon_pair(central_jobmon):
     assert resp[0] == 0
 
 
-def test_job_registration_update(central_jobmon):
+def test_job_registration(central_jobmon):
     req = Requester(central_jobmon.out_dir)
 
     # Test job creation and status updating
     req.send_request({'action': 'register_job'})
     jr2 = req.send_request({'action': 'register_job',
                             'kwargs': {'name': 'a test job'}})
-    jr2_id = jr2[1]
-    up_resp = req.send_request({'action': 'update_job_status',
-                                'kwargs': {'jid': jr2_id,
-                                           'status_id': Status.FAILED}})
-    assert up_resp == [0, 2, Status.FAILED]
-
-
-def test_sge_job_registration(central_jobmon):
-    req = Requester(central_jobmon.out_dir)
-
-    # Test job creation and status updating
-    req.send_request({'action': 'register_job'})
-    jr2 = req.send_request({'action': 'register_job',
-                            'kwargs': {'name': 'a test job'}})
-    jr2_id = jr2[1]
-    up_resp = req.send_request({'action': 'update_job_status',
-                                'kwargs': {'jid': jr2_id,
-                                           'status_id': Status.FAILED}})
-    assert up_resp == [0, 2, Status.FAILED]
-
-
-def test_job_mon_pair(central_jobmon):
-    j = Job(central_jobmon.out_dir)
-    j.log_started()
-    j.log_completed()
+    assert jr2[0] == ReturnCodes.OK
 
 
 def test_sgejob_mon_pair(central_jobmon):
@@ -78,33 +52,44 @@ def test_monitor_job_by_status_query(central_jobmon):
     req = Requester(central_jobmon.out_dir)
 
     # Test job registration and status updating
-    req.send_request({'action': 'register_job'})
-    req.send_request({'action': 'register_job'})
-    req.send_request({'action': 'register_job'})
+    os.environ["JOB_ID"] = "1"
+    os.environ["JOB_NAME"] = "job1"
+    SGEJob(central_jobmon.out_dir)
+    os.environ["JOB_ID"] = "2"
+    os.environ["JOB_NAME"] = "job2"
+    SGEJob(central_jobmon.out_dir)
+    os.environ["JOB_ID"] = "3"
+    os.environ["JOB_NAME"] = "job3"
+    SGEJob(central_jobmon.out_dir)
 
     assert (
-        [j.monitored_jid for j in
-         central_jobmon.jobs_with_status(Status.SUBMITTED)] == [1, 2, 3])
+        [j.name for j in
+         central_jobmon.jobs_with_status(Status.SUBMITTED)] == [
+            "job1", "job2", "job3"])
 
-    req.send_request({'action': 'register_job'})
+    os.environ["JOB_ID"] = "4"
+    os.environ["JOB_NAME"] = "job4"
+    SGEJob(central_jobmon.out_dir)
     assert (
-        [j.monitored_jid for j in
-         central_jobmon.jobs_with_status(Status.SUBMITTED)] == [1, 2, 3, 4])
-
+        [j.name for j in
+         central_jobmon.jobs_with_status(Status.SUBMITTED)] == [
+            "job1", "job2", "job3", "job4"])
     # Update a job's status and check that it gets committed to persistent
     # store
-    req.send_request({'action': 'update_job_status',
-                      'kwargs': {'jid': 2, 'status_id': Status.FAILED}})
+    req.send_request({'action': 'update_sgejob_status',
+                      'kwargs': {'sge_id': 2, 'status_id': Status.FAILED}})
     assert (
-        [j.monitored_jid for j in
-         central_jobmon.jobs_with_status(Status.SUBMITTED)] == [1, 3, 4])
+        [j.name for j in
+         central_jobmon.jobs_with_status(Status.SUBMITTED)] == [
+            "job1", "job3", "job4"])
+
     assert (
-        [j.monitored_jid for j in
-         central_jobmon.jobs_with_status(Status.FAILED)] == [2])
+        [j.name for j in
+         central_jobmon.jobs_with_status(Status.FAILED)] == [
+            "job2"])
 
 
 def test_get_job_information_query(central_jobmon):
-    req = Requester(central_jobmon.out_dir)
 
     # Test job registration with sge-id's.  I like prime numbers.
     os.environ["JOB_ID"] = "17"

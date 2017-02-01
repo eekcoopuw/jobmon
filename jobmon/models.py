@@ -21,8 +21,7 @@ class Job(Base):
         return \
             {
                 "monitored_jid": self.monitored_jid,
-                "name": self.name,
-                "current_status": self.current_status
+                "name": self.name
             }
 
 
@@ -52,7 +51,6 @@ class SGEJob(Base):
             {
                 "sge_id": self.sge_id,
                 "monitored_jid": self.monitored_jid,
-                "name": self.name,
                 "current_status": self.current_status
             }
 
