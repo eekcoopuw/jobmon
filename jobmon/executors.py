@@ -79,7 +79,7 @@ class BaseExecutor(object):
 
 class SGEExecutor(BaseExecutor):
 
-    stub = os.path.join(here, "monitored_job.py")
+    stub = os.path.join(here, "remoterun", "sge_job.py")
 
     def __init__(self, mon_dir, request_retries, request_timeout,
                  path_to_conda_bin_on_target_vm, conda_env, parallelism=None):

@@ -33,6 +33,7 @@ class JobInstance(Base):
         Integer,
         ForeignKey('job.jid'),
         nullable=False)
+    job_instance_type = Column(String(50))
     retry_number = Column(Integer)
     usage_str = Column(String(250))
     wallclock = Column(String(50))

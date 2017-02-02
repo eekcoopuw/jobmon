@@ -38,7 +38,7 @@ for param in args["pass_through"]:
 sys.argv = [args["runfile"]] + passed_params
 
 # start monitoring
-j1 = job.JobInstance(args["mon_dir"], jid=args["jid"], **kwargs)
+j1 = job.SGEJobInstance(args["mon_dir"], jid=args["jid"], **kwargs)
 j1.log_started()
 
 # open subprocess
