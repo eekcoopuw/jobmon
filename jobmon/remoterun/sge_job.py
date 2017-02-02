@@ -58,4 +58,5 @@ except:
     j1.log_failed()
 else:
     print(out)
+    j1.log_job_stats()
     j1.log_completed()

@@ -39,8 +39,16 @@ def test_many_jobs(central_jobmon):
 
     r = q.request_sender.send_request(
         {"action": "query",
-         "args": ["select * from sge_job "
+         "args": ["select * from job_instance "
                   "where current_status != {}".format(Status.COMPLETE)]
          }
     )
     assert len(pd.DataFrame(r[1])) == 0
+
+    r = q.request_sender.send_request(
+        {"action": "query",
+         "args": ["select * from job_instance "
+                  "where current_status = {}".format(Status.COMPLETE)]
+         }
+    )
+    assert len(pd.DataFrame(r[1])) > 0
