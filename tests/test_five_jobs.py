@@ -4,12 +4,13 @@ import pytest
 import subprocess
 
 
-from jobmon import qmaster, executors
+from jobmon import qmaster
+from jobmon.executors import sge_exec
 from jobmon.models import Status
 from mock_job import MockJob
 
 
-@pytest.mark.cluster
+# @pytest.mark.cluster
 def test_five_jobs(central_jobmon):
     """Submit five jobs through the job monitor.
     Three run to successful completion,
@@ -28,7 +29,7 @@ def test_five_jobs(central_jobmon):
     conda_env = conda_info['default_prefix'].split("/")[-1]
 
     # construct executor
-    sgexec = executors.SGEExecutor(
+    sgexec = sge_exec.SGEExecutor(
         central_jobmon.out_dir, 3, 30000, path_to_conda_bin_on_target_vm,
         conda_env,
         parallelism=10)
@@ -46,7 +47,9 @@ def test_five_jobs(central_jobmon):
             runfile=runfile,
             jobname="mock_{}".format(i),
             parameters=["job_" + str(i), 5 * i, exceptions[i]])
-        q.queue_job(j, slots=2, memory=4, project="ihme_general")
+        q.queue_job(j, slots=2, memory=4, project="ihme_general",
+                    stderr="/homes/mlsandar/temp",
+                    stdout="/homes/mlsandar/temp")
 
     q.check_pulse()  # monitor them
 

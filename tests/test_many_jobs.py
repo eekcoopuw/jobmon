@@ -5,13 +5,14 @@ import subprocess
 import pandas as pd
 import pytest
 
-from jobmon import qmaster, executors
+from jobmon import qmaster
+from jobmon.executors import sge_exec
 from jobmon.models import Status
 
 here = os.path.dirname(os.path.abspath(__file__))
 
 
-@pytest.mark.cluster
+# @pytest.mark.cluster
 def test_many_jobs(central_jobmon):
 
     conda_info = json.loads(
@@ -20,7 +21,7 @@ def test_many_jobs(central_jobmon):
     conda_env = conda_info['default_prefix'].split("/")[-1]
 
     # construct executor
-    sgexec = executors.SGEExecutor(
+    sgexec = sge_exec.SGEExecutor(
         central_jobmon.out_dir, 3, 30000, path_to_conda_bin_on_target_vm,
         conda_env,
         parallelism=50)

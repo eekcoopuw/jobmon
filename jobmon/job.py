@@ -49,6 +49,7 @@ class Job(object):
         return r[1]
 
 
+# TODO: confirm this is working
 ABC = abc.ABCMeta('ABC', (object,), {})  # compatible with Python 2 *and* 3
 
 

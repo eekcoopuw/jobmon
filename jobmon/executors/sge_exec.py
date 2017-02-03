@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 from subprocess import CalledProcessError
 
@@ -36,6 +38,8 @@ class SGEJobInstance(job._AbstractJobInstance):
         self.runfile = job_info['script_file']
         self.job_args = job_info['job_args']
 
+        # TODO: would like to deprecate this and require a jid but I know the
+        # dalynator uses this behaviour
         if jid is None:
             j = job.Job(mon_dir, jid, self.name, self.runfile,
                         self.job_args, *args, **kwargs)
@@ -135,12 +139,7 @@ class SGEExecutor(base.BaseExecutor):
         register with server and sqlite database.
 
         Args:
-            jid (int): what id to use for this job in the jobmon
-                database.
-            runfile (sting): full path to python executable file.
-            jobname (sting): what name to register the sge job under.
-            parameters (list, optional): command line arguments to be passed
-                into runfile.
+            job (job.Job): instance of a job.Job
 
             see *args and **kwargs are passed to sge.qsub.
 
@@ -157,11 +156,11 @@ class SGEExecutor(base.BaseExecutor):
 
         # replace -- with ## to allow for passthrough in monitored job
         passed_params = []
-        for param in job.parameters:
+        for param in job.job_args:
             passed_params.append(str(param).replace("--", "##", 1))
 
         # append additional parameters
-        if job.parameters:
+        if passed_params:
             parameters = base_params + passed_params
         else:
             parameters = base_params
@@ -171,13 +170,13 @@ class SGEExecutor(base.BaseExecutor):
              " runfile {}; jobname {}; parameters {}; path: {}"
              ).format(os.getpid(),
                       self.remoterun,
-                      job.jobname,
+                      job.name,
                       parameters,
                       self.path_to_conda_bin_on_target_vm))
         # submit.
         job_instance_id = sge.qsub(
             runfile=self.remoterun,
-            jobname=job.jobname,
+            jobname=job.name,
             prepend_to_path=self.path_to_conda_bin_on_target_vm,
             conda_env=self.conda_env,
             parameters=parameters,
@@ -198,12 +197,10 @@ class SGEExecutor(base.BaseExecutor):
 
 
 if __name__ == "__main__":
-    from __future__ import print_function
     import sys
     import argparse
     import subprocess
     import traceback
-    from jobmon import job
 
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
@@ -237,11 +234,13 @@ if __name__ == "__main__":
     sys.argv = [args["runfile"]] + passed_params
 
     # start monitoring
-    j1 = job.SGEJobInstance(args["mon_dir"], jid=args["jid"], **kwargs)
+    j1 = SGEJobInstance(args["mon_dir"], jid=args["jid"], **kwargs)
     j1.log_started()
 
     # open subprocess
     try:
+        # TODO: discuss whether this should use the same Popen strategy as
+        # LocalExecutor
         out = subprocess.check_output(["python"] + sys.argv,
                                       stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as exc:
