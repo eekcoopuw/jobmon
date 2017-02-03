@@ -30,9 +30,9 @@ def test_local_executor(central_jobmon):
         runfile=runfile,
         job_args=[20])
 
-    exlocal.queue_job(j1)
-    exlocal.queue_job(j2)
-    exlocal.queue_job(j3)
+    exlocal.queue_job(j1, timeout=60)
+    exlocal.queue_job(j2, timeout=60)
+    exlocal.queue_job(j3, timeout=60)
 
     exlocal.heartbeat()
     assert len(exlocal.running_jobs) == 2
@@ -43,6 +43,8 @@ def test_local_executor(central_jobmon):
         exlocal.heartbeat()
 
     assert (
-        [j.name for j in
-         central_jobmon.jobs_with_status(Status.COMPLETE)] == [
-            "job1", "job2", "job3"])
+        set([j.name for j in
+             central_jobmon.jobs_with_status(Status.COMPLETE)]) == set(
+            ["job1", "job2", "job3"]))
+
+    exlocal.end()

@@ -39,7 +39,7 @@ class BaseExecutor(object):
             "kwargs": kwargs})
 
     def heartbeat(self):
-
+        # TODO: think about whether this queue refresh framework needs work
         # Calling child class sync method
         self.logger.debug("Calling the {} sync method".format(self.__class__))
         self.sync()
@@ -73,5 +73,3 @@ class BaseExecutor(object):
             # add reference to job class and the executor
             job.job_instances.append(job_instance_id)
             self.running_jobs.append(job_instance_id)
-
-
