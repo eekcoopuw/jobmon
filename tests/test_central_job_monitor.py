@@ -2,7 +2,7 @@ import os
 
 from jobmon.requester import Requester
 from jobmon.models import Status
-from jobmon.job import SGEJobInstance
+from jobmon.executors.sge_exec import SGEJobInstance
 from jobmon.exceptions import ReturnCodes
 
 
