@@ -16,7 +16,7 @@ class Job(Base):
     submitted_date = Column(DateTime, default=func.now())
 
     def to_wire_format_dict(self):
-        """Just the fields that we want to reutnr over the wire and that can be
+        """Just the fields that we want to return over the wire and that can be
         serialized to JSON"""
         return \
             {

@@ -7,6 +7,7 @@ import multiprocessing
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.executors import base
+from jobmon.exceptions import ReturnCodes
 from jobmon import job
 
 
@@ -25,15 +26,18 @@ class LocalJobInstance(job._AbstractJobInstance):
         job_instance_id (int): unique id used to identify this job instance.
             Generally we use the process id.
         jid (int): job id that this job instance belongs to
-
-        *args and **kwargs are passed through to the responder
+        request_retries (int, optional): How many times to attempt to contact
+            the central job monitor. Default=3
+        request_timeout (int, optional): How long to wait for a response from
+            the central job monitor. Default=3 seconds
     """
 
-    def __init__(self, mon_dir, job_instance_id, jid, *args, **kwargs):
+    def __init__(self, mon_dir, job_instance_id, jid, request_retries=3,
+                 request_timeout=3000):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified."""
 
-        self.requester = Requester(mon_dir, *args, **kwargs)
+        self.requester = Requester(mon_dir, request_retries, request_timeout)
 
         # get sge_id and name from envirnoment
         self.job_instance_id = job_instance_id
@@ -92,8 +96,8 @@ class LocalJobInstance(job._AbstractJobInstance):
 
 class LocalConsumer(multiprocessing.Process):
 
-    def __init__(self, task_queue, result_queue, mon_dir, request_timeout,
-                 request_retries):
+    def __init__(self, task_queue, task_response_queue, result_queue, mon_dir,
+                 request_timeout, request_retries):
         """Consume work sent from LocalExecutor through multiprocessing queue.
 
         this class is structured based on
@@ -103,6 +107,9 @@ class LocalConsumer(multiprocessing.Process):
             task_queue (multiprocessing.JoinableQueue): a JoinableQueue object
                 created by LocalExecutor used to retrieve work from the
                 executor
+            task_response_queue (multiprocessing.Queue): a Queue to immediately
+                respond to execute_async command with the pid of the newly
+                spanwed subprocess.
             result_queue (multiprocessing.Queue): a Queue used to send updates
                 on completed work to LocalExecutor class.
             mon_dir (str): filepath to instance of CentralJobMonitor
@@ -118,6 +125,7 @@ class LocalConsumer(multiprocessing.Process):
 
         # consumer communication
         self.task_queue = task_queue
+        self.task_response_queue = task_response_queue
         self.result_queue = result_queue
         self.daemon = True
 
@@ -151,6 +159,7 @@ class LocalConsumer(multiprocessing.Process):
                     request_timeout=self.request_timeout,
                     request_retries=self.request_retries)
                 job_instance.log_started()
+                self.task_response_queue.put(job_instance.job_instance_id)
             except ValueError as err:
                 # according to POPEN docs a ValueError is raised if popen is
                 # called with inproper arguments in which case LocalJobInstance
@@ -159,12 +168,13 @@ class LocalConsumer(multiprocessing.Process):
                 eprint(err)
             else:
                 # communicate till done
-                stdout, stderr = proc.communicate(timeout=job_def.timeout)
+                stdout, stderr = proc.communicate(
+                    timeout=job_def.subprocess_timeout)
                 print(stdout)
                 eprint(stderr)
 
                 # check return code
-                if proc.returncode != 0:
+                if proc.returncode != ReturnCodes.OK:
                     job_instance.log_job_stats()
                     job_instance.log_error(str(stderr))
                     job_instance.log_failed()
@@ -174,7 +184,7 @@ class LocalConsumer(multiprocessing.Process):
 
             # TODO: could return proc.pid right to attach it to Job but would
             # require refactoring my queues which I don't want to do right now
-            self.result_queue.put(job_def.jid)
+            self.result_queue.put(job_instance.job_instance_id)
             self.task_queue.task_done()
 
             time.sleep(3)  # cycle for more work periodically
@@ -182,12 +192,12 @@ class LocalConsumer(multiprocessing.Process):
 
 class PickledJob(object):
 
-    def __init__(self, jid, runfile, job_args, timeout=None):
+    def __init__(self, jid, runfile, job_args, subprocess_timeout=None):
         """Internally used job representation to pass arguments to consumers"""
         self.jid = jid
         self.runfile = runfile
         self.job_args = job_args
-        self.timeout = timeout
+        self.subprocess_timeout = subprocess_timeout
 
 
 class LocalExecutor(base.BaseExecutor):
@@ -195,16 +205,33 @@ class LocalExecutor(base.BaseExecutor):
     LocalExecutor executes tasks locally in parallel. It uses the
     multiprocessing Python library and queues to parallelize the execution
     of tasks.
+
+    The subprocessing pattern looks like this.
+        LocalExec
+        --> consumer1
+        ----> subconsumer1
+        --> consumer2
+        ----> subconsumer2
+        ...
+        --> consumerN
+        ----> subconsumerN
     """
+
+    def __init__(self, *args, task_response_timeout=3, **kwargs):
+        super(LocalExecutor, self).__init__(*args, **kwargs)
+
+        self.task_response_timeout = task_response_timeout
 
     def start(self):
         """fire up N task consuming processes using Multiprocessing. number of
         consumers is controlled by parallelism."""
         self.task_queue = multiprocessing.JoinableQueue()
+        self.task_response_queue = multiprocessing.Queue()
         self.result_queue = multiprocessing.Queue()
         self.consumers = [
             LocalConsumer(
                 task_queue=self.task_queue,
+                task_response_queue=self.task_response_queue,
                 result_queue=self.result_queue,
                 mon_dir=self.mon_dir,
                 request_timeout=self.request_timeout,
@@ -215,22 +242,18 @@ class LocalExecutor(base.BaseExecutor):
         for w in self.consumers:
             w.start()
 
-    def execute_async(self, job, timeout=None):
+    def execute_async(self, job, subprocess_timeout=None):
         """add jobs to the actively processing queue.
 
         Args:
             job (jobmon.job.Job): instance of jobmon.job.Job
-            timeout (int): time in seconds to wait for subprocess to finish.
-                default is forever
+            subprocess_timeout (int): time in seconds to wait for subprocess to
+                finish. default is forever
         """
-        job_def = PickledJob(job.jid, job.runfile, job.job_args, timeout)
+        job_def = PickledJob(job.jid, job.runfile, job.job_args,
+                             subprocess_timeout)
         self.task_queue.put(job_def)
-
-        # TODO: should I wait for the subprocess pid to be allocated and return
-        # it through a different queue? would slow down scheduling. Advantage
-        # would be that we could attach it to the Job like we do with SGE.
-        # right now we don't have that link which sucks
-        return job_def.jid
+        return self.task_response_queue.get(timeout=3)
 
     def sync(self):
         """move things through the queues"""

@@ -30,17 +30,17 @@ def test_local_executor(central_jobmon):
         runfile=runfile,
         job_args=[20])
 
-    exlocal.queue_job(j1, timeout=60)
-    exlocal.queue_job(j2, timeout=60)
-    exlocal.queue_job(j3, timeout=60)
+    exlocal.queue_job(j1, subprocess_timeout=60)
+    exlocal.queue_job(j2, subprocess_timeout=60)
+    exlocal.queue_job(j3, subprocess_timeout=60)
 
-    exlocal.heartbeat()
+    exlocal.refresh_queues()
     assert len(exlocal.running_jobs) == 2
     assert len(exlocal.queued_jobs) == 1
 
     while len(exlocal.queued_jobs) > 0 or len(exlocal.running_jobs) > 0:
-        time.sleep(60)
-        exlocal.heartbeat()
+        time.sleep(20)
+        exlocal.refresh_queues()
 
     assert (
         set([j.name for j in

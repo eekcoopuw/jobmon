@@ -6,10 +6,9 @@ import pytest
 
 from jobmon.models import Status
 from jobmon.job import Job
-from jobmon.executors import SGEExecutor
+from jobmon.executors.sge_exec import SGEExecutor
 
 here = os.path.dirname(os.path.abspath(__file__))
-sge_log = "/homes/mlsandar/temp"
 
 
 @pytest.mark.cluster
@@ -41,9 +40,9 @@ def test_sge_executor(central_jobmon):
         central_jobmon.out_dir, 3, 30000, path_to_conda_bin_on_target_vm,
         conda_env,
         parallelism=2)
-    sgexec.queue_job(j1, stderr=sge_log, stdout=sge_log)
-    sgexec.queue_job(j2, stderr=sge_log, stdout=sge_log)
-    sgexec.queue_job(j3, stderr=sge_log, stdout=sge_log)
+    sgexec.queue_job(j1)
+    sgexec.queue_job(j2)
+    sgexec.queue_job(j3)
 
     sgexec.heartbeat()
     assert len(sgexec.running_jobs) == 2

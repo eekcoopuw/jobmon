@@ -15,7 +15,7 @@ class MonitoredQ(object):
     def __init__(self, executor, max_alive_wait_time=45):
         """
         Args:
-            mon_dir (string): directory where monitor server is running
+            mon_dir (str): directory where monitor server is running
             max_alive_wait_time (int, optional): how long to wait for an alive
                 signal from the central job monitor
             request_retries (int, optional): how many times to attempt to
@@ -71,8 +71,8 @@ class MonitoredQ(object):
             instance
 
         Args:
-            runfile (sting): full path to python executable file.
-            jobname (sting): what name to register the sge job under.
+            runfile (str): full path to python executable file.
+            jobname (str): what name to register the sge job under.
             parameters (list, optional): command line arguments to be passed
                 into runfile.
 
@@ -94,16 +94,16 @@ class MonitoredQ(object):
         """
         self.executor.queue_job(job, *args, **kwargs)
 
-    def check_pulse(self, poll_interval=60):
-        """continuously run executors heartbeat method until all queued jobs
-        have finished
+    def block_till_done(self, poll_interval=60):
+        """continuously run executors refresh_queues method until all queued
+        jobs have finished
 
         Args:
             poll_interval (int, optional): how frequently to call the heartbeat
                 method which updates the queue.
         """
         sgexec = self.executor
-        sgexec.heartbeat()
+        sgexec.refresh_queues()
         while len(sgexec.queued_jobs) > 0 or len(sgexec.running_jobs) > 0:
             time.sleep(poll_interval)
-            sgexec.heartbeat()
+            sgexec.refresh_queues()

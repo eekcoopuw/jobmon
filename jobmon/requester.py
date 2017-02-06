@@ -4,6 +4,8 @@ import os
 import warnings
 import zmq
 
+from jobmon import exceptions
+
 
 class Requester(object):
     """Sends messages to a Responder node through zmq. sends messages to a
@@ -14,6 +16,10 @@ class Requester(object):
     Args
         out_dir (string): file path where the server configuration is
             stored.
+        request_retries (int, optional): How many times to attempt to contact
+            the central job monitor. Default=3
+        request_timeout (int, optional): How long to wait for a response from
+            the central job monitor. Default=3 seconds
     """
 
     def __init__(self, out_dir, request_retries=3, request_timeout=3000):
@@ -144,7 +150,11 @@ class Requester(object):
                              " message id {}").format(os.getpid(),
                                                       self.message_id))
                         reply = 0
-                        break
+                        raise exceptions.NoResponseRecieved(
+                            "No response recieved from responder in {} retries"
+                            " after waiting for {} seconds each try.".format(
+                                str(self.request_retries),
+                                str(self.request_timeout)))
                     self.connect()
                     self.logger.debug(
                         '  {}: resending message...{}'.format(os.getpid(),

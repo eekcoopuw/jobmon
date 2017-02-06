@@ -3,15 +3,15 @@ import logging
 
 class BaseExecutor(object):
 
-    def __init__(self, mon_dir, request_retries, request_timeout,
+    def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
                  parallelism=None):
         self.logger = logging.getLogger(__name__)
 
         self.parallelism = parallelism
 
         # track job state
-        self.queued_jobs = []
-        self.running_jobs = []
+        self.queued_jobs = []  # order dependent execution queue
+        self.running_jobs = []  # order independent execution tracker
 
         # environment for distributed applications
         self.mon_dir = mon_dir
@@ -38,8 +38,7 @@ class BaseExecutor(object):
             "args": args,
             "kwargs": kwargs})
 
-    def heartbeat(self):
-        # TODO: think about whether this queue refresh framework needs work
+    def refresh_queues(self):
         # Calling child class sync method
         self.logger.debug("Calling the {} sync method".format(self.__class__))
         self.sync()
@@ -71,5 +70,5 @@ class BaseExecutor(object):
                 **job_def["kwargs"])
 
             # add reference to job class and the executor
-            job.job_instances.append(job_instance_id)
+            job.job_instance_ids.append(job_instance_id)
             self.running_jobs.append(job_instance_id)

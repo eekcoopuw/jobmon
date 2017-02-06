@@ -19,15 +19,18 @@ class SGEJobInstance(job._AbstractJobInstance):
         jid (int, optional): job id to use when communicating with
             jobmon database. If job id is not specified, will register as a new
             job and aquire the job id from the central job monitor.
-
-        *args and **kwargs are passed through to the responder
+        request_retries (int, optional): How many times to attempt to contact
+            the central job monitor. Default=3
+        request_timeout (int, optional): How long to wait for a response from
+            the central job monitor. Default=3 seconds
     """
 
-    def __init__(self, mon_dir, jid=None, *args, **kwargs):
+    def __init__(self, mon_dir, jid=None, request_retries=3,
+                 request_timeout=3000):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified."""
 
-        self.requester = Requester(mon_dir, *args, **kwargs)
+        self.requester = Requester(mon_dir, request_retries, request_timeout)
 
         # get sge_id and name from envirnoment
         self.job_instance_id = int(os.getenv("JOB_ID"))
@@ -52,10 +55,7 @@ class SGEJobInstance(job._AbstractJobInstance):
         try:
             job_info = sge.qstat_details(
                 self.job_instance_id)[self.job_instance_id]
-        except CalledProcessError:
-            job_info = {'script_file': 'Not Available',
-                        'args': 'Not Available'}
-        except Exception:
+        except (CalledProcessError, Exception):
             job_info = {'script_file': 'Not Available',
                         'args': 'Not Available'}
         for reqdkey in ['script_file', 'job_args']:

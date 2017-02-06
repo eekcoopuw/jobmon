@@ -1,4 +1,5 @@
 import abc
+
 from jobmon.requester import Requester
 
 
@@ -12,16 +13,20 @@ class Job(object):
         jid (int, optional): job id to use when communicating with
             jobmon database. If job id is not specified, will register as a new
             job and aquire the job id from the central job monitor.
-        name (string, optional): name current process. If name is not specified
+        name (str, optional): name current process. If name is not specified
             will default to None.
+        request_retries (int, optional): How many times to attempt to contact
+            the central job monitor. Default=3
+        request_timeout (int, optional): How long to wait for a response from
+            the central job monitor. Default=3 seconds
     """
 
     def __init__(self, mon_dir, jid=None, name=None, runfile=None,
-                 job_args=None, *args, **kwargs):
+                 job_args=None, request_retries=3, request_timeout=3000):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified.
         """
-        self.requester = Requester(mon_dir, *args, **kwargs)
+        self.requester = Requester(mon_dir, request_retries, request_timeout)
 
         # get jid from monitor
         self.jid = jid
@@ -33,7 +38,7 @@ class Job(object):
         if self.jid is None:
             self.jid = self.register_with_monitor()
 
-        self.job_instances = []
+        self.job_instance_ids = []
 
     def register_with_monitor(self):
         """send registration request to server. server will create database
@@ -45,11 +50,12 @@ class Job(object):
                'kwargs': {'name': self.name,
                           'runfile': self.runfile,
                           'job_args': job_args}}
+
         r = self.requester.send_request(msg)
         return r[1]
 
 
-# TODO: confirm this is working
+# TODO: confirm this is working.
 ABC = abc.ABCMeta('ABC', (object,), {})  # compatible with Python 2 *and* 3
 
 
