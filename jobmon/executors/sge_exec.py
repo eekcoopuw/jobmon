@@ -45,7 +45,7 @@ class SGEJobInstance(job._AbstractJobInstance):
         # dalynator uses this behaviour
         if jid is None:
             j = job.Job(mon_dir, jid, self.name, self.runfile,
-                        self.job_args, *args, **kwargs)
+                        self.job_args, request_retries, request_timeout)
             self.jid = j.jid
         else:
             self.jid = jid

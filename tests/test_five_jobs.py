@@ -51,7 +51,7 @@ def test_five_jobs(central_jobmon):
                     stderr="/homes/mlsandar/temp",
                     stdout="/homes/mlsandar/temp")
 
-    q.check_pulse()  # monitor them
+    q.block_till_done()  # monitor them
 
     # query returns a dataframe
     failed = q.request_sender.send_request(

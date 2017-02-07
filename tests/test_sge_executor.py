@@ -44,13 +44,13 @@ def test_sge_executor(central_jobmon):
     sgexec.queue_job(j2)
     sgexec.queue_job(j3)
 
-    sgexec.heartbeat()
+    sgexec.refresh_queues()
     assert len(sgexec.running_jobs) == 2
     assert len(sgexec.queued_jobs) == 1
 
     while len(sgexec.queued_jobs) > 0 or len(sgexec.running_jobs) > 0:
         time.sleep(60)
-        sgexec.heartbeat()
+        sgexec.refresh_queues()
 
     assert (
         [j.name for j in
