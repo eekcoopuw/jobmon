@@ -253,7 +253,7 @@ class LocalExecutor(base.BaseExecutor):
         job_def = PickledJob(job.jid, job.runfile, job.job_args,
                              subprocess_timeout)
         self.task_queue.put(job_def)
-        return self.task_response_queue.get(timeout=3)
+        return self.task_response_queue.get(timeout=self.task_response_timeout)
 
     def sync(self):
         """move things through the queues"""

@@ -47,9 +47,7 @@ def test_five_jobs(central_jobmon):
             runfile=runfile,
             jobname="mock_{}".format(i),
             parameters=["job_" + str(i), 5 * i, exceptions[i]])
-        q.queue_job(j, slots=2, memory=4, project="ihme_general",
-                    stderr="/homes/mlsandar/temp",
-                    stdout="/homes/mlsandar/temp")
+        q.queue_job(j, slots=2, memory=4, project="ihme_general")
 
     q.block_till_done()  # monitor them
 
