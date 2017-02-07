@@ -51,6 +51,6 @@ setup(
         'pyzmq',
         'drmaa'
     ],
-    packages=['jobmon'],
+    packages=['jobmon', 'jobmon.executors'],
     scripts=["bin/launch_central_monitor.py"],
     entry_points={'console_scripts': []})

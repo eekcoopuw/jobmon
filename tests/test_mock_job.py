@@ -17,9 +17,11 @@ def test_bad_job():
     assert ("chew slippers" in str(exc.value))
 
 
-# Test this in a subprocess because and check that it deliberately kills python!
+# Test this in a subprocess because and check that it deliberately kills
+# python!
 def test_dead_job():
-    dir = os.path.dirname( os.path.realpath( __file__) )
-    completed_process = sp.run(["python", dir + "/mock_job.py", "dead dog", "2", MockJob.DIE_COMMAND])
+    dir = os.path.dirname(os.path.realpath(__file__))
+    completed_process = sp.run(
+        ["python", dir + "/mock_job.py", "dead dog", "2", MockJob.DIE_COMMAND])
 
-    assert (completed_process.returncode == -1*signal.SIGKILL)
+    assert (completed_process.returncode == -1 * signal.SIGKILL)
