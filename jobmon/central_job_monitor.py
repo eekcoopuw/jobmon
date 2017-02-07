@@ -24,11 +24,19 @@ class CentralJobMonitor(object):
             sqlite database in.
     """
 
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, port=None):
         """set class defaults. make out_dir if it doesn't exist. write config
-        for client nodes to read. make sqlite database schema"""
+        for client nodes to read. make sqlite database schema
+
+        Args:
+            out_dir (str): The directory where the connection settings are
+                to be stored so Jobs know which endpoint to communicate
+                with
+            port (int): Port that the monitor should listen on. If None
+                (default), the system will choose the port
+        """
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
-        self.responder = Responder(out_dir)
+        self.responder = Responder(out_dir, port=port)
         logmsg = "{}: Responder initialized".format(os.getpid())
         Responder.logger.info(logmsg)
 

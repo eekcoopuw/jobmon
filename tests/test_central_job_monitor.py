@@ -16,6 +16,25 @@ def test_req_jobmon_pair(central_jobmon):
     assert resp[0] == 0
 
 
+def test_invalid_req_args():
+    with pytest.raises(ValueError):
+        Requester(out_dir='some_dir', monitor_host='localhost', port=3459)
+    with pytest.raises(ValueError):
+        Requester(out_dir=None, monitor_host=None, port=None)
+    with pytest.raises(ValueError):
+        Requester(monitor_host='localhost')
+    with pytest.raises(ValueError):
+        Requester(monitor_port=1234)
+
+
+def test_static_port_req_mon_pair(central_jobmon_static_port):
+    req = Requester(monitor_host='localhost', port=3459)
+
+    # Test basic connection
+    resp = req.send_request({'action': 'alive'})
+    assert resp[0] == 0
+
+
 def test_job_registration_update(central_jobmon):
     req = Requester(central_jobmon.out_dir)
 

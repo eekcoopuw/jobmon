@@ -14,18 +14,33 @@ class Requester(object):
     Args
         out_dir (string): file path where the server configuration is
             stored.
+        monitor_host (string): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port directly
+        monitor_port (int): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port directly
     """
 
-    def __init__(self, out_dir, request_retries=3, request_timeout=3000):
+    def __init__(self, out_dir=None, monitor_host=None, monitor_port=None,
+                 request_retries=3, request_timeout=3000):
         """set class defaults. attempt to connect with server."""
         self.logger = logging.getLogger(__name__)
-        self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
+        if not (bool(out_dir) ^ bool(monitor_host and monitor_port)):
+            raise ValueError("Either out_dir or the combination monitor_host+"
+                             "monitor_port must be specified. Cannot specify "
+                             "both out_dir and a host+port pair.")
         self.request_retries = request_retries
         self.request_timeout = request_timeout
         self.poller = None
         self.socket = None
         self.message_id = 0
+
         try:
+            if out_dir:
+                self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
+                with open("%s/monitor_info.json" % self.out_dir) as f:
+                    self.mi = json.load(f)
+            else:
+                self.mi = {'host': monitor_host, 'port': monitor_port}
             self.connect()
         except IOError as e:
             self.logger.error("Failed to connect in Requester.__init__, "
@@ -36,8 +51,6 @@ class Requester(object):
         """Connect to server. Reads config file from out_dir specified during
         class instantiation to get socket. Not an API method,
         needs to be underscored. This will ALWAYS connect."""
-        with open("%s/monitor_info.json" % self.out_dir) as f:
-            mi = json.load(f)
         context = zmq.Context()  # default 1 i/o thread
         self.socket = context.socket(zmq.REQ)  # blocks socket on send
         self.socket.setsockopt(zmq.LINGER, 0)  # do not pile requests in queue.
@@ -45,7 +58,7 @@ class Requester(object):
 
         # use host and port from network filesystem cofig. option "out_dir"
         self.socket.connect(
-            "tcp://{sh}:{sp}".format(sh=mi['host'], sp=mi['port']))
+            "tcp://{sh}:{sp}".format(sh=self.mi['host'], sp=self.mi['port']))
 
         # setup zmq poller to poll for messages on the socket connection.
         # we only register 1 socket but poller supports multiple.
