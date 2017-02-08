@@ -6,17 +6,35 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
-class SGEJob(Base):
-    __tablename__ = 'sge_job'
+class Job(Base):
+    __tablename__ = 'job'
 
-    sge_id = Column(Integer, primary_key=True)
-    monitored_jid = Column(
-        Integer,
-        ForeignKey('job.monitored_jid'),
-        nullable=False)
+    jid = Column(Integer, primary_key=True)
     name = Column(String(150))
     runfile = Column(String(150))
     args = Column(String(1000))
+    submitted_date = Column(DateTime, default=func.now())
+
+    def to_wire_format_dict(self):
+        """Just the fields that we want to return over the wire and that can be
+        serialized to JSON"""
+        return \
+            {
+                "jid": self.jid,
+                "name": self.name
+            }
+
+
+class JobInstance(Base):
+    __tablename__ = 'job_instance'
+
+    job_instance_id = Column(Integer, primary_key=True)
+    jid = Column(
+        Integer,
+        ForeignKey('job.jid'),
+        nullable=False)
+    job_instance_type = Column(String(50))
+    retry_number = Column(Integer)
     usage_str = Column(String(250))
     wallclock = Column(String(50))
     maxvmem = Column(String(50))
@@ -32,59 +50,31 @@ class SGEJob(Base):
 
         return \
             {
-                "sge_id": self.sge_id,
-                "monitored_jid": self.monitored_jid,
-                "name": self.name,
+                "job_instance_id": self.job_instance_id,
+                "jid": self.jid,
                 "current_status": self.current_status
             }
 
 
-class SGEJobStatus(Base):
-    __tablename__ = 'sge_job_status'
+class JobInstanceError(Base):
+    __tablename__ = 'job_instance_error'
 
     id = Column(Integer, primary_key=True)
-    sge_id = Column(
+    job_instance_id = Column(
         Integer,
-        ForeignKey('sge_job.sge_id'),
+        ForeignKey('job_instance.job_instance_id'),
         nullable=False)
-    status = Column(
-        Integer,
-        ForeignKey('status.id'),
-        nullable=False)
-    status_time = Column(DateTime, default=func.now())
+    error_time = Column(DateTime, default=func.now())
+    description = Column(String(1000), nullable=False)
 
 
-class Job(Base):
-    __tablename__ = 'job'
-
-    monitored_jid = Column(Integer, primary_key=True)
-    name = Column(String(150))
-    runfile = Column(String(150))
-    args = Column(String(1000))
-    current_status = Column(
-        Integer,
-        ForeignKey('status.id'),
-        nullable=False)
-    submitted_date = Column(DateTime, default=func.now())
-
-    def to_wire_format_dict(self):
-        """Just the fields that we want to reutnr over the wire and that can be
-        serialized to JSON"""
-        return \
-            {
-                "monitored_jid": self.monitored_jid,
-                "name": self.name,
-                "current_status": self.current_status
-            }
-
-
-class JobStatus(Base):
-    __tablename__ = 'job_status'
+class JobInstanceStatus(Base):
+    __tablename__ = 'job_instance_status'
 
     id = Column(Integer, primary_key=True)
-    monitored_jid = Column(
+    job_instance_id = Column(
         Integer,
-        ForeignKey('job.monitored_jid'),
+        ForeignKey('job_instance.job_instance_id'),
         nullable=False)
     status = Column(
         Integer,
@@ -103,18 +93,6 @@ class Status(Base):
 
     id = Column(Integer, primary_key=True)
     label = Column(String(150), nullable=False)
-
-
-class JobError(Base):
-    __tablename__ = 'error'
-
-    id = Column(Integer, primary_key=True)
-    monitored_jid = Column(
-        Integer,
-        ForeignKey('job.monitored_jid'),
-        nullable=False)
-    error_time = Column(DateTime, default=func.now())
-    description = Column(String(1000), nullable=False)
 
 
 def load_default_statuses(session):
