@@ -38,6 +38,7 @@ def pytest_addoption(parser):
                      default=False,
                      help='Also run tests that can only run on the cluster')
 
+
 def pytest_runtest_setup(item):
     """Skip tests if they are marked as slow and --slow is not given.
     Ditto for cluster"""

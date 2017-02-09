@@ -5,7 +5,8 @@ services:
     image: jobmon
     ports:
         - "5000:5000"
-    command: ["./wait-for-db.sh", "db", "python", "bin/launch_central_monitor.py", "/app", "5000"]
+    command: ["./wait-for-db.sh", "db", "python", "bin/launch_central_monitor.py", "/app",
+              "5000", "--conn_str", "mysql://docker:docker@db/docker"]
     links:
         - db
 

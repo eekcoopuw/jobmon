@@ -24,7 +24,7 @@ class CentralJobMonitor(object):
             sqlite database in.
     """
 
-    def __init__(self, out_dir, port=None):
+    def __init__(self, out_dir, port=None, conn_str=None):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema
 
@@ -36,6 +36,7 @@ class CentralJobMonitor(object):
                 (default), the system will choose the port
         """
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
+        self.conn_str = conn_str
         self.responder = Responder(out_dir, port=port)
         logmsg = "{}: Responder initialized".format(os.getpid())
         Responder.logger.info(logmsg)
@@ -52,13 +53,20 @@ class CentralJobMonitor(object):
         self.responder.start_server()
 
     def create_job_db(self):
-        """create sqlite database from models schema"""
-        dbfile = '{out_dir}/job_monitor.sqlite'.format(out_dir=self.out_dir)
+        """create database from models schema"""
 
-        def creator():
-            return sqlite3.connect(
-                'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile), uri=True)
-        eng = sql.create_engine('sqlite://', creator=creator)
+        if self.conn_str:
+            eng = sql.create_engine(self.conn_str)
+            dbfile = self.conn_str
+        else:
+            dbfile = '{out_dir}/job_monitor.sqlite'.format(
+                out_dir=self.out_dir)
+
+            def creator():
+                return sqlite3.connect(
+                    'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile),
+                    uri=True)
+            eng = sql.create_engine('sqlite://', creator=creator)
 
         models.Base.metadata.create_all(eng)  # doesn't create if exists
         Session.configure(bind=eng, autocommit=False)
@@ -87,6 +95,15 @@ class CentralJobMonitor(object):
             filter(models.JobInstance.jid == models.Job.jid).
             filter(models.JobInstance.current_status == status_id).all())
         return jobs
+
+    def _action_get_jobs_with_status(self, status_id):
+        jobs = self.jobs_with_status(status_id)
+        length = len(jobs)
+        if length == 0:
+            return (ReturnCodes.NO_RESULTS,
+                    "Found no job with status {}".format(status_id))
+        else:
+            return (ReturnCodes.OK, [job.jid for job in jobs])
 
     def _action_get_job_information(self, jid):
         job = self.session.query(models.Job).filter_by(jid=jid)

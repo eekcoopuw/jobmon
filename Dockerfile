@@ -3,6 +3,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     htop \
+    libmariadbclient-dev \
     mysql-client \
     vim \
 && rm -rf /var/lib/apt/lists/*
