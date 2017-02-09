@@ -113,7 +113,3 @@ def test_get_job_information_query(central_jobmon):
     assert job_info[0] == ReturnCodes.OK
     status = job_info[1]['current_status']
     assert status == Status.FAILED
-
-
-def test_generate_report():
-
