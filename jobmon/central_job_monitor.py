@@ -1,3 +1,4 @@
+import sys
 import os
 import sqlite3
 import pandas as pd
@@ -24,9 +25,18 @@ class CentralJobMonitor(object):
             sqlite database in.
     """
 
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, persistent=True):
         """set class defaults. make out_dir if it doesn't exist. write config
-        for client nodes to read. make sqlite database schema"""
+        for client nodes to read. make sqlite database schema
+
+        Args:
+            out_dir (str): where to save the connection json for the zmq socket
+                and the sqlite database if the you are creating a persistent
+                data store
+            persistent (bool, optional): whether to create a persistent sqlite
+                database in the file system or just keep it in memory.
+                True can only be specified if run in python 3+
+        """
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.responder = Responder(out_dir)
         logmsg = "{}: Responder initialized".format(os.getpid())
@@ -36,21 +46,35 @@ class CentralJobMonitor(object):
         # recorded
         logmsg = "{}: Creating persistent backend".format(os.getpid())
         Responder.logger.info(logmsg)
-        self.session = self.create_job_db()
+        self.session = self.create_job_db(persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
         Responder.logger.info(logmsg)
 
         self.responder.register_object_actions(self)
         self.responder.start_server()
 
-    def create_job_db(self):
-        """create sqlite database from models schema"""
-        dbfile = '{out_dir}/job_monitor.sqlite'.format(out_dir=self.out_dir)
+    def create_job_db(self, persistent=True):
+        """create sqlite database from models schema
 
-        def creator():
-            return sqlite3.connect(
-                'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile), uri=True)
-        eng = sql.create_engine('sqlite://', creator=creator)
+        Args:
+            persistent (bool, optional): whether to create a persistent sqlite
+                database in the file system or just keep it in memory.
+                True can only be specified if run in python 3+
+        """
+        if persistent:
+            assert sys.version_info > (3, 0), """
+                Sorry, only Python version 3+ is supported at this time"""
+
+            dbfile = '{out_dir}/job_monitor.sqlite'.format(
+                out_dir=self.out_dir)
+
+            def creator():
+                return sqlite3.connect(
+                    'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile),
+                    uri=True)
+            eng = sql.create_engine('sqlite://', creator=creator)
+        else:
+            eng = sql.create_engine('sqlite://')
 
         models.Base.metadata.create_all(eng)  # doesn't create if exists
         Session.configure(bind=eng, autocommit=False)
@@ -226,4 +250,40 @@ class CentralJobMonitor(object):
         except Exception as e:
             response = (1, "query failed to execute {}".format(e).encode())
 
+        return response
+
+    def _action_generate_report(self):
+        q = """
+        SELECT
+            *
+        FROM
+            job
+        JOIN
+            job_instance USING (jid)
+        JOIN
+            job_instance_error USING (job_instance_id)
+        JOIN
+            job_instance_status jis USING (job_instance_id)
+        JOIN
+            status s ON s.id = jis.status
+        """
+        try:
+            # run query
+            r_proxy = self.session.execute(q)
+
+            # load dataframe
+            try:
+                df = pd.DataFrame(r_proxy.fetchall())
+                df.columns = r_proxy.keys()
+                response = (ReturnCodes.OK,)
+            except ValueError:
+                df = pd.DataFrame(columns=(r_proxy.keys()))
+                response = (ReturnCodes.OK,)
+            except Exception as e:
+                response = (1, "dataframe failed to load {}".format(e))
+
+        except Exception as e:
+            response = (1, "query failed to execute {}".format(e).encode())
+
+        df.to_csv(os.path.join(self.out_dir, "job_report.csv"))
         return response

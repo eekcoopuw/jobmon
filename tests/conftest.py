@@ -15,6 +15,18 @@ def central_jobmon(tmpdir_factory):
     assert not jm.responder_proc_is_alive()
 
 
+@pytest.fixture(scope='function')
+def central_jobmon_nopersist(tmpdir_factory):
+    monpath = tmpdir_factory.mktemp("jmdir")
+    jm = CentralJobMonitor(str(monpath), persistent=False)
+    sleep(1)
+    yield jm
+    print("teardown fixture in {}".format(monpath))
+    jm.stop_responder()
+    sleep(1)
+    assert not jm.responder_proc_is_alive()
+
+
 def pytest_addoption(parser):
     """Add CLI options to run slow and cluster tests"""
     parser.addoption('--slow',
@@ -25,6 +37,7 @@ def pytest_addoption(parser):
                      action='store_true',
                      default=False,
                      help='Also run tests that can only run on the cluster')
+
 
 def pytest_runtest_setup(item):
     """Skip tests if they are marked as slow and --slow is not given.

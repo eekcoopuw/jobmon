@@ -2,17 +2,12 @@ import zmq
 
 from socket import gethostname
 import os
-import sys
 import json
 import inspect
 from jobmon.exceptions import ReturnCodes
 from multiprocessing import Process
 
 from jobmon.setup_logger import setup_logger
-
-
-assert sys.version_info > (3, 0), """
-    Sorry, only Python version 3+ is supported at this time"""
 
 
 def get_class_that_defined_method(meth):

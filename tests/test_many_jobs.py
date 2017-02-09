@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-
+from shutil import copy
 from jobmon import qmaster
 from jobmon.executors import local_exec
 from jobmon.models import Status
@@ -8,16 +8,16 @@ from jobmon.models import Status
 here = os.path.dirname(os.path.abspath(__file__))
 
 
-def test_many_jobs(central_jobmon):
+def test_many_jobs(central_jobmon_nopersist):
 
     # construct executor
-    sgexec = local_exec.LocalExecutor(
-        central_jobmon.out_dir, 3, 30000, parallelism=20)
+    localexec = local_exec.LocalExecutor(
+        central_jobmon_nopersist.out_dir, 3, 30000, parallelism=20)
 
-    q = qmaster.MonitoredQ(sgexec)
+    q = qmaster.MonitoredQ(localexec)
 
     runfile = os.path.join(here, "waiter.py")
-    for name in ["_" + str(num) for num in range(1, 50)]:
+    for name in ["_" + str(num) for num in range(1, 2)]:
         j = q.create_job(
             jobname=name,
             runfile=runfile,
@@ -33,3 +33,7 @@ def test_many_jobs(central_jobmon):
          }
     )
     assert len(pd.DataFrame(r[1])) == 0
+
+    q.request_sender.send_request({"action": "generate_report"})
+    copy(os.path.join(central_jobmon_nopersist.out_dir, "job_report.csv"),
+         "/Users/mlsandar/temp/job_report.csv")
