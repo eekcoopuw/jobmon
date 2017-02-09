@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import sys
-import os
 import subprocess
 import time
 import multiprocessing
@@ -169,9 +168,14 @@ class LocalConsumer(multiprocessing.Process):
                 proc.kill()
                 eprint(err)
             else:
-                # communicate till done
-                stdout, stderr = proc.communicate(
-                    timeout=job_def.subprocess_timeout)
+                if sys.version_info > (3, 0):
+                    # communicate till done
+                    stdout, stderr = proc.communicate(
+                        timeout=job_def.subprocess_timeout)
+                else:
+                    print("warning, subprocess timeout cannot be set in python"
+                          " 2")
+                    stdout, stderr = proc.communicate()
                 print(stdout)
                 eprint(stderr)
 

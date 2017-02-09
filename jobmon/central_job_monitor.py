@@ -253,37 +253,47 @@ class CentralJobMonitor(object):
         return response
 
     def _action_generate_report(self):
-        q = """
-        SELECT
-            *
-        FROM
-            job
-        JOIN
-            job_instance USING (jid)
-        JOIN
-            job_instance_error USING (job_instance_id)
-        JOIN
-            job_instance_status jis USING (job_instance_id)
-        JOIN
-            status s ON s.id = jis.status
-        """
-        try:
-            # run query
-            r_proxy = self.session.execute(q)
+
+        def r_proxy_2_df(r_proxy):
 
             # load dataframe
             try:
                 df = pd.DataFrame(r_proxy.fetchall())
                 df.columns = r_proxy.keys()
-                response = (ReturnCodes.OK,)
             except ValueError:
                 df = pd.DataFrame(columns=(r_proxy.keys()))
-                response = (ReturnCodes.OK,)
-            except Exception as e:
-                response = (1, "dataframe failed to load {}".format(e))
+            return df
 
+        try:
+
+            q1 = """
+            SELECT
+                *
+            FROM
+                job
+            LEFT JOIN
+                job_instance USING (jid)
+            LEFT JOIN
+                job_instance_error USING (job_instance_id)
+            """
+            r_proxy = self.session.execute(q1)
+            df = r_proxy_2_df(r_proxy)
+            df.to_csv(os.path.join(self.out_dir, "job_report.csv"))
+
+            q2 = """
+            SELECT
+                *
+            FROM
+                job_instance_status jis
+            LEFT JOIN
+                status s ON s.id = jis.status
+            """
+            r_proxy = self.session.execute(q2)
+            df = r_proxy_2_df(r_proxy)
+            df.to_csv(os.path.join(self.out_dir, "job_status_report.csv"))
+
+            response = (ReturnCodes.OK,)
         except Exception as e:
-            response = (1, "query failed to execute {}".format(e).encode())
+            response = (1, "report failed to generate {}".format(e))
 
-        df.to_csv(os.path.join(self.out_dir, "job_report.csv"))
         return response

@@ -17,7 +17,7 @@ def test_many_jobs(central_jobmon_nopersist):
     q = qmaster.MonitoredQ(localexec)
 
     runfile = os.path.join(here, "waiter.py")
-    for name in ["_" + str(num) for num in range(1, 2)]:
+    for name in ["_" + str(num) for num in range(1, 50)]:
         j = q.create_job(
             jobname=name,
             runfile=runfile,
@@ -35,5 +35,8 @@ def test_many_jobs(central_jobmon_nopersist):
     assert len(pd.DataFrame(r[1])) == 0
 
     q.request_sender.send_request({"action": "generate_report"})
-    copy(os.path.join(central_jobmon_nopersist.out_dir, "job_report.csv"),
-         "/Users/mlsandar/temp/job_report.csv")
+    assert os.path.exists(
+        os.path.join(central_jobmon_nopersist.out_dir, "job_report.csv"))
+    os.path.exists(
+        os.path.join(central_jobmon_nopersist.out_dir, "job_status_report.csv")
+    )
