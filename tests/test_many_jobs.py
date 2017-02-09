@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-from shutil import copy
 from jobmon import qmaster
 from jobmon.executors import local_exec
 from jobmon.models import Status
@@ -8,11 +7,11 @@ from jobmon.models import Status
 here = os.path.dirname(os.path.abspath(__file__))
 
 
-def test_many_jobs(central_jobmon_nopersist):
+def test_many_jobs(central_jobmon):
 
     # construct executor
     localexec = local_exec.LocalExecutor(
-        central_jobmon_nopersist.out_dir, 3, 30000, parallelism=20)
+        central_jobmon.out_dir, 3, 30000, parallelism=20)
 
     q = qmaster.MonitoredQ(localexec)
 
@@ -36,7 +35,7 @@ def test_many_jobs(central_jobmon_nopersist):
 
     q.request_sender.send_request({"action": "generate_report"})
     assert os.path.exists(
-        os.path.join(central_jobmon_nopersist.out_dir, "job_report.csv"))
+        os.path.join(central_jobmon.out_dir, "job_report.csv"))
     os.path.exists(
-        os.path.join(central_jobmon_nopersist.out_dir, "job_status_report.csv")
+        os.path.join(central_jobmon.out_dir, "job_status_report.csv")
     )
