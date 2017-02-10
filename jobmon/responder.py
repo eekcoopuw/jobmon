@@ -50,8 +50,8 @@ class MonitorAlreadyRunning(Exception):
 class Responder(object):
     """This really is a server, in that there is one of these, it listens on a
     Receiver object (a zmq channel) and does stuff as a result of those
-    commands.  A singleton in the directory. Runs as a separate process, not in
-    the same process that started the qmaster.
+    commands.  A singleton in the directory. Runs as a separate process or
+    thread.
 
     Error Codes
     INVALID_RESPONSE_FORMAT
@@ -82,10 +82,10 @@ class Responder(object):
             os.makedirs(self.out_dir)
         except OSError:  # It throws if the directory already exists!
             pass
-        self.server_proc_type = None
         self.port = None
         self.socket = None
         self.server_pid = None
+        self.server_proc_type = None
         self.server_proc = None
         self.thread_stop_request = None
 
@@ -312,8 +312,8 @@ class Responder(object):
         return 0, "Yes, I am alive"
 
     def _action_cycle(self):
-        """A simple 'action' that sends a response to the requester indicating
-        that this responder is in fact listening"""
+        """A simple dummy 'action' that forces the server while loop to cycle
+        """
         logmsg = "{}: Responder received cycle?".format(os.getpid())
         Responder.logger.debug(logmsg)
         return 0, "Forced cycle of server"

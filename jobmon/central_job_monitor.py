@@ -75,7 +75,7 @@ class CentralJobMonitor(object):
                     'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile),
                     uri=True)
             eng = sql.create_engine('sqlite://', creator=creator)
-            self.server_proc_type = "process"
+            self.server_proc_type = "subprocess"
         else:
             eng = sql.create_engine(
                 'sqlite://',
@@ -110,6 +110,45 @@ class CentralJobMonitor(object):
             filter(models.JobInstance.jid == models.Job.jid).
             filter(models.JobInstance.current_status == status_id).all())
         return jobs
+
+    def generate_report(self):
+        """save a csv representation of the database"""
+
+        def r_proxy_2_df(r_proxy):
+
+            # load dataframe
+            try:
+                df = pd.DataFrame(r_proxy.fetchall())
+                df.columns = r_proxy.keys()
+            except ValueError:
+                df = pd.DataFrame(columns=(r_proxy.keys()))
+            return df
+
+        q1 = """
+        SELECT
+            *
+        FROM
+            job
+        LEFT JOIN
+            job_instance USING (jid)
+        LEFT JOIN
+            job_instance_error USING (job_instance_id)
+        """
+        r_proxy = self.session.execute(q1)
+        df = r_proxy_2_df(r_proxy)
+        df.to_csv(os.path.join(self.out_dir, "job_report.csv"))
+
+        q2 = """
+        SELECT
+            *
+        FROM
+            job_instance_status jis
+        LEFT JOIN
+            status s ON s.id = jis.status
+        """
+        r_proxy = self.session.execute(q2)
+        df = r_proxy_2_df(r_proxy)
+        df.to_csv(os.path.join(self.out_dir, "job_status_report.csv"))
 
     def _action_get_job_information(self, jid):
         job = self.session.query(models.Job).filter_by(jid=jid)
@@ -256,51 +295,5 @@ class CentralJobMonitor(object):
 
         except Exception as e:
             response = (1, "query failed to execute {}".format(e).encode())
-
-        return response
-
-    def _action_generate_report(self):
-
-        def r_proxy_2_df(r_proxy):
-
-            # load dataframe
-            try:
-                df = pd.DataFrame(r_proxy.fetchall())
-                df.columns = r_proxy.keys()
-            except ValueError:
-                df = pd.DataFrame(columns=(r_proxy.keys()))
-            return df
-
-        try:
-
-            q1 = """
-            SELECT
-                *
-            FROM
-                job
-            LEFT JOIN
-                job_instance USING (jid)
-            LEFT JOIN
-                job_instance_error USING (job_instance_id)
-            """
-            r_proxy = self.session.execute(q1)
-            df = r_proxy_2_df(r_proxy)
-            df.to_csv(os.path.join(self.out_dir, "job_report.csv"))
-
-            q2 = """
-            SELECT
-                *
-            FROM
-                job_instance_status jis
-            LEFT JOIN
-                status s ON s.id = jis.status
-            """
-            r_proxy = self.session.execute(q2)
-            df = r_proxy_2_df(r_proxy)
-            df.to_csv(os.path.join(self.out_dir, "job_status_report.csv"))
-
-            response = (ReturnCodes.OK,)
-        except Exception as e:
-            response = (1, "report failed to generate {}".format(e))
 
         return response

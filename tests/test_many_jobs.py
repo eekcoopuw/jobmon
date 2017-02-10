@@ -33,7 +33,7 @@ def test_many_jobs(central_jobmon):
     )
     assert len(pd.DataFrame(r[1])) == 0
 
-    q.request_sender.send_request({"action": "generate_report"})
+    central_jobmon.generate_report()
     assert os.path.exists(
         os.path.join(central_jobmon.out_dir, "job_report.csv"))
     os.path.exists(

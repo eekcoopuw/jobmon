@@ -21,7 +21,7 @@ def test_bad_job():
 # python!
 def test_dead_job():
     dir = os.path.dirname(os.path.realpath(__file__))
-    completed_process = sp.run(
+    completed_process = sp.call(
         ["python", dir + "/mock_job.py", "dead dog", "2", MockJob.DIE_COMMAND])
 
     assert (completed_process.returncode == -1 * signal.SIGKILL)
