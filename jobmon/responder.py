@@ -7,6 +7,7 @@ import json
 import inspect
 from jobmon.exceptions import ReturnCodes
 from multiprocessing import Process
+from threading import Thread, Event
 
 from jobmon.setup_logger import setup_logger
 
@@ -61,6 +62,7 @@ class Responder(object):
         out_dir (string): full filepath of directory to write server config in
     """
     logger = None
+    _keep_alive = True
 
     def __init__(self, out_dir):
         """set class defaults. make out_dir if it doesn't exist. write config
@@ -80,10 +82,12 @@ class Responder(object):
             os.makedirs(self.out_dir)
         except OSError:  # It throws if the directory already exists!
             pass
+        self.server_proc_type = None
         self.port = None
         self.socket = None
         self.server_pid = None
         self.server_proc = None
+        self.thread_stop_request = None
 
         self.actions = []
         self.register_object_actions(self)
@@ -92,6 +96,17 @@ class Responder(object):
     def node_name(self):
         """name of node that server is running on"""
         return gethostname()
+
+    @property
+    def keep_alive(self):
+        if self.thread_stop_request:
+            if self.thread_stop_request.isSet():
+                self._keep_alive = False
+        return self._keep_alive
+
+    @keep_alive.setter
+    def keep_alive(self, val):
+        self._keep_alive = val
 
     def write_connection_info(self, host, port):
         """dump server connection configuration to network filesystem for
@@ -116,15 +131,24 @@ class Responder(object):
         self.port = self.socket.bind_to_random_port('tcp://*')
         self.write_connection_info(self.node_name, self.port)  # dump config
 
-    def start_server(self, nonblocking=True):
+    def start_server(self, server_proc_type="subprocess"):
         """configure server and set to listen. returns tuple (port, socket).
         doesn't actually run server."""
         Responder.logger.info('{}: Opening socket...'.format(os.getpid()))
         Responder.logger.info('{}: Responder starting...'.format(os.getpid()))
-        if nonblocking:
+        self.server_proc_type = server_proc_type
+
+        # using multiprocessing
+        if self.server_proc_type == "subprocess":
             self.server_proc = Process(target=self.listen)
             self.server_proc.start()
             self.server_pid = self.server_proc.pid
+        # using threading for in memory sqlite db
+        elif self.server_proc_type == "thread":
+            self.thread_stop_request = Event()
+            self.server_proc = Thread(target=self.listen)
+            self.server_proc.start()
+        # syncronous
         else:
             self._open_socket()
             self.listen()
@@ -132,11 +156,31 @@ class Responder(object):
 
     def stop_server(self):
         """Stops response server. Only applicable if listening in a
-        non-blocking subprocess"""
-        if self.server_proc is not None:
+        non-blocking subprocess. Threads and blocking execution exit normally
+        """
+        if self.server_proc_type == "subprocess":
             if self.server_proc.is_alive():
                 self.server_proc.terminate()
                 exitcode = self.server_proc.exitcode
+                try:
+                    os.remove('%s/monitor_info.json' % self.out_dir)
+                except Exception:
+                    Responder.logger.info("monitor_info.json file already "
+                                          "deleted")
+        elif self.server_proc_type == "thread":
+            if self.server_proc.is_alive():
+                # set the threading EVENT to True
+                self.thread_stop_request.set()
+
+                # next prod the server to make it cycle with a simple requester
+                context = zmq.Context()
+                socket = context.socket(zmq.REQ)
+                socket.connect("tcp://{}:{}".format(self.node_name, self.port))
+                socket.send_json({"action": "cycle"})
+
+                # then join the threads
+                self.server_proc.join(timeout=10)
+                exitcode = 0
                 try:
                     os.remove('%s/monitor_info.json' % self.out_dir)
                 except Exception:
@@ -193,13 +237,12 @@ class Responder(object):
             self._open_socket()
             Responder.logger.info('Socket opened successfully')
         Responder.logger.info('Responder started, port {}.'.format(self.port))
-        keep_alive = True
-        while keep_alive:
+        while self.keep_alive:
             msg = self.socket.recv_json()  # server blocks on receive
             Responder.logger.debug("Received json {}".format(msg))
             try:
                 if msg == 'stop':
-                    keep_alive = False
+                    self.keep_alive = False
                     logmsg = "{}: Responder Stopping".format(os.getpid())
                     Responder.logger.info(logmsg)
                     self.socket.send_json(
@@ -267,6 +310,13 @@ class Responder(object):
         logmsg = "{}: Responder received is_alive?".format(os.getpid())
         Responder.logger.debug(logmsg)
         return 0, "Yes, I am alive"
+
+    def _action_cycle(self):
+        """A simple 'action' that sends a response to the requester indicating
+        that this responder is in fact listening"""
+        logmsg = "{}: Responder received cycle?".format(os.getpid())
+        Responder.logger.debug(logmsg)
+        return 0, "Forced cycle of server"
 
     def register_action(self, action):
         """Register a method as an action that can be invoked

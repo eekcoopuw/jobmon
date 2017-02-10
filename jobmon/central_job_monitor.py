@@ -5,6 +5,7 @@ import pandas as pd
 import sqlalchemy as sql
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.pool import StaticPool
 
 from jobmon import models
 from jobmon.responder import Responder
@@ -44,14 +45,13 @@ class CentralJobMonitor(object):
 
         # Initialize the persistent backend where job-state messages will be
         # recorded
-        logmsg = "{}: Creating persistent backend".format(os.getpid())
-        Responder.logger.info(logmsg)
+        self.server_proc_type = None
         self.session = self.create_job_db(persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
         Responder.logger.info(logmsg)
 
         self.responder.register_object_actions(self)
-        self.responder.start_server()
+        self.responder.start_server(server_proc_type=self.server_proc_type)
 
     def create_job_db(self, persistent=True):
         """create sqlite database from models schema
@@ -64,6 +64,8 @@ class CentralJobMonitor(object):
         if persistent:
             assert sys.version_info > (3, 0), """
                 Sorry, only Python version 3+ is supported at this time"""
+            logmsg = "{}: Creating persistent backend".format(os.getpid())
+            Responder.logger.info(logmsg)
 
             dbfile = '{out_dir}/job_monitor.sqlite'.format(
                 out_dir=self.out_dir)
@@ -73,8 +75,13 @@ class CentralJobMonitor(object):
                     'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile),
                     uri=True)
             eng = sql.create_engine('sqlite://', creator=creator)
+            self.server_proc_type = "process"
         else:
-            eng = sql.create_engine('sqlite://')
+            eng = sql.create_engine(
+                'sqlite://',
+                connect_args={'check_same_thread': False},
+                poolclass=StaticPool)
+            self.server_proc_type = "thread"
 
         models.Base.metadata.create_all(eng)  # doesn't create if exists
         Session.configure(bind=eng, autocommit=False)
