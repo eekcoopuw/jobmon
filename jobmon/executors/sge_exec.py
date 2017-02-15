@@ -161,7 +161,8 @@ class SGEExecutor(base.BaseExecutor):
 
         # append additional parameters
         if passed_params:
-            parameters = base_params + passed_params
+            parameters = base_params + ["--pass_through",
+                                        '"{}"'.format(" ".join(passed_params))]
         else:
             parameters = base_params
 
@@ -215,26 +216,21 @@ if __name__ == "__main__":
     parser.add_argument("--mon_dir", required=True)
     parser.add_argument("--runfile", required=True)
     parser.add_argument("--jid", required=True, type=int)
-    parser.add_argument("--request_timeout", required=False, type=int)
-    parser.add_argument("--request_retries", required=False, type=int)
-    parser.add_argument('pass_through', nargs='*')
+    parser.add_argument("--request_timeout", required=True, type=int)
+    parser.add_argument("--request_retries", required=True, type=int)
+    parser.add_argument("--pass_through", required=False)
     args = vars(parser.parse_args())
-
-    # build kwargs list for optional stuff
-    kwargs = {}
-    if args["request_retries"] is not None:
-        kwargs["request_retries"] = args["request_retries"]
-    if args["request_timeout"] is not None:
-        kwargs["request_timeout"] = args["request_timeout"]
 
     # reset sys.argv as if this parsing never happened
     passed_params = []
-    for param in args["pass_through"]:
+    for param in args["pass_through"].split():
         passed_params.append(str(param).replace("##", "--", 1))
     sys.argv = [args["runfile"]] + passed_params
 
     # start monitoring
-    j1 = SGEJobInstance(args["mon_dir"], jid=args["jid"], **kwargs)
+    j1 = SGEJobInstance(args["mon_dir"], jid=args["jid"],
+                        request_retries=args["request_retries"],
+                        request_timeout=args["request_timeout"])
     j1.log_started()
 
     # open subprocess
