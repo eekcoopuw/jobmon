@@ -461,8 +461,13 @@ def qsub(
     # N             Y             Y      Build args to shfile for jobtype.
     # Y             Y             Y      Use given jobtype and build args.
     if not jobtype:
-        job_types = {".py": "python", ".do": "stata", ".sh": "shell",
-                     ".r": "R", ".R": "R"}
+        job_types = {
+            ".py": "python",
+            ".pyc": "python",
+            ".do": "stata",
+            ".sh": "shell",
+            ".r": "R",
+            ".R": "R"}
         jobtype = job_types.get(_suffix(runfile), "plain")
         logger.debug("qsub chose jobtype {}".format(jobtype))
     assert not (conda_env and not jobtype == "python")

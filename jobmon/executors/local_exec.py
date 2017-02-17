@@ -1,5 +1,6 @@
+from __future__ import print_function
+
 import sys
-import os
 import subprocess
 import time
 import multiprocessing
@@ -167,9 +168,14 @@ class LocalConsumer(multiprocessing.Process):
                 proc.kill()
                 eprint(err)
             else:
-                # communicate till done
-                stdout, stderr = proc.communicate(
-                    timeout=job_def.subprocess_timeout)
+                if sys.version_info > (3, 0):
+                    # communicate till done
+                    stdout, stderr = proc.communicate(
+                        timeout=job_def.subprocess_timeout)
+                else:
+                    print("warning, subprocess timeout cannot be set in python"
+                          " 2")
+                    stdout, stderr = proc.communicate()
                 print(stdout)
                 eprint(stderr)
 
@@ -217,8 +223,10 @@ class LocalExecutor(base.BaseExecutor):
         ----> subconsumerN
     """
 
-    def __init__(self, *args, task_response_timeout=3, **kwargs):
-        super(LocalExecutor, self).__init__(*args, **kwargs)
+    def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
+                 parallelism=None, task_response_timeout=3):
+        super(LocalExecutor, self).__init__(
+            mon_dir, request_retries, request_timeout, parallelism)
 
         self.task_response_timeout = task_response_timeout
 

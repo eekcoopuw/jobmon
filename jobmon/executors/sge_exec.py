@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import os
+import jsonpickle
 from subprocess import CalledProcessError
 
 from jobmon import sge, job
@@ -146,24 +147,14 @@ class SGEExecutor(base.BaseExecutor):
         Returns:
             sge job id
         """
-        base_params = [
+        parameters = [
             "--mon_dir", self.mon_dir,
             "--runfile", job.runfile,
             "--jid", job.jid,
             "--request_retries", self.request_retries,
-            "--request_timeout", self.request_timeout
+            "--request_timeout", self.request_timeout,
+            "--pass_through", "'{}'".format(jsonpickle.encode(job.job_args))
         ]
-
-        # replace -- with ## to allow for passthrough in monitored job
-        passed_params = []
-        for param in job.job_args:
-            passed_params.append(str(param).replace("--", "##", 1))
-
-        # append additional parameters
-        if passed_params:
-            parameters = base_params + passed_params
-        else:
-            parameters = base_params
 
         self.logger.debug(
             ("{}: Submitting job to qsub:"
@@ -201,7 +192,6 @@ if __name__ == "__main__":
     import argparse
     import subprocess
     import traceback
-
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
     # Similar to a stub or a container
@@ -210,37 +200,37 @@ if __name__ == "__main__":
     def eprint(*args, **kwargs):
         print(*args, file=sys.stderr, **kwargs)
 
+    def jpickle_parser(s):
+        return jsonpickle.decode(s)
+
     # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--mon_dir", required=True)
     parser.add_argument("--runfile", required=True)
     parser.add_argument("--jid", required=True, type=int)
-    parser.add_argument("--request_timeout", required=False, type=int)
-    parser.add_argument("--request_retries", required=False, type=int)
-    parser.add_argument('pass_through', nargs='*')
+    parser.add_argument("--request_timeout", required=True, type=int)
+    parser.add_argument("--request_retries", required=True, type=int)
+    parser.add_argument("--pass_through", required=False, type=jpickle_parser)
     args = vars(parser.parse_args())
 
-    # build kwargs list for optional stuff
-    kwargs = {}
-    if args["request_retries"] is not None:
-        kwargs["request_retries"] = args["request_retries"]
-    if args["request_timeout"] is not None:
-        kwargs["request_timeout"] = args["request_timeout"]
-
     # reset sys.argv as if this parsing never happened
-    passed_params = []
-    for param in args["pass_through"]:
-        passed_params.append(str(param).replace("##", "--", 1))
-    sys.argv = [args["runfile"]] + passed_params
+    sys.argv = [args["runfile"]] + args["pass_through"]
 
     # start monitoring
-    j1 = SGEJobInstance(args["mon_dir"], jid=args["jid"], **kwargs)
+    j1 = SGEJobInstance(args["mon_dir"], jid=args["jid"],
+                        request_retries=args["request_retries"],
+                        request_timeout=args["request_timeout"])
     j1.log_started()
 
     # open subprocess
     try:
         # TODO: discuss whether this should use the same Popen strategy as
         # LocalExecutor
+        for arg in sys.argv:
+            if not isinstance(arg, str) and not isinstance(arg, unicode):
+                raise ValueError(
+                    "all command line arguments must be strings. {} is {}"
+                    .format(arg, type(arg)))
         out = subprocess.check_output(["python"] + sys.argv,
                                       stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as exc:

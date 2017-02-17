@@ -1,18 +1,21 @@
+import sys
 import zmq
-
+from enum import Enum
 from socket import gethostname
 import os
-import sys
 import json
 import inspect
 from jobmon.exceptions import ReturnCodes
 from multiprocessing import Process
+from threading import Thread, Event
 
 from jobmon.setup_logger import setup_logger
 
 
-assert sys.version_info > (3, 0), """
-    Sorry, only Python version 3+ is supported at this time"""
+class ServerProcType(Enum):
+    SUBPROCESS = 1
+    THREAD = 2
+    NONE = 3
 
 
 def get_class_that_defined_method(meth):
@@ -22,18 +25,24 @@ def get_class_that_defined_method(meth):
     Lifted from this SO post:
     http://stackoverflow.com/questions/3589311/get-defining-class-of-unbound-method-object-in-python-3/25959545#25959545
     """
-    if inspect.ismethod(meth):
-        for cls in inspect.getmro(meth.__self__.__class__):
-            if cls.__dict__.get(meth.__name__) is meth:
+    if sys.version_info > (3, 0):
+        if inspect.ismethod(meth):
+            for cls in inspect.getmro(meth.__self__.__class__):
+                if cls.__dict__.get(meth.__name__) is meth:
+                    return cls
+            meth = meth.__func__   # fallback to __qualname__ parsing
+        if inspect.isfunction(meth):
+            cls = getattr(inspect.getmodule(meth),
+                          meth.__qualname__.split(
+                              '.<locals>', 1)[0].rsplit('.', 1)[0])
+            if isinstance(cls, type):
                 return cls
-        meth = meth.__func__   # fallback to __qualname__ parsing
-    if inspect.isfunction(meth):
-        cls = getattr(inspect.getmodule(meth),
-                      meth.__qualname__.split(
-                          '.<locals>', 1)[0].rsplit('.', 1)[0])
-        if isinstance(cls, type):
-            return cls
-    return None  # not required since None would have been implicitly returned
+        return None  # not required. None would have been implicitly returned
+    else:
+        for cls in inspect.getmro(meth.im_class):
+            if meth.__name__ in cls.__dict__:
+                return cls
+        return None
 
 
 class MonitorAlreadyRunning(Exception):
@@ -47,8 +56,8 @@ class MonitorAlreadyRunning(Exception):
 class Responder(object):
     """This really is a server, in that there is one of these, it listens on a
     Receiver object (a zmq channel) and does stuff as a result of those
-    commands.  A singleton in the directory. Runs as a separate process, not in
-    the same process that started the qmaster.
+    commands.  A singleton in the directory. Runs as a separate process or
+    thread.
 
     Error Codes
     INVALID_RESPONSE_FORMAT
@@ -59,6 +68,7 @@ class Responder(object):
         out_dir (string): full filepath of directory to write server config in
     """
     logger = None
+    _keep_alive = True
 
     def __init__(self, out_dir):
         """set class defaults. make out_dir if it doesn't exist. write config
@@ -81,7 +91,9 @@ class Responder(object):
         self.port = None
         self.socket = None
         self.server_pid = None
+        self.server_proc_type = None
         self.server_proc = None
+        self.thread_stop_request = None
 
         self.actions = []
         self.register_object_actions(self)
@@ -90,6 +102,17 @@ class Responder(object):
     def node_name(self):
         """name of node that server is running on"""
         return gethostname()
+
+    @property
+    def keep_alive(self):
+        if self.thread_stop_request:
+            if self.thread_stop_request.isSet():
+                self._keep_alive = False
+        return self._keep_alive
+
+    @keep_alive.setter
+    def keep_alive(self, val):
+        self._keep_alive = val
 
     def write_connection_info(self, host, port):
         """dump server connection configuration to network filesystem for
@@ -114,41 +137,76 @@ class Responder(object):
         self.port = self.socket.bind_to_random_port('tcp://*')
         self.write_connection_info(self.node_name, self.port)  # dump config
 
-    def start_server(self, nonblocking=True):
+    def start_server(self, server_proc_type=ServerProcType.SUBPROCESS):
         """configure server and set to listen. returns tuple (port, socket).
         doesn't actually run server."""
         Responder.logger.info('{}: Opening socket...'.format(os.getpid()))
         Responder.logger.info('{}: Responder starting...'.format(os.getpid()))
-        if nonblocking:
+        self.server_proc_type = server_proc_type
+
+        # using multiprocessing
+        if self.server_proc_type == ServerProcType.SUBPROCESS:
             self.server_proc = Process(target=self.listen)
             self.server_proc.start()
             self.server_pid = self.server_proc.pid
-        else:
+        # using threading for in memory sqlite db
+        elif self.server_proc_type == ServerProcType.THREAD:
+            self.thread_stop_request = Event()
+            self.server_proc = Thread(target=self.listen)
+            self.server_proc.start()
+        # syncronous
+        elif self.server_proc_type == ServerProcType.NONE:
             self._open_socket()
             self.listen()
+        else:
+            raise TypeError(
+                "server_proc_type must be enumerated on ServerProcType")
         return self.port, self.socket
 
     def stop_server(self):
         """Stops response server. Only applicable if listening in a
-        non-blocking subprocess"""
-        if self.server_proc is not None:
+        non-blocking subprocess. Threads and blocking execution exit normally
+        """
+        if self.server_proc_type == ServerProcType.SUBPROCESS:
             if self.server_proc.is_alive():
                 self.server_proc.terminate()
                 exitcode = self.server_proc.exitcode
                 try:
-                    os.remove('%s/monitor_info.json' % self.out_dir)
+                    os.remove('{}/monitor_info.json'.format(self.out_dir))
                 except Exception:
                     Responder.logger.info("monitor_info.json file already "
                                           "deleted")
-        else:
+        elif self.server_proc_type == ServerProcType.THREAD:
+            if self.server_proc.is_alive():
+                # set the threading EVENT to True
+                self.thread_stop_request.set()
+
+                # next prod the server to make it cycle with a simple requester
+                context = zmq.Context()
+                socket = context.socket(zmq.REQ)
+                socket.connect("tcp://{}:{}".format(self.node_name, self.port))
+                socket.send_json({"action": "cycle"})
+
+                # then join the threads
+                self.server_proc.join(timeout=10)
+                exitcode = 0
+                try:
+                    os.remove('{}/monitor_info.json'.format(self.out_dir))
+                except Exception:
+                    Responder.logger.info("monitor_info.json file already "
+                                          "deleted")
+        elif self.server_proc_type == ServerProcType.NONE:
             Responder.logger.info("Response server is already stopped")
             exitcode = None
+        else:
+            raise TypeError(
+                "server_proc_type must be enumerated on ServerProcType")
         return exitcode
 
     def _close_socket(self):
         """stops listening at network socket/port."""
         Responder.logger.info('Stopping server...')
-        os.remove('%s/monitor_info.json' % self.out_dir)
+        os.remove('{}/monitor_info.json'.format(self.out_dir))
         self.socket.close()
         Responder.logger.info('Responder stopped.')
         return True
@@ -191,13 +249,12 @@ class Responder(object):
             self._open_socket()
             Responder.logger.info('Socket opened successfully')
         Responder.logger.info('Responder started, port {}.'.format(self.port))
-        keep_alive = True
-        while keep_alive:
+        while self.keep_alive:
             msg = self.socket.recv_json()  # server blocks on receive
             Responder.logger.debug("Received json {}".format(msg))
             try:
                 if msg == 'stop':
-                    keep_alive = False
+                    self.keep_alive = False
                     logmsg = "{}: Responder Stopping".format(os.getpid())
                     Responder.logger.info(logmsg)
                     self.socket.send_json(
@@ -264,7 +321,14 @@ class Responder(object):
         that this responder is in fact listening"""
         logmsg = "{}: Responder received is_alive?".format(os.getpid())
         Responder.logger.debug(logmsg)
-        return 0, "Yes, I am alive"
+        return (ReturnCodes.OK, "Yes, I am alive")
+
+    def _action_cycle(self):
+        """A simple dummy 'action' that forces the server while loop to cycle
+        """
+        logmsg = "{}: Responder received cycle?".format(os.getpid())
+        Responder.logger.debug(logmsg)
+        return (ReturnCodes.OK, "Forced cycle of server")
 
     def register_action(self, action):
         """Register a method as an action that can be invoked
