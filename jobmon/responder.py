@@ -1,6 +1,6 @@
 import sys
 import zmq
-
+from enum import Enum
 from socket import gethostname
 import os
 import json
@@ -10,6 +10,12 @@ from multiprocessing import Process
 from threading import Thread, Event
 
 from jobmon.setup_logger import setup_logger
+
+
+class ServerProcType(Enum):
+    SUBPROCESS = 1
+    THREAD = 2
+    NONE = 3
 
 
 def get_class_that_defined_method(meth):
@@ -131,7 +137,7 @@ class Responder(object):
         self.port = self.socket.bind_to_random_port('tcp://*')
         self.write_connection_info(self.node_name, self.port)  # dump config
 
-    def start_server(self, server_proc_type="subprocess"):
+    def start_server(self, server_proc_type=ServerProcType.SUBPROCESS):
         """configure server and set to listen. returns tuple (port, socket).
         doesn't actually run server."""
         Responder.logger.info('{}: Opening socket...'.format(os.getpid()))
@@ -139,35 +145,38 @@ class Responder(object):
         self.server_proc_type = server_proc_type
 
         # using multiprocessing
-        if self.server_proc_type == "subprocess":
+        if self.server_proc_type == ServerProcType.SUBPROCESS:
             self.server_proc = Process(target=self.listen)
             self.server_proc.start()
             self.server_pid = self.server_proc.pid
         # using threading for in memory sqlite db
-        elif self.server_proc_type == "thread":
+        elif self.server_proc_type == ServerProcType.THREAD:
             self.thread_stop_request = Event()
             self.server_proc = Thread(target=self.listen)
             self.server_proc.start()
         # syncronous
-        else:
+        elif self.server_proc_type == ServerProcType.NONE:
             self._open_socket()
             self.listen()
+        else:
+            raise TypeError(
+                "server_proc_type must be enumerated on ServerProcType")
         return self.port, self.socket
 
     def stop_server(self):
         """Stops response server. Only applicable if listening in a
         non-blocking subprocess. Threads and blocking execution exit normally
         """
-        if self.server_proc_type == "subprocess":
+        if self.server_proc_type == ServerProcType.SUBPROCESS:
             if self.server_proc.is_alive():
                 self.server_proc.terminate()
                 exitcode = self.server_proc.exitcode
                 try:
-                    os.remove('%s/monitor_info.json' % self.out_dir)
+                    os.remove('{}/monitor_info.json'.format(self.out_dir))
                 except Exception:
                     Responder.logger.info("monitor_info.json file already "
                                           "deleted")
-        elif self.server_proc_type == "thread":
+        elif self.server_proc_type == ServerProcType.THREAD:
             if self.server_proc.is_alive():
                 # set the threading EVENT to True
                 self.thread_stop_request.set()
@@ -182,19 +191,22 @@ class Responder(object):
                 self.server_proc.join(timeout=10)
                 exitcode = 0
                 try:
-                    os.remove('%s/monitor_info.json' % self.out_dir)
+                    os.remove('{}/monitor_info.json'.format(self.out_dir))
                 except Exception:
                     Responder.logger.info("monitor_info.json file already "
                                           "deleted")
-        else:
+        elif self.server_proc_type == ServerProcType.NONE:
             Responder.logger.info("Response server is already stopped")
             exitcode = None
+        else:
+            raise TypeError(
+                "server_proc_type must be enumerated on ServerProcType")
         return exitcode
 
     def _close_socket(self):
         """stops listening at network socket/port."""
         Responder.logger.info('Stopping server...')
-        os.remove('%s/monitor_info.json' % self.out_dir)
+        os.remove('{}/monitor_info.json'.format(self.out_dir))
         self.socket.close()
         Responder.logger.info('Responder stopped.')
         return True
@@ -309,14 +321,14 @@ class Responder(object):
         that this responder is in fact listening"""
         logmsg = "{}: Responder received is_alive?".format(os.getpid())
         Responder.logger.debug(logmsg)
-        return 0, "Yes, I am alive"
+        return (ReturnCodes.OK, "Yes, I am alive")
 
     def _action_cycle(self):
         """A simple dummy 'action' that forces the server while loop to cycle
         """
         logmsg = "{}: Responder received cycle?".format(os.getpid())
         Responder.logger.debug(logmsg)
-        return 0, "Forced cycle of server"
+        return (ReturnCodes.OK, "Forced cycle of server")
 
     def register_action(self, action):
         """Register a method as an action that can be invoked

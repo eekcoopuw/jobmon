@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
 from jobmon import models
-from jobmon.responder import Responder
+from jobmon.responder import Responder, ServerProcType
 from jobmon.exceptions import ReturnCodes
 
 Session = sessionmaker()
@@ -75,13 +75,13 @@ class CentralJobMonitor(object):
                     'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile),
                     uri=True)
             eng = sql.create_engine('sqlite://', creator=creator)
-            self.server_proc_type = "subprocess"
+            self.server_proc_type = ServerProcType.SUBPROCESS
         else:
             eng = sql.create_engine(
                 'sqlite://',
                 connect_args={'check_same_thread': False},
                 poolclass=StaticPool)
-            self.server_proc_type = "thread"
+            self.server_proc_type = ServerProcType.THREAD
 
         models.Base.metadata.create_all(eng)  # doesn't create if exists
         Session.configure(bind=eng, autocommit=False)
