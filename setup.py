@@ -50,7 +50,8 @@ setup(
         'mysqlclient',
         'pyyaml',
         'pyzmq',
-        'drmaa'
+        'drmaa',
+        'jsonpickle'
     ],
     packages=['jobmon', 'jobmon.executors'],
     scripts=["bin/launch_central_monitor.py"],

@@ -1,3 +1,4 @@
+import sys
 import pytest
 from jobmon.central_job_monitor import CentralJobMonitor
 from time import sleep
@@ -6,7 +7,11 @@ from time import sleep
 @pytest.fixture(scope='function')
 def central_jobmon(tmpdir_factory):
     monpath = tmpdir_factory.mktemp("jmdir")
-    jm = CentralJobMonitor(str(monpath))
+
+    if sys.version_info > (3, 0):
+        jm = CentralJobMonitor(str(monpath))
+    else:
+        jm = CentralJobMonitor(str(monpath), persistent=False)
     sleep(1)
     yield jm
     print("teardown fixture in {}".format(monpath))

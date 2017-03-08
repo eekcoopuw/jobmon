@@ -1,6 +1,5 @@
 import os
 import pandas as pd
-
 from jobmon import qmaster
 from jobmon.executors import local_exec
 from jobmon.models import Status
@@ -11,10 +10,10 @@ here = os.path.dirname(os.path.abspath(__file__))
 def test_many_jobs(central_jobmon):
 
     # construct executor
-    sgexec = local_exec.LocalExecutor(
+    localexec = local_exec.LocalExecutor(
         central_jobmon.out_dir, 3, 30000, parallelism=20)
 
-    q = qmaster.MonitoredQ(sgexec)
+    q = qmaster.MonitoredQ(localexec)
 
     runfile = os.path.join(here, "waiter.py")
     for name in ["_" + str(num) for num in range(1, 50)]:
@@ -33,3 +32,10 @@ def test_many_jobs(central_jobmon):
          }
     )
     assert len(pd.DataFrame(r[1])) == 0
+
+    central_jobmon.generate_report()
+    assert os.path.exists(
+        os.path.join(central_jobmon.out_dir, "job_report.csv"))
+    os.path.exists(
+        os.path.join(central_jobmon.out_dir, "job_status_report.csv")
+    )

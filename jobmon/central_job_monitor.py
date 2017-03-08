@@ -1,12 +1,14 @@
+import sys
 import os
 import sqlite3
 import pandas as pd
 import sqlalchemy as sql
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.pool import StaticPool
 
 from jobmon import models
-from jobmon.responder import Responder
+from jobmon.responder import Responder, ServerProcType
 from jobmon.exceptions import ReturnCodes
 
 Session = sessionmaker()
@@ -24,14 +26,17 @@ class CentralJobMonitor(object):
             sqlite database in.
     """
 
-    def __init__(self, out_dir, port=None, conn_str=None):
+    def __init__(self, out_dir, persistent=True, port=None, conn_str=None):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema
 
         Args:
-            out_dir (str): The directory where the connection settings are
-                to be stored so Jobs know which endpoint to communicate
-                with
+            out_dir (str): where to save the connection json for the zmq socket
+                and the sqlite database if the you are creating a persistent
+                data store
+            persistent (bool, optional): whether to create a persistent sqlite
+                database in the file system or just keep it in memory.
+                True can only be specified if run in python 3+
             port (int): Port that the monitor should listen on. If None
                 (default), the system will choose the port
         """
@@ -43,30 +48,47 @@ class CentralJobMonitor(object):
 
         # Initialize the persistent backend where job-state messages will be
         # recorded
-        logmsg = "{}: Creating persistent backend".format(os.getpid())
-        Responder.logger.info(logmsg)
-        self.session = self.create_job_db()
+        self.server_proc_type = None
+        self.session = self.create_job_db(persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
         Responder.logger.info(logmsg)
 
         self.responder.register_object_actions(self)
-        self.responder.start_server()
+        self.responder.start_server(server_proc_type=self.server_proc_type)
 
-    def create_job_db(self):
-        """create database from models schema"""
+    def create_job_db(self, persistent=True):
+        """create sqlite database from models schema
 
+        Args:
+            persistent (bool, optional): whether to create a persistent sqlite
+                database in the file system or just keep it in memory.
+                True can only be specified if run in python 3+
+        """
         if self.conn_str:
             eng = sql.create_engine(self.conn_str)
             dbfile = self.conn_str
         else:
-            dbfile = '{out_dir}/job_monitor.sqlite'.format(
-                out_dir=self.out_dir)
+            if persistent:
+                assert sys.version_info > (3, 0), """
+                    Sorry, only Python version 3+ is supported at this time"""
+                logmsg = "{}: Creating persistent backend".format(os.getpid())
+                Responder.logger.info(logmsg)
 
-            def creator():
-                return sqlite3.connect(
-                    'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile),
-                    uri=True)
-            eng = sql.create_engine('sqlite://', creator=creator)
+                dbfile = '{out_dir}/job_monitor.sqlite'.format(
+                    out_dir=self.out_dir)
+
+                def creator():
+                    return sqlite3.connect(
+                        'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile),
+                        uri=True)
+                eng = sql.create_engine('sqlite://', creator=creator)
+                self.server_proc_type = ServerProcType.SUBPROCESS
+            else:
+                eng = sql.create_engine(
+                    'sqlite://',
+                    connect_args={'check_same_thread': False},
+                    poolclass=StaticPool)
+                self.server_proc_type = ServerProcType.THREAD
 
         models.Base.metadata.create_all(eng)  # doesn't create if exists
         Session.configure(bind=eng, autocommit=False)
@@ -104,6 +126,45 @@ class CentralJobMonitor(object):
                     "Found no job with status {}".format(status_id))
         else:
             return (ReturnCodes.OK, [job.jid for job in jobs])
+
+    def generate_report(self):
+        """save a csv representation of the database"""
+
+        def r_proxy_2_df(r_proxy):
+
+            # load dataframe
+            try:
+                df = pd.DataFrame(r_proxy.fetchall())
+                df.columns = r_proxy.keys()
+            except ValueError:
+                df = pd.DataFrame(columns=(r_proxy.keys()))
+            return df
+
+        q1 = """
+        SELECT
+            *
+        FROM
+            job
+        LEFT JOIN
+            job_instance USING (jid)
+        LEFT JOIN
+            job_instance_error USING (job_instance_id)
+        """
+        r_proxy = self.session.execute(q1)
+        df = r_proxy_2_df(r_proxy)
+        df.to_csv(os.path.join(self.out_dir, "job_report.csv"))
+
+        q2 = """
+        SELECT
+            *
+        FROM
+            job_instance_status jis
+        LEFT JOIN
+            status s ON s.id = jis.status
+        """
+        r_proxy = self.session.execute(q2)
+        df = r_proxy_2_df(r_proxy)
+        df.to_csv(os.path.join(self.out_dir, "job_status_report.csv"))
 
     def _action_get_job_information(self, jid):
         job = self.session.query(models.Job).filter_by(jid=jid)
