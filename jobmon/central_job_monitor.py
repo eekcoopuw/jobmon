@@ -48,7 +48,7 @@ class CentralJobMonitor(object):
 
         # Initialize the persistent backend where job-state messages will be
         # recorded
-        self.server_proc_type = None
+        self.server_proc_type = ServerProcType.SUBPROCESS
         self.session = self.create_job_db(persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
         Responder.logger.info(logmsg)
@@ -65,7 +65,7 @@ class CentralJobMonitor(object):
                 True can only be specified if run in python 3+
         """
         if self.conn_str:
-            eng = sql.create_engine(self.conn_str)
+            eng = sql.create_engine(self.conn_str, pool_recycle=60)
             dbfile = self.conn_str
         else:
             if persistent:
