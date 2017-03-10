@@ -3,15 +3,13 @@ import os
 import sqlite3
 import pandas as pd
 import sqlalchemy as sql
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
 from jobmon import models
 from jobmon.responder import Responder, ServerProcType
 from jobmon.exceptions import ReturnCodes
-
-Session = sessionmaker()
 
 
 class CentralJobMonitor(object):
@@ -49,7 +47,8 @@ class CentralJobMonitor(object):
         # Initialize the persistent backend where job-state messages will be
         # recorded
         self.server_proc_type = ServerProcType.SUBPROCESS
-        self.session = self.create_job_db(persistent)
+        self.Session = scoped_session(sessionmaker())
+        self.create_job_db(persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
         Responder.logger.info(logmsg)
 
@@ -91,8 +90,8 @@ class CentralJobMonitor(object):
                 self.server_proc_type = ServerProcType.THREAD
 
         models.Base.metadata.create_all(eng)  # doesn't create if exists
-        Session.configure(bind=eng, autocommit=False)
-        session = Session()
+        self.Session.configure(bind=eng, autocommit=False)
+        session = self.Session()
 
         try:
             models.load_default_statuses(session)
@@ -102,7 +101,8 @@ class CentralJobMonitor(object):
                 "database, you'll have to delete the "
                 "old database manually {}".format(dbfile))
             session.rollback()
-        return session
+        session.close()
+        return True
 
     def responder_proc_is_alive(self):
         return self.responder.server_proc.is_alive()
@@ -112,10 +112,12 @@ class CentralJobMonitor(object):
 
     def jobs_with_status(self, status_id):
         # TODO this query is maybe not right once/if we implement retries
+        session = self.Session()
         jobs = (
-            self.session.query(models.Job).
+            session.query(models.Job).
             filter(models.JobInstance.jid == models.Job.jid).
             filter(models.JobInstance.current_status == status_id).all())
+        session.close()
         return jobs
 
     def _action_get_jobs_with_status(self, status_id):
@@ -150,7 +152,8 @@ class CentralJobMonitor(object):
         LEFT JOIN
             job_instance_error USING (job_instance_id)
         """
-        r_proxy = self.session.execute(q1)
+        session = self.Session()
+        r_proxy = session.execute(q1)
         df = r_proxy_2_df(r_proxy)
         df.to_csv(os.path.join(self.out_dir, "job_report.csv"))
 
@@ -162,12 +165,14 @@ class CentralJobMonitor(object):
         LEFT JOIN
             status s ON s.id = jis.status
         """
-        r_proxy = self.session.execute(q2)
+        r_proxy = session.execute(q2)
         df = r_proxy_2_df(r_proxy)
         df.to_csv(os.path.join(self.out_dir, "job_status_report.csv"))
+        session.close()
 
     def _action_get_job_information(self, jid):
-        job = self.session.query(models.Job).filter_by(jid=jid)
+        session = self.Session()
+        job = session.query(models.Job).filter_by(jid=jid)
         result = job.all()
         length = len(result)
         if length == 0:
@@ -188,13 +193,18 @@ class CentralJobMonitor(object):
             name=name,
             runfile=runfile,
             args=job_args)
-        self.session.add(job)
-        self.session.commit()
-        return 0, job.jid
+        session = self.Session()
+        session.add(job)
+        session.commit()
+        jid = job.jid
+        session.close()
+        return 0, jid
 
     def _action_get_job_instance_information(self, job_instance_id):
-        job_instance = self.session.query(models.JobInstance).filter_by(
+        session = self.Session()
+        job_instance = session.query(models.JobInstance).filter_by(
             job_instance_id=job_instance_id)
+        session.close()
         result = job_instance.all()
         length = len(result)
         if length == 0:
@@ -237,9 +247,12 @@ class CentralJobMonitor(object):
             jid=jid,
             current_status=models.Status.SUBMITTED,
             **kwargs)
-        self.session.add(job_instance)
-        self.session.commit()
-        return (ReturnCodes.OK, job_instance.job_instance_id)
+        session = self.Session()
+        session.add(job_instance)
+        session.commit()
+        ji_id = job_instance.job_instance_id
+        session.close()
+        return (ReturnCodes.OK, ji_id)
 
     def _action_update_job_instance_status(self, job_instance_id, status_id):
         """update status of job.
@@ -249,23 +262,27 @@ class CentralJobMonitor(object):
             status_id (int): status id to update job to
         """
         # update sge_job statuses
-        job_instance = self.session.query(models.JobInstance).filter_by(
+        session = self.Session()
+        job_instance = session.query(models.JobInstance).filter_by(
             job_instance_id=job_instance_id).first()
         job_instance.current_status = status_id
         status = models.JobInstanceStatus(job_instance_id=job_instance_id,
                                           status=status_id)
-        self.session.add_all([status, job_instance])
-        self.session.commit()
+        session.add_all([status, job_instance])
+        session.commit()
+        session.close()
         return (ReturnCodes.OK, job_instance_id, status_id)
 
     def _action_update_job_instance_usage(
             self, job_instance_id, *args, **kwargs):
-        job_instance = self.session.query(models.JobInstance).filter_by(
+        session = self.Session()
+        job_instance = session.query(models.JobInstance).filter_by(
             job_instance_id=job_instance_id).first()
         for k, v in kwargs.items():
             setattr(job_instance, k, v)
-        self.session.add(job_instance)
-        self.session.commit()
+        session.add(job_instance)
+        session.commit()
+        session.close()
         return (ReturnCodes.OK,)
 
     def _action_log_job_instance_error(self, job_instance_id, error):
@@ -277,8 +294,10 @@ class CentralJobMonitor(object):
         """
         error = models.JobInstanceError(job_instance_id=job_instance_id,
                                         description=error)
-        self.session.add(error)
-        self.session.commit()
+        session = self.Session()
+        session.add(error)
+        session.commit()
+        session.close()
         return (ReturnCodes.OK,)
 
     def _action_query(self, query):
@@ -296,7 +315,9 @@ class CentralJobMonitor(object):
         """
         try:
             # run query
-            r_proxy = self.session.execute(query)
+            session = self.Session()
+            r_proxy = session.execute(query)
+            session.close()
 
             # load dataframe
             try:
