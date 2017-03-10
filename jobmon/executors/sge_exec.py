@@ -52,8 +52,11 @@ class SGEJobInstance(job._AbstractJobInstance):
         # TODO: would like to deprecate this and require a jid but I know the
         # dalynator uses this behaviour
         if jid is None:
-            j = job.Job(mon_dir, jid, self.name, self.runfile,
-                        self.job_args, request_retries, request_timeout)
+            j = job.Job(mon_dir=mon_dir, monitor_host=monitor_host,
+                        monitor_port=monitor_port, jid=jid, name=self.name,
+                        runfile=self.runfile, job_args=self.job_args,
+                        request_retries=request_retries,
+                        request_timeout=request_timeout)
             self.jid = j.jid
         else:
             self.jid = jid
