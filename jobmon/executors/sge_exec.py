@@ -126,8 +126,10 @@ class SGEExecutor(base.BaseExecutor):
 
     remoterun = os.path.abspath(__file__)
 
-    def __init__(self, mon_dir, request_retries, request_timeout,
-                 path_to_conda_bin_on_target_vm, conda_env, parallelism=None):
+    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
+                 request_retries=3, request_timeout=3000,
+                 path_to_conda_bin_on_target_vm='', conda_env='',
+                 parallelism=None):
         """
             path_to_conda_bin_on_target_vm (string, optional): which conda bin
                 to use on the target vm.
@@ -136,7 +138,9 @@ class SGEExecutor(base.BaseExecutor):
         """
 
         super(SGEExecutor, self).__init__(
-            mon_dir, request_retries, request_timeout, parallelism)
+            mon_dir=mon_dir, monitor_host=monitor_host,
+            monitor_port=monitor_port, request_retries=request_retries,
+            request_timeout=request_timeout, parallelism=parallelism)
 
         # environment for distributed applications
         self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm

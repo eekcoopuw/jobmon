@@ -49,10 +49,13 @@ class LocalJobInstance(job._AbstractJobInstance):
                                    request_timeout=request_timeout)
 
         # get sge_id and name from envirnoment
-        self.job_instance_id = job_instance_id
         self.jid = jid
 
-        self.register_with_monitor()
+        if job_instance_id:
+            self.job_instance_id = job_instance_id
+        else:
+            self.job_instance_id = None
+            self.job_instance_id = self.register_with_monitor()
 
     def log_job_stats(self):
         try:
@@ -239,10 +242,13 @@ class LocalExecutor(base.BaseExecutor):
         ----> subconsumerN
     """
 
-    def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
-                 parallelism=None, task_response_timeout=3):
+    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
+                 request_retries=3, request_timeout=3000, parallelism=None,
+                 task_response_timeout=3):
         super(LocalExecutor, self).__init__(
-            mon_dir, request_retries, request_timeout, parallelism)
+            mon_dir=mon_dir, monitor_host=monitor_host,
+            monitor_port=monitor_port, request_retries=request_retries,
+            request_timeout=request_timeout, parallelism=parallelism)
 
         self.task_response_timeout = task_response_timeout
 
