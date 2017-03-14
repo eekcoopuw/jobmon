@@ -3,7 +3,7 @@ import os
 import sqlite3
 import pandas as pd
 import sqlalchemy as sql
-from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
@@ -47,7 +47,7 @@ class CentralJobMonitor(object):
         # Initialize the persistent backend where job-state messages will be
         # recorded
         self.server_proc_type = ServerProcType.SUBPROCESS
-        self.Session = scoped_session(sessionmaker())
+        self.Session = sessionmaker()
         self.create_job_db(persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
         Responder.logger.info(logmsg)
@@ -64,7 +64,7 @@ class CentralJobMonitor(object):
                 True can only be specified if run in python 3+
         """
         if self.conn_str:
-            eng = sql.create_engine(self.conn_str, pool_recycle=60)
+            eng = sql.create_engine(self.conn_str, pool_recycle=300)
             dbfile = self.conn_str
         else:
             if persistent:
