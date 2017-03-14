@@ -47,6 +47,7 @@ setup(
         'sqlalchemy',
         'numpy',
         'pymysql',
+        'mysqlclient',
         'pyyaml',
         'pyzmq',
         'drmaa',

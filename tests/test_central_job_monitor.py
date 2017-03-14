@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.executors.sge_exec import SGEJobInstance
@@ -14,7 +16,41 @@ def test_req_jobmon_pair(central_jobmon):
     assert resp[0] == 0
 
 
-def test_job_registration(central_jobmon):
+def test_invalid_req_args():
+    with pytest.raises(ValueError):
+        Requester(out_dir='some_dir', monitor_host='localhost',
+                  monitor_port=3459)
+    with pytest.raises(ValueError):
+        Requester(out_dir=None, monitor_host=None, monitor_port=None)
+    with pytest.raises(ValueError):
+        Requester(monitor_host='localhost')
+    with pytest.raises(ValueError):
+        Requester(monitor_port=1234)
+
+
+def test_static_port_req_mon_pair(central_jobmon_static_port):
+    req = Requester(monitor_host='localhost', monitor_port=3459)
+
+    # Test basic connection
+    resp = req.send_request({'action': 'alive'})
+    assert resp[0] == 0
+
+
+def test_job_registration_update(central_jobmon):
+    req = Requester(central_jobmon.out_dir)
+
+    # Test job creation and status updating
+    req.send_request({'action': 'register_job'})
+    jr2 = req.send_request({'action': 'register_job',
+                            'kwargs': {'name': 'a test job'}})
+    jr2_id = jr2[1]
+    up_resp = req.send_request({'action': 'update_job_status',
+                                'kwargs': {'jid': jr2_id,
+                                           'status_id': Status.FAILED}})
+    assert up_resp == [0, 2, Status.FAILED]
+
+
+def test_sge_job_registration(central_jobmon):
     req = Requester(central_jobmon.out_dir)
 
     # Test job creation and status updating

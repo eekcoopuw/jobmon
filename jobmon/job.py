@@ -10,6 +10,10 @@ class Job(object):
     Args
         mon_dir (string): file path where the server configuration is
             stored.
+        monitor_host (string): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port directly
+        monitor_port (int): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port directly
         jid (int, optional): job id to use when communicating with
             jobmon database. If job id is not specified, will register as a new
             job and aquire the job id from the central job monitor.
@@ -21,19 +25,26 @@ class Job(object):
             the central job monitor. Default=3 seconds
     """
 
-    def __init__(self, mon_dir, jid=None, name=None, runfile=None,
-                 job_args=None, request_retries=3, request_timeout=3000):
+    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
+                 jid=None, name=None, runfile=None, job_args=None,
+                 request_retries=3, request_timeout=3000):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified.
         """
-        self.requester = Requester(mon_dir, request_retries, request_timeout)
+        self.requester = Requester(out_dir=mon_dir, monitor_host=monitor_host,
+                                   monitor_port=monitor_port,
+                                   request_retries=request_retries,
+                                   request_timeout=request_timeout)
 
         # get jid from monitor
         self.jid = jid
         self.name = name
         self.runfile = runfile
 
-        self.job_args = job_args
+        if isinstance(job_args, (list, tuple)):
+            self.job_args = job_args
+        else:
+            self.job_args = [job_args]
 
         if self.jid is None:
             self.jid = self.register_with_monitor()

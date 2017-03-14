@@ -17,6 +17,10 @@ class SGEJobInstance(job._AbstractJobInstance):
     Args
         mon_dir (string): file path where the server configuration is
             stored.
+        monitor_host (string): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port directly
+        monitor_port (int): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port directly
         jid (int, optional): job id to use when communicating with
             jobmon database. If job id is not specified, will register as a new
             job and aquire the job id from the central job monitor.
@@ -26,12 +30,15 @@ class SGEJobInstance(job._AbstractJobInstance):
             the central job monitor. Default=3 seconds
     """
 
-    def __init__(self, mon_dir, jid=None, request_retries=3,
-                 request_timeout=3000):
+    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
+                 jid=None, request_retries=3, request_timeout=3000):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified."""
 
-        self.requester = Requester(mon_dir, request_retries, request_timeout)
+        self.requester = Requester(out_dir=mon_dir, monitor_host=monitor_host,
+                                   monitor_port=monitor_port,
+                                   request_retries=request_retries,
+                                   request_timeout=request_timeout)
 
         # get sge_id and name from envirnoment
         self.job_instance_id = int(os.getenv("JOB_ID"))
@@ -45,8 +52,11 @@ class SGEJobInstance(job._AbstractJobInstance):
         # TODO: would like to deprecate this and require a jid but I know the
         # dalynator uses this behaviour
         if jid is None:
-            j = job.Job(mon_dir, jid, self.name, self.runfile,
-                        self.job_args, request_retries, request_timeout)
+            j = job.Job(mon_dir=mon_dir, monitor_host=monitor_host,
+                        monitor_port=monitor_port, jid=jid, name=self.name,
+                        runfile=self.runfile, job_args=self.job_args,
+                        request_retries=request_retries,
+                        request_timeout=request_timeout)
             self.jid = j.jid
         else:
             self.jid = jid
@@ -119,8 +129,10 @@ class SGEExecutor(base.BaseExecutor):
 
     remoterun = os.path.abspath(__file__)
 
-    def __init__(self, mon_dir, request_retries, request_timeout,
-                 path_to_conda_bin_on_target_vm, conda_env, parallelism=None):
+    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
+                 request_retries=3, request_timeout=3000,
+                 path_to_conda_bin_on_target_vm='', conda_env='',
+                 parallelism=None):
         """
             path_to_conda_bin_on_target_vm (string, optional): which conda bin
                 to use on the target vm.
@@ -129,7 +141,9 @@ class SGEExecutor(base.BaseExecutor):
         """
 
         super(SGEExecutor, self).__init__(
-            mon_dir, request_retries, request_timeout, parallelism)
+            mon_dir=mon_dir, monitor_host=monitor_host,
+            monitor_port=monitor_port, request_retries=request_retries,
+            request_timeout=request_timeout, parallelism=parallelism)
 
         # environment for distributed applications
         self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm

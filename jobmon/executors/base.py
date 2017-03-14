@@ -3,8 +3,8 @@ import logging
 
 class BaseExecutor(object):
 
-    def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
-                 parallelism=None):
+    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
+                 request_retries=3, request_timeout=3000, parallelism=None):
         self.logger = logging.getLogger(__name__)
 
         self.parallelism = parallelism
@@ -15,6 +15,8 @@ class BaseExecutor(object):
 
         # environment for distributed applications
         self.mon_dir = mon_dir
+        self.monitor_host = monitor_host
+        self.monitor_port = monitor_port
         self.request_retries = request_retries
         self.request_timeout = request_timeout
 
