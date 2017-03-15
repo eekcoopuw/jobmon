@@ -64,7 +64,9 @@ class CentralJobMonitor(object):
                 True can only be specified if run in python 3+
         """
         if self.conn_str:
-            eng = sql.create_engine(self.conn_str, pool_recycle=300)
+            eng = sql.create_engine(self.conn_str, pool_recycle=300,
+                                    pool_size=20, max_overflow=100,
+                                    pool_timeout=120)
             dbfile = self.conn_str
         else:
             if persistent:
