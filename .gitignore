@@ -16,3 +16,6 @@ __pycache__
 
 # ignore cache
 .cache
+
+# Ignore build artifacts
+/build
