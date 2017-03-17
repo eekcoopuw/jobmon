@@ -52,6 +52,13 @@ class Job(object):
                           'job_args': job_args}}
 
         r = self.requester.send_request(msg)
+
+        # Close out the zmq socket so that we don't run out of available
+        # sockets when submitting lots of jobs via a single executor.
+        # (Resource temporarily unavailable (src/thread.cpp:106))
+        # We may want to make this behavior universal on the
+        # requester.send_request() method
+        self.requester.disconnect()
         return r[1]
 
 
