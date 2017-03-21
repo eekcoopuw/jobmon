@@ -8,6 +8,7 @@ from jobmon import sge, job
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.executors import base
+from jobmon.exceptions import ReturnCodes
 
 
 class SGEJobInstance(job._AbstractJobInstance):
@@ -216,35 +217,48 @@ if __name__ == "__main__":
     # reset sys.argv as if this parsing never happened
     sys.argv = [args["runfile"]] + args["pass_through"]
 
-    # start monitoring
-    j1 = SGEJobInstance(args["mon_dir"], jid=args["jid"],
-                        request_retries=args["request_retries"],
-                        request_timeout=args["request_timeout"])
-    j1.log_started()
+    # start monitoring with subprocesses pid
+    job_instance = SGEJobInstance(
+        args["mon_dir"],
+        jid=args["jid"],
+        request_retries=args["request_retries"],
+        request_timeout=args["request_timeout"])
+    job_instance.log_started()
 
-    # open subprocess
+    for arg in sys.argv:
+        if not isinstance(arg, str) and not isinstance(arg, unicode):
+            raise ValueError(
+                "all command line arguments must be strings. {} is {}"
+                .format(arg, type(arg)))
     try:
-        # TODO: discuss whether this should use the same Popen strategy as
-        # LocalExecutor
-        for arg in sys.argv:
-            if not isinstance(arg, str) and not isinstance(arg, unicode):
-                raise ValueError(
-                    "all command line arguments must be strings. {} is {}"
-                    .format(arg, type(arg)))
-        out = subprocess.check_output(["python"] + sys.argv,
-                                      stderr=subprocess.STDOUT)
-    except subprocess.CalledProcessError as exc:
-        eprint(exc.output)
-        j1.log_job_stats()
-        j1.log_error(str(exc.output))
-        j1.log_failed()
-    except:
-        tb = traceback.format_exc()
-        eprint(tb)
-        j1.log_job_stats()
-        j1.log_error(tb)
-        j1.log_failed()
+        # open subprocess
+        proc = subprocess.Popen(
+            ["python"] + [str(arg) for arg in sys.argv],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE)
+
+    except ValueError as err:
+        # according to POPEN docs a ValueError is raised if popen is
+        # called with inproper arguments in which case LocalJobInstance
+        # was never initialized
+        proc.kill()
+        eprint(err)
     else:
-        print(out)
-        j1.log_job_stats()
-        j1.log_completed()
+        if sys.version_info > (3, 0):
+            # communicate till done
+            stdout, stderr = proc.communicate()
+        else:
+            print("warning, subprocess timeout cannot be set in python"
+                  " 2")
+            stdout, stderr = proc.communicate()
+        print(stdout)
+        eprint(stderr)
+
+        # check return code
+        if proc.returncode != ReturnCodes.OK:
+            job_instance.log_job_stats()
+            job_instance.log_error(str(stderr))
+            job_instance.log_failed()
+        else:
+            job_instance.log_job_stats()
+            job_instance.log_completed()
