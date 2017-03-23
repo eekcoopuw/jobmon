@@ -33,8 +33,7 @@ def test_basic_submit():
     true_id = sge.qsub("/bin/true", "so true", memory=0)
     assert true_id
 
-    mem_id = sge.qsub("/bin/true", "still true", slots=1,
-                      project="proj_forecasting", memory=1)
+    mem_id = sge.qsub("/bin/true", "still true", slots=1, memory=1)
     assert mem_id
 
     sleep_id = sge.qsub("/bin/sleep", "wh#@$@&(*!",
