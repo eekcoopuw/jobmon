@@ -28,7 +28,7 @@ class CentralJobMonitorNotAlive(Exception):
     pass
 
 
-class NoResponseRecieved(Exception):
+class NoResponseReceived(Exception):
     pass
 
 
