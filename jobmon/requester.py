@@ -22,12 +22,12 @@ class Requester(object):
             you can specify the hostname and port directly
         request_retries (int, optional): How many times to attempt to contact
             the central job monitor. Default=3
-        request_timeout (int, optional): How long to wait for a response from
-            the central job monitor. Default=3 seconds
+        request_timeout (int, optional): How many millisceonds to wait for a response from
+            the central job monitor. Default=10 seconds
     """
 
     def __init__(self, out_dir=None, monitor_host=None, monitor_port=None,
-                 request_retries=3, request_timeout=3000):
+                 request_retries=3, request_timeout=10000):
         """set class defaults. attempt to connect with server."""
         self.logger = logging.getLogger(__name__)
         if not (bool(out_dir) ^ bool(monitor_host and monitor_port)):
