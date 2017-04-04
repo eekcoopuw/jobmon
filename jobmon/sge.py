@@ -470,7 +470,6 @@ def qsub(
             ".R": "R"}
         jobtype = job_types.get(_suffix(runfile), "plain")
         logger.debug("qsub chose jobtype {}".format(jobtype))
-    assert not (conda_env and not jobtype == "python")
 
     # Set holds, if requested
     if hold_pattern is not None:
