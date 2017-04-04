@@ -163,7 +163,7 @@ class Requester(object):
                              " message id {}").format(os.getpid(),
                                                       self.message_id))
                         reply = 0
-                        raise exceptions.NoResponseRecieved(
+                        raise exceptions.NoResponseReceived(
                             "No response recieved from responder in {} retries"
                             " after waiting for {} seconds each try.".format(
                                 str(self.request_retries),
