@@ -445,11 +445,17 @@ def qsub(
     Returns:
         job_id of submitted job
     """
-    assert slots > 0
-    assert not (holds and hold_pattern)
-    assert len(str(jobname)) > 0
-    assert not isinstance(parameters, str), (
-        "'parameters' cannot be a string. Must be a list or a tuple.")
+    if slots <= 0:
+        raise ValueError("Requested number of slots must be greater than zero not {}".format(slots))
+
+    if holds and hold_pattern:
+        raise ValueError("Cannot have both 'holds' and 'hpld_pattern' set")
+
+    if len(str(jobname)) == 0:
+        raise ValueError("Must supply jobname, was empty or null")
+
+    if isinstance(parameters, str):
+        raise ValueError("'parameters' cannot be a string, must be a list or a tuple. Value passed='{}'".format(parameters))
 
     # Known suffix, has job_type, shfile
     # N             N             N      Run runfile.
