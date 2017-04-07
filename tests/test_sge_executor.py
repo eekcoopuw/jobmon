@@ -24,17 +24,17 @@ def test_sge_executor(central_jobmon):
         central_jobmon.out_dir,
         name="job1",
         runfile=runfile,
-        job_args=[30])
+        job_args=["30"])
     j2 = Job(
         central_jobmon.out_dir,
         name="job2",
         runfile=runfile,
-        job_args=[30])
+        job_args=["30"])
     j3 = Job(
         central_jobmon.out_dir,
         name="job3",
         runfile=runfile,
-        job_args=[30])
+        job_args=["30"])
 
     sgexec = SGEExecutor(
         central_jobmon.out_dir, 3, 30000, path_to_conda_bin_on_target_vm,
