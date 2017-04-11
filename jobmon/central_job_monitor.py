@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
 from jobmon import models
+from jobmon.publisher import Publisher
 from jobmon.responder import Responder, ServerProcType
 from jobmon.exceptions import ReturnCodes
 
@@ -26,7 +27,7 @@ class CentralJobMonitor(object):
             sqlite database in.
     """
 
-    def __init__(self, out_dir, persistent=True):
+    def __init__(self, out_dir, persistent=True, publish_job_state=True):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema
 
@@ -40,15 +41,20 @@ class CentralJobMonitor(object):
         """
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.responder = Responder(out_dir)
-        logmsg = "{}: Responder initialized".format(os.getpid())
-        Responder.logger.info(logmsg)
+        Responder.logger.info("{}: Responder initialized".format(os.getpid()))
+        if publish_job_state:
+            self.publisher = Publisher(out_dir)
+            Publisher.logger.info(
+                "{}: Publisher initialized".format(os.getpid()))
+        else:
+            self.publisher = None
 
         # Initialize the persistent backend where job-state messages will be
         # recorded
         self.server_proc_type = None
         self.session = self.create_job_db(persistent)
-        logmsg = "{}: Backend created. Starting server...".format(os.getpid())
-        Responder.logger.info(logmsg)
+        Responder.logger.info(
+            "{}: Backend created. Starting server...".format(os.getpid()))
 
         self.responder.register_object_actions(self)
         self.responder.start_server(server_proc_type=self.server_proc_type)
@@ -232,7 +238,11 @@ class CentralJobMonitor(object):
             job_instance_id (int): job instance id to update status of
             status_id (int): status id to update job to
         """
-        # update sge_job statuses
+        # publish status update to any subscribers
+        if self.publisher:
+            self.publisher.publish_info(
+                "job_instance_status", (job_instance_id, status_id))
+
         job_instance = self.session.query(models.JobInstance).filter_by(
             job_instance_id=job_instance_id).first()
         job_instance.current_status = status_id
