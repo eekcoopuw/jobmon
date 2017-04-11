@@ -2,7 +2,7 @@ import os
 import pytest
 import signal
 import subprocess as sp
-from mock_job import MockJob
+from tests.mock_job import MockJob
 
 
 def test_good_job():
@@ -21,7 +21,7 @@ def test_bad_job():
 # python!
 def test_dead_job():
     dir = os.path.dirname(os.path.realpath(__file__))
-    returncode = sp.call(
+    return_code = sp.call(
         ["python", dir + "/mock_job.py", "dead dog", "2", MockJob.DIE_COMMAND])
 
-    assert (returncode == -1 * signal.SIGKILL)
+    assert (return_code == -1 * signal.SIGKILL)
