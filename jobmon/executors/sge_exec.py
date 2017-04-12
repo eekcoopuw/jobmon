@@ -136,7 +136,7 @@ class SGEExecutor(base.BaseExecutor):
         self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm
         self.conda_env = conda_env
 
-    def execute_async(self, job, *args, **kwargs):
+    def execute_async(self, job, process_timeout=None, *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. They will automatically
         register with server and sqlite database.
 
@@ -154,7 +154,8 @@ class SGEExecutor(base.BaseExecutor):
             "--jid", job.jid,
             "--request_retries", self.request_retries,
             "--request_timeout", self.request_timeout,
-            "--pass_through", "'{}'".format(jsonpickle.encode(job.job_args))
+            "--pass_through", "'{}'".format(jsonpickle.encode(job.job_args)),
+            "--process_timeout", process_timeout
         ]
 
         self.logger.debug(
@@ -178,21 +179,23 @@ class SGEExecutor(base.BaseExecutor):
         # of the id
         return job_instance_id
 
-    def sync(self):
-
-        # check state of all jobs currently in sge queue
-        self.logger.debug('{}: Polling jobs...'.format(os.getpid()))
-        current_jobs = set(sge.qstat(jids=self.running_jobs).job_id.tolist())
-        self.logger.debug('             ... ' +
-                          str(len(current_jobs)) + ' active jobs')
-        self.running_jobs = list(current_jobs)
+    def _flush_unknown(self):
+        # check for jobs currently in sge queue to make sure there
+        # are not any straglers that died with out registering with the
+        # central job monitor
+        results = sge.qstat(jids=self.running_jobs).job_id.tolist()
+        for jid in [j for j in self.running_jobs if j not in results]:
+            self.jobs[jid]["status_id"] = Status.UNKNOWN
 
 
 if __name__ == "__main__":
     import sys
     import argparse
-    import subprocess
-    import traceback
+
+    if sys.version_info > (3, 0):
+        import subprocess
+    else:
+        import subprocess32 as subprocess
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
     # Similar to a stub or a container
@@ -204,6 +207,12 @@ if __name__ == "__main__":
     def jpickle_parser(s):
         return jsonpickle.decode(s)
 
+    def intnone_parser(s):
+        try:
+            return int(s)
+        except ValueError:
+            return None
+
     # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--mon_dir", required=True)
@@ -211,6 +220,8 @@ if __name__ == "__main__":
     parser.add_argument("--jid", required=True, type=int)
     parser.add_argument("--request_timeout", required=True, type=int)
     parser.add_argument("--request_retries", required=True, type=int)
+    parser.add_argument("--process_timeout", required=True,
+                        type=intnone_parser)
     parser.add_argument("--pass_through", required=False, type=jpickle_parser)
     args = vars(parser.parse_args())
 
@@ -244,13 +255,8 @@ if __name__ == "__main__":
         proc.kill()
         eprint(err)
     else:
-        if sys.version_info > (3, 0):
             # communicate till done
-            stdout, stderr = proc.communicate()
-        else:
-            print("warning, subprocess timeout cannot be set in python"
-                  " 2")
-            stdout, stderr = proc.communicate()
+        stdout, stderr = proc.communicate(timeout=args["process_timeout"])
         print(stdout)
         eprint(stderr)
 

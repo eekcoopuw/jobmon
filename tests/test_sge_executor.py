@@ -11,7 +11,7 @@ from jobmon.executors.sge_exec import SGEExecutor
 here = os.path.dirname(os.path.abspath(__file__))
 
 
-@pytest.mark.cluster
+# @pytest.mark.cluster
 def test_sge_executor(central_jobmon):
 
     conda_info = json.loads(
@@ -40,9 +40,18 @@ def test_sge_executor(central_jobmon):
         central_jobmon.out_dir, 3, 30000, path_to_conda_bin_on_target_vm,
         conda_env,
         parallelism=2)
-    sgexec.queue_job(j1)
-    sgexec.queue_job(j2)
-    sgexec.queue_job(j3)
+    sgexec.queue_job(
+        j1,
+        stderr="/homes/mlsandar/temp",
+        stdout="/homes/mlsandar/temp")
+    sgexec.queue_job(
+        j2,
+        stderr="/homes/mlsandar/temp",
+        stdout="/homes/mlsandar/temp")
+    sgexec.queue_job(
+        j3,
+        stderr="/homes/mlsandar/temp",
+        stdout="/homes/mlsandar/temp")
 
     sgexec.refresh_queues()
     assert len(sgexec.running_jobs) == 2

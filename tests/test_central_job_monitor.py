@@ -1,5 +1,7 @@
 import os
 
+from jobmon.subscriber import Subscriber
+from jobmon.publisher import PublisherTopics
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.executors.sge_exec import SGEJobInstance
@@ -113,3 +115,17 @@ def test_get_job_information_query(central_jobmon):
     assert job_info[0] == ReturnCodes.OK
     status = job_info[1]['current_status']
     assert status == Status.FAILED
+
+
+def test_pub(central_jobmon):
+
+    s = Subscriber(central_jobmon.out_dir)
+    s.connect(topicfilter=PublisherTopics.JOB_STATE.value)
+
+    os.environ["JOB_ID"] = "1"
+    os.environ["JOB_NAME"] = "job1"
+    j1 = SGEJobInstance(central_jobmon.out_dir)
+    j1.log_completed()
+
+    update = s.recieve_update()
+    assert update is not None, (update)

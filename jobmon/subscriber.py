@@ -5,6 +5,14 @@ import os
 import zmq
 
 
+def demogrify(topicmsg):
+    """Inverse of publisher.mogrify()"""
+    json0 = topicmsg.find('{')
+    topic = topicmsg[0:json0].strip()
+    msg = json.loads(topicmsg[json0:])
+    return topic, msg
+
+
 class Subscriber(object):
     """
     Args
@@ -14,18 +22,20 @@ class Subscriber(object):
 
     def __init__(self, out_dir):
 
+        self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
+        self.out_dir = os.path.realpath(self.out_dir)
         self.logger = logging.getLogger(__name__)
         self.socket = None
 
-    def connect(self, topicfilter=None):
+    def connect(self, topicfilter=None, timeout=1000):
         """Connect to server. Reads config file from out_dir specified during
         class instantiation to get socket. Not an API method,
         needs to be underscored. This will ALWAYS connect."""
-        with open("{}/monitor_info.json".format(self.out_dir)) as f:
+        with open("{}/publisher_info.json".format(self.out_dir)) as f:
             mi = json.load(f)
-        context = zmq.Context()  # default 1 i/o thread
-        self.socket = context.socket(zmq.SUB)  # blocks socket on send
-
+        context = zmq.Context()
+        self.socket = context.socket(zmq.SUB)
+        self.socket.setsockopt(zmq.RCVTIMEO, timeout)
         if topicfilter:
             self.socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
         self.logger.info('{}: Connecting...'.format(os.getpid()))
@@ -44,5 +54,8 @@ class Subscriber(object):
         self.socket = None
 
     def recieve_update(self):
-        string = self.socket.recv()
-        return string
+        try:
+            topic, result = demogrify(self.socket.recv())
+            return result
+        except zmq.Again:
+            return None

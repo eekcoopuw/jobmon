@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import sys
-import subprocess
 import time
 import multiprocessing
 
@@ -10,6 +9,11 @@ from jobmon.models import Status
 from jobmon.executors import base
 from jobmon.exceptions import ReturnCodes
 from jobmon import job
+
+if sys.version_info > (3, 0):
+    import subprocess
+else:
+    import subprocess32 as subprocess
 
 
 # for sge logging of standard error
@@ -168,14 +172,8 @@ class LocalConsumer(multiprocessing.Process):
                 proc.kill()
                 eprint(err)
             else:
-                if sys.version_info > (3, 0):
-                    # communicate till done
-                    stdout, stderr = proc.communicate(
-                        timeout=job_def.subprocess_timeout)
-                else:
-                    print("warning, subprocess timeout cannot be set in python"
-                          " 2")
-                    stdout, stderr = proc.communicate()
+                stdout, stderr = proc.communicate(
+                    timeout=job_def.process_timeout)
                 print(stdout)
                 eprint(stderr)
 
@@ -188,8 +186,6 @@ class LocalConsumer(multiprocessing.Process):
                     job_instance.log_job_stats()
                     job_instance.log_completed()
 
-            # TODO: could return proc.pid right to attach it to Job but would
-            # require refactoring my queues which I don't want to do right now
             self.result_queue.put(job_instance.job_instance_id)
             self.task_queue.task_done()
 
@@ -198,12 +194,12 @@ class LocalConsumer(multiprocessing.Process):
 
 class PickledJob(object):
 
-    def __init__(self, jid, runfile, job_args, subprocess_timeout=None):
+    def __init__(self, jid, runfile, job_args, process_timeout=None):
         """Internally used job representation to pass arguments to consumers"""
         self.jid = jid
         self.runfile = runfile
         self.job_args = job_args
-        self.subprocess_timeout = subprocess_timeout
+        self.process_timeout = process_timeout
 
 
 class LocalExecutor(base.BaseExecutor):
@@ -250,25 +246,28 @@ class LocalExecutor(base.BaseExecutor):
         for w in self.consumers:
             w.start()
 
-    def execute_async(self, job, subprocess_timeout=None):
+    def execute_async(self, job, process_timeout=None):
         """add jobs to the actively processing queue.
 
         Args:
             job (jobmon.job.Job): instance of jobmon.job.Job
-            subprocess_timeout (int): time in seconds to wait for subprocess to
+            process_timeout (int): time in seconds to wait for subprocess to
                 finish. default is forever
         """
         job_def = PickledJob(job.jid, job.runfile, job.job_args,
-                             subprocess_timeout)
+                             process_timeout)
         self.task_queue.put(job_def)
         return self.task_response_queue.get(timeout=self.task_response_timeout)
 
-    def sync(self):
-        """move things through the queues"""
+    def _flush_unknown(self):
+        """move things through the queue that finished with unknown status"""
         results = []
         while not self.result_queue.empty():
-            results.append(self.result_queue.get())
-        self.running_jobs = [j for j in self.running_jobs if j not in results]
+            job_instance_id = self.result_queue.get()
+            jid = self._jid_from_job_instance_id(job_instance_id)
+            results.append(jid)
+        for jid in [j for j in self.running_jobs if j not in results]:
+            self.jobs[jid]["status_id"] = Status.UNKNOWN
 
     def end(self):
         """terminate consumers and call sync 1 final time."""
@@ -278,4 +277,5 @@ class LocalExecutor(base.BaseExecutor):
 
         # Wait for commands to finish
         self.task_queue.join()
-        self.sync()
+        self._poll_status()
+        self._flush_unknown()

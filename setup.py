@@ -50,7 +50,8 @@ setup(
         'pyyaml',
         'pyzmq',
         'drmaa',
-        'jsonpickle'
+        'jsonpickle',
+        'subprocess32'
     ],
     packages=['jobmon', 'jobmon.executors'],
     scripts=["bin/launch_central_monitor.py"],

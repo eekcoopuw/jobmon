@@ -30,9 +30,9 @@ def test_local_executor(central_jobmon):
         runfile=runfile,
         job_args=[20])
 
-    exlocal.queue_job(j1, subprocess_timeout=60)
-    exlocal.queue_job(j2, subprocess_timeout=60)
-    exlocal.queue_job(j3, subprocess_timeout=60)
+    exlocal.queue_job(j1, process_timeout=60)
+    exlocal.queue_job(j2, process_timeout=60)
+    exlocal.queue_job(j3, process_timeout=60)
 
     exlocal.refresh_queues()
     assert len(exlocal.running_jobs) == 2

@@ -1,10 +1,10 @@
 import os
 import json
+import logging
+from enum import Enum
 from socket import gethostname
 
 import zmq
-
-from jobmon.setup_logger import setup_logger
 
 
 class PublisherAlreadyRunning(Exception):
@@ -15,9 +15,17 @@ class PublisherAlreadyRunning(Exception):
             "file".format(monfile))
 
 
+class PublisherTopics(Enum):
+    JOB_STATE = "1"
+
+
+def mogrify(topic, msg):
+    """json encode the message and prepend the topic"""
+    return topic + ' ' + json.dumps(msg)
+
+
 class Publisher(object):
     """docstring for Publisher"""
-    logger = None
 
     def __init__(self, out_dir):
         """set class defaults. make out_dir if it doesn't exist. write config
@@ -28,9 +36,7 @@ class Publisher(object):
                 to be stored so Requesters know which endpoint to communicate
                 with
         """
-        if not Publisher.logger:
-            Publisher.logger = setup_logger('central_monitor',
-                                            'central_monitor_logging.yaml')
+        self.logger = logging.getLogger(__name__)
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.out_dir = os.path.realpath(self.out_dir)
         try:
@@ -54,7 +60,7 @@ class Publisher(object):
             port (int): port that server is listening at
         """
         monfn = '{}/publisher_info.json'.format(self.out_dir)
-        Publisher.logger.debug(
+        self.logger.debug(
             '{}: Writing connection info to {}'.format(os.getpid(), monfn))
         if os.path.exists(monfn):
             raise PublisherAlreadyRunning(monfn)
@@ -69,20 +75,24 @@ class Publisher(object):
 
     def _close_socket(self):
         """stops listening at network socket/port."""
-        Publisher.logger.info('Stopping publisher...')
+        self.logger.info('Stopping publisher...')
         os.remove('{}/publisher_info.json'.format(self.out_dir))
         self.socket.close()
-        Publisher.logger.info('Publisher stopped.')
+        self.logger.info('Publisher stopped.')
         return True
 
     def start_publisher(self):
-        Publisher.logger.info('Starting publisher')
+        self.logger.info('Starting publisher')
         self._open_socket()
 
     def restart_publisher(self):
-        Publisher.logger.info('Restarting publisher')
+        self.logger.info('Restarting publisher')
         self._close_socket()
         self._open_socket()
 
+    def stop_publisher(self):
+        self.logger.info('Stopping publisher')
+        self._close_socket()
+
     def publish_info(self, topic, msg_data):
-        self.socket.send(topic, json.dumps(msg_data))
+        self.socket.send(mogrify(topic, msg_data))
