@@ -24,13 +24,7 @@ def test_job_queue(central_jobmon):
     q.block_till_done(poll_interval=7)
 
     assert len(q.executor.completed_jobs) == 50
-
-    central_jobmon.generate_report()
-    assert os.path.exists(
-        os.path.join(central_jobmon.out_dir, "job_report.csv"))
-    os.path.exists(
-        os.path.join(central_jobmon.out_dir, "job_status_report.csv")
-    )
+    q.executor.stop()
 
 
 def test_retry_queue(central_jobmon):
@@ -58,8 +52,8 @@ def test_retry_queue(central_jobmon):
         q.queue_job(j)
 
     q.block_till_done(poll_interval=7)
-
     assert len(q.executor.completed_jobs) == 5
     assert len(q.executor.failed_jobs) == 5
     for jid in q.executor.failed_jobs:
         assert len(q.executor.jobs[jid]["job"].job_instance_ids) == 2
+    q.executor.stop()

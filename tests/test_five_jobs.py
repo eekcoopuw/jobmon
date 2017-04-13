@@ -1,8 +1,5 @@
-import json
 import os
 import pytest
-import subprocess
-
 
 from jobmon import qmaster
 from jobmon.executors import sge_exec
@@ -10,7 +7,7 @@ from jobmon.models import Status
 from mock_job import MockJob
 
 
-@pytest.mark.cluster
+# @pytest.mark.cluster
 def test_five_jobs(central_jobmon):
     """Submit five jobs through the job monitor.
     Three run to successful completion,
@@ -22,19 +19,12 @@ def test_five_jobs(central_jobmon):
 
     root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
 
-    # TODO Update these hard-wired strings after decision on test environments.
-    conda_info = json.loads(
-        subprocess.check_output(['conda', 'info', '--json']).decode())
-    path_to_conda_bin_on_target_vm = '{}/bin'.format(conda_info['root_prefix'])
-    conda_env = conda_info['default_prefix'].split("/")[-1]
-
     # construct executor
     sgexec = sge_exec.SGEExecutor(
-        central_jobmon.out_dir, 3, 30000, path_to_conda_bin_on_target_vm,
-        conda_env,
+        central_jobmon.out_dir, 3, 30000,
         parallelism=10)
 
-    q = qmaster.MonitoredQ(sgexec)
+    q = qmaster.JobQueue(sgexec)
 
     # They take 5, 10, 15,.. seconds to run.
     # The third job will throw and exception, and the 4th one will
