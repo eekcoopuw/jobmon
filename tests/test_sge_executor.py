@@ -35,16 +35,14 @@ def test_sge_executor(central_jobmon):
     sgexec.queue_job(j3)
 
     sgexec.refresh_queues(flush_lost_jobs=False)
-    sgexec.run_scheduler()
     assert len(sgexec.running_jobs) == 2
     assert len(sgexec.queued_jobs) == 1
 
     while len(sgexec.queued_jobs) > 0 or len(sgexec.running_jobs) > 0:
         time.sleep(60)
+        sgexec.refresh_queues(flush_lost_jobs=True)
 
     assert (
         [j.name for j in
          central_jobmon.jobs_with_status(Status.COMPLETE)] == [
             "job1", "job2", "job3"])
-
-    sgexec.stop_scheduler()

@@ -1,6 +1,4 @@
 import logging
-from threading import Thread, Event
-from timeit import default_timer as timer
 
 from jobmon.models import Status
 from jobmon.subscriber import Subscriber
@@ -8,8 +6,6 @@ from jobmon.publisher import PublisherTopics
 
 
 class BaseExecutor(object):
-
-    _keep_alive = True
 
     def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
                  parallelism=None, subscribe_to_job_state=True):
@@ -32,23 +28,8 @@ class BaseExecutor(object):
         else:
             self.subscriber = None
 
-        # schedular attributes
-        self._thread_stop_request = None
-        self.scheduler_thread = None
-
         # execute start method
         self.start()
-
-    @property
-    def keep_alive(self):
-        if self._thread_stop_request:
-            if self._thread_stop_request.isSet():
-                self._keep_alive = False
-        return self._keep_alive
-
-    @keep_alive.setter
-    def keep_alive(self, val):
-        self._keep_alive = val
 
     @property
     def queued_jobs(self):
@@ -93,14 +74,17 @@ class BaseExecutor(object):
     def stop(self):
         pass
 
-    def queue_job(self, job, *args, **kwargs):
+    def queue_job(self, job, process_timeout=None, *args, **kwargs):
         """Add a job definition to the executor's queue.
 
         Args:
             job (jobmon.job.Job): instance of jobmon.job.Job object
+            process_timeout (int, optional): time in seconds to wait for
+                process to finish. default is forever
         """
         self.jobs[job.jid] = {
             "job": job,
+            "process_timeout": process_timeout,
             "args": args,
             "kwargs": kwargs,
             "status_id": None}
@@ -152,45 +136,11 @@ class BaseExecutor(object):
                 job = job_def["job"]
                 job_instance_id = self.execute_async(
                     job,
+                    process_timeout=job_def["process_timeout"],
                     *job_def["args"],
                     **job_def["kwargs"])
 
                 # add reference to job class and the executor
                 job.job_instance_ids.append(job_instance_id)
-                self.jobs[job.jid] = {"job": job,
-                                      "args": job_def["args"],
-                                      "kwargs": job_def["kwargs"],
-                                      "status_id": Status.SUBMITTED}
-
-    def _schedule(self, flush_lost_jobs_interval=60):
-        start = timer()
-        while self.keep_alive:
-            needs_flush = (timer() - start) > flush_lost_jobs_interval
-            self.refresh_queues(flush_lost_jobs=needs_flush)
-            if needs_flush:
-                start = timer()
-
-    def stop_scheduler(self):
-        """stop scheduler if it is being run in a thread"""
-        if self.scheduler_thread is not None:
-            self._thread_stop_request.set()
-            self.scheduler_thread.join(timeout=10)
-
-    def run_scheduler(self, async=True, flush_lost_jobs_interval=60):
-        """Continuously poll for job status updates and schedule any jobs if
-        there are open resources
-
-        Args:
-            async (bool, optional): whether to run the scheduler asynchronously
-                in a thread
-            flush_lost_jobs_interval (int, optional): how frequently to call
-                the flush_lost_jobs() method. This method tends to be expensive
-                so is only called intermittently
-        """
-        if async:
-            self._thread_stop_request = Event()
-            self.scheduler_thread = Thread(
-                target=self._schedule, args=([flush_lost_jobs_interval]))
-            self.scheduler_thread.start()
-        else:
-            self._schedule(flush_lost_jobs_interval=60)
+                self.jobs[job.jid]["job"] = job
+                self.jobs[job.jid]["status_id"] = Status.SUBMITTED

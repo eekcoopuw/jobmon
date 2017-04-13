@@ -35,17 +35,15 @@ def test_local_executor(central_jobmon):
     exlocal.queue_job(j3, process_timeout=60)
 
     exlocal.refresh_queues(flush_lost_jobs=False)
-    exlocal.run_scheduler()
     assert len(exlocal.running_jobs) == 2
     assert len(exlocal.queued_jobs) == 1
 
     while len(exlocal.queued_jobs) > 0 or len(exlocal.running_jobs) > 0:
         time.sleep(20)
+        exlocal.refresh_queues(flush_lost_jobs=True)
 
     assert (
         set([j.name for j in
              central_jobmon.jobs_with_status(Status.COMPLETE)]) == set(
             ["job1", "job2", "job3"]))
-
-    exlocal.stop_scheduler()
     exlocal.stop()

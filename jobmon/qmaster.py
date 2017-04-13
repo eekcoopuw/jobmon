@@ -1,5 +1,7 @@
 import logging
 import time
+from threading import Thread, Event
+from timeit import default_timer as timer
 
 from jobmon import requester
 from jobmon.job import Job
@@ -7,10 +9,12 @@ from jobmon.exceptions import (CannotConnectToCentralJobMonitor,
                                CentralJobMonitorNotAlive)
 
 
-class MonitoredQ(object):
-    """monitored Q supports monitoring of a single job queue by using a sqlite
+class JobQueue(object):
+    """Queue supports monitoring of a single job queue by using a sqlite
     back monitoring server that all sge jobs automatically connect to after
     they get scheduled."""
+
+    _keep_alive = True
 
     def __init__(self, executor, max_alive_wait_time=45):
         """
@@ -18,15 +22,15 @@ class MonitoredQ(object):
             mon_dir (str): directory where monitor server is running
             max_alive_wait_time (int, optional): how long to wait for an alive
                 signal from the central job monitor
-            request_retries (int, optional): how many times to attempt to
-                communicate with the central job monitor per request
-            request_timeout (int, optional): how long till each communication
-                attempt times out
         """
         self.logger = logging.getLogger(__name__)
 
         self.jobs = {}
         self.executor = executor
+
+        # schedular attributes
+        self._thread_stop_request = None
+        self._scheduler_thread = None
 
         # connect requester instance to central job monitor
         self.request_sender = requester.Requester(
@@ -51,6 +55,17 @@ class MonitoredQ(object):
             # sleep and increment
             time.sleep(5)
             time_spent += 5
+
+    @property
+    def keep_alive(self):
+        if self._thread_stop_request:
+            if self._thread_stop_request.isSet():
+                self._keep_alive = False
+        return self._keep_alive
+
+    @keep_alive.setter
+    def keep_alive(self, val):
+        self._keep_alive = val
 
     def _central_job_monitor_alive(self):
         try:
@@ -83,16 +98,57 @@ class MonitoredQ(object):
         return job
 
     def queue_job(
-            self, job, *args, **kwargs):
+            self, job, process_timeout=None, *args, **kwargs):
         """queue a job in the executor
 
         Args:
             job (jobmon.job.Job): instance of jobmon job.
+            process_timeout (int, optional): time in seconds to wait for
+                process to finish. default is forever
 
             args and kwargs are passed through to the executors exec_async
             method
         """
-        self.executor.queue_job(job, *args, **kwargs)
+        self.executor.queue_job(job, process_timeout=None, *args, **kwargs)
+
+    def _schedule(self, flush_lost_jobs_interval):
+        start = timer()
+        while self.keep_alive:
+            # check if we want to
+            check_lost_jobs = (timer() - start) > flush_lost_jobs_interval
+            if check_lost_jobs:
+                start = timer()
+
+            # update all queues
+            self.executor.refresh_queues(flush_lost_jobs=check_lost_jobs)
+
+    def stop_scheduler(self):
+        """stop scheduler if it is being run in a thread"""
+        if self._scheduler_thread is not None:
+            self._thread_stop_request.set()
+            self._scheduler_thread.join(timeout=10)
+
+    def run_scheduler(self, async=True, flush_lost_jobs_interval=60, *args,
+                      **kwargs):
+        """Continuously poll for job status updates and schedule any jobs if
+        there are open resources
+
+        Args:
+            async (bool, optional): whether to run the scheduler asynchronously
+                in a thread
+            flush_lost_jobs_interval (int, optional): how frequently to call
+                the flush_lost_jobs() method. This method tends to be expensive
+                so is only called intermittently
+
+            *args and **kwargs are passed to the underlying _schedule() method
+        """
+        if async:
+            self._thread_stop_request = Event()
+            self._scheduler_thread = Thread(
+                target=self._schedule, args=([flush_lost_jobs_interval]))
+            self._scheduler_thread.start()
+        else:
+            self._schedule(flush_lost_jobs_interval=60)
 
     def block_till_done(self, poll_interval=60):
         """continuously queue until all jobs have finished
@@ -101,8 +157,42 @@ class MonitoredQ(object):
             poll_interval (int, optional): how frequently to call the heartbeat
                 method which updates the queue.
         """
-        ex = self.executor
-        ex.run_scheduler()
-        while len(ex.queued_jobs) > 0 or len(ex.running_jobs) > 0:
+        self.run_scheduler()
+        while (len(self.executor.queued_jobs) > 0 or
+               len(self.executor.running_jobs) > 0):
             time.sleep(poll_interval)
-        ex.stop_scheduler()
+        self.stop_scheduler()
+
+
+class RetryJobQueue(JobQueue):
+
+    def __init__(self, *args, **kwargs):
+        super(RetryJobQueue, self).__init__(*args, **kwargs)
+
+        self._retry_limit_exceeded = []
+
+    def _schedule(self, flush_lost_jobs_interval, retries=1):
+        start = timer()
+        while self.keep_alive:
+
+            # check for failures and reset their status
+            reschedule = (
+                set(self.executor.failed_jobs) -
+                set(self._retry_limit_exceeded))
+            for jid in reschedule:
+                tries = len(self.executor.jobs[jid]["job"].job_instance_ids)
+
+                if tries <= retries:
+                    self.logger.info("job {} failed. Try... #{}".format(
+                        jid, tries + 1))
+                    self.executor.jobs[jid]["status_id"] = None
+                else:
+                    self._retry_limit_exceeded.append(jid)
+
+            # check if we want to
+            check_lost_jobs = (timer() - start) > flush_lost_jobs_interval
+            if check_lost_jobs:
+                start = timer()
+
+            # update all queues
+            self.executor.refresh_queues(flush_lost_jobs=check_lost_jobs)
