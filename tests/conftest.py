@@ -16,6 +16,7 @@ def central_jobmon(tmpdir_factory):
     yield jm
     print("teardown fixture in {}".format(monpath))
     jm.stop_responder()
+    jm.stop_publisher()
     sleep(1)
     assert not jm.responder_proc_is_alive()
 

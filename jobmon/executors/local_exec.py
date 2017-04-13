@@ -217,12 +217,29 @@ class LocalExecutor(base.BaseExecutor):
         ...
         --> consumerN
         ----> subconsumerN
+
+    Args:
+        mon_dir (string): directory where the connection info for the central
+            job monitor is written
+        request_retries (int, optional): how many time to try when pushing
+            updates to the central job monitor
+        request_timeout (int, optional): how long to linger on the zmq socket
+            when pushing updates to the central job monitor and waiting for a
+            response
+        parallelism (int, optional): how many parallel jobs to schedule at a
+            time
+        subscribe_to_job_state (bool, optional): whether to subscribe to job
+            state updates from the central job monitor via a zmq socket.
+        task_response_timeout (int, optional): how long to wait for a consumer
+            process to respond with the pid of the subprocess before giving up
     """
 
     def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
-                 parallelism=None, task_response_timeout=3):
+                 parallelism=None, subscribe_to_job_state=True,
+                 task_response_timeout=3):
         super(LocalExecutor, self).__init__(
-            mon_dir, request_retries, request_timeout, parallelism)
+            mon_dir, request_retries, request_timeout, parallelism,
+            subscribe_to_job_state)
 
         self.task_response_timeout = task_response_timeout
 
@@ -259,17 +276,18 @@ class LocalExecutor(base.BaseExecutor):
         self.task_queue.put(job_def)
         return self.task_response_queue.get(timeout=self.task_response_timeout)
 
-    def _flush_unknown(self):
+    def flush_lost_jobs(self):
         """move things through the queue that finished with unknown status"""
         results = []
         while not self.result_queue.empty():
             job_instance_id = self.result_queue.get()
             jid = self._jid_from_job_instance_id(job_instance_id)
             results.append(jid)
-        for jid in [j for j in self.running_jobs if j not in results]:
+        finished_jobs = self.running_jobs + self.completed_jobs
+        for jid in [j for j in results if j not in finished_jobs]:
             self.jobs[jid]["status_id"] = Status.UNKNOWN
 
-    def end(self):
+    def stop(self):
         """terminate consumers and call sync 1 final time."""
         # Sending poison pill to all worker
         for _ in self.consumers:
@@ -278,4 +296,4 @@ class LocalExecutor(base.BaseExecutor):
         # Wait for commands to finish
         self.task_queue.join()
         self._poll_status()
-        self._flush_unknown()
+        self.flush_lost_jobs()

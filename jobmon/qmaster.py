@@ -95,15 +95,14 @@ class MonitoredQ(object):
         self.executor.queue_job(job, *args, **kwargs)
 
     def block_till_done(self, poll_interval=60):
-        """continuously run executors refresh_queues method until all queued
-        jobs have finished
+        """continuously queue until all jobs have finished
 
         Args:
             poll_interval (int, optional): how frequently to call the heartbeat
                 method which updates the queue.
         """
-        sgexec = self.executor
-        sgexec.refresh_queues()
-        while len(sgexec.queued_jobs) > 0 or len(sgexec.running_jobs) > 0:
+        ex = self.executor
+        ex.run_scheduler()
+        while len(ex.queued_jobs) > 0 or len(ex.running_jobs) > 0:
             time.sleep(poll_interval)
-            sgexec.refresh_queues()
+        ex.stop_scheduler()

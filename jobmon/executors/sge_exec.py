@@ -1,14 +1,22 @@
 from __future__ import print_function
 
+import sys
 import os
+import json
 import jsonpickle
-from subprocess import CalledProcessError
 
 from jobmon import sge, job
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.executors import base
 from jobmon.exceptions import ReturnCodes
+
+if sys.version_info > (3, 0):
+    import subprocess
+    from subprocess import CalledProcessError
+else:
+    import subprocess32 as subprocess
+    from subprocess32 import CalledProcessError
 
 
 class SGEJobInstance(job._AbstractJobInstance):
@@ -117,22 +125,36 @@ class SGEJobInstance(job._AbstractJobInstance):
 
 
 class SGEExecutor(base.BaseExecutor):
+    """SGEExecutor executes tasks remotely in parallel on an SGE cluster.
+
+    Args:
+        mon_dir (string): directory where the connection info for the central
+            job monitor is written
+        request_retries (int, optional): how many time to try when pushing
+            updates to the central job monitor
+        request_timeout (int, optional): how long to linger on the zmq socket
+            when pushing updates to the central job monitor and waiting for a
+            response
+        parallelism (int, optional): how many parallel jobs to schedule at a
+            time
+        subscribe_to_job_state (bool, optional): whether to subscribe to job
+            state updates from the central job monitor via a zmq socket.
+    """
 
     remoterun = os.path.abspath(__file__)
 
-    def __init__(self, mon_dir, request_retries, request_timeout,
-                 path_to_conda_bin_on_target_vm, conda_env, parallelism=None):
-        """
-            path_to_conda_bin_on_target_vm (string, optional): which conda bin
-                to use on the target vm.
-            conda_env (string, optional): which conda environment you are
-                using on the target vm.
-        """
+    def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
+                 parallelism=None, subscribe_to_job_state=True):
 
         super(SGEExecutor, self).__init__(
             mon_dir, request_retries, request_timeout, parallelism)
 
         # environment for distributed applications
+        conda_info = json.loads(
+            subprocess.check_output(['conda', 'info', '--json']).decode())
+        path_to_conda_bin_on_target_vm = '{}/bin'.format(
+            conda_info['root_prefix'])
+        conda_env = conda_info['default_prefix'].split("/")[-1]
         self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm
         self.conda_env = conda_env
 
@@ -142,8 +164,11 @@ class SGEExecutor(base.BaseExecutor):
 
         Args:
             job (job.Job): instance of a job.Job
+            process_timeout (int, optional): how many seconds to wait for a job
+                to finish before killing it and registering a failure. Default
+                is forever.
 
-            see *args and **kwargs are passed to sge.qsub.
+            *args and **kwargs are passed to sge.qsub.
 
         Returns:
             sge job id
@@ -179,23 +204,18 @@ class SGEExecutor(base.BaseExecutor):
         # of the id
         return job_instance_id
 
-    def _flush_unknown(self):
-        # check for jobs currently in sge queue to make sure there
-        # are not any straglers that died with out registering with the
-        # central job monitor
+    def flush_lost_jobs(self):
+        """check for jobs currently in sge queue to make sure there
+        are not any straglers that died with out registering with the
+        central job monitor"""
         results = sge.qstat(jids=self.running_jobs).job_id.tolist()
         for jid in [j for j in self.running_jobs if j not in results]:
             self.jobs[jid]["status_id"] = Status.UNKNOWN
 
 
 if __name__ == "__main__":
-    import sys
     import argparse
 
-    if sys.version_info > (3, 0):
-        import subprocess
-    else:
-        import subprocess32 as subprocess
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
     # Similar to a stub or a container
