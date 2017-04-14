@@ -208,7 +208,11 @@ class SGEExecutor(base.BaseExecutor):
         """check for jobs currently in sge queue to make sure there
         are not any straglers that died with out registering with the
         central job monitor"""
-        results = sge.qstat(jids=self.running_jobs).job_id.tolist()
+        # get the most recent job instance id all running jobs
+        sge_ids = []
+        [sge_ids.extend(self.jobs[jid]["job"].job_instance_ids[-1])
+         for jid in self.running_jobs]
+        results = sge.qstat(jids=sge_ids).job_id.tolist()
         for jid in [j for j in self.running_jobs if j not in results]:
             self.jobs[jid]["status_id"] = Status.UNKNOWN
 

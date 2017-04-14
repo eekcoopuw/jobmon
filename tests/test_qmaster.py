@@ -1,17 +1,14 @@
 import os
 from jobmon import qmaster
-from jobmon.executors import local_exec
+from jobmon.schedulers import RetryScheduler
 
 here = os.path.dirname(os.path.abspath(__file__))
 
 
 def test_job_queue(central_jobmon):
 
-    # construct executor
-    localexec = local_exec.LocalExecutor(
-        central_jobmon.out_dir, 3, 30000, parallelism=20)
-
-    q = qmaster.JobQueue(localexec)
+    q = qmaster.JobQueue(
+        central_jobmon.out_dir, executor_params={"parallelism": 20})
 
     runfile = os.path.join(here, "waiter.py")
     for name in ["_" + str(num) for num in range(1, 51)]:
@@ -29,11 +26,8 @@ def test_job_queue(central_jobmon):
 
 def test_retry_queue(central_jobmon):
 
-    # construct executor
-    localexec = local_exec.LocalExecutor(
-        central_jobmon.out_dir, 3, 30000, parallelism=10)
-
-    q = qmaster.RetryJobQueue(localexec)
+    q = qmaster.JobQueue(
+        central_jobmon.out_dir, scheduler=RetryScheduler)
 
     runfile = os.path.join(here, "failer.py")
     for name in ["_" + str(num) for num in range(1, 6)]:

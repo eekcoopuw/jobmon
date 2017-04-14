@@ -235,7 +235,7 @@ class LocalExecutor(base.BaseExecutor):
     """
 
     def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
-                 parallelism=None, subscribe_to_job_state=True,
+                 parallelism=10, subscribe_to_job_state=True,
                  task_response_timeout=3):
         super(LocalExecutor, self).__init__(
             mon_dir, request_retries, request_timeout, parallelism,

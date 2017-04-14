@@ -1,9 +1,7 @@
 import os
-import pytest
 
 from jobmon import qmaster
-from jobmon.executors import sge_exec
-from jobmon.models import Status
+from jobmon.executors.sge_exec import SGEExecutor
 from mock_job import MockJob
 
 
@@ -19,12 +17,8 @@ def test_five_jobs(central_jobmon):
 
     root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
 
-    # construct executor
-    sgexec = sge_exec.SGEExecutor(
-        central_jobmon.out_dir, 3, 30000,
-        parallelism=10)
-
-    q = qmaster.JobQueue(sgexec)
+    q = qmaster.JobQueue(central_jobmon.mon_dir, executor=SGEExecutor,
+                         executor_params={"parallelism": 10})
 
     # They take 5, 10, 15,.. seconds to run.
     # The third job will throw and exception, and the 4th one will
@@ -41,17 +35,6 @@ def test_five_jobs(central_jobmon):
 
     q.block_till_done()  # monitor them
 
-    # query returns a dataframe
-    failed = q.request_sender.send_request(
-        {"action": "query",
-         "args": ["select * from job_instance where current_status = {}".
-                  format(Status.FAILED)]})
-
-    complete = q.request_sender.send_request(
-        {"action": "query",
-         "args": ["select * from job_instance where current_status = {}".
-                  format(Status.COMPLETE)]})
-
     sge_stats = q.request_sender.send_request(
         {"action": "query",
          "args": ["select * from job_instance"]})
@@ -61,13 +44,11 @@ def test_five_jobs(central_jobmon):
          "args": ["select * from job_instance_error"]})
 
     # Check the 3 were good, and 2 died
-    number_failed = len(failed[1])
-    assert number_failed == 2
-    number_complete = len(complete[1])
-    assert number_complete == 3
+    assert len(q.executor.failed_jobs) == 2
+    assert len(q.executor.completed_jobs) == 3
 
     # Check that the proper number of errors are recorded
-    assert len(sge_errors[1]) == number_failed
+    assert len(sge_errors[1]) == q.executor.failed_jobs
 
     # Check that usage stats are populating
     for stats in sge_stats[1]:
