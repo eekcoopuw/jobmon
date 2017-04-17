@@ -449,7 +449,7 @@ def qsub(
         raise ValueError("Requested number of slots must be greater than zero not {}".format(slots))
 
     if holds and hold_pattern:
-        raise ValueError("Cannot have both 'holds' and 'hpld_pattern' set")
+        raise ValueError("Cannot have both 'holds' and 'hold_pattern' set")
 
     if len(str(jobname)) == 0:
         raise ValueError("Must supply jobname, was empty or null")
