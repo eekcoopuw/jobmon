@@ -24,7 +24,7 @@ class MockWritingJob(MockJob):
         MockJob.__init__(self,name, seconds_to_sleep, exception_to_raise )
         self.files_to_write = files_to_write if files_to_write else []
 
-    def _action_succeed(self):
+    def action_succeed(self):
         """Write my files, deliberately let any IO errors be thrown."""
         for file in self.files_to_write:
             f = open(file, 'w+')

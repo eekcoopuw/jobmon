@@ -8,7 +8,6 @@ from time import sleep
 
 @pytest.fixture(scope='module')
 def tmp_out_dir(tmpdir_factory):
-    # The os API's require unicode.
     return tmpdir_factory.mktemp("dalynator_{}_".format(uuid.uuid4()))
 
 

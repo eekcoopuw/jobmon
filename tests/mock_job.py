@@ -37,29 +37,29 @@ class MockJob(object):
             if self.exception_to_raise == MockJob.DIE_COMMAND:
                 # Die silently without trace
                 # kill -9
-                self._action_die()
+                self.action_die()
                 os.kill(os.getpid(), signal.SIGKILL)
                 # I am now dead, no point writing any more code here!
             else:
                 # Die "gracefully"
-                self._action_raise()
+                self.action_raise()
                 print("raising exception '{}'".format(self.exception_to_raise))
                 raise Exception(self.exception_to_raise)
         else:
             # Successful completion
-            self._action_succeed()
+            self.action_succeed()
             print("Mock job {} completed successfully".format(self.name))
             return True
 
-    def _action_die(self):
+    def action_die(self):
         """Override this if you want to do something before your die. That is, if your program wants to..."""
         pass
 
-    def _action_raise(self):
+    def action_raise(self):
         """Override this if you want to do something before it raises an exception"""
         pass
 
-    def _action_succeed(self):
+    def action_succeed(self):
         """Override this if you want to do something before it returns success"""
         pass
 
@@ -72,5 +72,5 @@ if __name__ == "__main__":
             "Mock_Job called with {} arguments, needs exactly 3 args"
             "(name, seconds to sleep, exception to raise (empty string means no-exception)".format(
                 len(sys.argv)))
-        sys.exit(-2)
+        sys.exit(2)
     job.run()
