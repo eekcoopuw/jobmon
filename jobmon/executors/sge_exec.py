@@ -210,8 +210,8 @@ class SGEExecutor(base.BaseExecutor):
         central job monitor"""
         # get the most recent job instance id all running jobs
         sge_ids = []
-        [sge_ids.extend(self.jobs[jid]["job"].job_instance_ids[-1])
-         for jid in self.running_jobs]
+        for jid in self.running_jobs:
+            sge_ids.append(self.jobs[jid]["job"].job_instance_ids[-1])
         results = sge.qstat(jids=sge_ids).job_id.tolist()
         for jid in [j for j in self.running_jobs if j not in results]:
             self.jobs[jid]["status_id"] = Status.UNKNOWN

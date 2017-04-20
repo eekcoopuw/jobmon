@@ -17,7 +17,7 @@ def test_five_jobs(central_jobmon):
 
     root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
 
-    q = qmaster.JobQueue(central_jobmon.mon_dir, executor=SGEExecutor,
+    q = qmaster.JobQueue(central_jobmon.out_dir, executor=SGEExecutor,
                          executor_params={"parallelism": 10})
 
     # They take 5, 10, 15,.. seconds to run.
@@ -48,7 +48,7 @@ def test_five_jobs(central_jobmon):
     assert len(q.executor.completed_jobs) == 3
 
     # Check that the proper number of errors are recorded
-    assert len(sge_errors[1]) == q.executor.failed_jobs
+    assert len(sge_errors[1]) == len(q.executor.failed_jobs)
 
     # Check that usage stats are populating
     for stats in sge_stats[1]:
