@@ -213,7 +213,8 @@ class SGEExecutor(base.BaseExecutor):
         for jid in self.running_jobs:
             sge_ids.append(self.jobs[jid]["job"].job_instance_ids[-1])
         results = sge.qstat(jids=sge_ids).job_id.tolist()
-        for jid in [j for j in self.running_jobs if j not in results]:
+        for sge_id in [j for j in sge_ids if j not in results]:
+            jid = self._jid_from_job_instance_id(sge_id)
             self.jobs[jid]["status_id"] = Status.UNKNOWN
 
 
