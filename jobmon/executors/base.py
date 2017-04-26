@@ -52,7 +52,7 @@ class BaseExecutor(object):
 
     @property
     def unknown_jobs(self):
-        return self._jids_with_status(status_id=Status.UNKNOWN)
+        return self._jids_with_status(status_id=Status.UNREGISTERED_STATE)
 
     def _jids_with_status(self, status_id=None):
         jids = []

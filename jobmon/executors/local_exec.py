@@ -285,7 +285,7 @@ class LocalExecutor(base.BaseExecutor):
             results.append(jid)
         finished_jobs = self.running_jobs + self.completed_jobs
         for jid in [j for j in results if j not in finished_jobs]:
-            self.jobs[jid]["status_id"] = Status.UNKNOWN
+            self.jobs[jid]["status_id"] = Status.UNREGISTERED_STATE
 
     def stop(self):
         """terminate consumers and call sync 1 final time."""

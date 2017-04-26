@@ -215,7 +215,7 @@ class SGEExecutor(base.BaseExecutor):
         results = sge.qstat(jids=sge_ids).job_id.tolist()
         for sge_id in [j for j in sge_ids if j not in results]:
             jid = self._jid_from_job_instance_id(sge_id)
-            self.jobs[jid]["status_id"] = Status.UNKNOWN
+            self.jobs[jid]["status_id"] = Status.UNREGISTERED_STATE
 
 
 if __name__ == "__main__":
