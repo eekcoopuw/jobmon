@@ -17,9 +17,9 @@ def test_true_path():
     assert sge.true_path("") == os.getcwd()
     assert getpass.getuser() in sge.true_path("~/bin")
     assert sge.true_path("blah").endswith("/blah")
-    assert sge.true_path(file_or_dir="../tests")==path.abspath(".")
+    assert sge.true_path(file_or_dir="../tests") == path.abspath(".")
 
-    assert sge.true_path(executable="time")=="/usr/bin/time"
+    assert sge.true_path(executable="time") == "/usr/bin/time"
 
 
 def test_session_creation():
@@ -28,7 +28,7 @@ def test_session_creation():
     assert s.drmsInfo is not None
 
 
-@pytest.mark.slowtest
+@pytest.mark.cluster
 def test_basic_submit():
     true_id = sge.qsub("/bin/true", "so true", memory=0)
     assert true_id
@@ -55,19 +55,19 @@ def example_job_args(tag):
         yield [tag, idx]
 
 
-@pytest.mark.slowtest
+@pytest.mark.cluster
 def test_multi_submit():
     true_ids = sge.qsub("/bin/sleep", "howdy",
                         parameters=[[1], [2], [1]])
-    assert len(true_ids)==3
+    assert len(true_ids) == 3
 
     gen_ids = sge.qsub("/bin/true", "generated",
                        parameters=example_job_args("today"))
-    assert len(gen_ids)==4
+    assert len(gen_ids) == 4
     assert sge._wait_done(true_ids + gen_ids)
 
 
-@pytest.mark.slowtest
+@pytest.mark.cluster
 def test_path_manipulation():
     """
     Compares what happens when you specify a prepend_to_path versus
@@ -84,7 +84,7 @@ def test_path_manipulation():
     assert "DonaldDuck" in open("env-b.out").read()
 
 
-@pytest.mark.slowtest
+@pytest.mark.cluster
 def test_python_submit():
     py_id = sge.qsub(sge.true_path("waiter.py"), ".hum",
                      parameters=[5], jobtype="python")
@@ -105,25 +105,25 @@ def test_python_submit():
     assert not dones
 
 
-@pytest.mark.slowtest
+@pytest.mark.cluster
 def test_r_submit():
     rscript_id = sge.qsub(sge.true_path("hi.R"), ".rstuff&*(",
                           parameters=[5], jobtype="R")
     notype_id = sge.qsub(sge.true_path("hi.R"), "##rb+@",
-                          parameters=[3])
+                         parameters=[3])
     assert sge._wait_done([rscript_id, notype_id])
 
 
-@pytest.mark.slowtest
+@pytest.mark.cluster
 def test_sh_submit():
     rscript_id = sge.qsub(sge.true_path("env_vars.sh"), ".rstuff&*(",
                           parameters=[5], jobtype="shell")
     notype_id = sge.qsub(sge.true_path("env_vars.sh"), "##rb+@",
-                          parameters=[3])
+                         parameters=[3])
     assert sge._wait_done([rscript_id, notype_id])
 
 
-@pytest.mark.slowtest
+@pytest.mark.cluster
 def test_sh_loop():
     """
     This demonstrates that when you submit a shell file DRMAA
@@ -140,21 +140,21 @@ def test_sh_loop():
     assert sge._wait_done(jobs)
 
 
-@pytest.mark.slowtest
+@pytest.mark.cluster
 def test_sh_wrap():
     sh0_id = sge.qsub(sge.true_path("waiter.py"),
-                     shfile=sge.true_path("sample.sh"),
-                     stdout="shellwaitPython.txt",
-                     stderr="shellwaitererr.txt",
-                     jobname="shellwaiter")
+                      shfile=sge.true_path("sample.sh"),
+                      stdout="shellwaitPython.txt",
+                      stderr="shellwaitererr.txt",
+                      jobname="shellwaiter")
     sh1_id = sge.qsub(sge.true_path("waiter.R"),
-                     shfile=sge.true_path("sample.sh"),
-                     stdout="shellwaitR.txt",
-                     stderr="shellwaitererr.txt",
-                     jobname="shellwaiter")
+                      shfile=sge.true_path("sample.sh"),
+                      stdout="shellwaitR.txt",
+                      stderr="shellwaitererr.txt",
+                      jobname="shellwaiter")
     sh2_id = sge.qsub(sge.true_path("waiter.do"),
-                     shfile=sge.true_path("sample.sh"),
-                     stdout="shellwaitStata.txt",
-                     stderr="shellwaitererr.txt",
-                     jobname="shellwaiter")
+                      shfile=sge.true_path("sample.sh"),
+                      stdout="shellwaitStata.txt",
+                      stderr="shellwaitererr.txt",
+                      jobname="shellwaiter")
     assert sge._wait_done([sh0_id, sh1_id, sh2_id])

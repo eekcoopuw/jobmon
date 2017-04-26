@@ -5,7 +5,7 @@ from jobmon.executors.sge_exec import SGEExecutor
 from mock_job import MockJob
 
 
-# @pytest.mark.cluster
+@pytest.mark.cluster
 def test_five_jobs(central_jobmon):
     """Submit five jobs through the job monitor.
     Three run to successful completion,
