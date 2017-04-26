@@ -1,11 +1,17 @@
 import os
+import pytest
 
 from jobmon.subscriber import Subscriber
 from jobmon.publisher import PublisherTopics
 from jobmon.requester import Requester
 from jobmon.models import Status
-from jobmon.executors.sge_exec import SGEJobInstance
 from jobmon.exceptions import ReturnCodes
+
+
+try:
+    from jobmon.executors.sge_exec import SGEJobInstance
+except KeyError:
+    pass
 
 
 def test_req_jobmon_pair(central_jobmon):
@@ -26,6 +32,7 @@ def test_job_registration(central_jobmon):
     assert jr2[0] == ReturnCodes.OK
 
 
+@pytest.mark.cluster
 def test_sgejob_mon_pair(central_jobmon):
     os.environ["JOB_ID"] = "1234"
     os.environ["JOB_NAME"] = "job1"
@@ -50,6 +57,7 @@ def test_sgejob_mon_pair(central_jobmon):
          central_jobmon.jobs_with_status(Status.COMPLETE)] == [1])
 
 
+@pytest.mark.cluster
 def test_monitor_job_by_status_query(central_jobmon):
     req = Requester(central_jobmon.out_dir)
 
@@ -92,6 +100,7 @@ def test_monitor_job_by_status_query(central_jobmon):
             "job2"])
 
 
+@pytest.mark.cluster
 def test_get_job_information_query(central_jobmon):
 
     # Test job registration with sge-id's.  I like prime numbers.
@@ -117,6 +126,7 @@ def test_get_job_information_query(central_jobmon):
     assert status == Status.FAILED
 
 
+@pytest.mark.cluster
 def test_pub(central_jobmon):
 
     s = Subscriber(central_jobmon.out_dir)
