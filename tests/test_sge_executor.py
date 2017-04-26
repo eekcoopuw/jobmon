@@ -1,14 +1,19 @@
 import os
 import time
+import pytest
 
 from jobmon.models import Status
 from jobmon.job import Job
-from jobmon.executors.sge_exec import SGEExecutor
+
+try:
+    from jobmon.executors.sge_exec import SGEExecutor
+except KeyError:
+    pass
 
 here = os.path.dirname(os.path.abspath(__file__))
 
 
-# @pytest.mark.cluster
+@pytest.mark.cluster
 def test_sge_executor(central_jobmon):
 
     runfile = os.path.join(here, "waiter.py")

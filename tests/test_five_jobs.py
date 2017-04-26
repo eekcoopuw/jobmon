@@ -2,8 +2,13 @@ import os
 import pytest
 
 from jobmon import qmaster
-from jobmon.executors.sge_exec import SGEExecutor
 from mock_job import MockJob
+
+
+try:
+    from jobmon.executors.sge_exec import SGEExecutor
+except KeyError:
+    pass
 
 
 @pytest.mark.cluster

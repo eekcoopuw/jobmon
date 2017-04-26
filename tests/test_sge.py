@@ -6,7 +6,11 @@ import getpass
 import os
 import os.path as path
 import pytest
-import jobmon.sge as sge
+
+try:
+    import jobmon.sge as sge
+except KeyError:
+    pass
 
 
 def test_true_path():
