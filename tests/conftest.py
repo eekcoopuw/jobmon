@@ -5,6 +5,24 @@ from time import sleep
 
 
 @pytest.fixture(scope='function')
+def central_jobmon_cluster(tmpdir_factory):
+    tmpdir_factory._basetemp = "/ihme/scratch/tmp/tests/jobmon"
+    monpath = tmpdir_factory.mktemp("jmdir")
+
+    if sys.version_info > (3, 0):
+        jm = CentralJobMonitor(str(monpath))
+    else:
+        jm = CentralJobMonitor(str(monpath), persistent=False)
+    sleep(1)
+    yield jm
+    print("teardown fixture in {}".format(monpath))
+    jm.stop_responder()
+    jm.stop_publisher()
+    sleep(1)
+    assert not jm.responder_proc_is_alive()
+
+
+@pytest.fixture(scope='function')
 def central_jobmon(tmpdir_factory):
     monpath = tmpdir_factory.mktemp("jmdir")
 

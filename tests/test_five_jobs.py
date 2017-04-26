@@ -12,7 +12,7 @@ except KeyError:
 
 
 @pytest.mark.cluster
-def test_five_jobs(central_jobmon):
+def test_five_jobs(central_jobmon_cluster):
     """Submit five jobs through the job monitor.
     Three run to successful completion,
     one raises an exception, and one simply kills its own python executable.
@@ -23,7 +23,7 @@ def test_five_jobs(central_jobmon):
 
     root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
 
-    q = qmaster.JobQueue(central_jobmon.out_dir, executor=SGEExecutor,
+    q = qmaster.JobQueue(central_jobmon_cluster.out_dir, executor=SGEExecutor,
                          executor_params={"parallelism": 10})
 
     # They take 5, 10, 15,.. seconds to run.

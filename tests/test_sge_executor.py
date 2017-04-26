@@ -14,27 +14,27 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 
 @pytest.mark.cluster
-def test_sge_executor(central_jobmon):
+def test_sge_executor(central_jobmon_cluster):
 
     runfile = os.path.join(here, "waiter.py")
     j1 = Job(
-        central_jobmon.out_dir,
+        central_jobmon_cluster.out_dir,
         name="job1",
         runfile=runfile,
         job_args=["30"])
     j2 = Job(
-        central_jobmon.out_dir,
+        central_jobmon_cluster.out_dir,
         name="job2",
         runfile=runfile,
         job_args=["30"])
     j3 = Job(
-        central_jobmon.out_dir,
+        central_jobmon_cluster.out_dir,
         name="job3",
         runfile=runfile,
         job_args=["30"])
 
     sgexec = SGEExecutor(
-        central_jobmon.out_dir, 3, 30000, parallelism=2)
+        central_jobmon_cluster.out_dir, 3, 30000, parallelism=2)
     sgexec.queue_job(j1)
     sgexec.queue_job(j2)
     sgexec.queue_job(j3)
@@ -49,5 +49,5 @@ def test_sge_executor(central_jobmon):
 
     assert (
         [j.name for j in
-         central_jobmon.jobs_with_status(Status.COMPLETE)] == [
+         central_jobmon_cluster.jobs_with_status(Status.COMPLETE)] == [
             "job1", "job2", "job3"])

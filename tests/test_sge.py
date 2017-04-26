@@ -21,7 +21,7 @@ def test_true_path():
     assert sge.true_path("") == os.getcwd()
     assert getpass.getuser() in sge.true_path("~/bin")
     assert sge.true_path("blah").endswith("/blah")
-    assert sge.true_path(file_or_dir="../tests") == path.abspath(".")
+    assert sge.true_path(file_or_dir=".") == path.abspath(".")
 
     assert sge.true_path(executable="time") == "/usr/bin/time"
 
