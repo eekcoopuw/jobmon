@@ -37,7 +37,7 @@ class Subscriber(object):
         self.socket = context.socket(zmq.SUB)
         self.socket.setsockopt(zmq.RCVTIMEO, timeout)
         if topicfilter:
-            self.socket.setsockopt(zmq.SUBSCRIBE, topicfilter)
+            self.socket.setsockopt(zmq.SUBSCRIBE, str(topicfilter))
         self.logger.info('{}: Connecting...'.format(os.getpid()))
 
         # use host and port from network filesystem cofig. option "out_dir"
