@@ -13,6 +13,7 @@ except KeyError:
     pass
 
 
+@pytest.mark.cluster
 def test_true_path():
     with pytest.raises(ValueError) as exc_info:
         sge.true_path()
@@ -26,6 +27,7 @@ def test_true_path():
     assert sge.true_path(executable="time") == "/usr/bin/time"
 
 
+@pytest.mark.cluster
 def test_session_creation():
     s = sge._drmaa_session()
     assert s is not None
