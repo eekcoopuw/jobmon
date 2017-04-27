@@ -1,14 +1,22 @@
 from __future__ import print_function
 
+import sys
 import os
+import json
 import jsonpickle
-from subprocess import CalledProcessError
 
 from jobmon import sge, job
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.executors import base
 from jobmon.exceptions import ReturnCodes
+
+if sys.version_info > (3, 0):
+    import subprocess
+    from subprocess import CalledProcessError
+else:
+    import subprocess32 as subprocess
+    from subprocess32 import CalledProcessError
 
 
 class SGEJobInstance(job._AbstractJobInstance):
@@ -117,33 +125,50 @@ class SGEJobInstance(job._AbstractJobInstance):
 
 
 class SGEExecutor(base.BaseExecutor):
+    """SGEExecutor executes tasks remotely in parallel on an SGE cluster.
+
+    Args:
+        mon_dir (string): directory where the connection info for the central
+            job monitor is written
+        request_retries (int, optional): how many time to try when pushing
+            updates to the central job monitor
+        request_timeout (int, optional): how long to linger on the zmq socket
+            when pushing updates to the central job monitor and waiting for a
+            response
+        parallelism (int, optional): how many parallel jobs to schedule at a
+            time
+        subscribe_to_job_state (bool, optional): whether to subscribe to job
+            state updates from the central job monitor via a zmq socket.
+    """
 
     remoterun = os.path.abspath(__file__)
 
-    def __init__(self, mon_dir, request_retries, request_timeout,
-                 path_to_conda_bin_on_target_vm, conda_env, parallelism=None):
-        """
-            path_to_conda_bin_on_target_vm (string, optional): which conda bin
-                to use on the target vm.
-            conda_env (string, optional): which conda environment you are
-                using on the target vm.
-        """
+    def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
+                 parallelism=None, subscribe_to_job_state=True):
 
         super(SGEExecutor, self).__init__(
             mon_dir, request_retries, request_timeout, parallelism)
 
         # environment for distributed applications
+        conda_info = json.loads(
+            subprocess.check_output(['conda', 'info', '--json']).decode())
+        path_to_conda_bin_on_target_vm = '{}/bin'.format(
+            conda_info['root_prefix'])
+        conda_env = conda_info['default_prefix'].split("/")[-1]
         self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm
         self.conda_env = conda_env
 
-    def execute_async(self, job, *args, **kwargs):
+    def execute_async(self, job, process_timeout=None, *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. They will automatically
         register with server and sqlite database.
 
         Args:
             job (job.Job): instance of a job.Job
+            process_timeout (int, optional): how many seconds to wait for a job
+                to finish before killing it and registering a failure. Default
+                is forever.
 
-            see *args and **kwargs are passed to sge.qsub.
+            *args and **kwargs are passed to sge.qsub.
 
         Returns:
             sge job id
@@ -154,7 +179,8 @@ class SGEExecutor(base.BaseExecutor):
             "--jid", job.jid,
             "--request_retries", self.request_retries,
             "--request_timeout", self.request_timeout,
-            "--pass_through", "'{}'".format(jsonpickle.encode(job.job_args))
+            "--pass_through", "'{}'".format(jsonpickle.encode(job.job_args)),
+            "--process_timeout", process_timeout
         ]
 
         self.logger.debug(
@@ -178,21 +204,23 @@ class SGEExecutor(base.BaseExecutor):
         # of the id
         return job_instance_id
 
-    def sync(self):
-
-        # check state of all jobs currently in sge queue
-        self.logger.debug('{}: Polling jobs...'.format(os.getpid()))
-        current_jobs = set(sge.qstat(jids=self.running_jobs).job_id.tolist())
-        self.logger.debug('             ... ' +
-                          str(len(current_jobs)) + ' active jobs')
-        self.running_jobs = list(current_jobs)
+    def flush_lost_jobs(self):
+        """check for jobs currently in sge queue to make sure there
+        are not any straglers that died with out registering with the
+        central job monitor"""
+        # get the most recent job instance id all running jobs
+        sge_ids = []
+        for jid in self.running_jobs:
+            sge_ids.append(self.jobs[jid]["job"].job_instance_ids[-1])
+        results = sge.qstat(jids=sge_ids).job_id.tolist()
+        for sge_id in [j for j in sge_ids if j not in results]:
+            jid = self._jid_from_job_instance_id(sge_id)
+            self.jobs[jid]["status_id"] = Status.UNREGISTERED_STATE
 
 
 if __name__ == "__main__":
-    import sys
     import argparse
-    import subprocess
-    import traceback
+
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
     # Similar to a stub or a container
@@ -204,6 +232,12 @@ if __name__ == "__main__":
     def jpickle_parser(s):
         return jsonpickle.decode(s)
 
+    def intnone_parser(s):
+        try:
+            return int(s)
+        except ValueError:
+            return None
+
     # parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("--mon_dir", required=True)
@@ -211,6 +245,8 @@ if __name__ == "__main__":
     parser.add_argument("--jid", required=True, type=int)
     parser.add_argument("--request_timeout", required=True, type=int)
     parser.add_argument("--request_retries", required=True, type=int)
+    parser.add_argument("--process_timeout", required=True,
+                        type=intnone_parser)
     parser.add_argument("--pass_through", required=False, type=jpickle_parser)
     args = vars(parser.parse_args())
 
@@ -244,13 +280,8 @@ if __name__ == "__main__":
         proc.kill()
         eprint(err)
     else:
-        if sys.version_info > (3, 0):
             # communicate till done
-            stdout, stderr = proc.communicate()
-        else:
-            print("warning, subprocess timeout cannot be set in python"
-                  " 2")
-            stdout, stderr = proc.communicate()
+        stdout, stderr = proc.communicate(timeout=args["process_timeout"])
         print(stdout)
         eprint(stderr)
 
