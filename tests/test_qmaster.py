@@ -1,10 +1,13 @@
 import os
+import pytest
+
 from jobmon import qmaster
 from jobmon.schedulers import RetryScheduler
 
 here = os.path.dirname(os.path.abspath(__file__))
 
 
+@pytest.mark.cluster
 def test_job_queue(central_jobmon):
 
     q = qmaster.JobQueue(
@@ -24,6 +27,7 @@ def test_job_queue(central_jobmon):
     q.executor.stop()
 
 
+@pytest.mark.cluster
 def test_retry_queue(central_jobmon):
 
     q = qmaster.JobQueue(
