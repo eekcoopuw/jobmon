@@ -1,5 +1,7 @@
 import time
 import os
+import pytest
+
 from jobmon.models import Status
 from jobmon.executors import local_exec
 from jobmon.job import Job
@@ -7,6 +9,7 @@ from jobmon.job import Job
 here = os.path.dirname(os.path.abspath(__file__))
 
 
+@pytest.mark.cluster
 def test_local_executor(central_jobmon):
 
     exlocal = local_exec.LocalExecutor(
