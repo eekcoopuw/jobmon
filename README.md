@@ -2,21 +2,17 @@
 The package intends to provide simple, central monitoring of statuses and errors encountered by distributed tasks.
 It seeks to easily drop-in to existing code bases without significant refactoring.
 
-The monitor must run in py 3.5 because sqlite cannot write to an NFS file system in python 2.
-
-Therefore that process has a different python/conda env than the distributed jobs.
-
 This discussion deliberately avoids the words _Client_ and _Server_ because those words were used in different ways
 in the original implementation.
 
 This is the thrid iteration of the job mon design. The change betwee neach iteration is how the central job monitor is
-launched. In the first iteration it was started manually in a separate shell window. In the secon diteration it was
+launched. In the first iteration it was started manually in a separate shell window. In the second iteration it was
 started by the clint calling MonitoredQ. That appeared to be simpler but in practise was too complex, especially in
-controlling which python environment was used for which process. Teh thir diteration therefore went back to manually
+controlling which python environment was used for which process. The third diteration therefore went back to manually
 staing the monitor.
 
 There is one central python process (CentralJobMonitor) that starts and monitors the individual application jobs.
-This process should be started in sa spearte qlogin, using a python 3 environment (which will be part of this project
+This process should be started in a separte qlogin, using a python 3 environment (which will be part of this project
 as soon as we have the central envrinemnt library epic completed.).  The command is:
 
 ```sh
@@ -29,41 +25,76 @@ More usefully:
 rm -f monitor_info.json && python bin/launch_central_monitor.py `pwd`
 ```
 
-# Open Question
-From where do the application tasks get their python environments?
-
-
-# Job Queueing and Automatic Relaunching
-Job Monitor comes with high level convenience packages for launching SGE jobs,
-monitoring/logging their progress, and relaunching failed jobs.
-
-## Central launch script
-This process uses sqlite. sqlite can only write to an NFS file system in python 3, so this python process must be run
-using a python 3 environment. The python process in the application swarm can use a different python environment.
-Juts be careful which files you import. The response codes were moved to exceptions.py so that the client would be
-decoupled from the responder and its pythno 3 requirement.
+Alternatively, the (CentralJobMonitor) may be launched in a thread of the main controller process. This approach
+allows the user to run a single process that is responsible for state tracking of the distributed processes. However,
+since python does not allow concurrent execution of different threads, the main controller process that launches the
+(CentralJobMonitor) should not do any computation. The command is:
 
 ```python
-from jobmon import sge
+import time
+from jobmon import central_job_monitor
 
-# launch SGE jobs that the Queue will track
-# MonitoredQ.qsub will take a runfile (not necessarily python)
-# and launch a sge job with the given parameters
-for (arg1, arg2) in args_list:
-    job_id = sge.qsub(runfile=foo.py,
-                  jobname='foo_{}_{}'.format(arg1, arg2),
-                  parameters=[arg1, arg2]
-                  project='my_proj',
-                  slots=10,
-                  memory=20)
 
-# the queue will periodically poll that status of all launched jobs
-# and attempt to relaunch failed jobs
-dalynator.wait_for_jobs_complete()   #TBD that code needs to be moved into CC?jobmon
+try:
+    cjm = central_job_monitor.CentralJobMonitor("foodir", persistent=False)
+    time.sleep(5)
+except:
+    pass
+else:
+    # schedule some remote jobs and block execution of the finally till
+    # they are done
+finally:
+    cjm.stop_responder()
+    cjm.stop_publisher()
+```
+
+This process uses sqlite. sqlite can only write to an NFS file system in python 3, so this python process must be run
+using a python 3 environment or use an in memory sqlite database (CentralJobMonitor(persistent=False)).
+The response codes were moved to exceptions.py so that the client would be decoupled from the responder.
+
+# Environments
+The distributed tasks are generally executed in the same environment as the controller process though this is not
+required.
+
+# Job Queueing and Automatic Relaunching
+Job Monitor comes with high level convenience packages for launching SGE jobs, monitoring/logging their progress, and
+relaunching failed jobs. The functionality is encompassed in the (qmaster.JobQueue) class. JobQueue is an attempt to
+abstract away state tracking and logging of distributed tasks across different distributed execution platforms
+(SGE, Multiprocessing). It provides 2 useful abstractions: 1) executor 2) scheduler. The executor is responsible for
+queueing jobs on a specified distribution platfor (eg. SGE). The scheduler is responsible for polling for job state
+updates about the swarm jobs and exposing that information to the controller process. The scheduler is run in a separate
+thread so don't run heavy computation in the same process as the scheduler is running. A useful pattern for a controller
+process is to here:
+
+```python
+import time
+from jobmon import qmaster, central_job_monitor
+from jobmon.executors.sge_exec import SGEExecutor
+
+
+try:
+    cjm = central_job_monitor.CentralJobMonitor("/foo/dir", persistent=False)
+    time.sleep(3)
+except:
+    pass
+else:
+    try:
+        q = qmaster.JobQueue(cjm.out_dir, executor=SGEExecutor)
+        j = q.create_job(
+            runfile="bar.py",
+            jobname="mock",
+            parameters=["--baz", "1"])
+        q.queue_job(j, slots=2, memory=4, project="ihme_general")
+        q.block_till_done()  # monitor them
+    except:
+        cjm.generate_report()
+finally:
+    cjm.stop_responder()
+    cjm.stop_publisher()
 ```
 
 # Job logging
-The job_monitor.sqlite file is created in your logging directory. You can open
+The job_monitor.sqlite file is created in your logging directory if you used persistent=True. You can open
 it up and look for errors, completion times, and other statistics
 
     -bash-4.1$ sqlite3 job_monitor.sqlite
@@ -83,9 +114,20 @@ it up and look for errors, completion times, and other statistics
 
     sqlite> .exit
 
-Sqlite doesn't support concurrent access, so don't do this while 
-jobmon server is running! Instead, you can start up another job.Job() in
-the same directory, and use the query method.
+
+Alternatively, (CentralJobMonitor.generate_report()) will create a csv of the sqlite database in the logging directory.
+
+Sqlite doesn't support concurrent access, so don't do this while jobmon server is running! Instead, you can start up
+another job.Job() in the same directory, and use the query method.
+
 
 ## Dependencies
 - pyzmq
+- pandas
+- sqlalchemy
+- numpy
+- pymysql
+- pyyaml
+- drmaa
+- jsonpickle
+- subprocess32
