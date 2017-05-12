@@ -42,6 +42,21 @@ def test_static_port_req_mon_pair(central_jobmon_static_port):
     assert resp[0] == 0
 
 
+def test_batch_registration(central_jobmon_static_port):
+    req = Requester(monitor_host='localhost', monitor_port=3459)
+
+    # Test basic connection
+    batch = req.send_request({'action': 'batch',
+                             'kwargs': {'name': 'test_job_batch',
+                                        'user': 'test_user'}})
+    jr1 = req.send_request({'action': 'register_job',
+                            'kwargs': {'name': 'a test job',
+                                       'batch_id': batch[1]}})
+    jr2 = req.send_request({'action': 'register_job',
+                            'kwargs': {'name': 'a test job 2',
+                                       'batch_id': batch[1]}})
+
+
 def test_job_registration_update(central_jobmon):
     req = Requester(central_jobmon.out_dir)
 

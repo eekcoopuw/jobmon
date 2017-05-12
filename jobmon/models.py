@@ -6,10 +6,22 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 
+class Batch(Base):
+    __tablename__ = 'batch'
+
+    batch_id = Column(Integer, primary_key=True)
+    name = Column(String(150))
+    user = Column(String(150))
+    created_date = Column(DateTime, default=func.now())
+
+
 class Job(Base):
     __tablename__ = 'job'
 
     jid = Column(Integer, primary_key=True)
+    batch_id = Column(
+        Integer,
+        ForeignKey('batch.batch_id'))
     name = Column(String(150))
     runfile = Column(String(150))
     args = Column(String(1000))

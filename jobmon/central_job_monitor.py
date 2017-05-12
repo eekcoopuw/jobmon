@@ -205,11 +205,24 @@ class CentralJobMonitor(object):
                     "Found too many results ({}) for jid {}".format(length,
                                                                     jid))
 
-    def _action_register_job(self, name=None, runfile=None, job_args=None):
+    def _action_register_batch(self, name=None, user=None):
+        batch = models.Batch(
+            name=name,
+            user=user)
+        session = self.Session()
+        session.add(batch)
+        session.commit()
+        bid = batch.bid
+        session.close()
+        return 0, bid
+
+    def _action_register_job(self, name=None, runfile=None, job_args=None,
+                             batch_id=None):
         job = models.Job(
             name=name,
             runfile=runfile,
-            args=job_args)
+            args=job_args,
+            batch_id=batch_id)
         session = self.Session()
         session.add(job)
         session.commit()
