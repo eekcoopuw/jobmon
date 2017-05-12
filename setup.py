@@ -31,6 +31,22 @@ if HAS_AUTOWRAP:
 else:
     cmds['version'] = vcmds['build_py']
 
+
+install_requires = [
+    'bs4',
+    'pandas',
+    'sqlalchemy',
+    'numpy',
+    'pymysql',
+    'mysqlclient',
+    'pyyaml',
+    'pyzmq',
+    'drmaa',
+    'jsonpickle']
+
+if sys.version_info < (3, 0):
+    install_requires.append("subprocess32")
+
 setup(
     version=versioneer.get_version(),
     cmdclass=cmds,
@@ -41,18 +57,7 @@ setup(
     author='CentralComp',
     author_email='tomflem@uw.edu, mlsandar@uw.edu',
     include_package_data=True,
-    install_requires=[
-        'bs4',
-        'pandas',
-        'sqlalchemy',
-        'numpy',
-        'pymysql',
-        'mysqlclient',
-        'pyyaml',
-        'pyzmq',
-        'drmaa',
-        'jsonpickle'
-    ],
+    install_requires=install_requires,
     packages=['jobmon', 'jobmon.executors'],
     scripts=["bin/launch_central_monitor.py"],
     entry_points={'console_scripts': []})

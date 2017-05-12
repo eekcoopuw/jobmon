@@ -1,5 +1,7 @@
 import time
 import os
+import pytest
+
 from jobmon.models import Status
 from jobmon.executors import local_exec
 from jobmon.job import Job
@@ -8,6 +10,7 @@ from jobmon.requester import Requester
 here = os.path.dirname(os.path.abspath(__file__))
 
 
+@pytest.mark.cluster
 def test_local_executor(central_jobmon):
 
     exlocal = local_exec.LocalExecutor(
@@ -31,24 +34,24 @@ def test_local_executor(central_jobmon):
         runfile=runfile,
         job_args=[20])
 
-    exlocal.queue_job(j1, subprocess_timeout=60)
-    exlocal.queue_job(j2, subprocess_timeout=60)
-    exlocal.queue_job(j3, subprocess_timeout=60)
+    exlocal.queue_job(j1, process_timeout=60)
+    exlocal.queue_job(j2, process_timeout=60)
+    exlocal.queue_job(j3, process_timeout=60)
 
-    exlocal.refresh_queues()
+    exlocal.refresh_queues(flush_lost_jobs=False)
     assert len(exlocal.running_jobs) == 2
     assert len(exlocal.queued_jobs) == 1
 
     while len(exlocal.queued_jobs) > 0 or len(exlocal.running_jobs) > 0:
         time.sleep(20)
-        exlocal.refresh_queues()
+        exlocal.refresh_queues(flush_lost_jobs=True)
 
     assert (
         set([j.name for j in
              central_jobmon.jobs_with_status(Status.COMPLETE)]) == set(
             ["job1", "job2", "job3"]))
 
-    exlocal.end()
+    exlocal.stop()
 
 
 def test_local_executor_static():
@@ -90,4 +93,4 @@ def test_local_executor_static():
         set(req.send_request({'action': 'get_jobs_with_status',
                               'args': [Status.COMPLETE]})[1]) == set(
                                   [j1.jid, j2.jid, j3.jid]))
-    exlocal.end()
+    exlocal.stop()

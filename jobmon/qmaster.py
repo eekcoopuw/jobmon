@@ -2,35 +2,41 @@ import logging
 import time
 
 from jobmon import requester
+from jobmon.schedulers import SimpleScheduler
+from jobmon.executors.local_exec import LocalExecutor
 from jobmon.job import Job
 from jobmon.exceptions import (CannotConnectToCentralJobMonitor,
                                CentralJobMonitorNotAlive)
 
 
-class MonitoredQ(object):
-    """monitored Q supports monitoring of a single job queue by using a sqlite
+class JobQueue(object):
+    """Queue supports monitoring of a single job queue by using a sqlite
     back monitoring server that all sge jobs automatically connect to after
     they get scheduled."""
 
-    def __init__(self, executor, max_alive_wait_time=45):
+    def __init__(self, mon_dir, executor=LocalExecutor, executor_params={},
+                 scheduler=SimpleScheduler, scheduler_params={},
+                 max_alive_wait_time=45):
         """
         Args:
-            mon_dir (str): directory where monitor server is running
+            mon_dir (str): directory where the central job monitor is running
+            executor (obj, optional): LocalExecutor or SGEExecutor
+            executor_params (dict, optional): kwargs to be passed into executor
+                instantiation.
+            scheduler (obj, optional): Simplescheduler or Retryscheduler
+            scheduler_params (dict, optional): kwargs to be passed into
+                scheduler instantiation.
             max_alive_wait_time (int, optional): how long to wait for an alive
                 signal from the central job monitor
-            request_retries (int, optional): how many times to attempt to
-                communicate with the central job monitor per request
-            request_timeout (int, optional): how long till each communication
-                attempt times out
         """
         self.logger = logging.getLogger(__name__)
 
-        self.jobs = {}
-        self.executor = executor
+        self.executor = executor(mon_dir=mon_dir, **executor_params)
+        self.scheduler = scheduler(executor=self.executor, **scheduler_params)
 
         # connect requester instance to central job monitor
         self.request_sender = requester.Requester(
-            self.executor.mon_dir, self.executor.request_retries,
+            mon_dir, self.executor.request_retries,
             self.executor.request_timeout)
         if not self.request_sender.is_connected():
             raise CannotConnectToCentralJobMonitor(
@@ -39,7 +45,7 @@ class MonitoredQ(object):
 
         # make sure server is alive
         time_spent = 0
-        while not self._central_job_monitor_alive():
+        while not self.central_job_monitor_alive():
             if time_spent > max_alive_wait_time:
                 msg = ("unable to confirm central job monitor is alive in {}."
                        " Maximum boot time exceeded: {}").format(
@@ -52,7 +58,8 @@ class MonitoredQ(object):
             time.sleep(5)
             time_spent += 5
 
-    def _central_job_monitor_alive(self):
+    def central_job_monitor_alive(self):
+        """check whether the central job monitor is running"""
         try:
             resp = self.request_sender.send_request({"action": "alive"})
         except Exception as e:
@@ -66,9 +73,13 @@ class MonitoredQ(object):
         else:
             return False
 
+    def scheduler_alive(self):
+        """check whether the scheduler is running"""
+        return self.scheduler.is_alive()
+
     def create_job(self, runfile, jobname, parameters=[]):
         """create a new job record in the central database and on this Q
-            instance
+        instance
 
         Args:
             runfile (str): full path to python executable file.
@@ -79,31 +90,50 @@ class MonitoredQ(object):
         """
         job = Job(self.executor.mon_dir, name=jobname, runfile=runfile,
                   job_args=parameters)
-        self.jobs[job.jid] = job
         return job
 
     def queue_job(
-            self, job, *args, **kwargs):
+            self, job, process_timeout=None, *args, **kwargs):
         """queue a job in the executor
 
         Args:
             job (jobmon.job.Job): instance of jobmon job.
+            process_timeout (int, optional): time in seconds to wait for
+                process to finish. default is forever
 
             args and kwargs are passed through to the executors exec_async
             method
         """
-        self.executor.queue_job(job, *args, **kwargs)
+        self.executor.queue_job(job, process_timeout=None, *args, **kwargs)
 
-    def block_till_done(self, poll_interval=60):
-        """continuously run executors refresh_queues method until all queued
-        jobs have finished
+    def run_scheduler(self, *args, **kwargs):
+        """Continuously poll for job status updates and schedule any jobs if
+        there are open resources
+
+        *args and **kwargs are passed to scheduler.run_scheduler()
+        """
+        self.scheduler.run_scheduler(*args, **kwargs)
+
+    def stop_scheduler(self):
+        """stop scheduler if it is being run in a thread"""
+        self.scheduler.stop_scheduler()
+
+    def block_till_done(self, poll_interval=60, stop_scheduler_when_done=True,
+                        *args, **kwargs):
+        """continuously queue until all jobs have finished
 
         Args:
-            poll_interval (int, optional): how frequently to call the heartbeat
-                method which updates the queue.
+            poll_interval (int, optional): how frequently to check whether the
+                executor has finished all jobs.
+            stop_scheduler_when_done (bool, optional): whether to close the
+                scheduler thread when all jobs are finished executing
+
+            *args and **kwargs are passed to scheduler.run_scheduler()
         """
-        sgexec = self.executor
-        sgexec.refresh_queues()
-        while len(sgexec.queued_jobs) > 0 or len(sgexec.running_jobs) > 0:
+        if not self.scheduler_alive():
+            self.run_scheduler(*args, **kwargs)
+        while (len(self.executor.queued_jobs) > 0 or
+               len(self.executor.running_jobs) > 0):
             time.sleep(poll_interval)
-            sgexec.refresh_queues()
+        if stop_scheduler_when_done:
+            self.stop_scheduler()

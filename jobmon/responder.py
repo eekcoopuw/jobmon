@@ -1,14 +1,15 @@
 import sys
-import zmq
 from enum import Enum
 from socket import gethostname
 import os
 import json
 import inspect
-from jobmon.exceptions import ReturnCodes
 from multiprocessing import Process
 from threading import Thread, Event
 
+import zmq
+
+from jobmon.exceptions import ReturnCodes
 from jobmon.setup_logger import setup_logger
 
 

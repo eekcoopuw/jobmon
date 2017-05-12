@@ -90,6 +90,7 @@ class Status(Base):
     RUNNING = 2
     FAILED = 3
     COMPLETE = 4
+    UNREGISTERED_STATE = 5
 
     id = Column(Integer, primary_key=True)
     label = Column(String(150), nullable=False)
@@ -97,7 +98,8 @@ class Status(Base):
 
 def load_default_statuses(session):
     statuses = []
-    for status in ['SUBMITTED', 'RUNNING', 'FAILED', 'COMPLETE']:
+    for status in ['SUBMITTED', 'RUNNING', 'FAILED', 'COMPLETE',
+                   'UNREGISTERED_STATE']:
         statuses.append(Status(id=getattr(Status, status), label=status))
     session.add_all(statuses)
     session.commit()

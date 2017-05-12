@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
 from jobmon import models
+from jobmon.publisher import Publisher, PublisherTopics
 from jobmon.responder import Responder, ServerProcType
 from jobmon.exceptions import ReturnCodes
 
@@ -24,7 +25,8 @@ class CentralJobMonitor(object):
             sqlite database in.
     """
 
-    def __init__(self, out_dir, persistent=True, port=None, conn_str=None):
+    def __init__(self, out_dir, persistent=True, port=None, conn_str=None,
+                 publish_job_state=True):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema
 
@@ -37,6 +39,8 @@ class CentralJobMonitor(object):
                 True can only be specified if run in python 3+
             port (int): Port that the monitor should listen on. If None
                 (default), the system will choose the port
+            publish_job_state (bool, optional): whether to use a zmq publisher
+                to broadcast job status updates
         """
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.conn_str = conn_str
@@ -51,6 +55,14 @@ class CentralJobMonitor(object):
         self.create_job_db(persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
         Responder.logger.info(logmsg)
+
+        if publish_job_state:
+            self.publisher = Publisher(out_dir)
+            self.publisher.start_publisher()
+            Responder.logger.info(
+                "{}: Publisher initialized".format(os.getpid()))
+        else:
+            self.publisher = None
 
         self.responder.register_object_actions(self)
         self.responder.start_server(server_proc_type=self.server_proc_type)
@@ -111,6 +123,9 @@ class CentralJobMonitor(object):
 
     def stop_responder(self):
         return self.responder.stop_server()
+
+    def stop_publisher(self):
+        return self.publisher.stop_publisher()
 
     def jobs_with_status(self, status_id):
         # TODO this query is maybe not right once/if we implement retries
@@ -273,6 +288,13 @@ class CentralJobMonitor(object):
         session.add_all([status, job_instance])
         session.commit()
         session.close()
+
+        if self.publisher:
+            self.publisher.publish_info(
+                PublisherTopics.JOB_STATE.value,
+                {job_instance.jid: {"job_instance_id": job_instance_id,
+                                    "job_instance_status_id": status_id}})
+
         return (ReturnCodes.OK, job_instance_id, status_id)
 
     def _action_update_job_instance_usage(
