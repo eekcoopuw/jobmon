@@ -53,6 +53,6 @@ setup(
         'drmaa',
         'jsonpickle'
     ],
-    packages=['jobmon', 'jobmon.executors'],
+    packages=['jobmon', 'jobmon.executors', 'jobmon.mocks'],
     scripts=["bin/launch_central_monitor.py"],
     entry_points={'console_scripts': []})
