@@ -1,13 +1,13 @@
 import json
 import os
-import pytest
 import subprocess
 
+import pytest
+from jobmon.mocks.mocks import MockJob
 
 from jobmon import qmaster
 from jobmon.executors import sge_exec
 from jobmon.models import Status
-from mock_job import MockJob
 
 
 @pytest.mark.cluster

@@ -1,8 +1,9 @@
 import os
-import pytest
 import signal
 import subprocess as sp
-from tests.mock_job import MockJob
+
+import pytest
+from jobmon.mocks.mocks import MockJob
 
 
 def test_good_job():
