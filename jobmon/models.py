@@ -1,31 +1,29 @@
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import func
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
+
+db = SQLAlchemy()
 
 
-Base = declarative_base()
-
-
-class Batch(Base):
+class Batch(db.Model):
     __tablename__ = 'batch'
 
-    batch_id = Column(Integer, primary_key=True)
-    name = Column(String(150))
-    user = Column(String(150))
-    created_date = Column(DateTime, default=func.now())
+    batch_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150))
+    user = db.Column(db.String(150))
+    created_date = db.Column(db.DateTime, default=func.now())
 
 
-class Job(Base):
+class Job(db.Model):
     __tablename__ = 'job'
 
-    jid = Column(Integer, primary_key=True)
-    batch_id = Column(
-        Integer,
-        ForeignKey('batch.batch_id'))
-    name = Column(String(150))
-    runfile = Column(String(150))
-    args = Column(String(1000))
-    submitted_date = Column(DateTime, default=func.now())
+    jid = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(
+        db.Integer,
+        db.ForeignKey('batch.batch_id'))
+    name = db.Column(db.String(150))
+    runfile = db.Column(db.String(150))
+    args = db.Column(db.String(1000))
+    submitted_date = db.Column(db.DateTime, default=func.now())
 
     def to_wire_format_dict(self):
         """Just the fields that we want to return over the wire and that can be
@@ -37,26 +35,26 @@ class Job(Base):
             }
 
 
-class JobInstance(Base):
+class JobInstance(db.Model):
     __tablename__ = 'job_instance'
 
-    job_instance_id = Column(Integer, primary_key=True)
-    jid = Column(
-        Integer,
-        ForeignKey('job.jid'),
+    job_instance_id = db.Column(db.Integer, primary_key=True)
+    jid = db.Column(
+        db.Integer,
+        db.ForeignKey('job.jid'),
         nullable=False)
-    job_instance_type = Column(String(50))
-    retry_number = Column(Integer)
-    usage_str = Column(String(250))
-    wallclock = Column(String(50))
-    maxvmem = Column(String(50))
-    cpu = Column(String(50))
-    io = Column(String(50))
-    current_status = Column(
-        Integer,
-        ForeignKey('status.id'),
+    job_instance_type = db.Column(db.String(50))
+    retry_number = db.Column(db.Integer)
+    usage_str = db.Column(db.String(250))
+    wallclock = db.Column(db.String(50))
+    maxvmem = db.Column(db.String(50))
+    cpu = db.Column(db.String(50))
+    io = db.Column(db.String(50))
+    current_status = db.Column(
+        db.Integer,
+        db.ForeignKey('status.id'),
         nullable=False)
-    submitted_date = Column(DateTime, default=func.now())
+    submitted_date = db.Column(db.DateTime, default=func.now())
 
     def to_wire_format_dict(self):
 
@@ -68,34 +66,34 @@ class JobInstance(Base):
             }
 
 
-class JobInstanceError(Base):
+class JobInstanceError(db.Model):
     __tablename__ = 'job_instance_error'
 
-    id = Column(Integer, primary_key=True)
-    job_instance_id = Column(
-        Integer,
-        ForeignKey('job_instance.job_instance_id'),
+    id = db.Column(db.Integer, primary_key=True)
+    job_instance_id = db.Column(
+        db.Integer,
+        db.ForeignKey('job_instance.job_instance_id'),
         nullable=False)
-    error_time = Column(DateTime, default=func.now())
-    description = Column(String(1000), nullable=False)
+    error_time = db.Column(db.DateTime, default=func.now())
+    description = db.Column(db.String(1000), nullable=False)
 
 
-class JobInstanceStatus(Base):
+class JobInstanceStatus(db.Model):
     __tablename__ = 'job_instance_status'
 
-    id = Column(Integer, primary_key=True)
-    job_instance_id = Column(
-        Integer,
-        ForeignKey('job_instance.job_instance_id'),
+    id = db.Column(db.Integer, primary_key=True)
+    job_instance_id = db.Column(
+        db.Integer,
+        db.ForeignKey('job_instance.job_instance_id'),
         nullable=False)
-    status = Column(
-        Integer,
-        ForeignKey('status.id'),
+    status = db.Column(
+        db.Integer,
+        db.ForeignKey('status.id'),
         nullable=False)
-    status_time = Column(DateTime, default=func.now())
+    status_time = db.Column(db.DateTime, default=func.now())
 
 
-class Status(Base):
+class Status(db.Model):
     __tablename__ = 'status'
 
     SUBMITTED = 1
@@ -104,14 +102,14 @@ class Status(Base):
     COMPLETE = 4
     UNREGISTERED_STATE = 5
 
-    id = Column(Integer, primary_key=True)
-    label = Column(String(150), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    label = db.Column(db.String(150), nullable=False)
 
 
-def load_default_statuses(session):
+def load_default_statuses():
     statuses = []
     for status in ['SUBMITTED', 'RUNNING', 'FAILED', 'COMPLETE',
                    'UNREGISTERED_STATE']:
         statuses.append(Status(id=getattr(Status, status), label=status))
-    session.add_all(statuses)
-    session.commit()
+    db.session.add_all(statuses)
+    db.session.commit()

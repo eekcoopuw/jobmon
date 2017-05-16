@@ -1,0 +1,26 @@
+version: '2'
+
+services:
+  monitor:
+    image: jobmon
+    ports:
+        - "5000:5000"
+    command: ["./wait-for-db.sh", "db", "python", "bin/launch_central_monitor.py", "/app",
+              "5000", "--conn_str", "mysql://YOUR_JOBMON_USER:YOUR_JOBMON_PASSWORD@internal-db-p02.ihme.washington.edu/jobmon"]
+    links:
+        - db
+
+  db:
+    image: mysql
+    ports:
+        - "3306:3306"
+    environment:
+        MYSQL_ROOT_PASSWORD: docker
+        MYSQL_DATABASE: docker
+        MYSQL_USER: docker
+        MYSQL_PASSWORD: docker
+    volumes:
+        - mysql-jobmon:/var/lib/mysql
+
+volumes:
+    mysql-jobmon: {}

@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import StaticPool
 
 from jobmon import models
+from jobmon.app import app, db
 from jobmon.publisher import Publisher, PublisherTopics
 from jobmon.responder import Responder, ServerProcType
 from jobmon.exceptions import ReturnCodes
@@ -103,12 +104,14 @@ class CentralJobMonitor(object):
                     poolclass=StaticPool)
                 self.server_proc_type = ServerProcType.THREAD
 
-        models.Base.metadata.create_all(eng)  # doesn't create if exists
+        with app.app_context():
+            db.create_all()  # doesn't create if exists
         self.Session.configure(bind=eng, autocommit=False)
         session = self.Session()
 
         try:
-            models.load_default_statuses(session)
+            with app.app_context():
+                models.load_default_statuses()
         except IntegrityError:
             Responder.logger.info(
                 "Status table already loaded. If you intended to use a fresh "
