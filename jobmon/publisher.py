@@ -16,7 +16,7 @@ class PublisherAlreadyRunning(Exception):
 
 
 class PublisherTopics(Enum):
-    JOB_STATE = "1"
+    JOB_STATE = u"1"
 
 
 def mogrify(topic, msg):
