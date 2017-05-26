@@ -6,6 +6,7 @@ from jobmon.publisher import PublisherTopics
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.exceptions import ReturnCodes
+from jobmon.job import Job
 
 
 try:
@@ -49,12 +50,21 @@ def test_batch_registration(central_jobmon_static_port):
     batch = req.send_request({'action': 'batch',
                              'kwargs': {'name': 'test_job_batch',
                                         'user': 'test_user'}})
-    jr1 = req.send_request({'action': 'register_job',
-                            'kwargs': {'name': 'a test job',
-                                       'batch_id': batch[1]}})
-    jr2 = req.send_request({'action': 'register_job',
-                            'kwargs': {'name': 'a test job 2',
-                                       'batch_id': batch[1]}})
+    req.send_request({'action': 'register_job',
+                      'kwargs': {'name': 'a test job',
+                                 'batch_id': batch[1]}})
+    req.send_request({'action': 'register_job',
+                      'kwargs': {'name': 'a test job 2',
+                                 'batch_id': batch[1]}})
+
+    # Test via Job object
+    jb = req.send_request({'action': 'batch',
+                           'kwargs': {'name': 'Job_batch',
+                                      'user': 'test_user'}})
+    job = Job(monitor_host='localhost', monitor_port=3459, batch_id=jb[1])
+    jid = job.register_with_monitor()
+    job_record = central_jobmon_static_port._action_get_job_information(jid)[1]
+    assert job_record['batch_id'] == jb[1]
 
 
 def test_job_registration_update(central_jobmon):

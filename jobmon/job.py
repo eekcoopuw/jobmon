@@ -27,7 +27,7 @@ class Job(object):
 
     def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
                  jid=None, name=None, runfile=None, job_args=None,
-                 request_retries=3, request_timeout=3000):
+                 batch_id=None, request_retries=3, request_timeout=3000):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified.
         """
@@ -40,6 +40,7 @@ class Job(object):
         self.jid = jid
         self.name = name
         self.runfile = runfile
+        self.batch_id = batch_id
 
         if isinstance(job_args, (list, tuple)):
             self.job_args = job_args
@@ -61,6 +62,8 @@ class Job(object):
                'kwargs': {'name': self.name,
                           'runfile': self.runfile,
                           'job_args': job_args}}
+        if self.batch_id:
+            msg['kwargs']['batch_id'] = self.batch_id
 
         r = self.requester.send_request(msg)
 
