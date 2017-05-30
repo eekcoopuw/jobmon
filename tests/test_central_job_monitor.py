@@ -47,7 +47,7 @@ def test_batch_registration(central_jobmon_static_port):
     req = Requester(monitor_host='localhost', monitor_port=3459)
 
     # Test basic connection
-    batch = req.send_request({'action': 'batch',
+    batch = req.send_request({'action': 'register_batch',
                              'kwargs': {'name': 'test_job_batch',
                                         'user': 'test_user'}})
     req.send_request({'action': 'register_job',
@@ -72,13 +72,17 @@ def test_job_registration_update(central_jobmon):
 
     # Test job creation and status updating
     req.send_request({'action': 'register_job'})
-    jr2 = req.send_request({'action': 'register_job',
-                            'kwargs': {'name': 'a test job'}})
-    jr2_id = jr2[1]
-    up_resp = req.send_request({'action': 'update_job_status',
-                                'kwargs': {'jid': jr2_id,
+    jr = req.send_request({'action': 'register_job',
+                           'kwargs': {'name': 'a test job'}})
+
+    jr_id = jr[1]
+    jir = req.send_request({'action': 'register_job_instance',
+                            'kwargs': {'jid': jr_id}})
+    ji_id = jir[1]
+    up_resp = req.send_request({'action': 'update_job_instance_status',
+                                'kwargs': {'job_instance_id': ji_id,
                                            'status_id': Status.FAILED}})
-    assert up_resp == [0, 2, Status.FAILED]
+    assert up_resp == [0, ji_id, Status.FAILED]
 
 
 def test_sge_job_registration(central_jobmon):

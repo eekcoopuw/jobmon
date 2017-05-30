@@ -104,21 +104,29 @@ class CentralJobMonitor(object):
                     poolclass=StaticPool)
                 self.server_proc_type = ServerProcType.THREAD
 
-        with app.app_context():
-            db.create_all()  # doesn't create if exists
         self.Session.configure(bind=eng, autocommit=False)
-        session = self.Session()
+        db.Model.metadata.create_all(bind=eng)  # doesn't create if exists
+        return True
 
-        try:
-            with app.app_context():
-                models.load_default_statuses()
-        except IntegrityError:
-            Responder.logger.info(
-                "Status table already loaded. If you intended to use a fresh "
-                "database, you'll have to delete the "
-                "old database manually {}".format(dbfile))
-            session.rollback()
-        session.close()
+    def load_db_statuses(self):
+        if self.conn_str:
+            try:
+                with app.app_context():
+                    models.load_default_statuses()
+            except:
+                pass
+        else:
+            session = self.Session()
+
+            try:
+                models.load_default_statuses(session)
+            except IntegrityError:
+                Responder.logger.info(
+                    "Status table already loaded. If you intended to use a "
+                    "fresh database, you'll have to delete the "
+                    "old database manually")
+                session.rollback()
+            session.close()
         return True
 
     def responder_proc_is_alive(self):
@@ -215,7 +223,7 @@ class CentralJobMonitor(object):
         session = self.Session()
         session.add(batch)
         session.commit()
-        bid = batch.bid
+        bid = batch.batch_id
         session.close()
         return 0, bid
 
@@ -255,11 +263,10 @@ class CentralJobMonitor(object):
                     format(length, job_instance_id))
 
     def _action_register_job_instance(
-            self, job_instance_id, jid=None, *args, **kwargs):
+            self, jid=None, *args, **kwargs):
         """create job entry in database job table.
 
         Args:
-            job_instance_id (int): unique job id assigned by executor
             jid (int, optional): auto incrementing id assigned by
                 central_job_monitor backend sqlite database. If not specified
                 a new entry will be created.
@@ -276,7 +283,6 @@ class CentralJobMonitor(object):
                 args=kwargs.get("args")
             )[1]
         job_instance = models.JobInstance(
-            job_instance_id=job_instance_id,
             jid=jid,
             current_status=models.Status.SUBMITTED,
             **kwargs)
@@ -297,12 +303,14 @@ class CentralJobMonitor(object):
         # update sge_job statuses
         session = self.Session()
         job_instance = session.query(models.JobInstance).filter_by(
-            job_instance_id=job_instance_id).first()
-        job_instance.current_status = status_id
+            job_instance_id=job_instance_id).update(
+                {'current_status': status_id})
         status = models.JobInstanceStatus(job_instance_id=job_instance_id,
                                           status=status_id)
-        session.add_all([status, job_instance])
+        session.add(status)
         session.commit()
+        job_instance = session.query(models.JobInstance).filter_by(
+            job_instance_id=job_instance_id).first()
         session.close()
 
         if self.publisher:

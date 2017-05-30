@@ -17,6 +17,9 @@ class BaseExecutor(object):
         # track job state
         self.jobs = {}
 
+        if subscribe_to_job_state and not mon_dir:
+            raise ValueError("mon_dir is required if "
+                             "subscribe_to_job_state=True")
         # environment for distributed applications
         self.mon_dir = mon_dir
         self.monitor_host = monitor_host
@@ -113,37 +116,37 @@ class BaseExecutor(object):
                 method to clean up any jobs that died unexpectedly and
                 didn't emit a status update to the central job monitor
         """
-        self._poll_status()
-        if flush_lost_jobs:
-            self.logger.debug("consolidating any lost jobs")
-            self.flush_lost_jobs()
+        if self.subscriber:
+            if flush_lost_jobs:
+                self.logger.debug("consolidating any lost jobs")
+                self.flush_lost_jobs()
 
-        current_queue_length = len(self.queued_jobs)
-        running_queue_length = len(self.running_jobs)
+            current_queue_length = len(self.queued_jobs)
+            running_queue_length = len(self.running_jobs)
 
-        # figure out how many jobs we can submit
-        if not self.parallelism:
-            open_slots = current_queue_length
-        else:
-            open_slots = self.parallelism - running_queue_length
+            # figure out how many jobs we can submit
+            if not self.parallelism:
+                open_slots = current_queue_length
+            else:
+                open_slots = self.parallelism - running_queue_length
 
-        # submit the amount of jobs that our parallelism allows for
-        for _ in range(min((open_slots, current_queue_length))):
+            # submit the amount of jobs that our parallelism allows for
+            for _ in range(min((open_slots, current_queue_length))):
 
-            self.logger.debug(
-                "{} running job instances".format(running_queue_length))
-            self.logger.debug("{} in queue".format(current_queue_length))
+                self.logger.debug(
+                    "{} running job instances".format(running_queue_length))
+                self.logger.debug("{} in queue".format(current_queue_length))
 
-            if self.queued_jobs:
-                job_def = self.jobs[self.queued_jobs[0]]
-                job = job_def["job"]
-                job_instance_id = self.execute_async(
-                    job,
-                    process_timeout=job_def["process_timeout"],
-                    *job_def["args"],
-                    **job_def["kwargs"])
+                if self.queued_jobs:
+                    job_def = self.jobs[self.queued_jobs[0]]
+                    job = job_def["job"]
+                    job_instance_id = self.execute_async(
+                        job,
+                        process_timeout=job_def["process_timeout"],
+                        *job_def["args"],
+                        **job_def["kwargs"])
 
-                # add reference to job class and the executor
-                job.job_instance_ids.append(job_instance_id)
-                self.jobs[job.jid]["job"] = job
-                self.jobs[job.jid]["status_id"] = Status.SUBMITTED
+                    # add reference to job class and the executor
+                    job.job_instance_ids.append(job_instance_id)
+                    self.jobs[job.jid]["job"] = job
+                    self.jobs[job.jid]["status_id"] = Status.SUBMITTED

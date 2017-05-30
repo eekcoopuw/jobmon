@@ -28,11 +28,7 @@ class Job(db.Model):
     def to_wire_format_dict(self):
         """Just the fields that we want to return over the wire and that can be
         serialized to JSON"""
-        return \
-            {
-                "jid": self.jid,
-                "name": self.name
-            }
+        return self.__dict__
 
 
 class JobInstance(db.Model):
