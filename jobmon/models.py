@@ -38,7 +38,8 @@ class JobInstance(db.Model):
     jid = db.Column(
         db.Integer,
         db.ForeignKey('job.jid'),
-        nullable=False)
+        nullable=False,
+        primary_key=True)
     job_instance_type = db.Column(db.String(50))
     retry_number = db.Column(db.Integer)
     usage_str = db.Column(db.String(250))

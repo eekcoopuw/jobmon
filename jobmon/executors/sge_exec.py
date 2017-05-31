@@ -40,7 +40,8 @@ class SGEJobInstance(job._AbstractJobInstance):
     """
 
     def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
-                 jid=None, request_retries=3, request_timeout=3000):
+                 jid=None, request_retries=3, request_timeout=3000,
+                 batch_id=None):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified."""
 
@@ -65,7 +66,8 @@ class SGEJobInstance(job._AbstractJobInstance):
                         monitor_port=monitor_port, jid=jid, name=self.name,
                         runfile=self.runfile, job_args=self.job_args,
                         request_retries=request_retries,
-                        request_timeout=request_timeout)
+                        request_timeout=request_timeout,
+                        batch_id=batch_id)
             self.jid = j.jid
         else:
             self.jid = jid
