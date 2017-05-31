@@ -2,7 +2,7 @@ import os
 import pytest
 
 from jobmon import qmaster
-from mock_job import MockJob
+from jobmon.mocks.mocks import MockJob
 
 
 try:

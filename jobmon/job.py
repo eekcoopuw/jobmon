@@ -21,8 +21,8 @@ class Job(object):
             will default to None.
         request_retries (int, optional): How many times to attempt to contact
             the central job monitor. Default=3
-        request_timeout (int, optional): How long to wait for a response from
-            the central job monitor. Default=3 seconds
+        request_timeout (int, optional): How many milliseconds to wait for a
+            response from the central job monitor. Default=10 seconds
     """
 
     def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
