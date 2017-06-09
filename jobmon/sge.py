@@ -376,7 +376,8 @@ def qsub(
         stderr=None,
         prepend_to_path=None,
         conda_env=None,
-        environment_variables={}):
+        environment_variables={},
+        intel_only=True):
     """Submits job to Grid Engine Queue.
     This function provides a convenient way to call scripts for
     R, Python, and Stata using the job_type parameter.
@@ -501,6 +502,7 @@ def qsub(
         "-w n",  # Needed for mem_free to work. Turns off validation.
         "-pe multi_slot {}".format(str(slots)),
         "-l mem_free={!s}G".format(memory) if memory else None,
+        "-l hosttype=intel" if intel_only else None,
         "-hold_jid {}".format(holds) if holds else None,
         # Because DRMAA defaults to -shell n, as opposed to qsub default.
         # And because it defaults to -b y.
