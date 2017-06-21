@@ -3,6 +3,9 @@ from __future__ import print_function
 import sys
 import time
 import multiprocessing
+import traceback
+import signal
+import os
 
 from jobmon.requester import Requester
 from jobmon.models import Status
@@ -12,8 +15,10 @@ from jobmon import job
 
 if sys.version_info > (3, 0):
     import subprocess
+    from subprocess import TimeoutExpired
 else:
     import subprocess32 as subprocess
+    from subprocess32 import TimeoutExpired
 
 
 # for sge logging of standard error
@@ -165,26 +170,37 @@ class LocalConsumer(multiprocessing.Process):
                     request_retries=self.request_retries)
                 job_instance.log_started()
                 self.task_response_queue.put(job_instance.job_instance_id)
-            except ValueError as err:
-                # according to POPEN docs a ValueError is raised if popen is
-                # called with inproper arguments in which case LocalJobInstance
-                # was never initialized
-                proc.kill()
-                eprint(err)
-            else:
+
+                # communicate till done
                 stdout, stderr = proc.communicate(
                     timeout=job_def.process_timeout)
-                print(stdout)
-                eprint(stderr)
+                returncode = proc.returncode
 
-                # check return code
-                if proc.returncode != ReturnCodes.OK:
-                    job_instance.log_job_stats()
-                    job_instance.log_error(str(stderr))
-                    job_instance.log_failed()
-                else:
-                    job_instance.log_job_stats()
-                    job_instance.log_completed()
+            except TimeoutExpired:
+                # kill process group
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                stdout, stderr = proc.communicate()
+                stderr = stderr + " Process timed out after: {}".format(
+                    job_def.process_timeout)
+                returncode = proc.returncode
+
+            except Exception as exc:
+                stdout = ""
+                stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
+                                             traceback.format_exc())
+                returncode = None
+
+            print(stdout)
+            eprint(stderr)
+
+            # check return code
+            if returncode != ReturnCodes.OK:
+                job_instance.log_job_stats()
+                job_instance.log_error(str(stderr))
+                job_instance.log_failed()
+            else:
+                job_instance.log_job_stats()
+                job_instance.log_completed()
 
             self.result_queue.put(job_instance.job_instance_id)
             self.task_queue.task_done()
