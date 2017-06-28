@@ -77,7 +77,8 @@ def test_job_registration_update(central_jobmon):
 
     jr_id = jr[1]
     jir = req.send_request({'action': 'register_job_instance',
-                            'kwargs': {'jid': jr_id}})
+                            'kwargs': {'job_instance_id': 1234,
+                                       'jid': jr_id}})
     ji_id = jir[1]
     up_resp = req.send_request({'action': 'update_job_instance_status',
                                 'kwargs': {'job_instance_id': ji_id,

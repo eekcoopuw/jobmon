@@ -263,10 +263,11 @@ class CentralJobMonitor(object):
                     format(length, job_instance_id))
 
     def _action_register_job_instance(
-            self, jid=None, *args, **kwargs):
+            self, job_instance_id, jid=None, *args, **kwargs):
         """create job entry in database job table.
 
         Args:
+            job_instance_id (int): unique job id assigned by executor
             jid (int, optional): auto incrementing id assigned by
                 central_job_monitor backend sqlite database. If not specified
                 a new entry will be created.
@@ -283,6 +284,7 @@ class CentralJobMonitor(object):
                 args=kwargs.get("args")
             )[1]
         job_instance = models.JobInstance(
+            job_instance_id=job_instance_id,
             jid=jid,
             current_status=models.Status.SUBMITTED,
             **kwargs)

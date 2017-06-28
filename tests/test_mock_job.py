@@ -3,6 +3,7 @@ import signal
 import subprocess as sp
 
 import pytest
+from jobmon.mocks import mock_job
 from jobmon.mocks.mock_job import MockJob
 
 
@@ -21,8 +22,8 @@ def test_bad_job():
 # Test this in a subprocess because and check that it deliberately kills
 # python!
 def test_dead_job():
-    dir = os.path.dirname(os.path.realpath(__file__))
+    runfile = os.path.realpath(mock_job.__file__)
     return_code = sp.call(
-        ["python", dir + "/mock_job.py", "dead dog", "2", MockJob.DIE_COMMAND])
+        ["python", runfile, "dead dog", "2", MockJob.DIE_COMMAND])
 
     assert (return_code == -1 * signal.SIGKILL)
