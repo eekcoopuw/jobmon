@@ -376,7 +376,8 @@ def qsub(
         stderr=None,
         prepend_to_path=None,
         conda_env=None,
-        environment_variables={}):
+        environment_variables={},
+        intel_only=True):
     """Submits job to Grid Engine Queue.
     This function provides a convenient way to call scripts for
     R, Python, and Stata using the job_type parameter.
@@ -445,11 +446,17 @@ def qsub(
     Returns:
         job_id of submitted job
     """
-    assert slots > 0
-    assert not (holds and hold_pattern)
-    assert len(str(jobname)) > 0
-    assert not isinstance(parameters, str), (
-        "'parameters' cannot be a string. Must be a list or a tuple.")
+    if slots <= 0:
+        raise ValueError("Requested number of slots must be greater than zero not {}".format(slots))
+
+    if holds and hold_pattern:
+        raise ValueError("Cannot have both 'holds' and 'hold_pattern' set")
+
+    if len(str(jobname)) == 0:
+        raise ValueError("Must supply jobname, was empty or null")
+
+    if isinstance(parameters, str):
+        raise ValueError("'parameters' cannot be a string, must be a list or a tuple. Value passed='{}'".format(parameters))
 
     # Known suffix, has job_type, shfile
     # N             N             N      Run runfile.
@@ -470,7 +477,6 @@ def qsub(
             ".R": "R"}
         jobtype = job_types.get(_suffix(runfile), "plain")
         logger.debug("qsub chose jobtype {}".format(jobtype))
-    assert not (conda_env and not jobtype == "python")
 
     # Set holds, if requested
     if hold_pattern is not None:
@@ -496,6 +502,7 @@ def qsub(
         "-w n",  # Needed for mem_free to work. Turns off validation.
         "-pe multi_slot {}".format(str(slots)),
         "-l mem_free={!s}G".format(memory) if memory else None,
+        "-l hosttype=intel" if intel_only else None,
         "-hold_jid {}".format(holds) if holds else None,
         # Because DRMAA defaults to -shell n, as opposed to qsub default.
         # And because it defaults to -b y.

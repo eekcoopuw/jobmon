@@ -28,6 +28,10 @@ class LocalJobInstance(job._AbstractJobInstance):
     Args
         mon_dir (string): file path where the server configuration is
             stored.
+        monitor_host (string): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port directly
+        monitor_port (int): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port directly
         job_instance_id (int): unique id used to identify this job instance.
             Generally we use the process id.
         jid (int): job id that this job instance belongs to
@@ -37,18 +41,25 @@ class LocalJobInstance(job._AbstractJobInstance):
             the central job monitor. Default=3 seconds
     """
 
-    def __init__(self, mon_dir, job_instance_id, jid, request_retries=3,
+    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
+                 job_instance_id=None, jid=None, request_retries=3,
                  request_timeout=3000):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified."""
 
-        self.requester = Requester(mon_dir, request_retries, request_timeout)
+        self.requester = Requester(out_dir=mon_dir, monitor_host=monitor_host,
+                                   monitor_port=monitor_port,
+                                   request_retries=request_retries,
+                                   request_timeout=request_timeout)
 
         # get sge_id and name from envirnoment
-        self.job_instance_id = job_instance_id
         self.jid = jid
 
-        self.register_with_monitor()
+        if job_instance_id:
+            self.job_instance_id = job_instance_id
+        else:
+            self.job_instance_id = None
+            self.job_instance_id = self.register_with_monitor()
 
     def log_job_stats(self):
         try:
@@ -102,7 +113,7 @@ class LocalJobInstance(job._AbstractJobInstance):
 class LocalConsumer(multiprocessing.Process):
 
     def __init__(self, task_queue, task_response_queue, result_queue, mon_dir,
-                 request_timeout, request_retries):
+                 monitor_host, monitor_port, request_timeout, request_retries):
         """Consume work sent from LocalExecutor through multiprocessing queue.
 
         this class is structured based on
@@ -118,6 +129,10 @@ class LocalConsumer(multiprocessing.Process):
             result_queue (multiprocessing.Queue): a Queue used to send updates
                 on completed work to LocalExecutor class.
             mon_dir (str): filepath to instance of CentralJobMonitor
+            monitor_host (string): in lieu of a filepath to the monitor info,
+                you can specify the hostname and port directly
+            monitor_port (int): in lieu of a filepath to the monitor info,
+                you can specify the hostname and port directly
             request_timeout (int): how long will the requester wait at the
                 socket for a response from CentralJobMonitor
             request_retries (int): how many times will the requester attempt to
@@ -136,6 +151,8 @@ class LocalConsumer(multiprocessing.Process):
 
         # resquester args
         self.mon_dir = mon_dir
+        self.monitor_host = monitor_host
+        self.monitor_port = monitor_port
         self.request_timeout = request_timeout
         self.request_retries = request_retries
 
@@ -159,6 +176,8 @@ class LocalConsumer(multiprocessing.Process):
                 # start monitoring with subprocesses pid
                 job_instance = LocalJobInstance(
                     mon_dir=self.mon_dir,
+                    monitor_host=self.monitor_host,
+                    monitor_port=self.monitor_port,
                     job_instance_id=proc.pid,
                     jid=job_def.jid,
                     request_timeout=self.request_timeout,
@@ -234,12 +253,14 @@ class LocalExecutor(base.BaseExecutor):
             process to respond with the pid of the subprocess before giving up
     """
 
-    def __init__(self, mon_dir, request_retries=3, request_timeout=3000,
-                 parallelism=10, subscribe_to_job_state=True,
-                 task_response_timeout=3):
+    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
+                 request_retries=3, request_timeout=3000, parallelism=None,
+                 task_response_timeout=3, subscribe_to_job_state=True):
         super(LocalExecutor, self).__init__(
-            mon_dir, request_retries, request_timeout, parallelism,
-            subscribe_to_job_state)
+            mon_dir=mon_dir, monitor_host=monitor_host,
+            monitor_port=monitor_port, request_retries=request_retries,
+            request_timeout=request_timeout, parallelism=parallelism,
+            subscribe_to_job_state=subscribe_to_job_state)
 
         self.task_response_timeout = task_response_timeout
 
@@ -255,6 +276,8 @@ class LocalExecutor(base.BaseExecutor):
                 task_response_queue=self.task_response_queue,
                 result_queue=self.result_queue,
                 mon_dir=self.mon_dir,
+                monitor_host=self.monitor_host,
+                monitor_port=self.monitor_port,
                 request_timeout=self.request_timeout,
                 request_retries=self.request_retries)
             for i in range(self.parallelism)

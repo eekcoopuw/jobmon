@@ -6,6 +6,7 @@ from jobmon.publisher import PublisherTopics
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.exceptions import ReturnCodes
+from jobmon.job import Job
 
 
 try:
@@ -22,7 +23,70 @@ def test_req_jobmon_pair(central_jobmon):
     assert resp[0] == 0
 
 
-def test_job_registration(central_jobmon):
+def test_invalid_req_args():
+    with pytest.raises(ValueError):
+        Requester(out_dir='some_dir', monitor_host='localhost',
+                  monitor_port=3459)
+    with pytest.raises(ValueError):
+        Requester(out_dir=None, monitor_host=None, monitor_port=None)
+    with pytest.raises(ValueError):
+        Requester(monitor_host='localhost')
+    with pytest.raises(ValueError):
+        Requester(monitor_port=1234)
+
+
+def test_static_port_req_mon_pair(central_jobmon_static_port):
+    req = Requester(monitor_host='localhost', monitor_port=3459)
+
+    # Test basic connection
+    resp = req.send_request({'action': 'alive'})
+    assert resp[0] == 0
+
+
+def test_batch_registration(central_jobmon_static_port):
+    req = Requester(monitor_host='localhost', monitor_port=3459)
+
+    # Test basic connection
+    batch = req.send_request({'action': 'register_batch',
+                             'kwargs': {'name': 'test_job_batch',
+                                        'user': 'test_user'}})
+    req.send_request({'action': 'register_job',
+                      'kwargs': {'name': 'a test job',
+                                 'batch_id': batch[1]}})
+    req.send_request({'action': 'register_job',
+                      'kwargs': {'name': 'a test job 2',
+                                 'batch_id': batch[1]}})
+
+    # Test via Job object
+    jb = req.send_request({'action': 'batch',
+                           'kwargs': {'name': 'Job_batch',
+                                      'user': 'test_user'}})
+    job = Job(monitor_host='localhost', monitor_port=3459, batch_id=jb[1])
+    jid = job.register_with_monitor()
+    job_record = central_jobmon_static_port._action_get_job_information(jid)[1]
+    assert job_record['batch_id'] == jb[1]
+
+
+def test_job_registration_update(central_jobmon):
+    req = Requester(central_jobmon.out_dir)
+
+    # Test job creation and status updating
+    req.send_request({'action': 'register_job'})
+    jr = req.send_request({'action': 'register_job',
+                           'kwargs': {'name': 'a test job'}})
+
+    jr_id = jr[1]
+    jir = req.send_request({'action': 'register_job_instance',
+                            'kwargs': {'job_instance_id': 1234,
+                                       'jid': jr_id}})
+    ji_id = jir[1]
+    up_resp = req.send_request({'action': 'update_job_instance_status',
+                                'kwargs': {'job_instance_id': ji_id,
+                                           'status_id': Status.FAILED}})
+    assert up_resp == [0, ji_id, Status.FAILED]
+
+
+def test_sge_job_registration(central_jobmon):
     req = Requester(central_jobmon.out_dir)
 
     # Test job creation and status updating

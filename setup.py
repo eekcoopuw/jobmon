@@ -38,10 +38,13 @@ install_requires = [
     'sqlalchemy',
     'numpy',
     'pymysql',
+    'mysqlclient',
     'pyyaml',
     'pyzmq',
     'drmaa',
-    'jsonpickle']
+    'jsonpickle',
+    'flask_sqlalchemy',
+]
 
 if sys.version_info < (3, 0):
     install_requires.append("subprocess32")
@@ -57,6 +60,6 @@ setup(
     author_email='tomflem@uw.edu, mlsandar@uw.edu',
     include_package_data=True,
     install_requires=install_requires,
-    packages=['jobmon', 'jobmon.executors'],
+    packages=['jobmon', 'jobmon.executors', 'jobmon.mocks'],
     scripts=["bin/launch_central_monitor.py"],
     entry_points={'console_scripts': []})

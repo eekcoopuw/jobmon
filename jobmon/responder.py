@@ -71,7 +71,7 @@ class Responder(object):
     logger = None
     _keep_alive = True
 
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, port=None):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read
 
@@ -79,6 +79,8 @@ class Responder(object):
             out_dir (str): The directory where the connection settings are
                 to be stored so Requesters know which endpoint to communicate
                 with
+            port (int): Port that the reponder should listen on. If None
+                (default), the system will choose the port
         """
         if not Responder.logger:
             Responder.logger = setup_logger('central_monitor',
@@ -89,7 +91,7 @@ class Responder(object):
             os.makedirs(self.out_dir)
         except OSError:  # It throws if the directory already exists!
             pass
-        self.port = None
+        self.port = port
         self.socket = None
         self.server_pid = None
         self.server_proc_type = None
@@ -135,7 +137,10 @@ class Responder(object):
     def _open_socket(self):
         context = zmq.Context()
         self.socket = context.socket(zmq.REP)  # server blocks on receive
-        self.port = self.socket.bind_to_random_port('tcp://*')
+        if self.port is None:
+            self.port = self.socket.bind_to_random_port('tcp://*')
+        else:
+            self.socket.bind('tcp://*:{}'.format(self.port))
         self.write_connection_info(self.node_name, self.port)  # dump config
 
     def start_server(self, server_proc_type=ServerProcType.SUBPROCESS):

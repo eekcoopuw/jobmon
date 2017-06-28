@@ -96,4 +96,4 @@ class Publisher(object):
         self._close_socket()
 
     def publish_info(self, topic, msg_data):
-        self.socket.send(mogrify(topic, msg_data))
+        self.socket.send_string(mogrify(topic, msg_data))
