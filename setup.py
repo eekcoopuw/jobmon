@@ -42,7 +42,9 @@ install_requires = [
     'pyyaml',
     'pyzmq',
     'drmaa',
-    'jsonpickle']
+    'jsonpickle',
+    'flask_sqlalchemy',
+]
 
 if sys.version_info < (3, 0):
     install_requires.append("subprocess32")

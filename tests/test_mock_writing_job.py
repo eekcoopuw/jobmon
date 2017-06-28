@@ -3,8 +3,8 @@ import signal
 import subprocess as sp
 
 import pytest
-from jobmon.mocks.mocks import MockJob
-from tests.mock_writing_job import MockWritingJob
+from jobmon.mocks.mock_job import MockJob
+from jobmon.mocks.mock_writing_job import MockWritingJob
 
 
 def test_good_job(tmp_out_dir):
