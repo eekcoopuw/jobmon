@@ -44,6 +44,8 @@ install_requires = [
     'drmaa',
     'jsonpickle',
     'flask_sqlalchemy',
+    'flask_migrate',
+    'flask_restplus',
 ]
 
 if sys.version_info < (3, 0):
