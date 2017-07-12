@@ -159,7 +159,8 @@ class LocalConsumer(multiprocessing.Process):
                     ["python"] + [job_def.runfile] +
                     [str(arg) for arg in job_def.job_args],
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE)
+                    stderr=subprocess.PIPE,
+                    preexec_fn=os.setsid)
 
                 # start monitoring with subprocesses pid
                 job_instance = LocalJobInstance(
