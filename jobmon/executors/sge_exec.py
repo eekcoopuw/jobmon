@@ -3,6 +3,9 @@ from __future__ import print_function
 import sys
 import os
 import json
+import traceback
+import signal
+
 import jsonpickle
 
 from jobmon import sge, job
@@ -13,10 +16,10 @@ from jobmon.exceptions import ReturnCodes
 
 if sys.version_info > (3, 0):
     import subprocess
-    from subprocess import CalledProcessError
+    from subprocess import CalledProcessError, TimeoutExpired
 else:
     import subprocess32 as subprocess
-    from subprocess32 import CalledProcessError
+    from subprocess32 import CalledProcessError, TimeoutExpired
 
 
 class SGEJobInstance(job._AbstractJobInstance):
@@ -289,29 +292,39 @@ if __name__ == "__main__":
                 "all command line arguments must be strings. {} is {}"
                 .format(arg, type(arg)))
     try:
-        # open subprocess
+        # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(
             ["python"] + [str(arg) for arg in sys.argv],
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE)
+            stderr=subprocess.PIPE,
+            preexec_fn=os.setsid)
 
-    except ValueError as err:
-        # according to POPEN docs a ValueError is raised if popen is
-        # called with inproper arguments in which case LocalJobInstance
-        # was never initialized
-        proc.kill()
-        eprint(err)
-    else:
-            # communicate till done
+        # communicate till done
         stdout, stderr = proc.communicate(timeout=args["process_timeout"])
-        print(stdout)
-        eprint(stderr)
+        returncode = proc.returncode
 
-        # check return code
-        if proc.returncode != ReturnCodes.OK:
-            job_instance.log_job_stats()
-            job_instance.log_error(str(stderr))
-            job_instance.log_failed()
-        else:
-            job_instance.log_job_stats()
-            job_instance.log_completed()
+    except TimeoutExpired:
+        # kill process group
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        stdout, stderr = proc.communicate()
+        stderr = stderr + " Process timed out after: {}".format(
+            args["process_timeout"])
+        returncode = proc.returncode
+
+    except Exception as exc:
+        stdout = ""
+        stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
+                                     traceback.format_exc())
+        returncode = None
+
+    print(stdout)
+    eprint(stderr)
+
+    # check return code
+    if returncode != ReturnCodes.OK:
+        job_instance.log_job_stats()
+        job_instance.log_error(str(stderr))
+        job_instance.log_failed()
+    else:
+        job_instance.log_job_stats()
+        job_instance.log_completed()

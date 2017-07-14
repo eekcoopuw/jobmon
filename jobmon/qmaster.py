@@ -104,7 +104,8 @@ class JobQueue(object):
             args and kwargs are passed through to the executors exec_async
             method
         """
-        self.executor.queue_job(job, process_timeout=None, *args, **kwargs)
+        self.executor.queue_job(job, process_timeout=process_timeout, *args,
+                                **kwargs)
 
     def run_scheduler(self, *args, **kwargs):
         """Continuously poll for job status updates and schedule any jobs if

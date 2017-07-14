@@ -21,7 +21,7 @@ class PublisherTopics(Enum):
 
 def mogrify(topic, msg):
     """json encode the message and prepend the topic"""
-    return topic + ' ' + json.dumps(msg)
+    return str(topic) + ' ' + json.dumps(msg)
 
 
 class Publisher(object):
