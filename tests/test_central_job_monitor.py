@@ -203,3 +203,17 @@ def test_pub(central_jobmon_cluster):
 
     update = s.recieve_update()
     assert update is not None, (update)
+
+
+def test_pub_static(central_jobmon_static_port):
+
+    s = Subscriber(publisher_host='localhost', publisher_port=5678)
+    s.connect(topicfilter=PublisherTopics.JOB_STATE.value)
+
+    os.environ["JOB_ID"] = "1"
+    os.environ["JOB_NAME"] = "job1"
+    j1 = SGEJobInstance(monitor_host='localhost', monitor_port=3459)
+    j1.log_completed()
+
+    update = s.recieve_update()
+    assert update is not None, (update)

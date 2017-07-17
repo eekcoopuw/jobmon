@@ -28,7 +28,7 @@ class Publisher(object):
     """Publisher is a zmq socket opened up by the central job monitor which is
     used to push updates about job state to an connected subscriber"""
 
-    def __init__(self, out_dir):
+    def __init__(self, out_dir, port=None):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read
 
@@ -36,6 +36,8 @@ class Publisher(object):
             out_dir (str): The directory where the connection settings are
                 to be stored so Requesters know which endpoint to communicate
                 with
+            port (int): Port that the Publisher should publish to. If None
+                (default), the system will choose the port
         """
         self.logger = logging.getLogger(__name__)
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
@@ -44,7 +46,7 @@ class Publisher(object):
             os.makedirs(self.out_dir)
         except OSError:  # It throws if the directory already exists!
             pass
-        self.port = None
+        self.port = port
         self.socket = None
 
     @property
@@ -71,7 +73,10 @@ class Publisher(object):
     def _open_socket(self):
         context = zmq.Context()
         self.socket = context.socket(zmq.PUB)  # server blocks on receive
-        self.port = self.socket.bind_to_random_port('tcp://*')
+        if self.port:
+            self.socket.bind('tcp://*:{}'.format(self.port))
+        else:
+            self.port = self.socket.bind_to_random_port('tcp://*')
         self.write_connection_info(self.node_name, self.port)  # dump config
 
     def _close_socket(self):

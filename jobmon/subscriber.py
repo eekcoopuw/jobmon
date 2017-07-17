@@ -18,21 +18,33 @@ class Subscriber(object):
     Args
         out_dir (string): file path where the server configuration is
             stored.
+        publisher_host (string): in lieu of a filepath to the publisher info,
+            you can specify the hostname and port directly
+        publisher_port (int): in lieu of a filepath to the publisher info,
+            you can specify the hostname and port directly
     """
 
-    def __init__(self, out_dir):
+    def __init__(self, out_dir=None, publisher_host=None, publisher_port=None):
 
-        self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
-        self.out_dir = os.path.realpath(self.out_dir)
+        if not (bool(out_dir) ^ bool(publisher_host and publisher_port)):
+            raise ValueError("Either out_dir or the combination "
+                             "publisher_host+publisher_port must be "
+                             "specified. Cannot specify both out_dir and "
+                             "a host+port pair.")
         self.logger = logging.getLogger(__name__)
         self.socket = None
+        if out_dir:
+            self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
+            self.out_dir = os.path.realpath(self.out_dir)
+            with open("{}/publisher_info.json".format(self.out_dir)) as f:
+                self.mi = json.load(f)
+        else:
+            self.mi = {'host': publisher_host, 'port': publisher_port}
 
     def connect(self, topicfilter=None, timeout=1000):
         """Connect to server. Reads config file from out_dir specified during
         class instantiation to get socket. Not an API method,
         needs to be underscored. This will ALWAYS connect."""
-        with open("{}/publisher_info.json".format(self.out_dir)) as f:
-            mi = json.load(f)
         context = zmq.Context()
         self.socket = context.socket(zmq.SUB)
         self.socket.setsockopt(zmq.RCVTIMEO, timeout)
@@ -42,7 +54,7 @@ class Subscriber(object):
 
         # use host and port from network filesystem cofig. option "out_dir"
         self.socket.connect(
-            "tcp://{sh}:{sp}".format(sh=mi['host'], sp=mi['port']))
+            "tcp://{sh}:{sp}".format(sh=self.mi['host'], sp=self.mi['port']))
 
     def disconnect(self):
         """disconnect from socket and unregister with poller. Is this an API
