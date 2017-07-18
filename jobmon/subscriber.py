@@ -45,7 +45,7 @@ class Subscriber(object):
         """Connect to server. Reads config file from out_dir specified during
         class instantiation to get socket. Not an API method,
         needs to be underscored. This will ALWAYS connect."""
-        context = zmq.Context()
+        context = zmq.Context().instance()
         self.socket = context.socket(zmq.SUB)
         self.socket.setsockopt(zmq.RCVTIMEO, timeout)
         if topicfilter:
@@ -67,7 +67,8 @@ class Subscriber(object):
 
     def recieve_update(self):
         try:
-            topic, result = demogrify(self.socket.recv())
+            topic, result = demogrify(self.socket.recv().decode("utf-8"))
             return result
-        except zmq.Again:
+        except zmq.Again as e:
+            logging.error("Error receiving update {}".format(logging.error(e)))
             return None

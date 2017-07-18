@@ -13,7 +13,6 @@ def tmp_out_dir(tmpdir_factory):
 
 @pytest.fixture(scope='function')
 def central_jobmon_cluster(tmpdir_factory):
-    tmpdir_factory._basetemp = "/ihme/scratch/tmp/tests/jobmon"
     monpath = tmpdir_factory.mktemp("jmdir")
 
     if sys.version_info > (3, 0):
@@ -46,10 +45,11 @@ def central_jobmon(tmpdir_factory):
     assert not jm.responder_proc_is_alive()
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def central_jobmon_static_port(tmpdir_factory):
     monpath = tmpdir_factory.mktemp("jmdir")
-    jm = CentralJobMonitor(str(monpath), port=3459)
+    jm = CentralJobMonitor(str(monpath), port=3459, publisher_port=5678,
+                           publish_job_state=True)
     sleep(1)
     yield jm
     print("teardown fixture in {}".format(monpath))

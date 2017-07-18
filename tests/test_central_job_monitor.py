@@ -1,5 +1,6 @@
 import os
 import pytest
+from multiprocessing import Process
 
 from jobmon.subscriber import Subscriber
 from jobmon.publisher import PublisherTopics
@@ -7,7 +8,6 @@ from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.exceptions import ReturnCodes
 from jobmon.job import Job
-
 
 try:
     from jobmon.executors.sge_exec import SGEJobInstance
@@ -215,5 +215,10 @@ def test_pub_static(central_jobmon_static_port):
     j1 = SGEJobInstance(monitor_host='localhost', monitor_port=3459)
     j1.log_completed()
 
+    # This is a hack... for some reason having a requester and subscriber
+    # in the same process causes the subscriber to not receive messages...
+    # Maybe related to the zmq.Context. See this post:
+    # https://stackoverflow.com/questions/31396074/pyzmq-subscriber-doesnt-receive-messages-when-working-with-request-socket
+    central_jobmon_static_port._action_update_job_instance_status(1, 3)
     update = s.recieve_update()
-    assert update is not None, (update)
+    assert update is not None
