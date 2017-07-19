@@ -98,7 +98,7 @@ class BaseExecutor(object):
     def _poll_status(self):
         """poll for status updates that have been published by the central
            job monitor"""
-        update = self.subscriber.recieve_update()
+        update = self.subscriber.receive_update()
         while update is not None:
             jid, job_meta = update.items()[0]
             job_status = int(job_meta["job_instance_status_id"])
@@ -106,7 +106,7 @@ class BaseExecutor(object):
                 self.jobs[int(jid)]["status_id"] = job_status
             except KeyError:
                 pass
-            update = self.subscriber.recieve_update()
+            update = self.subscriber.receive_update()
 
     def refresh_queues(self, flush_lost_jobs=True):
         """update the queues to reflect the current state each job

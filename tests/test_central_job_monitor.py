@@ -201,5 +201,5 @@ def test_pub(central_jobmon_cluster):
     j1 = SGEJobInstance(central_jobmon_cluster.out_dir)
     j1.log_completed()
 
-    update = s.recieve_update()
+    update = s.receive_update()
     assert update is not None, (update)

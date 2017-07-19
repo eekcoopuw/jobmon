@@ -15,27 +15,20 @@ class Requester(object):
 
     Args
         out_dir (string): file path where the server configuration is
-            stored.
-        monitor_host (string): in lieu of a filepath to the monitor info,
-            you can specify the hostname and port directly
-        monitor_port (int): in lieu of a filepath to the monitor info,
-            you can specify the hostname and port directly
-        request_retries (int, optional): How many times to attempt to contact
-            the central job monitor. Default=3
-        request_timeout (int, optional): How many millisceonds to wait for a response from
-            the central job monitor. Default=10 seconds
+            stored, of jobmon  is runnign locally
+        monitor_connection (CentralMonitorConnection): host and port info for a remote jobmon instance
+
+        The two arguments are mutually exclusive.
     """
 
-    def __init__(self, out_dir=None, monitor_host=None, monitor_port=None,
-                 request_retries=3, request_timeout=10000):
+    def __init__(self, out_dir=None, monitor_connection=None):
         """set class defaults. attempt to connect with server."""
         self.logger = logging.getLogger(__name__)
-        if not (bool(out_dir) ^ bool(monitor_host and monitor_port)):
+        if not (bool(out_dir) ^ bool(monitor_connection)):
             raise ValueError("Either out_dir or the combination monitor_host+"
                              "monitor_port must be specified. Cannot specify "
                              "both out_dir and a host+port pair.")
-        self.request_retries = request_retries
-        self.request_timeout = request_timeout
+        self.connection_config = monitor_connection
         self.poller = None
         self.socket = None
         self.message_id = 0
@@ -46,7 +39,7 @@ class Requester(object):
                 with open("%s/monitor_info.json" % self.out_dir) as f:
                     self.mi = json.load(f)
             else:
-                self.mi = {'host': monitor_host, 'port': monitor_port}
+                self.mi = {'host':  self.connection_config.monitor_host, 'port':  self.connection_config.monitor_port}
             self.connect()
         except IOError as e:
             self.logger.error("Failed to connect in Requester.__init__, "
@@ -129,7 +122,7 @@ class Requester(object):
         Returns: Server reply message
         """
         self.message_id += 1
-        retries_left = self.request_retries
+        retries_left = self.connection_config.request_retries
         self.logger.debug('{}: Sending message id {}: {}'.format(
             os.getpid(), self.message_id, message))
         reply = 0
@@ -166,8 +159,8 @@ class Requester(object):
                         raise exceptions.NoResponseReceived(
                             "No response recieved from responder in {} retries"
                             " after waiting for {} seconds each try.".format(
-                                str(self.request_retries),
-                                str(self.request_timeout)))
+                                str(self.connection_config.request_retries),
+                                str(self.connection_config.request_timeout)))
                     self.connect()
                     self.logger.debug(
                         '  {}: resending message...{}'.format(os.getpid(),

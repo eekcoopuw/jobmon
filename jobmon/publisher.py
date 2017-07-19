@@ -26,7 +26,7 @@ def mogrify(topic, msg):
 
 class Publisher(object):
     """Publisher is a zmq socket opened up by the central job monitor which is
-    used to push updates about job state to an connected subscriber"""
+    used to push updates about job state to a connected subscriber"""
 
     def __init__(self, out_dir):
         """set class defaults. make out_dir if it doesn't exist. write config
@@ -96,4 +96,5 @@ class Publisher(object):
         self._close_socket()
 
     def publish_info(self, topic, msg_data):
+        """Send an update message out to the listeners - the key method for this class."""
         self.socket.send_string(mogrify(topic, msg_data))

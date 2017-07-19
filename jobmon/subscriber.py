@@ -53,7 +53,7 @@ class Subscriber(object):
         # Good idea to release this so that it gets garbage collected.
         self.socket = None
 
-    def recieve_update(self):
+    def receive_update(self):
         try:
             topic, result = demogrify(self.socket.recv())
             return result
