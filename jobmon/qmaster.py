@@ -36,8 +36,8 @@ class JobQueue(object):
 
         # connect requester instance to central job monitor
         self.request_sender = requester.Requester(
-            mon_dir, self.executor.request_retries,
-            self.executor.request_timeout)
+            mon_dir, request_retries=self.executor.request_retries,
+            request_timeout=self.executor.request_timeout)
         if not self.request_sender.is_connected():
             raise CannotConnectToCentralJobMonitor(
                 "unable to connect to central job monitor in {}".format(
@@ -135,6 +135,9 @@ class JobQueue(object):
             self.run_scheduler(*args, **kwargs)
         while (len(self.executor.queued_jobs) > 0 or
                len(self.executor.running_jobs) > 0):
+            self.logger.info("QJs: {}, RJs: {}".format(
+                self.executor.queued_jobs,
+                self.executor.running_jobs))
             time.sleep(poll_interval)
         if stop_scheduler_when_done:
             self.stop_scheduler()

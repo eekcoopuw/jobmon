@@ -31,7 +31,7 @@ def test_five_jobs(central_jobmon_cluster):
     # just call os.exit
     exceptions = ['', '', "bad_job", MockJob.DIE_COMMAND, '']
 
-    runfile = "{root}/tests/mock_job.py".format(root=root)
+    runfile = "{root}/jobmon/mocks/mock_job.py".format(root=root)
     for i in [i for i in range(5)]:
         j = q.create_job(
             runfile=runfile,

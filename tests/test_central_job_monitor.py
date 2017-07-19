@@ -194,7 +194,7 @@ def test_get_job_information_query(central_jobmon_cluster):
 def test_pub(central_jobmon_cluster):
 
     s = Subscriber(central_jobmon_cluster.out_dir)
-    s.connect(topicfilter=PublisherTopics.JOB_STATE.value)
+    s.connect(topicfilter=PublisherTopics.JOB_STATE)
 
     os.environ["JOB_ID"] = "1"
     os.environ["JOB_NAME"] = "job1"
@@ -208,17 +208,17 @@ def test_pub(central_jobmon_cluster):
 def test_pub_static(central_jobmon_static_port):
 
     s = Subscriber(publisher_host='localhost', publisher_port=5678)
-    s.connect(topicfilter=PublisherTopics.JOB_STATE.value)
+    s.connect(topicfilter=PublisherTopics.JOB_STATE)
 
     os.environ["JOB_ID"] = "1"
     os.environ["JOB_NAME"] = "job1"
     j1 = SGEJobInstance(monitor_host='localhost', monitor_port=3459)
     j1.log_completed()
 
-    # This is a hack... for some reason having a requester and subscriber
-    # in the same process causes the subscriber to not receive messages...
-    # Maybe related to the zmq.Context. See this post:
+    # This is a python3 hack... for some reason having a requester and
+    # subscriber in the same process causes the subscriber to not receive
+    # messages...  Maybe related to the zmq.Context. See this post:
     # https://stackoverflow.com/questions/31396074/pyzmq-subscriber-doesnt-receive-messages-when-working-with-request-socket
-    central_jobmon_static_port._action_update_job_instance_status(1, 3)
+    # central_jobmon_static_port._action_update_job_instance_status(1, 3)
     update = s.recieve_update()
     assert update is not None

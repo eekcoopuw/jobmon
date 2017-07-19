@@ -1,5 +1,8 @@
 from __future__ import print_function
 
+import logging
+logging.basicConfig(handlers=[logging.StreamHandler])
+
 import sys
 import time
 import multiprocessing
@@ -58,13 +61,10 @@ class LocalJobInstance(job._AbstractJobInstance):
                                    request_timeout=request_timeout)
 
         # get sge_id and name from envirnoment
+        self.job_instance_id = job_instance_id
         self.jid = jid
 
-        if job_instance_id:
-            self.job_instance_id = job_instance_id
-        else:
-            self.job_instance_id = None
-            self.job_instance_id = self.register_with_monitor()
+        self.register_with_monitor()
 
     def log_job_stats(self):
         try:
@@ -271,7 +271,7 @@ class LocalExecutor(base.BaseExecutor):
     """
 
     def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
-                 request_retries=3, request_timeout=3000, parallelism=None,
+                 request_retries=3, request_timeout=3000, parallelism=10,
                  task_response_timeout=3, subscribe_to_job_state=True):
         super(LocalExecutor, self).__init__(
             mon_dir=mon_dir, monitor_host=monitor_host,

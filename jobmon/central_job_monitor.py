@@ -306,21 +306,22 @@ class CentralJobMonitor(object):
         """
         # update sge_job statuses
         session = self.Session()
-        job_instance = session.query(models.JobInstance).filter_by(
+        session.query(models.JobInstance).filter_by(
             job_instance_id=job_instance_id).update(
                 {'current_status': status_id})
+        job_instance = session.query(models.JobInstance).filter_by(
+            job_instance_id=job_instance_id).first()
+        jid = job_instance.jid
         status = models.JobInstanceStatus(job_instance_id=job_instance_id,
                                           status=status_id)
         session.add(status)
         session.commit()
-        job_instance = session.query(models.JobInstance).filter_by(
-            job_instance_id=job_instance_id).first()
         session.close()
 
         if self.publisher:
             self.publisher.publish_info(
-                PublisherTopics.JOB_STATE.value,
-                {job_instance.jid: {"job_instance_id": job_instance_id,
+                PublisherTopics.JOB_STATE,
+                {jid: {"job_instance_id": job_instance_id,
                                     "job_instance_status_id": status_id}})
 
         return (ReturnCodes.OK, job_instance_id, status_id)
