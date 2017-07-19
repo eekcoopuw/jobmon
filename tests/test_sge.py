@@ -93,10 +93,10 @@ def test_path_manipulation():
     Compares what happens when you specify a prepend_to_path versus
         when you don't. Look at the output files and diff them to see.
     """
-    sort_a = sge.qsub(sge.true_path("env_vars.sh"), "env-a",
+    sort_a = sge.qsub(sge.true_path("tests/env_vars.sh"), "env-a",
                       slots=1, memory=0,
                       stdout=os.path.abspath("env-a.out"))
-    sort_b = sge.qsub(sge.true_path("env_vars.sh"), "env-b",
+    sort_b = sge.qsub(sge.true_path("tests/env_vars.sh"), "env-b",
                       jobtype="shell", slots=1, memory=0,
                       prepend_to_path="~/DonaldDuck",
                       stdout=os.path.abspath("env-b.out"))
@@ -136,9 +136,9 @@ def test_r_submit():
 
 @pytest.mark.cluster
 def test_sh_submit():
-    rscript_id = sge.qsub(sge.true_path("env_vars.sh"), ".rstuff&*(",
+    rscript_id = sge.qsub(sge.true_path("tests/env_vars.sh"), ".rstuff&*(",
                           parameters=[5], jobtype="shell")
-    notype_id = sge.qsub(sge.true_path("env_vars.sh"), "##rb+@",
+    notype_id = sge.qsub(sge.true_path("tests/env_vars.sh"), "##rb+@",
                          parameters=[3])
     assert sge._wait_done([rscript_id, notype_id])
 

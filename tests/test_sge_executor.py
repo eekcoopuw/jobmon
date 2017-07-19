@@ -46,8 +46,8 @@ def test_sge_executor(central_jobmon_cluster):
     while len(sgexec.queued_jobs) > 0 or len(sgexec.running_jobs) > 0:
         time.sleep(60)
         sgexec.refresh_queues(flush_lost_jobs=True)
-
-    assert (
+    complete_jobs = set(
         [j.name for j in
-         central_jobmon_cluster.jobs_with_status(Status.COMPLETE)] == [
-            "job1", "job2", "job3"])
+         central_jobmon_cluster.jobs_with_status(Status.COMPLETE)])
+    exp_complete_jobs = set(["job1", "job2", "job3"])
+    assert complete_jobs == exp_complete_jobs
