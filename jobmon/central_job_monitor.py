@@ -27,7 +27,7 @@ class CentralJobMonitor(object):
     """
 
     def __init__(self, out_dir, persistent=True, port=None, conn_str=None,
-                 publish_job_state=True):
+                 publish_job_state=True, publisher_port=None):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema
 
@@ -42,6 +42,8 @@ class CentralJobMonitor(object):
                 (default), the system will choose the port
             publish_job_state (bool, optional): whether to use a zmq publisher
                 to broadcast job status updates
+            publisher_port (int): Port that the publisher should listen on. If
+                None (default), the system will choose the port
         """
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.conn_str = conn_str
@@ -58,7 +60,7 @@ class CentralJobMonitor(object):
         Responder.logger.info(logmsg)
 
         if publish_job_state:
-            self.publisher = Publisher(out_dir)
+            self.publisher = Publisher(out_dir, port=publisher_port)
             self.publisher.start_publisher()
             Responder.logger.info(
                 "{}: Publisher initialized".format(os.getpid()))
@@ -304,21 +306,22 @@ class CentralJobMonitor(object):
         """
         # update sge_job statuses
         session = self.Session()
-        job_instance = session.query(models.JobInstance).filter_by(
+        session.query(models.JobInstance).filter_by(
             job_instance_id=job_instance_id).update(
                 {'current_status': status_id})
+        job_instance = session.query(models.JobInstance).filter_by(
+            job_instance_id=job_instance_id).first()
+        jid = job_instance.jid
         status = models.JobInstanceStatus(job_instance_id=job_instance_id,
                                           status=status_id)
         session.add(status)
         session.commit()
-        job_instance = session.query(models.JobInstance).filter_by(
-            job_instance_id=job_instance_id).first()
         session.close()
 
         if self.publisher:
             self.publisher.publish_info(
-                PublisherTopics.JOB_STATE.value,
-                {job_instance.jid: {"job_instance_id": job_instance_id,
+                PublisherTopics.JOB_STATE,
+                {jid: {"job_instance_id": job_instance_id,
                                     "job_instance_status_id": status_id}})
 
         return (ReturnCodes.OK, job_instance_id, status_id)

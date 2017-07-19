@@ -18,7 +18,7 @@ def test_job_queue(central_jobmon):
         j = q.create_job(
             jobname=name,
             runfile=runfile,
-            parameters=[10])
+            parameters=[1])
         q.queue_job(j)
 
     q.block_till_done(poll_interval=7)

@@ -1,8 +1,14 @@
 from __future__ import print_function
 
+import logging
+logging.basicConfig(handlers=[logging.StreamHandler])
+
 import sys
 import time
 import multiprocessing
+import traceback
+import signal
+import os
 
 from jobmon.requester import Requester
 from jobmon.models import Status
@@ -12,8 +18,10 @@ from jobmon import job
 
 if sys.version_info > (3, 0):
     import subprocess
+    from subprocess import TimeoutExpired
 else:
     import subprocess32 as subprocess
+    from subprocess32 import TimeoutExpired
 
 
 # for sge logging of standard error
@@ -53,13 +61,10 @@ class LocalJobInstance(job._AbstractJobInstance):
                                    request_timeout=request_timeout)
 
         # get sge_id and name from envirnoment
+        self.job_instance_id = job_instance_id
         self.jid = jid
 
-        if job_instance_id:
-            self.job_instance_id = job_instance_id
-        else:
-            self.job_instance_id = None
-            self.job_instance_id = self.register_with_monitor()
+        self.register_with_monitor()
 
     def log_job_stats(self):
         try:
@@ -171,7 +176,8 @@ class LocalConsumer(multiprocessing.Process):
                     ["python"] + [job_def.runfile] +
                     [str(arg) for arg in job_def.job_args],
                     stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE)
+                    stderr=subprocess.PIPE,
+                    preexec_fn=os.setsid)
 
                 # start monitoring with subprocesses pid
                 job_instance = LocalJobInstance(
@@ -184,26 +190,37 @@ class LocalConsumer(multiprocessing.Process):
                     request_retries=self.request_retries)
                 job_instance.log_started()
                 self.task_response_queue.put(job_instance.job_instance_id)
-            except ValueError as err:
-                # according to POPEN docs a ValueError is raised if popen is
-                # called with inproper arguments in which case LocalJobInstance
-                # was never initialized
-                proc.kill()
-                eprint(err)
-            else:
+
+                # communicate till done
                 stdout, stderr = proc.communicate(
                     timeout=job_def.process_timeout)
-                print(stdout)
-                eprint(stderr)
+                returncode = proc.returncode
 
-                # check return code
-                if proc.returncode != ReturnCodes.OK:
-                    job_instance.log_job_stats()
-                    job_instance.log_error(str(stderr))
-                    job_instance.log_failed()
-                else:
-                    job_instance.log_job_stats()
-                    job_instance.log_completed()
+            except TimeoutExpired:
+                # kill process group
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                stdout, stderr = proc.communicate()
+                stderr = stderr + " Process timed out after: {}".format(
+                    job_def.process_timeout)
+                returncode = proc.returncode
+
+            except Exception as exc:
+                stdout = ""
+                stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
+                                             traceback.format_exc())
+                returncode = None
+
+            print(stdout)
+            eprint(stderr)
+
+            # check return code
+            if returncode != ReturnCodes.OK:
+                job_instance.log_job_stats()
+                job_instance.log_error(str(stderr))
+                job_instance.log_failed()
+            else:
+                job_instance.log_job_stats()
+                job_instance.log_completed()
 
             self.result_queue.put(job_instance.job_instance_id)
             self.task_queue.task_done()
@@ -254,7 +271,7 @@ class LocalExecutor(base.BaseExecutor):
     """
 
     def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
-                 request_retries=3, request_timeout=3000, parallelism=None,
+                 request_retries=3, request_timeout=3000, parallelism=10,
                  task_response_timeout=3, subscribe_to_job_state=True):
         super(LocalExecutor, self).__init__(
             mon_dir=mon_dir, monitor_host=monitor_host,
