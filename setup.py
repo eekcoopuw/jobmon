@@ -51,6 +51,9 @@ install_requires = [
 if sys.version_info < (3, 0):
     install_requires.append("subprocess32")
 
+if sys.version_info < (3, 4):
+    install_requires.append("enum34")
+
 setup(
     version=versioneer.get_version(),
     cmdclass=cmds,

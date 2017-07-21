@@ -194,7 +194,7 @@ def test_get_job_information_query(central_jobmon_cluster):
 def test_pub(central_jobmon_cluster):
 
     s = Subscriber(central_jobmon_cluster.out_dir)
-    s.connect(topicfilter=PublisherTopics.JOB_STATE)
+    s.connect(topicfilter=PublisherTopics.JOB_STATE.value)
 
     os.environ["JOB_ID"] = "1"
     os.environ["JOB_NAME"] = "job1"
@@ -208,7 +208,7 @@ def test_pub(central_jobmon_cluster):
 def test_pub_static(central_jobmon_static_port):
 
     s = Subscriber(publisher_host='localhost', publisher_port=5678)
-    s.connect(topicfilter=PublisherTopics.JOB_STATE)
+    s.connect(topicfilter=PublisherTopics.JOB_STATE.value)
 
     os.environ["JOB_ID"] = "1"
     os.environ["JOB_NAME"] = "job1"
