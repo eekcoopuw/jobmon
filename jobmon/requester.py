@@ -16,30 +16,22 @@ class Requester(object):
     Args
         out_dir (string): file path where the server configuration is
             stored, of jobmon  is runnign locally
-        monitor_connection (CentralMonitorConnection): host and port info for a remote jobmon instance
+        monitor_connection (ConnectionConfig): host and port info for a remote jobmon instance
 
         The two arguments are mutually exclusive.
     """
 
-    def __init__(self, out_dir=None, monitor_connection=None):
+    def __init__(self, monitor_connection):
         """set class defaults. attempt to connect with server."""
         self.logger = logging.getLogger(__name__)
-        if not (bool(out_dir) ^ bool(monitor_connection)):
-            raise ValueError("Either out_dir or the combination monitor_host+"
-                             "monitor_port must be specified. Cannot specify "
-                             "both out_dir and a host+port pair.")
-        self.connection_config = monitor_connection
+        
+        self.monitor_connection = monitor_connection
         self.poller = None
         self.socket = None
         self.message_id = 0
 
         try:
-            if out_dir:
-                self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
-                with open("%s/monitor_info.json" % self.out_dir) as f:
-                    self.mi = json.load(f)
-            else:
-                self.mi = {'host':  self.connection_config.monitor_host, 'port':  self.connection_config.monitor_port}
+            self.mi = monitor_connection.load_monitor_info()
             self.connect()
         except IOError as e:
             self.logger.error("Failed to connect in Requester.__init__, "
@@ -53,7 +45,7 @@ class Requester(object):
         context = zmq.Context()  # default 1 i/o thread
         self.socket = context.socket(zmq.REQ)  # blocks socket on send
         self.socket.setsockopt(zmq.LINGER, 0)  # do not pile requests in queue.
-        self.logger.info('{}: Connecting...'.format(os.getpid()))
+        self.logger.info('{}: Connecting to {}:{}...'.format(os.getpid(), self.mi['host'],self.mi['port']))
 
         # use host and port from network filesystem cofig. option "out_dir"
         self.socket.connect(
@@ -70,7 +62,7 @@ class Requester(object):
     def disconnect(self):
         """disconnect from socket and unregister with poller. Is this an API
         method? Should be underscored if not"""
-        self.logger.info('{}: Disconnecting...'.format(os.getpid()))
+        self.logger.info('{}: Disconnecting from {}:{} ...'.format(os.getpid(), self.mi['host'], self.mi['port']))
         self.socket.close()
         self.poller.unregister(self.socket)
 
@@ -122,9 +114,9 @@ class Requester(object):
         Returns: Server reply message
         """
         self.message_id += 1
-        retries_left = self.connection_config.request_retries
-        self.logger.debug('{}: Sending message id {}: {}'.format(
-            os.getpid(), self.message_id, message))
+        retries_left = self.monitor_connection.request_retries
+        self.logger.debug('{}: Sending message id {}: {} to {}:{}'.format(
+            os.getpid(), self.message_id, message, self.mi['host'], self.mi['port']))
         reply = 0
         while retries_left:
             # Reconnect if necessary
@@ -134,7 +126,7 @@ class Requester(object):
             expect_reply = True
             while expect_reply:
                 # ask for response from server. wait until REQUEST_TIMEOUT
-                socks = dict(self.poller.poll(self.request_timeout))
+                socks = dict(self.poller.poll(self.monitor_connection.request_timeout))
                 if socks.get(self.socket) == zmq.POLLIN:
                     reply = self.socket.recv_json()
                     if not reply:
@@ -157,10 +149,10 @@ class Requester(object):
                                                       self.message_id))
                         reply = 0
                         raise exceptions.NoResponseReceived(
-                            "No response recieved from responder in {} retries"
+                            "No response received from responder in {} retries"
                             " after waiting for {} seconds each try.".format(
-                                str(self.connection_config.request_retries),
-                                str(self.connection_config.request_timeout)))
+                                str(self.monitor_connection.request_retries),
+                                str(self.monitor_connection.request_timeout)))
                     self.connect()
                     self.logger.debug(
                         '  {}: resending message...{}'.format(os.getpid(),

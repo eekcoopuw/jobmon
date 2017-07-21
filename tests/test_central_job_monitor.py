@@ -1,7 +1,7 @@
 import os
 import pytest
-from multiprocessing import Process
 
+from jobmon.connection_config import ConnectionConfig
 from jobmon.subscriber import Subscriber
 from jobmon.publisher import PublisherTopics
 from jobmon.requester import Requester
@@ -16,7 +16,7 @@ except KeyError:
 
 
 def test_req_jobmon_pair(central_jobmon):
-    req = Requester(central_jobmon.out_dir)
+    req = Requester(monitor_connection=ConnectionConfig(central_jobmon.out_dir))
 
     # Test basic connection
     resp = req.send_request({'action': 'alive'})
@@ -24,19 +24,20 @@ def test_req_jobmon_pair(central_jobmon):
 
 
 def test_invalid_req_args():
+    
     with pytest.raises(ValueError):
-        Requester(out_dir='some_dir', monitor_host='localhost',
-                  monitor_port=3459)
+        Requester(ConnectionConfig(monitor_dir="some_dir", monitor_host='localhost', monitor_port=3459))
     with pytest.raises(ValueError):
-        Requester(out_dir=None, monitor_host=None, monitor_port=None)
+        Requester(ConnectionConfig(monitor_dir=None, monitor_host=None, monitor_port=None))
     with pytest.raises(ValueError):
-        Requester(monitor_host='localhost')
+        Requester(ConnectionConfig(monitor_host='localhost'))
     with pytest.raises(ValueError):
-        Requester(monitor_port=1234)
+        Requester(ConnectionConfig(monitor_port=1234))
 
 
 def test_static_port_req_mon_pair(central_jobmon_static_port):
-    req = Requester(monitor_host='localhost', monitor_port=3459)
+    con_3459= ConnectionConfig(monitor_host='localhost', monitor_port=3459)
+    req = Requester(con_3459)
 
     # Test basic connection
     resp = req.send_request({'action': 'alive'})
@@ -44,7 +45,9 @@ def test_static_port_req_mon_pair(central_jobmon_static_port):
 
 
 def test_batch_registration(central_jobmon_static_port):
-    req = Requester(monitor_host='localhost', monitor_port=3459)
+
+    con_3459 = ConnectionConfig(monitor_host='localhost', monitor_port=3459)
+    req = Requester(con_3459)
 
     # Test basic connection
     batch = req.send_request({'action': 'register_batch',
@@ -61,14 +64,14 @@ def test_batch_registration(central_jobmon_static_port):
     jb = req.send_request({'action': 'batch',
                            'kwargs': {'name': 'Job_batch',
                                       'user': 'test_user'}})
-    job = Job(monitor_host='localhost', monitor_port=3459, batch_id=jb[1])
+    job = Job(monitor_connection=con_3459, batch_id=jb[1])
     jid = job.register_with_monitor()
     job_record = central_jobmon_static_port._action_get_job_information(jid)[1]
     assert job_record['batch_id'] == jb[1]
 
 
 def test_job_registration_update(central_jobmon):
-    req = Requester(central_jobmon.out_dir)
+    req = Requester(ConnectionConfig(monitor_dir=central_jobmon.out_dir))
 
     # Test job creation and status updating
     req.send_request({'action': 'register_job'})
@@ -87,7 +90,7 @@ def test_job_registration_update(central_jobmon):
 
 
 def test_sge_job_registration(central_jobmon):
-    req = Requester(central_jobmon.out_dir)
+    req = Requester(ConnectionConfig(monitor_dir=central_jobmon.out_dir))
 
     # Test job creation and status updating
     req.send_request({'action': 'register_job'})
@@ -100,10 +103,10 @@ def test_sge_job_registration(central_jobmon):
 def test_sgejob_mon_pair(central_jobmon_cluster):
     os.environ["JOB_ID"] = "1234"
     os.environ["JOB_NAME"] = "job1"
-    j1 = SGEJobInstance(central_jobmon_cluster.out_dir)
+    j1 = SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
     os.environ["JOB_ID"] = "5678"
     os.environ["JOB_NAME"] = "job2"
-    j2 = SGEJobInstance(central_jobmon_cluster.out_dir)
+    j2 = SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
     j1.log_started()
     assert (
         [j.jid for j in
@@ -123,18 +126,18 @@ def test_sgejob_mon_pair(central_jobmon_cluster):
 
 @pytest.mark.cluster
 def test_monitor_job_by_status_query(central_jobmon_cluster):
-    req = Requester(central_jobmon_cluster.out_dir)
+    req = Requester(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
 
     # Test job registration and status updating
     os.environ["JOB_ID"] = "1"
     os.environ["JOB_NAME"] = "job1"
-    SGEJobInstance(central_jobmon_cluster.out_dir)
+    SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
     os.environ["JOB_ID"] = "2"
     os.environ["JOB_NAME"] = "job2"
-    SGEJobInstance(central_jobmon_cluster.out_dir)
+    SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
     os.environ["JOB_ID"] = "3"
     os.environ["JOB_NAME"] = "job3"
-    SGEJobInstance(central_jobmon_cluster.out_dir)
+    SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
 
     assert (
         [j.name for j in
@@ -143,7 +146,7 @@ def test_monitor_job_by_status_query(central_jobmon_cluster):
 
     os.environ["JOB_ID"] = "4"
     os.environ["JOB_NAME"] = "job4"
-    SGEJobInstance(central_jobmon_cluster.out_dir)
+    SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
     assert (
         [j.name for j in
          central_jobmon_cluster.jobs_with_status(Status.SUBMITTED)] == [
@@ -170,7 +173,7 @@ def test_get_job_information_query(central_jobmon_cluster):
     # Test job registration with sge-id's.  I like prime numbers.
     os.environ["JOB_ID"] = "17"
     os.environ["JOB_NAME"] = "job1"
-    j17 = SGEJobInstance(central_jobmon_cluster.out_dir)
+    j17 = SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
 
     job_info = central_jobmon_cluster._action_get_job_instance_information(17)
     assert job_info[0] == ReturnCodes.OK
@@ -193,12 +196,12 @@ def test_get_job_information_query(central_jobmon_cluster):
 @pytest.mark.cluster
 def test_pub(central_jobmon_cluster):
 
-    s = Subscriber(central_jobmon_cluster.out_dir)
+    s = Subscriber(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir,monitor_filename="publisher_info.json"))
     s.connect(topicfilter=PublisherTopics.JOB_STATE)
 
     os.environ["JOB_ID"] = "1"
     os.environ["JOB_NAME"] = "job1"
-    j1 = SGEJobInstance(central_jobmon_cluster.out_dir)
+    j1 = SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
     j1.log_completed()
 
     update = s.receive_update()
@@ -207,12 +210,13 @@ def test_pub(central_jobmon_cluster):
 
 def test_pub_static(central_jobmon_static_port):
 
-    s = Subscriber(publisher_host='localhost', publisher_port=5678)
+    # @TODO Change monitor_host to just host? similar for port
+    s = Subscriber(ConnectionConfig(monitor_host='localhost', monitor_port=5678))
     s.connect(topicfilter=PublisherTopics.JOB_STATE)
 
     os.environ["JOB_ID"] = "1"
     os.environ["JOB_NAME"] = "job1"
-    j1 = SGEJobInstance(monitor_host='localhost', monitor_port=3459)
+    j1 = SGEJobInstance(ConnectionConfig(monitor_host='localhost', monitor_port=3459))
     j1.log_completed()
 
     # This is a python3 hack... for some reason having a requester and
@@ -220,5 +224,5 @@ def test_pub_static(central_jobmon_static_port):
     # messages...  Maybe related to the zmq.Context. See this post:
     # https://stackoverflow.com/questions/31396074/pyzmq-subscriber-doesnt-receive-messages-when-working-with-request-socket
     # central_jobmon_static_port._action_update_job_instance_status(1, 3)
-    update = s.recieve_update()
+    update = s.receive_update()
     assert update is not None

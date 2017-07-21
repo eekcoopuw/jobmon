@@ -64,8 +64,9 @@ class Publisher(object):
         """
         monfn = '{}/publisher_info.json'.format(self.out_dir)
         self.logger.debug(
-            '{}: Writing connection info to {}'.format(os.getpid(), monfn))
+            '{pid}: Writing publisher connection info {h}:{p} to {f}'.format(pid=os.getpid(), h=host, p=port, f=monfn))
         if os.path.exists(monfn):
+            self.logger.debug("Publisher already running, not writing")
             raise PublisherAlreadyRunning(monfn)
         with open(monfn, 'w') as f:
             json.dump({'host': host, 'port': port, 'pid': os.getpid()}, f)

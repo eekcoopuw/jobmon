@@ -2,7 +2,7 @@ import logging
 import time
 
 from jobmon import requester
-from jobmon.connection import CentralMonitorConnection
+from jobmon.connection_config import ConnectionConfig
 from jobmon.schedulers import SimpleScheduler
 from jobmon.executors.local_exec import LocalExecutor
 from jobmon.job import Job
@@ -15,38 +15,33 @@ class JobQueue(object):
     back monitoring server that all sge jobs automatically connect to after
     they get scheduled."""
 
-    def __init__(self, mon_dir="", monitor_connection=None, executor=LocalExecutor, executor_params={},
+    def __init__(self, monitor_connection=None, publisher_connection=None, executor=LocalExecutor, executor_params={},
                  scheduler=SimpleScheduler, scheduler_params={},
                  max_alive_wait_time=45):
         """
         Args:
-            mon_dir (str): if  the central job monitor is running locally then this is
-                the directory where it is running.
-            monitor_connection: If the CJM is running remotely, then this is connection information.
+            monitor_connection (ConnectionConfig): host, port, timeout and retry parameters
+                of the central job monitor
             executor (obj, optional): LocalExecutor or SGEExecutor
             executor_params (dict, optional): kwargs to be passed into executor
                 instantiation.
-            scheduler (obj, optional): Simplescheduler or Retryscheduler
+            scheduler (obj, optional): SimpleScheduler or RetryScheduler
             scheduler_params (dict, optional): kwargs to be passed into
                 scheduler instantiation.
             max_alive_wait_time (int, optional): how long to wait for an alive
                 signal from the central job monitor
         """
         self.logger = logging.getLogger(__name__)
-        if not (bool(mon_dir) ^ bool(monitor_connection)):
-            raise ValueError("Either mon_dir or the combination monitor_host+"
-                             "monitor_port must be specified. Cannot specify "
-                             "both mon_dir and a host+port pair.")
 
-        self.executor = executor(mon_dir=mon_dir, **executor_params)
+        self.executor = executor(monitor_connection=monitor_connection, publisher_connection=publisher_connection, **executor_params)
         self.scheduler = scheduler(executor=self.executor, **scheduler_params)
 
         # connect requester instance to central job monitor
-        self.request_sender = requester.Requester(out_dir=mon_dir, monitor_connection=monitor_connection)
+        self.request_sender = requester.Requester(monitor_connection=monitor_connection)
         if not self.request_sender.is_connected():
             raise CannotConnectToCentralJobMonitor(
                 "unable to connect to central job monitor, dir= {d}, connection config = {cc}".format(
-                    d=self.executor.mon_dir, cc = monitor_connection))
+                    d=self.executor.monitor_connection, cc=monitor_connection))
 
         # make sure server is alive
         time_spent = 0
@@ -54,7 +49,7 @@ class JobQueue(object):
             if time_spent > max_alive_wait_time:
                 msg = ("unable to confirm central job monitor is alive in {}."
                        " Maximum boot time exceeded: {}").format(
-                           self.executor.mon_dir, max_alive_wait_time)
+                           self.executor.monitor_connection, max_alive_wait_time)
                 self.logger.debug(msg)
                 raise CentralJobMonitorNotAlive(msg)
 
@@ -92,7 +87,7 @@ class JobQueue(object):
                 into runfile.
 
         """
-        job = Job(self.executor.mon_dir, name=jobname, runfile=runfile,
+        job = Job(self.executor.monitor_connection, name=jobname, runfile=runfile,
                   job_args=parameters)
         return job
 

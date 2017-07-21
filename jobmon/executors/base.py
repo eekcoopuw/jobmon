@@ -7,29 +7,32 @@ from jobmon.publisher import PublisherTopics
 
 class BaseExecutor(object):
 
-    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
-                 request_retries=3, request_timeout=3000, parallelism=None,
+    def __init__(self, monitor_connection=None, publisher_connection=None, parallelism=None,
                  subscribe_to_job_state=True):
+        """@TODO Document the two connections"""
         self.logger = logging.getLogger(__name__)
-
+        self.monitor_connection = monitor_connection
+        self.publisher_connection = publisher_connection
         self.parallelism = parallelism
 
         # track job state
         self.jobs = {}
 
-        if subscribe_to_job_state and not mon_dir:
-            raise ValueError("mon_dir is required if "
+        if subscribe_to_job_state and not monitor_connection:
+            raise ValueError("monitor_connection is required if "
                              "subscribe_to_job_state=True")
         # environment for distributed applications
-        self.mon_dir = mon_dir
-        self.monitor_host = monitor_host
-        self.monitor_port = monitor_port
-        self.request_retries = request_retries
-        self.request_timeout = request_timeout
+        self.monitor_connection = monitor_connection
+
+        if subscribe_to_job_state and not publisher_connection:
+            raise ValueError("publisher_connection is required if "
+                             "subscribe_to_job_state=True")
+            # environment for distributed applications
+        self.publisher_connection = publisher_connection
 
         # subscribe for published updates about job state
         if subscribe_to_job_state:
-            self.subscriber = Subscriber(self.mon_dir)
+            self.subscriber = Subscriber(self.publisher_connection)
             self.subscriber.connect(PublisherTopics.JOB_STATE)
         else:
             self.subscriber = None

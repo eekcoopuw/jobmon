@@ -126,8 +126,7 @@ class Responder(object):
             port (int): port that server is listening at
         """
         monfn = '%s/monitor_info.json' % self.out_dir
-        logmsg = '{}: Writing connection info to {}'.format(os.getpid(),
-                                                            monfn)
+        logmsg = '{pid}: Writing connection info {h}:{p} to {f}'.format(pid=os.getpid(), h=host, p=port, f=monfn)
         Responder.logger.debug(logmsg)
         if os.path.exists(monfn):
             raise MonitorAlreadyRunning(monfn)
@@ -160,7 +159,7 @@ class Responder(object):
             self.thread_stop_request = Event()
             self.server_proc = Thread(target=self.listen)
             self.server_proc.start()
-        # syncronous
+        # synchronous
         elif self.server_proc_type == ServerProcType.NONE:
             self._open_socket()
             self.listen()
@@ -195,7 +194,7 @@ class Responder(object):
 
                 # then join the threads
                 self.server_proc.join(timeout=10)
-                exitcode = 0
+                exitcode = ReturnCodes.OK
                 try:
                     os.remove('{}/monitor_info.json'.format(self.out_dir))
                 except Exception:

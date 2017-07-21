@@ -2,6 +2,7 @@ import os
 import pytest
 
 from jobmon import qmaster
+from jobmon.connection_config import ConnectionConfig
 from jobmon.mocks.mock_job import MockJob
 
 
@@ -23,7 +24,12 @@ def test_five_jobs(central_jobmon_cluster):
 
     root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..")
 
-    q = qmaster.JobQueue(central_jobmon_cluster.out_dir, executor=SGEExecutor,
+    monitor_connection = ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir, monitor_filename="monitor_info.json")
+    publisher_connection = ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir, monitor_filename="publisher_info.json")
+
+    q = qmaster.JobQueue(monitor_connection=monitor_connection,
+                         publisher_connection=publisher_connection,
+                         executor=SGEExecutor,
                          executor_params={"parallelism": 10})
 
     # They take 5, 10, 15,.. seconds to run.

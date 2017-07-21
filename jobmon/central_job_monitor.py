@@ -319,10 +319,13 @@ class CentralJobMonitor(object):
         session.close()
 
         if self.publisher:
+            Responder.logger.debug("Publishing job instance status update {id}:{s}".format(id=job_instance_id, s=status_id))
             self.publisher.publish_info(
                 PublisherTopics.JOB_STATE,
                 {jid: {"job_instance_id": job_instance_id,
                                     "job_instance_status_id": status_id}})
+        else:
+            Responder.logger.debug("No publisher, not publishing job instance status update {}".format())
 
         return (ReturnCodes.OK, job_instance_id, status_id)
 

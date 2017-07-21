@@ -24,22 +24,11 @@ class Subscriber(object):
             you can specify the hostname and port directly
     """
 
-    def __init__(self, out_dir=None, publisher_host=None, publisher_port=None):
+    def __init__(self, publisher_connection=None):
 
-        if not (bool(out_dir) ^ bool(publisher_host and publisher_port)):
-            raise ValueError("Either out_dir or the combination "
-                             "publisher_host+publisher_port must be "
-                             "specified. Cannot specify both out_dir and "
-                             "a host+port pair.")
         self.logger = logging.getLogger(__name__)
         self.socket = None
-        if out_dir:
-            self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
-            self.out_dir = os.path.realpath(self.out_dir)
-            with open("{}/publisher_info.json".format(self.out_dir)) as f:
-                self.mi = json.load(f)
-        else:
-            self.mi = {'host': publisher_host, 'port': publisher_port}
+        self.mi = publisher_connection.load_monitor_info()
 
     def connect(self, topicfilter=None, timeout=1000):
         """Connect to server. Reads config file from out_dir specified during
@@ -50,7 +39,7 @@ class Subscriber(object):
         self.socket.setsockopt(zmq.RCVTIMEO, timeout)
         if topicfilter:
             self.socket.setsockopt_string(zmq.SUBSCRIBE, topicfilter)
-        self.logger.info('{}: Connecting...'.format(os.getpid()))
+        self.logger.info('{}: Connecting to {}:{}...'.format(os.getpid(), self.mi['host'], self.mi['port']))
 
         # use host and port from network filesystem cofig. option "out_dir"
         self.socket.connect(
@@ -70,5 +59,10 @@ class Subscriber(object):
             topic, result = demogrify(self.socket.recv().decode("utf-8"))
             return result
         except zmq.Again as e:
-            logging.error("Error receiving update {}".format(logging.error(e)))
+            # This can occur if there is no data yet
+            logging.debug("Non-fatal error receiving update {}".format(logging.error(e)))
             return None
+
+    def recieve_update(self):
+        """Deprecated form of the interface with a spelling error. This call exists so as not to break old code."""
+        return self.receive_update()
