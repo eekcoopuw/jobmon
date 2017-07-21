@@ -321,7 +321,7 @@ class CentralJobMonitor(object):
         if self.publisher:
             Responder.logger.debug("Publishing job instance status update {id}:{s}".format(id=job_instance_id, s=status_id))
             self.publisher.publish_info(
-                PublisherTopics.JOB_STATE,
+                PublisherTopics.JOB_STATE.value,
                 {jid: {"job_instance_id": job_instance_id,
                                     "job_instance_status_id": status_id}})
         else:

@@ -24,7 +24,7 @@ def test_req_jobmon_pair(central_jobmon):
 
 
 def test_invalid_req_args():
-    
+
     with pytest.raises(ValueError):
         Requester(ConnectionConfig(monitor_dir="some_dir", monitor_host='localhost', monitor_port=3459))
     with pytest.raises(ValueError):
@@ -197,7 +197,7 @@ def test_get_job_information_query(central_jobmon_cluster):
 def test_pub(central_jobmon_cluster):
 
     s = Subscriber(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir,monitor_filename="publisher_info.json"))
-    s.connect(topicfilter=PublisherTopics.JOB_STATE)
+    s.connect(topicfilter=PublisherTopics.JOB_STATE.value)
 
     os.environ["JOB_ID"] = "1"
     os.environ["JOB_NAME"] = "job1"
@@ -212,7 +212,7 @@ def test_pub_static(central_jobmon_static_port):
 
     # @TODO Change monitor_host to just host? similar for port
     s = Subscriber(ConnectionConfig(monitor_host='localhost', monitor_port=5678))
-    s.connect(topicfilter=PublisherTopics.JOB_STATE)
+    s.connect(topicfilter=PublisherTopics.JOB_STATE.value)
 
     os.environ["JOB_ID"] = "1"
     os.environ["JOB_NAME"] = "job1"
