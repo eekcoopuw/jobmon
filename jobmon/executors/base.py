@@ -30,7 +30,7 @@ class BaseExecutor(object):
         # subscribe for published updates about job state
         if subscribe_to_job_state:
             self.subscriber = Subscriber(self.mon_dir)
-            self.subscriber.connect(PublisherTopics.JOB_STATE)
+            self.subscriber.connect(PublisherTopics.JOB_STATE.value)
         else:
             self.subscriber = None
 

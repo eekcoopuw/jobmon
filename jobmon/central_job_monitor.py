@@ -320,7 +320,7 @@ class CentralJobMonitor(object):
 
         if self.publisher:
             self.publisher.publish_info(
-                PublisherTopics.JOB_STATE,
+                PublisherTopics.JOB_STATE.value,
                 {jid: {"job_instance_id": job_instance_id,
                                     "job_instance_status_id": status_id}})
 
