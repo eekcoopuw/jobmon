@@ -9,6 +9,10 @@ services:
               "5000", "--conn_str", "mysql://DB_USERNAME:DB_PASSWORD@internal-db-p02.ihme.washington.edu/jobmon"]
     links:
         - db
+    logging:
+        options:
+            max-size: "100m"
+            max-file: "10"
 
   db:
     image: mysql
