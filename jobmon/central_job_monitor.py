@@ -1,3 +1,4 @@
+import logging
 import sys
 import os
 import sqlite3
@@ -13,6 +14,9 @@ from jobmon.publisher import Publisher, PublisherTopics
 from jobmon.responder import Responder, ServerProcType
 from jobmon.exceptions import ReturnCodes
 
+from jobmon.setup_logger import setup_logger
+
+logger = setup_logger("jobmon", path="server_logging.yaml")
 
 class CentralJobMonitor(object):
     """Listens for job status update messages,
@@ -49,7 +53,7 @@ class CentralJobMonitor(object):
         self.conn_str = conn_str
         self.responder = Responder(out_dir, port=port)
         logmsg = "{}: Responder initialized".format(os.getpid())
-        Responder.logger.info(logmsg)
+        logger.info(logmsg)
 
         # Initialize the persistent backend where job-state messages will be
         # recorded
@@ -57,12 +61,12 @@ class CentralJobMonitor(object):
         self.Session = sessionmaker()
         self.create_job_db(persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
-        Responder.logger.info(logmsg)
+        logger.info(logmsg)
 
         if publish_job_state:
             self.publisher = Publisher(out_dir, port=publisher_port)
             self.publisher.start_publisher()
-            Responder.logger.info(
+            logger.info(
                 "{}: Publisher initialized".format(os.getpid()))
         else:
             self.publisher = None
@@ -88,7 +92,7 @@ class CentralJobMonitor(object):
                 assert sys.version_info > (3, 0), """
                     Sorry, only Python version 3+ is supported at this time"""
                 logmsg = "{}: Creating persistent backend".format(os.getpid())
-                Responder.logger.info(logmsg)
+                logger.info(logmsg)
 
                 dbfile = '{out_dir}/job_monitor.sqlite'.format(
                     out_dir=self.out_dir)
@@ -123,7 +127,7 @@ class CentralJobMonitor(object):
             try:
                 models.load_default_statuses(session)
             except IntegrityError:
-                Responder.logger.info(
+                logger.info(
                     "Status table already loaded. If you intended to use a "
                     "fresh database, you'll have to delete the "
                     "old database manually")
@@ -227,7 +231,8 @@ class CentralJobMonitor(object):
         session.commit()
         bid = batch.batch_id
         session.close()
-        return 0, bid
+        logger.debug("Register batch done, id = {}".format(bid))
+        return ReturnCodes.OK, bid
 
     def _action_register_job(self, name=None, runfile=None, job_args=None,
                              batch_id=None):
@@ -241,7 +246,7 @@ class CentralJobMonitor(object):
         session.commit()
         jid = job.jid
         session.close()
-        return 0, jid
+        return ReturnCodes.OK, jid
 
     def _action_get_job_instance_information(self, job_instance_id):
         session = self.Session()
@@ -283,7 +288,7 @@ class CentralJobMonitor(object):
             jid = self._action_register_job(
                 name=kwargs.get("name"),
                 runfile=kwargs.get("runfile"),
-                args=kwargs.get("args")
+                job_args=kwargs.get("args")
             )[1]
         job_instance = models.JobInstance(
             job_instance_id=job_instance_id,
@@ -319,13 +324,14 @@ class CentralJobMonitor(object):
         session.close()
 
         if self.publisher:
-            Responder.logger.debug("Publishing job instance status update {id}:{s}".format(id=job_instance_id, s=status_id))
+            logger.debug(
+                "Publishing job instance status update {id}:{s}".format(id=job_instance_id, s=status_id))
             self.publisher.publish_info(
                 PublisherTopics.JOB_STATE.value,
                 {jid: {"job_instance_id": job_instance_id,
-                                    "job_instance_status_id": status_id}})
+                       "job_instance_status_id": status_id}})
         else:
-            Responder.logger.debug("No publisher, not publishing job instance status update {}".format())
+            logger.debug("No publisher, not publishing job instance status update {}".format())
 
         return (ReturnCodes.OK, job_instance_id, status_id)
 

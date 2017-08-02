@@ -37,7 +37,7 @@ class _BaseScheduler(ABC):
         return
 
     def is_alive(self):
-        """is schedular currently running?"""
+        """is scheduler currently running?"""
         if self._scheduler_thread:
             return True
         else:
@@ -121,6 +121,7 @@ class RetryScheduler(_BaseScheduler):
                     self.logger.info("job {} failed. Trying again. Try=#{}"
                                      .format(jid, tries + 1))
                     self.executor.jobs[jid]["status_id"] = None
+                    self.executor.jobs[jid]["current_job_instance_id"] = None
                 else:
                     self._retry_limit_exceeded.append(jid)
 

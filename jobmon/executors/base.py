@@ -1,6 +1,7 @@
 import logging
 
 from jobmon.models import Status
+from jobmon.models import status_names
 from jobmon.subscriber import Subscriber
 from jobmon.publisher import PublisherTopics
 
@@ -42,10 +43,32 @@ class BaseExecutor(object):
 
     @property
     def queued_jobs(self):
+        """These are job ids, not jobs"""
         return self._jids_with_status(status_id=None)
 
     @property
+    def queued_job_objects(self):
+        """These are jobs"""
+        return self._jobs_with_status(status_id=None)
+
+    @property
     def running_jobs(self):
+        """These are job ids, not jobs"""
+        jids = []
+        for status_id in [Status.SUBMITTED, Status.RUNNING]:
+            jids.extend(self._jids_with_status(status_id=status_id))
+        return jids
+
+    @property
+    def running_job_objects(self):
+        """These are jobs"""
+        filtered_jobs = []
+        for status_id in [Status.SUBMITTED, Status.RUNNING]:
+            filtered_jobs.extend(self._jobs_with_status(status_id=status_id))
+        return filtered_jobs
+
+    @property
+    def running_job_instance_ids(self):
         jids = []
         for status_id in [Status.SUBMITTED, Status.RUNNING]:
             jids.extend(self._jids_with_status(status_id=status_id))
@@ -70,6 +93,13 @@ class BaseExecutor(object):
                 jids.append(j)
         return jids
 
+    def _jobs_with_status(self, status_id=None):
+        filtered_jobs = []
+        for j in self.jobs.keys():
+            if self.jobs[j]["status_id"] == status_id:
+                filtered_jobs.append(self.jobs[j]["job"])
+        return filtered_jobs
+
     def _jid_from_job_instance_id(self, job_instance_id):
         for j in self.jobs.keys():
             if job_instance_id in self.jobs[j]["job"].job_instance_ids:
@@ -91,12 +121,15 @@ class BaseExecutor(object):
             process_timeout (int, optional): time in seconds to wait for
                 process to finish. default is forever
         """
+
+        # Be careful, Schedulers.py reaches into this class and modifies this data structure directly
         self.jobs[job.jid] = {
             "job": job,
             "process_timeout": process_timeout,
             "args": args,
             "kwargs": kwargs,
-            "status_id": None}
+            "status_id": None,
+            "current_job_instance_id": None}
 
     def _poll_status(self):
         """poll for status updates that have been published by the central
@@ -105,8 +138,10 @@ class BaseExecutor(object):
         while update is not None:
             jid, job_meta = update.items()[0]
             job_status = int(job_meta["job_instance_status_id"])
+            job_instance_id = int(job_meta["job_instance_id"])
             try:
                 self.jobs[int(jid)]["status_id"] = job_status
+                self.logger.debug("Job {}:{}; sge_id = {} changed status to {}".format(jid, self.jobs[jid]["job"].name, job_instance_id, status_names[job_status]))
             except KeyError:
                 pass
             update = self.subscriber.receive_update()
@@ -121,7 +156,7 @@ class BaseExecutor(object):
         """
         self._poll_status()
         if flush_lost_jobs:
-            self.logger.debug("consolidating any lost jobs")
+            self.logger.debug("Consolidating any lost jobs")
             self.flush_lost_jobs()
 
         current_queue_length = len(self.queued_jobs)
@@ -136,9 +171,8 @@ class BaseExecutor(object):
         # submit the amount of jobs that our parallelism allows for
         for _ in range(min((open_slots, current_queue_length))):
 
-            self.logger.debug(
-                "{} running job instances".format(running_queue_length))
-            self.logger.debug("{} in queue".format(current_queue_length))
+            self.logger.info(
+                "Job counts: running: {}, queued: {}".format(running_queue_length, current_queue_length))
 
             if self.queued_jobs:
                 job_def = self.jobs[self.queued_jobs[0]]
@@ -153,3 +187,5 @@ class BaseExecutor(object):
                 job.job_instance_ids.append(job_instance_id)
                 self.jobs[job.jid]["job"] = job
                 self.jobs[job.jid]["status_id"] = Status.SUBMITTED
+                self.jobs[job.jid]["current_job_instance_id"] = job_instance_id
+                self.logger.info("Job now running '{}'; sge_id = {}".format(str(job), job_instance_id))

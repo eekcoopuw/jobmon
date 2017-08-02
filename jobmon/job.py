@@ -64,6 +64,9 @@ class Job(object):
         self.requester.disconnect()
         return r[1]
 
+    def __str__(self):
+        return "{jid} : {n}, {inst}".format(jid=self.jid, n=self.name, inst=self.job_instance_ids)
+
 
 # TODO: confirm this is working.
 ABC = abc.ABCMeta('ABC', (object,), {})  # compatible with Python 2 *and* 3

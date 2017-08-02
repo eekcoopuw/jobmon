@@ -31,6 +31,7 @@ class Job(db.Model):
         return self.__dict__
 
 
+
 class JobInstance(db.Model):
     __tablename__ = 'job_instance'
 
@@ -61,7 +62,6 @@ class JobInstance(db.Model):
                 "jid": self.jid,
                 "current_status": self.current_status
             }
-
 
 class JobInstanceError(db.Model):
     __tablename__ = 'job_instance_error'
@@ -101,6 +101,9 @@ class Status(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     label = db.Column(db.String(150), nullable=False)
+
+status_names = ['INVALID_ZERO_INDEX', 'SUBMITTED', 'RUNNING', 'FAILED', 'COMPLETE',
+                   'UNREGISTERED_STATE']
 
 
 def load_default_statuses():

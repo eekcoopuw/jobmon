@@ -1,8 +1,5 @@
 from __future__ import print_function
 
-import logging
-logging.basicConfig(handlers=[logging.StreamHandler])
-
 import sys
 import time
 import multiprocessing
@@ -15,6 +12,9 @@ from jobmon.models import Status
 from jobmon.executors import base
 from jobmon.exceptions import ReturnCodes
 from jobmon import job
+from jobmon.setup_logger import setup_logger
+
+logger = setup_logger("jobmon", path="client_logging.yaml")
 
 if sys.version_info > (3, 0):
     import subprocess
@@ -136,7 +136,7 @@ class LocalConsumer(multiprocessing.Process):
         self.result_queue = result_queue
         self.daemon = True
 
-        # resquester args
+        # requester args
         self.monitor_connection = monitor_connection
 
     def run(self):

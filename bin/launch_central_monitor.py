@@ -30,4 +30,4 @@ if __name__ == '__main__':
 
     # Creating this object also starts the monitor process
     cjm = central_job_monitor.CentralJobMonitor(dir_path, port=port,
-                                                conn_str=conn_str)
+                                                conn_str=conn_str, persistent=False)

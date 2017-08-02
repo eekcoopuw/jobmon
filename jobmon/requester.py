@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import warnings
@@ -6,6 +5,8 @@ import zmq
 
 from jobmon import exceptions
 
+
+logger = logging.getLogger(__name__)
 
 class Requester(object):
     """Sends messages to a Responder node through zmq. sends messages to a
@@ -23,7 +24,7 @@ class Requester(object):
 
     def __init__(self, monitor_connection):
         """set class defaults. attempt to connect with server."""
-        self.logger = logging.getLogger(__name__)
+
         
         self.monitor_connection = monitor_connection
         self.poller = None
@@ -34,7 +35,7 @@ class Requester(object):
             self.mi = monitor_connection.load_monitor_info()
             self.connect()
         except IOError as e:
-            self.logger.error("Failed to connect in Requester.__init__, "
+            logger.error("Failed to connect in Requester.__init__, "
                               "exception: {}".format(e))
             warnings.warn("Unable to connect to server")
 
@@ -45,9 +46,9 @@ class Requester(object):
         context = zmq.Context()  # default 1 i/o thread
         self.socket = context.socket(zmq.REQ)  # blocks socket on send
         self.socket.setsockopt(zmq.LINGER, 0)  # do not pile requests in queue.
-        self.logger.info('{}: Connecting to {}:{}...'.format(os.getpid(), self.mi['host'],self.mi['port']))
+        logger.info('{}: Connecting to {}:{}...'.format(os.getpid(), self.mi['host'],self.mi['port']))
 
-        # use host and port from network filesystem cofig. option "out_dir"
+        # use host and port from network filesystem config. option "out_dir"
         self.socket.connect(
             "tcp://{sh}:{sp}".format(sh=self.mi['host'], sp=self.mi['port']))
 
@@ -62,7 +63,7 @@ class Requester(object):
     def disconnect(self):
         """disconnect from socket and unregister with poller. Is this an API
         method? Should be underscored if not"""
-        self.logger.info('{}: Disconnecting from {}:{} ...'.format(os.getpid(), self.mi['host'], self.mi['port']))
+        logger.debug('{}: Disconnecting from {}:{} ...'.format(os.getpid(), self.mi['host'], self.mi['port']))
         self.socket.close()
         self.poller.unregister(self.socket)
 
@@ -93,7 +94,7 @@ class Requester(object):
         """
         reply = self._send_lazy_pirate(message)
         if verbose is True:
-            self.logger.debug(reply)
+            logger.debug(reply)
         return reply
 
     def _send_lazy_pirate(self, message):
@@ -115,7 +116,7 @@ class Requester(object):
         """
         self.message_id += 1
         retries_left = self.monitor_connection.request_retries
-        self.logger.debug('{}: Sending message id {}: {} to {}:{}'.format(
+        logger.debug('{}: Sending message id {}: {} to {}:{}'.format(
             os.getpid(), self.message_id, message, self.mi['host'], self.mi['port']))
         reply = 0
         while retries_left:
@@ -135,26 +136,28 @@ class Requester(object):
                     else:
                         retries_left = 0
                         expect_reply = False
-                        self.logger.debug(
+                        logger.debug(
                             '{}: Received reply for message id {}: {}'.format(
                                 os.getpid(), self.message_id, reply))
                 else:
-                    self.logger.info("No response from server, retrying...")
+                    logger.info("No response from server, retrying...")
                     self.disconnect()
                     retries_left -= 1
                     if retries_left == 0:
-                        self.logger.info(
+                        logger.info(
                             ("{}: Server seems to be offline, abandoning"
                              " message id {}").format(os.getpid(),
                                                       self.message_id))
                         reply = 0
                         raise exceptions.NoResponseReceived(
-                            "No response received from responder in {} retries"
+                            "No response received from responder at {}:{} in {} retries"
                             " after waiting for {} seconds each try.".format(
+                                self.monitor_connection.monitor_host,
+                                self.monitor_connection.monitor_port,
                                 str(self.monitor_connection.request_retries),
                                 str(self.monitor_connection.request_timeout)))
                     self.connect()
-                    self.logger.debug(
+                    logger.debug(
                         '  {}: resending message...{}'.format(os.getpid(),
                                                               message))
                     self.socket.send_json(message)

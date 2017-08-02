@@ -70,6 +70,7 @@ class Publisher(object):
             raise PublisherAlreadyRunning(monfn)
         with open(monfn, 'w') as f:
             json.dump({'host': host, 'port': port, 'pid': os.getpid()}, f)
+            f.write("\n")
 
     def _open_socket(self):
         context = zmq.Context()
@@ -104,3 +105,4 @@ class Publisher(object):
     def publish_info(self, topic, msg_data):
         """Send an update message out to the listeners - the key method for this class."""
         self.socket.send_string(mogrify(topic, msg_data))
+        self.logger.debug("Publisher published _{}_".format(mogrify(topic, msg_data)))

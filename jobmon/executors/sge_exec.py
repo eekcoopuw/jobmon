@@ -15,6 +15,9 @@ from jobmon.models import Status
 from jobmon.executors import base
 from jobmon.exceptions import ReturnCodes
 
+
+from jobmon.setup_logger import setup_logger
+
 if sys.version_info > (3, 0):
     import subprocess
     from subprocess import CalledProcessError, TimeoutExpired
@@ -22,6 +25,7 @@ else:
     import subprocess32 as subprocess
     from subprocess32 import CalledProcessError, TimeoutExpired
 
+logger = setup_logger("jobmon", path="client_logging.yaml")
 
 class SGEJobInstance(job._AbstractJobInstance):
     """client node job status logger. Pushes job status to server node through
@@ -225,9 +229,11 @@ class SGEExecutor(base.BaseExecutor):
         for jid in self.running_jobs:
             sge_ids.append(self.jobs[jid]["job"].job_instance_ids[-1])
         results = sge.qstat(jids=sge_ids).job_id.tolist()
+        logger.debug("Qstat jobs {}".format(results))
         for sge_id in [j for j in sge_ids if j not in results]:
             jid = self._jid_from_job_instance_id(sge_id)
-            self.jobs[jid]["status_id"] = Status.UNREGISTERED_STATE
+            self.jobs[jid]["status_id"] = Status.FAILED
+            logger.info("Marking job {} failed because it is not known by qstat".format(jid))
 
 
 if __name__ == "__main__":
@@ -264,11 +270,11 @@ if __name__ == "__main__":
                         type=intnone_parser)
     parser.add_argument("--pass_through", required=False, type=jpickle_parser)
 
+    # makes a dict
     args = vars(parser.parse_args())
 
-
     # reset sys.argv as if this parsing never happened
-    sys.argv = [args["runfile"]] + args["pass_through"]
+    # sys.argv = [args["runfile"]] + args["pass_through"]
 
     # start monitoring with subprocesses pid
 
@@ -283,15 +289,16 @@ if __name__ == "__main__":
 
     job_instance.log_started()
 
-    for arg in sys.argv:
-        if not isinstance(arg, str) and not isinstance(arg, unicode):
-            raise ValueError(
-                "all command line arguments must be strings. {} is {}"
-                .format(arg, type(arg)))
+    # for arg in sys.argv:
+    #     if not isinstance(arg, str) and not isinstance(arg, unicode):
+    #         raise ValueError(
+    #             "all command line arguments must be strings. {} is {}"
+    #             .format(arg, type(arg)))
     try:
+        proc_args = [args["runfile"]] + [str(arg) for arg in args["pass_through"]]
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(
-            ["python"] + [str(arg) for arg in sys.argv],
+            ["python"] + proc_args,  # [str(arg) for arg in sys.argv],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             preexec_fn=os.setsid)

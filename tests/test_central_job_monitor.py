@@ -1,5 +1,6 @@
 import os
 import pytest
+import sys
 
 from jobmon.connection_config import ConnectionConfig
 from jobmon.subscriber import Subscriber
@@ -36,7 +37,7 @@ def test_invalid_req_args():
 
 
 def test_static_port_req_mon_pair(central_jobmon_static_port):
-    con_3459= ConnectionConfig(monitor_host='localhost', monitor_port=3459)
+    con_3459 = ConnectionConfig(monitor_host='localhost', monitor_port=3459)
     req = Requester(con_3459)
 
     # Test basic connection
@@ -192,19 +193,27 @@ def test_get_job_information_query(central_jobmon_cluster):
     status = job_info[1]['current_status']
     assert status == Status.FAILED
 
-
+import time
 @pytest.mark.cluster
-def test_pub(central_jobmon_cluster):
+def test_pub(central_jobmon_cluster, central_jobmon_static_port):
 
-    s = Subscriber(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir,monitor_filename="publisher_info.json"))
+    s = Subscriber(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir, monitor_filename="publisher_info.json"))
     s.connect(topicfilter=PublisherTopics.JOB_STATE.value)
-
-    os.environ["JOB_ID"] = "1"
-    os.environ["JOB_NAME"] = "job1"
-    j1 = SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
-    j1.log_completed()
-
-    update = s.receive_update()
+#, name="a-name",runfile="a-runfile",args='some-args'
+    if sys.version_info < (3, 0):
+        os.environ["JOB_ID"] = "140465072"
+        os.environ["JOB_NAME"] = "QLOGIN"
+        j1 = SGEJobInstance(ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir))
+        j1.log_completed()
+    else:
+        central_jobmon_static_port._action_register_job_instance(140465072)
+        central_jobmon_static_port._action_update_job_instance_status(140465072, 3)
+    retries = 0
+    update = None
+    while update is None and retries < 10:
+        update = s.receive_update()
+        retries += 1
+        time.sleep(1)
     assert update is not None, (update)
 
 

@@ -10,6 +10,7 @@ class ReturnCodes(object):
     INVALID_ACTION = 2
     GENERIC_ERROR = 3
     NO_RESULTS = 4
+    UNKNOWN_EXIT_STATE = 99
 
 
 class ServerRunning(Exception):
