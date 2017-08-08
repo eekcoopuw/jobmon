@@ -141,10 +141,12 @@ class JobQueue(object):
             self.run_scheduler(*args, **kwargs)
         while (len(self.executor.queued_jobs) > 0 or
                len(self.executor.running_jobs) > 0):
-            logger.info("Jobmon waiting: {} Queued Jobs: {}, {} Running Jobs: {}".format(
+            logger.info("Jobmon waiting: {}  Queued Jobs, {} Number Running Jobs".format(
                 len(self.executor.queued_jobs),
-                [str(x) for x in self.executor.queued_job_objects],
-                len(self.executor.running_jobs),
+                len(self.executor.running_jobs)))
+            logger.debug("  Details of Queued Jobs: {}".format(
+                [str(x) for x in self.executor.queued_job_objects]))
+            logger.debug("  Details of Running Jobs: {}".format(
                 [str(x) for x in self.executor.running_job_objects]))
             time.sleep(poll_interval)
         if stop_scheduler_when_done:

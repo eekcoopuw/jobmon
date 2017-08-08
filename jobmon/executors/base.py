@@ -171,7 +171,7 @@ class BaseExecutor(object):
         # submit the amount of jobs that our parallelism allows for
         for _ in range(min((open_slots, current_queue_length))):
 
-            self.logger.info(
+            self.logger.debug(
                 "Job counts: running: {}, queued: {}".format(running_queue_length, current_queue_length))
 
             if self.queued_jobs:

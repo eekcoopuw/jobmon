@@ -65,7 +65,7 @@ class Job(object):
         return r[1]
 
     def __str__(self):
-        return "{jid} : {n}, {inst}".format(jid=self.jid, n=self.name, inst=self.job_instance_ids)
+        return "{jid} : {n}, sge = {inst}".format(jid=self.jid, n=self.name, inst=str(self.job_instance_ids))
 
 
 # TODO: confirm this is working.
