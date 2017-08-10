@@ -16,8 +16,11 @@ if __name__ == '__main__':
         'dir_path', type=str,
         help='directory where monitor connection info will be stored')
     parser.add_argument(
-        'port', nargs='?', default=None,
-        help='port to listen on (will be randomly assigned if absent)')
+        'mon_port', nargs='?', default=None,
+        help='monitor port to listen on (will be randomly assigned if absent)')
+    parser.add_argument(
+        'pub_port', nargs='?', default=None,
+        help='publisher port (will be randomly assigned if absent)')
     parser.add_argument(
         '--conn_str', type=str, default=None,
         help=('connection string for sql database (defaults to creation '
@@ -25,9 +28,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     dir_path = args.dir_path
-    port = args.port
+    mon_port = args.mon_port
+    pub_port = args.pub_port
     conn_str = args.conn_str
 
     # Creating this object also starts the monitor process
-    cjm = central_job_monitor.CentralJobMonitor(dir_path, port=port,
-                                                conn_str=conn_str)
+    cjm = central_job_monitor.CentralJobMonitor(
+        dir_path,
+        port=mon_port,
+        conn_str=conn_str,
+        publisher_port=pub_port)

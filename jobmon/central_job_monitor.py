@@ -53,7 +53,7 @@ class CentralJobMonitor(object):
 
         # Initialize the persistent backend where job-state messages will be
         # recorded
-        self.server_proc_type = ServerProcType.SUBPROCESS
+        self.server_proc_type = ServerProcType.THREAD
         self.Session = sessionmaker()
         self.create_job_db(persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
@@ -98,7 +98,7 @@ class CentralJobMonitor(object):
                         'file:{dbfile}?vfs=unix-none'.format(dbfile=dbfile),
                         uri=True)
                 eng = sql.create_engine('sqlite://', creator=creator)
-                self.server_proc_type = ServerProcType.SUBPROCESS
+                self.server_proc_type = ServerProcType.THREAD
             else:
                 eng = sql.create_engine(
                     'sqlite://',

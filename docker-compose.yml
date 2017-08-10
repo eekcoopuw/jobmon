@@ -5,8 +5,9 @@ services:
     image: jobmon
     ports:
         - "5555:5000"
+        - "3456:3456"
     command: ["./wait-for-db.sh", "db", "python", "bin/launch_central_monitor.py", "/app",
-              "5000", "--conn_str", "mysql://DB_USERNAME:DB_PASSWORD@internal-db-p02.ihme.washington.edu/jobmon"]
+              "5000", "3456", "--conn_str", "mysql://DB_USERNAME:DB_PASSWORD@internal-db-p02.ihme.washington.edu/jobmon"]
     links:
         - db
     logging:
