@@ -46,7 +46,7 @@ class Requester(object):
         context = zmq.Context()  # default 1 i/o thread
         self.socket = context.socket(zmq.REQ)  # blocks socket on send
         self.socket.setsockopt(zmq.LINGER, 0)  # do not pile requests in queue.
-        logger.info('{}: Connecting to {}:{}...'.format(os.getpid(), self.mi['host'],self.mi['port']))
+        logger.debug('{}: Connecting to {}:{}...'.format(os.getpid(), self.mi['host'],self.mi['port']))
 
         # use host and port from network filesystem config. option "out_dir"
         self.socket.connect(

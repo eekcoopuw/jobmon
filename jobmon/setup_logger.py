@@ -15,10 +15,18 @@ def setup_logger(logger_name, path="client_logging.yaml",
     
     Uses the singleton pattern so that handlers are only created once"""
 
+    print("Attempting to create logger for '{}'".format(logger_name))
+
     logger = logging.getLogger(logger_name)
     if logger.handlers:
-        logger.debug("Ignoring duplicate log creation of {}".format(logger_name))
+        msg = "Ignoring duplicate log creation of {}".format(logger_name)
+        logger.info(msg)
+        print(msg)
         return logger
+    else:
+        msg = "Will create logger for '{}'".format(logger_name)
+        logger.info(msg)
+        print(msg)
 
     final_path = path
     value = os.getenv(env_key, None)
@@ -28,14 +36,14 @@ def setup_logger(logger_name, path="client_logging.yaml",
     if os.path.exists(final_path):
         with open(final_path, 'rt') as f:
             config = yaml.safe_load(f.read())
-        # Call inot the loggin package
+        # Call into the logging package
         dictConfig(config)
-        logger.info("Logging started for {}, configured from file {}".format(logger_name, final_path))
+        logger.info("Logging started for '{}', configured from file {}".format(logger_name, final_path))
     else:
         # fall back if it can't find the file
-        logging.basicConfig(level=default_level)
-        logger.info("Logging started for {}, no logging config file found therefore using basicConfig".format(logger_name))
+        format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        logging.basicConfig(level=default_level, format=format)
+        logger.info("Logging started for '{}', no logging config file found therefore using basicConfig".format(logger_name))
 
-    logger = logging.getLogger(logger_name)
     return logger
 

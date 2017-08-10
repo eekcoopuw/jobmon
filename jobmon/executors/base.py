@@ -188,4 +188,4 @@ class BaseExecutor(object):
                 self.jobs[job.jid]["job"] = job
                 self.jobs[job.jid]["status_id"] = Status.SUBMITTED
                 self.jobs[job.jid]["current_job_instance_id"] = job_instance_id
-                self.logger.info("Job now running '{}'; sge_id = {}".format(str(job), job_instance_id))
+                self.logger.info("Job now running '{}';".format(str(job)))

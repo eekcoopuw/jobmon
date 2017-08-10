@@ -141,7 +141,7 @@ class JobQueue(object):
             self.run_scheduler(*args, **kwargs)
         while (len(self.executor.queued_jobs) > 0 or
                len(self.executor.running_jobs) > 0):
-            logger.info("Jobmon waiting: {}  Queued Jobs, {} Number Running Jobs".format(
+            logger.info("Jobmon waiting: {}  Queued Jobs, {} Running Jobs".format(
                 len(self.executor.queued_jobs),
                 len(self.executor.running_jobs)))
             logger.debug("  Details of Queued Jobs: {}".format(

@@ -118,8 +118,8 @@ class RetryScheduler(_BaseScheduler):
                 tries = len(self.executor.jobs[jid]["job"].job_instance_ids)
 
                 if tries <= self.retries:
-                    self.logger.info("job {} failed. Trying again. Try=#{}"
-                                     .format(jid, tries + 1))
+                    self.logger.info("Job '{}' FAILED. TRYING AGAIN. Try=#{}"
+                                     .format(str(jid), tries + 1))
                     self.executor.jobs[jid]["status_id"] = None
                     self.executor.jobs[jid]["current_job_instance_id"] = None
                 else:
