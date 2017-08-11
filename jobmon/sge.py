@@ -115,7 +115,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
     output, err = p2.communicate()
     p2.stdout.close()
 
-    # Too chatty for debug in produciton. Pity python loggers don't have FINER and FINEST
+    # Too chatty for debug in production. Pity python loggers don't have FINER and FINEST.
     # logger.debug("qstat OUTPUT ={}=".format(output))
 
     # Careful, python 2 vs 3 - bytes versus strings

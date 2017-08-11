@@ -177,11 +177,11 @@ class Responder(object):
             if self.server_proc.is_alive():
                 self.server_proc.terminate()
                 exitcode = self.server_proc.exitcode
+                file_name = '{}/monitor_info.json'.format(self.out_dir)
                 try:
-                    os.remove('{}/monitor_info.json'.format(self.out_dir))
-                except Exception:
-                    logger.info("monitor_info.json file already "
-                                          "deleted")
+                    os.remove(file_name)
+                except OSError as e:
+                    logger.info("Could not delete monitor_info.json file '{}', error: {}".format(file_name, e))
         elif self.server_proc_type == ServerProcType.THREAD:
             if self.server_proc.is_alive():
                 # set the threading EVENT to True
@@ -196,11 +196,11 @@ class Responder(object):
                 # then join the threads
                 self.server_proc.join(timeout=10)
                 exitcode = ReturnCodes.OK
+                file_name = '{}/monitor_info.json'.format(self.out_dir)
                 try:
-                    os.remove('{}/monitor_info.json'.format(self.out_dir))
-                except Exception:
-                    logger.info("monitor_info.json file already "
-                                          "deleted")
+                    os.remove(file_name)
+                except OSError as e:
+                    logger.info("Could not delete monitor_info.json file '{}', error: {}".format(file_name, e))
         elif self.server_proc_type == ServerProcType.NONE:
             logger.info("Response server is already stopped")
             exitcode = None

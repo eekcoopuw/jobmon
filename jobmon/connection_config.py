@@ -27,7 +27,7 @@ class ConnectionConfig(object):
     def __init__(self, monitor_dir=None, monitor_filename="monitor_info.json", monitor_host=None, monitor_port=None,
                  request_retries=3, request_timeout=10000):
         
-        if not (bool(monitor_dir) ^ bool(monitor_host and monitor_port)):
+        if not (monitor_dir or (monitor_host and monitor_port)):
             raise ValueError("Either out_dir or the combination monitor_host+"
                              "monitor_port must be specified. Cannot specify "
                              "both monitor_dir and a host+port pair.")

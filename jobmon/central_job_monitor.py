@@ -331,7 +331,7 @@ class CentralJobMonitor(object):
                 {jid: {"job_instance_id": job_instance_id,
                        "job_instance_status_id": status_id}})
         else:
-            logger.debug("No publisher, not publishing job instance status update {}".format())
+            logger.debug("No publisher, not publishing job instance status update {id}:{s}".format(id=job_instance_id, s=status_id)))
 
         return (ReturnCodes.OK, job_instance_id, status_id)
 

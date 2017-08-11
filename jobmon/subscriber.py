@@ -66,17 +66,13 @@ class Subscriber(object):
 
 
     def receive_update(self):
-        """This is not-blocking be design, so that qstats can be done"""
+        """This is not-blocking by design, so that qstats can be done"""
         try:
             x = self.socket.recv()
-            # logger.debug("   received {}".format(x))
+            # logger.fine("   received {}".format(x))
             topic, result = demogrify(x.decode("utf-8"))
             return result
         except zmq.Again as e:
             # This will occur if there is no data yet
             # logging.debug("  No data available when receiving update {}".format(logging.error(e)))
             return None
-
-    def recieve_update(self):
-        """Deprecated form of the interface with a spelling error. This call exists so as not to break old code."""
-        return self.receive_update()
