@@ -1,11 +1,8 @@
 import logging
 import json
 import os
-import sys
 
 import zmq
-
-from jobmon.setup_logger import setup_logger
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +50,6 @@ class Subscriber(object):
             self.socket.setsockopt_string(zmq.SUBSCRIBE, '')
         logger.info('{}: Connecting to {}:{}; filter {}...'.format(os.getpid(), self.mi['host'], self.mi['port'], topicfilter))
 
-
-
     def disconnect(self):
         """disconnect from socket and unregister with poller. Is this an API
         method? Should be underscored if not"""
@@ -69,10 +64,8 @@ class Subscriber(object):
         """This is not-blocking by design, so that qstats can be done"""
         try:
             x = self.socket.recv()
-            # logger.fine("   received {}".format(x))
             topic, result = demogrify(x.decode("utf-8"))
             return result
         except zmq.Again as e:
-            # This will occur if there is no data yet
-            # logging.debug("  No data available when receiving update {}".format(logging.error(e)))
+            # This will occur if there is no data available (yet). It is not an error.
             return None

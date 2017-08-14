@@ -4,10 +4,12 @@ import os
 
 import yaml
 
-
 # TODO reconcile this with the same code in dalynator
 
-def setup_logger(logger_name, path="client_logging.yaml",
+DEFAULT_CONFIG_FILE_PATH = "{}/client_logging.yaml".format(os.path.dirname(__file__))
+
+
+def setup_logger(logger_name, path=DEFAULT_CONFIG_FILE_PATH,
                  default_level=logging.DEBUG, env_key="LOG_CFG"):
     """Utility function to set up loggers, but only attach handlers if they are
     not already present.  Looks for an environment value for the final_path, and then

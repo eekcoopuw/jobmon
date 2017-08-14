@@ -22,7 +22,6 @@ class BaseExecutor(object):
         if subscribe_to_job_state and not monitor_connection:
             raise ValueError("monitor_connection is required if "
                              "subscribe_to_job_state=True")
-        # environment for distributed applications
         self.monitor_connection = monitor_connection
 
         if subscribe_to_job_state and not publisher_connection:

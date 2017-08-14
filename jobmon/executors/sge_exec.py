@@ -298,7 +298,7 @@ if __name__ == "__main__":
         proc_args = [args["runfile"]] + [str(arg) for arg in args["pass_through"]]
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(
-            ["python"] + proc_args,  # [str(arg) for arg in sys.argv],
+            ["python"] + proc_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             preexec_fn=os.setsid)
