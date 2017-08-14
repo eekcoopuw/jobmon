@@ -23,12 +23,10 @@ def setup_logger(logger_name, path=DEFAULT_CONFIG_FILE_PATH,
     if logger.handlers:
         msg = "Ignoring duplicate log creation of {}".format(logger_name)
         logger.info(msg)
-        print(msg)
         return logger
     else:
         msg = "Will create logger for '{}'".format(logger_name)
         logger.info(msg)
-        print(msg)
 
     final_path = path
     value = os.getenv(env_key, None)

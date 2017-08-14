@@ -30,7 +30,7 @@ class CentralJobMonitor(object):
             sqlite database in.
     """
 
-    def __init__(self, out_dir, persistent=True, port=None, conn_str=None,
+    def __init__(self, out_dir, persistent=False, port=None, conn_str=None,
                  publish_job_state=True, publisher_port=None):
         """set class defaults. make out_dir if it doesn't exist. write config
         for client nodes to read. make sqlite database schema
@@ -59,7 +59,7 @@ class CentralJobMonitor(object):
         # recorded
         self.server_proc_type = ServerProcType.THREAD
         self.Session = sessionmaker()
-        self.create_job_db(persistent)
+        self.create_job_db(persistent=persistent)
         logmsg = "{}: Backend created. Starting server...".format(os.getpid())
         logger.info(logmsg)
 
