@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import logging
-logging.basicConfig(handlers=[logging.StreamHandler])
+logging.basicConfig(handlers=[logging.StreamHandler()])
 
 import sys
 import time
