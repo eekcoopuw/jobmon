@@ -2,6 +2,11 @@ import json
 import os
 
 
+def xor(a, b):
+    """Logical xor, to avoid using bitwise operator."""
+    return bool(a) != bool(b)
+
+
 class ConnectionConfig(object):
     """The connection configuration for a jobmon instance, permanent or transitory. An immutable object.
     It works in two distinct modes - by reading a file from the given directory,
@@ -27,7 +32,7 @@ class ConnectionConfig(object):
     def __init__(self, monitor_dir=None, monitor_filename="monitor_info.json", monitor_host=None, monitor_port=None,
                  request_retries=3, request_timeout=10000):
         
-        if not (monitor_dir or (monitor_host and monitor_port)):
+        if not xor(monitor_dir, (monitor_host and monitor_port)):
             raise ValueError("Either out_dir or the combination monitor_host+"
                              "monitor_port must be specified. Cannot specify "
                              "both monitor_dir and a host+port pair.")
@@ -42,7 +47,7 @@ class ConnectionConfig(object):
 
         # For safety, load the host & port fields immediately
         self.load_monitor_info()
-        
+
     def load_monitor_info(self):
         """Return a json object with 'host' and 'port', either by reading the info file from disk, OR from stored values
         provide to the initialiser"""
