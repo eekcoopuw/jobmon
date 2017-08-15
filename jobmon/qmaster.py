@@ -2,57 +2,60 @@ import logging
 import time
 
 from jobmon import requester
+from jobmon.connection_config import ConnectionConfig
 from jobmon.schedulers import SimpleScheduler
 from jobmon.executors.local_exec import LocalExecutor
 from jobmon.job import Job
 from jobmon.exceptions import (CannotConnectToCentralJobMonitor,
                                CentralJobMonitorNotAlive)
 
+from jobmon.setup_logger import setup_logger
+
+setup_logger("jobmon", path="client_logging.yaml)")
+
+logger = logging.getLogger(__name__)
 
 class JobQueue(object):
     """Queue supports monitoring of a single job queue by using a sqlite
     back monitoring server that all sge jobs automatically connect to after
     they get scheduled."""
 
-    def __init__(self, mon_dir, executor=LocalExecutor, executor_params={},
+    def __init__(self, monitor_connection=None, publisher_connection=None, executor=LocalExecutor, executor_params={},
                  scheduler=SimpleScheduler, scheduler_params={},
                  max_alive_wait_time=45):
         """
         Args:
-            mon_dir (str): directory where the central job monitor is running
+            monitor_connection (ConnectionConfig): host, port, timeout and retry parameters
+                of the central job monitor
             executor (obj, optional): LocalExecutor or SGEExecutor
             executor_params (dict, optional): kwargs to be passed into executor
                 instantiation.
-            scheduler (obj, optional): Simplescheduler or Retryscheduler
+            scheduler (obj, optional): SimpleScheduler or RetryScheduler
             scheduler_params (dict, optional): kwargs to be passed into
                 scheduler instantiation.
             max_alive_wait_time (int, optional): how long to wait for an alive
                 signal from the central job monitor
         """
-        self.logger = logging.getLogger(__name__)
 
-        self.executor = executor(mon_dir=mon_dir, **executor_params)
+        self.executor = executor(monitor_connection=monitor_connection, publisher_connection=publisher_connection, **executor_params)
         self.scheduler = scheduler(executor=self.executor, **scheduler_params)
 
         # connect requester instance to central job monitor
-        self.request_sender = requester.Requester(
-            mon_dir, request_retries=self.executor.request_retries,
-            request_timeout=self.executor.request_timeout)
+        self.request_sender = requester.Requester(monitor_connection=monitor_connection)
         if not self.request_sender.is_connected():
             raise CannotConnectToCentralJobMonitor(
-                "unable to connect to central job monitor in {}".format(
-                    self.executor.mon_dir))
+                "unable to connect to central job monitor, dir= {d}, connection config = {cc}".format(
+                    d=self.executor.monitor_connection, cc=monitor_connection))
 
         # make sure server is alive
         time_spent = 0
         while not self.central_job_monitor_alive():
             if time_spent > max_alive_wait_time:
-                msg = ("unable to confirm central job monitor is alive in {}."
+                msg = ("Unable to confirm central job monitor is alive in {}."
                        " Maximum boot time exceeded: {}").format(
-                           self.executor.mon_dir, max_alive_wait_time)
-                self.logger.debug(msg)
+                           self.executor.monitor_connection, max_alive_wait_time)
+                logger.debug(msg)
                 raise CentralJobMonitorNotAlive(msg)
-                break
 
             # sleep and increment
             time.sleep(5)
@@ -63,7 +66,7 @@ class JobQueue(object):
         try:
             resp = self.request_sender.send_request({"action": "alive"})
         except Exception as e:
-            self.logger.error('Error sending request', exc_info=e)
+            logger.error('Error sending request', exc_info=e)
             # catch some class of errors?
             resp = [0, u"No, not alive"]
 
@@ -88,7 +91,7 @@ class JobQueue(object):
                 into runfile.
 
         """
-        job = Job(self.executor.mon_dir, name=jobname, runfile=runfile,
+        job = Job(self.executor.monitor_connection, name=jobname, runfile=runfile,
                   job_args=parameters)
         return job
 
@@ -104,6 +107,7 @@ class JobQueue(object):
             args and kwargs are passed through to the executors exec_async
             method
         """
+        logger.debug("Queueing job {}".format(job.name))
         self.executor.queue_job(job, process_timeout=process_timeout, *args,
                                 **kwargs)
 
@@ -120,6 +124,7 @@ class JobQueue(object):
         self.scheduler.stop_scheduler()
 
     def block_till_done(self, poll_interval=60, stop_scheduler_when_done=True,
+                        operator_message="",
                         *args, **kwargs):
         """continuously queue until all jobs have finished
 
@@ -131,13 +136,18 @@ class JobQueue(object):
 
             *args and **kwargs are passed to scheduler.run_scheduler()
         """
+        logger.info("Blocking, poll interval = {}".format(poll_interval))
         if not self.scheduler_alive():
             self.run_scheduler(*args, **kwargs)
         while (len(self.executor.queued_jobs) > 0 or
                len(self.executor.running_jobs) > 0):
-            self.logger.info("QJs: {}, RJs: {}".format(
-                self.executor.queued_jobs,
-                self.executor.running_jobs))
+            logger.info("Jobmon waiting: {}  Queued Jobs, {} Running Jobs".format(
+                len(self.executor.queued_jobs),
+                len(self.executor.running_jobs)))
+            logger.debug("  Details of Queued Jobs: {}".format(
+                [str(x) for x in self.executor.queued_job_objects]))
+            logger.debug("  Details of Running Jobs: {}".format(
+                [str(x) for x in self.executor.running_job_objects]))
             time.sleep(poll_interval)
         if stop_scheduler_when_done:
             self.stop_scheduler()

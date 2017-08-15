@@ -115,8 +115,6 @@ def qstat(status=None, pattern=None, user=None, jids=None):
     output, err = p2.communicate()
     p2.stdout.close()
 
-    logger.debug("qstat OUTPUT ={}=".format(output))
-
     # Careful, python 2 vs 3 - bytes versus strings
     if not isinstance(output, str):
         output = output.decode('utf-8')
@@ -476,7 +474,6 @@ def qsub(
             ".r": "R",
             ".R": "R"}
         jobtype = job_types.get(_suffix(runfile), "plain")
-        logger.debug("qsub chose jobtype {}".format(jobtype))
 
     # Set holds, if requested
     if hold_pattern is not None:
@@ -596,7 +593,7 @@ def qsub(
                 qsub_args.extend(str_params)
         else:
             raise ValueError("sge.qsub unknown job type {}".format(jobtype))
-        logger.info("qsub args {}".format(qsub_args))
+        logger.debug("qsub args {}".format(qsub_args))
 
         template.remoteCommand = qsub_args[0]
         if len(qsub_args) > 1:

@@ -9,10 +9,14 @@ import signal
 import jsonpickle
 
 from jobmon import sge, job
+from jobmon.connection_config import ConnectionConfig
 from jobmon.requester import Requester
 from jobmon.models import Status
 from jobmon.executors import base
 from jobmon.exceptions import ReturnCodes
+
+
+from jobmon.setup_logger import setup_logger
 
 if sys.version_info > (3, 0):
     import subprocess
@@ -21,39 +25,27 @@ else:
     import subprocess32 as subprocess
     from subprocess32 import CalledProcessError, TimeoutExpired
 
+logger = setup_logger("jobmon", path="client_logging.yaml")
 
 class SGEJobInstance(job._AbstractJobInstance):
     """client node job status logger. Pushes job status to server node through
     zmq. Status is logged by server into sqlite database
 
     Args
-        mon_dir (string): file path where the server configuration is
-            stored.
-        monitor_host (string): in lieu of a filepath to the monitor info,
-            you can specify the hostname and port directly
-        monitor_port (int): in lieu of a filepath to the monitor info,
-            you can specify the hostname and port directly
+        monitor_connection (ConnectionConfig): host, port, timeout and retry parameters
+             of the central job monitor
         jid (int, optional): job id to use when communicating with
             jobmon database. If job id is not specified, will register as a new
-            job and aquire the job id from the central job monitor.
-        request_retries (int, optional): How many times to attempt to contact
-            the central job monitor. Default=3
-        request_timeout (int, optional): How long to wait for a response from
-            the central job monitor. Default=3 seconds
+            job and acquire the job id from the central job monitor.
     """
 
-    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
-                 jid=None, request_retries=3, request_timeout=3000,
-                 batch_id=None):
+    def __init__(self, monitor_connection, jid=None, batch_id=None):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified."""
 
-        self.requester = Requester(out_dir=mon_dir, monitor_host=monitor_host,
-                                   monitor_port=monitor_port,
-                                   request_retries=request_retries,
-                                   request_timeout=request_timeout)
+        self.requester = Requester(monitor_connection=monitor_connection)
 
-        # get sge_id and name from envirnoment
+        # get sge_id and name from environment
         self.job_instance_id = int(os.getenv("JOB_ID"))
         self.name = os.getenv("JOB_NAME")
 
@@ -65,11 +57,9 @@ class SGEJobInstance(job._AbstractJobInstance):
         # TODO: would like to deprecate this and require a jid but I know the
         # dalynator uses this behaviour
         if jid is None:
-            j = job.Job(mon_dir=mon_dir, monitor_host=monitor_host,
-                        monitor_port=monitor_port, jid=jid, name=self.name,
+            j = job.Job(monitor_connection=monitor_connection,
+                        jid=jid, name=self.name,
                         runfile=self.runfile, job_args=self.job_args,
-                        request_retries=request_retries,
-                        request_timeout=request_timeout,
                         batch_id=batch_id)
             self.jid = j.jid
         else:
@@ -143,8 +133,10 @@ class SGEExecutor(base.BaseExecutor):
     """SGEExecutor executes tasks remotely in parallel on an SGE cluster.
 
     Args:
-        mon_dir (string): directory where the connection info for the central
-            job monitor is written
+        monitor_connection (ConnectionConfig): host, port, timeout and retry parameters
+             of the central job monitor -  TO the CJM
+        publisher_connection (ConnectionConfig): host, port, parameters
+             of the Publisher in central job monitor - FROM the CJM
         request_retries (int, optional): how many time to try when pushing
             updates to the central job monitor
         request_timeout (int, optional): how long to linger on the zmq socket
@@ -158,8 +150,8 @@ class SGEExecutor(base.BaseExecutor):
 
     remoterun = os.path.abspath(__file__)
 
-    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
-                 request_retries=3, request_timeout=3000,
+    def __init__(self, monitor_connection,
+                 publisher_connection,
                  path_to_conda_bin_on_target_vm='', conda_env='',
                  parallelism=None, subscribe_to_job_state=True):
         """
@@ -170,9 +162,7 @@ class SGEExecutor(base.BaseExecutor):
         """
 
         super(SGEExecutor, self).__init__(
-            mon_dir=mon_dir, monitor_host=monitor_host,
-            monitor_port=monitor_port, request_retries=request_retries,
-            request_timeout=request_timeout, parallelism=parallelism)
+            monitor_connection=monitor_connection, publisher_connection=publisher_connection, parallelism=parallelism)
 
         # environment for distributed applications
         conda_info = json.loads(
@@ -199,11 +189,12 @@ class SGEExecutor(base.BaseExecutor):
             sge job id
         """
         parameters = [
-            "--mon_dir", self.mon_dir,
+            "--monitor_host", self.monitor_connection.monitor_host,
+            "--monitor_port", self.monitor_connection.monitor_port,
+            "--request_retries", self.monitor_connection.request_retries,
+            "--request_timeout", self.monitor_connection.request_timeout,
             "--runfile", job.runfile,
             "--jid", job.jid,
-            "--request_retries", self.request_retries,
-            "--request_timeout", self.request_timeout,
             "--pass_through", "'{}'".format(jsonpickle.encode(job.job_args)),
             "--process_timeout", process_timeout
         ]
@@ -231,16 +222,18 @@ class SGEExecutor(base.BaseExecutor):
 
     def flush_lost_jobs(self):
         """check for jobs currently in sge queue to make sure there
-        are not any straglers that died with out registering with the
+        are not any stragglers that died with out registering with the
         central job monitor"""
         # get the most recent job instance id all running jobs
         sge_ids = []
         for jid in self.running_jobs:
             sge_ids.append(self.jobs[jid]["job"].job_instance_ids[-1])
         results = sge.qstat(jids=sge_ids).job_id.tolist()
+        logger.debug("Qstat jobs {}".format(results))
         for sge_id in [j for j in sge_ids if j not in results]:
             jid = self._jid_from_job_instance_id(sge_id)
-            self.jobs[jid]["status_id"] = Status.UNREGISTERED_STATE
+            self.jobs[jid]["status_id"] = Status.FAILED
+            logger.info("Marking job {} failed because it is not known by qstat".format(jid))
 
 
 if __name__ == "__main__":
@@ -264,37 +257,48 @@ if __name__ == "__main__":
             return None
 
     # parse arguments
+    # Passing monitor_dir only work if central jobmon and cluster node share a filesystem
+    # Not true in permahost situation - therefore must pass connection info via the arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mon_dir", required=True)
-    parser.add_argument("--runfile", required=True)
-    parser.add_argument("--jid", required=True, type=int)
+    parser.add_argument("--monitor_host", required=True)
+    parser.add_argument("--monitor_port", required=True)
     parser.add_argument("--request_timeout", required=True, type=int)
     parser.add_argument("--request_retries", required=True, type=int)
+    parser.add_argument("--runfile", required=True)
+    parser.add_argument("--jid", required=True, type=int)
     parser.add_argument("--process_timeout", required=True,
                         type=intnone_parser)
     parser.add_argument("--pass_through", required=False, type=jpickle_parser)
+
+    # makes a dict
     args = vars(parser.parse_args())
 
     # reset sys.argv as if this parsing never happened
-    sys.argv = [args["runfile"]] + args["pass_through"]
+    # sys.argv = [args["runfile"]] + args["pass_through"]
 
     # start monitoring with subprocesses pid
+
     job_instance = SGEJobInstance(
-        args["mon_dir"],
         jid=args["jid"],
-        request_retries=args["request_retries"],
-        request_timeout=args["request_timeout"])
+        monitor_connection=ConnectionConfig(
+            monitor_host=args["monitor_host"],
+            monitor_port=args["monitor_port"],
+            request_timeout=args["request_timeout"],
+            request_retries=args["request_retries"]
+        ))
+
     job_instance.log_started()
 
-    for arg in sys.argv:
-        if not isinstance(arg, str) and not isinstance(arg, unicode):
-            raise ValueError(
-                "all command line arguments must be strings. {} is {}"
-                .format(arg, type(arg)))
+    # for arg in sys.argv:
+    #     if not isinstance(arg, str) and not isinstance(arg, unicode):
+    #         raise ValueError(
+    #             "all command line arguments must be strings. {} is {}"
+    #             .format(arg, type(arg)))
     try:
+        proc_args = [args["runfile"]] + [str(arg) for arg in args["pass_through"]]
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(
-            ["python"] + [str(arg) for arg in sys.argv],
+            ["python"] + proc_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             preexec_fn=os.setsid)

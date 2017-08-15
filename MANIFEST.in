@@ -5,3 +5,4 @@ include versioneer.py
 include autowrap.cfg
 include jobmon/_version.py
 include jobmon/*.sh
+include client_logging.yaml

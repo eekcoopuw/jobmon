@@ -8,33 +8,22 @@ class Job(object):
     zmq. Status is logged by server into sqlite database
 
     Args
-        mon_dir (string): file path where the server configuration is
-            stored.
-        monitor_host (string): in lieu of a filepath to the monitor info,
-            you can specify the hostname and port directly
-        monitor_port (int): in lieu of a filepath to the monitor info,
-            you can specify the hostname and port directly
+        monitor_connection (ConnectionConfig): host, port, timeout and retry parameters
+             of the central job monitor
         jid (int, optional): job id to use when communicating with
             jobmon database. If job id is not specified, will register as a new
             job and aquire the job id from the central job monitor.
         name (str, optional): name current process. If name is not specified
             will default to None.
-        request_retries (int, optional): How many times to attempt to contact
-            the central job monitor. Default=3
-        request_timeout (int, optional): How many milliseconds to wait for a
-            response from the central job monitor. Default=10 seconds
     """
 
-    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
+    def __init__(self, monitor_connection=None,
                  jid=None, name=None, runfile=None, job_args=None,
-                 batch_id=None, request_retries=3, request_timeout=3000):
+                 batch_id=None):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified.
         """
-        self.requester = Requester(out_dir=mon_dir, monitor_host=monitor_host,
-                                   monitor_port=monitor_port,
-                                   request_retries=request_retries,
-                                   request_timeout=request_timeout)
+        self.requester = Requester(monitor_connection=monitor_connection)
 
         # get jid from monitor
         self.jid = jid
@@ -74,6 +63,10 @@ class Job(object):
         # requester.send_request() method
         self.requester.disconnect()
         return r[1]
+
+    def __str__(self):
+        job_instances_int = [int(x) for x in self.job_instance_ids]
+        return "{jid} : {n}, sge_ids = {inst}".format(jid=self.jid, n=self.name, inst=job_instances_int)
 
 
 # TODO: confirm this is working.

@@ -26,7 +26,7 @@ def mogrify(topic, msg):
 
 class Publisher(object):
     """Publisher is a zmq socket opened up by the central job monitor which is
-    used to push updates about job state to an connected subscriber"""
+    used to push updates about job state to a connected subscriber"""
 
     def __init__(self, out_dir, port=None):
         """set class defaults. make out_dir if it doesn't exist. write config
@@ -64,11 +64,13 @@ class Publisher(object):
         """
         monfn = '{}/publisher_info.json'.format(self.out_dir)
         self.logger.debug(
-            '{}: Writing connection info to {}'.format(os.getpid(), monfn))
+            '{pid}: Writing publisher connection info {h}:{p} to {f}'.format(pid=os.getpid(), h=host, p=port, f=monfn))
         if os.path.exists(monfn):
+            self.logger.debug("Publisher already running, not writing")
             raise PublisherAlreadyRunning(monfn)
         with open(monfn, 'w') as f:
             json.dump({'host': host, 'port': port, 'pid': os.getpid()}, f)
+            f.write("\n")
 
     def _open_socket(self):
         context = zmq.Context()
@@ -101,4 +103,6 @@ class Publisher(object):
         self._close_socket()
 
     def publish_info(self, topic, msg_data):
+        """Send an update message out to the listeners - the key method for this class."""
         self.socket.send_string(mogrify(topic, msg_data))
+        self.logger.debug("Publisher published _{}_".format(mogrify(topic, msg_data)))

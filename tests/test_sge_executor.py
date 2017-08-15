@@ -2,6 +2,7 @@ import os
 import time
 import pytest
 
+from jobmon.connection_config import ConnectionConfig
 from jobmon.models import Status
 from jobmon.job import Job
 
@@ -15,26 +16,28 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 @pytest.mark.cluster
 def test_sge_executor(central_jobmon_cluster):
+    monitor_connection = ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir, monitor_filename="monitor_info.json")
+    publisher_connection = ConnectionConfig(monitor_dir=central_jobmon_cluster.out_dir, monitor_filename="publisher_info.json")
 
     runfile = os.path.join(here, "waiter.py")
     j1 = Job(
-        central_jobmon_cluster.out_dir,
+        monitor_connection,
         name="job1",
         runfile=runfile,
         job_args=["30"])
     j2 = Job(
-        central_jobmon_cluster.out_dir,
+        monitor_connection,
         name="job2",
         runfile=runfile,
         job_args=["30"])
     j3 = Job(
-        central_jobmon_cluster.out_dir,
+        monitor_connection,
         name="job3",
         runfile=runfile,
         job_args=["30"])
 
     sgexec = SGEExecutor(
-        central_jobmon_cluster.out_dir, 3, 30000, parallelism=2)
+        monitor_connection=monitor_connection, publisher_connection=publisher_connection, parallelism=2)
     sgexec.queue_job(j1)
     sgexec.queue_job(j2)
     sgexec.queue_job(j3)

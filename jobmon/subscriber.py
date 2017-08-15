@@ -4,6 +4,8 @@ import os
 
 import zmq
 
+logger = logging.getLogger(__name__)
+
 
 def demogrify(topicmsg):
     """Inverse of publisher.mogrify()"""
@@ -24,22 +26,11 @@ class Subscriber(object):
             you can specify the hostname and port directly
     """
 
-    def __init__(self, out_dir=None, publisher_host=None, publisher_port=None):
+    def __init__(self, publisher_connection=None):
 
-        if not (bool(out_dir) ^ bool(publisher_host and publisher_port)):
-            raise ValueError("Either out_dir or the combination "
-                             "publisher_host+publisher_port must be "
-                             "specified. Cannot specify both out_dir and "
-                             "a host+port pair.")
-        self.logger = logging.getLogger(__name__)
+        logger = logging.getLogger(__name__)
         self.socket = None
-        if out_dir:
-            self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
-            self.out_dir = os.path.realpath(self.out_dir)
-            with open("{}/publisher_info.json".format(self.out_dir)) as f:
-                self.mi = json.load(f)
-        else:
-            self.mi = {'host': publisher_host, 'port': publisher_port}
+        self.mi = publisher_connection.load_monitor_info()
 
     def connect(self, topicfilter=None, timeout=1000):
         """Connect to server. Reads config file from out_dir specified during
@@ -47,28 +38,34 @@ class Subscriber(object):
         needs to be underscored. This will ALWAYS connect."""
         context = zmq.Context().instance()
         self.socket = context.socket(zmq.SUB)
+
+        # use host and port from network filesystem config. option "out_dir"
+        self.socket.connect(
+            "tcp://{sh}:{sp}".format(sh=self.mi['host'], sp=self.mi['port']))
+
         self.socket.setsockopt(zmq.RCVTIMEO, timeout)
         if topicfilter:
             self.socket.setsockopt_string(zmq.SUBSCRIBE, topicfilter)
-        self.logger.info('{}: Connecting...'.format(os.getpid()))
-
-        # use host and port from network filesystem cofig. option "out_dir"
-        self.socket.connect(
-            "tcp://{sh}:{sp}".format(sh=self.mi['host'], sp=self.mi['port']))
+        else:
+            self.socket.setsockopt_string(zmq.SUBSCRIBE, '')
+        logger.info('{}: Connecting to {}:{}; filter {}...'.format(os.getpid(), self.mi['host'], self.mi['port'], topicfilter))
 
     def disconnect(self):
         """disconnect from socket and unregister with poller. Is this an API
         method? Should be underscored if not"""
-        self.logger.info('{}: Disconnecting...'.format(os.getpid()))
+        logger.info('{}: Disconnecting...'.format(os.getpid()))
         self.socket.close()
 
         # Good idea to release this so that it gets garbage collected.
         self.socket = None
 
-    def recieve_update(self):
+
+    def receive_update(self):
+        """This is not-blocking by design, so that qstats can be done"""
         try:
-            topic, result = demogrify(self.socket.recv().decode("utf-8"))
+            x = self.socket.recv()
+            topic, result = demogrify(x.decode("utf-8"))
             return result
         except zmq.Again as e:
-            logging.error("Error receiving update {}".format(logging.error(e)))
+            # This will occur if there is no data available (yet). It is not an error.
             return None

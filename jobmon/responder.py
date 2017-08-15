@@ -1,4 +1,6 @@
+import logging
 import sys
+import traceback
 from enum import Enum
 from socket import gethostname
 import os
@@ -10,8 +12,8 @@ from threading import Thread, Event
 import zmq
 
 from jobmon.exceptions import ReturnCodes
-from jobmon.setup_logger import setup_logger
 
+logger = logging.getLogger(__name__)
 
 class ServerProcType(Enum):
     SUBPROCESS = 1
@@ -82,9 +84,6 @@ class Responder(object):
             port (int): Port that the reponder should listen on. If None
                 (default), the system will choose the port
         """
-        if not Responder.logger:
-            Responder.logger = setup_logger('central_monitor',
-                                            'central_monitor_logging.yaml')
         self.out_dir = os.path.abspath(os.path.expanduser(out_dir))
         self.out_dir = os.path.realpath(self.out_dir)
         try:
@@ -126,13 +125,13 @@ class Responder(object):
             port (int): port that server is listening at
         """
         monfn = '%s/monitor_info.json' % self.out_dir
-        logmsg = '{}: Writing connection info to {}'.format(os.getpid(),
-                                                            monfn)
-        Responder.logger.debug(logmsg)
+        logmsg = '{pid}: Writing connection info {h}:{p} to {f}'.format(pid=os.getpid(), h=host, p=port, f=monfn)
+        logger.debug(logmsg)
         if os.path.exists(monfn):
             raise MonitorAlreadyRunning(monfn)
         with open(monfn, 'w') as f:
             json.dump({'host': host, 'port': port, 'pid': os.getpid()}, f)
+            f.write("\n")
 
     def _open_socket(self):
         context = zmq.Context()
@@ -146,8 +145,8 @@ class Responder(object):
     def start_server(self, server_proc_type=ServerProcType.SUBPROCESS):
         """configure server and set to listen. returns tuple (port, socket).
         doesn't actually run server."""
-        Responder.logger.info('{}: Opening socket...'.format(os.getpid()))
-        Responder.logger.info('{}: Responder starting...'.format(os.getpid()))
+        logger.info('{}: Opening socket...'.format(os.getpid()))
+        logger.info('{}: Responder starting...'.format(os.getpid()))
         self.server_proc_type = server_proc_type
 
         # using multiprocessing
@@ -160,7 +159,7 @@ class Responder(object):
             self.thread_stop_request = Event()
             self.server_proc = Thread(target=self.listen)
             self.server_proc.start()
-        # syncronous
+        # synchronous
         elif self.server_proc_type == ServerProcType.NONE:
             self._open_socket()
             self.listen()
@@ -173,15 +172,16 @@ class Responder(object):
         """Stops response server. Only applicable if listening in a
         non-blocking subprocess. Threads and blocking execution exit normally
         """
+        exitcode = ReturnCodes.UNKNOWN_EXIT_STATE
         if self.server_proc_type == ServerProcType.SUBPROCESS:
             if self.server_proc.is_alive():
                 self.server_proc.terminate()
                 exitcode = self.server_proc.exitcode
+                file_name = '{}/monitor_info.json'.format(self.out_dir)
                 try:
-                    os.remove('{}/monitor_info.json'.format(self.out_dir))
-                except Exception:
-                    Responder.logger.info("monitor_info.json file already "
-                                          "deleted")
+                    os.remove(file_name)
+                except OSError as e:
+                    logger.info("Could not delete monitor_info.json file '{}', error: {}".format(file_name, e))
         elif self.server_proc_type == ServerProcType.THREAD:
             if self.server_proc.is_alive():
                 # set the threading EVENT to True
@@ -195,14 +195,14 @@ class Responder(object):
 
                 # then join the threads
                 self.server_proc.join(timeout=10)
-                exitcode = 0
+                exitcode = ReturnCodes.OK
+                file_name = '{}/monitor_info.json'.format(self.out_dir)
                 try:
-                    os.remove('{}/monitor_info.json'.format(self.out_dir))
-                except Exception:
-                    Responder.logger.info("monitor_info.json file already "
-                                          "deleted")
+                    os.remove(file_name)
+                except OSError as e:
+                    logger.info("Could not delete monitor_info.json file '{}', error: {}".format(file_name, e))
         elif self.server_proc_type == ServerProcType.NONE:
-            Responder.logger.info("Response server is already stopped")
+            logger.info("Response server is already stopped")
             exitcode = None
         else:
             raise TypeError(
@@ -211,15 +211,15 @@ class Responder(object):
 
     def _close_socket(self):
         """stops listening at network socket/port."""
-        Responder.logger.info('Stopping server...')
+        logger.info('Stopping server...')
         os.remove('{}/monitor_info.json'.format(self.out_dir))
         self.socket.close()
-        Responder.logger.info('Responder stopped.')
+        logger.info('Responder stopped.')
         return True
 
     def restart_server(self):
         """restart listening at new network socket/port"""
-        Responder.logger.info('Restarting server...')
+        logger.info('Restarting server...')
         self._close_socket()
         self.start_server()
 
@@ -251,24 +251,25 @@ class Responder(object):
         #   http://www.benfrederickson.com/dont-pickle-your-data/
         #
         if self.socket is None:
-            Responder.logger.info('Socket not created. Attempting to open.')
+            logger.info('Socket not created. Attempting to open.')
             self._open_socket()
-            Responder.logger.info('Socket opened successfully')
-        Responder.logger.info('Responder started, port {}.'.format(self.port))
+            logger.info('Socket opened successfully')
+        logger.info('Responder started, port {}.'.format(self.port))
         while self.keep_alive:
             msg = self.socket.recv_json()  # server blocks on receive
-            Responder.logger.debug("Received json {}".format(msg))
+            logger.debug("Received json {}".format(msg))
             try:
                 if msg == 'stop':
                     self.keep_alive = False
                     logmsg = "{}: Responder Stopping".format(os.getpid())
-                    Responder.logger.info(logmsg)
+                    logger.info(logmsg)
                     self.socket.send_json(
                         (ReturnCodes.OK, "Responder stopping"))
                     self._close_socket()
                 else:
                     # An actual application message, use introspection to find
                     # the handler
+
                     tocall = [act for act in self.actions if
                               act.__name__ == "_action_{}".format(
                                   msg['action'])][0]
@@ -282,15 +283,15 @@ class Responder(object):
                         act_args = msg['args']
                     else:
                         act_args = []
-
+                    logger.debug("Calling action {}".format(tocall))
                     response = tocall(*act_args, **act_kwargs)
                     if self.is_valid_response(response):
                         logmsg = '{}: Responder sending response {}'.format(
                             os.getpid(), response)
-                        Responder.logger.debug(logmsg)
+                        logger.debug(logmsg)
                         self.socket.send_json(response)
                     else:
-                        Responder.logger.error(
+                        logger.error(
                             "action has invalid response format: {}".format(
                                 response))
                         response = (ReturnCodes.INVALID_RESPONSE_FORMAT,
@@ -299,7 +300,7 @@ class Responder(object):
             except AttributeError as e:
                 logmsg = "{} is not a valid action for this Responder".format(
                     msg['action'])
-                Responder.logger.exception(logmsg)
+                logger.exception(logmsg)
                 response = (ReturnCodes.INVALID_ACTION, logmsg)
                 self.socket.send_json(response)
                 raise e
@@ -307,7 +308,8 @@ class Responder(object):
                 logmsg = (
                     '{}: Responder sending "generic problem" error: '
                     '{}'.format(os.getpid(), e))
-                Responder.logger.debug(logmsg)
+                logger.debug(logmsg)
+                traceback.print_exc()
                 response = (ReturnCodes.GENERIC_ERROR, logmsg)
                 self.socket.send_json(response)
 
@@ -326,14 +328,14 @@ class Responder(object):
         """A simple 'action' that sends a response to the requester indicating
         that this responder is in fact listening"""
         logmsg = "{}: Responder received is_alive?".format(os.getpid())
-        Responder.logger.debug(logmsg)
+        logger.debug(logmsg)
         return (ReturnCodes.OK, "Yes, I am alive")
 
     def _action_cycle(self):
         """A simple dummy 'action' that forces the server while loop to cycle
         """
         logmsg = "{}: Responder received cycle?".format(os.getpid())
-        Responder.logger.debug(logmsg)
+        logger.debug(logmsg)
         return (ReturnCodes.OK, "Forced cycle of server")
 
     def register_action(self, action):

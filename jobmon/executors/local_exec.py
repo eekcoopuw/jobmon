@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import logging
-logging.basicConfig(handlers=[logging.StreamHandler()])
+logging.basicConfig(handlers=[logging.StreamHandler])
 
 import sys
 import time
@@ -15,6 +15,9 @@ from jobmon.models import Status
 from jobmon.executors import base
 from jobmon.exceptions import ReturnCodes
 from jobmon import job
+from jobmon.setup_logger import setup_logger
+
+logger = setup_logger("jobmon", path="client_logging.yaml")
 
 if sys.version_info > (3, 0):
     import subprocess
@@ -34,12 +37,8 @@ class LocalJobInstance(job._AbstractJobInstance):
     zmq. Status is logged by server into sqlite database
 
     Args
-        mon_dir (string): file path where the server configuration is
-            stored.
-        monitor_host (string): in lieu of a filepath to the monitor info,
-            you can specify the hostname and port directly
-        monitor_port (int): in lieu of a filepath to the monitor info,
-            you can specify the hostname and port directly
+        monitor_connection (ConnectionConfig): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port etc directly
         job_instance_id (int): unique id used to identify this job instance.
             Generally we use the process id.
         jid (int): job id that this job instance belongs to
@@ -49,18 +48,13 @@ class LocalJobInstance(job._AbstractJobInstance):
             the central job monitor. Default=3 seconds
     """
 
-    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
-                 job_instance_id=None, jid=None, request_retries=3,
-                 request_timeout=3000):
+    def __init__(self, job_instance_id=None, jid=None, monitor_connection=None):
         """set SGE job id and job name as class attributes. discover from
         environment if not specified."""
 
-        self.requester = Requester(out_dir=mon_dir, monitor_host=monitor_host,
-                                   monitor_port=monitor_port,
-                                   request_retries=request_retries,
-                                   request_timeout=request_timeout)
+        self.requester = Requester(monitor_connection=monitor_connection)
 
-        # get sge_id and name from envirnoment
+        # get sge_id and name from environment
         self.job_instance_id = job_instance_id
         self.jid = jid
 
@@ -68,7 +62,7 @@ class LocalJobInstance(job._AbstractJobInstance):
 
     def log_job_stats(self):
         try:
-            # TODO: would like to add move stat collecting perhaps using psutil
+            # TODO: would like to add more stat collecting perhaps using psutil
             kwargs = {
                 "wallclock": time.strftime("%H:%M:%S", time.localtime())}
             msg = {
@@ -117,8 +111,7 @@ class LocalJobInstance(job._AbstractJobInstance):
 
 class LocalConsumer(multiprocessing.Process):
 
-    def __init__(self, task_queue, task_response_queue, result_queue, mon_dir,
-                 monitor_host, monitor_port, request_timeout, request_retries):
+    def __init__(self, task_queue, task_response_queue, result_queue, monitor_connection):
         """Consume work sent from LocalExecutor through multiprocessing queue.
 
         this class is structured based on
@@ -133,16 +126,8 @@ class LocalConsumer(multiprocessing.Process):
                 spanwed subprocess.
             result_queue (multiprocessing.Queue): a Queue used to send updates
                 on completed work to LocalExecutor class.
-            mon_dir (str): filepath to instance of CentralJobMonitor
-            monitor_host (string): in lieu of a filepath to the monitor info,
-                you can specify the hostname and port directly
-            monitor_port (int): in lieu of a filepath to the monitor info,
-                you can specify the hostname and port directly
-            request_timeout (int): how long will the requester wait at the
-                socket for a response from CentralJobMonitor
-            request_retries (int): how many times will the requester attempt to
-                contact the CentralJobMonitor after a timeout waiting for a
-                response
+            monitor_connection (ConnectionConfig): in lieu of a filepath to the monitor info,
+            you can specify the hostname and port etc directly
         """
 
         # this feels like the bad way but I copied it from the internets
@@ -154,12 +139,8 @@ class LocalConsumer(multiprocessing.Process):
         self.result_queue = result_queue
         self.daemon = True
 
-        # resquester args
-        self.mon_dir = mon_dir
-        self.monitor_host = monitor_host
-        self.monitor_port = monitor_port
-        self.request_timeout = request_timeout
-        self.request_retries = request_retries
+        # requester args
+        self.monitor_connection = monitor_connection
 
     def run(self):
         """wait for work, the execute it"""
@@ -181,13 +162,9 @@ class LocalConsumer(multiprocessing.Process):
 
                 # start monitoring with subprocesses pid
                 job_instance = LocalJobInstance(
-                    mon_dir=self.mon_dir,
-                    monitor_host=self.monitor_host,
-                    monitor_port=self.monitor_port,
+                    monitor_connection=self.monitor_connection,
                     job_instance_id=proc.pid,
-                    jid=job_def.jid,
-                    request_timeout=self.request_timeout,
-                    request_retries=self.request_retries)
+                    jid=job_def.jid)
                 job_instance.log_started()
                 self.task_response_queue.put(job_instance.job_instance_id)
 
@@ -199,15 +176,18 @@ class LocalConsumer(multiprocessing.Process):
             except TimeoutExpired:
                 # kill process group
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                # The returned values are strings
                 stdout, stderr = proc.communicate()
                 stderr = stderr + " Process timed out after: {}".format(
                     job_def.process_timeout)
+                logger.error(stderr)
                 returncode = proc.returncode
 
             except Exception as exc:
                 stdout = ""
                 stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                              traceback.format_exc())
+                logger.error(stderr)
                 returncode = None
 
             print(stdout)
@@ -255,13 +235,8 @@ class LocalExecutor(base.BaseExecutor):
         ----> subconsumerN
 
     Args:
-        mon_dir (string): directory where the connection info for the central
-            job monitor is written
-        request_retries (int, optional): how many time to try when pushing
-            updates to the central job monitor
-        request_timeout (int, optional): how long to linger on the zmq socket
-            when pushing updates to the central job monitor and waiting for a
-            response
+        monitor_connection (ConnectionConfig): host, port, timeout and retry parameters
+             of the central job monitor
         parallelism (int, optional): how many parallel jobs to schedule at a
             time
         subscribe_to_job_state (bool, optional): whether to subscribe to job
@@ -270,13 +245,12 @@ class LocalExecutor(base.BaseExecutor):
             process to respond with the pid of the subprocess before giving up
     """
 
-    def __init__(self, mon_dir=None, monitor_host=None, monitor_port=None,
-                 request_retries=3, request_timeout=3000, parallelism=10,
+    def __init__(self, monitor_connection=None, publisher_connection=None, parallelism=10,
                  task_response_timeout=3, subscribe_to_job_state=True):
         super(LocalExecutor, self).__init__(
-            mon_dir=mon_dir, monitor_host=monitor_host,
-            monitor_port=monitor_port, request_retries=request_retries,
-            request_timeout=request_timeout, parallelism=parallelism,
+            monitor_connection=monitor_connection,
+            publisher_connection=publisher_connection,
+            parallelism=parallelism,
             subscribe_to_job_state=subscribe_to_job_state)
 
         self.task_response_timeout = task_response_timeout
@@ -292,11 +266,7 @@ class LocalExecutor(base.BaseExecutor):
                 task_queue=self.task_queue,
                 task_response_queue=self.task_response_queue,
                 result_queue=self.result_queue,
-                mon_dir=self.mon_dir,
-                monitor_host=self.monitor_host,
-                monitor_port=self.monitor_port,
-                request_timeout=self.request_timeout,
-                request_retries=self.request_retries)
+                monitor_connection=self.monitor_connection)
             for i in range(self.parallelism)
         ]
 
