@@ -56,6 +56,7 @@ def test_basic_submit():
     assert glob.glob(os.path.expanduser("~/whatsleep*{}".format(sleep_id)))
 
 
+@pytest.mark.cluster
 def test_bad_arguments():
     with pytest.raises(ValueError) as exc_info:
         _ = sge.qsub("/bin/true", "so true", memory=0, slots=0)

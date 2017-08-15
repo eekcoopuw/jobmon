@@ -217,6 +217,7 @@ def test_pub(central_jobmon_cluster, central_jobmon_static_port):
     assert update is not None, (update)
 
 
+@pytest.mark.cluster
 def test_pub_static(central_jobmon_static_port):
 
     # @TODO Change monitor_host to just host? similar for port
