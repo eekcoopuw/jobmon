@@ -1,5 +1,8 @@
 from __future__ import print_function
 
+import logging
+logging.basicConfig(handlers=[logging.StreamHandler])
+
 import sys
 import time
 import multiprocessing
