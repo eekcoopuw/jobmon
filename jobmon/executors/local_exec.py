@@ -176,15 +176,18 @@ class LocalConsumer(multiprocessing.Process):
             except TimeoutExpired:
                 # kill process group
                 os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+                # The returned values are strings
                 stdout, stderr = proc.communicate()
                 stderr = stderr + " Process timed out after: {}".format(
                     job_def.process_timeout)
+                logger.error(stderr)
                 returncode = proc.returncode
 
             except Exception as exc:
                 stdout = ""
                 stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                              traceback.format_exc())
+                logger.error(stderr)
                 returncode = None
 
             print(stdout)
