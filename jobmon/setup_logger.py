@@ -17,8 +17,6 @@ def setup_logger(logger_name, path=DEFAULT_CONFIG_FILE_PATH,
     
     Uses the singleton pattern so that handlers are only created once"""
 
-    print("Attempting to create logger for '{}'".format(logger_name))
-
     logger = logging.getLogger(logger_name)
     if logger.handlers:
         msg = "Ignoring duplicate log creation of {}".format(logger_name)
