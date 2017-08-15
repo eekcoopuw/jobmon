@@ -100,7 +100,7 @@ class RetryScheduler(_BaseScheduler):
         retries (int, optional): how many times to reschedule failed jobs
     """
 
-    def __init__(self, retries=1, *args, **kwargs):
+    def __init__(self, retries=2, *args, **kwargs):
         super(RetryScheduler, self).__init__(*args, **kwargs)
 
         self.retries = retries
