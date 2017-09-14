@@ -10,7 +10,7 @@ class JobInstanceFactory(object):
         self.dag_id = dag_id
         self.requester = Requester(config.jm_conn_obj)
 
-    def flush_jobs_queued_for_instantiation(self):
+    def instantiate_queued_jobs(self):
         session = Session()
         jobs = self._get_jobs_queued_for_instantiation(session)
         for job in jobs:

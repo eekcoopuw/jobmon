@@ -56,4 +56,4 @@ def test_happy_path(db, dag_id, job_state_manager, session):
     assert len(njobs1) == 1
 
     jif = JobInstanceFactory(dag_id)
-    jif.flush_jobs_queued_for_instantiation()
+    jif.instantiate_queued_jobs()
