@@ -8,8 +8,9 @@ Base = declarative_base()
 
 
 class InvalidStateTransition(Exception):
-    def __init__(self, old_state, new_state):
-        msg = "Cannot transition {} to {}".format(old_state, new_state)
+    def __init__(self, model, old_state, new_state):
+        msg = "Cannot transition {} from {} to {}".format(
+            model, old_state, new_state)
         super().__init__(self, msg)
 
 
@@ -32,9 +33,10 @@ class JobInstanceStatus(Base):
     __tablename__ = 'job_instance_status'
 
     INSTANTIATED = 1
-    RUNNING = 2
-    ERROR = 3
-    DONE = 4
+    SUBMITTED_TO_BATCH_EXECUTOR = 2
+    RUNNING = 3
+    ERROR = 4
+    DONE = 5
 
     id = Column(Integer, primary_key=True)
     label = Column(String(150), nullable=False)
@@ -92,20 +94,20 @@ class Job(Base):
 
     def _validate_transition(self, new_state):
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition(self.status, new_state)
+            raise InvalidStateTransition('Job', self.status, new_state)
 
 
 class JobInstance(Base):
     __tablename__ = 'job_instance'
 
     job_instance_id = Column(Integer, primary_key=True)
+    executor_type = Column(String(50))
+    executor_id = Column(Integer)
     job_id = Column(
         Integer,
         ForeignKey('job.job_id'),
-        nullable=False,
-        primary_key=True)
+        nullable=False)
     job = relationship("Job", back_populates="job_instances")
-    job_instance_type = Column(String(50))
     usage_str = Column(String(250))
     wallclock = Column(String(50))
     maxvmem = Column(String(50))
@@ -120,9 +122,19 @@ class JobInstance(Base):
 
     valid_transitions = [
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
-        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.ERROR),
+
+        (JobInstanceStatus.INSTANTIATED,
+         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
+
+        (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+         JobInstanceStatus.RUNNING),
+
+        (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+         JobInstanceStatus.ERROR),
+
         (JobInstanceStatus.RUNNING, JobInstanceStatus.ERROR),
-        (JobInstanceStatus.RUNNING, JobInstanceStatus.ERROR)]
+
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
 
     def transition(self, new_state):
         self._validate_transition(new_state)
@@ -136,7 +148,7 @@ class JobInstance(Base):
 
     def _validate_transition(self, new_state):
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition(self.status, new_state)
+            raise InvalidStateTransition('JobInstance', self.status, new_state)
 
 
 class JobInstanceErrorLog(Base):

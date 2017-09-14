@@ -8,7 +8,7 @@ from jobmon.job_state_manager import JobStateManager
 
 
 def listen():
-    jsm = JobStateManager(4567)
+    jsm = JobStateManager(4567, 5678)
     jsm.open_socket()
     jsm.listen()
 
@@ -25,7 +25,7 @@ def db():
 
 @pytest.fixture(scope='module')
 def dag_id():
-    jsm = JobStateManager(4567)
+    jsm = JobStateManager()
     rc, dag_id = jsm.add_job_dag('test_dag', 'test_user')
     return dag_id
 
@@ -56,4 +56,8 @@ def test_happy_path(db, dag_id, job_state_manager, session):
     assert len(njobs1) == 1
 
     jif = JobInstanceFactory(dag_id)
-    jif.instantiate_queued_jobs()
+    job_instance_ids = jif.instantiate_queued_jobs()
+
+    jsm = JobStateManager(pub_port=5679)
+    jsm.log_running(job_instance_ids[0])
+    jsm.log_done(job_instance_ids[0])

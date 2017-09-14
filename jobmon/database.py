@@ -27,7 +27,8 @@ def load_default_statuses(session):
                    'RUNNING', 'ERROR_RECOVERABLE', 'ERROR_FATAL', 'DONE']:
         status_obj = JobStatus(id=getattr(JobStatus, status), label=status)
         statuses.append(status_obj)
-    for status in ['INSTANTIATED', 'RUNNING', 'ERROR', 'DONE']:
+    for status in ['INSTANTIATED', 'SUBMITTED_TO_BATCH_EXECUTOR', 'RUNNING',
+                   'ERROR', 'DONE']:
         status_obj = JobInstanceStatus(id=getattr(JobInstanceStatus, status),
                                        label=status)
         statuses.append(status_obj)
