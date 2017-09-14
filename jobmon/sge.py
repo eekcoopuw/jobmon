@@ -2,6 +2,7 @@
 Interface to the dynamic resource manager (DRM), aka the scheduler.
 """
 import atexit
+
 try:
     from collections.abc import Sequence
 except ImportError:
@@ -18,13 +19,19 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 
+from jobmon.exceptions import SGENotAvailable
+
 # Because the drmaa package needs this library in order to load.
 DRMAA_PATH = "/usr/local/UGE-{}/lib/lx-amd64/libdrmaa.so.1.0"
 if "DRMAA_LIBRARY_PATH" not in os.environ:
-    os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(
-        os.environ["SGE_CLUSTER_NAME"])
-
-import drmaa
+    try:
+        os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(
+            os.environ["SGE_CLUSTER_NAME"])
+        import drmaa
+    except KeyError:
+        raise SGENotAvailable("'SGE_CLUSTER_NAME' not set")
+    except Exception as e:
+        raise SGENotAvailable(e)
 
 
 this_path = os.path.dirname(os.path.abspath(__file__))

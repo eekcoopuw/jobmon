@@ -1,58 +1,29 @@
-import sys
 import pytest
-import uuid
+from threading import Thread
 
-from jobmon.central_job_monitor import CentralJobMonitor
-from time import sleep
-
-
-@pytest.fixture(scope='module')
-def tmp_out_dir(tmpdir_factory):
-    return tmpdir_factory.mktemp("dalynator_{}_".format(uuid.uuid4()))
+from jobmon import config, database
+from jobmon.job_query_server import JobQueryServer
+from jobmon.job_state_manager import JobStateManager
 
 
-@pytest.fixture(scope='function')
-def central_jobmon_cluster(tmpdir_factory):
-    monpath = tmpdir_factory.mktemp("jmdir")
+@pytest.fixture(scope='session')
+def db():
+    database.create_job_db()
+    with database.session_scope() as session:
+        database.load_default_statuses(session)
 
-    if sys.version_info > (3, 0):
-        jm = CentralJobMonitor(str(monpath))
-    else:
-        jm = CentralJobMonitor(str(monpath), persistent=False)
-    sleep(1)
-    yield jm
-    print("teardown fixture in {}".format(monpath))
-    jm.stop_responder()
-    jm.stop_publisher()
-    sleep(1)
-    assert not jm.responder_proc_is_alive()
+    jsm = JobStateManager(config.jm_rep_conn.port, config.jm_pub_conn.port)
 
+    jqs = JobQueryServer(config.jqs_rep_conn.port)
 
-@pytest.fixture(scope='function')
-def central_jobmon(tmpdir_factory):
-    monpath = tmpdir_factory.mktemp("jmdir")
-
-    if sys.version_info > (3, 0):
-        jm = CentralJobMonitor(str(monpath))
-    else:
-        jm = CentralJobMonitor(str(monpath), persistent=False)
-    sleep(1)
-    yield jm
-    print("teardown fixture in {}".format(monpath))
-    jm.stop_responder()
-    jm.stop_publisher()
-    sleep(1)
-    assert not jm.responder_proc_is_alive()
-
-
-@pytest.fixture(scope='module')
-def central_jobmon_static_port(tmpdir_factory):
-    monpath = tmpdir_factory.mktemp("jmdir")
-    jm = CentralJobMonitor(str(monpath), port=3459, publisher_port=5678,
-                           publish_job_state=True, persistent=False)
-    sleep(1)
-    yield jm
-    print("teardown fixture in {}".format(monpath))
-    jm.stop_responder()
-    sleep(1)
-    assert not jm.responder_proc_is_alive()
+    t1 = Thread(target=jsm.listen)
+    t1.daemon = True
+    t1.start()
+    t2 = Thread(target=jqs.listen)
+    t2.daemon = True
+    t2.start()
+    yield
+    jsm.stop_listening()
+    jqs.stop_listening()
+    database.Session.close_all()
+    database.engine.dispose()
