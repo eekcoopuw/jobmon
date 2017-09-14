@@ -11,7 +11,7 @@ services:
         "--dir_path", "/app",
         "--mon_port", "5000",
         "--pub_port", "3456",
-        "--conn_str", "mysql://DB_USERNAME:DB_PASSWORD@internal-db-p02.ihme.washington.edu/jobmon"]
+        "--conn_str", "mysql://docker:docker@db/docker"]
     links:
         - db
     logging:

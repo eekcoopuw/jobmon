@@ -65,6 +65,6 @@ setup(
     author_email='tomflem@uw.edu, mlsandar@uw.edu',
     include_package_data=True,
     install_requires=install_requires,
-    packages=['jobmon', 'jobmon.executors', 'jobmon.mocks'],
+    packages=['jobmon'],
     scripts=["bin/launch_central_monitor.py"],
     entry_points={'console_scripts': []})

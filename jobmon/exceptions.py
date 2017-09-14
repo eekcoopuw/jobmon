@@ -7,9 +7,10 @@ class ReturnCodes(object):
     Please add more as the need arises."""
     OK = 0
     INVALID_RESPONSE_FORMAT = 1
-    INVALID_ACTION = 2
-    GENERIC_ERROR = 3
-    NO_RESULTS = 4
+    INVALID_REQUEST = 2
+    INVALID_ACTION = 3
+    GENERIC_ERROR = 4
+    NO_RESULTS = 5
     UNKNOWN_EXIT_STATE = 99
 
 
@@ -30,6 +31,22 @@ class CentralJobMonitorNotAlive(Exception):
 
 
 class NoResponseReceived(Exception):
+    pass
+
+
+class NoSocket(Exception):
+    pass
+
+
+class InvalidRequest(Exception):
+    pass
+
+
+class InvalidResponse(Exception):
+    pass
+
+
+class InvalidAction(Exception):
     pass
 
 
