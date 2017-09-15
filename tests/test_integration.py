@@ -1,14 +1,21 @@
 import pytest
+import zmq
 from multiprocessing import Process
 
 from jobmon import database
+from jobmon.connection_config import ConnectionConfig
 from jobmon.job_factory import JobFactory
 from jobmon.job_instance_factory import JobInstanceFactory
 from jobmon.job_state_manager import JobStateManager
+from jobmon.requester import Requester
+
+
+REP_PORT = 4567
+PUB_PORT = 5678
 
 
 def listen():
-    jsm = JobStateManager(4567, 5678)
+    jsm = JobStateManager(REP_PORT, PUB_PORT)
     jsm.open_socket()
     jsm.listen()
 
@@ -45,7 +52,16 @@ def session():
     session.close()
 
 
-def test_happy_path(db, dag_id, job_state_manager, session):
+@pytest.fixture(scope='module')
+def subscriber(dag_id):
+    ctx = zmq.Context()
+    sub = ctx.socket(zmq.SUB)
+    sub.setsockopt_string(zmq.SUBSCRIBE, str(dag_id))
+    sub.connect("tcp://localhost:{}".format(PUB_PORT))
+    return sub
+
+
+def test_happy_path(db, dag_id, job_state_manager, session, subscriber):
     jf = JobFactory(dag_id)
     job_id = jf.create_job('foo', 'bar')
     njobs0 = jf._get_instantiated_not_done_not_fatal(session)
@@ -58,6 +74,22 @@ def test_happy_path(db, dag_id, job_state_manager, session):
     jif = JobInstanceFactory(dag_id)
     job_instance_ids = jif.instantiate_queued_jobs()
 
-    jsm = JobStateManager(pub_port=5679)
-    jsm.log_running(job_instance_ids[0])
-    jsm.log_done(job_instance_ids[0])
+    cc = ConnectionConfig('localhost', 4567)
+    req = Requester(cc)
+    re_running = req.send_request({
+        'action': 'log_running',
+        'kwargs': {'job_instance_id': job_instance_ids[0]}
+    })
+    re_done = req.send_request({
+        'action': 'log_done',
+        'kwargs': {'job_instance_id': job_instance_ids[0]}
+    })
+    print("running_rc: ", re_running)
+    print("done_rc: ", re_done)
+    print("subscriber receieved: ", subscriber.recv())
+
+    re_invalid_done = req.send_request({
+        'action': 'log_done',
+        'kwargs': {'job_instance_id': job_instance_ids[0]}
+    })
+    print("invalid_done_rc: ", re_invalid_done)
