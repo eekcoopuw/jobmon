@@ -1,26 +1,10 @@
-from contextlib import contextmanager
-
 import zmq
 
 from jobmon import models
-from jobmon.database import Session
+from jobmon.database import session_scope
 from jobmon.exceptions import ReturnCodes
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
-
-
-@contextmanager
-def session_scope():
-    """Provide a transactional scope around a series of operations."""
-    session = Session()
-    try:
-        yield session
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.close()
 
 
 class JobStateManager(ReplyServer):
@@ -37,8 +21,8 @@ class JobStateManager(ReplyServer):
         self.register_action("log_usage", self.log_usage)
         self.register_action("queue_job", self.queue_job)
 
-        zmq_context = zmq.Context()
-        self.publisher = zmq_context.socket(zmq.PUB)
+        ctx = zmq.Context()
+        self.publisher = ctx.socket(zmq.PUB)
         if pub_port:
             self.pub_port = pub_port
             self.publisher.bind('tcp://*:{}'.format(self.pub_port))
@@ -140,7 +124,7 @@ class JobStateManager(ReplyServer):
         job_instance.transition(status_id)
         job = job_instance.job
         if job.status in [models.JobStatus.DONE, models.JobStatus.ERROR_FATAL]:
-            msg = mogrify(job.dag_id, "{} {}".format(job.job_id, job.status))
+            msg = mogrify(job.dag_id, (job.job_id, job.status))
             self.publisher.send_string(msg)
         return (ReturnCodes.OK,)
 

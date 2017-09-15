@@ -6,6 +6,7 @@ from jobmon import database
 from jobmon.connection_config import ConnectionConfig
 from jobmon.job_factory import JobFactory
 from jobmon.job_instance_factory import JobInstanceFactory
+from jobmon.job_list_manager import JobListManager
 from jobmon.job_state_manager import JobStateManager
 from jobmon.requester import Requester
 
@@ -61,14 +62,22 @@ def subscriber(dag_id):
     return sub
 
 
-def test_happy_path(db, dag_id, job_state_manager, session, subscriber):
+@pytest.fixture(scope='module')
+def job_list_manager(dag_id):
+    jlm = JobListManager(dag_id)
+    jlm._start_job_status_listener()
+    return jlm
+
+
+def test_happy_path(db, dag_id, job_state_manager, session, subscriber,
+                    job_list_manager):
     jf = JobFactory(dag_id)
     job_id = jf.create_job('foo', 'bar')
-    njobs0 = jf._get_instantiated_not_done_not_fatal(session)
+    njobs0 = job_list_manager._get_instantiated_not_done_not_fatal(session)
     assert len(njobs0) == 0
 
     jf.queue_job(job_id)
-    njobs1 = jf._get_instantiated_not_done_not_fatal(session)
+    njobs1 = job_list_manager._get_instantiated_not_done_not_fatal(session)
     assert len(njobs1) == 1
 
     jif = JobInstanceFactory(dag_id)
@@ -87,6 +96,10 @@ def test_happy_path(db, dag_id, job_state_manager, session, subscriber):
     print("running_rc: ", re_running)
     print("done_rc: ", re_done)
     print("subscriber receieved: ", subscriber.recv())
+    new_done = job_list_manager.get_new_done()
+    print(new_done)
+    assert len(new_done) > 0
+    job_list_manager._stop_job_status_listener()
 
     re_invalid_done = req.send_request({
         'action': 'log_done',

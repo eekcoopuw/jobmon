@@ -39,7 +39,7 @@ class Requester(object):
         """Connect to server. Reads config file from out_dir specified during
         class instantiation to get socket. Not an API method,
         needs to be underscored. This will ALWAYS connect."""
-        context = zmq.Context()  # default 1 i/o thread
+        context = zmq.Context()
         self.socket = context.socket(zmq.REQ)  # blocks socket on send
         self.socket.setsockopt(zmq.LINGER, 0)  # do not pile requests in queue.
         logger.debug('{}: Connecting to {}:{}...'.format(os.getpid(),

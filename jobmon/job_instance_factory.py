@@ -1,3 +1,5 @@
+from time import sleep
+
 from jobmon import config
 from jobmon.models import Job, JobStatus
 from jobmon.database import Session
@@ -16,6 +18,12 @@ class JobInstanceFactory(object):
     def __init__(self, dag_id):
         self.dag_id = dag_id
         self.requester = Requester(config.jm_conn_obj)
+
+    def instantiate_queued_jobs_periodically(self, poll_interval=1):
+        while True:
+            print("Doing stuff")
+            self.instantiate_queued_jobs()
+            sleep(poll_interval)
 
     def instantiate_queued_jobs(self):
         session = Session()

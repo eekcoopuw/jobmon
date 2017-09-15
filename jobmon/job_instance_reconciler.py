@@ -1,21 +1,31 @@
+from time import sleep
+
 from jobmon import config
 from jobmon import models
-from jobmon.database import Session
+from jobmon.database import session_scope
 from jobmon.requester import Requester
 
 
 class JobInstanceReconciler(object):
 
-    def __init__(self):
+    def __init__(self, dag_id):
+        self.dag_id = dag_id
         self.requester = Requester(config.jm_conn_obj)
 
+    def reconcile_periodically(self, poll_interval=1):
+        while True:
+            print("Reconciling stuff")
+            self.reconcile()
+            sleep(poll_interval)
+
     def reconcile(self):
-        session = Session()
-        presumed = self._get_presumed_instantiated_or_running()
-        session.close()
+        with session_scope() as session:
+            presumed = self._get_presumed_instantiated_or_running(session)
         self._request_permission_to_reconcile()
         actual = self._get_actual_instantiated_or_running()
 
+        presumed = []
+        actual = []
         missing = set(presumed) - set(actual)
         pass
 

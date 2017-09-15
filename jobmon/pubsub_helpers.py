@@ -12,7 +12,6 @@ def mogrify(topic, msg):
 
 def demogrify(topicmsg):
     """ Inverse of mogrify() """
-    json0 = topicmsg.find('{')
-    topic = topicmsg[0:json0].strip()
-    msg = json.loads(topicmsg[json0:])
-    return topic, msg
+    topic, msg = topicmsg.split(" ", 1)
+    jsonmsg = json.loads(msg)
+    return topic, jsonmsg
