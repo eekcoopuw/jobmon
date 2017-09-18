@@ -98,6 +98,7 @@ def test_happy_path(db, dag_id, job_state_manager, session, subscriber,
     print("subscriber receieved: ", subscriber.recv())
     new_done = job_list_manager.get_new_done()
     print(new_done)
+    print(job_list_manager.all_done)
     assert len(new_done) > 0
     job_list_manager._stop_job_status_listener()
 

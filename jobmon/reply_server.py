@@ -47,6 +47,7 @@ class ReplyServer(object):
             self.port = self.socket.bind_to_random_port('tcp://*')
         else:
             self.socket.bind('tcp://*:{}'.format(self.port))
+        logger.info("Listenting on port {}".format(self.port))
         return self.node_name, self.port
 
     def listen(self):

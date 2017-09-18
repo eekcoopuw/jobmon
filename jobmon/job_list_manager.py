@@ -1,7 +1,8 @@
 import logging
 import time
-from multiprocessing import Process, Queue
+from multiprocessing.dummy import Process, Queue  # aka Threading...
 
+from jobmon import config
 from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus
 from jobmon.job_factory import JobFactory
@@ -42,6 +43,22 @@ class JobListManager(object):
         self.all_error = set()
 
         self.last_sync = time.time()
+
+    @classmethod
+    def from_new_dag(cls):
+
+        # TODO: This should really be the work of the DAG manager itself,
+        # but for the sake of expediting early development work, allow the
+        # JobListManager to obtain it's own dag_id
+        from jobmon.config import jm_rep_conn
+        from jobmon.requester import Requester
+
+        req = Requester(jm_rep_conn)
+        rc, dag_id = req.send_request({
+            'action': 'add_job_dag',
+            'kwargs': {'name': 'test dag', 'user': 'test user'}
+        })
+        return cls(dag_id)
 
     def block_until_no_instances(self, poll_interval=10,
                                  raise_on_any_error=True):
@@ -84,7 +101,7 @@ class JobListManager(object):
         return new_errors
 
     def queue_job(self, job_id):
-        self.job_factory(job_id)
+        self.job_factory.queue_job(job_id)
 
     def _sync(self):
         self._sync_done()
@@ -120,8 +137,8 @@ class JobListManager(object):
 
     def _start_job_status_listener(self):
         self.jsl_proc = Process(target=listen_for_job_statuses,
-                                args=('localhost', 5678, "", self.done_queue,
-                                      self.error_queue))
+                                args=('localhost', config.jm_pub_conn.port, "",
+                                      self.done_queue, self.error_queue))
         self.jsl_proc.start()
 
     def _stop_job_status_listener(self):

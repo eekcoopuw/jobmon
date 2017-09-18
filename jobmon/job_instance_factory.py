@@ -1,12 +1,31 @@
+import logging
 from time import sleep
 
 from jobmon import config
-from jobmon.models import Job, JobStatus
 from jobmon.database import Session
+from jobmon.models import Job, JobStatus
 from jobmon.requester import Requester
 
 
-def execute_with_sge(job):
+logger = logging.getLogger(__name__)
+
+
+def execute_sequentially(job, job_instance_id):
+    import subprocess
+    from jobmon.job_instance_intercom import JobInstanceIntercom
+
+    try:
+        jii = JobInstanceIntercom(job_instance_id)
+        jii.log_running()
+        subprocess.check_output(job.runfile, shell=True)
+        jii.log_done()
+    except Exception as e:
+        logger.error(e)
+
+    return None
+
+
+def execute_with_sge(job, job_instance_id):
     import random
     # qsub
     job_instance_id = random.randint(1, 1e7)
@@ -17,11 +36,11 @@ class JobInstanceFactory(object):
 
     def __init__(self, dag_id):
         self.dag_id = dag_id
-        self.requester = Requester(config.jm_conn_obj)
+        self.requester = Requester(config.jm_rep_conn)
 
     def instantiate_queued_jobs_periodically(self, poll_interval=1):
         while True:
-            print("Doing stuff")
+            logger.debug("Queuing at interval {}s".format(poll_interval))
             self.instantiate_queued_jobs()
             sleep(poll_interval)
 
@@ -35,7 +54,7 @@ class JobInstanceFactory(object):
         session.close()
         return job_instance_ids
 
-    def _create_job_instance(self, job, executor=execute_with_sge):
+    def _create_job_instance(self, job, executor=execute_sequentially):
         """
         Creates a JobInstance based on the parameters of Job and tells the
         JobStateManager to react accordingly.
@@ -47,8 +66,15 @@ class JobInstanceFactory(object):
                 to be the JobInstances executor_id, and will be registered
                 with the JobStateManager as such.
         """
-        job_instance_id = self._register_job_instance(job)
-        executor_id = executor(job)
+        try:
+            logger.info("Got here")
+            job_instance_id = self._register_job_instance(job)
+        except Exception as e:
+            logger.info("Got here too")
+            logger.error(e)
+        logger.info("Got here three")
+        logger.debug("Executing {}".format(job.runfile))
+        executor_id = executor(job, job_instance_id)
         if executor_id:
             self._register_submission_to_batch_executor(job_instance_id,
                                                         executor_id)

@@ -22,4 +22,4 @@ COPY pip.conf /root/.pip/pip.conf
 COPY . /app
 WORKDIR /app
 RUN pip install --requirement requirements.txt
-RUN pip install .
+RUN pip install -e .

@@ -1,3 +1,4 @@
+import logging
 import zmq
 
 from jobmon import models
@@ -5,6 +6,9 @@ from jobmon.database import session_scope
 from jobmon.exceptions import ReturnCodes
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
+
+
+logger = logging.getLogger(__name__)
 
 
 class JobStateManager(ReplyServer):
@@ -28,6 +32,7 @@ class JobStateManager(ReplyServer):
             self.publisher.bind('tcp://*:{}'.format(self.pub_port))
         else:
             self.pub_port = self.publisher.bind_to_random_port('tcp://*')
+        logger.info("Publishing to port {}".format(self.pub_port))
 
     def add_job(self, name, runfile, job_args, dag_id, max_attempts=1):
         job = models.Job(

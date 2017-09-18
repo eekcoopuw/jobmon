@@ -10,7 +10,7 @@ class JobFactory(object):
 
     def __init__(self, dag_id):
         self.dag_id = dag_id
-        self.requester = requester.Requester(config.jm_conn_obj)
+        self.requester = requester.Requester(config.jm_rep_conn)
 
     def create_job(self, runfile, jobname, parameters=None):
         rc, job_id = self.requester.send_request({

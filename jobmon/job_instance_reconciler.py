@@ -1,3 +1,4 @@
+import logging
 from time import sleep
 
 from jobmon import config
@@ -6,15 +7,18 @@ from jobmon.database import session_scope
 from jobmon.requester import Requester
 
 
+logger = logging.getLogger(__name__)
+
+
 class JobInstanceReconciler(object):
 
     def __init__(self, dag_id):
         self.dag_id = dag_id
-        self.requester = Requester(config.jm_conn_obj)
+        self.requester = Requester(config.jm_rep_conn)
 
     def reconcile_periodically(self, poll_interval=1):
         while True:
-            print("Reconciling stuff")
+            logging.debug("Reconciling at interval {}s".format(poll_interval))
             self.reconcile()
             sleep(poll_interval)
 

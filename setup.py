@@ -66,4 +66,4 @@ setup(
     include_package_data=True,
     install_requires=install_requires,
     packages=['jobmon'],
-    entry_points={'console_scripts': []})
+    entry_points={'console_scripts': ["jobmon=jobmon.cli:main"]})
