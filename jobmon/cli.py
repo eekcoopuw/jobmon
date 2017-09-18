@@ -1,7 +1,9 @@
-import logging
 import argparse
+import importlib
+import logging
 
 from jobmon import config
+from jobmon import database
 from jobmon.job_state_manager import JobStateManager
 
 
@@ -19,6 +21,16 @@ def main():
     config.conn_str = "mysql://{user}:{passw}@{dbhost}/{dbdb}".format(
         user=args.db_user, passw=args.db_password, dbhost=args.db_host,
         dbdb=args.db_database)
+    importlib.reload(database)  # Need to propagate this conn_str change
+
+    database.create_job_db()
+    try:
+        with database.session_scope() as session:
+            database.load_default_statuses(session)
+    except:
+        # This will fail if we've already loaded statuses (which will likely
+        # be the case if we're using the same db for multiple tests)
+        pass
     jsm = JobStateManager(args.state_manager_reply_port,
                           args.state_manager_publish_port)
 
