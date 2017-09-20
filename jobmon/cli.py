@@ -38,7 +38,3 @@ def main():
         logging.basicConfig(level=logging.DEBUG)
     jsm.open_socket()
     jsm.listen()
-
-
-if __name__ == "__main__":
-    main()

@@ -15,9 +15,6 @@ RUN rm Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/miniconda/bin:${PATH}
 RUN conda update -y conda
 
-# COPY ODBC DEFS
-COPY pip.conf /root/.pip/pip.conf
-
 # PIPS
 COPY . /app
 WORKDIR /app

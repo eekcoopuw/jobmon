@@ -17,6 +17,8 @@ class JobInstanceReconciler(object):
         self.requester = Requester(config.jm_rep_conn)
 
     def reconcile_periodically(self, poll_interval=1):
+        logger.info("Reconciling jobs against 'qstat' at {}s "
+                    "intervals".format(poll_interval))
         while True:
             logging.debug("Reconciling at interval {}s".format(poll_interval))
             self.reconcile()

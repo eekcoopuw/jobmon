@@ -11,8 +11,8 @@ class Subscriber(object):
 
     def __init__(self, host, port, topic=""):
 
-        ctx = zmq.Context()
-        self.socket = ctx.socket(zmq.SUB)
+        zmq_context = zmq.Context()
+        self.socket = zmq_context.socket(zmq.SUB)
         self.socket.setsockopt_string(zmq.SUBSCRIBE, str(topic))
         self.socket.connect("tcp://{}:{}".format(host, port))
 

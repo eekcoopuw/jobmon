@@ -60,8 +60,7 @@ class Job(Base):
         Integer,
         ForeignKey('job_dag.dag_id'))
     name = Column(String(150))
-    runfile = Column(String(150))
-    args = Column(String(1000))
+    command = Column(String(1000))
     num_attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=1)
     status = Column(

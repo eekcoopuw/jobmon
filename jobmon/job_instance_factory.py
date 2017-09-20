@@ -2,6 +2,7 @@ import logging
 from time import sleep
 
 from jobmon import config
+from jobmon.command_context import build_wrapped_command
 from jobmon.database import Session
 from jobmon.models import Job, JobStatus
 from jobmon.requester import Requester
@@ -12,13 +13,10 @@ logger = logging.getLogger(__name__)
 
 def execute_sequentially(job, job_instance_id):
     import subprocess
-    from jobmon.job_instance_intercom import JobInstanceIntercom
-
     try:
-        jii = JobInstanceIntercom(job_instance_id)
-        jii.log_running()
-        subprocess.check_output(job.runfile, shell=True)
-        jii.log_done()
+        cmd = build_wrapped_command(job, job_instance_id)
+        logger.debug(cmd)
+        subprocess.check_output(cmd, shell=True)
     except Exception as e:
         logger.error(e)
 
@@ -39,6 +37,8 @@ class JobInstanceFactory(object):
         self.requester = Requester(config.jm_rep_conn)
 
     def instantiate_queued_jobs_periodically(self, poll_interval=1):
+        logger.info("Polling for and instantiating queued jobs at {}s "
+                    "intervals".format(poll_interval))
         while True:
             logger.debug("Queuing at interval {}s".format(poll_interval))
             self.instantiate_queued_jobs()
@@ -73,7 +73,7 @@ class JobInstanceFactory(object):
             logger.info("Got here too")
             logger.error(e)
         logger.info("Got here three")
-        logger.debug("Executing {}".format(job.runfile))
+        logger.debug("Executing {}".format(job.command))
         executor_id = executor(job, job_instance_id)
         if executor_id:
             self._register_submission_to_batch_executor(job_instance_id,

@@ -14,7 +14,10 @@ from jobmon.subscriber import Subscriber
 logger = logging.getLogger(__name__)
 
 
-def listen_for_job_statuses(host, port, dag_id, done_queue, error_queue):
+def listen_for_job_statuses(host, port, dag_id, done_queue,
+                            error_queue):
+    logger.info("Listening for dag_id={} job status updates from {}:{}".format(
+        dag_id, host, port))
     subscriber = Subscriber(host, port, dag_id)
     while True:
         msg = subscriber.receive()
@@ -27,22 +30,27 @@ def listen_for_job_statuses(host, port, dag_id, done_queue, error_queue):
 
 class JobListManager(object):
 
-    def __init__(self, dag_id, db_sync_interval=None):
+    def __init__(self, dag_id, db_sync_interval=None, start_daemons=False):
 
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
+
         self.job_inst_factory = JobInstanceFactory(dag_id)
         self.job_inst_reconciler = JobInstanceReconciler(dag_id)
-        self.job_states = {}  # {job_id: status_id}
 
         self.db_sync_interval = None
         self.done_queue = Queue()
         self.error_queue = Queue()
 
+        self.job_statuses = {}  # {job_id: status_id}
         self.all_done = set()
         self.all_error = set()
+        with session_scope() as session:
+            self._sync(session)
 
-        self.last_sync = time.time()
+        if start_daemons:
+            self._start_job_status_listener()
+            self._start_job_instance_manager()
 
     @classmethod
     def from_new_dag(cls):
@@ -60,15 +68,20 @@ class JobListManager(object):
         })
         return cls(dag_id)
 
+    @property
+    def active_jobs(self):
+        return [job_id for job_id, job_status in self.job_statuses.items()
+                if job_status not in [JobStatus.REGISTERED,
+                                      JobStatus.DONE,
+                                      JobStatus.ERROR_FATAL]]
+
     def block_until_no_instances(self, poll_interval=10,
                                  raise_on_any_error=True):
         logger.info("Blocking, poll interval = {}".format(poll_interval))
 
         while True:
-            with session_scope() as session:
-                active_jobs = self._get_instantiated_not_done_not_fatal(
-                    session)
-            if len(active_jobs) == 0:
+            self.get_new_done()
+            if len(self.active_jobs) == 0:
                 break
 
             if raise_on_any_error:
@@ -77,17 +90,21 @@ class JobListManager(object):
                     break
 
             logger.debug("{} active jobs. Waiting {} seconds...".format(
-                len(active_jobs), poll_interval))
+                len(self.active_jobs), poll_interval))
             time.sleep(poll_interval)
             self._sync_at_interval()
 
-    def create_job(self, runfile, jobname, parameters=None):
-        return self.job_factory.create_job(runfile, jobname, parameters)
+    def create_job(self, command, jobname):
+        job_id = self.job_factory.create_job(command, jobname)
+        self.job_statuses[job_id] = JobStatus.REGISTERED
+        return job_id
 
     def get_new_done(self):
         new_done = []
         while not self.done_queue.empty():
-            new_done.append(self.done_queue.get())
+            done_id = self.done_queue.get()
+            new_done.append(done_id)
+            self.job_statuses[done_id] = JobStatus.DONE
         self.all_done.update(new_done)
         self._sync_at_interval()
         return new_done
@@ -95,66 +112,49 @@ class JobListManager(object):
     def get_new_errors(self):
         new_errors = []
         while not self.error_queue.empty():
-            new_errors.append(self.error_queue.get())
-        self.all_errors.update(new_errors)
+            error_id = self.error_queue.get()
+            new_errors.append(error_id)
+            self.job_statuses[error_id] = JobStatus.ERROR_FATAL
+        self.all_error.update(new_errors)
         self._sync_at_interval()
         return new_errors
 
     def queue_job(self, job_id):
         self.job_factory.queue_job(job_id)
+        self.job_statuses[job_id] = JobStatus.QUEUED_FOR_INSTANTIATION
 
-    def _sync(self):
-        self._sync_done()
-        self._sync_fatal()
+    def _sync(self, session):
+        jobs = session.query(Job).filter(
+            Job.dag_id == self.dag_id).all()
+        for job in jobs:
+            self.job_statuses[job.job_id] = job.status
+        self.all_done = set([job.job_id for job in jobs
+                             if job.status == JobStatus.DONE])
+        self.all_error = set([job.job_id for job in jobs
+                               if job.status == JobStatus.ERROR_FATAL])
         self.last_sync = time.time()
 
     def _sync_at_interval(self):
         if self.db_sync_interval:
             if (time.time() - self.last_sync) > self.db_sync_interval:
-                self._sync()
-
-    def _sync_done(self, session):
-        jobs = session.query(Job).filter(
-            Job.status == JobStatus.DONE,
-            Job.dag_id == self.dag_id).all()
-        self.all_done = set([job.job_id for job in jobs])
-        return jobs
-
-    def _sync_fatal(self, session):
-        jobs = session.query(Job).filter(
-            Job.status == JobStatus.ERROR_FATAL,
-            Job.dag_id == self.dag_id).all()
-        self.all_error = set([job.job_id for job in jobs])
-        return jobs
-
-    def _get_instantiated_not_done_not_fatal(self, session):
-        jobs = session.query(Job).filter(
-            Job.status != JobStatus.REGISTERED,
-            Job.status != JobStatus.DONE,
-            Job.status != JobStatus.ERROR_FATAL,
-            Job.dag_id == self.dag_id).all()
-        return jobs
+                with session_scope() as session:
+                    self._sync(session)
 
     def _start_job_status_listener(self):
         self.jsl_proc = Process(target=listen_for_job_statuses,
-                                args=('localhost', config.jm_pub_conn.port, "",
+                                args=(config.jm_pub_conn.host,
+                                      config.jm_pub_conn.port, self.dag_id,
                                       self.done_queue, self.error_queue))
+        self.jsl_proc.setDaemon(True)
         self.jsl_proc.start()
-
-    def _stop_job_status_listener(self):
-        if self.jsl_proc:
-            self.jsl_proc.terminate()
 
     def _start_job_instance_manager(self):
         self.jif_proc = Process(
             target=self.job_inst_factory.instantiate_queued_jobs_periodically)
+        self.jif_proc.setDaemon(True)
         self.jif_proc.start()
+
         self.jir_proc = Process(
             target=self.job_inst_reconciler.reconcile_periodically)
+        self.jir_proc.setDaemon(True)
         self.jir_proc.start()
-
-    def _stop_job_instance_manager(self):
-        if self.jif_proc:
-            self.jim_proc.terminate()
-        if self.jir_proc:
-            self.jim_proc.terminate()
