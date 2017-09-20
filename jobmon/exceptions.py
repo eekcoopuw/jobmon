@@ -7,7 +7,7 @@ class ReturnCodes(object):
     Please add more as the need arises."""
     OK = 0
     INVALID_RESPONSE_FORMAT = 1
-    INVALID_REQUEST = 2
+    INVALID_REQUEST_FORMAT = 2
     INVALID_ACTION = 3
     GENERIC_ERROR = 4
     NO_RESULTS = 5
@@ -47,6 +47,10 @@ class InvalidResponse(Exception):
 
 
 class InvalidAction(Exception):
+    pass
+
+
+class SGENotAvailable(Exception):
     pass
 
 

@@ -57,9 +57,9 @@ class JobStateManager(ReplyServer):
             dag_id = dag.dag_id
         return (ReturnCodes.OK, dag_id)
 
-    def add_job_instance(self, job_id):
+    def add_job_instance(self, job_id, executor_type):
         job_instance = models.JobInstance(
-            executor_type='SGE',
+            executor_type=executor_type,
             job_id=job_id)
         with session_scope() as session:
             session.add(job_instance)

@@ -29,6 +29,20 @@ jlm.get_new_done()
 jlm.get_new_errors()
 ```
 
+# Running tests
+
+To run the tests, the database and JobStateManager must be running:
+```
+docker-compose up --build
+```
+
+Tests can then be run locally. It is recommended to run them without the cache.
+The test threads seem to lock up sometimes, and clearing the cache helps. Need
+to investigate further. My hunch is the issues with SUB processes may be
+related to this: https://github.com/zeromq/pyzmq/issues/983.
+```
+pytest --cache-clear tests
+```
 
 # Job State Manager
 The package intends to provide simple, central monitoring of statuses and errors encountered by distributed tasks.

@@ -30,12 +30,13 @@ def listen_for_job_statuses(host, port, dag_id, done_queue,
 
 class JobListManager(object):
 
-    def __init__(self, dag_id, db_sync_interval=None, start_daemons=False):
+    def __init__(self, dag_id, executor=None, db_sync_interval=None,
+                 start_daemons=False):
 
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
 
-        self.job_inst_factory = JobInstanceFactory(dag_id)
+        self.job_inst_factory = JobInstanceFactory(dag_id, executor)
         self.job_inst_reconciler = JobInstanceReconciler(dag_id)
 
         self.db_sync_interval = None
@@ -130,8 +131,8 @@ class JobListManager(object):
             self.job_statuses[job.job_id] = job.status
         self.all_done = set([job.job_id for job in jobs
                              if job.status == JobStatus.DONE])
-        self.all_error = set([job.job_id for job in jobs
-                               if job.status == JobStatus.ERROR_FATAL])
+        self.all_error = set([job.job_id for job in jobs if job.status ==
+                              JobStatus.ERROR_FATAL])
         self.last_sync = time.time()
 
     def _sync_at_interval(self):

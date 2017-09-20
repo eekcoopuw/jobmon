@@ -5,7 +5,7 @@ services:
     build: .
     volumes:
         - .:/app
-    image: jobmon
+    image: jobmon-dev
     ports:
         - "3456:3456"
         - "3457:3457"

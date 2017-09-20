@@ -78,7 +78,6 @@ class ReplyServer(object):
         logger.info('Listening on port {}.'.format(self.port))
         while True:
             msg = self.socket.recv_json()  # server blocks on receive
-            self._validate_request(msg)
             logger.debug("Received json {}".format(msg))
             try:
                 if msg == 'stop':
@@ -87,6 +86,7 @@ class ReplyServer(object):
                         (ReturnCodes.OK, "ReplyServer stopping"))
                     break
                 else:
+                    self._validate_request(msg)
                     response = self._process_message(msg)
                     self._validate_response(response)
                     logmsg = 'Replying with: {}'.format(response)

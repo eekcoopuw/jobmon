@@ -2,8 +2,8 @@ import pytest
 import zmq
 from time import sleep
 
-from jobmon import database
-from jobmon import config
+from jobmon import config, database, models
+from jobmon.job_instance_factory import execute_batch_dummy
 from jobmon.job_list_manager import JobListManager
 from jobmon.job_state_manager import JobStateManager
 
@@ -34,16 +34,25 @@ def subscriber(dag_id):
     return sub
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='function')
 def job_list_manager(dag_id):
     jlm = JobListManager(dag_id)
-    return jlm
+    yield jlm
+    del jlm
 
 
 @pytest.fixture(scope='function')
 def job_list_manager_d(dag_id):
     jlm = JobListManager(dag_id, start_daemons=True)
-    return jlm
+    yield jlm
+    del jlm
+
+
+@pytest.fixture(scope='function')
+def job_list_manager_sge(dag_id):
+    jlm = JobListManager(dag_id, executor=execute_batch_dummy)
+    yield jlm
+    del jlm
 
 
 def test_invalid_command(db, dag_id, subscriber, job_list_manager):
@@ -96,3 +105,13 @@ def test_daemon_valid_command(db, dag_id, job_list_manager_d):
     sleep(3)  # Give some time for the job to get to the executor
     done = job_list_manager_d.get_new_done()
     assert len(done) == 1
+
+
+def test_sge_valid_command(db, dag_id, job_list_manager_sge):
+    job_id = job_list_manager_sge.create_job("ls", "sgefbb")
+    job_list_manager_sge.queue_job(job_id)
+    job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
+    with database.session_scope() as session:
+        job_list_manager_sge._sync(session)
+    assert (job_list_manager_sge.job_statuses[job_id] ==
+            models.JobStatus.INSTANTIATED)
