@@ -15,4 +15,4 @@ def deploy():
             "/~tomflem/jobmon.git")
         with cd("jobmon"):
             run("git checkout feature/comms_refactor")
-            run("docker-compose up --build -d")
+            run("docker-compose -p jobmondev up --build --force-recreate -d")

@@ -19,4 +19,4 @@ RUN conda update -y conda
 COPY . /app
 WORKDIR /app
 RUN pip install --requirement requirements.txt
-RUN pip install -e .
+RUN pip install .
