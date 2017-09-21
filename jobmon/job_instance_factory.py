@@ -23,14 +23,16 @@ def execute_sequentially(job, job_instance_id):
 
 
 def execute_sge(job, job_instance_id):
-    import sge
+    from jobmon import sge
     try:
-        cmd = build_wrapped_command(job, job_instance_id)
-        sge_jid = sge.qsub(cmd, jobname=job.name)
+        # cmd = build_wrapped_command(job, job_instance_id)
+        cmd = job.command
+        sge_jid = sge.qsub(cmd, jobtype='plain', jobname=job.name,
+                           stderr="/homes/tomflem", stdout="/homes/tomflem")
+        return sge_jid
     except Exception as e:
         logger.error(e)
-    return None
-    return sge_jid
+        return None
 
 
 def execute_batch_dummy(job, job_instance_id):

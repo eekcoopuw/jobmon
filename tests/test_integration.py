@@ -5,7 +5,6 @@ from time import sleep
 from jobmon import config, database, models
 from jobmon.job_instance_factory import execute_batch_dummy
 from jobmon.job_list_manager import JobListManager
-from jobmon.job_state_manager import JobStateManager
 
 
 @pytest.fixture(scope='module')
@@ -16,13 +15,6 @@ def db():
     session.close()
     yield True
     # database.delete_job_db()
-
-
-@pytest.fixture(scope='module')
-def dag_id():
-    jsm = JobStateManager()
-    rc, dag_id = jsm.add_job_dag('test_dag', 'test_user')
-    return dag_id
 
 
 @pytest.fixture(scope='module')

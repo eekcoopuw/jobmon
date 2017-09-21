@@ -2,9 +2,9 @@ from jobmon.connection_config import ConnectionConfig
 from jobmon.exceptions import SGENotAvailable
 
 try:
-    import sge
+    from jobmon import sge
 
-    conn_str = "mysql://docker:docker@jobmon-p01.ihme.washington.edu/docker"
+    conn_str = "mysql+pymysql://docker:docker@jobmon-p01.ihme.washington.edu/docker"
 
     jm_rep_conn = ConnectionConfig(
         host='jobmon-p01.ihme.washington.edu',
