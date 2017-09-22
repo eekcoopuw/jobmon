@@ -8,6 +8,7 @@ from jobmon import exceptions
 
 logger = logging.getLogger(__name__)
 
+
 class Requester(object):
     """Sends messages to a Responder node through zmq. sends messages to a
     Responder via request dictionaries which the Responder node consumes and
@@ -15,42 +16,40 @@ class Requester(object):
     status messages to a Responder in the CentralJobStateMonitor
 
     Args
-        out_dir (string): file path where the server configuration is
-            stored, of jobmon  is runnign locally
-        monitor_connection (ConnectionConfig): host and port info for a remote jobmon instance
-
-        The two arguments are mutually exclusive.
+        connection_config (ConnectionConfig): host and port info for a remote
+            jobmon instance
     """
 
-    def __init__(self, monitor_connection):
+    def __init__(self, connection_config):
         """set class defaults. attempt to connect with server."""
 
-        
-        self.monitor_connection = monitor_connection
+        self.conn_cfg = connection_config
         self.poller = None
         self.socket = None
         self.message_id = 0
 
         try:
-            self.mi = monitor_connection.load_monitor_info()
             self.connect()
         except IOError as e:
             logger.error("Failed to connect in Requester.__init__, "
-                              "exception: {}".format(e))
+                         "exception: {}".format(e))
             warnings.warn("Unable to connect to server")
 
     def connect(self):
         """Connect to server. Reads config file from out_dir specified during
         class instantiation to get socket. Not an API method,
         needs to be underscored. This will ALWAYS connect."""
-        context = zmq.Context()  # default 1 i/o thread
-        self.socket = context.socket(zmq.REQ)  # blocks socket on send
+        zmq_context = zmq.Context.instance()
+        self.socket = zmq_context.socket(zmq.REQ)  # blocks socket on send
         self.socket.setsockopt(zmq.LINGER, 0)  # do not pile requests in queue.
-        logger.debug('{}: Connecting to {}:{}...'.format(os.getpid(), self.mi['host'],self.mi['port']))
+        logger.debug('{}: Connecting to {}:{}...'.format(os.getpid(),
+                                                         self.conn_cfg.host,
+                                                         self.conn_cfg.port))
 
         # use host and port from network filesystem config. option "out_dir"
         self.socket.connect(
-            "tcp://{sh}:{sp}".format(sh=self.mi['host'], sp=self.mi['port']))
+            "tcp://{sh}:{sp}".format(sh=self.conn_cfg.host,
+                                     sp=self.conn_cfg.port))
 
         # setup zmq poller to poll for messages on the socket connection.
         # we only register 1 socket but poller supports multiple.
@@ -63,9 +62,11 @@ class Requester(object):
     def disconnect(self):
         """disconnect from socket and unregister with poller. Is this an API
         method? Should be underscored if not"""
-        logger.debug('{}: Disconnecting from {}:{} ...'.format(os.getpid(), self.mi['host'], self.mi['port']))
-        self.socket.close()
-        self.poller.unregister(self.socket)
+        logger.debug('{}: Disconnecting from {}:{} ...'.format(
+            os.getpid(), self.conn_cfg.host, self.conn_cfg.port))
+        if self.socket:
+            self.poller.unregister(self.socket)
+            self.socket.close()
 
         # Good idea to release these so that they get garbage collected.
         # They might have OS memory
@@ -115,9 +116,10 @@ class Requester(object):
         Returns: Server reply message
         """
         self.message_id += 1
-        retries_left = self.monitor_connection.request_retries
+        retries_left = self.conn_cfg.request_retries
         logger.debug('{}: Sending message id {}: {} to {}:{}'.format(
-            os.getpid(), self.message_id, message, self.mi['host'], self.mi['port']))
+            os.getpid(), self.message_id, message, self.conn_cfg.host,
+            self.conn_cfg.port))
         reply = 0
         while retries_left:
             # Reconnect if necessary
@@ -127,7 +129,7 @@ class Requester(object):
             expect_reply = True
             while expect_reply:
                 # ask for response from server. wait until REQUEST_TIMEOUT
-                socks = dict(self.poller.poll(self.monitor_connection.request_timeout))
+                socks = dict(self.poller.poll(self.conn_cfg.request_timeout))
                 if socks.get(self.socket) == zmq.POLLIN:
                     reply = self.socket.recv_json()
                     if not reply:
@@ -150,12 +152,13 @@ class Requester(object):
                                                       self.message_id))
                         reply = 0
                         raise exceptions.NoResponseReceived(
-                            "No response received from responder at {}:{} in {} retries"
-                            " after waiting for {} seconds each try.".format(
-                                self.monitor_connection.monitor_host,
-                                self.monitor_connection.monitor_port,
-                                str(self.monitor_connection.request_retries),
-                                str(self.monitor_connection.request_timeout)))
+                            "No response received from responder at {}:{} in "
+                            "{} retries after waiting for {} seconds each "
+                            "try.".format(
+                                self.conn_cfg.host,
+                                self.conn_cfg.port,
+                                str(self.conn_cfg.request_retries),
+                                str(self.conn_cfg.request_timeout)))
                     self.connect()
                     logger.debug(
                         '  {}: resending message...{}'.format(os.getpid(),

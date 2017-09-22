@@ -48,12 +48,6 @@ install_requires = [
     'flask_restplus',
 ]
 
-if sys.version_info < (3, 0):
-    install_requires.append("subprocess32")
-
-if sys.version_info < (3, 4):
-    install_requires.append("enum34")
-
 setup(
     version=versioneer.get_version(),
     cmdclass=cmds,
@@ -65,6 +59,7 @@ setup(
     author_email='tomflem@uw.edu, mlsandar@uw.edu',
     include_package_data=True,
     install_requires=install_requires,
-    packages=['jobmon', 'jobmon.executors', 'jobmon.mocks'],
-    scripts=["bin/launch_central_monitor.py"],
-    entry_points={'console_scripts': []})
+    packages=['jobmon'],
+    entry_points={
+        'console_scripts': ["jobmon=jobmon.cli:main",
+                            "jobmon_command=jobmon.command_context:unwrap"]})

@@ -1,34 +1,55 @@
-# Job Monitor
+# Dev instructions (subject to rapid iteration)
+
+To develop locally, you'll need docker and docker-compose. Clone this repo and
+start the database and JobStateManager (formerly 'monitor') server:
+
+```
+docker-compose up --build
+```
+
+For the client side, in a separate shell, create a python 3 environment with
+jobmon installed. Basic usage is as follows:
+
+```python
+from jobmon.job_list_manager import JobListManager
+
+# Create a JobListManager and start it's status and instance services
+jlm = JobListManager.from_new_dag()
+jlm._start_job_status_listener()
+jlm._start_job_instance_manager()
+
+# Create and queue a job (in this dev case, queue = run immediately)
+job_id = jlm.create_job("touch ~/foobarfile", "my_jobname")
+jlm.queue_job(job_id)
+
+# Retrieve a list of freshly finished jobs
+jlm.get_new_done()
+
+# Retrieve a list of freshly errant jobs
+jlm.get_new_errors()
+```
+
+# Running tests
+
+To run the tests, the database and JobStateManager must be running:
+```
+docker-compose up --build
+```
+
+Tests can then be run locally. It is recommended to run them without the cache.
+The test threads seem to lock up sometimes, and clearing the cache helps. Need
+to investigate further. My hunch is the issues with SUB processes may be
+related to this: https://github.com/zeromq/pyzmq/issues/983.
+```
+pytest --cache-clear tests
+```
+
+# Job State Manager
 The package intends to provide simple, central monitoring of statuses and errors encountered by distributed tasks.
 It seeks to easily drop-in to existing code bases without significant refactoring.
 
-This discussion deliberately avoids the words _Client_ and _Server_ because those words were used in different ways
-in the original implementation.
-
-This is the thrid iteration of the job mon design. The change betwee neach iteration is how the central job monitor is
-launched. In the first iteration it was started manually in a separate shell window. In the second iteration it was
-started by the clint calling MonitoredQ. That appeared to be simpler but in practise was too complex, especially in
-controlling which python environment was used for which process. The third diteration therefore went back to manually
-staing the monitor.
-
-There is one central python process (CentralJobMonitor) that starts and monitors the individual application jobs.
-This process should be started in a separte qlogin, using a python 3 environment (which will be part of this project
-as soon as we have the central envrinemnt library epic completed.).  The command is:
-
-```sh
-python bin/launch_central_monitor.py <directory to hold monitor_info.json>
-```
-
-More usefully:
-
-```sh
-rm -f monitor_info.json && python bin/launch_central_monitor.py `pwd`
-```
-
-Alternatively, the (CentralJobMonitor) may be launched in a thread of the main controller process. This approach
-allows the user to run a single process that is responsible for state tracking of the distributed processes. However,
-since python does not allow concurrent execution of different threads, the main controller process that launches the
-(CentralJobMonitor) should not do any computation. The command is:
+There is one central python process (JobStateManager) that keeps track of and forces consistency between individual jobs and their instances.
+This process must be launched on a host and listen on ports known by all jobs which will communicate with it.
 
 ```python
 import time
@@ -53,8 +74,9 @@ using a python 3 environment or use an in memory sqlite database (CentralJobMoni
 The response codes were moved to exceptions.py so that the client would be decoupled from the responder.
 
 # Environments
-The distributed tasks are generally executed in the same environment as the controller process though this is not
-required.
+**TODO**: The distributed tasks are executed in the same environment as the JobListManager process by default. This can be overriden by setting the
+Job.environment attribute.
+
 
 # Job Queueing and Automatic Relaunching
 Job Monitor comes with high level convenience packages for launching SGE jobs, monitoring/logging their progress, and

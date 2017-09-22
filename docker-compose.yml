@@ -1,17 +1,23 @@
-version: '2'
+version: '3'
 
 services:
   monitor:
-    image: jobmon
+    build: .
+    volumes:
+        - .:/app
+    image: jobmon-dev
     ports:
-        - "5555:5000"
-        - "5556:3456"
+        - "3456:3456"
+        - "3457:3457"
+
+    entrypoint:
+        - ./wait-for-db.sh
+        - db
     command: [
-        "./wait-for-db.sh", "db", "python", "bin/launch_central_monitor.py",
-        "--dir_path", "/app",
-        "--mon_port", "5000",
-        "--pub_port", "3456",
-        "--conn_str", "mysql://DB_USERNAME:DB_PASSWORD@internal-db-p02.ihme.washington.edu/jobmon"]
+        "jobmon",
+        "--state_manager_reply_port", "3456",
+        "--state_manager_publish_port", "3457",
+        "--verbose"]
     links:
         - db
     logging:
