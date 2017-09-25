@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def listen_for_job_statuses(host, port, dag_id, done_queue,
-                            error_queue, disconnect_queue):
+                            error_queue, update_queue, disconnect_queue):
     logger.info("Listening for dag_id={} job status updates from {}:{}".format(
         dag_id, host, port))
     subscriber = Subscriber(host, port, dag_id)
@@ -33,8 +33,10 @@ def listen_for_job_statuses(host, port, dag_id, done_queue,
         job_id, job_status = msg
         if job_status == JobStatus.DONE:
             done_queue.put(job_id)
+            update_queue.put((job_id, job_status))
         elif job_status == JobStatus.ERROR_FATAL:
             error_queue.put(job_id)
+            update_queue.put((job_id, job_status))
 
 
 class JobListManager(object):
@@ -53,6 +55,7 @@ class JobListManager(object):
         self.db_sync_interval = None
         self.done_queue = Queue()
         self.error_queue = Queue()
+        self.update_queue = Queue()
         self.disconnect_queue = Queue()
 
         self.job_statuses = {}  # {job_id: status_id}
@@ -88,6 +91,25 @@ class JobListManager(object):
                 if job_status not in [JobStatus.REGISTERED,
                                       JobStatus.DONE,
                                       JobStatus.ERROR_FATAL]]
+
+    def block_until_any_done_or_error(self, timeout=None):
+        """Returns any job updates since last called, or blocks until an update
+        is received.
+
+        Args:
+            timeout (int, optional): Maximum time to block. If None (default),
+                block forever.
+
+        Returns:
+            list of (job_id, job_status) tuples
+        """
+        updates = []
+        if not self.update_queue.empty():
+            while not self.update_queue.empty():
+                updates.append(self.update_queue.get(timeout=timeout))
+            return updates
+        else:
+            return [self.update_queue.get(timeout=timeout)]
 
     def block_until_no_instances(self, poll_interval=10,
                                  raise_on_any_error=True):
@@ -174,7 +196,8 @@ class JobListManager(object):
                     "{}:{}".format(self.dag_id, host, port))
         self.jsl_proc = Thread(target=listen_for_job_statuses,
                                args=(host, port, self.dag_id, self.done_queue,
-                                     self.error_queue, self.disconnect_queue))
+                                     self.error_queue, self.update_queue,
+                                     self.disconnect_queue))
         self.jsl_proc.daemon = True
         self.jsl_proc.start()
 

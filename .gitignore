@@ -21,3 +21,7 @@ __pycache__
 /build
 
 .idea
+
+# Ignore coverage reports
+.coverage
+htmlcov
