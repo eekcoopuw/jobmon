@@ -9,13 +9,6 @@ from jobmon.job_state_manager import JobStateManager
 
 
 @pytest.fixture(scope='module')
-def dag_id(db):
-    jsm = JobStateManager()
-    rc, dag_id = jsm.add_job_dag('test_dag', 'test_user')
-    yield dag_id
-
-
-@pytest.fixture(scope='module')
 def subscriber(dag_id):
     ctx = zmq.Context.instance()
     sub = ctx.socket(zmq.SUB)

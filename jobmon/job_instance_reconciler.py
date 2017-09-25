@@ -2,8 +2,10 @@ import logging
 from time import sleep
 
 from jobmon import config
-from jobmon.models import Job
-from jobmon.database import session_scope
+try:
+    from jobmon import sge
+except:
+    pass
 from jobmon.requester import Requester
 
 
@@ -26,8 +28,7 @@ class JobInstanceReconciler(object):
             sleep(poll_interval)
 
     def reconcile(self):
-        with session_scope() as session:
-            presumed = self._get_presumed_instantiated_or_running()
+        presumed = self._get_presumed_instantiated_or_running()
         self._request_permission_to_reconcile()
         actual = self._get_actual_instantiated_or_running()
 
@@ -37,16 +38,24 @@ class JobInstanceReconciler(object):
         pass
 
     def _get_actual_instantiated_or_running(self):
-        # qstat
-        pass
+        # TODO: If we formalize the "Executor" concept as more than a
+        # command-runner, this should probably be an option method
+        # provided by any given Executor
+        # ...
+        # For now, just qstat
+        qstat_out = sge.qstat()
+        job_ids = list(qstat_out.job_id)
+        job_ids = [int(jid) for jid in job_ids]
+        return job_ids
 
     def _get_presumed_instantiated_or_running(self):
-        rc, jobs = self.jsm_req.send_request({
-            'action': 'get_active',
-            'kwargs': {'adg_id': self.dag_id}
+        rc, executor_ids = self.jqs_req.send_request({
+            'action': 'get_active_executor_ids',
+            'kwargs': {'dag_id': self.dag_id}
         })
-        jobs = [Job.from_wire(j) for j in jobs]
-        return jobs
+        # Convert keys back to integer ids, for convenience
+        executor_ids = {int(k): v for k, v in executor_ids.items()}
+        return executor_ids
 
     def _log_error(self, job_instance_id):
         self.jsm_req.send_request({
@@ -57,7 +66,7 @@ class JobInstanceReconciler(object):
 
     def _request_permission_to_reconcile(self):
         # sync
-        pass
+        return self.jsm_req.send_request('alive')
 
     def _terminate_timed_out_jobs(self):
         pass
