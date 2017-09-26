@@ -168,25 +168,20 @@ class JobListManager(object):
                     self._sync(session)
 
     def _start_job_status_listener(self):
-        host = config.jm_pub_conn.host
-        port = config.jm_pub_conn.port
-
-        logger.info("Listening for dag_id={} job status updates from "
-                    "{}:{}".format(self.dag_id, host, port))
-        self.jsl_proc = Thread(target=listen_for_job_statuses,
-                               args=(host, port, self.dag_id, self.done_queue,
-                                     self.error_queue, self.update_queue,
-                                     self.disconnect_queue))
-        self.jsl_proc.daemon = True
+        self.jsl_proc = Process(target=listen_for_job_statuses,
+                                args=(config.jm_pub_conn.host,
+                                      config.jm_pub_conn.port, self.dag_id,
+                                      self.done_queue, self.error_queue))
+        self.jsl_proc.setDaemon(True)
         self.jsl_proc.start()
 
     def _start_job_instance_manager(self):
-        self.jif_proc = Thread(
+        self.jif_proc = Process(
             target=self.job_inst_factory.instantiate_queued_jobs_periodically)
-        self.jif_proc.daemon = True
+        self.jif_proc.setDaemon(True)
         self.jif_proc.start()
 
-        self.jir_proc = Thread(
+        self.jir_proc = Process(
             target=self.job_inst_reconciler.reconcile_periodically)
-        self.jir_proc.daemon = True
+        self.jir_proc.setDaemon(True)
         self.jir_proc.start()

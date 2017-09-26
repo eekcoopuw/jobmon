@@ -35,7 +35,6 @@ if "DRMAA_LIBRARY_PATH" not in os.environ:
 else:
     import drmaa
 
-
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 # Comes from object_name in `man sge_types`. Also, * excluded.
@@ -385,6 +384,12 @@ def qsub(
         conda_env=None,
         environment_variables={},
         intel_only=True):
+    # TODO: remove the conda-specific magic and the filetype-detection... This
+    # should be limited to the bare qsub interaction. Those functionalities are
+    # nice, but should be implemented in a higher-order function.
+    # TODO: look at reverting this to simple generation of a qsub command...
+    # Luigi does this, and it seems simpler and more supportable that drmaa:
+    # http://luigi.readthedocs.io/en/stable/_modules/luigi/contrib/sge.html#LocalSGEJobTask
     """Submits job to Grid Engine Queue.
     This function provides a convenient way to call scripts for
     R, Python, and Stata using the job_type parameter.
@@ -637,56 +642,3 @@ def _wait_done(job_ids):
             raise RuntimeError("job status not done or running {}".format(
                 status_check))
     return True
-
-
-def get_commit_hash(dir="."):
-    """get the git commit hash for a given directory
-
-    Args:
-        dir (string): which directory to get the git hash for. defaults to
-            current directory
-
-    Returns:
-        git commit hash
-    """
-    cmd = [
-        'git',
-        '--git-dir=%s/.git' % dir,
-        '--work-tree=%s',
-        'rev-parse',
-        'HEAD']
-    return subprocess.check_output(cmd).strip()
-
-
-def get_branch(dir="."):
-    """get the git branch for a given directory
-
-    Args:
-        dir (string): which directory to get the git commit for. defaults to
-            current directory
-
-    Returns:
-        git commit branch
-    """
-    cmd = [
-        'git',
-        '--git-dir=%s/.git' % dir,
-        '--work-tree=%s',
-        'rev-parse',
-        '--abbrev-ref',
-        'HEAD']
-    return subprocess.check_output(cmd).strip()
-
-
-def git_dict(dir="."):
-    """get a dictionary of the git branch and hash for given directory.
-
-    Args:
-        dir (string): which directory to get the dictionary for
-
-    Returns:
-        dictionary
-    """
-    branch = get_branch(dir)
-    commit = get_commit_hash(dir)
-    return {'branch': branch, 'commit': commit}

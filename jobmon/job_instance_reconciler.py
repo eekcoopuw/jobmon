@@ -1,10 +1,7 @@
 import logging
 from time import sleep
 
-from jobmon import config
-from jobmon import sge
-from jobmon.database import session_scope
-from jobmon.models import Job
+from jobmon import config, sge
 from jobmon.requester import Requester
 
 

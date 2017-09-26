@@ -5,7 +5,6 @@ from time import sleep
 from jobmon import config, database, models
 from jobmon.job_instance_factory import execute_batch_dummy
 from jobmon.job_list_manager import JobListManager
-from jobmon.job_state_manager import JobStateManager
 
 
 @pytest.fixture(scope='module')

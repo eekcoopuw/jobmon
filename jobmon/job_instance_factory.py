@@ -29,9 +29,10 @@ def execute_sge(job, job_instance_id):
         sge_jid = sge.qsub(job.command, jobname=job.name,
                            stderr="/homes/tomflem/sgetest",
                            stdout="/homes/tomflem/sgetest")
+        return sge_jid
     except Exception as e:
         logger.error(e)
-    return sge_jid
+        return None
 
 
 def execute_batch_dummy(job, job_instance_id):
