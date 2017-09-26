@@ -93,6 +93,8 @@ def unwrap():
 
         # communicate till done
         stdout, stderr = proc.communicate(timeout=args["process_timeout"])
+        print(stdout)
+        eprint(stderr)
         returncode = proc.returncode
 
     except TimeoutExpired:
@@ -107,6 +109,8 @@ def unwrap():
         stdout = ""
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                      traceback.format_exc())
+        print(stdout)
+        eprint(stderr)
         returncode = None
 
     print(stdout)

@@ -32,6 +32,8 @@ if "DRMAA_LIBRARY_PATH" not in os.environ:
         raise SGENotAvailable("'SGE_CLUSTER_NAME' not set")
     except Exception as e:
         raise SGENotAvailable(e)
+else:
+    import drmaa
 
 
 this_path = os.path.dirname(os.path.abspath(__file__))

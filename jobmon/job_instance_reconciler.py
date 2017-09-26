@@ -2,10 +2,9 @@ import logging
 from time import sleep
 
 from jobmon import config
-try:
-    from jobmon import sge
-except:
-    pass
+from jobmon import sge
+from jobmon.database import session_scope
+from jobmon.models import Job
 from jobmon.requester import Requester
 
 
@@ -32,10 +31,14 @@ class JobInstanceReconciler(object):
         self._request_permission_to_reconcile()
         actual = self._get_actual_instantiated_or_running()
 
-        presumed = []
-        actual = []
-        missing = set(presumed) - set(actual)
-        pass
+        # This is kludgy... Re-visit the data structure used for communicating
+        # executor IDs back from the JobQueryServer
+        missing_exec_ids = set([v for k,v in presumed.items()]) - set(actual)
+        missing_job_instance_ids = [k for k, v in presumed.items()
+                                    if v in missing_exec_ids]
+        for instance_id in missing_job_instance_ids:
+            self._log_error(instance_id)
+        return missing_job_instance_ids
 
     def _get_actual_instantiated_or_running(self):
         # TODO: If we formalize the "Executor" concept as more than a
@@ -58,7 +61,7 @@ class JobInstanceReconciler(object):
         return executor_ids
 
     def _log_error(self, job_instance_id):
-        self.jsm_req.send_request({
+        return self.jsm_req.send_request({
             'action': 'log_error',
             'kwargs': {'job_instance_id': job_instance_id,
                        'error_message': "Job has mysteriously disappeared"}
@@ -66,7 +69,7 @@ class JobInstanceReconciler(object):
 
     def _request_permission_to_reconcile(self):
         # sync
-        return self.jsm_req.send_request('alive')
+        return self.jsm_req.send_request({'action': 'alive'})
 
     def _terminate_timed_out_jobs(self):
         pass

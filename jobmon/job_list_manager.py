@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def listen_for_job_statuses(host, port, dag_id, done_queue,
-                            error_queue, disconnect_queue):
+                            error_queue, update_queue, disconnect_queue):
     logger.info("Listening for dag_id={} job status updates from {}:{}".format(
         dag_id, host, port))
     subscriber = Subscriber(host, port, dag_id)
@@ -53,6 +53,7 @@ class JobListManager(object):
         self.db_sync_interval = None
         self.done_queue = Queue()
         self.error_queue = Queue()
+        self.update_queue = Queue()
         self.disconnect_queue = Queue()
 
         self.job_statuses = {}  # {job_id: status_id}
@@ -174,7 +175,8 @@ class JobListManager(object):
                     "{}:{}".format(self.dag_id, host, port))
         self.jsl_proc = Thread(target=listen_for_job_statuses,
                                args=(host, port, self.dag_id, self.done_queue,
-                                     self.error_queue, self.disconnect_queue))
+                                     self.error_queue, self.update_queue,
+                                     self.disconnect_queue))
         self.jsl_proc.daemon = True
         self.jsl_proc.start()
 

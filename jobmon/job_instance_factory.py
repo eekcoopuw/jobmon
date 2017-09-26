@@ -22,13 +22,15 @@ def execute_sequentially(job, job_instance_id):
 
 
 def execute_sge(job, job_instance_id):
-    import sge
+    from jobmon import sge
     try:
         cmd = build_wrapped_command(job, job_instance_id)
-        sge_jid = sge.qsub(cmd, jobname=job.name)
+        # sge_jid = sge.qsub(cmd, jobname=job.name, stderr="/homes/tomflem/sgetest", stdout="/homes/tomflem/sgetest")
+        sge_jid = sge.qsub(job.command, jobname=job.name,
+                           stderr="/homes/tomflem/sgetest",
+                           stdout="/homes/tomflem/sgetest")
     except Exception as e:
         logger.error(e)
-    return None
     return sge_jid
 
 

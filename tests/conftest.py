@@ -1,5 +1,6 @@
 import pytest
 from threading import Thread
+from sqlalchemy.exc import IntegrityError
 
 from jobmon import config, database
 from jobmon.job_query_server import JobQueryServer
@@ -9,8 +10,11 @@ from jobmon.job_state_manager import JobStateManager
 @pytest.fixture(scope='session')
 def db():
     database.create_job_db()
-    with database.session_scope() as session:
-        database.load_default_statuses(session)
+    try:
+        with database.session_scope() as session:
+            database.load_default_statuses(session)
+    except IntegrityError:
+        pass
 
     jsm = JobStateManager(config.jm_rep_conn.port, config.jm_pub_conn.port)
 

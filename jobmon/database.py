@@ -7,11 +7,15 @@ from sqlalchemy.pool import StaticPool
 from jobmon import config
 from jobmon.models import Base, JobStatus, JobInstanceStatus
 
-engine = sql.create_engine(config.conn_str,
-                           connect_args={'check_same_thread': False},
-                           poolclass=StaticPool)
-                           # pool_recycle=300, pool_size=3,
-                           # max_overflow=100, pool_timeout=120)
+if 'sqlite' in config.conn_str:
+    engine = sql.create_engine(config.conn_str,
+                               connect_args={'check_same_thread': False},
+                               poolclass=StaticPool)
+                               # pool_recycle=300, pool_size=3,
+                               # max_overflow=100, pool_timeout=120)
+else:
+    engine = sql.create_engine(config.conn_str, pool_recycle=300, pool_size=3,
+                               max_overflow=100, pool_timeout=120)
 Session = sessionmaker(bind=engine)
 
 
