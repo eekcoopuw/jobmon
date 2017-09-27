@@ -7,7 +7,7 @@ from jobmon.models import InvalidStateTransition
 def test_jsm_valid_done(db):
     jsm = JobStateManager()
 
-    _, dag_id = jsm.add_job_dag("foo", "pytest user")
+    _, dag_id = jsm.add_job_dag("mocks", "pytest user")
     _, job_id = jsm.add_job("bar", "baz", dag_id)
     jsm.queue_job(job_id)
 
@@ -22,7 +22,7 @@ def test_jsm_valid_done(db):
 def test_jsm_valid_error(db):
     jsm = JobStateManager()
 
-    _, dag_id = jsm.add_job_dag("foo", "pytest user")
+    _, dag_id = jsm.add_job_dag("mocks", "pytest user")
     _, job_id = jsm.add_job("bar", "baz", dag_id)
     jsm.queue_job(job_id)
 
@@ -35,7 +35,7 @@ def test_jsm_valid_error(db):
 def test_invalid_transition(db):
     jsm = JobStateManager()
 
-    _, dag_id = jsm.add_job_dag("foo", "pytest user")
+    _, dag_id = jsm.add_job_dag("mocks", "pytest user")
     _, job_id = jsm.add_job("bar", "baz", dag_id)
 
     with pytest.raises(InvalidStateTransition):

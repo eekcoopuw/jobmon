@@ -194,7 +194,7 @@ class ReplyServer(object):
 
                     {   'action': 'some_action_handle',
                         'args': [1, 'arg2'],
-                        'kwargs' {'kw1': 1, 'kw2': 'foo'}
+                        'kwargs' {'kw1': 1, 'kw2': 'mocks'}
                     }
                 are considered valid requests. 'args' and 'kwargs' may be
                 omitted, but 'action' is mandatory.

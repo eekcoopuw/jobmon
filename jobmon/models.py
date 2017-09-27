@@ -42,15 +42,6 @@ class JobInstanceStatus(Base):
     label = Column(String(150), nullable=False)
 
 
-class JobDag(Base):
-    __tablename__ = 'job_dag'
-
-    dag_id = Column(Integer, primary_key=True)
-    name = Column(String(150))
-    user = Column(String(150))
-    created_date = Column(DateTime, default=func.now())
-
-
 class Job(Base):
     __tablename__ = 'job'
 

@@ -95,7 +95,7 @@ from jobmon.executors.sge_exec import SGEExecutor
 
 
 try:
-    cjm = central_job_monitor.CentralJobMonitor("/foo/dir", persistent=False)
+    cjm = central_job_monitor.CentralJobMonitor(mocks, persistent=False)
     time.sleep(3)
 except:
     pass
