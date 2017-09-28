@@ -53,8 +53,12 @@ class JobInstanceReconciler(object):
             'action': 'get_active_executor_ids',
             'kwargs': {'dag_id': self.dag_id}
         })
-        # Convert keys back to integer ids, for convenience
-        executor_ids = {int(k): v for k, v in executor_ids.items()}
+        try:
+            # Convert keys back to integer ids, for convenience
+            executor_ids = {int(k): v for k, v in executor_ids.items()}
+        except TypeError:
+            # Ignore if there are no active job instances
+            pass
         return executor_ids
 
     def _log_error(self, job_instance_id):

@@ -77,7 +77,7 @@ def test_valid_command(db, dag_id, subscriber, job_list_manager):
 def test_daemon_invalid_command(db, dag_id, job_list_manager_d):
     job_id = job_list_manager_d.create_job("some new job", "foobar")
     job_list_manager_d.queue_job(job_id)
-    sleep(3)  # Give some time for the job to get to the executor
+    sleep(5)  # Give some time for the job to get to the executor
     errors = job_list_manager_d.get_new_errors()
     assert len(errors) == 1
 
@@ -85,7 +85,7 @@ def test_daemon_invalid_command(db, dag_id, job_list_manager_d):
 def test_daemon_valid_command(db, dag_id, job_list_manager_d):
     job_id = job_list_manager_d.create_job("ls", "foobarbaz")
     job_list_manager_d.queue_job(job_id)
-    sleep(3)  # Give some time for the job to get to the executor
+    sleep(5)  # Give some time for the job to get to the executor
     done = job_list_manager_d.get_new_done()
     assert len(done) == 1
 

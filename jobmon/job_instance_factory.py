@@ -2,6 +2,7 @@ import logging
 from time import sleep
 
 from jobmon import config
+from jobmon import conda_utilities as cu
 from jobmon.command_context import build_wrapped_command
 from jobmon.models import Job
 from jobmon.requester import Requester
@@ -25,10 +26,23 @@ def execute_sge(job, job_instance_id):
     from jobmon import sge
     try:
         cmd = build_wrapped_command(job, job_instance_id)
-        # sge_jid = sge.qsub(cmd, jobname=job.name, stderr="/homes/tomflem/sgetest", stdout="/homes/tomflem/sgetest")
-        sge_jid = sge.qsub(job.command, jobname=job.name,
-                           stderr="/homes/tomflem/sgetest",
-                           stdout="/homes/tomflem/sgetest")
+        conda_env = cu.conda_env(cu.read_conda_info())
+        cmd = "source activate {} && {}".format(conda_env, cmd)
+
+        # TODO: FIX THIS ... DRMAA QSUB METHOD IS FAILING FOR SOME REASON,
+        # NEED TO INVESTIGATE THE JOBTYPE ASSUMPTIONS. RESORTING TO
+        # BASIC COMMAND-LINE QSUB FOR NOW
+        import os
+        import subprocess
+        thispath = os.path.dirname(os.path.abspath(__file__))
+        qsub_cmd = ('qsub -N {} -e ~/sgetest -o ~/sgetest '
+                    '-V {}/submit_master.sh '
+                    '"{}"'.format(job.name, thispath, cmd))
+
+        resp = subprocess.check_output(qsub_cmd, shell=True)
+        idx = resp.split().index(b'job')
+        sge_jid = int(resp.split()[idx+1])
+        # sge_jid = sge.qsub(cmd, jobname=job.name, jobtype='plain')
         return sge_jid
     except Exception as e:
         logger.error(e)

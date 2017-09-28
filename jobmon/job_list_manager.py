@@ -22,11 +22,10 @@ def listen_for_job_statuses(host, port, dag_id, done_queue,
         dag_id, host, port))
     subscriber = Subscriber(host, port, dag_id)
 
-    listen = True
-    while listen:
+    while True:
         try:
             disconnect_queue.get_nowait()
-            listen = False
+            break
         except Empty:
             pass
         msg = subscriber.receive()
@@ -109,8 +108,9 @@ class JobListManager(object):
             time.sleep(poll_interval)
             self._sync_at_interval()
 
-    def create_job(self, command, jobname):
-        job_id = self.job_factory.create_job(command, jobname)
+    def create_job(self, command, jobname, max_attempts=1):
+        job_id = self.job_factory.create_job(command, jobname,
+                                             max_attempts=max_attempts)
         self.job_statuses[job_id] = JobStatus.REGISTERED
         return job_id
 
@@ -168,20 +168,21 @@ class JobListManager(object):
                     self._sync(session)
 
     def _start_job_status_listener(self):
-        self.jsl_proc = Process(target=listen_for_job_statuses,
-                                args=(config.jm_pub_conn.host,
-                                      config.jm_pub_conn.port, self.dag_id,
-                                      self.done_queue, self.error_queue))
-        self.jsl_proc.setDaemon(True)
+        self.jsl_proc = Thread(target=listen_for_job_statuses,
+                               args=(config.jm_pub_conn.host,
+                                     config.jm_pub_conn.port, self.dag_id,
+                                     self.done_queue, self.error_queue,
+                                     self.update_queue, self.disconnect_queue))
+        self.jsl_proc.daemon = True
         self.jsl_proc.start()
 
     def _start_job_instance_manager(self):
-        self.jif_proc = Process(
+        self.jif_proc = Thread(
             target=self.job_inst_factory.instantiate_queued_jobs_periodically)
-        self.jif_proc.setDaemon(True)
+        self.jif_proc.daemon = True
         self.jif_proc.start()
 
-        self.jir_proc = Process(
+        self.jir_proc = Thread(
             target=self.job_inst_reconciler.reconcile_periodically)
-        self.jir_proc.setDaemon(True)
+        self.jir_proc.daemon = True
         self.jir_proc.start()
