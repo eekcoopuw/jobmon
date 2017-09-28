@@ -49,11 +49,11 @@ class JobInstanceReconciler(object):
         return job_ids
 
     def _get_presumed_instantiated_or_running(self):
-        rc, executor_ids = self.jqs_req.send_request({
-            'action': 'get_active_executor_ids',
-            'kwargs': {'dag_id': self.dag_id}
-        })
         try:
+            rc, executor_ids = self.jqs_req.send_request({
+                'action': 'get_active_executor_ids',
+                'kwargs': {'dag_id': self.dag_id}
+            })
             # Convert keys back to integer ids, for convenience
             executor_ids = {int(k): v for k, v in executor_ids.items()}
         except TypeError:
