@@ -1,6 +1,7 @@
 import pytest
 import zmq
 from time import sleep
+from queue import Empty
 
 from jobmon import config, database, models
 from jobmon.job_instance_factory import execute_batch_dummy
@@ -88,6 +89,34 @@ def test_daemon_valid_command(db, dag_id, job_list_manager_d):
     sleep(5)  # Give some time for the job to get to the executor
     done = job_list_manager_d.get_new_done()
     assert len(done) == 1
+
+
+def test_blocking_updates(db, dag_id, job_list_manager_d):
+
+    # Test 1 job
+    job_id = job_list_manager_d.create_job("sleep 2", "foobarbaz")
+    job_list_manager_d.queue_job(job_id)
+    done = job_list_manager_d.block_until_any_done_or_error()
+    assert len(done) == 1
+    assert done[0] == (job_id, models.JobStatus.DONE)
+
+    # Test multiple jobs
+    job_id1 = job_list_manager_d.create_job("sleep 1", "foobarbaz1")
+    job_id2 = job_list_manager_d.create_job("sleep 1", "foobarbaz2")
+    job_list_manager_d.queue_job(job_id1)
+    job_list_manager_d.queue_job(job_id2)
+    sleep(3)
+    done = job_list_manager_d.block_until_any_done_or_error()
+    assert len(done) == 2
+    assert set(done) == set([(job_id1, models.JobStatus.DONE),
+                             (job_id2, models.JobStatus.DONE)])
+
+
+def test_blocking_update_timeout(db, dag_id, job_list_manager_d):
+    job_id = job_list_manager_d.create_job("sleep 3", "foobarbaz")
+    job_list_manager_d.queue_job(job_id)
+    with pytest.raises(Empty):
+        job_list_manager_d.block_until_any_done_or_error(timeout=2)
 
 
 def test_sge_valid_command(db, dag_id, job_list_manager_sge):

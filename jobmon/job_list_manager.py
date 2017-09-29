@@ -32,8 +32,10 @@ def listen_for_job_statuses(host, port, dag_id, done_queue,
         job_id, job_status = msg
         if job_status == JobStatus.DONE:
             done_queue.put(job_id)
+            update_queue.put((job_id, job_status))
         elif job_status == JobStatus.ERROR_FATAL:
             error_queue.put(job_id)
+            update_queue.put((job_id, job_status))
 
 
 class JobListManager(object):
@@ -88,6 +90,25 @@ class JobListManager(object):
                 if job_status not in [JobStatus.REGISTERED,
                                       JobStatus.DONE,
                                       JobStatus.ERROR_FATAL]]
+
+    def block_until_any_done_or_error(self, timeout=None):
+        """Returns any job updates since last called, or blocks until an update
+        is received.
+
+        Args:
+            timeout (int, optional): Maximum time to block. If None (default),
+                block forever.
+
+        Returns:
+            list of (job_id, job_status) tuples
+        """
+        updates = []
+        if not self.update_queue.empty():
+            while not self.update_queue.empty():
+                updates.append(self.update_queue.get(timeout=timeout))
+            return updates
+        else:
+            return [self.update_queue.get(timeout=timeout)]
 
     def block_until_no_instances(self, poll_interval=10,
                                  raise_on_any_error=True):
