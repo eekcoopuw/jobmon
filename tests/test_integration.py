@@ -4,7 +4,7 @@ from time import sleep
 from queue import Empty
 
 from jobmon import config, database, models
-from jobmon.job_instance_factory import execute_batch_dummy
+from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 
 
@@ -34,7 +34,7 @@ def job_list_manager_d(dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager_sge(dag_id):
-    jlm = JobListManager(dag_id, executor=execute_batch_dummy)
+    jlm = JobListManager(dag_id, executor=execute_sge)
     yield jlm
     jlm.disconnect()
 
@@ -101,15 +101,22 @@ def test_blocking_updates(db, dag_id, job_list_manager_d):
     assert done[0] == (job_id, models.JobStatus.DONE)
 
     # Test multiple jobs
+
+    job_list_manager_d.get_new_done()  # clear the done queue for this test
+    job_list_manager_d.get_new_errors()  # clear the error queue too
     job_id1 = job_list_manager_d.create_job("sleep 1", "foobarbaz1")
     job_id2 = job_list_manager_d.create_job("sleep 1", "foobarbaz2")
+    job_id3 = job_list_manager_d.create_job("not a command", "foobarbaz2")
     job_list_manager_d.queue_job(job_id1)
     job_list_manager_d.queue_job(job_id2)
+    job_list_manager_d.queue_job(job_id3)
     sleep(3)
-    done = job_list_manager_d.block_until_any_done_or_error()
+    done, errors = job_list_manager_d.block_until_no_instances(
+        raise_on_any_error=False)
     assert len(done) == 2
-    assert set(done) == set([(job_id1, models.JobStatus.DONE),
-                             (job_id2, models.JobStatus.DONE)])
+    assert len(errors) == 1
+    assert set(done) == set([job_id1,job_id2])
+    assert set(errors) == set([job_id3])
 
 
 def test_blocking_update_timeout(db, dag_id, job_list_manager_d):

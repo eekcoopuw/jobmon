@@ -124,11 +124,15 @@ class JobInstanceFactory(object):
         return job_instance_id, executor_id
 
     def _get_jobs_queued_for_instantiation(self):
-        rc, jobs = self.jqs_req.send_request({
-            'action': 'get_queued_for_instantiation',
-            'kwargs': {'dag_id': self.dag_id}
-        })
-        jobs = [Job.from_wire(j) for j in jobs]
+        try:
+            rc, jobs = self.jqs_req.send_request({
+                'action': 'get_queued_for_instantiation',
+                'kwargs': {'dag_id': self.dag_id}
+            })
+            jobs = [Job.from_wire(j) for j in jobs]
+        except TypeError:
+            # Ignore if there are no jobs queued
+            jobs = []
         return jobs
 
     def _register_job_instance(self, job, executor_type):

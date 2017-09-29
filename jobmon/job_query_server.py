@@ -48,7 +48,8 @@ class JobQueryServer(ReplyServer):
                 filter_by(dag_id=dag_id).all()
             job_instances = instantiated + running
             executor_ids = {j.job_instance_id: j.executor_id
-                            for j in job_instances}
+                            for j in job_instances
+                            if j.executor_id is not None}
         return (ReturnCodes.OK, executor_ids)
 
     def get_jobs(self, dag_id):

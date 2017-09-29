@@ -58,7 +58,7 @@ class JobInstanceReconciler(object):
             executor_ids = {int(k): v for k, v in executor_ids.items()}
         except TypeError:
             # Ignore if there are no active job instances
-            pass
+            executor_ids = dict()
         return executor_ids
 
     def _log_error(self, job_instance_id):

@@ -102,6 +102,9 @@ class JobListManager(object):
         Returns:
             list of (job_id, job_status) tuples
         """
+        # TODO: Consider whether the done and error queues should also be
+        # cleared by this method... or whether they should continue to be
+        # independent of the general update queue
         updates = []
         if not self.update_queue.empty():
             while not self.update_queue.empty():
@@ -114,20 +117,28 @@ class JobListManager(object):
                                  raise_on_any_error=True):
         logger.info("Blocking, poll interval = {}".format(poll_interval))
 
+        done = []
+        errors = []
         while True:
-            self.get_new_done()
+            new_done = self.get_new_done()
+            done.extend(new_done)
+
+            new_errors = self.get_new_errors()
+            errors.extend(new_errors)
+
             if len(self.active_jobs) == 0:
                 break
 
             if raise_on_any_error:
-                self.get_new_errors()
                 if len(self.all_error) > 0:
-                    break
+                    raise RuntimeError("1 or more jobs encountered a "
+                                       "fatal error")
 
             logger.debug("{} active jobs. Waiting {} seconds...".format(
                 len(self.active_jobs), poll_interval))
             time.sleep(poll_interval)
             self._sync_at_interval()
+        return done, errors
 
     def create_job(self, command, jobname, max_attempts=1):
         job_id = self.job_factory.create_job(command, jobname,
