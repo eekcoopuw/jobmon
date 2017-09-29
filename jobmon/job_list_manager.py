@@ -22,11 +22,10 @@ def listen_for_job_statuses(host, port, dag_id, done_queue,
         dag_id, host, port))
     subscriber = Subscriber(host, port, dag_id)
 
-    listen = True
-    while listen:
+    while True:
         try:
             disconnect_queue.get_nowait()
-            listen = False
+            break
         except Empty:
             pass
         msg = subscriber.receive()
@@ -103,6 +102,9 @@ class JobListManager(object):
         Returns:
             list of (job_id, job_status) tuples
         """
+        # TODO: Consider whether the done and error queues should also be
+        # cleared by this method... or whether they should continue to be
+        # independent of the general update queue
         updates = []
         if not self.update_queue.empty():
             while not self.update_queue.empty():
@@ -115,23 +117,32 @@ class JobListManager(object):
                                  raise_on_any_error=True):
         logger.info("Blocking, poll interval = {}".format(poll_interval))
 
+        done = []
+        errors = []
         while True:
-            self.get_new_done()
+            new_done = self.get_new_done()
+            done.extend(new_done)
+
+            new_errors = self.get_new_errors()
+            errors.extend(new_errors)
+
             if len(self.active_jobs) == 0:
                 break
 
             if raise_on_any_error:
-                self.get_new_errors()
                 if len(self.all_error) > 0:
-                    break
+                    raise RuntimeError("1 or more jobs encountered a "
+                                       "fatal error")
 
             logger.debug("{} active jobs. Waiting {} seconds...".format(
                 len(self.active_jobs), poll_interval))
             time.sleep(poll_interval)
             self._sync_at_interval()
+        return done, errors
 
-    def create_job(self, command, jobname):
-        job_id = self.job_factory.create_job(command, jobname)
+    def create_job(self, command, jobname, max_attempts=1):
+        job_id = self.job_factory.create_job(command, jobname,
+                                             max_attempts=max_attempts)
         self.job_statuses[job_id] = JobStatus.REGISTERED
         return job_id
 
@@ -189,15 +200,11 @@ class JobListManager(object):
                     self._sync(session)
 
     def _start_job_status_listener(self):
-        host = config.jm_pub_conn.host
-        port = config.jm_pub_conn.port
-
-        logger.info("Listening for dag_id={} job status updates from "
-                    "{}:{}".format(self.dag_id, host, port))
         self.jsl_proc = Thread(target=listen_for_job_statuses,
-                               args=(host, port, self.dag_id, self.done_queue,
-                                     self.error_queue, self.update_queue,
-                                     self.disconnect_queue))
+                               args=(config.jm_pub_conn.host,
+                                     config.jm_pub_conn.port, self.dag_id,
+                                     self.done_queue, self.error_queue,
+                                     self.update_queue, self.disconnect_queue))
         self.jsl_proc.daemon = True
         self.jsl_proc.start()
 
