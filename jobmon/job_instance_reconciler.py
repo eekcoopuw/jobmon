@@ -2,6 +2,7 @@ import logging
 from time import sleep
 
 from jobmon import config, sge
+from jobmon.models import JobInstance
 from jobmon.requester import Requester
 
 
@@ -21,6 +22,7 @@ class JobInstanceReconciler(object):
         while True:
             logging.debug("Reconciling at interval {}s".format(poll_interval))
             self.reconcile()
+            self.terminate_timed_out_jobs()
             sleep(poll_interval)
 
     def reconcile(self):
@@ -30,12 +32,19 @@ class JobInstanceReconciler(object):
 
         # This is kludgy... Re-visit the data structure used for communicating
         # executor IDs back from the JobQueryServer
-        missing_exec_ids = set([v for k,v in presumed.items()]) - set(actual)
-        missing_job_instance_ids = [k for k, v in presumed.items()
-                                    if v in missing_exec_ids]
-        for instance_id in missing_job_instance_ids:
-            self._log_error(instance_id)
+        missing_job_instance_ids = []
+        for job_instance in presumed:
+            if job_instance.executor_id not in actual:
+                job_instance_id = job_instance.job_instance_id
+                self._log_error(job_instance_id)
+                missing_job_instance_ids.append(job_instance_id)
         return missing_job_instance_ids
+
+    def terminate_timed_out_jobs(self):
+        job_instances = self._get_timed_out_jobs()
+        sge.qdel([ji.executor_id for ji in job_instances])
+        for ji in job_instances:
+            ji.log_timeout_error(self._log_timeout_error(ji.job_instance_id))
 
     def _get_actual_instantiated_or_running(self):
         # TODO: If we formalize the "Executor" concept as more than a
@@ -50,27 +59,40 @@ class JobInstanceReconciler(object):
 
     def _get_presumed_instantiated_or_running(self):
         try:
-            rc, executor_ids = self.jqs_req.send_request({
-                'action': 'get_active_executor_ids',
+            rc, job_instances = self.jqs_req.send_request({
+                'action': 'get_active',
                 'kwargs': {'dag_id': self.dag_id}
             })
-            # Convert keys back to integer ids, for convenience
-            executor_ids = {int(k): v for k, v in executor_ids.items()}
+            job_instances = [JobInstance.from_wire(j) for j in job_instances]
         except TypeError:
-            # Ignore if there are no active job instances
-            executor_ids = dict()
-        return executor_ids
+            job_instances = []
+        return job_instances
 
-    def _log_error(self, job_instance_id):
+    def _get_timed_out_jobs(self):
+        try:
+            rc, job_instances = self.jqs_req.send_request({
+                'action': 'get_timed_out',
+                'kwargs': {'dag_id': self.dag_id}
+            })
+            job_instances = [JobInstance.from_wire(j) for j in job_instances]
+        except TypeError:
+            job_instances = []
+        return job_instances
+
+    def _log_mysterious_error(self, job_instance_id):
         return self.jsm_req.send_request({
             'action': 'log_error',
             'kwargs': {'job_instance_id': job_instance_id,
                        'error_message': "Job has mysteriously disappeared"}
         })
 
+    def _log_timeout_error(self, job_instance_id):
+        return self.jsm_req.send_request({
+            'action': 'log_error',
+            'kwargs': {'job_instance_id': job_instance_id,
+                       'error_message': "Timed out"}
+        })
+
     def _request_permission_to_reconcile(self):
         # sync
         return self.jsm_req.send_request({'action': 'alive'})
-
-    def _terminate_timed_out_jobs(self):
-        pass
