@@ -2,6 +2,7 @@ import logging
 from time import sleep
 
 from jobmon import config
+from jobmon import conda_utilities as cu
 from jobmon.command_context import build_wrapped_command
 from jobmon.models import Job
 from jobmon.requester import Requester
@@ -22,14 +23,30 @@ def execute_sequentially(job, job_instance_id):
 
 
 def execute_sge(job, job_instance_id):
-    import sge
+    from jobmon import sge
     try:
         cmd = build_wrapped_command(job, job_instance_id)
-        sge_jid = sge.qsub(cmd, jobname=job.name)
+        conda_env = cu.conda_env(cu.read_conda_info())
+        cmd = "source activate {} && {}".format(conda_env, cmd)
+
+        # TODO: FIX THIS ... DRMAA QSUB METHOD IS FAILING FOR SOME REASON,
+        # NEED TO INVESTIGATE THE JOBTYPE ASSUMPTIONS. RESORTING TO
+        # BASIC COMMAND-LINE QSUB FOR NOW
+        import os
+        import subprocess
+        thispath = os.path.dirname(os.path.abspath(__file__))
+        qsub_cmd = ('qsub -N {} -e ~/sgetest -o ~/sgetest '
+                    '-V {}/submit_master.sh '
+                    '"{}"'.format(job.name, thispath, cmd))
+
+        resp = subprocess.check_output(qsub_cmd, shell=True)
+        idx = resp.split().index(b'job')
+        sge_jid = int(resp.split()[idx+1])
+        # sge_jid = sge.qsub(cmd, jobname=job.name, jobtype='plain')
+        return sge_jid
     except Exception as e:
         logger.error(e)
-    return None
-    return sge_jid
+        return None
 
 
 def execute_batch_dummy(job, job_instance_id):
@@ -107,11 +124,15 @@ class JobInstanceFactory(object):
         return job_instance_id, executor_id
 
     def _get_jobs_queued_for_instantiation(self):
-        rc, jobs = self.jqs_req.send_request({
-            'action': 'get_queued_for_instantiation',
-            'kwargs': {'dag_id': self.dag_id}
-        })
-        jobs = [Job.from_wire(j) for j in jobs]
+        try:
+            rc, jobs = self.jqs_req.send_request({
+                'action': 'get_queued_for_instantiation',
+                'kwargs': {'dag_id': self.dag_id}
+            })
+            jobs = [Job.from_wire(j) for j in jobs]
+        except TypeError:
+            # Ignore if there are no jobs queued
+            jobs = []
         return jobs
 
     def _register_job_instance(self, job, executor_type):

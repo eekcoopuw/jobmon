@@ -109,8 +109,8 @@ class ReplyServer(object):
                 self.socket.send_json(response)
             except InvalidRequest as e:
                 logger.error(
-                    "action has invalid response format: {}".format(
-                        response))
+                    "action has invalid request format: {}".format(
+                        msg))
                 response = (ReturnCodes.INVALID_REQUEST_FORMAT,
                             "action has invalid request format")
                 self.socket.send_json(response)

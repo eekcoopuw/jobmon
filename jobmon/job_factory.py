@@ -12,12 +12,13 @@ class JobFactory(object):
         self.dag_id = dag_id
         self.requester = requester.Requester(config.jm_rep_conn)
 
-    def create_job(self, command, jobname):
+    def create_job(self, command, jobname, max_attempts):
         rc, job_id = self.requester.send_request({
             'action': 'add_job',
             'kwargs': {'dag_id': self.dag_id,
                        'name': jobname,
-                       'command': command}
+                       'command': command,
+                       'max_attempts': max_attempts}
         })
         return job_id
 

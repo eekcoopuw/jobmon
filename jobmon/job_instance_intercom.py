@@ -31,14 +31,15 @@ class JobInstanceIntercom(object):
         })
 
     def log_job_stats(self):
-        if os.getenv("SGE_CLUSTER_NAME"):
+        if os.getenv("JOB_ID"):
+            job_id = os.getenv("JOB_ID")
             self.usage = sge.qstat_usage(
-                self.job_instance_id)[self.job_instance_id]
+                job_id)
             dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
             kwargs = {k: self.usage[k] for k in dbukeys
                       if k in self.usage.keys()}
             msg = {
-                'action': 'update_job_instance_usage',
+                'action': 'log_usage',
                 'args': [self.job_instance_id],
                 'kwargs': kwargs}
             return self.requester.send_request(msg)

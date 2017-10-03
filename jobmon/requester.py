@@ -68,8 +68,6 @@ class Requester(object):
             self.poller.unregister(self.socket)
             self.socket.close()
 
-        # Good idea to release these so that they get garbage collected.
-        # They might have OS memory
         self.poller = None
         self.socket = None
 
@@ -122,9 +120,8 @@ class Requester(object):
             self.conn_cfg.port))
         reply = 0
         while retries_left:
-            # Reconnect if necessary
-            if self.socket is None or self.socket.closed:
-                self.connect()
+            if not self.socket:
+                break
             self.socket.send_json(message)  # send message to server
             expect_reply = True
             while expect_reply:
