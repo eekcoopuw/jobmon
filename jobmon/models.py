@@ -59,11 +59,14 @@ class Job(Base):
     def from_wire(cls, dct):
         return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
                    name=dct['name'], command=dct['command'],
-                   status=dct['status'])
+                   status=dct['status'], num_attempts=dct['num_attempts'],
+                   max_attempts=dct['max_attempts'])
 
     def to_wire(self):
         return {'dag_id': self.dag_id, 'job_id': self.job_id, 'name':
-                self.name, 'command': self.command, 'status': self.status}
+                self.name, 'command': self.command, 'status': self.status,
+                'num_attempts': self.num_attempts,
+                'max_attempts': self.max_attempts}
 
     job_id = Column(Integer, primary_key=True)
     job_instances = relationship("JobInstance", back_populates="job")

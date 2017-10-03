@@ -50,8 +50,10 @@ class JobQueryServer(ReplyServer):
     def get_timed_out(self, dag_id):
         with session_scope() as session:
             running = session.query(JobInstance).\
-                filter_by(
-                    status=JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR).\
+                filter(
+                    JobInstance.status.in_([
+                        JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                        JobInstanceStatus.RUNNING])).\
                 join(Job).\
                 options(contains_eager(JobInstance.job)).\
                 filter(Job.dag_id == dag_id,

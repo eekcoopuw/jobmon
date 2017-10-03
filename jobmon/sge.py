@@ -21,6 +21,19 @@ import numpy as np
 
 from jobmon.exceptions import SGENotAvailable
 
+# Because the drmaa package needs this library in order to load.
+DRMAA_PATH = "/usr/local/UGE-{}/lib/lx-amd64/libdrmaa.so.1.0"
+if "DRMAA_LIBRARY_PATH" not in os.environ:
+    try:
+        os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(
+            os.environ["SGE_CLUSTER_NAME"])
+        import drmaa
+    except KeyError:
+        raise SGENotAvailable("'SGE_CLUSTER_NAME' not set")
+    except Exception as e:
+        raise SGENotAvailable(e)
+import drmaa
+
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
@@ -30,6 +43,24 @@ UGE_NAME_POLICY = re.compile(
 STATA_BINARY = "/usr/local/bin/stata-mp"
 R_BINARY = "/usr/local/bin/R"
 DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
+
+
+def _drmaa_session():
+    """
+    Get the global DRMAA session or initialize it if this is the first call.
+    Can set this by setting DRMAA_LIBRARY_PATH. This should be the complete
+    path the the library with .so at the end.
+    """
+    if "session" not in vars(_drmaa_session):
+        session = drmaa.Session()
+        session.initialize()
+        atexit.register(_drmaa_exit)
+        _drmaa_session.session = session
+    return _drmaa_session.session
+
+
+def _drmaa_exit():
+    _drmaa_session.session.exit()
 
 
 # TODO Should this be two separate functions?
@@ -353,12 +384,6 @@ def qsub(
         conda_env=None,
         environment_variables={},
         intel_only=True):
-    # TODO: remove the conda-specific magic and the filetype-detection... This
-    # should be limited to the bare qsub interaction. Those functionalities are
-    # nice, but should be implemented in a higher-order function.
-    # TODO: look at reverting this to simple generation of a qsub command...
-    # Luigi does this, and it seems simpler and more supportable that drmaa:
-    # http://luigi.readthedocs.io/en/stable/_modules/luigi/contrib/sge.html#LocalSGEJobTask
     """Submits job to Grid Engine Queue.
     This function provides a convenient way to call scripts for
     R, Python, and Stata using the job_type parameter.
@@ -590,12 +615,6 @@ def qsub(
         return job_ids
 
 
-def qdel(job_ids):
-    jids = [str(jid) for jid in np.atleast_1d(job_ids)]
-    stdout = subprocess.check_output(['qdel']+jids)
-    return stdout
-
-
 def _wait_done(job_ids):
     """
     For unit tests. Ensures the jobs are done or running.
@@ -617,3 +636,9 @@ def _wait_done(job_ids):
             raise RuntimeError("job status not done or running {}".format(
                 status_check))
     return True
+
+
+def qdel(job_ids):
+    jids = [str(jid) for jid in np.atleast_1d(job_ids)]
+    stdout = subprocess.check_output(['qdel']+jids)
+    return stdout

@@ -16,7 +16,7 @@ class JobInstanceReconciler(object):
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
 
-    def reconcile_periodically(self, poll_interval=1):
+    def reconcile_periodically(self, poll_interval=10):
         logger.info("Reconciling jobs against 'qstat' at {}s "
                     "intervals".format(poll_interval))
         while True:
@@ -34,17 +34,19 @@ class JobInstanceReconciler(object):
         # executor IDs back from the JobQueryServer
         missing_job_instance_ids = []
         for job_instance in presumed:
-            if job_instance.executor_id not in actual:
-                job_instance_id = job_instance.job_instance_id
-                self._log_error(job_instance_id)
-                missing_job_instance_ids.append(job_instance_id)
+            if job_instance.executor_id:
+                if job_instance.executor_id not in actual:
+                    job_instance_id = job_instance.job_instance_id
+                    self._log_mysterious_error(job_instance_id)
+                    missing_job_instance_ids.append(job_instance_id)
         return missing_job_instance_ids
 
     def terminate_timed_out_jobs(self):
         job_instances = self._get_timed_out_jobs()
-        sge.qdel([ji.executor_id for ji in job_instances])
+        if job_instances:
+            sge.qdel([ji.executor_id for ji in job_instances])
         for ji in job_instances:
-            ji.log_timeout_error(self._log_timeout_error(ji.job_instance_id))
+            self._log_timeout_error(ji.job_instance_id)
 
     def _get_actual_instantiated_or_running(self):
         # TODO: If we formalize the "Executor" concept as more than a

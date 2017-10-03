@@ -17,7 +17,7 @@ def job_list_manager_dummy(dag_id):
 @pytest.fixture(scope='function')
 def job_list_manager_sge(dag_id):
     jlm = JobListManager(dag_id, executor=execute_sge,
-                         start_daemons=True)
+                         start_daemons=True, reconciliation_interval=2)
     yield jlm
     jlm.disconnect()
 
@@ -57,7 +57,7 @@ def test_reconciler_dummy(job_list_manager_dummy):
     assert errors == [job_id]
 
 
-def test_reconciler_sge(job_list_manager_sge):
+def test_reconciler_sge(db, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     errors = job_list_manager_sge.get_new_errors()
 
@@ -66,41 +66,42 @@ def test_reconciler_sge(job_list_manager_sge):
         sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob")
     job_list_manager_sge.queue_job(job_id)
 
-    # This test job just sleeps for 10s.. so it should not be missing
+    # Give the job_state_manager some time to process the error message
+    # This test job just sleeps for 30s, so it should not be missing
+    sleep(10)
     jir = job_list_manager_sge.job_inst_reconciler
     jir.reconcile()
 
-    # Give the job_state_manager some time to process the error message
-    sleep(5)
     errors = job_list_manager_sge.get_new_errors()
     assert len(errors) == 0
 
-
-def test_reconciler_timeout(job_list_manager_dummy_nod):
-    job_id = job_list_manager_dummy_nod.create_job("ls", "dummyfbb")
-    job_list_manager_dummy_nod.queue_job(job_id)
-    job_list_manager_dummy_nod.job_inst_factory.instantiate_queued_jobs()
-
-    jir = job_list_manager_dummy_nod.job_inst_reconciler
-    job_instances = jir._get_presumed_instantiated_or_running()
-    assert len(job_instances) == 1
-    assert job_instances[0].job_id == job_id
+    # Artificially advance job to DONE so it doesn't impact downstream tests
+    jsm = db[0]
+    for job_instance in jir._get_presumed_instantiated_or_running():
+        jsm.log_done(job_instance.job_instance_id)
 
 
-def test_reconciler_sge_timeout(job_list_manager_sge):
+def test_reconciler_sge_timeout(db, dag_id, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     errors = job_list_manager_sge.get_new_errors()
 
     # Queue a test job
     job_id = job_list_manager_sge.create_job(
-        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob", max_runtime=3)
+        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob",
+        max_attempts=3, max_runtime=3)
     job_list_manager_sge.queue_job(job_id)
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job
-    sleep(5)
+    sleep(30)
 
     # There should now be a job that has errored out
     errors = job_list_manager_sge.get_new_errors()
     assert len(errors) == 1
     assert job_id in errors
+
+    # The job should have been tried 3 times...
+    jqs = db[1]
+    rc, jobs = jqs.get_jobs(dag_id)
+    this_job = [j for j in jobs if j['job_id'] == job_id][0]
+    assert this_job['num_attempts'] == 3
