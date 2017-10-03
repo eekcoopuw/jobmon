@@ -41,7 +41,8 @@ def listen_for_job_statuses(host, port, dag_id, done_queue,
 class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, db_sync_interval=None,
-                 start_daemons=False):
+                 start_daemons=False, reconciliation_interval=10,
+                 job_instantiation_interval=1):
 
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
@@ -63,6 +64,8 @@ class JobListManager(object):
         with session_scope() as session:
             self._sync(session)
 
+        self.reconciliation_interval = reconciliation_interval
+        self.job_instantiation_interval = job_instantiation_interval
         if start_daemons:
             self._start_job_status_listener()
             self._start_job_instance_manager()
@@ -140,9 +143,10 @@ class JobListManager(object):
             self._sync_at_interval()
         return done, errors
 
-    def create_job(self, command, jobname, max_attempts=1):
+    def create_job(self, command, jobname, max_attempts=1, max_runtime=None):
         job_id = self.job_factory.create_job(command, jobname,
-                                             max_attempts=max_attempts)
+                                             max_attempts=max_attempts,
+                                             max_runtime=max_runtime)
         self.job_statuses[job_id] = JobStatus.REGISTERED
         return job_id
 
@@ -210,11 +214,13 @@ class JobListManager(object):
 
     def _start_job_instance_manager(self):
         self.jif_proc = Thread(
-            target=self.job_inst_factory.instantiate_queued_jobs_periodically)
+            target=self.job_inst_factory.instantiate_queued_jobs_periodically,
+            args=(self.job_instantiation_interval,))
         self.jif_proc.daemon = True
         self.jif_proc.start()
 
         self.jir_proc = Thread(
-            target=self.job_inst_reconciler.reconcile_periodically)
+            target=self.job_inst_reconciler.reconcile_periodically,
+            args=(self.reconciliation_interval,))
         self.jir_proc.daemon = True
         self.jir_proc.start()

@@ -26,7 +26,7 @@ def db():
     t2 = Thread(target=jqs.listen)
     t2.daemon = True
     t2.start()
-    yield jsm
+    yield jsm, jqs
     jsm.stop_listening()
     jqs.stop_listening()
     database.Session.close_all()

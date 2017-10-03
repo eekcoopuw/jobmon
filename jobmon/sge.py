@@ -32,8 +32,8 @@ if "DRMAA_LIBRARY_PATH" not in os.environ:
         raise SGENotAvailable("'SGE_CLUSTER_NAME' not set")
     except Exception as e:
         raise SGENotAvailable(e)
-else:
-    import drmaa
+import drmaa
+
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
@@ -384,12 +384,6 @@ def qsub(
         conda_env=None,
         environment_variables={},
         intel_only=True):
-    # TODO: remove the conda-specific magic and the filetype-detection... This
-    # should be limited to the bare qsub interaction. Those functionalities are
-    # nice, but should be implemented in a higher-order function.
-    # TODO: look at reverting this to simple generation of a qsub command...
-    # Luigi does this, and it seems simpler and more supportable that drmaa:
-    # http://luigi.readthedocs.io/en/stable/_modules/luigi/contrib/sge.html#LocalSGEJobTask
     """Submits job to Grid Engine Queue.
     This function provides a convenient way to call scripts for
     R, Python, and Stata using the job_type parameter.
@@ -642,3 +636,9 @@ def _wait_done(job_ids):
             raise RuntimeError("job status not done or running {}".format(
                 status_check))
     return True
+
+
+def qdel(job_ids):
+    jids = [str(jid) for jid in np.atleast_1d(job_ids)]
+    stdout = subprocess.check_output(['qdel']+jids)
+    return stdout

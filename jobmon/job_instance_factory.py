@@ -46,7 +46,7 @@ def execute_sge(job, job_instance_id):
         return sge_jid
     except Exception as e:
         logger.error(e)
-        return None
+        return -99999
 
 
 def execute_batch_dummy(job, job_instance_id):
