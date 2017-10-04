@@ -39,14 +39,14 @@ class GlobalConfig(object):
         return cls(**{k: v for k, v in config.items() if k in gc_keys})
 
     @classmethod
-    def from_parsed_args(cls, parsed_args=None):
+    def from_parsed_args(cls, args_to_parse=None):
         parser = argparse.ArgumentParser(description='Configure Jobmon')
         parser.add_argument("--conn_str", required=True)
         parser.add_argument("--host", required=True)
         parser.add_argument("--jsm_rep_port", required=True)
         parser.add_argument("--jsm_pub_port", required=True)
         parser.add_argument("--jqs_port", required=True)
-        args, _ = parser.parse_known_args()
+        args, _ = parser.parse_known_args(args_to_parse)
         return cls(args.conn_str, args.host, args.jsm_rep_port,
                    args.jsm_pub_port, args.jqs_port)
 

@@ -9,6 +9,7 @@ import traceback
 import jsonpickle
 
 from jobmon.config import config
+from jobmon.connection_config import ConnectionConfig
 from jobmon.job_instance_intercom import JobInstanceIntercom
 from jobmon.exceptions import ReturnCodes
 
@@ -83,7 +84,9 @@ def unwrap():
     # makes a dict
     args = vars(parser.parse_args())
 
-    ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"])
+    cc = ConnectionConfig(args["jsm_host"], args["jsm_port"])
+    ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
+                                      jm_rep_cc=cc)
 
     ji_intercom.log_running()
 

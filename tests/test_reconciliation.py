@@ -8,10 +8,13 @@ from jobmon.job_list_manager import JobListManager
 
 @pytest.fixture(scope='function')
 def job_list_manager_dummy(dag_id):
+    # We don't want this queueing jobs in conflict with the SGE daemons...
+    # but we do need it to subscribe to status updates for reconciliation
+    # tests. Start this thread manually.
     jlm = JobListManager(dag_id, executor=execute_batch_dummy,
-                         start_daemons=True)
-    yield jlm
-    jlm.disconnect()
+                         start_daemons=False)
+    jlm._start_job_status_listener()
+    return jlm
 
 
 @pytest.fixture(scope='function')
