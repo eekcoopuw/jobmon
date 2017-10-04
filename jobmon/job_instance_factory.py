@@ -1,8 +1,8 @@
 import logging
 from time import sleep
 
-from jobmon import config
 from jobmon import conda_utilities as cu
+from jobmon.config import config
 from jobmon.command_context import build_wrapped_command
 from jobmon.models import Job
 from jobmon.requester import Requester

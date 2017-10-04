@@ -1,9 +1,6 @@
 import logging
 import os
 
-from jobmon import config
-from jobmon.requester import Requester
-
 if os.getenv("SGE_CLUSTER_NAME"):
     from jobmon import sge
 
@@ -13,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 class JobInstanceIntercom(object):
 
-    def __init__(self, job_instance_id):
+    def __init__(self, job_instance_id, jm_rep_cc=None):
         self.job_instance_id = job_instance_id
-        self.requester = Requester(config.jm_rep_conn)
+        self.requeseter(jm_rep_cc)
 
     def log_done(self):
         return self.requester.send_request({

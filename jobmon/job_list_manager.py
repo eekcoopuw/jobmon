@@ -3,7 +3,7 @@ import time
 from threading import Thread
 from queue import Queue, Empty
 
-from jobmon import config
+from jobmon.config import config
 from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus
 from jobmon.job_factory import JobFactory
