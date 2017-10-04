@@ -81,6 +81,12 @@ def test_reconciler_sge(db, job_list_manager_sge):
     # Artificially advance job to DONE so it doesn't impact downstream tests
     jsm = db[0]
     for job_instance in jir._get_presumed_instantiated_or_running():
+        try:
+            # In case the job never actually got out of qw due to a busy
+            # cluster
+            jsm.log_running(job_instance.job_instance_id)
+        except:
+            pass
         jsm.log_done(job_instance.job_instance_id)
 
 
