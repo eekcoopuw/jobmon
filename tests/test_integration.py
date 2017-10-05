@@ -3,7 +3,8 @@ import zmq
 from time import sleep
 from queue import Empty
 
-from jobmon import config, database, models
+from jobmon import database, models
+from jobmon.config import config
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 

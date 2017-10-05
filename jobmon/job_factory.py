@@ -1,7 +1,7 @@
 import logging
 
-from jobmon import config
 from jobmon import requester
+from jobmon.config import config
 
 logger = logging.getLogger(__name__)
 

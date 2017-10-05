@@ -7,7 +7,7 @@ def conda_env(conda_info):
 
 
 def path_to_conda_bin(conda_info):
-    return '{}/bin'.format(self.conda_info['root_prefix'])
+    return '{}/bin'.format(conda_info['root_prefix'])
 
 
 def read_conda_info():

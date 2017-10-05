@@ -8,6 +8,8 @@ import traceback
 
 import jsonpickle
 
+from jobmon.config import config
+from jobmon.connection_config import ConnectionConfig
 from jobmon.job_instance_intercom import JobInstanceIntercom
 from jobmon.exceptions import ReturnCodes
 
@@ -40,6 +42,8 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
         "jobmon_command",
         "--command", "'{}'".format(job.command),
         "--job_instance_id", job_instance_id,
+        "--jsm_host", config.jm_rep_conn.host,
+        "--jsm_port", config.jm_rep_conn.port,
         "--process_timeout", process_timeout
     ]
     wrapped_cmd = " ".join([str(i) for i in wrapped_cmd])
@@ -72,13 +76,17 @@ def unwrap():
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)
+    parser.add_argument("--jsm_host", required=True)
+    parser.add_argument("--jsm_port", required=True)
     parser.add_argument("--process_timeout", required=False,
                         type=intnone_parser)
 
     # makes a dict
     args = vars(parser.parse_args())
 
-    ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"])
+    cc = ConnectionConfig(args["jsm_host"], args["jsm_port"])
+    ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
+                                      jm_rep_cc=cc)
 
     ji_intercom.log_running()
 

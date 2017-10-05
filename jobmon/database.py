@@ -1,11 +1,10 @@
 from contextlib import contextmanager
 
 import sqlalchemy as sql
-from sqlalchemy import event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from jobmon import config
+from jobmon.config import config
 from jobmon.models import Base, JobStatus, JobInstanceStatus
 
 if 'sqlite' in config.conn_str:
