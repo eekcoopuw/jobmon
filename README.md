@@ -1,14 +1,7 @@
-# Dev instructions (subject to rapid iteration)
+# Demo instructions
 
-To develop locally, you'll need docker and docker-compose. Clone this repo and
-start the database and JobStateManager (formerly 'monitor') server:
-
-```
-docker-compose up --build
-```
-
-For the client side, in a separate shell, create a python 3 environment with
-jobmon installed. Simplest case usage is as follows:
+To run some jobs on the cluster, including retry/timeout functionality
+try this:
 
 ```python
 
@@ -49,6 +42,20 @@ print("Done: {}".format(done))  # Done: [7, 8, 9, 10]
 print("Errors: {}".format(errors))  # Errors: [11, 12]
 
 ```
+
+
+# Dev instructions (subject to rapid iteration)
+
+To develop locally, you'll need docker and docker-compose. Clone this repo and
+start the database and JobStateManager (formerly 'monitor') server:
+
+```
+docker-compose up --build
+```
+
+For the client side, in a separate shell, create a python 3 environment with
+jobmon installed. Simplest case usage is as follows:
+
 
 # Running tests
 
