@@ -19,7 +19,10 @@ job_id = jlm.create_job("touch ~/foobarfile", "my_jobname")
 jlm.queue_job(job_id)
 
 for i in range(5):
-    job_id = jlm.create_job("sleep {}".format(i), "sleep{}".format(i))
+    slots = i+1
+    mem = slots*2
+    job_id = jlm.create_job("sleep {}".format(i), "sleep{}".format(i),
+                            slots=slots, mem_free=mem)
     jlm.queue_job(job_id)
 
 # Block until everything is done
