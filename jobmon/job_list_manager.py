@@ -3,7 +3,7 @@ import time
 from threading import Thread
 from queue import Queue, Empty
 
-from jobmon import config
+from jobmon.config import config
 from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus
 from jobmon.job_factory import JobFactory
@@ -71,21 +71,50 @@ class JobListManager(object):
             self._start_job_instance_manager()
 
     @classmethod
-    def from_new_dag(cls):
+    def from_new_dag(cls, executor=None, start_daemons=False):
 
         # TODO: This should really be the work of the DAG manager itself,
         # but for the sake of expediting early development work, allow the
         # JobListManager to obtain it's own dag_id
-        from jobmon.config import jm_rep_conn
+        from jobmon.config import config
         from jobmon.requester import Requester
 
-        req = Requester(jm_rep_conn)
+        req = Requester(config.jm_rep_conn)
         rc, dag_id = req.send_request({
             'action': 'add_job_dag',
             'kwargs': {'name': 'test dag', 'user': 'test user'}
         })
         req.disconnect()
-        return cls(dag_id)
+        return cls(dag_id, executor=executor, start_daemons=start_daemons)
+
+    @classmethod
+    def in_memory(cls, executor, start_daemons):
+        from threading import Thread
+        from sqlalchemy.exc import IntegrityError
+
+        from jobmon import database
+        from jobmon.config import config
+        from jobmon.job_query_server import JobQueryServer
+        from jobmon.job_state_manager import JobStateManager
+
+        database.create_job_db()
+        try:
+            with database.session_scope() as session:
+                database.load_default_statuses(session)
+        except IntegrityError:
+            pass
+
+        jsm = JobStateManager(config.jm_rep_conn.port, config.jm_pub_conn.port)
+
+        jqs = JobQueryServer(config.jqs_rep_conn.port)
+
+        t1 = Thread(target=jsm.listen)
+        t1.daemon = True
+        t1.start()
+        t2 = Thread(target=jqs.listen)
+        t2.daemon = True
+        t2.start()
+        return cls.from_new_dag(executor, start_daemons)
 
     @property
     def active_jobs(self):
@@ -143,8 +172,11 @@ class JobListManager(object):
             self._sync_at_interval()
         return done, errors
 
-    def create_job(self, command, jobname, max_attempts=1, max_runtime=None):
+    def create_job(self, command, jobname, slots=1, mem_free=2, max_attempts=1,
+                   max_runtime=None):
         job_id = self.job_factory.create_job(command, jobname,
+                                             slots=slots,
+                                             mem_free=mem_free,
                                              max_attempts=max_attempts,
                                              max_runtime=max_runtime)
         self.job_statuses[job_id] = JobStatus.REGISTERED

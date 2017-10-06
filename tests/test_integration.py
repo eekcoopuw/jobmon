@@ -3,7 +3,8 @@ import zmq
 from time import sleep
 from queue import Empty
 
-from jobmon import config, database, models
+from jobmon import database, models
+from jobmon.config import config
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 
@@ -127,7 +128,8 @@ def test_blocking_update_timeout(db, dag_id, job_list_manager_d):
 
 
 def test_sge_valid_command(db, dag_id, job_list_manager_sge):
-    job_id = job_list_manager_sge.create_job("ls", "sgefbb")
+    job_id = job_list_manager_sge.create_job("ls", "sgefbb", slots=3,
+                                             mem_free=6)
     job_list_manager_sge.queue_job(job_id)
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
     with database.session_scope() as session:

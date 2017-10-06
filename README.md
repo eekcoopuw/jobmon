@@ -1,3 +1,52 @@
+# Demo instructions
+
+To run some jobs on the cluster, including retry/timeout functionality
+try this:
+
+```python
+
+# Before running this script, install a ~/.jobmonrc file... Run or mimic
+# install_rcfile.py to do so
+
+from jobmon.job_list_manager import JobListManager
+from jobmon.job_instance_factory import execute_sge
+
+# Create a JobListManager and start it's status and instance services
+jlm = JobListManager.in_memory(executor=execute_sge, start_daemons=True)
+
+# Create and queue some jobs (in this dev case, queue = run immediately)
+job_id = jlm.create_job("touch ~/foobarfile", "my_jobname")
+jlm.queue_job(job_id)
+
+for i in range(5):
+    slots = i+1
+    mem = slots*2
+    job_id = jlm.create_job("sleep {}".format(i), "sleep{}".format(i),
+                            slots=slots, mem_free=mem)
+    jlm.queue_job(job_id)
+
+# Block until everything is done
+done, errors = jlm.block_until_no_instances()
+print("Done: {}".format(done))  # Done: [1, 2, 3, 4, 6, 5]
+print("Errors: {}".format(errors))  # Errors: []
+
+
+# Submit some with timeouts and retries
+for i in range(5, 31, 5):
+    job_id = jlm.create_job("sleep {}".format(i),
+                            "sleep{}".format(i),
+                            max_attempts=3,
+                            max_runtime=12)
+    jlm.queue_job(job_id)
+
+# Block until everything is done
+done, errors = jlm.block_until_no_instances(raise_on_any_error=False)
+print("Done: {}".format(done))  # Done: [7, 8, 9, 10]
+print("Errors: {}".format(errors))  # Errors: [11, 12]
+
+```
+
+
 # Dev instructions (subject to rapid iteration)
 
 To develop locally, you'll need docker and docker-compose. Clone this repo and
@@ -8,26 +57,8 @@ docker-compose up --build
 ```
 
 For the client side, in a separate shell, create a python 3 environment with
-jobmon installed. Basic usage is as follows:
+jobmon installed. Simplest case usage is as follows:
 
-```python
-from jobmon.job_list_manager import JobListManager
-
-# Create a JobListManager and start it's status and instance services
-jlm = JobListManager.from_new_dag()
-jlm._start_job_status_listener()
-jlm._start_job_instance_manager()
-
-# Create and queue a job (in this dev case, queue = run immediately)
-job_id = jlm.create_job("touch ~/foobarfile", "my_jobname")
-jlm.queue_job(job_id)
-
-# Retrieve a list of freshly finished jobs
-jlm.get_new_done()
-
-# Retrieve a list of freshly errant jobs
-jlm.get_new_errors()
-```
 
 # Running tests
 

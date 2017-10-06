@@ -2,7 +2,8 @@ import pytest
 from threading import Thread
 from sqlalchemy.exc import IntegrityError
 
-from jobmon import config, database
+from jobmon import database
+from jobmon.config import config
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
 

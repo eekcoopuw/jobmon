@@ -2,8 +2,8 @@ import argparse
 import importlib
 import logging
 
-from jobmon import config
 from jobmon import database
+from jobmon.config import config
 from jobmon.job_state_manager import JobStateManager
 
 
