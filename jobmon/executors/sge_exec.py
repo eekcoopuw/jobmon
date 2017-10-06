@@ -64,6 +64,7 @@ class SGEJobInstance(job._AbstractJobInstance):
             self.jid = j.jid
         else:
             self.jid = jid
+
         self.register_with_monitor()
 
     def _sge_job_info(self):
@@ -153,6 +154,7 @@ class SGEExecutor(base.BaseExecutor):
     def __init__(self, monitor_connection,
                  publisher_connection,
                  path_to_conda_bin_on_target_vm='', conda_env='',
+                 batch_id=None,
                  parallelism=None, subscribe_to_job_state=True):
         """
             path_to_conda_bin_on_target_vm (string, optional): which conda bin
@@ -172,6 +174,7 @@ class SGEExecutor(base.BaseExecutor):
         conda_env = conda_info['default_prefix'].split("/")[-1]
         self.path_to_conda_bin_on_target_vm = path_to_conda_bin_on_target_vm
         self.conda_env = conda_env
+        self.batch_id = batch_id
 
     def execute_async(self, job, process_timeout=None, *args, **kwargs):
         """submit jobs to sge scheduler using sge.qsub. They will automatically
@@ -198,6 +201,8 @@ class SGEExecutor(base.BaseExecutor):
             "--pass_through", "'{}'".format(jsonpickle.encode(job.job_args)),
             "--process_timeout", process_timeout
         ]
+        if self.batch_id:
+            parameters += ["--batch_id", self.batch_id]
 
         self.logger.debug(
             ("{}: Submitting job to qsub:"
@@ -266,12 +271,16 @@ if __name__ == "__main__":
     parser.add_argument("--request_retries", required=True, type=int)
     parser.add_argument("--runfile", required=True)
     parser.add_argument("--jid", required=True, type=int)
+    parser.add_argument("--batch_id", required=False, type=int)
     parser.add_argument("--process_timeout", required=True,
                         type=intnone_parser)
     parser.add_argument("--pass_through", required=False, type=jpickle_parser)
 
     # makes a dict
     args = vars(parser.parse_args())
+
+    if 'batch_id' not in args:
+        args['batch_id'] = None
 
     # reset sys.argv as if this parsing never happened
     # sys.argv = [args["runfile"]] + args["pass_through"]
@@ -280,6 +289,7 @@ if __name__ == "__main__":
 
     job_instance = SGEJobInstance(
         jid=args["jid"],
+        batch_id=args["batch_id"],
         monitor_connection=ConnectionConfig(
             monitor_host=args["monitor_host"],
             monitor_port=args["monitor_port"],
