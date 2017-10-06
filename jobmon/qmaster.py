@@ -80,19 +80,20 @@ class JobQueue(object):
         """check whether the scheduler is running"""
         return self.scheduler.is_alive()
 
-    def create_job(self, runfile, jobname, parameters=[]):
+    def create_job(self, runfile, jobname, batch_id, parameters=[]):
         """create a new job record in the central database and on this Q
         instance
 
         Args:
             runfile (str): full path to python executable file.
             jobname (str): what name to register the sge job under.
+            batch_id (int): the database ID of the owning Batch.
             parameters (list, optional): command line arguments to be passed
                 into runfile.
 
         """
         job = Job(self.executor.monitor_connection, name=jobname, runfile=runfile,
-                  job_args=parameters)
+                  batch_id=batch_id, job_args=parameters)
         return job
 
     def queue_job(
