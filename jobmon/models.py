@@ -3,7 +3,8 @@ import logging
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+
+from datetime import datetime
 
 
 Base = declarative_base()
@@ -51,11 +52,14 @@ class Job(Base):
     def from_wire(cls, dct):
         return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
                    name=dct['name'], command=dct['command'],
-                   status=dct['status'])
+                   status=dct['status'], num_attempts=dct['num_attempts'],
+                   max_attempts=dct['max_attempts'])
 
     def to_wire(self):
         return {'dag_id': self.dag_id, 'job_id': self.job_id, 'name':
-                self.name, 'command': self.command, 'status': self.status}
+                self.name, 'command': self.command, 'status': self.status,
+                'num_attempts': self.num_attempts,
+                'max_attempts': self.max_attempts}
 
     job_id = Column(Integer, primary_key=True)
     job_instances = relationship("JobInstance", back_populates="job")
@@ -66,11 +70,13 @@ class Job(Base):
     command = Column(String(1000))
     num_attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=1)
+    max_runtime = Column(Integer)
     status = Column(
         Integer,
         ForeignKey('job_status.id'),
         nullable=False)
-    submitted_date = Column(DateTime, default=func.now())
+    submitted_date = Column(DateTime, default=datetime.utcnow())
+    status_date = Column(DateTime, default=datetime.utcnow())
 
     valid_transitions = [
         (JobStatus.REGISTERED, JobStatus.QUEUED_FOR_INSTANTIATION),
@@ -94,6 +100,7 @@ class Job(Base):
         if new_state == JobStatus.INSTANTIATED:
             self.num_attempts = self.num_attempts + 1
         self.status = new_state
+        self.status_date = datetime.utcnow()
 
     def _validate_transition(self, new_state):
         if (self.status, new_state) not in self.__class__.valid_transitions:
@@ -102,6 +109,25 @@ class Job(Base):
 
 class JobInstance(Base):
     __tablename__ = 'job_instance'
+
+    @classmethod
+    def from_wire(cls, dct):
+        return cls(job_instance_id=dct['job_instance_id'],
+                   executor_id=dct['executor_id'],
+                   job_id=dct['job_id'],
+                   status=dct['status'],
+                   status_date=datetime.strptime(dct['status_date'],
+                                                 "%Y-%m-%dT%H:%M:%S"))
+
+    def to_wire(self):
+        time_since_status = (datetime.utcnow()-self.status_date).seconds
+        return {'job_instance_id': self.job_instance_id,
+                'executor_id': self.executor_id,
+                'job_id': self.job_id,
+                'status': self.status,
+                'status_date': self.status_date.strftime("%Y-%m-%dT%H:%M:%S"),
+                'time_since_status_update': time_since_status,
+                'max_runtime': self.job.max_runtime}
 
     job_instance_id = Column(Integer, primary_key=True)
     executor_type = Column(String(50))
@@ -121,7 +147,8 @@ class JobInstance(Base):
         ForeignKey('job_instance_status.id'),
         default=JobInstanceStatus.INSTANTIATED,
         nullable=False)
-    submitted_date = Column(DateTime, default=func.now())
+    submitted_date = Column(DateTime, default=datetime.utcnow())
+    status_date = Column(DateTime, default=datetime.utcnow())
 
     valid_transitions = [
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
@@ -142,6 +169,7 @@ class JobInstance(Base):
     def transition(self, new_state):
         self._validate_transition(new_state)
         self.status = new_state
+        self.status_date = datetime.utcnow()
         if new_state == JobInstanceStatus.RUNNING:
             self.job.transition(JobStatus.RUNNING)
         elif new_state == JobInstanceStatus.DONE:
@@ -162,7 +190,7 @@ class JobInstanceErrorLog(Base):
         Integer,
         ForeignKey('job_instance.job_instance_id'),
         nullable=False)
-    error_time = Column(DateTime, default=func.now())
+    error_time = Column(DateTime, default=datetime.utcnow())
     description = Column(String(1000), nullable=False)
 
 
@@ -178,7 +206,7 @@ class JobInstanceStatusLog(Base):
         Integer,
         ForeignKey('job_instance_status.id'),
         nullable=False)
-    status_time = Column(DateTime, default=func.now())
+    status_time = Column(DateTime, default=datetime.utcnow())
 
 logger = logging.getLogger(__name__)
 class JobDag(Base):
@@ -384,7 +412,7 @@ class JobDag(Base):
         Mark them all not-done.
         Connect up their names into a graph.
         Create the jobs, but do not queue them
-        :return: 
+        :return:
         """
         for task in self.names_to_nodes.values():
             task.done = False

@@ -53,6 +53,7 @@ class JobStateManager(ReplyServer):
             command=command,
             dag_id=dag_id,
             max_attempts=max_attempts,
+            max_runtime=max_runtime,
             status=models.JobStatus.REGISTERED)
         with session_scope() as session:
             session.add(job)

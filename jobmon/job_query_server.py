@@ -1,3 +1,7 @@
+from datetime import datetime
+
+from sqlalchemy.orm import contains_eager
+
 from jobmon.database import session_scope
 from jobmon.exceptions import ReturnCodes
 from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
@@ -10,8 +14,7 @@ class JobQueryServer(ReplyServer):
     def __init__(self, rep_port=None):
         super().__init__(rep_port)
         self.register_action("get_active", self.get_instantiated_or_running)
-        self.register_action("get_active_executor_ids",
-                             self.get_instantiated_or_running_executor_ids)
+        self.register_action("get_timed_out", self.get_timed_out)
         self.register_action("get_all_jobs", self.get_jobs)
         self.register_action("get_queued_for_instantiation",
                              self.get_queued_for_instantiation)
@@ -26,34 +29,36 @@ class JobQueryServer(ReplyServer):
 
     def get_instantiated_or_running(self, dag_id):
         with session_scope() as session:
-            instantiated_jobs = session.query(Job).\
-                filter_by(status=JobStatus.INSTANTIATED, dag_id=dag_id).all()
-            running_jobs = session.query(Job).\
-                filter_by(status=JobStatus.RUNNING, dag_id=dag_id).all()
-            jobs = instantiated_jobs + running_jobs
-            job_dcts = [j.to_wire() for j in jobs]
-        return (ReturnCodes.OK, job_dcts)
-
-    def get_instantiated_or_running_executor_ids(self, dag_id):
-        with session_scope() as session:
-            instantiated = session.query(JobInstance).\
-                filter_by(
-                    status=JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR).\
+            instances = session.query(JobInstance).\
+                filter(
+                    JobInstance.status.in_([
+                        JobInstanceStatus.INSTANTIATED,
+                        JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                        JobInstanceStatus.RUNNING])).\
                 join(Job).\
+                options(contains_eager(JobInstance.job)).\
                 filter_by(dag_id=dag_id).all()
-            running = session.query(JobInstance).\
-                filter_by(
-                    status=JobInstanceStatus.RUNNING).\
-                join(Job).\
-                filter_by(dag_id=dag_id).all()
-            job_instances = instantiated + running
-            executor_ids = {j.job_instance_id: j.executor_id
-                            for j in job_instances
-                            if j.executor_id is not None}
-        return (ReturnCodes.OK, executor_ids)
+            instances = [i.to_wire() for i in instances]
+        return (ReturnCodes.OK, instances)
 
     def get_jobs(self, dag_id):
         with session_scope() as session:
             jobs = session.query(Job).filter(Job.dag_id == dag_id).all()
             job_dcts = [j.to_wire() for j in jobs]
         return (ReturnCodes.OK, job_dcts)
+
+    def get_timed_out(self, dag_id):
+        with session_scope() as session:
+            running = session.query(JobInstance).\
+                filter(
+                    JobInstance.status.in_([
+                        JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                        JobInstanceStatus.RUNNING])).\
+                join(Job).\
+                options(contains_eager(JobInstance.job)).\
+                filter(Job.dag_id == dag_id,
+                       Job.max_runtime != None).all()  # noqa: E711
+            now = datetime.utcnow()
+            timed_out = [r.to_wire() for r in running
+                         if (now-r.status_date).seconds > r.job.max_runtime]
+        return (ReturnCodes.OK, timed_out)
