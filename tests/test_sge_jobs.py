@@ -17,7 +17,7 @@ def job_list_manager_sge(dag_id):
 def test_valid_command(dag_id, job_list_manager_sge):
     job_id = job_list_manager_sge.create_job(
         sge.true_path("tests/shellfiles/jmtest.sh"),
-        "sge_foobar", max_attempts=3)
+        "sge_foobar", slots=2, mem_free=4, max_attempts=3)
     job_list_manager_sge.queue_job(job_id)
     sleep(60)  # Give some time for the job to get to the executor
     done = job_list_manager_sge.get_new_done()
