@@ -44,10 +44,10 @@ class JobStateManager(ReplyServer):
             self.pub_port = self.publisher.bind_to_random_port('tcp://*')
         logger.info("Publishing to port {}".format(self.pub_port))
 
-        # And maintain singleton semantics, se t the singel instacne variable
+        # And maintain singleton semantics, set the singleton instance variable
         JobStateManager.the_instance = self
 
-    def add_job(self, name, command, dag_id, max_attempts=1):
+    def add_job(self, name, command, dag_id, max_attempts=1, max_runtime=None):
         job = models.Job(
             name=name,
             command=command,

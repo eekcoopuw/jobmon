@@ -11,6 +11,12 @@ from jobmon.reply_server import ReplyServer
 class JobQueryServer(ReplyServer):
     """This services basic queries surrounding jobs"""
 
+    @staticmethod
+    def it():
+        if not JobQueryServer.the_instance:
+            JobQueryServer.the_instance = JobQueryServer()
+        return JobQueryServer.the_instance
+
     def __init__(self, rep_port=None):
         super().__init__(rep_port)
         self.register_action("get_active", self.get_instantiated_or_running)
@@ -18,6 +24,8 @@ class JobQueryServer(ReplyServer):
         self.register_action("get_all_jobs", self.get_jobs)
         self.register_action("get_queued_for_instantiation",
                              self.get_queued_for_instantiation)
+        # And maintain singleton semantics, set the singleton instance variable
+        JobQueryServer.the_instance = self
 
     def get_queued_for_instantiation(self, dag_id):
         with session_scope() as session:
@@ -42,10 +50,17 @@ class JobQueryServer(ReplyServer):
         return (ReturnCodes.OK, instances)
 
     def get_jobs(self, dag_id):
+        """
+        Returna dictionary mapping job_id to a dict of the job's instance variables
+        :param dag_id:
+        :return:
+        """
         with session_scope() as session:
             jobs = session.query(Job).filter(Job.dag_id == dag_id).all()
-            job_dcts = [j.to_wire() for j in jobs]
-        return (ReturnCodes.OK, job_dcts)
+            job_dictionary = {}
+            for j in jobs:
+                job_dictionary[j.job_id] = j
+        return (ReturnCodes.OK, job_dictionary)
 
     def get_timed_out(self, dag_id):
         with session_scope() as session:

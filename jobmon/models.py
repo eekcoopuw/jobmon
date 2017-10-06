@@ -6,6 +6,9 @@ from sqlalchemy.orm import relationship
 
 from datetime import datetime
 
+from jobmon.exceptions import ReturnCodes
+
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
@@ -208,12 +211,14 @@ class JobInstanceStatusLog(Base):
         nullable=False)
     status_time = Column(DateTime, default=datetime.utcnow())
 
-logger = logging.getLogger(__name__)
+########################################
+
+
 class JobDag(Base):
     """
     A DAG of Tasks.
-    In the final implementation it will probably use networkX under the hood, but for the moment it is not needed.
-    Still not needed. YAGNI
+    
+    TBD Use NetworkX, just for the DAG-ness check? Or check on the fly
     """
 
     __tablename__ = 'job_dag'
@@ -221,9 +226,9 @@ class JobDag(Base):
     dag_id = Column(Integer, primary_key=True)
     name = Column(String(150))
     user = Column(String(150))
-    created_date = Column(DateTime, default=func.now())
+    created_date = Column(DateTime, default=datetime.utcnow())
 
-    def __init__(self, dag_id=None, name=None, user=None, job_list_manager=None, job_state_manager=None, batch_id=None):
+    def __init__(self, dag_id=None, name=None, user=None, job_list_manager=None, job_state_manager=None, job_query_server=None, batch_id=None):
         # TBD input validation.
         # TBD Handling of dag_id == None
         self.dag_id = dag_id
@@ -231,6 +236,7 @@ class JobDag(Base):
         self.user = user
         self.job_list_manager = job_list_manager
         self.job_state_manager = job_state_manager
+        self.job_query_server = job_query_server
 
         # A DiGraph is a Directed Simple graph, it allows loops.
         # self.task_graph = nx.DiGraphph()
@@ -285,7 +291,7 @@ class JobDag(Base):
 
     def execute(self):
         """
-        Take a concrete DAG and create_and_queue_job all the Tasks that are not done and either have never run, or who are out-of-date
+        Take a concrete DAG and create_and_queue_job all the Tasks that are not tried and either have never run, or who are out-of-date
         with respect to their inputs.
 
         Uses forward chaining from initial fringe, hence out-of-date is not applied transitively backwards through the graph.
@@ -297,7 +303,7 @@ class JobDag(Base):
         """
 
         # Conceptually:
-        # Mark all Tasks as not_done for this execution
+        # Mark all Tasks as not tried for this execution
         # while the fringe is not empty:
         #   if the job is not out of date, skip it and add its downstreams to the fringe
         #   if not, queue it
@@ -305,9 +311,9 @@ class JobDag(Base):
         #   rinse and repeat
         # wait for the last jobs to complete
 
-        # A task is 'done' for this dag execution when it is skipped, or it has successfully run
+        # A task is 'tried' for this dag execution when it is skipped, or it has successfully run
         self._build_graph()
-        self._mark_done()
+        # self._mark_done()
 
         fringe = self.top_fringe
 
@@ -315,16 +321,17 @@ class JobDag(Base):
         all_skipped = []
         all_failed = []
 
-        # These are all nxgraph nodes, each of which is-a Task
+        # These are all Tasks
         while fringe:
-            # Everything in the fringe should be run or skipped
+            # Everything in the fringe should be run or skipped,
+            # they either have no upstreams, or all upstreams are marked DONE in this execution
             to_queue = []
             to_skip = []
             for task in fringe:
                 if task.needs_to_execute():
-                    to_queue += task
+                    to_queue += [task]
                 else:
-                    to_skip += task
+                    to_skip += [task]
                     # The job is eligible to run, but its outputs are not out-of-date wrto inputs.
                     # Therefore we can skip it.
 
@@ -337,7 +344,7 @@ class JobDag(Base):
 
             # And propagate the results for the skipped ones
             if to_skip:
-                all_skipped += to_skip
+                all_skipped += [to_skip]
                 for task in to_skip:
                     fringe += self.propagate_results(task)
             else:
@@ -371,9 +378,11 @@ class JobDag(Base):
         new_fringe = []
 
         # For all its downstream tasks, is that task now ready to run?
-        task.done = True
-        for downstream in task.downstream_tasks:  # TBD networkX?
-            if not downstream.done and downstream.all_upstreams_done():
+        # TBD BUG - "done" means I have been executed, what matter is my state
+        # TBD Do Tasks have state independent of their Jobs?
+        task.set_status(JobStatus.DONE)
+        for downstream in task.downstream_tasks:
+            if not downstream.get_status() == JobStatus.DONE and downstream.all_upstreams_done():
                 new_fringe += downstream
                 # else Nothing - that Task ain't ready yet
         return new_fringe
@@ -404,8 +413,8 @@ class JobDag(Base):
             self.top_fringe += [task]
 
         logger.info("Creating Job {}".format(task.logical_name))
-        job_id = task.create_job(self.job_list_manager)
-        return job_id
+        job = task.create_job(self.job_list_manager)
+        return job
 
     def _mark_done(self):
         """
@@ -425,10 +434,14 @@ class JobDag(Base):
         Would require private access for Upstream_tasks with a setter.
         :return:
         """
-
-        all_jobs_by_job_id = self.job_state_manager.get_jobs(self.dag_id)
-        for task in self.names_to_nodes.values():
-            task.load(all_jobs_by_job_id)
+        #
+        # (rc, all_jobs_by_job_id) = self.job_query_server.get_jobs(self.dag_id)
+        # if not rc == ReturnCodes.OK:
+        #     raise ValueError("Job Dag failed to retrieve all jobs by id from Job Query Server, rc={}".format(rc))
+        #
+        # # TBD - need a structure to map from job_id to the list
+        # for task in self.names_to_nodes.values():
+        #     task.load(all_jobs_by_job_id)
         return
         # if not self.graph_built:
         #     self.top_fringe = []
