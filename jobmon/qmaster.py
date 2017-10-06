@@ -80,7 +80,7 @@ class JobQueue(object):
         """check whether the scheduler is running"""
         return self.scheduler.is_alive()
 
-    def create_job(self, runfile, jobname, parameters=[]):
+    def create_job(self, runfile, jobname, batch_id, parameters=[]):
         """create a new job record in the central database and on this Q
         instance
 
