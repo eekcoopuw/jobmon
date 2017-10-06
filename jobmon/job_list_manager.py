@@ -172,7 +172,7 @@ class JobListManager(object):
             self._sync_at_interval()
         return done, errors
 
-    def create_job(self, command, jobname, slots=4, mem_free=8, max_attempts=1,
+    def create_job(self, command, jobname, slots=1, mem_free=2, max_attempts=1,
                    max_runtime=None):
         job_id = self.job_factory.create_job(command, jobname,
                                              slots=slots,
