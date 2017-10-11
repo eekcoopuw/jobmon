@@ -2,9 +2,10 @@ import getpass
 import logging
 import os
 import shutil
+import signal
 import socket
 import uuid
-from subprocess import Popen
+from subprocess import Popen, STDOUT
 from time import sleep
 
 from sqlalchemy import create_engine
@@ -56,7 +57,10 @@ class EphemerDB(object):
                    sockdir=self.sockdir,
                    mysql_image=self.mysql_image_file,
                    port=self.db_port))
-        self.db_proc = Popen(cmd, shell=True)
+        FNULL = open(os.devnull, 'w')
+        self.db_proc = Popen(cmd, shell=True,
+                             stdout=FNULL, stderr=STDOUT,
+                             preexec_fn=os.setsid)
         conn_str = self._conn_str()
 
         eng = create_engine(conn_str)
@@ -84,7 +88,7 @@ class EphemerDB(object):
 
     def stop(self):
         if self.db_proc:
-            self.db_proc.terminate()
+            os.killpg(os.getpgid(self.db_proc.pid), signal.SIGTERM)
             shutil.rmtree(self.dbdir)
             self.db_proc = None
             self.db_port = None

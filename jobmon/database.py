@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 from jobmon.config import config
 from jobmon.models import Base, JobStatus, JobInstanceStatus
 
+
 if 'sqlite' in config.conn_str:
 
     # TODO: I've intermittently seen transaction errors when using a
@@ -64,6 +65,13 @@ def load_default_statuses(session):
                                        label=status)
         statuses.append(status_obj)
     session.add_all(statuses)
+
+
+def recreate_engine():
+    global engine, Session
+    engine = sql.create_engine(config.conn_str, pool_recycle=300, pool_size=3,
+                               max_overflow=100, pool_timeout=120)
+    Session = sessionmaker(bind=engine)
 
 
 if __name__ == "__main__":

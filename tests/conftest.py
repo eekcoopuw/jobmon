@@ -2,8 +2,8 @@ import pytest
 from threading import Thread
 from sqlalchemy.exc import IntegrityError
 
-from jobmon import database
 from jobmon import config
+from jobmon import database
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
 
@@ -13,12 +13,14 @@ from .ephemerdb import EphemerDB
 @pytest.fixture(scope='module')
 def db():
 
-    db = EphemerDB()
-    conn_str = db.start()
+    edb = EphemerDB()
+    conn_str = edb.start()
     print(conn_str)
     cfg = config.config
     cfg.conn_str = conn_str
 
+    # The config has to be reloaded to use the EphemerDB
+    database.recreate_engine()
     database.create_job_db()
     try:
         with database.session_scope() as session:
@@ -41,6 +43,7 @@ def db():
     jqs.stop_listening()
     database.Session.close_all()
     database.engine.dispose()
+    edb.stop()
 
 
 @pytest.fixture(scope='module')
