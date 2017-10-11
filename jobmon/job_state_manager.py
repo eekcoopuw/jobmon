@@ -1,10 +1,12 @@
 import logging
 
 import zmq
+from sqlalchemy.exc import OperationalError
 
 from jobmon import models
+from jobmon.config import config
 from jobmon.database import session_scope
-from jobmon.exceptions import ReturnCodes
+from jobmon.exceptions import ReturnCodes, NoDatabase
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
 from jobmon.workflow import job_dag
@@ -82,6 +84,18 @@ class JobStateManager(ReplyServer):
             # right post-create hook. Investigate.
             job_instance.job.transition(models.JobStatus.INSTANTIATED)
         return (ReturnCodes.OK, ji_id)
+
+    def listen(self):
+        """If the database is unavailable, don't allow the JobStateManager to
+        start listenting. This would defeat its purpose, as it wouldn't have
+        anywhere to persist Job state..."""
+        with session_scope() as session:
+            try:
+                session.connection()
+            except OperationalError:
+                raise NoDatabase("JobStateManager could not connect to {}".
+                                 format(config.conn_str))
+        super().listen()
 
     def stop_listening(self):
         super().stop_listening()

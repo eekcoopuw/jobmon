@@ -1,30 +1,51 @@
 version: '3'
 
 services:
-  monitor:
+  jsm:
     build: .
-    volumes:
-        - .:/app
-    image: jobmon-dev
+    image: jobmon
     ports:
-        - "3456:3456"
-        - "3457:3457"
+        - "4456:3456"
+        - "4457:3457"
 
     entrypoint:
         - ./wait-for-db.sh
         - db
     command: [
         "jobmon",
-        "--state_manager_reply_port", "3456",
-        "--state_manager_publish_port", "3457",
-        "--verbose"]
+        "--verbose",
+        "start", "job_state_manager"]
     links:
         - db
     logging:
         options:
             max-size: "100m"
             max-file: "10"
-
+  jqs:
+    image: jobmon
+    ports:
+        - "4458:3458"
+    entrypoint:
+        - ./wait-for-db.sh
+        - db
+    command: [
+        "jobmon",
+        "--verbose",
+        "start", "job_query_server"]
+    links:
+        - db
+    logging:
+        options:
+            max-size: "100m"
+            max-file: "10"
+  initdb:
+    image: jobmon
+    entrypoint:
+        - ./wait-for-db.sh
+        - db
+    command: ["jobmon", "--verbose", "initdb"]
+    links:
+        - db
   db:
     image: mysql
     ports:
@@ -35,7 +56,7 @@ services:
         MYSQL_USER: docker
         MYSQL_PASSWORD: docker
     volumes:
-        - mysql-jobmon:/var/lib/mysql
+        - mysql-jobmon-cavy:/var/lib/mysql
 
 volumes:
-    mysql-jobmon: {}
+    mysql-jobmon-cavy: {}

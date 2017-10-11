@@ -3,7 +3,7 @@ import pytest
 from threading import Thread
 from sqlalchemy.exc import IntegrityError
 
-from jobmon import config
+from jobmon.config import config
 from jobmon import database
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
@@ -16,8 +16,7 @@ def db_cfg():
 
     edb = EphemerDB()
     conn_str = edb.start()
-    cfg = config.config
-    cfg.conn_str = conn_str
+    config.conn_str = conn_str
 
     # The config has to be reloaded to use the EphemerDB
     database.recreate_engine()
@@ -28,7 +27,7 @@ def db_cfg():
     except IntegrityError:
         pass
 
-    yield cfg
+    yield config
 
     database.Session.close_all()
     database.engine.dispose()

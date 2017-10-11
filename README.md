@@ -46,6 +46,71 @@ print("Errors: {}".format(errors))  # Errors: [11, 12]
 
 ```
 
+# Configuration
+
+By default, Jobmon configuration lives in the file ~/.jobmonrc. The contents of
+this file are expected to be json formatted and contain the following options:
+
+- **conn_str**: The connection string for the jobmon database server. The user
+  should have write privileges to the jobmon tables.
+- **jsm_host** (only required for jobmon clients e.g. DAG, JobListManager, and
+  CommandContexts): the host where the JobStateManager is running
+- **jqs_host** (only required for jobmon clients e.g. DAG, JobListManager, and
+  CommandContexts): the host where the JobQueryServer is running
+- **jsm_rep_port**: The port where the JobStateManager is listening for requests.
+- **jsm_pub_port**: The port where the JobStateManager publishes job status
+  updates.
+- **jqs_port**: The port where the JobQueryServer is listening for requests.
+
+```json
+{
+  "conn_str": "sqlite://",
+  "host": "lewis.local",
+  "jsm_rep_port": 3456,
+  "jsm_pub_port": 3457,
+  "jqs_port": 3458
+}
+```
+
+# Deploying to jobmon-p01
+To deploy a centralized JobStateManager and JobQueryServer:
+
+1. Login to jobmon-p01
+2. Clone this repo into a folder called "jobmon_cavy"
+```
+git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git jobmon_cavy
+```
+
+3. Checkout the appropriate branch (as of this writing, future/service_arch)
+```
+git checkout future/service_arch
+```
+
+4. From the root directory of the repo, run:
+```
+docker-compose up --build -d
+```
+
+That should do it. Now you'll just need to make sure your users have the proper
+host and port settings in their .jobmonrc.
+{
+  "host": "jobmon-p01.ihme.washington.edu",
+  "jsm_rep_port": 4456,
+  "jsm_pub_port": 4457,
+  "jqs_port": 4458
+}
+
+For testing purposes, you can then access the jobmon database on that server
+from your favorite DB browser:
+- host: jobmon-p01.ihme.washington.edu
+- port: 3306
+- user: docker
+- pass: docker
+
+TODO: Make these settings the default upon installing the package (or
+alternatively source jobmonrc from a shared location, then from the
+user's home directory).
+
 
 # Dev instructions (subject to rapid iteration)
 
