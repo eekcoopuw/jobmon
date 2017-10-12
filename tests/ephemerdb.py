@@ -102,12 +102,12 @@ class EphemerDB(object):
     def stop(self):
         if self.db_proc:
             os.killpg(os.getpgid(self.db_proc.pid), signal.SIGTERM)
-
-            # Note that we're ignoring errors because the previous killpg
-            # call might cause mysql.sock to disappear mid rmtree...
-            shutil.rmtree(self.dbdir, ignore_errors=True)
             self.db_proc = None
             self.db_port = None
+
+        # Note that we're ignoring errors because the previous killpg
+        # call might cause mysql.sock to disappear mid rmtree...
+        shutil.rmtree(self.dbdir, ignore_errors=True)
 
     def _conn_str(self, as_root=False):
         if not self.db_port or not self.db_proc:
