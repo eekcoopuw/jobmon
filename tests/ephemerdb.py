@@ -1,3 +1,4 @@
+import atexit
 import getpass
 import logging
 import os
@@ -5,7 +6,7 @@ import shutil
 import signal
 import socket
 import uuid
-from subprocess import Popen, STDOUT
+from subprocess import check_output, Popen, STDOUT
 from time import sleep
 
 from sqlalchemy import create_engine
@@ -34,14 +35,25 @@ class EphemerDB(object):
         self.db_name = 'singularity'
         self.db_user = 'sing'
         self.db_pass = 'song'
+        self.db_root_pass = 'singularity_root'
+
+    def execute_sql_script(self, sql_script):
+        cmd = ("mysql -h {host} -P {port} --user=root --password={pw} "
+               "< {sql}".format(host=socket.gethostname(),
+                                port=self.db_port,
+                                pw=self.db_root_pass,
+                                sql=sql_script))
+        stdout = check_output(cmd, shell=True)
+        return stdout
 
     def start(self):
+        atexit.register(self.stop)
         self.db_port = self._get_random_port()
         os.makedirs(self.datadir)
         os.makedirs(self.sockdir)
         cmd = (
             "MYSQL_DATABASE={db_name} "
-            "MYSQL_RANDOM_ROOT_PASSWORD=yes "
+            "MYSQL_ROOT_PASSWORD={root_pw} "
             "MYSQL_USER={db_user} "
             "MYSQL_PASSWORD={db_pass} "
             "{singularity} exec "
@@ -50,6 +62,7 @@ class EphemerDB(object):
             "{mysql_image} "
             "/usr/local/bin/docker-entrypoint.sh mysqld --port={port}".
             format(db_name=self.db_name,
+                   root_pw=self.db_root_pass,
                    db_user=self.db_user,
                    db_pass=self.db_pass,
                    singularity=self.singularity_bin,
@@ -89,15 +102,24 @@ class EphemerDB(object):
     def stop(self):
         if self.db_proc:
             os.killpg(os.getpgid(self.db_proc.pid), signal.SIGTERM)
-            shutil.rmtree(self.dbdir)
+
+            # Note that we're ignoring errors because the previous killpg
+            # call might cause mysql.sock to disappear mid rmtree...
+            shutil.rmtree(self.dbdir, ignore_errors=True)
             self.db_proc = None
             self.db_port = None
 
-    def _conn_str(self):
+    def _conn_str(self, as_root=False):
         if not self.db_port or not self.db_proc:
             raise NameError("DB not started")
+        if as_root:
+            user = 'root'
+            dbpass = self.db_root_pass
+        else:
+            user = self.db_user
+            dbpass = self.db_pass
         return "mysql://{user}:{dbpass}@{host}:{port}/{db}".format(
-            user=self.db_user, dbpass=self.db_pass, host=socket.gethostname(),
+            user=user, dbpass=dbpass, host=socket.gethostname(),
             port=self.db_port, db=self.db_name)
 
     def _get_unique_dirname(self):
