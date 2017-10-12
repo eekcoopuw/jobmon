@@ -79,7 +79,7 @@ class EphemerDB(object):
         eng = create_engine(conn_str)
         attempt = 0
         logger.info("Waiting for db to come online")
-        while attempt < 5:
+        while attempt < 10:
             attempt = attempt + 1
             try:
                 conn = eng.connect()
