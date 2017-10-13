@@ -1,6 +1,8 @@
 import logging
 from time import sleep
 
+import pandas as pd
+
 from jobmon import sge
 from jobmon.config import config
 from jobmon.models import JobInstance
@@ -27,9 +29,13 @@ class JobInstanceReconciler(object):
             sleep(poll_interval)
 
     def reconcile(self):
-        presumed = self._get_presumed_instantiated_or_running()
+        """Identifies jobs that have disappeared from the batch execution
+        system (e.g. SGE), and reports their disappearance back to the
+        JobStateManager so they can either be retried or flagged as
+        fatal errors"""
+        presumed = self._get_presumed_submitted_or_running()
         self._request_permission_to_reconcile()
-        actual = self._get_actual_instantiated_or_running()
+        actual = self._get_actual_submitted_or_running()
 
         # This is kludgy... Re-visit the data structure used for communicating
         # executor IDs back from the JobQueryServer
@@ -43,13 +49,22 @@ class JobInstanceReconciler(object):
         return missing_job_instance_ids
 
     def terminate_timed_out_jobs(self):
-        job_instances = self._get_timed_out_jobs()
-        if job_instances:
-            sge.qdel([ji.executor_id for ji in job_instances])
-        for ji in job_instances:
-            self._log_timeout_error(ji.job_instance_id)
+        """Attempts to terminate jobs that have been in the "running"
+        state for too long. From the SGE perspective, this might include
+        jobs that got stuck in "r" state but never called back to the
+        JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
+        SUBMITTED_TO_BATCH_EXECUTOR)"""
+        to_df = pd.DataFrame.from_dict(self._get_timed_out_jobs())
+        sge_jobs = sge.qstat()
+        sge_jobs = sge_jobs[~sge_jobs.status.isin(['hqw', 'qw'])]
+        to_df = to_df.merge(sge_jobs, left_on='executor_id', right_on='job_id')
+        to_df = to_df[to_df.runtime_seconds > to_df.max_runtime]
+        if to_df:
+            sge.qdel(list(to_df.executor_id))
+        for ji in list(to_df.job_instance_id):
+            self._log_timeout_error(ji)
 
-    def _get_actual_instantiated_or_running(self):
+    def _get_actual_submitted_or_running(self):
         # TODO: If we formalize the "Executor" concept as more than a
         # command-runner, this should probably be an option method
         # provided by any given Executor
@@ -60,10 +75,10 @@ class JobInstanceReconciler(object):
         job_ids = [int(jid) for jid in job_ids]
         return job_ids
 
-    def _get_presumed_instantiated_or_running(self):
+    def _get_presumed_submitted_or_running(self):
         try:
             rc, job_instances = self.jqs_req.send_request({
-                'action': 'get_active',
+                'action': 'get_submitted_or_running',
                 'kwargs': {'dag_id': self.dag_id}
             })
             job_instances = [JobInstance.from_wire(j) for j in job_instances]

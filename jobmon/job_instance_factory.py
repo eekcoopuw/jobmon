@@ -1,7 +1,6 @@
 import logging
 from time import sleep
 
-from jobmon import conda_utilities as cu
 from jobmon.config import config
 from jobmon.command_context import build_wrapped_command
 from jobmon.models import Job
@@ -34,7 +33,6 @@ def execute_sge(job, job_instance_id):
         # BASIC COMMAND-LINE QSUB FOR NOW
         import os
         import subprocess
-        thispath = os.path.dirname(os.path.abspath(__file__))
         qsub_cmd = ('qsub -N {jn} -e ~/sgetest -o ~/sgetest '
                     '-pe multi_slot {slots} -l mem_free={mem}g '
                     '-V {path}/submit_master.sh '

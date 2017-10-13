@@ -136,6 +136,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
     job_statuses = []
     job_datetimes = []
     job_runtimes = []
+    job_runtime_strs = []
     append_jobid = True
     append_jobname = False
     time_format = "%m/%d/%Y %H:%M:%S"
@@ -155,7 +156,8 @@ def qstat(status=None, pattern=None, user=None, jids=None):
             job_datetime = datetime.strptime(
                 " ".join([job_date, job_time]),
                 time_format)
-            job_runtimes.append(str(now - job_datetime))
+            job_runtimes.append(now - job_datetime)
+            job_runtime_strs.append(str(now - job_datetime))
             job_datetimes.append(datetime.strftime(job_datetime, time_format))
             append_jobid = False
             append_jobname = True
@@ -176,13 +178,14 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         'slots': job_slots,
         'status': job_statuses,
         'status_start': job_datetimes,
-        'runtime': job_runtimes})
+        'runtime': job_runtime_strs,
+        'runtime_seconds': job_runtimes})
     if pattern is not None:
         df = df[df.name.str.contains(pattern)]
     if jids is not None:
         df = df[df.job_id.isin(jids)]
     return df[['job_id', 'name', 'slots', 'user', 'status', 'status_start',
-               'runtime']]
+               'runtime', 'runtime_seconds']]
 
 
 def qstat_details(jids):

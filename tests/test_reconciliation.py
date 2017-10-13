@@ -60,7 +60,7 @@ def test_reconciler_dummy(job_list_manager_dummy):
     assert errors == [job_id]
 
 
-def test_reconciler_sge(db, job_list_manager_sge):
+def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     errors = job_list_manager_sge.get_new_errors()
 
@@ -79,7 +79,7 @@ def test_reconciler_sge(db, job_list_manager_sge):
     assert len(errors) == 0
 
     # Artificially advance job to DONE so it doesn't impact downstream tests
-    jsm = db[0]
+    jsm, _ = jsm_jqs
     for job_instance in jir._get_presumed_instantiated_or_running():
         try:
             # In case the job never actually got out of qw due to a busy
@@ -90,7 +90,7 @@ def test_reconciler_sge(db, job_list_manager_sge):
         jsm.log_done(job_instance.job_instance_id)
 
 
-def test_reconciler_sge_timeout(db, dag_id, job_list_manager_sge):
+def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     errors = job_list_manager_sge.get_new_errors()
 
@@ -110,7 +110,35 @@ def test_reconciler_sge_timeout(db, dag_id, job_list_manager_sge):
     assert job_id in errors
 
     # The job should have been tried 3 times...
-    jqs = db[1]
+    _, jqs = jsm_jqs
+    rc, jobs = jqs.get_jobs(dag_id)
+    this_job = [j for j in jobs if j['job_id'] == job_id][0]
+    assert this_job['num_attempts'] == 3
+
+
+def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
+    # Flush the error queue to avoid false positives from other tests
+    errors = job_list_manager_sge.get_new_errors()
+
+    # Qsub a long running job -> queue another job that waits on it,
+    # to simulate a hqw -> set the timeout for that hqw job to something
+    # short... make sure that job doesn't actually get killed
+    job_id = job_list_manager_sge.create_job(
+        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob",
+        max_attempts=3, max_runtime=3)
+    job_list_manager_sge.queue_job(job_id)
+
+    # Give the SGE scheduler some time to get the job scheduled and for the
+    # reconciliation daemon to kill the job
+    sleep(30)
+
+    # There should now be a job that has errored out
+    errors = job_list_manager_sge.get_new_errors()
+    assert len(errors) == 1
+    assert job_id in errors
+
+    # The job should have been tried 3 times...
+    _, jqs = jsm_jqs
     rc, jobs = jqs.get_jobs(dag_id)
     this_job = [j for j in jobs if j['job_id'] == job_id][0]
     assert this_job['num_attempts'] == 3

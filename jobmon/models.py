@@ -61,13 +61,15 @@ class Job(Base):
                    name=dct['name'], command=dct['command'],
                    slots=dct['slots'], mem_free=dct['mem_free'],
                    status=dct['status'], num_attempts=dct['num_attempts'],
-                   max_attempts=dct['max_attempts'])
+                   max_attempts=dct['max_attempts'],
+                   context_args=dct['context_args'])
 
     def to_wire(self):
         return {'dag_id': self.dag_id, 'job_id': self.job_id, 'name':
                 self.name, 'command': self.command, 'status': self.status,
                 'slots': self.slots, 'mem_free': self.mem_free, 'num_attempts':
-                self.num_attempts, 'max_attempts': self.max_attempts}
+                self.num_attempts, 'max_attempts': self.max_attempts,
+                'context_args': self.context_args}
 
     job_id = Column(Integer, primary_key=True)
     job_instances = relationship("JobInstance", back_populates="job")
@@ -76,6 +78,7 @@ class Job(Base):
         ForeignKey('job_dag.dag_id'))
     name = Column(String(150))
     command = Column(String(1000))
+    context_args = Column(String(1000))
     slots = Column(Integer, default=1)
     mem_free = Column(Integer, default=1)
     num_attempts = Column(Integer, default=0)
