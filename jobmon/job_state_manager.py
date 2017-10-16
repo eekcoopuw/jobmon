@@ -1,4 +1,5 @@
 import logging
+
 import zmq
 
 from jobmon import models
@@ -6,7 +7,7 @@ from jobmon.database import session_scope
 from jobmon.exceptions import ReturnCodes
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
-
+from jobmon.workflow import job_dag
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK, job_id)
 
     def add_job_dag(self, name, user):
-        dag = models.JobDag(
+        dag = job_dag.JobDag(
             name=name,
             user=user)
         with session_scope() as session:
