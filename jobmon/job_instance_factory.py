@@ -35,13 +35,21 @@ def execute_sge(job, job_instance_id):
         import os
         import subprocess
         thispath = os.path.dirname(os.path.abspath(__file__))
+
+        if job.project:
+            project_cmd = "-P {}".format(job.project)
+        else:
+            project_cmd = ""
+
         qsub_cmd = ('qsub -N {jn} -e ~/sgetest -o ~/sgetest '
                     '-pe multi_slot {slots} -l mem_free={mem}g '
+                    '{project} '
                     '-V {path}/submit_master.sh '
                     '"{cmd}"'.format(
                         jn=job.name,
                         slots=job.slots,
                         mem=job.mem_free,
+                        project=project_cmd,
                         path=thispath,
                         cmd=cmd))
 

@@ -42,6 +42,10 @@ def test_basic_submit():
     mem_id = sge.qsub("/bin/true", "still true", slots=1, memory=1)
     assert mem_id
 
+    proj_id = sge.qsub("/bin/true", "still true", slots=1, memory=1,
+                       project="proj_burdenator")
+    assert proj_id
+
     sleep_id = sge.qsub("/bin/sleep", "wh#@$@&(*!",
                         parameters=[50],
                         stdout="whatsleep.o$JOB_ID")
@@ -51,7 +55,8 @@ def test_basic_submit():
     wait_id_b = sge.qsub("/bin/true", "flou;nd  ",
                          holds=[sleep_id])
     assert wait_id_b
-    assert sge._wait_done([true_id, mem_id, sleep_id, wait_id_a, wait_id_b])
+    assert sge._wait_done(
+        [true_id, mem_id, proj_id, sleep_id, wait_id_a, wait_id_b])
     assert not glob.glob(os.path.expanduser("~/sotrue*{}".format(true_id)))
     assert glob.glob(os.path.expanduser("~/whatsleep*{}".format(sleep_id)))
 

@@ -13,7 +13,7 @@ class JobFactory(object):
         self.requester = requester.Requester(config.jm_rep_conn)
 
     def create_job(self, command, jobname, slots=1, mem_free=2, max_attempts=1,
-                   max_runtime=None):
+                   project=None, max_runtime=None):
         rc, job_id = self.requester.send_request({
             'action': 'add_job',
             'kwargs': {'dag_id': self.dag_id,
@@ -21,6 +21,7 @@ class JobFactory(object):
                        'command': command,
                        'slots': slots,
                        'mem_free': mem_free,
+                       'project': project,
                        'max_attempts': max_attempts,
                        'max_runtime': max_runtime}
         })

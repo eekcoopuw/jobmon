@@ -173,10 +173,11 @@ class JobListManager(object):
         return done, errors
 
     def create_job(self, command, jobname, slots=1, mem_free=2, max_attempts=1,
-                   max_runtime=None):
+                   project=None, max_runtime=None):
         job_id = self.job_factory.create_job(command, jobname,
                                              slots=slots,
                                              mem_free=mem_free,
+                                             project=project,
                                              max_attempts=max_attempts,
                                              max_runtime=max_runtime)
         self.job_statuses[job_id] = JobStatus.REGISTERED
