@@ -19,7 +19,8 @@ class JobQueryServer(ReplyServer):
 
     def __init__(self, rep_port=None):
         super().__init__(rep_port)
-        self.register_action("get_active", self.get_instantiated_or_running)
+        self.register_action("get_submitted_or_running",
+                             self.get_submitted_or_running)
         self.register_action("get_timed_out", self.get_timed_out)
         self.register_action("get_all_jobs", self.get_jobs)
         self.register_action("get_queued_for_instantiation",
@@ -35,12 +36,11 @@ class JobQueryServer(ReplyServer):
             job_dcts = [j.to_wire() for j in jobs]
         return (ReturnCodes.OK, job_dcts)
 
-    def get_instantiated_or_running(self, dag_id):
+    def get_submitted_or_running(self, dag_id):
         with session_scope() as session:
             instances = session.query(JobInstance).\
                 filter(
                     JobInstance.status.in_([
-                        JobInstanceStatus.INSTANTIATED,
                         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
                         JobInstanceStatus.RUNNING])).\
                 join(Job).\
