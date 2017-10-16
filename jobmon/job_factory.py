@@ -23,9 +23,12 @@ class JobFactory(object):
             jobname (str): name of the job
             slots (int): Number of slots to request from SGE
             mem_free (int): Number of GB of memory to request from SGE
-            max_attmpets (int): Maximum # of attempts before sending the job to ERROR_FATAL state
-            max_runtime (int): Maximum runtime of a single job_instance before killing and marking that instance as failed
-            context_args (dict): Additional arguments to be sent to the command builders
+            max_attmpets (int): Maximum # of attempts before sending the job to
+                ERROR_FATAL state
+            max_runtime (int): Maximum runtime of a single job_instance before
+                killing and marking that instance as failed
+            context_args (dict): Additional arguments to be sent to the command
+                builders
         """
         if not context_args:
             context_args = json.dumps({})

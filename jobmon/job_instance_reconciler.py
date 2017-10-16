@@ -55,14 +55,16 @@ class JobInstanceReconciler(object):
         JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
         SUBMITTED_TO_BATCH_EXECUTOR)"""
         to_df = pd.DataFrame.from_dict(self._get_timed_out_jobs())
+        if len(to_df) == 0:
+            return
         sge_jobs = sge.qstat()
         sge_jobs = sge_jobs[~sge_jobs.status.isin(['hqw', 'qw'])]
         to_df = to_df.merge(sge_jobs, left_on='executor_id', right_on='job_id')
         to_df = to_df[to_df.runtime_seconds > to_df.max_runtime]
-        if to_df:
+        if len(to_df) > 0:
             sge.qdel(list(to_df.executor_id))
-        for ji in list(to_df.job_instance_id):
-            self._log_timeout_error(ji)
+            for ji in list(to_df.job_instance_id):
+                self._log_timeout_error(int(ji))
 
     def _get_actual_submitted_or_running(self):
         # TODO: If we formalize the "Executor" concept as more than a
@@ -92,7 +94,7 @@ class JobInstanceReconciler(object):
                 'action': 'get_timed_out',
                 'kwargs': {'dag_id': self.dag_id}
             })
-            job_instances = [JobInstance.from_wire(j) for j in job_instances]
+            # job_instances = [JobInstance.from_wire(j) for j in job_instances]
         except TypeError:
             job_instances = []
         return job_instances

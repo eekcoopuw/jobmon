@@ -36,7 +36,7 @@ class JobStateManager(ReplyServer):
         logger.info("Publishing to port {}".format(self.pub_port))
 
     def add_job(self, name, command, dag_id, slots=1, mem_free=2,
-                max_attempts=1, max_runtime=None):
+                max_attempts=1, max_runtime=None, context_args="{}"):
         job = models.Job(
             name=name,
             command=command,
@@ -45,6 +45,7 @@ class JobStateManager(ReplyServer):
             mem_free=mem_free,
             max_attempts=max_attempts,
             max_runtime=max_runtime,
+            context_args=context_args,
             status=models.JobStatus.REGISTERED)
         with session_scope() as session:
             session.add(job)

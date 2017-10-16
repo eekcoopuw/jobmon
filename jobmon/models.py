@@ -9,9 +9,9 @@ Base = declarative_base()
 
 
 class InvalidStateTransition(Exception):
-    def __init__(self, model, old_state, new_state):
-        msg = "Cannot transition {} from {} to {}".format(
-            model, old_state, new_state)
+    def __init__(self, model, id, old_state, new_state):
+        msg = "Cannot transition {} id: {} from {} to {}".format(
+            model, id, old_state, new_state)
         super().__init__(self, msg)
 
 
@@ -117,7 +117,8 @@ class Job(Base):
 
     def _validate_transition(self, new_state):
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition('Job', self.status, new_state)
+            raise InvalidStateTransition('Job', self.job_id, self.status,
+                                         new_state)
 
 
 class JobInstance(Base):
@@ -192,7 +193,8 @@ class JobInstance(Base):
 
     def _validate_transition(self, new_state):
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition('JobInstance', self.status, new_state)
+            raise InvalidStateTransition('JobInstance', self.job_instance_id,
+                                         self.status, new_state)
 
 
 class JobInstanceErrorLog(Base):

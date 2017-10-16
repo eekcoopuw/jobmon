@@ -43,7 +43,7 @@ def test_reconciler_dummy(job_list_manager_dummy):
     job_list_manager_dummy.job_inst_factory.instantiate_queued_jobs()
 
     jir = job_list_manager_dummy.job_inst_reconciler
-    exec_ids = jir._get_presumed_instantiated_or_running()
+    exec_ids = jir._get_presumed_submitted_or_running()
     assert len(exec_ids) == 1
 
     # Since we are using the 'dummy' executor, we never actually do
@@ -80,7 +80,7 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
 
     # Artificially advance job to DONE so it doesn't impact downstream tests
     jsm, _ = jsm_jqs
-    for job_instance in jir._get_presumed_instantiated_or_running():
+    for job_instance in jir._get_presumed_submitted_or_running():
         try:
             # In case the job never actually got out of qw due to a busy
             # cluster
@@ -102,7 +102,7 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job
-    sleep(30)
+    sleep(60)
 
     # There should now be a job that has errored out
     errors = job_list_manager_sge.get_new_errors()

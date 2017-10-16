@@ -144,7 +144,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
     for line in lines:
 
         if append_jobid is True:
-            job_ids.append(line.split()[0])
+            job_ids.append(int(line.split()[0]))
             job_users.append(line.split()[3])
             job_statuses.append(line.split()[4])
             job_date = line.split()[5]
@@ -156,7 +156,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
             job_datetime = datetime.strptime(
                 " ".join([job_date, job_time]),
                 time_format)
-            job_runtimes.append(now - job_datetime)
+            job_runtimes.append((now - job_datetime).total_seconds())
             job_runtime_strs.append(str(now - job_datetime))
             job_datetimes.append(datetime.strftime(job_datetime, time_format))
             append_jobid = False
