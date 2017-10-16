@@ -1,12 +1,13 @@
-import os
 import logging
-import pytest
+import os
 import pwd
 import uuid
 
+import pytest
+from cluster_utils.io import makedirs_safely
+
 from jobmon.models import JobStatus
 from jobmon.workflow.job_dag_manager import JobDagManager
-
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logging.basicConfig(level=logging.DEBUG)
@@ -28,7 +29,6 @@ def tmp_out_dir():
 def job_dag_manager(db):
     jdm = JobDagManager()
     yield jdm
-    jdm.disconnect()
 
 
 # All Tests are written from the point of view of the Swarm, i.e the job controller in the application.
@@ -44,9 +44,8 @@ def test_empty(db, job_dag_manager):
     """
     Create a dag with no Tasks. Call all the creation methods and check that it raises no Exceptions.
     """
-    dag = job_dag_manager.create_job_dag(name="test_empty", batch_id=99)
+    dag = job_dag_manager.create_job_dag(name="test_empty")
     assert dag.name == "test_empty"
-    assert dag.batch_id == 99
     dag.execute()
 
     (rc, num_completed, num_failed) = dag.execute()
@@ -61,8 +60,8 @@ def test_one_task(db, job_dag_manager, tmp_out_dir):
     Create a dag with one Task and execute it
     """
     root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
-    os.makedirs(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_one_task", batch_id=5)
+    makedirs_safely(root_out_dir)
+    dag = job_dag_manager.create_job_dag(name="test_one_task")
 
     task = SleepAndWriteFileMockTask(
         output_file_name="{}/test_one_task/mock.out".format(tmp_out_dir)
@@ -76,16 +75,14 @@ def test_one_task(db, job_dag_manager, tmp_out_dir):
     assert num_completed == 1
     assert num_failed == 0
 
-    # TBD validation
-
 
 def test_three_linear_tasks(db, job_dag_manager, tmp_out_dir):
     """
-    Create a dag with three Tasks, one after another: a->b->c and execute it
+    Create and execute a dag with three Tasks, one after another: a->b->c
     """
     root_out_dir = "{}/mocks/test_three_linear_tasks".format(tmp_out_dir)
-    os.makedirs(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_three_linear_tasks", batch_id=6)
+    makedirs_safely(root_out_dir)
+    dag = job_dag_manager.create_job_dag(name="test_three_linear_tasks")
 
     task_a = SleepAndWriteFileMockTask(
         output_file_name="{}/a.out".format(root_out_dir),
@@ -106,7 +103,6 @@ def test_three_linear_tasks(db, job_dag_manager, tmp_out_dir):
     dag.add_task(task_c)
 
     logger.debug("DAG: {}".format(dag))
-    os.makedirs("{}/mocks/test_three_linear_tasks".format(tmp_out_dir))
     (rc, num_completed, num_failed) = dag.execute()
     assert rc
     assert num_completed == 3
@@ -122,8 +118,8 @@ def test_fork_and_join_tasks(db, job_dag_manager, tmp_out_dir):
      and execute it
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
-    os.makedirs(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks", batch_id=16)
+    makedirs_safely(root_out_dir)
+    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks")
 
     task_a = SleepAndWriteFileMockTask(
         sleep_secs=1,
@@ -135,14 +131,14 @@ def test_fork_and_join_tasks(db, job_dag_manager, tmp_out_dir):
     task_b = {}
     for i in range(3):
         task_b[i] = SleepAndWriteFileMockTask(
-            sleep_secs=5+i,
+            sleep_secs=5 + i,
             output_file_name="{}/b-{}.out".format(root_out_dir, i),
             upstream_tasks=[task_a]
         )
         dag.add_task(task_b[i])
 
     # Each c[i] depends exactly and only on b[i]
-    # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race conditions
+    # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race conditions by creating a collision near d
     task_c = {}
     for i in range(3):
         task_c[i] = SleepAndWriteFileMockTask(
@@ -186,8 +182,8 @@ def test_fork_and_join_tasks_with_fatal_error(db, job_dag_manager, tmp_out_dir):
     One of the b-tasks (#1) fails consistently, so c[1] will never be ready.
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks_with_fatal_error".format(tmp_out_dir)
-    os.makedirs(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks_with_fatal_error", batch_id=16)
+    makedirs_safely(root_out_dir)
+    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks_with_fatal_error")
 
     task_a = SleepAndWriteFileMockTask(
         output_file_name="{}/a.out".format(root_out_dir)
@@ -245,8 +241,8 @@ def test_fork_and_join_tasks_with_retryable_error(db, job_dag_manager, tmp_out_d
     One of the b-tasks fails once, so the retry handler should cover that, and the whole DAG should complete
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks_with_retryable_error".format(tmp_out_dir)
-    os.makedirs(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks_with_retryable_error", batch_id=79)
+    makedirs_safely(root_out_dir)
+    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks_with_retryable_error")
 
     task_a = SleepAndWriteFileMockTask(
         output_file_name="{}/a.out".format(root_out_dir)
@@ -297,53 +293,3 @@ def test_fork_and_join_tasks_with_retryable_error(db, job_dag_manager, tmp_out_d
     assert task_c[2].cached_status == JobStatus.DONE
 
     assert task_d.cached_status == JobStatus.DONE
-
-
-def test_no_work_restart():
-    """
-    Create a dag with three Tasks a->b->c and execute it completely.
-    Ask to resume and check that no task re-executes.
-
-    :return:
-    """
-
-
-def test_simple_restart():
-    """
-    Create a dag with three Tasks a->b->c.
-
-    Execute a and then stop execution.
-    Then resume. Check that a is not run-twice, but b executes and then c
-
-    TBD How to stop the execution at a certain point?
-    TBD Reuse DAG from above
-    :return:
-    """
-
-
-def test_fork_and_join_restart():
-    """
-    Create a small fork and join dag with three Tasks a->b[0..3]->c and execute it.
-    Stop after b[0].
-
-    Resume, check that a and b[0] do not execute, but b[1], b[2], and c re-execute.
-    :return:
-    """
-
-
-def test_persistence():
-    """
-    Tests for persistence. Create a dag in memory (which will write it and Tasks to dbs).
-    Drop all references to the dag.
-    Load dag by id from database.
-    Walk around the dag and validate it
-    execute it.
-    """
-
-    # TBD Reuse a standard dag from above, it will be persisted
-    # dag = make_standard_dag()
-    # dag_id = dag.dag_id
-    # dag = None  # bye bye, just to be sure
-    #
-    # dag_again = JobDagManager.get_dag_by_id(dag_id)
-    # dag_again.vaidate()  # I like validate methods to check for internal consistency

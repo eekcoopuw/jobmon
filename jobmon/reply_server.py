@@ -86,7 +86,7 @@ class ReplyServer(object):
         logger.info('Listening on port {}.'.format(self.port))
         while True:
             msg = self.socket.recv_json()  # server blocks on receive
-            logger.debug("Received json {}".format(msg))
+            # logger.debug("Received json {}".format(msg))
             try:
                 if msg == 'stop':
                     logger.info("ReplyServer stopping")
@@ -124,7 +124,7 @@ class ReplyServer(object):
                 self.socket.send_json(response)
             except Exception as e:
                 logmsg = (
-                    'ReplyServer sending "generic" error: {}'.format(e))
+                    'ReplyServer sending "generic" error: {}'.format(traceback.format_exc(e)))
                 logger.debug(logmsg)
                 traceback.print_exc()
                 response = (ReturnCodes.GENERIC_ERROR, logmsg)
@@ -169,7 +169,7 @@ class ReplyServer(object):
         # An actual application message, use introspection to find
         # the handler
         action_handle = msg['action']
-        logger.debug("action: {}".format(action_handle))
+        # logger.debug("action: {}".format(action_handle))
         if action_handle not in self.actions:
             raise InvalidAction
         action = self.actions[action_handle]
@@ -181,7 +181,7 @@ class ReplyServer(object):
             act_args = msg['args']
         else:
             act_args = []
-        logger.debug("Calling action {}".format(action))
+        # logger.debug("Calling action {}".format(action))
         response = action(*act_args, **act_kwargs)
         return response
 

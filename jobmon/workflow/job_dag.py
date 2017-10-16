@@ -40,13 +40,15 @@ class JobDag(Base):
         structure should look.
 
         Check:
-          - Only one graph - not two sub graphs
-          - Ask each task to check its upstreams against what it thinks they should be
-          - External Tasks cannot have upstreams
+          - Only one graph - not two sub graphs TBD
+          - External Tasks cannot have upstreams (Future releases, when there
           - TBD
 
+          Args:
+                raises (boolean): If True then raise ValueError if it detects a problem, otherwise return False and log
+
         Returns:
-             True if no problems. if raises is True, then it raises ValueError on first problem, else False
+                True if no problems. if raises is True, then it raises ValueError on first problem, else False
         """
 
         # The empty graph cannot have errors
@@ -166,8 +168,8 @@ class JobDag(Base):
         TBD don't like the side effect on runners
 
         Args:
-            runners; dictionary of currently running jobs, by job_id
-            completed_and_failed: List of tuples of (job_id, JobStatus)
+            runners (dictionary);  of currently running jobs, by job_id
+            completed_and_failed (list): List of tuples of (job_id, JobStatus)
 
         Returns:
             A new runners dictionary, Two lists of job_ids
