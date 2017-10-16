@@ -89,12 +89,20 @@ class JobInstanceReconciler(object):
         return job_instances
 
     def _get_timed_out_jobs(self):
+        """Returns timed_out jobs as a list of dicts (rather than converting
+        them to JobInstance objects). The dicts are more convient to transform
+        into a Pandas.DataFrame downstream, which is joined to qstat output
+        to determine whether any jobs should be qdel'd.
+
+        TODO: Explore whether there is any utilityin in a
+        "from_wire_as_dataframe" utility method on JobInstance, similar to the
+        current "from_wire" utility.
+        """
         try:
             rc, job_instances = self.jqs_req.send_request({
                 'action': 'get_timed_out',
                 'kwargs': {'dag_id': self.dag_id}
             })
-            # job_instances = [JobInstance.from_wire(j) for j in job_instances]
         except TypeError:
             job_instances = []
         return job_instances
