@@ -69,7 +69,7 @@ class Job(Base):
     dag_id = Column(
         Integer,
         ForeignKey('job_dag.dag_id'))
-    name = Column(String(150))
+    name = Column(String(255))
     command = Column(String(1000))
     context_args = Column(String(1000))
     slots = Column(Integer, default=1)
