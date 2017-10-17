@@ -51,16 +51,14 @@ class JobQueryServer(ReplyServer):
 
     def get_jobs(self, dag_id):
         """
-        Returna dictionary mapping job_id to a dict of the job's instance variables
-        :param dag_id:
-        :return:
+            Return a dictionary mapping job_id to a dict of the job's instance variables
+        Args
+            dag_id:
         """
         with session_scope() as session:
             jobs = session.query(Job).filter(Job.dag_id == dag_id).all()
-            job_dictionary = {}
-            for j in jobs:
-                job_dictionary[j.job_id] = j
-        return (ReturnCodes.OK, job_dictionary)
+            job_dcts = [j.to_wire() for j in jobs]
+        return (ReturnCodes.OK, job_dcts)
 
     def get_timed_out(self, dag_id):
         with session_scope() as session:

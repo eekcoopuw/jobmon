@@ -18,12 +18,13 @@ class JobDag(Base):
     dag_id = Column(Integer, primary_key=True)
     name = Column(String(150))
     user = Column(String(150))
-    created_date = Column(DateTime, default=datetime.utcnow())
+    created_date = Column(DateTime)
 
     def __init__(self, dag_id=None, name=None, user=None, job_list_manager=None, job_state_manager=None,
-                 job_query_server=None):
+                 job_query_server=None, created_date=None):
         # TBD input validation.
         # TBD Handling of dag_id == None
+        super(JobDag, self).__init__(dag_id=dag_id, name=name, user=user, created_date=created_date)
         self.dag_id = dag_id
         self.name = name
         self.user = user
@@ -57,7 +58,7 @@ class JobDag(Base):
 
         error_message = None
 
-        # TBD Is it worth keeping NetworkX just to check itis a DAG?
+        # TBD Is it worth keeping NetworkX just to check it is a DAG?
         # if not nx.is_directed_acyclic_graph(self.task_graph):
         #     error_message = "The graph is not a DAG"
         if not self.top_fringe:

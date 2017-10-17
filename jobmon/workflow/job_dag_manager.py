@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 from getpass import getuser
 
@@ -20,7 +21,7 @@ class JobDagManager(object):
     """
 
     def __init__(self):
-        logger.info("JobDagManager created")
+        logger.debug("JobDagManager created")
 
     def create_job_dag(self, name=None):
         """
@@ -29,6 +30,7 @@ class JobDagManager(object):
         Returns:
              the new job dag
         """
+        logger.debug("JobDagManager creating new DAG {}".format(name))
         req = Requester(config.jm_rep_conn)
         rc, dag_id = req.send_request({
             'action': 'add_job_dag',
@@ -36,7 +38,8 @@ class JobDagManager(object):
         })
         job_list_manager = JobListManager(dag_id, executor=execute_sge, start_daemons=True)
         dag = JobDag(dag_id=dag_id, name=name, job_list_manager=job_list_manager,
-                     job_state_manager=JobStateManager.it(), job_query_server=JobQueryServer.it())
+                     job_state_manager=JobStateManager.it(), job_query_server=JobQueryServer.it(),
+                     created_date=datetime.utcnow())
         logger.debug("New JobDag created {}".format(dag))
         return dag
 

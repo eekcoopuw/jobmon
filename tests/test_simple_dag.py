@@ -26,7 +26,7 @@ def tmp_out_dir():
 
 
 @pytest.fixture(scope='module')
-def job_dag_manager(db):
+def job_dag_manager(db_cfg):
     jdm = JobDagManager()
     yield jdm
 
@@ -40,7 +40,7 @@ def job_dag_manager(db):
 # These tests all use SleepAndWriteFileMockTask (which calls remote_sleep_and_write remotely)
 
 
-def test_empty(db, job_dag_manager):
+def test_empty_dag(db_cfg, jsm_jqs, job_dag_manager):
     """
     Create a dag with no Tasks. Call all the creation methods and check that it raises no Exceptions.
     """
@@ -55,7 +55,7 @@ def test_empty(db, job_dag_manager):
     assert num_failed == 0
 
 
-def test_one_task(db, job_dag_manager, tmp_out_dir):
+def test_one_task(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     """
     Create a dag with one Task and execute it
     """
@@ -76,7 +76,7 @@ def test_one_task(db, job_dag_manager, tmp_out_dir):
     assert num_failed == 0
 
 
-def test_three_linear_tasks(db, job_dag_manager, tmp_out_dir):
+def test_three_linear_tasks(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     """
     Create and execute a dag with three Tasks, one after another: a->b->c
     """
@@ -111,7 +111,7 @@ def test_three_linear_tasks(db, job_dag_manager, tmp_out_dir):
     # TBD validation
 
 
-def test_fork_and_join_tasks(db, job_dag_manager, tmp_out_dir):
+def test_fork_and_join_tasks(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     """
     Create a small fork and join dag with four phases:
      a->b[0..2]->c[0..2]->d
@@ -176,7 +176,7 @@ def test_fork_and_join_tasks(db, job_dag_manager, tmp_out_dir):
     assert task_d.cached_status == JobStatus.DONE
 
 
-def test_fork_and_join_tasks_with_fatal_error(db, job_dag_manager, tmp_out_dir):
+def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     """
     Create the same small fork and join dag.
     One of the b-tasks (#1) fails consistently, so c[1] will never be ready.
@@ -235,7 +235,7 @@ def test_fork_and_join_tasks_with_fatal_error(db, job_dag_manager, tmp_out_dir):
     assert task_d.cached_status == JobStatus.INSTANTIATED
 
 
-def test_fork_and_join_tasks_with_retryable_error(db, job_dag_manager, tmp_out_dir):
+def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     """
     Create the same fork and join dag with three Tasks a->b[0..3]->c and execute it.
     One of the b-tasks fails once, so the retry handler should cover that, and the whole DAG should complete

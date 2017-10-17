@@ -113,7 +113,6 @@ class Job(Base):
             raise InvalidStateTransition('Job', self.job_id, self.status,
                                          new_state)
 
-
 class JobInstance(Base):
     __tablename__ = 'job_instance'
 
