@@ -37,12 +37,17 @@ def build_qsub(job, job_instance_id):
         sge_add_args = ctx_args['sge_add_args']
     else:
         sge_add_args = ""
+    if job.project:
+        project_cmd = "-P {}".format(job.project)
+    else:
+        project_cmd = ""
     cmd = build_wrapped_command(job, job_instance_id)
     conda_env = cu.conda_env(cu.read_conda_info())
     cmd = "source activate {} && {}".format(conda_env, cmd)
     thispath = os.path.dirname(os.path.abspath(__file__))
     qsub_cmd = ('qsub -N {jn} -e ~/sgetest -o ~/sgetest '
                 '-pe multi_slot {slots} -l mem_free={mem}g '
+                '{project} '
                 '{sge_add_args} '
                 '-V {path}/submit_master.sh '
                 '"{cmd}"'.format(
@@ -51,7 +56,8 @@ def build_qsub(job, job_instance_id):
                     mem=job.mem_free,
                     sge_add_args=sge_add_args,
                     path=thispath,
-                    cmd=cmd))
+                    cmd=cmd,
+                    project=project_cmd))
     return qsub_cmd
 
 

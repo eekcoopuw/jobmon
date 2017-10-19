@@ -14,7 +14,7 @@ class JobFactory(object):
         self.requester = requester.Requester(config.jm_rep_conn)
 
     def create_job(self, command, jobname, slots=1, mem_free=2, max_attempts=1,
-                   max_runtime=None, context_args=None):
+                   max_runtime=None, project=None, context_args=None):
         """
         Create a job entry in the database.
 
@@ -27,6 +27,7 @@ class JobFactory(object):
                 ERROR_FATAL state
             max_runtime (int): Maximum runtime of a single job_instance before
                 killing and marking that instance as failed
+            project (str): name of the project to run the jobs under
             context_args (dict): Additional arguments to be sent to the command
                 builders
         """
@@ -42,6 +43,7 @@ class JobFactory(object):
                        'context_args': context_args,
                        'slots': slots,
                        'mem_free': mem_free,
+                       'project': project,
                        'max_attempts': max_attempts,
                        'max_runtime': max_runtime}
         })

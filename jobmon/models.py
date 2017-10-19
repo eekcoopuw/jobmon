@@ -60,15 +60,17 @@ class Job(Base):
         return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
                    name=dct['name'], command=dct['command'],
                    slots=dct['slots'], mem_free=dct['mem_free'],
-                   status=dct['status'], num_attempts=dct['num_attempts'],
+                   project=dct['project'], status=dct['status'],
+                   num_attempts=dct['num_attempts'],
                    max_attempts=dct['max_attempts'],
                    context_args=dct['context_args'])
 
     def to_wire(self):
         return {'dag_id': self.dag_id, 'job_id': self.job_id, 'name':
                 self.name, 'command': self.command, 'status': self.status,
-                'slots': self.slots, 'mem_free': self.mem_free, 'num_attempts':
-                self.num_attempts, 'max_attempts': self.max_attempts,
+                'slots': self.slots, 'mem_free': self.mem_free,
+                'project': self.project, 'num_attempts': self.num_attempts,
+                'max_attempts': self.max_attempts,
                 'context_args': self.context_args}
 
     job_id = Column(Integer, primary_key=True)
@@ -81,6 +83,7 @@ class Job(Base):
     context_args = Column(String(1000))
     slots = Column(Integer, default=1)
     mem_free = Column(Integer, default=1)
+    project = Column(String(150))
     num_attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=1)
     max_runtime = Column(Integer)
