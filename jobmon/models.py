@@ -9,9 +9,9 @@ Base = declarative_base()
 
 
 class InvalidStateTransition(Exception):
-    def __init__(self, model, old_state, new_state):
-        msg = "Cannot transition {} from {} to {}".format(
-            model, old_state, new_state)
+    def __init__(self, model, id, old_state, new_state):
+        msg = "Cannot transition {} id: {} from {} to {}".format(
+            model, id, old_state, new_state)
         super().__init__(self, msg)
 
 
@@ -62,14 +62,16 @@ class Job(Base):
                    slots=dct['slots'], mem_free=dct['mem_free'],
                    project=dct['project'], status=dct['status'],
                    num_attempts=dct['num_attempts'],
-                   max_attempts=dct['max_attempts'])
+                   max_attempts=dct['max_attempts'],
+                   context_args=dct['context_args'])
 
     def to_wire(self):
         return {'dag_id': self.dag_id, 'job_id': self.job_id, 'name':
                 self.name, 'command': self.command, 'status': self.status,
                 'slots': self.slots, 'mem_free': self.mem_free,
                 'project': self.project, 'num_attempts': self.num_attempts,
-                'max_attempts': self.max_attempts}
+                'max_attempts': self.max_attempts,
+                'context_args': self.context_args}
 
     job_id = Column(Integer, primary_key=True)
     job_instances = relationship("JobInstance", back_populates="job")
@@ -78,6 +80,7 @@ class Job(Base):
         ForeignKey('job_dag.dag_id'))
     name = Column(String(150))
     command = Column(String(1000))
+    context_args = Column(String(1000))
     slots = Column(Integer, default=1)
     mem_free = Column(Integer, default=1)
     project = Column(String(150))
@@ -117,7 +120,8 @@ class Job(Base):
 
     def _validate_transition(self, new_state):
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition('Job', self.status, new_state)
+            raise InvalidStateTransition('Job', self.job_id, self.status,
+                                         new_state)
 
 
 class JobInstance(Base):
@@ -192,7 +196,8 @@ class JobInstance(Base):
 
     def _validate_transition(self, new_state):
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition('JobInstance', self.status, new_state)
+            raise InvalidStateTransition('JobInstance', self.job_instance_id,
+                                         self.status, new_state)
 
 
 class JobInstanceErrorLog(Base):

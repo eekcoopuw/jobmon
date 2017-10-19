@@ -1,9 +1,8 @@
 import logging
 from time import sleep
 
-from jobmon import conda_utilities as cu
 from jobmon.config import config
-from jobmon.command_context import build_wrapped_command
+from jobmon.command_context import build_qsub, build_wrapped_command
 from jobmon.models import Job
 from jobmon.requester import Requester
 
@@ -25,38 +24,17 @@ def execute_sequentially(job, job_instance_id):
 def execute_sge(job, job_instance_id):
     from jobmon import sge
     try:
-        cmd = build_wrapped_command(job, job_instance_id)
-        conda_env = cu.conda_env(cu.read_conda_info())
-        cmd = "source activate {} && {}".format(conda_env, cmd)
+        import subprocess
+        qsub_cmd = build_qsub(job, job_instance_id)
+        resp = subprocess.check_output(qsub_cmd, shell=True)
+        idx = resp.split().index(b'job')
+        sge_jid = int(resp.split()[idx+1])
 
         # TODO: FIX THIS ... DRMAA QSUB METHOD IS FAILING FOR SOME REASON,
         # NEED TO INVESTIGATE THE JOBTYPE ASSUMPTIONS. RESORTING TO
         # BASIC COMMAND-LINE QSUB FOR NOW
-        import os
-        import subprocess
-        thispath = os.path.dirname(os.path.abspath(__file__))
-
-        if job.project:
-            project_cmd = "-P {}".format(job.project)
-        else:
-            project_cmd = ""
-
-        qsub_cmd = ('qsub -N {jn} -e ~/sgetest -o ~/sgetest '
-                    '-pe multi_slot {slots} -l mem_free={mem}g '
-                    '{project} '
-                    '-V {path}/submit_master.sh '
-                    '"{cmd}"'.format(
-                        jn=job.name,
-                        slots=job.slots,
-                        mem=job.mem_free,
-                        project=project_cmd,
-                        path=thispath,
-                        cmd=cmd))
-
-        resp = subprocess.check_output(qsub_cmd, shell=True)
-        idx = resp.split().index(b'job')
-        sge_jid = int(resp.split()[idx+1])
         # sge_jid = sge.qsub(cmd, jobname=job.name, jobtype='plain')
+
         return sge_jid
     except Exception as e:
         logger.error(e)
