@@ -56,5 +56,3 @@ def dag_id(jsm_jqs):
     jsm, jqs = jsm_jqs
     rc, dag_id = jsm.add_job_dag('test_dag', 'test_user')
     yield dag_id
-
-

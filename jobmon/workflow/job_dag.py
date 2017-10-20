@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String
 
@@ -20,17 +19,13 @@ class JobDag(Base):
     user = Column(String(150))
     created_date = Column(DateTime)
 
-    def __init__(self, dag_id=None, name=None, user=None, job_list_manager=None, job_state_manager=None,
-                 job_query_server=None, created_date=None):
-        # TBD input validation.
-        # TBD Handling of dag_id == None
+    def __init__(self, dag_id=None, name=None, user=None, job_list_manager=None, created_date=None):
+        # TBD input validation, specifically dag_id == None
         super(JobDag, self).__init__(dag_id=dag_id, name=name, user=user, created_date=created_date)
         self.dag_id = dag_id
         self.name = name
         self.user = user
         self.job_list_manager = job_list_manager
-        self.job_state_manager = job_state_manager
-        self.job_query_server = job_query_server
 
         self.names_to_nodes = {}  # dictionary, TBD needs to scale to 1,000,000 jobs, untested at scale
         self.top_fringe = []
@@ -96,52 +91,31 @@ class JobDag(Base):
         fringe = self.top_fringe
 
         all_completed = []
-        all_skipped = []
         all_failed = []
+        all_running = {}
 
         logger.setLevel(logging.DEBUG)
         logger.debug("Execute DAG {}".format(self))
 
-        runners = {}
-
         # These are all Tasks.
         # While there is something ready to be run, or something is running
-        while fringe or runners:
+        while fringe or all_running:
             # Everything in the fringe should be run or skipped,
             # they either have no upstreams, or all upstreams are marked DONE in this execution
-            to_queue = []
-            to_skip = []
-            for task in fringe:
-                if task.needs_to_execute():
-                    to_queue += [task]
-                else:
-                    to_skip += [task]
-                    # The job is eligible to run, but its outputs are not out-of-date wrto inputs.
-                    # Therefore we can skip it.
 
-            fringe = []
-            # Start all those new jobs ASAP
-            for task in to_queue:
+            while fringe:
+                # Get the front of the queue, add to the end.
+                # That ensures breadth-first behavior, which is likely to maximize parallelism
+                task = fringe.pop(0)
+                # Start this new jobs ASAP
                 logger.debug("Queueing newly ready task {}".format(task))
                 task.queue_job(self.job_list_manager)
-                runners[task.job_id] = task
-
-            # And propagate the results for the skipped ones
-            if to_skip:
-                logger.debug("Skipping....")
-                all_skipped += [to_skip]
-                for task in to_skip:
-                    logger.debug("Skipping task {}".format(task))
-                    fringe += self.propagate_results(task)
-                # Go around the loop without blocking
-                continue
-            else:
-                logger.debug("Nothing to skip")
+                all_running[task.job_id] = task
 
             # TBD timeout?
             completed_and_failed = self.job_list_manager.block_until_any_done_or_error()
             logger.debug("Return from blocking call, completed_and_failed {}".format(completed_and_failed))
-            runners, completed_tasks, failed_tasks = self.sort_jobs(runners, completed_and_failed)
+            all_running, completed_tasks, failed_tasks = self.sort_jobs(all_running, completed_and_failed)
 
             # Need to find the tasks that were that job, they will be in this "small" dic of active tasks
 
@@ -149,7 +123,7 @@ class JobDag(Base):
             all_failed += failed_tasks
             for task in completed_tasks:
                 fringe += self.propagate_results(task)
-        # END while fringe or runners
+        # END while fringe or all_running
 
         # To be a dynamic-DAG  tool, we must be prepared for the DAG to have changed.
         # In general we would recompute forward from the the fringe. Not efficient, but correct.
@@ -169,11 +143,11 @@ class JobDag(Base):
         TBD don't like the side effect on runners
 
         Args:
-            runners (dictionary);  of currently running jobs, by job_id
+            runners (dictionary): of currently running jobs, by job_id
             completed_and_failed (list): List of tuples of (job_id, JobStatus)
 
         Returns:
-            A new runners dictionary, Two lists of job_ids
+            A new runners dictionary, two lists of job_ids
         """
         completed = []
         failed = []
@@ -206,7 +180,7 @@ class JobDag(Base):
         task.set_status(JobStatus.DONE)
         for downstream in task.downstream_tasks:
             logger.debug("  downstream {}".format(downstream))
-            if not downstream.get_status() == JobStatus.DONE and downstream.all_upstreams_done():
+            if downstream.needs_to_execute() and downstream.all_upstreams_done():
                 logger.debug("  and add to fringe")
                 new_fringe += [downstream]
                 # else Nothing - that Task ain't ready yet
@@ -214,7 +188,7 @@ class JobDag(Base):
                 logger.debug("  not ready yet")
         return new_fringe
 
-    def find_task(self, hash_name):
+    def _find_task(self, hash_name):
         """
         Args:
            hash_name:

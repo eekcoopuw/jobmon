@@ -1,19 +1,20 @@
 import logging
 import os
 import pwd
+import shutil
+
 import uuid
 
 import pytest
 from cluster_utils.io import makedirs_safely
 
 from jobmon.models import JobStatus
-from jobmon.workflow.job_dag_manager import JobDagManager
+from jobmon.workflow.job_dag_factory import JobDagFactory
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logging.basicConfig(level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
-
 
 # Test fixtures
 
@@ -23,11 +24,12 @@ def tmp_out_dir():
     user = pwd.getpwuid(os.getuid()).pw_name
     output_root = '/ihme/scratch/users/{user}/tests/jobmon/{uuid}'.format(user=user, uuid=u)
     yield output_root
+    shutil.rmtree(output_root)
 
 
 @pytest.fixture(scope='module')
 def job_dag_manager(db_cfg):
-    jdm = JobDagManager()
+    jdm = JobDagFactory()
     yield jdm
 
 
@@ -74,6 +76,7 @@ def test_one_task(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     assert rc
     assert num_completed == 1
     assert num_failed == 0
+    assert task.cached_status == JobStatus.DONE
 
 
 def test_three_linear_tasks(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
@@ -107,6 +110,8 @@ def test_three_linear_tasks(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     assert rc
     assert num_completed == 3
     assert num_failed == 0
+
+    all([task_a, task_b, task_c])
 
     # TBD validation
 

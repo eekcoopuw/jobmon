@@ -13,15 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class JobStateManager(ReplyServer):
-    """
-    A singleton, so always access via method "it()"
-    """
 
-    @staticmethod
-    def it():
-        if not JobStateManager.the_instance:
-            JobStateManager.the_instance = JobStateManager()
-        return JobStateManager.the_instance
 
     def __init__(self, rep_port=None, pub_port=None):
         super().__init__(rep_port)
@@ -44,8 +36,6 @@ class JobStateManager(ReplyServer):
         else:
             self.pub_port = self.publisher.bind_to_random_port('tcp://*')
         logger.info("Publishing to port {}".format(self.pub_port))
-        # And maintain singleton semantics, set the singleton instance variable
-        JobStateManager.the_instance = self
 
     def add_job(self, name, command, dag_id, slots=1, mem_free=2,
                 max_attempts=1, max_runtime=None, context_args="{}"):

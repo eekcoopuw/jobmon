@@ -170,7 +170,6 @@ class ReplyServer(object):
         # An actual application message, use introspection to find
         # the handler
         action_handle = msg['action']
-        # logger.debug("action: {}".format(action_handle))
         if action_handle not in self.actions:
             raise InvalidAction
         action = self.actions[action_handle]
@@ -182,7 +181,6 @@ class ReplyServer(object):
             act_args = msg['args']
         else:
             act_args = []
-        # logger.debug("Calling action {}".format(action))
         response = action(*act_args, **act_kwargs)
         return response
 

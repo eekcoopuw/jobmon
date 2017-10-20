@@ -39,7 +39,7 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
             self.command += " --fail_count {}".format(fail_count)
 
     @staticmethod
-    def construct_hash_name(output_file_name=None):
+    def construct_hash_name(output_file_name):
         basename = os.path.basename(output_file_name)
         return "{}_mock_task_{}_".format(basename, output_file_name).replace("/", "_")
 

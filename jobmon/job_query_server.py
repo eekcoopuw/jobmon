@@ -11,12 +11,6 @@ from jobmon.reply_server import ReplyServer
 class JobQueryServer(ReplyServer):
     """This services basic queries surrounding jobs"""
 
-    @staticmethod
-    def it():
-        if not JobQueryServer.the_instance:
-            JobQueryServer.the_instance = JobQueryServer()
-        return JobQueryServer.the_instance
-
     def __init__(self, rep_port=None):
         super().__init__(rep_port)
         self.register_action("get_submitted_or_running",
@@ -25,8 +19,6 @@ class JobQueryServer(ReplyServer):
         self.register_action("get_all_jobs", self.get_jobs)
         self.register_action("get_queued_for_instantiation",
                              self.get_queued_for_instantiation)
-        # And maintain singleton semantics, set the singleton instance variable
-        JobQueryServer.the_instance = self
 
     def get_queued_for_instantiation(self, dag_id):
         with session_scope() as session:
