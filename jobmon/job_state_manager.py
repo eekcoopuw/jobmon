@@ -39,7 +39,7 @@ class JobStateManager(ReplyServer):
             self.pub_port = self.publisher.bind_to_random_port('tcp://*')
         logger.info("Publishing to port {}".format(self.pub_port))
 
-    def add_job(self, name, command, dag_id, slots=1, mem_free=2,
+    def add_job(self, name, command, dag_id, slots=1, mem_free=2, project=None,
                 max_attempts=1, max_runtime=None, context_args="{}"):
         job = models.Job(
             name=name,
@@ -47,6 +47,7 @@ class JobStateManager(ReplyServer):
             dag_id=dag_id,
             slots=slots,
             mem_free=mem_free,
+            project=project,
             max_attempts=max_attempts,
             max_runtime=max_runtime,
             context_args=context_args,
