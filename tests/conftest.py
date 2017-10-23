@@ -1,3 +1,4 @@
+import logging
 import pytest
 from threading import Thread
 from sqlalchemy.exc import IntegrityError
@@ -36,7 +37,16 @@ def db_cfg():
 
 @pytest.fixture(scope='module')
 def jsm_jqs(db_cfg):
+    # logging does not work well with Threads in python < 2.7,
+    # see https://docs.python.org/2/library/logging.html
+    # Logging has to be set up BEFORE the Thread.
+    # Therefore we set up the job_state_manager's console logger here, before we put it in a Thread.
+    jsm_logger = logging.getLogger("jobmon.job_state_manager")
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    jsm_logger.addHandler(ch)
     jsm = JobStateManager(db_cfg.jm_rep_conn.port, db_cfg.jm_pub_conn.port)
+
     jqs = JobQueryServer(db_cfg.jqs_rep_conn.port)
 
     t1 = Thread(target=jsm.listen)
