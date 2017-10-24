@@ -22,9 +22,6 @@ class JobDag(Base):
     def __init__(self, dag_id=None, name=None, user=None, job_list_manager=None, created_date=None):
         # TBD input validation, specifically dag_id == None
         super(JobDag, self).__init__(dag_id=dag_id, name=name, user=user, created_date=created_date)
-        self.dag_id = dag_id
-        self.name = name
-        self.user = user
         self.job_list_manager = job_list_manager
 
         self.names_to_nodes = {}  # dictionary, TBD needs to scale to 1,000,000 jobs, untested at scale
