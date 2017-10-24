@@ -10,6 +10,7 @@ from jobmon.exceptions import InvalidAction, InvalidRequest, InvalidResponse, \
     ReturnCodes
 from jobmon.requester import Requester
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,7 +34,7 @@ class ReplyServer(object):
         for client nodes to read
 
         Args:
-            port (int): Port that the reponder should listen on. If None
+            port (int): Port that the responder should listen on. If None
                 (default), the system will choose the port
         """
         self.port = port
@@ -55,7 +56,7 @@ class ReplyServer(object):
             self.port = self.socket.bind_to_random_port('tcp://*')
         else:
             self.socket.bind('tcp://*:{}'.format(self.port))
-        logger.info("Listenting on port {}".format(self.port))
+        logger.info("Listening on port {}".format(self.port))
         return self.node_name, self.port
 
     def listen(self):
@@ -86,7 +87,7 @@ class ReplyServer(object):
         logger.info('Listening on port {}.'.format(self.port))
         while True:
             msg = self.socket.recv_json()  # server blocks on receive
-            logger.debug("Received json {}".format(msg))
+            # logger.debug("Received json {}".format(msg))
             try:
                 if msg == 'stop':
                     logger.info("ReplyServer stopping")
@@ -124,7 +125,7 @@ class ReplyServer(object):
                 self.socket.send_json(response)
             except Exception as e:
                 logmsg = (
-                    'ReplyServer sending "generic" error: {}'.format(e))
+                    'ReplyServer sending "generic" error: {}'.format(traceback.format_exc()))
                 logger.debug(logmsg)
                 traceback.print_exc()
                 response = (ReturnCodes.GENERIC_ERROR, logmsg)
@@ -169,7 +170,6 @@ class ReplyServer(object):
         # An actual application message, use introspection to find
         # the handler
         action_handle = msg['action']
-        logger.debug("action: {}".format(action_handle))
         if action_handle not in self.actions:
             raise InvalidAction
         action = self.actions[action_handle]
@@ -181,7 +181,6 @@ class ReplyServer(object):
             act_args = msg['args']
         else:
             act_args = []
-        logger.debug("Calling action {}".format(action))
         response = action(*act_args, **act_kwargs)
         return response
 
@@ -194,7 +193,7 @@ class ReplyServer(object):
 
                     {   'action': 'some_action_handle',
                         'args': [1, 'arg2'],
-                        'kwargs' {'kw1': 1, 'kw2': 'foo'}
+                        'kwargs' {'kw1': 1, 'kw2': 'mocks'}
                     }
                 are considered valid requests. 'args' and 'kwargs' may be
                 omitted, but 'action' is mandatory.

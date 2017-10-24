@@ -46,6 +46,7 @@ install_requires = [
     'flask_sqlalchemy',
     'flask_migrate',
     'flask_restplus',
+    'cluster-utils'
 ]
 
 setup(
@@ -56,10 +57,11 @@ setup(
                  'SGE jobs'),
     url='https://stash.ihme.washington.edu/projects/CC/repos/jobmon',
     author='CentralComp',
-    author_email='tomflem@uw.edu, mlsandar@uw.edu',
+    author_email='tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu',
     include_package_data=True,
     install_requires=install_requires,
     packages=['jobmon'],
     entry_points={
         'console_scripts': ["jobmon=jobmon.cli:main",
-                            "jobmon_command=jobmon.command_context:unwrap"]})
+                            "jobmon_command=jobmon.command_context:unwrap",
+                            "remote_sleep_and_write=tests.remote_sleep_and_write:main"]})

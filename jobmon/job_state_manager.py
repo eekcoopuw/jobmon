@@ -1,4 +1,5 @@
 import logging
+
 import zmq
 
 from jobmon import models
@@ -6,10 +7,13 @@ from jobmon.database import session_scope
 from jobmon.exceptions import ReturnCodes
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
+from jobmon.workflow import job_dag
 
-
+# logging does not work well in python < 2.7 with Threads,
+# see https://docs.python.org/2/library/logging.html
+# Logging has to be set up BEFORE the Thread
+# Therefore see tests/conf_test.py
 logger = logging.getLogger(__name__)
-
 
 class JobStateManager(ReplyServer):
 
@@ -55,7 +59,7 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK, job_id)
 
     def add_job_dag(self, name, user):
-        dag = models.JobDag(
+        dag = job_dag.JobDag(
             name=name,
             user=user)
         with session_scope() as session:
@@ -65,6 +69,7 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK, dag_id)
 
     def add_job_instance(self, job_id, executor_type):
+        logger.debug("Add JI for job {}".format(job_id))
         job_instance = models.JobInstance(
             executor_type=executor_type,
             job_id=job_id)
@@ -83,6 +88,7 @@ class JobStateManager(ReplyServer):
         self.publisher.close()
 
     def log_done(self, job_instance_id):
+        logger.debug("Log DONE for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance_state(session, ji,
@@ -90,6 +96,7 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def log_error(self, job_instance_id, error_message):
+        logger.debug("Log ERROR for JI {}, message={}".format(job_instance_id, error_message))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance_state(session, ji,
@@ -100,6 +107,7 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def log_executor_id(self, job_instance_id, executor_id):
+        logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance_state(
@@ -109,6 +117,7 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def log_running(self, job_instance_id):
+        logger.debug("Log RUNNING for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance_state(session, ji,
@@ -117,6 +126,7 @@ class JobStateManager(ReplyServer):
 
     def log_usage(self, job_instance_id, usage_str=None, wallclock=None,
                   maxvmem=None, cpu=None, io=None):
+        logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance(session, ji, usage_str=usage_str,
@@ -125,6 +135,7 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def queue_job(self, job_id):
+        logger.debug("Queue Job {}".format(job_id))
         with session_scope() as session:
             job = session.query(models.Job).filter_by(job_id=job_id).first()
             job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
@@ -136,6 +147,7 @@ class JobStateManager(ReplyServer):
         return job_instance
 
     def _update_job_instance_state(self, session, job_instance, status_id):
+        logger.debug("Update JI state {} for  {}".format(status_id, job_instance))
         job_instance.transition(status_id)
         job = job_instance.job
         if job.status in [models.JobStatus.DONE, models.JobStatus.ERROR_FATAL]:
@@ -144,6 +156,7 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def _update_job_instance(self, session, job_instance, **kwargs):
+        logger.debug("Update JI  {}".format(job_instance))
         for k, v in kwargs.items():
             setattr(job_instance, k, v)
         return (ReturnCodes.OK,)

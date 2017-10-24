@@ -1,11 +1,13 @@
+import logging
+
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 
 from datetime import datetime
 
+from jobmon.sql_base import Base
 
-Base = declarative_base()
+logger = logging.getLogger(__name__)
 
 
 class InvalidStateTransition(Exception):
@@ -43,15 +45,6 @@ class JobInstanceStatus(Base):
     label = Column(String(150), nullable=False)
 
 
-class JobDag(Base):
-    __tablename__ = 'job_dag'
-
-    dag_id = Column(Integer, primary_key=True)
-    name = Column(String(150))
-    user = Column(String(150))
-    created_date = Column(DateTime, default=datetime.utcnow())
-
-
 class Job(Base):
     __tablename__ = 'job'
 
@@ -78,7 +71,7 @@ class Job(Base):
     dag_id = Column(
         Integer,
         ForeignKey('job_dag.dag_id'))
-    name = Column(String(150))
+    name = Column(String(255))
     command = Column(String(1000))
     context_args = Column(String(1000))
     slots = Column(Integer, default=1)
@@ -122,7 +115,6 @@ class Job(Base):
         if (self.status, new_state) not in self.__class__.valid_transitions:
             raise InvalidStateTransition('Job', self.job_id, self.status,
                                          new_state)
-
 
 class JobInstance(Base):
     __tablename__ = 'job_instance'
@@ -225,3 +217,4 @@ class JobInstanceStatusLog(Base):
         ForeignKey('job_instance_status.id'),
         nullable=False)
     status_time = Column(DateTime, default=datetime.utcnow())
+

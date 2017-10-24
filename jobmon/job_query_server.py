@@ -42,6 +42,11 @@ class JobQueryServer(ReplyServer):
         return (ReturnCodes.OK, instances)
 
     def get_jobs(self, dag_id):
+        """
+            Return a dictionary mapping job_id to a dict of the job's instance variables
+        Args
+            dag_id:
+        """
         with session_scope() as session:
             jobs = session.query(Job).filter(Job.dag_id == dag_id).all()
             job_dcts = [j.to_wire() for j in jobs]
