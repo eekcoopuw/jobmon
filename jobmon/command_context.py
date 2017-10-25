@@ -9,7 +9,6 @@ import traceback
 
 import jsonpickle
 
-from jobmon import conda_utilities as cu
 from jobmon.config import config
 from jobmon.connection_config import ConnectionConfig
 from jobmon.job_instance_intercom import JobInstanceIntercom
@@ -42,10 +41,8 @@ def build_qsub(job, job_instance_id):
     else:
         project_cmd = ""
     cmd = build_wrapped_command(job, job_instance_id)
-    conda_env = cu.conda_env(cu.read_conda_info())
-    cmd = "source activate {} && {}".format(conda_env, cmd)
     thispath = os.path.dirname(os.path.abspath(__file__))
-    qsub_cmd = ('qsub -N {jn} -e ~/sgetest -o ~/sgetest '
+    qsub_cmd = ('qsub -N {jn} '
                 '-pe multi_slot {slots} -l mem_free={mem}g '
                 '{project} '
                 '{sge_add_args} '
@@ -75,8 +72,10 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
     Returns:
         sge job id
     """
+    jobmon_command = subprocess.check_output(["which", "jobmon_command"])
+    jobmon_command = jobmon_command.strip().decode("utf-8")
     wrapped_cmd = [
-        "jobmon_command",
+        jobmon_command,
         "--command", "'{}'".format(job.command),
         "--job_instance_id", job_instance_id,
         "--jsm_host", config.jm_rep_conn.host,

@@ -130,7 +130,7 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job
-    sleep(30)
+    sleep(60)
 
     # There should now be a job that has errored out
     errors = job_list_manager_sge.get_new_errors()
