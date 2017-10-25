@@ -46,7 +46,6 @@ install_requires = [
     'flask_sqlalchemy',
     'flask_migrate',
     'flask_restplus',
-    'cluster-utils'
 ]
 
 setup(
