@@ -43,9 +43,6 @@ install_requires = [
     'pyzmq',
     'drmaa',
     'jsonpickle',
-    'flask_sqlalchemy',
-    'flask_migrate',
-    'flask_restplus',
 ]
 
 setup(

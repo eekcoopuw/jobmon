@@ -50,6 +50,10 @@ class InvalidAction(Exception):
     pass
 
 
+class NoDatabase(Exception):
+    pass
+
+
 class SGENotAvailable(Exception):
     pass
 

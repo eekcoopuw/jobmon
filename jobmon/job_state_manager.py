@@ -1,10 +1,12 @@
 import logging
 
 import zmq
+from sqlalchemy.exc import OperationalError
 
 from jobmon import models
+from jobmon.config import config
 from jobmon.database import session_scope
-from jobmon.exceptions import ReturnCodes
+from jobmon.exceptions import ReturnCodes, NoDatabase
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
 from jobmon.workflow import job_dag
@@ -14,6 +16,7 @@ from jobmon.workflow import job_dag
 # Logging has to be set up BEFORE the Thread
 # Therefore see tests/conf_test.py
 logger = logging.getLogger(__name__)
+
 
 class JobStateManager(ReplyServer):
 
@@ -83,6 +86,18 @@ class JobStateManager(ReplyServer):
             job_instance.job.transition(models.JobStatus.INSTANTIATED)
         return (ReturnCodes.OK, ji_id)
 
+    def listen(self):
+        """If the database is unavailable, don't allow the JobStateManager to
+        start listening. This would defeat its purpose, as it wouldn't have
+        anywhere to persist Job state..."""
+        with session_scope() as session:
+            try:
+                session.connection()
+            except OperationalError:
+                raise NoDatabase("JobStateManager could not connect to {}".
+                                 format(config.conn_str))
+        super().listen()
+
     def stop_listening(self):
         super().stop_listening()
         self.publisher.close()
@@ -96,7 +111,8 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def log_error(self, job_instance_id, error_message):
-        logger.debug("Log ERROR for JI {}, message={}".format(job_instance_id, error_message))
+        logger.debug("Log ERROR for JI {}, message={}".format(job_instance_id,
+                                                              error_message))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance_state(session, ji,
@@ -147,7 +163,8 @@ class JobStateManager(ReplyServer):
         return job_instance
 
     def _update_job_instance_state(self, session, job_instance, status_id):
-        logger.debug("Update JI state {} for  {}".format(status_id, job_instance))
+        logger.debug("Update JI state {} for  {}".format(status_id,
+                                                         job_instance))
         job_instance.transition(status_id)
         job = job_instance.job
         if job.status in [models.JobStatus.DONE, models.JobStatus.ERROR_FATAL]:

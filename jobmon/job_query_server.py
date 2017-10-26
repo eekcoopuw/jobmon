@@ -1,9 +1,10 @@
 from datetime import datetime
-
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import contains_eager
 
+from jobmon.config import config
 from jobmon.database import session_scope
-from jobmon.exceptions import ReturnCodes
+from jobmon.exceptions import ReturnCodes, NoDatabase
 from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
 from jobmon.reply_server import ReplyServer
 
@@ -67,3 +68,15 @@ class JobQueryServer(ReplyServer):
             timed_out = [r.to_wire() for r in running
                          if (now-r.status_date).seconds > r.job.max_runtime]
         return (ReturnCodes.OK, timed_out)
+
+    def listen(self):
+        """If the database is unavailable, don't allow the JobQueryServer to
+        start listenting. This would defeat its purpose, as it wouldn't have
+        anywhere to persist Job state..."""
+        with session_scope() as session:
+            try:
+                session.connection()
+            except OperationalError:
+                raise NoDatabase("JobQueryServer could not connect to {}".
+                                 format(config.conn_str))
+        super().listen()
