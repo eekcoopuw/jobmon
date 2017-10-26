@@ -51,21 +51,27 @@ print("Errors: {}".format(errors))  # Errors: [11, 12]
 By default, Jobmon configuration lives in the file ~/.jobmonrc. The contents of
 this file are expected to be json formatted and contain the following options:
 
-- **conn_str**: The connection string for the jobmon database server. The user
-  should have write privileges to the jobmon tables.
+- **conn_str** (only required for jobmon servers i.e. JobStateManager and
+  JobQueryServers): The connection string for the jobmon database. The user
+  must have write privileges to the jobmon tables.
 - **jsm_host** (only required for jobmon clients e.g. DAG, JobListManager, and
   CommandContexts): the host where the JobStateManager is running
 - **jqs_host** (only required for jobmon clients e.g. DAG, JobListManager, and
   CommandContexts): the host where the JobQueryServer is running
-- **jsm_rep_port**: The port where the JobStateManager is listening for requests.
-- **jsm_pub_port**: The port where the JobStateManager publishes job status
+- **jsm_rep_port** (only required for jobmon clients e.g. DAG, JobListManager,
+  and CommandContexts): The port where the JobStateManager is listening for
+  requests.
+- **jsm_pub_port** (only required for jobmon clients e.g. DAG, JobListManager,
+  and CommandContexts): The port where the JobStateManager publishes job status
   updates.
-- **jqs_port**: The port where the JobQueryServer is listening for requests.
+- **jqs_port** (only required for jobmon clients e.g. DAG, JobListManager, and
+  CommandContexts): The port where the JobQueryServer is listening for
+  requests.
 
 ```json
 {
   "conn_str": "sqlite://",
-  "host": "lewis.local",
+  "host": "localhost",
   "jsm_rep_port": 3456,
   "jsm_pub_port": 3457,
   "jqs_port": 3458

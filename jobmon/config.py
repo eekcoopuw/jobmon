@@ -9,6 +9,34 @@ class InvalidConfig(Exception):
 
 
 class GlobalConfig(object):
+    """
+    This is intended to be a singleton and should only be instantiated inside
+    this module. If at all possible, try to make modify configuration by
+    updating your ~/.jobmonrc file.
+
+    If you're a jobmon developer, and you want/need to modify global
+    configuration from a different module, import the config singleton and only
+    use the setters or modifier methods exposed by GlobalConfig (e.g.
+    apply_opts_dct).
+
+    For exmample:
+
+        from jobmon.config import config
+
+        config.jqs_port = 12345
+        config.apply_opts_dct({'conn_str': 'my://sql:conn@ection'})
+
+
+    Note that if you modify the conn_str... you'll also likely need to recreate
+    the database engine...
+
+        from jobmon.database import recreate_engine
+        recreate_engine()
+
+
+
+    TODO: Investigate if there's a more 'pythonic' way to handle this
+    """
 
     default_opts = {
         'conn_str': 'sqlite://',
@@ -112,7 +140,6 @@ class GlobalConfig(object):
         return gc_opts
 
 
-# A config singleton... if you want to modify global configuration, import
-# the module and modify this object directly
-# TODO: Investigate if there's a more 'pythonic' way to handle this
+# The config singleton... if you need to update it, modify the object directly
+# via the setter or apply_opts_dct methods. Don't create a new one.
 config = GlobalConfig.from_file("~/.jobmonrc")

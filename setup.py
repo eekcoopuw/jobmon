@@ -43,7 +43,6 @@ install_requires = [
     'pyzmq',
     'drmaa',
     'jsonpickle',
-    'cluster-utils'
 ]
 
 setup(
@@ -57,7 +56,7 @@ setup(
     author_email='tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu',
     include_package_data=True,
     install_requires=install_requires,
-    packages=['jobmon'],
+    packages=['jobmon', 'jobmon.workflow'],
     entry_points={
         'console_scripts': ["jobmon=jobmon.cli:main",
                             "jobmon_command=jobmon.command_context:unwrap",

@@ -17,6 +17,7 @@ from jobmon.workflow import job_dag
 # Therefore see tests/conf_test.py
 logger = logging.getLogger(__name__)
 
+
 class JobStateManager(ReplyServer):
 
     def __init__(self, rep_port=None, pub_port=None):
@@ -87,7 +88,7 @@ class JobStateManager(ReplyServer):
 
     def listen(self):
         """If the database is unavailable, don't allow the JobStateManager to
-        start listenting. This would defeat its purpose, as it wouldn't have
+        start listening. This would defeat its purpose, as it wouldn't have
         anywhere to persist Job state..."""
         with session_scope() as session:
             try:
@@ -110,7 +111,8 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def log_error(self, job_instance_id, error_message):
-        logger.debug("Log ERROR for JI {}, message={}".format(job_instance_id, error_message))
+        logger.debug("Log ERROR for JI {}, message={}".format(job_instance_id,
+                                                              error_message))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance_state(session, ji,
@@ -161,7 +163,8 @@ class JobStateManager(ReplyServer):
         return job_instance
 
     def _update_job_instance_state(self, session, job_instance, status_id):
-        logger.debug("Update JI state {} for  {}".format(status_id, job_instance))
+        logger.debug("Update JI state {} for  {}".format(status_id,
+                                                         job_instance))
         job_instance.transition(status_id)
         job = job_instance.job
         if job.status in [models.JobStatus.DONE, models.JobStatus.ERROR_FATAL]:
