@@ -1,14 +1,26 @@
 import logging
 import pytest
+from argparse import Namespace
 from threading import Thread
 from sqlalchemy.exc import IntegrityError
 
 from jobmon.config import config
 from jobmon import database
+from jobmon.cli import install_rcfile
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
 
 from .ephemerdb import EphemerDB
+
+
+args = Namespace()
+args.force = False
+try:
+    install_rcfile(args)
+except FileExistsError:
+    # It's OK for now if the rcfile already exists. May need to revisit
+    # this once we have a more sensible mechanism for versioning the RCFILEs
+    pass
 
 
 @pytest.fixture(scope='module')
