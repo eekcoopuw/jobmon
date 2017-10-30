@@ -2,6 +2,7 @@
 Interface to the dynamic resource manager (DRM), aka the scheduler.
 """
 import atexit
+
 try:
     from collections.abc import Sequence
 except ImportError:
@@ -18,11 +19,19 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 
+from jobmon.exceptions import SGENotAvailable
+
 # Because the drmaa package needs this library in order to load.
 DRMAA_PATH = "/usr/local/UGE/lib/lx-amd64/libdrmaa.so.1.0"
 if "DRMAA_LIBRARY_PATH" not in os.environ:
-    os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH
-
+    try:
+        os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(
+            os.environ["SGE_CLUSTER_NAME"])
+        import drmaa
+    except KeyError:
+        raise SGENotAvailable("'SGE_CLUSTER_NAME' not set")
+    except Exception as e:
+        raise SGENotAvailable(e)
 import drmaa
 
 
@@ -127,6 +136,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
     job_statuses = []
     job_datetimes = []
     job_runtimes = []
+    job_runtime_strs = []
     append_jobid = True
     append_jobname = False
     time_format = "%m/%d/%Y %H:%M:%S"
@@ -134,7 +144,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
     for line in lines:
 
         if append_jobid is True:
-            job_ids.append(line.split()[0])
+            job_ids.append(int(line.split()[0]))
             job_users.append(line.split()[3])
             job_statuses.append(line.split()[4])
             job_date = line.split()[5]
@@ -146,7 +156,8 @@ def qstat(status=None, pattern=None, user=None, jids=None):
             job_datetime = datetime.strptime(
                 " ".join([job_date, job_time]),
                 time_format)
-            job_runtimes.append(str(now - job_datetime))
+            job_runtimes.append((now - job_datetime).total_seconds())
+            job_runtime_strs.append(str(now - job_datetime))
             job_datetimes.append(datetime.strftime(job_datetime, time_format))
             append_jobid = False
             append_jobname = True
@@ -167,13 +178,14 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         'slots': job_slots,
         'status': job_statuses,
         'status_start': job_datetimes,
-        'runtime': job_runtimes})
+        'runtime': job_runtime_strs,
+        'runtime_seconds': job_runtimes})
     if pattern is not None:
         df = df[df.name.str.contains(pattern)]
     if jids is not None:
         df = df[df.job_id.isin(jids)]
     return df[['job_id', 'name', 'slots', 'user', 'status', 'status_start',
-               'runtime']]
+               'runtime', 'runtime_seconds']]
 
 
 def qstat_details(jids):
@@ -373,8 +385,7 @@ def qsub(
         stderr=None,
         prepend_to_path=None,
         conda_env=None,
-        environment_variables={},
-        intel_only=True):
+        environment_variables={}):
     """Submits job to Grid Engine Queue.
     This function provides a convenient way to call scripts for
     R, Python, and Stata using the job_type parameter.
@@ -628,54 +639,7 @@ def _wait_done(job_ids):
     return True
 
 
-def get_commit_hash(dir="."):
-    """get the git commit hash for a given directory
-
-    Args:
-        dir (string): which directory to get the git hash for. defaults to
-            current directory
-
-    Returns:
-        git commit hash
-    """
-    cmd = [
-        'git',
-        '--git-dir=%s/.git' % dir,
-        '--work-tree=%s',
-        'rev-parse',
-        'HEAD']
-    return subprocess.check_output(cmd).strip()
-
-
-def get_branch(dir="."):
-    """get the git branch for a given directory
-
-    Args:
-        dir (string): which directory to get the git commit for. defaults to
-            current directory
-
-    Returns:
-        git commit branch
-    """
-    cmd = [
-        'git',
-        '--git-dir=%s/.git' % dir,
-        '--work-tree=%s',
-        'rev-parse',
-        '--abbrev-ref',
-        'HEAD']
-    return subprocess.check_output(cmd).strip()
-
-
-def git_dict(dir="."):
-    """get a dictionary of the git branch and hash for given directory.
-
-    Args:
-        dir (string): which directory to get the dictionary for
-
-    Returns:
-        dictionary
-    """
-    branch = get_branch(dir)
-    commit = get_commit_hash(dir)
-    return {'branch': branch, 'commit': commit}
+def qdel(job_ids):
+    jids = [str(jid) for jid in np.atleast_1d(job_ids)]
+    stdout = subprocess.check_output(['qdel']+jids)
+    return stdout

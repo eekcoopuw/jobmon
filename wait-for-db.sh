@@ -15,4 +15,4 @@ until mysql -e 'SHOW TABLES;' --host=$host --user=docker --password=docker docke
 done
 
 >&2 echo "DB is up - executing command"
-exec $cmd
+$cmd

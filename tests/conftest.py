@@ -1,58 +1,67 @@
-import sys
+import logging
 import pytest
-import uuid
+from threading import Thread
+from sqlalchemy.exc import IntegrityError
 
-from jobmon.central_job_monitor import CentralJobMonitor
-from time import sleep
+from jobmon.config import config
+from jobmon import database
+from jobmon.job_query_server import JobQueryServer
+from jobmon.job_state_manager import JobStateManager
 
-
-@pytest.fixture(scope='module')
-def tmp_out_dir(tmpdir_factory):
-    return tmpdir_factory.mktemp("dalynator_{}_".format(uuid.uuid4()))
-
-
-@pytest.fixture(scope='function')
-def central_jobmon_cluster(tmpdir_factory):
-    monpath = tmpdir_factory.mktemp("jmdir")
-
-    if sys.version_info > (3, 0):
-        jm = CentralJobMonitor(str(monpath))
-    else:
-        jm = CentralJobMonitor(str(monpath), persistent=False)
-    sleep(1)
-    yield jm
-    print("teardown fixture in {}".format(monpath))
-    jm.stop_responder()
-    jm.stop_publisher()
-    sleep(1)
-    assert not jm.responder_proc_is_alive()
-
-
-@pytest.fixture(scope='function')
-def central_jobmon(tmpdir_factory):
-    monpath = tmpdir_factory.mktemp("jmdir")
-
-    if sys.version_info > (3, 0):
-        jm = CentralJobMonitor(str(monpath))
-    else:
-        jm = CentralJobMonitor(str(monpath), persistent=False)
-    sleep(1)
-    yield jm
-    print("teardown fixture in {}".format(monpath))
-    jm.stop_responder()
-    jm.stop_publisher()
-    sleep(1)
-    assert not jm.responder_proc_is_alive()
+from .ephemerdb import EphemerDB
 
 
 @pytest.fixture(scope='module')
-def central_jobmon_static_port(tmpdir_factory):
-    monpath = tmpdir_factory.mktemp("jmdir")
-    jm = CentralJobMonitor(str(monpath), port=3459, publisher_port=5678,
-                           publish_job_state=True, persistent=False)
-    sleep(1)
-    yield jm
-    print("teardown fixture in {}".format(monpath))
-    jm.stop_responder()
-    sleep(1)
-    assert not jm.responder_proc_is_alive()
+def db_cfg():
+
+    edb = EphemerDB()
+    conn_str = edb.start()
+    config.conn_str = conn_str
+
+    # The config has to be reloaded to use the EphemerDB
+    database.recreate_engine()
+    database.create_job_db()
+    try:
+        with database.session_scope() as session:
+            database.load_default_statuses(session)
+    except IntegrityError:
+        pass
+
+    yield config
+
+    database.Session.close_all()
+    database.engine.dispose()
+    edb.stop()
+
+
+@pytest.fixture(scope='module')
+def jsm_jqs(db_cfg):
+    # logging does not work well with Threads in python < 2.7,
+    # see https://docs.python.org/2/library/logging.html
+    # Logging has to be set up BEFORE the Thread.
+    # Therefore we set up the job_state_manager's console logger here, before we put it in a Thread.
+    jsm_logger = logging.getLogger("jobmon.job_state_manager")
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+    jsm_logger.addHandler(ch)
+    jsm = JobStateManager(db_cfg.jm_rep_conn.port, db_cfg.jm_pub_conn.port)
+
+    jqs = JobQueryServer(db_cfg.jqs_rep_conn.port)
+
+    t1 = Thread(target=jsm.listen)
+    t1.daemon = True
+    t1.start()
+    t2 = Thread(target=jqs.listen)
+    t2.daemon = True
+    t2.start()
+
+    yield jsm, jqs
+    jsm.stop_listening()
+    jqs.stop_listening()
+
+
+@pytest.fixture(scope='module')
+def dag_id(jsm_jqs):
+    jsm, jqs = jsm_jqs
+    rc, dag_id = jsm.add_job_dag('test_dag', 'test_user')
+    yield dag_id

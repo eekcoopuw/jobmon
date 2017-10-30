@@ -1,124 +1,172 @@
-# Job Monitor
+# Demo instructions
+
+To run some jobs on the cluster, including retry/timeout functionality
+try this:
+
+```python
+
+# Before running this script, install a ~/.jobmonrc file... Run or mimic
+# install_rcfile.py to do so
+
+from jobmon.job_list_manager import JobListManager
+from jobmon.job_instance_factory import execute_sge
+
+# Create a JobListManager and start it's status and instance services
+jlm = JobListManager.in_memory(executor=execute_sge, start_daemons=True)
+
+# Create and queue some jobs (in this dev case, queue = run immediately)
+job_id = jlm.create_job("touch ~/foobarfile", "my_jobname")
+jlm.queue_job(job_id)
+
+for i in range(5):
+    slots = i+1
+    mem = slots*2
+    job_id = jlm.create_job("sleep {}".format(i), "sleep{}".format(i),
+                            slots=slots, mem_free=mem)
+    jlm.queue_job(job_id)
+
+# Block until everything is done
+done, errors = jlm.block_until_no_instances()
+print("Done: {}".format(done))  # Done: [1, 2, 3, 4, 6, 5]
+print("Errors: {}".format(errors))  # Errors: []
+
+
+# Submit some with timeouts and retries
+for i in range(5, 31, 5):
+    job_id = jlm.create_job("sleep {}".format(i),
+                            "sleep{}".format(i),
+                            max_attempts=3,
+                            max_runtime=12)
+    jlm.queue_job(job_id)
+
+# Block until everything is done
+done, errors = jlm.block_until_no_instances(raise_on_any_error=False)
+print("Done: {}".format(done))  # Done: [7, 8, 9, 10]
+print("Errors: {}".format(errors))  # Errors: [11, 12]
+
+```
+
+# Configuration
+
+By default, Jobmon configuration lives in the file ~/.jobmonrc. The contents of
+this file are expected to be json formatted and contain the following options:
+
+- **conn_str** (only required for jobmon servers i.e. JobStateManager and
+  JobQueryServers): The connection string for the jobmon database. The user
+  must have write privileges to the jobmon tables.
+- **jsm_host** (only required for jobmon clients e.g. DAG, JobListManager, and
+  CommandContexts): the host where the JobStateManager is running
+- **jqs_host** (only required for jobmon clients e.g. DAG, JobListManager, and
+  CommandContexts): the host where the JobQueryServer is running
+- **jsm_rep_port** (only required for jobmon clients e.g. DAG, JobListManager,
+  and CommandContexts): The port where the JobStateManager is listening for
+  requests.
+- **jsm_pub_port** (only required for jobmon clients e.g. DAG, JobListManager,
+  and CommandContexts): The port where the JobStateManager publishes job status
+  updates.
+- **jqs_port** (only required for jobmon clients e.g. DAG, JobListManager, and
+  CommandContexts): The port where the JobQueryServer is listening for
+  requests.
+
+```json
+{
+  "conn_str": "sqlite://",
+  "host": "localhost",
+  "jsm_rep_port": 3456,
+  "jsm_pub_port": 3457,
+  "jqs_port": 3458
+}
+```
+
+# Deploying to jobmon-p01
+To deploy a centralized JobStateManager and JobQueryServer:
+
+1. Login to jobmon-p01
+2. Clone this repo into a folder called "jobmon_cavy"
+```
+git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git jobmon_cavy
+```
+
+3. Checkout the appropriate branch (as of this writing, future/service_arch)
+```
+git checkout future/service_arch
+```
+
+4. From the root directory of the repo, run:
+```
+docker-compose up --build -d
+```
+
+That should do it. Now you'll just need to make sure your users have the proper
+host and port settings in their .jobmonrc.
+{
+  "host": "jobmon-p01.ihme.washington.edu",
+  "jsm_rep_port": 4456,
+  "jsm_pub_port": 4457,
+  "jqs_port": 4458
+}
+
+For testing purposes, you can then access the jobmon database on that server
+from your favorite DB browser:
+- host: jobmon-p01.ihme.washington.edu
+- port: 3306
+- user: docker
+- pass: docker
+
+TODO: Make these settings the default upon installing the package (or
+alternatively source jobmonrc from a shared location, then from the
+user's home directory).
+
+
+# Dev instructions (subject to rapid iteration)
+
+To develop locally, you'll need docker and docker-compose. Clone this repo and
+start the database and JobStateManager (formerly 'monitor') server:
+
+```
+docker-compose up --build
+```
+
+For the client side, in a separate shell, create a python 3 environment with
+jobmon installed. Simplest case usage is as follows:
+
+
+# Running tests
+
+To run the tests, the database and JobStateManager must be running:
+```
+docker-compose up --build
+```
+
+Tests can then be run locally. It is recommended to run them without the cache.
+The test threads seem to lock up sometimes, and clearing the cache helps. Need
+to investigate further. My hunch is the issues with SUB processes may be
+related to this: https://github.com/zeromq/pyzmq/issues/983.
+```
+pytest --cache-clear tests
+```
+
+# Deployment architecture
+![deploy_arch_diagram](https://hub.ihme.washington.edu/download/attachments/44702059/Screen%20Shot%202017-10-18%20at%202.49.30%20PM.png?version=1&modificationDate=1508363448371&api=v2)
+
+## TODOs
+1. Create a launcher, which does absolutely nothing but launches the J-state-mg and j-query-server
+1. jobmonrc reduces to just the database address
+1. We create an epic for a watcher on the purple node, MVP is just a heartbeat and a slack channel
+
+
+# Job State Manager
 The package intends to provide simple, central monitoring of statuses and errors encountered by distributed tasks.
 It seeks to easily drop-in to existing code bases without significant refactoring.
 
-This discussion deliberately avoids the words _Client_ and _Server_ because those words were used in different ways
-in the original implementation.
+There is one central python process (JobStateManager) that keeps track of and forces consistency between individual jobs and their instances.
+This process must be launched on a host and listen on ports known by all jobs which will communicate with it.
 
-This is the thrid iteration of the job mon design. The change betwee neach iteration is how the central job monitor is
-launched. In the first iteration it was started manually in a separate shell window. In the second iteration it was
-started by the clint calling MonitoredQ. That appeared to be simpler but in practise was too complex, especially in
-controlling which python environment was used for which process. The third diteration therefore went back to manually
-staing the monitor.
-
-There is one central python process (CentralJobMonitor) that starts and monitors the individual application jobs.
-This process should be started in a separte qlogin, using a python 3 environment (which will be part of this project
-as soon as we have the central envrinemnt library epic completed.).  The command is:
-
-```sh
-python bin/launch_central_monitor.py <directory to hold monitor_info.json>
-```
-
-More usefully:
-
-```sh
-rm -f monitor_info.json && python bin/launch_central_monitor.py `pwd`
-```
-
-Alternatively, the (CentralJobMonitor) may be launched in a thread of the main controller process. This approach
-allows the user to run a single process that is responsible for state tracking of the distributed processes. However,
-since python does not allow concurrent execution of different threads, the main controller process that launches the
-(CentralJobMonitor) should not do any computation. The command is:
-
-```python
-import time
-from jobmon import central_job_monitor
-
-
-try:
-    cjm = central_job_monitor.CentralJobMonitor("foodir", persistent=False)
-    time.sleep(5)
-except:
-    pass
-else:
-    # schedule some remote jobs and block execution of the finally till
-    # they are done
-finally:
-    cjm.stop_responder()
-    cjm.stop_publisher()
-```
-
-This process uses sqlite. sqlite can only write to an NFS file system in python 3, so this python process must be run
-using a python 3 environment or use an in memory sqlite database (CentralJobMonitor(persistent=False)).
-The response codes were moved to exceptions.py so that the client would be decoupled from the responder.
 
 # Environments
-The distributed tasks are generally executed in the same environment as the controller process though this is not
-required.
-
-# Job Queueing and Automatic Relaunching
-Job Monitor comes with high level convenience packages for launching SGE jobs, monitoring/logging their progress, and
-relaunching failed jobs. The functionality is encompassed in the (qmaster.JobQueue) class. JobQueue is an attempt to
-abstract away state tracking and logging of distributed tasks across different distributed execution platforms
-(SGE, Multiprocessing). It provides 2 useful abstractions: 1) executor 2) scheduler. The executor is responsible for
-queueing jobs on a specified distribution platfor (eg. SGE). The scheduler is responsible for polling for job state
-updates about the swarm jobs and exposing that information to the controller process. The scheduler is run in a separate
-thread so don't run heavy computation in the same process as the scheduler is running. A useful pattern for a controller
-process is to here:
-
-```python
-import time
-from jobmon import qmaster, central_job_monitor
-from jobmon.executors.sge_exec import SGEExecutor
-
-
-try:
-    cjm = central_job_monitor.CentralJobMonitor("/foo/dir", persistent=False)
-    time.sleep(3)
-except:
-    pass
-else:
-    try:
-        q = qmaster.JobQueue(cjm.out_dir, executor=SGEExecutor)
-        j = q.create_job(
-            runfile="bar.py",
-            jobname="mock",
-            parameters=["--baz", "1"])
-        q.queue_job(j, slots=2, memory=4, project="ihme_general")
-        q.block_till_done()  # monitor them
-    except:
-        cjm.generate_report()
-finally:
-    cjm.stop_responder()
-    cjm.stop_publisher()
-```
-
-# Job logging
-The job_monitor.sqlite file is created in your logging directory if you used persistent=True. You can open
-it up and look for errors, completion times, and other statistics
-
-    -bash-4.1$ sqlite3 job_monitor.sqlite
-    SQLite version 3.9.2 2015-11-02 18:31:45
-    Enter ".help" for usage hints.
-    sqlite> .tables
-    error       job         job_status  sgejob      status
-    sqlite> select count(*) from error;
-    1
-    sqlite> select * from error;
-    1|1|2016-03-10 01:23:08|Traceback (most recent call last):
-      File "/share/code/test/joewag/under_development/format_dalynator_draws/jobmon/bin/monitored_job.py", line 28, in <module>
-          execfile(args["runfile"])
-            File "/ihme/code/test/joewag/under_development/format_dalynator_draws/formatter.py", line 169, in <module>
-                raise RuntimeError('year is 1995!')
-                RuntimeError: year is 1995!
-
-    sqlite> .exit
-
-
-Alternatively, (CentralJobMonitor.generate_report()) will create a csv of the sqlite database in the logging directory.
-
-Sqlite doesn't support concurrent access, so don't do this while jobmon server is running! Instead, you can start up
-another job.Job() in the same directory, and use the query method.
+**TODO**: The distributed tasks are executed in the same
+environment as the JobListManager process by default. This can be overriden by
+setting the Job.environment attribute.
 
 
 ## Dependencies

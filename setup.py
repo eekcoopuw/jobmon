@@ -43,16 +43,7 @@ install_requires = [
     'pyzmq',
     'drmaa',
     'jsonpickle',
-    'flask_sqlalchemy',
-    'flask_migrate',
-    'flask_restplus',
 ]
-
-if sys.version_info < (3, 0):
-    install_requires.append("subprocess32")
-
-if sys.version_info < (3, 4):
-    install_requires.append("enum34")
 
 setup(
     version=versioneer.get_version(),
@@ -62,9 +53,10 @@ setup(
                  'SGE jobs'),
     url='https://stash.ihme.washington.edu/projects/CC/repos/jobmon',
     author='CentralComp',
-    author_email='tomflem@uw.edu, mlsandar@uw.edu',
+    author_email='tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu',
     include_package_data=True,
     install_requires=install_requires,
-    packages=['jobmon', 'jobmon.executors', 'jobmon.mocks'],
-    scripts=["bin/launch_central_monitor.py"],
-    entry_points={'console_scripts': []})
+    packages=['jobmon', 'jobmon.workflow'],
+    entry_points={
+        'console_scripts': ["jobmon=jobmon.cli:main",
+                            "jobmon_command=jobmon.command_context:unwrap"]})

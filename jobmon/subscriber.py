@@ -1,71 +1,26 @@
 import logging
-import json
-import os
-
 import zmq
+
+from jobmon.pubsub_helpers import demogrify
+
 
 logger = logging.getLogger(__name__)
 
 
-def demogrify(topicmsg):
-    """Inverse of publisher.mogrify()"""
-    json0 = topicmsg.find('{')
-    topic = topicmsg[0:json0].strip()
-    msg = json.loads(topicmsg[json0:])
-    return topic, msg
-
-
 class Subscriber(object):
-    """
-    Args
-        out_dir (string): file path where the server configuration is
-            stored.
-        publisher_host (string): in lieu of a filepath to the publisher info,
-            you can specify the hostname and port directly
-        publisher_port (int): in lieu of a filepath to the publisher info,
-            you can specify the hostname and port directly
-    """
 
-    def __init__(self, publisher_connection=None):
+    def __init__(self, host, port, topic=""):
 
-        logger = logging.getLogger(__name__)
-        self.socket = None
-        self.mi = publisher_connection.load_monitor_info()
-
-    def connect(self, topicfilter=None, timeout=1000):
-        """Connect to server. Reads config file from out_dir specified during
-        class instantiation to get socket. Not an API method,
-        needs to be underscored. This will ALWAYS connect."""
-        context = zmq.Context().instance()
-        self.socket = context.socket(zmq.SUB)
-
-        # use host and port from network filesystem config. option "out_dir"
-        self.socket.connect(
-            "tcp://{sh}:{sp}".format(sh=self.mi['host'], sp=self.mi['port']))
-
-        self.socket.setsockopt(zmq.RCVTIMEO, timeout)
-        if topicfilter:
-            self.socket.setsockopt_string(zmq.SUBSCRIBE, topicfilter)
-        else:
-            self.socket.setsockopt_string(zmq.SUBSCRIBE, '')
-        logger.info('{}: Connecting to {}:{}; filter {}...'.format(os.getpid(), self.mi['host'], self.mi['port'], topicfilter))
+        zmq_context = zmq.Context.instance()
+        self.socket = zmq_context.socket(zmq.SUB)
+        self.socket.setsockopt(zmq.LINGER, 0)  # do not pile requests in queue.
+        self.socket.setsockopt_string(zmq.SUBSCRIBE, str(topic))
+        self.socket.connect("tcp://{}:{}".format(host, port))
 
     def disconnect(self):
-        """disconnect from socket and unregister with poller. Is this an API
-        method? Should be underscored if not"""
-        logger.info('{}: Disconnecting...'.format(os.getpid()))
         self.socket.close()
 
-        # Good idea to release this so that it gets garbage collected.
-        self.socket = None
-
-
-    def receive_update(self):
-        """This is not-blocking by design, so that qstats can be done"""
-        try:
-            x = self.socket.recv()
-            topic, result = demogrify(x.decode("utf-8"))
-            return result
-        except zmq.Again as e:
-            # This will occur if there is no data available (yet). It is not an error.
-            return None
+    def receive(self):
+        """This is blocking by design"""
+        _, msg = demogrify(self.socket.recv().decode("utf-8"))
+        return msg

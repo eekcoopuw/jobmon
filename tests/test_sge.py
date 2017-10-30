@@ -8,7 +8,7 @@ import os.path as path
 import pytest
 
 try:
-    import jobmon.sge as sge
+    from jobmon import sge
 except KeyError:
     pass
 
@@ -42,6 +42,13 @@ def test_basic_submit():
     mem_id = sge.qsub("/bin/true", "still true", slots=1, memory=1)
     assert mem_id
 
+    proj_id = sge.qsub("/bin/true", "still true", slots=1, memory=1,
+                       project="proj_burdenator")
+    fail_msg = ("Test failed: check that you have permission to run under "
+                "'proj_burdenator' and that there are available jobs under this"
+                " project")
+    assert proj_id, fail_msg
+
     sleep_id = sge.qsub("/bin/sleep", "wh#@$@&(*!",
                         parameters=[50],
                         stdout="whatsleep.o$JOB_ID")
@@ -51,7 +58,8 @@ def test_basic_submit():
     wait_id_b = sge.qsub("/bin/true", "flou;nd  ",
                          holds=[sleep_id])
     assert wait_id_b
-    assert sge._wait_done([true_id, mem_id, sleep_id, wait_id_a, wait_id_b])
+    assert sge._wait_done(
+        [true_id, mem_id, proj_id, sleep_id, wait_id_a, wait_id_b])
     assert not glob.glob(os.path.expanduser("~/sotrue*{}".format(true_id)))
     assert glob.glob(os.path.expanduser("~/whatsleep*{}".format(sleep_id)))
 
@@ -94,10 +102,10 @@ def test_path_manipulation():
     Compares what happens when you specify a prepend_to_path versus
         when you don't. Look at the output files and diff them to see.
     """
-    sort_a = sge.qsub(sge.true_path("tests/env_vars.sh"), "env-a",
+    sort_a = sge.qsub(sge.true_path("tests/shellfiles/env_vars.sh"), "env-a",
                       slots=1, memory=0,
                       stdout=os.path.abspath("env-a.out"))
-    sort_b = sge.qsub(sge.true_path("tests/env_vars.sh"), "env-b",
+    sort_b = sge.qsub(sge.true_path("tests/shellfiles/env_vars.sh"), "env-b",
                       jobtype="shell", slots=1, memory=0,
                       prepend_to_path="~/DonaldDuck",
                       stdout=os.path.abspath("env-b.out"))
@@ -137,10 +145,10 @@ def test_r_submit():
 
 @pytest.mark.cluster
 def test_sh_submit():
-    rscript_id = sge.qsub(sge.true_path("tests/env_vars.sh"), ".rstuff&*(",
-                          parameters=[5], jobtype="shell")
-    notype_id = sge.qsub(sge.true_path("tests/env_vars.sh"), "##rb+@",
-                         parameters=[3])
+    rscript_id = sge.qsub(sge.true_path("tests/shellfiles/env_vars.sh"),
+                          ".rstuff&*(", parameters=[5], jobtype="shell")
+    notype_id = sge.qsub(sge.true_path("tests/shellfiles/env_vars.sh"),
+                         "##rb+@", parameters=[3])
     assert sge._wait_done([rscript_id, notype_id])
 
 
