@@ -76,7 +76,7 @@ class GlobalConfig(object):
         self._host = value
         self.jm_rep_conn.host = self._host
         self.jm_pub_conn.host = self._host
-        self.jm_jqs_conn.host = self._host
+        self.jqs_rep_conn.host = self._host
 
     @property
     def jsm_pub_port(self):

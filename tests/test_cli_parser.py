@@ -6,11 +6,17 @@ from jobmon.cli import apply_args_to_config, parse_args
 
 def test_invalid_sub_command():
     with pytest.raises(ValueError):
+        # Should complain that jobmon requires a sub-command
         parse_args("--conn_str mysql://user:pass@host")
-    with pytest.raises(SystemExit):
+    with pytest.raises(ValueError):
+        # Should complain that jobmon requires a sub-command
         parse_args("")
     with pytest.raises(SystemExit):
+        # Should complain that the sub-command is not recongnized
         parse_args("not_a_valid_subcommand")
+    with pytest.raises(SystemExit):
+        # Should complain that the option is not recognized
+        parse_args("--not_a_real_option initdb")
 
 
 def test_start_subcommand():
