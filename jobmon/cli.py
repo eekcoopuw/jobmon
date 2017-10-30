@@ -70,7 +70,7 @@ def parse_args(argstr=None):
     start_parser.add_argument("service", choices=['job_state_manager',
                                                   'job_query_server'])
 
-    if argstr:
+    if argstr is not None:
         arglist = shlex.split(argstr)
         args = parser.parse_args(arglist)
     else:

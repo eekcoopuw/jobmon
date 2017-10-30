@@ -12,7 +12,7 @@ from jobmon.models import JobStatus
 from jobmon.workflow.job_dag_factory import JobDagFactory
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 logger = logging.getLogger(__name__)
 
