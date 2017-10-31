@@ -43,9 +43,9 @@ def test_basic_submit():
     assert mem_id
 
     proj_id = sge.qsub("/bin/true", "still true", slots=1, memory=1,
-                       project="proj_burdenator")
+                       project="proj_qlogins")
     fail_msg = ("Test failed: check that you have permission to run under "
-                "'proj_burdenator' and that there are available jobs under this"
+                "'proj_qlogins' and that there are available jobs under this"
                 " project")
     assert proj_id, fail_msg
 

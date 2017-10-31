@@ -151,8 +151,8 @@ class GlobalConfig(object):
 # The config singleton... if you need to update it, modify the object directly
 # via the setter or apply_opts_dct methods. Don't create a new one.
 CONFIG_FILE = "~/.jobmonrc"
-if os.path.isfile(CONFIG_FILE):
-    config = GlobalConfig.from_file()
+if os.path.isfile(os.path.expanduser(CONFIG_FILE)):
+    config = GlobalConfig.from_file(CONFIG_FILE)
 else:
     logger.warn("Could not find config file {}. Configuring from "
                 "defaults".format(CONFIG_FILE))

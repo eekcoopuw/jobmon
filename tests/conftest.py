@@ -5,7 +5,7 @@ from argparse import Namespace
 from threading import Thread
 from sqlalchemy.exc import IntegrityError
 
-from jobmon.config import config
+from jobmon.config import GlobalConfig, config
 from jobmon import database
 from jobmon.cli import install_rcfile
 from jobmon.job_query_server import JobQueryServer
@@ -36,10 +36,12 @@ def rcfile():
         # this once we have a more sensible mechanism for versioning the RCFILEs
         cleanup_rcfile = False
 
+    opts_dct = GlobalConfig.get_file_opts("~/.jobmonrc")
+    config.apply_opts_dct(opts_dct)
     yield
 
     if cleanup_rcfile:
-        os.remove("~/.jobmonrc")
+        os.remove(os.path.expanduser("~/.jobmonrc"))
 
 
 @pytest.fixture(scope='module')
