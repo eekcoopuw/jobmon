@@ -13,7 +13,7 @@ def test_invalid_rcfile():
         GlobalConfig.from_file(__file__)
 
 
-def test_command_line():
+def test_command_line(rcfile):
     opts_dct = {"conn_str": "foo",
                 "host": "bar",
                 "jsm_rep_port": "1",

@@ -1,11 +1,16 @@
 import argparse
 import logging
+import json
+import os
 import shlex
+import shutil
+import socket
 
 from sqlalchemy.exc import IntegrityError
 
 from jobmon import database
 from jobmon import config
+from jobmon.requester import Requester
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
 
@@ -42,6 +47,27 @@ def apply_args_to_config(args):
     return config.config
 
 
+def install_rcfile(args):
+    rcfile = os.path.abspath(os.path.expanduser("~/.jobmonrc"))
+    if os.path.exists(rcfile):
+        if not args.force:
+            raise FileExistsError("rcfile already exists. Use -f/--force if "
+                                  "you want to overwrite it. The existing "
+                                  "file will be backed up to "
+                                  "~/.jobmonrc.backup")
+        backup_file = "{}.backup".format(rcfile)
+        shutil.move(rcfile, backup_file)
+
+    with open(rcfile, "w") as jf:
+        cfg_dct = {
+            "conn_str": "sqlite://",
+            "host": socket.gethostname(),
+            "jsm_rep_port": 3456,
+            "jsm_pub_port": 3457,
+            "jqs_port": 3458}
+        json.dump(cfg_dct, jf)
+
+
 def initdb(args):
     """Create the database tables and load them with the requisite
     Job and JobInstance statuses"""
@@ -62,13 +88,24 @@ def parse_args(argstr=None):
     parser = argparse.ArgumentParser(description="Jobmon")
     parser = add_config_opts(parser)
 
+    # Create subparsers
     subparsers = parser.add_subparsers(dest="sub_command")
+
+    config_parser = subparsers.add_parser(
+        "configure", description="Installs jobmon rc file")
+    config_parser.set_defaults(func=install_rcfile)
+    config_parser.add_argument("-f", "--force", action='store_true')
+
     initdb_parser = subparsers.add_parser("initdb")
     initdb_parser.set_defaults(func=initdb)
+
     start_parser = subparsers.add_parser("start")
     start_parser.set_defaults(func=start)
     start_parser.add_argument("service", choices=['job_state_manager',
                                                   'job_query_server'])
+
+    test_parser = subparsers.add_parser("test")
+    test_parser.set_defaults(func=test_connection)
 
     if argstr is not None:
         arglist = shlex.split(argstr)
@@ -76,7 +113,8 @@ def parse_args(argstr=None):
     else:
         args = parser.parse_args()
     if not args.sub_command:
-        raise ValueError("sub-command required: {initdb, start}")
+        raise ValueError("sub-command required: "
+                         "{configure, initdb, start, test}")
     return args
 
 
@@ -103,6 +141,13 @@ def start_job_query_server():
     jqs = JobQueryServer(config.config.jqs_rep_conn.port)
     jqs.open_socket()
     jqs.listen()
+
+
+def test_connection(args):
+    jsm_req = Requester(config.jm_rep_conn)
+    jsm_req.send_request({'action': 'alive'})
+    jqs_req = Requester(config.jqs_rep_conn)
+    jqs_req.send_request({'action': 'alive'})
 
 
 if __name__ == "__main__":
