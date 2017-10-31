@@ -1,4 +1,5 @@
 import logging
+import os
 import pytest
 from argparse import Namespace
 from threading import Thread
@@ -23,8 +24,26 @@ except FileExistsError:
     pass
 
 
+@pytest.fixture(scope='session')
+def rcfile():
+    args = Namespace()
+    args.force = False
+    try:
+        install_rcfile(args)
+        cleanup_rcfile = True
+    except FileExistsError:
+        # It's OK for now if the rcfile already exists. May need to revisit
+        # this once we have a more sensible mechanism for versioning the RCFILEs
+        cleanup_rcfile = False
+
+    yield
+
+    if cleanup_rcfile:
+        os.remove("~/.jobmonrc")
+
+
 @pytest.fixture(scope='module')
-def db_cfg():
+def db_cfg(rcfile):
 
     edb = EphemerDB()
     conn_str = edb.start()

@@ -1,7 +1,11 @@
+import logging
 import json
 import os
 
 from jobmon.connection_config import ConnectionConfig
+
+
+logger = logging.getLogger(__file__)
 
 
 class InvalidConfig(Exception):
@@ -116,6 +120,10 @@ class GlobalConfig(object):
         opts_dict = cls.apply_defaults(opts_dict)
         return cls(**opts_dict)
 
+    @classmethod
+    def from_defaults(cls):
+        return cls(**cls.default_opts)
+
     @staticmethod
     def get_file_opts(filename):
         rcfile = os.path.abspath(os.path.expanduser(filename))
@@ -142,4 +150,10 @@ class GlobalConfig(object):
 
 # The config singleton... if you need to update it, modify the object directly
 # via the setter or apply_opts_dct methods. Don't create a new one.
-config = GlobalConfig.from_file("~/.jobmonrc")
+CONFIG_FILE = "~/.jobmonrc"
+if os.path.isfile(CONFIG_FILE):
+    config = GlobalConfig.from_file()
+else:
+    logger.warn("Could not find config file {}. Configuring from "
+                "defaults".format(CONFIG_FILE))
+    config = GlobalConfig.from_defaults()
