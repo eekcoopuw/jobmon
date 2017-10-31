@@ -1,40 +1,16 @@
 import logging
 import os
-import pwd
-import shutil
 
-import uuid
-
-import pytest
 from cluster_utils.io import makedirs_safely
 
 from jobmon.models import JobStatus
-from jobmon.workflow.job_dag_factory import JobDagFactory
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logging.basicConfig(level=logging.DEBUG)
-
 logger = logging.getLogger(__name__)
-
-# Test fixtures
-
-@pytest.fixture(scope='module')
-def tmp_out_dir():
-    u = uuid.uuid4()
-    user = pwd.getpwuid(os.getuid()).pw_name
-    output_root = '/ihme/scratch/users/{user}/tests/jobmon/{uuid}'.format(user=user, uuid=u)
-    yield output_root
-    shutil.rmtree(output_root)
-
-
-@pytest.fixture(scope='module')
-def job_dag_manager(db_cfg):
-    jdm = JobDagFactory()
-    yield jdm
 
 
 # All Tests are written from the point of view of the Swarm, i.e the job controller in the application.
-
 # These are all "In Memory" tests - create all objects in memory and test that they work. The objects are
 # created in the database, but testing that round-trip is not an explicit goal of these tests. RE-reading a DAG
 # from the dbs will be part of the resume feature release, which is Emu.
