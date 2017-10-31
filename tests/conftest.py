@@ -14,16 +14,6 @@ from jobmon.job_state_manager import JobStateManager
 from .ephemerdb import EphemerDB
 
 
-args = Namespace()
-args.force = False
-try:
-    install_rcfile(args)
-except FileExistsError:
-    # It's OK for now if the rcfile already exists. May need to revisit
-    # this once we have a more sensible mechanism for versioning the RCFILEs
-    pass
-
-
 @pytest.fixture(scope='session')
 def rcfile():
     args = Namespace()
