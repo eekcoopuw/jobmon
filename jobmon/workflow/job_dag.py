@@ -110,7 +110,7 @@ class JobDag(Base):
 
             # TBD timeout?
             completed_and_status = self.job_list_manager.block_until_any_done_or_error()
-            logger.info("Return from blocking call, completed_and_status {}".format(completed_and_status))
+            logger.debug("Return from blocking call, completed_and_status {}".format(completed_and_status))
             all_running, completed_tasks, failed_tasks = self.sort_jobs(all_running, completed_and_status)
 
             # Need to find the tasks that were that job, they will be in this "small" dic of active tasks

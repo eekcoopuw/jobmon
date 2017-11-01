@@ -101,13 +101,10 @@ class JobInstanceFactory(object):
             job (Job): A Job that we want to execute
         """
         try:
-            logger.debug("Got here")
             job_instance_id = self._register_job_instance(
                 job, self.executor.__name__)
         except Exception as e:
-            logger.debug("Got here too")
             logger.error(e)
-        logger.debug("Got here three")
         logger.debug("Executing {}".format(job.command))
         executor_id = self.executor(job, job_instance_id)
         if executor_id:

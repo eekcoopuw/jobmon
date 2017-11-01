@@ -1,12 +1,13 @@
-from argparse import Namespace
 import logging
 import os
 import pytest
 import pwd
 import shutil
+import uuid
+
+from argparse import Namespace
 from sqlalchemy.exc import IntegrityError
 from threading import Thread
-import uuid
 
 from jobmon.config import GlobalConfig, config
 from jobmon import database

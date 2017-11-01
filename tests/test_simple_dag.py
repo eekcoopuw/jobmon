@@ -274,3 +274,74 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, job_dag_manag
     assert task_c[2].cached_status == JobStatus.DONE
 
     assert task_d.cached_status == JobStatus.DONE
+
+
+def test_bushy_dag(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
+    """
+    Similar to the a small fork and join dag but wiht connecitons between early and late phases:
+     a->b[0..2]->c[0..2]->d
+
+    And c depends on a, and d depends on b
+    """
+    root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
+    makedirs_safely(root_out_dir)
+    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks")
+
+    task_a = SleepAndWriteFileMockTask(
+        sleep_secs=1,
+        output_file_name="{}/a.out".format(root_out_dir)
+    )
+    dag.add_task(task_a)
+
+    # The B's all have varying runtimes,
+    task_b = {}
+    for i in range(3):
+        task_b[i] = SleepAndWriteFileMockTask(
+            sleep_secs=5 + i,
+            output_file_name="{}/b-{}.out".format(root_out_dir, i),
+            upstream_tasks=[task_a]
+        )
+        dag.add_task(task_b[i])
+
+    # Each c[i] depends exactly and only on b[i]
+    # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race conditions by creating a collision near d
+    task_c = {}
+    for i in range(3):
+        task_c[i] = SleepAndWriteFileMockTask(
+            sleep_secs=5 - i,
+            output_file_name="{}/c-{}.out".format(root_out_dir, i),
+            upstream_tasks=[task_b[i], task_a]
+        )
+        dag.add_task(task_c[i])
+
+    b_and_c = [task_b[i] for i in range(3)]
+    b_and_c += [task_c[i] for i in range(3)]
+    task_d = SleepAndWriteFileMockTask(
+        sleep_secs=3,
+        output_file_name="{}/d.out".format(root_out_dir),
+        upstream_tasks=b_and_c
+    )
+    dag.add_task(task_d)
+
+    logger.info("DAG: {}".format(dag))
+
+    (rc, num_completed, num_failed) = dag.execute()
+
+    # TODO: How to check that nothing was started before its upstream were done?
+
+    assert rc
+    assert num_completed == 1 + 3 + 3 + 1
+    assert num_failed == 0
+
+    assert task_a.cached_status == JobStatus.DONE
+
+    assert task_b[0].cached_status == JobStatus.DONE
+    assert task_b[1].cached_status == JobStatus.DONE
+    assert task_b[2].cached_status == JobStatus.DONE
+
+    assert task_c[0].cached_status == JobStatus.DONE
+    assert task_c[1].cached_status == JobStatus.DONE
+    assert task_c[2].cached_status == JobStatus.DONE
+
+    assert task_d.cached_status == JobStatus.DONE
+

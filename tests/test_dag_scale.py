@@ -23,7 +23,7 @@ def test_burdenator_scale(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     """
 
     N = 10000
-    root_out_dir = "{}/mocks/test_burdenator_scaleC".format(tmp_out_dir)
+    root_out_dir = "{}/mocks/test_burdenator_scale".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     dag = job_dag_manager.create_job_dag(name="test_burdenator_scale")
 
