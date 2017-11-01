@@ -20,13 +20,13 @@ def job_list_manager_sge(dag_id):
 def test_valid_command(dag_id, job_list_manager_sge):
     job_id = job_list_manager_sge.create_job(
         sge.true_path("tests/shellfiles/jmtest.sh"),
-        "sge_foobar", slots=2, mem_free=4, project="proj_burdenator",
+        "sge_foobar", slots=2, mem_free=4, project="proj_qlogins",
         max_attempts=3)
     job_list_manager_sge.queue_job(job_id)
     sleep(60)  # Give some time for the job to get to the executor
     done = job_list_manager_sge.get_new_done()
     fail_msg = ("Test failed: check that you have permission to run under "
-                "'proj_burdenator' and that there are available jobs under this"
+                "'proj_qlogins' and that there are available jobs under this"
                 " project")
     assert len(done) == 1, fail_msg
 

@@ -22,7 +22,7 @@ import numpy as np
 from jobmon.exceptions import SGENotAvailable
 
 # Because the drmaa package needs this library in order to load.
-DRMAA_PATH = "/usr/local/UGE-{}/lib/lx-amd64/libdrmaa.so.1.0"
+DRMAA_PATH = "/usr/local/UGE/lib/lx-amd64/libdrmaa.so.1.0"
 if "DRMAA_LIBRARY_PATH" not in os.environ:
     try:
         os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(

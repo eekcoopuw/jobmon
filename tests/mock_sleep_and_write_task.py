@@ -1,6 +1,7 @@
 import logging
 import os
 
+from jobmon import sge
 import jobmon.workflow.executable_task as etk
 
 logger = logging.getLogger(__name__)
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 class SleepAndWriteFileMockTask(etk.ExecutableTask):
     """
     A simple task that sleeps for a configured number of seconds, then writes a File.
-    It can also be command to alwyas fail (by raising ValueError), or fail a certain number of times and then succeed.
+    It can also be command to always fail (by raising ValueError), or fail a certain number of times and then succeed.
 
     The actual SGE command is remote_sleep_and_write.py
     """
@@ -30,8 +31,7 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
         self.fail_count = fail_count
 
         # NB this package must be installed into the conda env so that it will be found
-        logger.debug("attempting remote call")
-        self.command = "remote_sleep_and_write --sleep_secs {s} --output_file_path {ofn} --name {n}". \
+        self.command = "python " + sge.true_path("tests/remote_sleep_and_write.py") + " --sleep_secs {s} --output_file_path {ofn} --name {n}". \
             format(s=self.sleep_secs, ofn=self.output_file_name, n=self.hash_name)
         if self.fail_always:
             self.command += " --fail_always"
@@ -53,7 +53,7 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
         Returns:
           the job_id
         """
-        logger.debug("command = {}".format(self.command))
+        logger.debug("Create job, command = {}".format(self.command))
 
         self.job_id = job_list_manager.create_job(
             jobname=self.hash_name,

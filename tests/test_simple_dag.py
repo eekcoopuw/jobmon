@@ -6,7 +6,7 @@ from cluster_utils.io import makedirs_safely
 from jobmon.models import JobStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

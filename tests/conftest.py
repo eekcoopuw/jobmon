@@ -1,14 +1,16 @@
+from argparse import Namespace
 import logging
 import os
-import pwd
 import pytest
+import pwd
 import shutil
 from sqlalchemy.exc import IntegrityError
 from threading import Thread
 import uuid
 
-from jobmon.config import config
+from jobmon.config import GlobalConfig, config
 from jobmon import database
+from jobmon.cli import install_rcfile
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
 from jobmon.workflow.job_dag_factory import JobDagFactory
@@ -16,8 +18,28 @@ from jobmon.workflow.job_dag_factory import JobDagFactory
 from .ephemerdb import EphemerDB
 
 
+@pytest.fixture(scope='session')
+def rcfile():
+    args = Namespace()
+    args.force = False
+    try:
+        install_rcfile(args)
+        cleanup_rcfile = True
+    except FileExistsError:
+        # It's OK for now if the rcfile already exists. May need to revisit
+        # this once we have a more sensible mechanism for versioning the RCFILEs
+        cleanup_rcfile = False
+
+    opts_dct = GlobalConfig.get_file_opts("~/.jobmonrc")
+    config.apply_opts_dct(opts_dct)
+    yield
+
+    if cleanup_rcfile:
+        os.remove(os.path.expanduser("~/.jobmonrc"))
+
+
 @pytest.fixture(scope='module')
-def db_cfg():
+def db_cfg(rcfile):
 
     edb = EphemerDB()
     conn_str = edb.start()

@@ -59,5 +59,4 @@ setup(
     packages=['jobmon', 'jobmon.workflow'],
     entry_points={
         'console_scripts': ["jobmon=jobmon.cli:main",
-                            "jobmon_command=jobmon.command_context:unwrap",
-                            "remote_sleep_and_write=tests.remote_sleep_and_write:main"]})
+                            "jobmon_command=jobmon.command_context:unwrap"]})

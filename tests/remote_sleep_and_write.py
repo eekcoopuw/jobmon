@@ -69,5 +69,5 @@ def main():
         happy_path(args.sleep_secs, args.output_file_path, args.name)
 
 
-if __name__ == "main":
+if __name__ == "__main__":
     main()
