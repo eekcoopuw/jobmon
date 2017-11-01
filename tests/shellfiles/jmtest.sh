@@ -1,1 +1,1 @@
-printenv > /homes/tomflem/jmtest.txt
+echo "success" >> /tmp/jmtest-$$.txt
