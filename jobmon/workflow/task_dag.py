@@ -8,11 +8,11 @@ from jobmon.sql_base import Base
 logger = logging.getLogger(__name__)
 
 
-class JobDag(Base):
+class TaskDag(Base):
     """
     A DAG of Tasks.
     """
-    __tablename__ = 'job_dag'
+    __tablename__ = 'task_dag'
 
     dag_id = Column(Integer, primary_key=True)
     name = Column(String(150))
@@ -21,7 +21,7 @@ class JobDag(Base):
 
     def __init__(self, dag_id=None, name=None, user=None, job_list_manager=None, created_date=None):
         # TBD input validation, specifically dag_id == None
-        super(JobDag, self).__init__(dag_id=dag_id, name=name, user=user, created_date=created_date)
+        super(TaskDag, self).__init__(dag_id=dag_id, name=name, user=user, created_date=created_date)
         self.job_list_manager = job_list_manager
 
         self.names_to_nodes = {}  # dictionary, TBD needs to scale to 1,000,000 jobs, untested at scale
