@@ -91,7 +91,6 @@ class JobDag(Base):
         all_failed = []
         all_running = {}
 
-        logger.setLevel(logging.DEBUG)
         logger.debug("Execute DAG {}".format(self))
 
         # These are all Tasks.
@@ -110,9 +109,9 @@ class JobDag(Base):
                 all_running[task.job_id] = task
 
             # TBD timeout?
-            completed_and_failed = self.job_list_manager.block_until_any_done_or_error()
-            logger.debug("Return from blocking call, completed_and_failed {}".format(completed_and_failed))
-            all_running, completed_tasks, failed_tasks = self.sort_jobs(all_running, completed_and_failed)
+            completed_and_status = self.job_list_manager.block_until_any_done_or_error()
+            logger.debug("Return from blocking call, completed_and_status {}".format(completed_and_status))
+            all_running, completed_tasks, failed_tasks = self.sort_jobs(all_running, completed_and_status)
 
             # Need to find the tasks that were that job, they will be in this "small" dic of active tasks
 
@@ -128,10 +127,10 @@ class JobDag(Base):
         # or if they have potentially affected the status of Tasks that were done (error case - disallowed??)
 
         if all_failed:
-            logger.debug("DAG execute finished, failed {}".format(all_failed))
+            logger.info("DAG execute finished, failed {}".format(all_failed))
             return False, len(all_completed), len(all_failed)
         else:
-            logger.debug("DAG execute finished successfully")
+            logger.info("DAG execute finished successfully, {} jobs".format(len(all_completed)))
             return True, len(all_completed), len(all_failed)
 
     def sort_jobs(self, runners, completed_and_failed):
