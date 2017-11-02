@@ -278,10 +278,11 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, job_dag_manag
 
 def test_bushy_dag(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     """
-    Similar to the a small fork and join dag but wiht connecitons between early and late phases:
-     a->b[0..2]->c[0..2]->d
-
-    And c depends on a, and d depends on b
+    Similar to the a small fork and join dag but with connections between early and late phases:
+       a->b[0..2]->c[0..2]->d
+    And also:
+       c depends on a
+       d depends on b
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
@@ -328,6 +329,9 @@ def test_bushy_dag(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     (rc, num_completed, num_failed) = dag.execute()
 
     # TODO: How to check that nothing was started before its upstream were done?
+    # Could we read database? Unfortunately not - submitted_date is initial creation, not qsub
+    # status_date is date of last change.
+    # Could we listen to job-instance state transitions?
 
     assert rc
     assert num_completed == 1 + 3 + 3 + 1
