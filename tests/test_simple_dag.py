@@ -9,20 +9,22 @@ from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# All Tests are written from the point of view of the Swarm, i.e the job
+# controller in the application.  These are all "In Memory" tests - create all
+# objects in memory and test that they work. The objects are created in the
+# database, but testing that round-trip is not an explicit goal of these tests.
+# RE-reading a DAG from the dbs will be part of the resume feature release,
+# which is Emu.
 
-# All Tests are written from the point of view of the Swarm, i.e the job controller in the application.
-# These are all "In Memory" tests - create all objects in memory and test that they work. The objects are
-# created in the database, but testing that round-trip is not an explicit goal of these tests. RE-reading a DAG
-# from the dbs will be part of the resume feature release, which is Emu.
-
-# These tests all use SleepAndWriteFileMockTask (which calls remote_sleep_and_write remotely)
+# These tests all use SleepAndWriteFileMockTask (which calls
+# remote_sleep_and_write remotely)
 
 
-def test_empty_dag(db_cfg, jsm_jqs, job_dag_manager):
+def test_empty_dag(db_cfg, jsm_jqs, task_dag_manager):
     """
     Create a dag with no Tasks. Call all the creation methods and check that it raises no Exceptions.
     """
-    dag = job_dag_manager.create_job_dag(name="test_empty")
+    dag = task_dag_manager.create_task_dag(name="test_empty")
     assert dag.name == "test_empty"
     dag.execute()
 
@@ -33,13 +35,13 @@ def test_empty_dag(db_cfg, jsm_jqs, job_dag_manager):
     assert num_failed == 0
 
 
-def test_one_task(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
+def test_one_task(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Create a dag with one Task and execute it
     """
     root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_one_task")
+    dag = task_dag_manager.create_task_dag(name="test_one_task")
 
     task = SleepAndWriteFileMockTask(
         output_file_name="{}/test_one_task/mock.out".format(tmp_out_dir)
@@ -55,13 +57,13 @@ def test_one_task(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     assert task.cached_status == JobStatus.DONE
 
 
-def test_three_linear_tasks(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
+def test_three_linear_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Create and execute a dag with three Tasks, one after another: a->b->c
     """
     root_out_dir = "{}/mocks/test_three_linear_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_three_linear_tasks")
+    dag = task_dag_manager.create_task_dag(name="test_three_linear_tasks")
 
     task_a = SleepAndWriteFileMockTask(
         output_file_name="{}/a.out".format(root_out_dir),
@@ -92,7 +94,7 @@ def test_three_linear_tasks(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     # TBD validation
 
 
-def test_fork_and_join_tasks(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
+def test_fork_and_join_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Create a small fork and join dag with four phases:
      a->b[0..2]->c[0..2]->d
@@ -100,7 +102,7 @@ def test_fork_and_join_tasks(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks")
+    dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks")
 
     task_a = SleepAndWriteFileMockTask(
         sleep_secs=1,
@@ -157,14 +159,14 @@ def test_fork_and_join_tasks(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     assert task_d.cached_status == JobStatus.DONE
 
 
-def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
+def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Create the same small fork and join dag.
     One of the b-tasks (#1) fails consistently, so c[1] will never be ready.
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks_with_fatal_error".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks_with_fatal_error")
+    dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks_with_fatal_error")
 
     task_a = SleepAndWriteFileMockTask(
         output_file_name="{}/a.out".format(root_out_dir)
@@ -216,14 +218,14 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, job_dag_manager, 
     assert task_d.cached_status == JobStatus.INSTANTIATED
 
 
-def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
+def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Create the same fork and join dag with three Tasks a->b[0..3]->c and execute it.
     One of the b-tasks fails once, so the retry handler should cover that, and the whole DAG should complete
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks_with_retryable_error".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks_with_retryable_error")
+    dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks_with_retryable_error")
 
     task_a = SleepAndWriteFileMockTask(
         output_file_name="{}/a.out".format(root_out_dir)
@@ -276,7 +278,7 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, job_dag_manag
     assert task_d.cached_status == JobStatus.DONE
 
 
-def test_bushy_dag(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
+def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Similar to the a small fork and join dag but with connections between early and late phases:
        a->b[0..2]->c[0..2]->d
@@ -286,7 +288,7 @@ def test_bushy_dag(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_fork_and_join_tasks")
+    dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks")
 
     task_a = SleepAndWriteFileMockTask(
         sleep_secs=1,

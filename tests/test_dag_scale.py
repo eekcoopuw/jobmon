@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.mark.skip(reason="Too big to run by default, only run shen specifically requested")
-def test_burdenator_scale(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
+def test_burdenator_scale(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Create and execute  a big four-phase fork and join dag with expanding and contracting phase sizes.
     No "guard" tasks between phases, so they can just roll through:
@@ -25,7 +25,7 @@ def test_burdenator_scale(db_cfg, jsm_jqs, job_dag_manager, tmp_out_dir):
     N = 10000
     root_out_dir = "{}/mocks/test_burdenator_scale".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = job_dag_manager.create_job_dag(name="test_burdenator_scale")
+    dag = task_dag_manager.create_task_dag(name="test_burdenator_scale")
 
     task_a = {}
     for i in range(N):

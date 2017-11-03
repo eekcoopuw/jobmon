@@ -14,7 +14,7 @@ from jobmon import database
 from jobmon.cli import install_rcfile
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
-from jobmon.workflow.job_dag_factory import JobDagFactory
+from jobmon.workflow.task_dag_factory import TaskDagFactory
 
 from .ephemerdb import EphemerDB
 
@@ -91,14 +91,14 @@ def jsm_jqs(db_cfg):
 @pytest.fixture(scope='module')
 def dag_id(jsm_jqs):
     jsm, jqs = jsm_jqs
-    rc, dag_id = jsm.add_job_dag('test_dag', 'test_user')
+    rc, dag_id = jsm.add_task_dag('test_dag', 'test_user')
     yield dag_id
 
 
 @pytest.fixture(scope='module')
-def job_dag_manager(db_cfg):
-    jdm = JobDagFactory()
-    yield jdm
+def task_dag_manager(db_cfg):
+    tdm = TaskDagFactory()
+    yield tdm
 
 
 @pytest.fixture(scope='module')

@@ -70,7 +70,7 @@ class Job(Base):
     job_instances = relationship("JobInstance", back_populates="job")
     dag_id = Column(
         Integer,
-        ForeignKey('job_dag.dag_id'))
+        ForeignKey('task_dag.dag_id'))
     name = Column(String(255))
     command = Column(Text)
     context_args = Column(String(1000))
