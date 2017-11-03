@@ -22,10 +22,14 @@ directed-acyclic-graph (or DAG). Example::
     include code sample
 
 
-(Stick this in a different, lower-level interactions section). Here's a code
-sample using the low-level JobListManager for job control::
+For more examples, take a look at the `tests <https://stash.ihme.washington.edu/projects/CC/repos/jobmon/browse/tests/test_simple_dag.py>`_.
 
-    include code sample
+.. todo::
+
+    (Stick this in a different, lower-level interactions section). Here's a
+    code sample using the low-level JobListManager for job control::
+
+        include code sample
 
 
 .. note::

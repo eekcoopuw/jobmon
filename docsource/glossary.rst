@@ -24,10 +24,10 @@ For users
             part of the Workflow hash?)
 
     WorkflowArgs
-        A set of arguments that are considered in determining the "uniqueness"
-        of the Workflow and whether it can be resumed. Must be hashable.  For
-        example, CodCorrect or Como version might be passed as Args to the
-        Workflow. Coupled with a populated TaskDag (which must be hashable upon
+        A set of arguments that are used to deteremine the "uniqueness" of the
+        Workflow and whether it can be resumed. Must be hashable.  For example,
+        CodCorrect or Como version might be passed as Args to the Workflow.
+        Coupled with a populated TaskDag (which must be hashable upon
         execution....  somehow) they define a Workflow.
 
     WorkflowRun
@@ -39,9 +39,9 @@ For users
         subsequent WorkflowRun.
 
     TaskDag
-        A set of Tasks. Upon calling "execute()," it is considered frozen (i.e.
-        becomes immutable for the lifetime of the Workflow). It must be
-        hashable in this frozen state.
+        A set of Tasks. Upon calling "execute()," it is frozen (i.e.  becomes
+        immutable for the lifetime of the Workflow). It must be hashable in
+        this frozen state.
 
     Task
         *(aka WorkflowJob, aka "Job that may have up/downstream dependencies")*
@@ -53,15 +53,10 @@ For users
         When a Workflow is first created, all its Jobs are populated in the
         database. A Job is tightly linked to a set of JobInstances. The only
         difference between a Job and a Task is that a Task is a Job that has
-        depedencies or dependents.
+        dependencies or dependents.
 
 
 For developers
 **************
 
-It may be sufficient to cover some of these in docstrings?
-
-- JobInstance (aka JobExecution)
-- JobInstanceFactory
-- JobInstanceReconciler
-- JobListManager
+You'll want to study to the :doc:`API Reference <modules>`.

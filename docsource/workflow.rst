@@ -59,7 +59,8 @@ will restart Tasks that die due to cluster instability or other intermittent
 issues. If for some reason, your Workflow itself dies (or you need to pause
 it), re-running the script at a later time will automatically pickup where
 you left off (assuming you've passed the same values for WorkflowArgs and
-haven't modified the TaskDag).
+haven't modified the TaskDag). It will not re-run those jobs that completed
+successfully.
 
 .. note::
 
@@ -77,8 +78,8 @@ haven't modified the TaskDag).
 
 As soon as you change any of the values of your Workflow's WorkflowArgs, or
 modify its TaskDag, you'll cause a new Workflow entry to be created in the
-jobmon database. When calling run() on this new Workflow, anyprogress through
-the TaskDag that may have been made in previous Workflows wil be ignored.
+jobmon database. When calling run() on this new Workflow, any progress through
+the TaskDag that may have been made in previous Workflows will be ignored.
 
 .. todo::
 
@@ -96,12 +97,13 @@ limit the amount of intelligence that could be provided around pause/resume
 (i.e. WorkflowRun generation).  Tasks can be added to the TaskDag and their
 upstream/downstream connections to other Tasks can be specified. After
 specifying the shape of the Dag, the user should call Workflow.execute(). At
-this point, the TaskDag + WorkflowArgs are consdiered frozen (hashed) so that
-they can be considered (compared) in the case of a pause/resume cycle.
+this point, the TaskDag + WorkflowArgs are frozen (i.e. hashed + locked) so
+that they can be used to search for previous WorkflowRuns in the case of a
+pause/resume cycle.
 
 If the WorkflowArgs + TaskDag that define a Workflow already point to an
 existing Workflow that is incomplete when the user calls "execute()," the user
-must decide (via interactive prompt) (TBD...  we could potentially do this
+must decide (via interactive prompt) (TBD... we could potentially do this
 intelligently) whether to:
 
 - Resume the Workflow by creating a new WorkflowRun

@@ -12,7 +12,7 @@ to existing code bases without significant refactoring.
 
 In addition to simple monitoring, it provides utilities for managing a graph of
 interrelated jobs. It can manage the sequencing of job execution based on the
-intredependencies you declare and can retry jobs that might fail due to random
+interdependencies you declare and can retry jobs that might fail due to random
 cluster instability.
 
 
