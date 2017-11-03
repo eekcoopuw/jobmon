@@ -71,7 +71,7 @@ class JobQueryServer(ReplyServer):
 
     def listen(self):
         """If the database is unavailable, don't allow the JobQueryServer to
-        start listenting. This would defeat its purpose, as it wouldn't have
+        start listening. This would defeat its purpose, as it wouldn't have
         anywhere to persist Job state..."""
         with session_scope() as session:
             try:
