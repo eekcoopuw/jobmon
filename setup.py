@@ -22,6 +22,7 @@ wrapper_cfg = os.path.join(here, 'autowrap.cfg')
 # Extend the build_py command to create wrappers, if autowrap is installed
 vcmds = versioneer.get_cmdclass()
 
+
 cmds = {}
 cmds['sdist'] = vcmds['sdist']
 cmds['version'] = vcmds['version']
@@ -44,6 +45,9 @@ install_requires = [
     'drmaa',
     'jsonpickle',
 ]
+
+if sys.version_info < (3, 0):
+    install_requires.append("functools32")
 
 setup(
     version=versioneer.get_version(),

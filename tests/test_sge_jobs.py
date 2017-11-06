@@ -1,5 +1,11 @@
 import pytest
-from time import sleep
+import sys
+
+if sys.version_info < (3, 0):
+    from functools32 import partial
+else:
+    from functools import partial
+
 from datetime import datetime, timedelta
 
 from jobmon import sge
@@ -7,6 +13,8 @@ from jobmon.database import session_scope
 from jobmon.models import JobInstance, JobInstanceStatus
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
+
+from .timeout_and_skip import timeout_and_skip
 
 
 @pytest.fixture(scope='function')
@@ -24,23 +32,18 @@ def test_valid_command(dag_id, job_list_manager_sge):
         max_attempts=3)
     job_list_manager_sge.queue_job(job_id)
 
-    total_sleep = 0
-    step_size = 10
-    while True:
-        sleep(step_size)  # Give some time for the job to get to the executor
-        total_sleep += step_size
-        done = job_list_manager_sge.get_new_done()
-        if len(done) == 1:
-            # Success
-            assert True
-            return
-        elif total_sleep > 180:
-            print(sge.qstat())
-            fail_msg = ("Test failed due to 180s timeout: check the previous qtsat output; "
-                        "check that you have permission to run under "
-                        "'proj_qlogins' and that there are available jobs under this"
-                        " project")
-            assert len(done) == 1, fail_msg
+    timeout_and_skip(20, 10, 120, 1, partial(
+        valid_command_check,
+        job_list_manager_sge=job_list_manager_sge))
+
+
+def valid_command_check(job_list_manager_sge):
+    done = job_list_manager_sge.get_new_done()
+    if len(done) == 1:
+        # Success
+        return True
+    else:
+        return False
 
 
 def test_context_args(jsm_jqs, job_list_manager_sge):
@@ -51,30 +54,26 @@ def test_context_args(jsm_jqs, job_list_manager_sge):
         context_args={'sge_add_args': '-a {}'.format(delay_to)})
     job_list_manager_sge.queue_job(job_id)
 
-    total_sleep = 0
-    step_size = 10
-    while True:
-        sleep(step_size)  # Give some time for the job to get to the executor
-        total_sleep += step_size
-        with session_scope() as session:
-            jis = session.query(JobInstance).filter_by(job_id=job_id).all()
-            njis = len(jis)
-            status = jis[0].status
-            sge_jid = jis[0].executor_id
-        # Make sure the job actually got to SGE
-        if njis == 1:
-            # Make sure it hasn't advanced to running (i.e. the -a argument worked)
-            assert status == JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR
-            # Cleanup
-            sge.qdel(sge_jid)
-            return
-        elif total_sleep > 180:
-            # done waiting
-            print(sge.qstat())
-            fail_msg = ("Test failed due to 180s timeout: check the  qtsat output; "
-                        "check that you have permission to run under "
-                        "'proj_qlogins' and that there are available jobs under this"
-                        " project")
-            assert njis == 1, fail_msg
+    timeout_and_skip(20, 10, 180, 1, partial(
+        context_args_check,
+        job_id=job_id))
+
+
+def context_args_check(job_id):
+    with session_scope() as session:
+        jis = session.query(JobInstance).filter_by(job_id=job_id).all()
+        njis = len(jis)
+        status = jis[0].status
+        sge_jid = jis[0].executor_id
+    # Make sure the job actually got to SGE
+    if njis == 1:
+        # Make sure it hasn't advanced to running (i.e. the -a argument worked)
+        assert status == JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR
+        # Cleanup
+        sge.qdel(sge_jid)
+        return True
+    else:
+        return False
+
 
 
