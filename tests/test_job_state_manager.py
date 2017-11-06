@@ -20,7 +20,7 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
 def test_jsm_valid_error(jsm_jqs):
     jsm, jqs = jsm_jqs
 
-    _, dag_id = jsm.add_job_dag("mocks", "pytest user")
+    _, dag_id = jsm.add_task_dag("mocks", "pytest user")
     _, job_id = jsm.add_job("bar", "baz", dag_id)
     jsm.queue_job(job_id)
 
@@ -33,7 +33,7 @@ def test_jsm_valid_error(jsm_jqs):
 def test_invalid_transition(jsm_jqs):
     jsm, jqs = jsm_jqs
 
-    _, dag_id = jsm.add_job_dag("mocks", "pytest user")
+    _, dag_id = jsm.add_task_dag("mocks", "pytest user")
     _, job_id = jsm.add_job("bar", "baz", dag_id)
 
     with pytest.raises(InvalidStateTransition):

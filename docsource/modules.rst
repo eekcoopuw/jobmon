@@ -1,7 +1,7 @@
 jobmon
-========
+======
 
 .. toctree::
-:maxdepth: 4
+   :maxdepth: 4
 
-       jobmon
+   jobmon

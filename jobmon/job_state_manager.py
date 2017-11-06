@@ -9,7 +9,7 @@ from jobmon.database import session_scope
 from jobmon.exceptions import ReturnCodes, NoDatabase
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
-from jobmon.workflow import job_dag
+from jobmon.workflow import task_dag
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -23,7 +23,7 @@ class JobStateManager(ReplyServer):
     def __init__(self, rep_port=None, pub_port=None):
         super().__init__(rep_port)
         self.register_action("add_job", self.add_job)
-        self.register_action("add_job_dag", self.add_job_dag)
+        self.register_action("add_task_dag", self.add_task_dag)
         self.register_action("add_job_instance", self.add_job_instance)
         self.register_action("log_done", self.log_done)
         self.register_action("log_error", self.log_error)
@@ -61,8 +61,8 @@ class JobStateManager(ReplyServer):
             job_id = job.job_id
         return (ReturnCodes.OK, job_id)
 
-    def add_job_dag(self, name, user):
-        dag = job_dag.JobDag(
+    def add_task_dag(self, name, user):
+        dag = task_dag.TaskDag(
             name=name,
             user=user)
         with session_scope() as session:
