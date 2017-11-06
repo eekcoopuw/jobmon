@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from datetime import datetime
@@ -70,9 +70,9 @@ class Job(Base):
     job_instances = relationship("JobInstance", back_populates="job")
     dag_id = Column(
         Integer,
-        ForeignKey('job_dag.dag_id'))
+        ForeignKey('task_dag.dag_id'))
     name = Column(String(255))
-    command = Column(String(1000))
+    command = Column(Text)
     context_args = Column(String(1000))
     slots = Column(Integer, default=1)
     mem_free = Column(Integer, default=1)
@@ -117,6 +117,7 @@ class Job(Base):
         if (self.status, new_state) not in self.__class__.valid_transitions:
             raise InvalidStateTransition('Job', self.job_id, self.status,
                                          new_state)
+
 
 class JobInstance(Base):
     __tablename__ = 'job_instance'
@@ -219,4 +220,3 @@ class JobInstanceStatusLog(Base):
         ForeignKey('job_instance_status.id'),
         nullable=False)
     status_time = Column(DateTime, default=datetime.utcnow())
-

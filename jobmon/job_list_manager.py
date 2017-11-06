@@ -81,7 +81,7 @@ class JobListManager(object):
 
         req = Requester(config.jm_rep_conn)
         rc, dag_id = req.send_request({
-            'action': 'add_job_dag',
+            'action': 'add_task_dag',
             'kwargs': {'name': 'test dag', 'user': 'test user'}
         })
         req.disconnect()

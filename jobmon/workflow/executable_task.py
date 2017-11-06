@@ -101,7 +101,7 @@ class ExecutableTask(AbstractTask):
             ValueError if my job_id is None
         """
         if not self.job_id:
-            raise ValueError( "Cannot queue Task because job_id is None: {}".format(self))
+            raise ValueError("Cannot queue Task because job_id is None: {}".format(self))
         job_list_manager.queue_job(self.job_id)
         return self.job_id
 
