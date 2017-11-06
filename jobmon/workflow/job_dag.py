@@ -91,7 +91,6 @@ class JobDag(Base):
         all_failed = []
         all_running = {}
 
-        logger.setLevel(logging.DEBUG)
         logger.debug("Execute DAG {}".format(self))
 
         # These are all Tasks.

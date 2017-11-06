@@ -64,6 +64,7 @@ class JobInstanceReconciler(object):
         if len(to_df) > 0:
             sge.qdel(list(to_df.executor_id))
             for ji in list(to_df.job_instance_id):
+                logger.debug("Killing timed out JI {}".format(int(ji)))
                 self._log_timeout_error(int(ji))
 
     def _get_actual_submitted_or_running(self):
@@ -90,11 +91,11 @@ class JobInstanceReconciler(object):
 
     def _get_timed_out_jobs(self):
         """Returns timed_out jobs as a list of dicts (rather than converting
-        them to JobInstance objects). The dicts are more convient to transform
+        them to JobInstance objects). The dicts are more convenient to transform
         into a Pandas.DataFrame downstream, which is joined to qstat output
         to determine whether any jobs should be qdel'd.
 
-        TODO: Explore whether there is any utilityin in a
+        TODO: Explore whether there is any utility in in a
         "from_wire_as_dataframe" utility method on JobInstance, similar to the
         current "from_wire" utility.
         """

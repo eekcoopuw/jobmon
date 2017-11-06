@@ -100,8 +100,10 @@ class Job(Base):
     def transition_to_error(self):
         self.transition(JobStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
+            logger.debug("ZZZ GIVING UP Job {}".format(self.job_id))
             self.transition(JobStatus.ERROR_FATAL)
         else:
+            logger.debug("ZZZ retrying Job {}".format(self.job_id))
             self.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
 
     def transition(self, new_state):
