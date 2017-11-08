@@ -14,7 +14,7 @@ from jobmon.models import JobInstance, JobInstanceStatus
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 
-from .timeout_and_skip import timeout_and_skip
+from tests.timeout_and_skip import timeout_and_skip
 
 
 @pytest.fixture(scope='function')
@@ -32,7 +32,7 @@ def test_valid_command(dag_id, job_list_manager_sge):
         max_attempts=3)
     job_list_manager_sge.queue_job(job_id)
 
-    timeout_and_skip(20, 10, 120, 1, partial(
+    timeout_and_skip(10, 120, 1, partial(
         valid_command_check,
         job_list_manager_sge=job_list_manager_sge))
 
@@ -54,7 +54,7 @@ def test_context_args(jsm_jqs, job_list_manager_sge):
         context_args={'sge_add_args': '-a {}'.format(delay_to)})
     job_list_manager_sge.queue_job(job_id)
 
-    timeout_and_skip(20, 10, 180, 1, partial(
+    timeout_and_skip(10, 180, 1, partial(
         context_args_check,
         job_id=job_id))
 

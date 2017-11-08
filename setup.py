@@ -46,9 +46,6 @@ install_requires = [
     'jsonpickle',
 ]
 
-if sys.version_info < (3, 0):
-    install_requires.append("functools32")
-
 setup(
     version=versioneer.get_version(),
     cmdclass=cmds,

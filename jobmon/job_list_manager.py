@@ -246,8 +246,6 @@ class JobListManager(object):
         self.jif_proc.daemon = True
         self.jif_proc.start()
 
-        logging.basicConfig(level=logging.INFO)
-
         self.jir_proc = Thread(
             target=self.job_inst_reconciler.reconcile_periodically,
             args=(self.reconciliation_interval,))
