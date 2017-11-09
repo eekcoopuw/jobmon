@@ -70,7 +70,7 @@ def jsm_jqs(db_cfg):
     # Therefore we set up the job_state_manager's console logger here, before we put it in a Thread.
     jsm_logger = logging.getLogger("jobmon.job_state_manager")
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(logging.INFO)
     jsm_logger.addHandler(ch)
     jsm = JobStateManager(db_cfg.jm_rep_conn.port, db_cfg.jm_pub_conn.port)
 

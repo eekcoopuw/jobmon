@@ -1,13 +1,20 @@
 import pytest
+import sys
 import zmq
 from time import sleep
 from queue import Empty
+
+if sys.version_info < (3, 0):
+    from functools32 import partial
+else:
+    from functools import partial
 
 from jobmon import database, models
 from jobmon.config import config
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 
+from tests.timeout_and_skip import timeout_and_skip
 
 @pytest.fixture(scope='module')
 def subscriber(dag_id):
@@ -79,17 +86,31 @@ def test_valid_command(subscriber, job_list_manager):
 def test_daemon_invalid_command(job_list_manager_d):
     job_id = job_list_manager_d.create_job("some new job", "foobar")
     job_list_manager_d.queue_job(job_id)
-    sleep(5)  # Give some time for the job to get to the executor
+
+    # Give some time for the job to get to the executor
+    timeout_and_skip(3, 30, 1, partial(
+        daemon_invalid_command_check,
+        job_list_manager_d=job_list_manager_d))
+
+
+def daemon_invalid_command_check(job_list_manager_d):
     errors = job_list_manager_d.get_new_errors()
-    assert len(errors) == 1
+    return len(errors) == 1
 
 
 def test_daemon_valid_command(job_list_manager_d):
     job_id = job_list_manager_d.create_job("ls", "foobarbaz")
     job_list_manager_d.queue_job(job_id)
-    sleep(5)  # Give some time for the job to get to the executor
+
+    # Give some time for the job to get to the executor
+    timeout_and_skip(3, 30, 1, partial(
+        daemon_valid_command_check,
+        job_list_manager_d=job_list_manager_d))
+
+
+def daemon_valid_command_check(job_list_manager_d):
     done = job_list_manager_d.get_new_done()
-    assert len(done) == 1
+    return len(done) == 1
 
 
 def test_blocking_updates(job_list_manager_d):
@@ -111,13 +132,26 @@ def test_blocking_updates(job_list_manager_d):
     job_list_manager_d.queue_job(job_id1)
     job_list_manager_d.queue_job(job_id2)
     job_list_manager_d.queue_job(job_id3)
-    sleep(3)
+
+    timeout_and_skip(3, 30, 1, partial(
+        blocking_updates_check,
+        job_list_manager_d=job_list_manager_d,
+        job_id1=job_id1,
+        job_id2=job_id2,
+        job_id3=job_id3)
+    )
+
+
+def blocking_updates_check(job_list_manager_d, job_id1, job_id2, job_id3):
     done, errors = job_list_manager_d.block_until_no_instances(
         raise_on_any_error=False)
-    assert len(done) == 2
-    assert len(errors) == 1
-    assert set(done) == set([job_id1, job_id2])
-    assert set(errors) == set([job_id3])
+    if len(done) == 2:
+        assert len(errors) == 1
+        assert set(done) == set([job_id1, job_id2])
+        assert set(errors) == set([job_id3])
+        return True
+    else:
+        return False
 
 
 def test_blocking_update_timeout(job_list_manager_d):
