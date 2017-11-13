@@ -54,7 +54,7 @@ class AbstractTask(object):
 
         Args
          hash_name: the unique name for this Task, also readable by humans. Should include all parameters.
-         Two Tasks are equal (__eq__) iff they have the same hash_name
+         Two Tasks are equal (__eq__) if they have the same hash_name
 
          Raise:
            ValueError: If the hash_name is not allowed as an SGE job name see is_valid_sge_job_name

@@ -41,36 +41,51 @@ def test_equality():
 
 
 class TheBashTask(BashTask):
-    def __init(self, hash_name, args=(), upstream_tasks=[]):
-        BashTask.__init__(self, hash_name, args, upstream_tasks)
+    def __init(self, hash_name, command, args=(), upstream_tasks=[]):
+        BashTask.__init__(self, hash_name, command, args, upstream_tasks)
 
 
 def test_bash_task_equality():
-    a = TheBashTask("touch ~/mytestfile")
-    a_again = TheBashTask("touch ~/mytestfile")
+    a = TheBashTask(hash_name='a', command="touch ~/mytestfile")
+    a_again = TheBashTask(hash_name='a', command="touch ~/mytestfile")
     assert a == a_again
 
-    b = TheBashTask("ls ~", upstream_tasks=[a, a_again])
+    b = TheBashTask(hash_name='b', command="ls ~", upstream_tasks=[a, a_again])
     assert b != a
     assert len(b.upstream_tasks) == 1
 
 
-def test_bash_task_args_equality():
-    a = TheBashTask("echo $1", args=("hello jobmon",))
-    a_again = TheBashTask("echo $1", args=("hello jobmon",))
-    assert a == a_again
+def test_bash_task_equality_using_diff_args():
+    # irrespective of args, tasks should be equal if they have same hash_name
+    # See NOTE in next test.
+    a = TheBashTask(hash_name='a', command="echo $1", args=("hello jobmon",))
+    a_diff_args = TheBashTask(hash_name='a', command="echo $1",
+                              args=("hello world",))
+    assert a == a_diff_args
 
-    # BashTask will need to parse args into the hashname
-    a_but_diff_args = TheBashTask("echo $1", args=("hello world",))
-    assert a != a_but_diff_args
-
-    b = TheBashTask("echo $1 $2", args=("hello jobmon", "and hello world"),
-                    upstream_tasks=[a, a_but_diff_args])
+    b = TheBashTask(hash_name='b', command="echo $1 $2",
+                    args=("hello jobmon", "and hello world"),
+                    upstream_tasks=[a, a_diff_args])
     assert b != a
-    assert b != a_but_diff_args
-    assert len(b.upstream_tasks) == 2
+    assert b != a_diff_args
+    assert len(b.upstream_tasks) == 1
 
 
+def test_bash_task_equality_using_diff_commands():
+    # irrespective of commands, tasks should be equal if they have same
+    # hash_name
+    # NOTE: in the future, we could intelligently create hash_name from command
+    # + args, if the hash_name were to default to None and isn't passed in.
+    # Either that or raise an error in task_dag.py if a repeat hash_name is
+    # added?
+    a = TheBashTask(hash_name='a', command="echo 'hi'")
+    a_diff_comand = TheBashTask(hash_name='a', command="echo 'bye'")
+    assert a == a_diff_comand
 
-
+    b = TheBashTask(hash_name='b', command="echo $1 $2",
+                    args=("hello jobmon", "and hello world"),
+                    upstream_tasks=[a, a_diff_comand])
+    assert b != a
+    assert b != a_diff_comand
+    assert len(b.upstream_tasks) == 1
 
