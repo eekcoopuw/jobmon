@@ -1,5 +1,6 @@
 import logging
 import os
+import pytest
 
 from cluster_utils.io import makedirs_safely
 
@@ -55,6 +56,31 @@ def test_one_task(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     assert num_completed == 1
     assert num_failed == 0
     assert task.cached_status == JobStatus.DONE
+
+
+def test_two_tasks_same_name_errors(db_cfg, jsm_jqs, task_dag_manager,
+                                    tmp_out_dir):
+    """
+    Create a dag with two Tasks, with the second task having the same hash_name
+    as the first. Make sure that, upon adding the second task to the dag,
+    TaskDag raises a ValueError
+    """
+    root_out_dir = "{}/mocks/test_two_tasks_same_name".format(tmp_out_dir)
+    makedirs_safely(root_out_dir)
+    dag = task_dag_manager.create_task_dag(name="test_two_tasks_same_name")
+
+    task_a = SleepAndWriteFileMockTask(
+        output_file_name="{}/test_two_tasks_same_name/a.out"
+        .format(tmp_out_dir)
+    )
+    dag.add_task(task_a)
+
+    task_a_again = SleepAndWriteFileMockTask(
+        output_file_name="{}/a.out".format(root_out_dir),
+        upstream_tasks=[task_a]
+    )
+    with pytest.raises(ValueError):
+        dag.add_task(task_a_again)
 
 
 def test_three_linear_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
