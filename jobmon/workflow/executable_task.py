@@ -120,7 +120,3 @@ class ExecutableTask(AbstractTask):
             format(jid=self.job_id, name=self.hash_name,
                    status=self.cached_status)
 
-
-class BashTask(ExecutableTask):
-    def __init__(self, hash_name, command, upstream_tasks=None):
-        ExecutableTask.__init__(self, hash_name, upstream_tasks)
