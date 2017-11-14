@@ -202,8 +202,14 @@ class TaskDag(Base):
 
         Returns:
            The Job
+
+        Raises:
+            ValueError if a task is trying to be added but it already exists
         """
         logger.debug("Adding Task {}".format(task))
+        if task.hash_name in self.names_to_nodes:
+            raise ValueError("A task with hash_name '{}' already exists"
+                             .format(task.hash_name))
         self.names_to_nodes[task.hash_name] = task
         if not task.upstream_tasks:
             self.top_fringe += [task]
