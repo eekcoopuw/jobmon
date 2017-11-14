@@ -1,37 +1,37 @@
-jobmon.workflow package
-=======================
+jobmon\.workflow package
+========================
 
 Submodules
 ----------
 
-jobmon.workflow.abstract_task module
-------------------------------------
+jobmon\.workflow\.abstract\_task module
+---------------------------------------
 
 .. automodule:: jobmon.workflow.abstract_task
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.workflow.executable_task module
---------------------------------------
+jobmon\.workflow\.executable\_task module
+-----------------------------------------
 
 .. automodule:: jobmon.workflow.executable_task
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.workflow.task_dag module
--------------------------------
+jobmon\.workflow\.job\_dag module
+---------------------------------
 
-.. automodule:: jobmon.workflow.task_dag
+.. automodule:: jobmon.workflow.job_dag
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.workflow.task_dag_factory module
----------------------------------------
+jobmon\.workflow\.job\_dag\_factory module
+------------------------------------------
 
-.. automodule:: jobmon.workflow.task_dag_factory
+.. automodule:: jobmon.workflow.job_dag_factory
     :members:
     :undoc-members:
     :show-inheritance:
