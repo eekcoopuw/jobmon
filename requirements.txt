@@ -1,5 +1,5 @@
 sphinx
 sphinx_rtd_theme
 pytest
-cluster-utils
+cluster_utils
 functools32; python_version < '3.0'

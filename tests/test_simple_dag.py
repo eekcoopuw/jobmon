@@ -76,8 +76,8 @@ def test_two_tasks_same_name_errors(db_cfg, jsm_jqs, task_dag_manager,
     dag.add_task(task_a)
 
     task_a_again = SleepAndWriteFileMockTask(
-        output_file_name="{}/a.out".format(root_out_dir),
-        upstream_tasks=[task_a]
+        output_file_name="{}/test_two_tasks_same_name/a.out"
+        .format(tmp_out_dir)
     )
     with pytest.raises(ValueError):
         dag.add_task(task_a_again)

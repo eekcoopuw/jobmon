@@ -17,9 +17,11 @@ class BashTask(etk.ExecutableTask):
     def construct_hash_name(command):
         """ Hashes the string itself, to eliminate all invalid sge characters.
         Note: can't use builtin hash function, as it's randomly generated upon
-        the startup of each python process, and is not reproducible
+        the startup of each python process, and is not reproducible.
+        Further, hashlib.sha1 requires its inputs to be in utf-8.
         """
-        return hashlib.sha1(command).hexdigest()
+        return "bash_task_{}".format(
+            hashlib.sha1(command.encode('utf-8')).hexdigest())
 
     def create_job(self, job_list_manager):
         """
