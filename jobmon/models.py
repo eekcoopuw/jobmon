@@ -204,7 +204,7 @@ class JobInstanceErrorLog(Base):
         ForeignKey('job_instance.job_instance_id'),
         nullable=False)
     error_time = Column(DateTime, default=datetime.utcnow())
-    description = Column(String(1000), nullable=False)
+    description = Column(Text)
 
 
 class JobInstanceStatusLog(Base):
