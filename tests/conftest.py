@@ -19,24 +19,45 @@ from jobmon.workflow.task_dag_factory import TaskDagFactory
 from .ephemerdb import EphemerDB
 
 
+@pytest.fixture(autouse=True)
+def env_var(monkeypatch, rcfile):
+    monkeypatch.setenv("JOBMON_CONFIG", rcfile)
+
+
 @pytest.fixture(scope='session')
-def rcfile():
+def rcfile_dir():
+    u = uuid.uuid4()
+    user = pwd.getpwuid(os.getuid()).pw_name
+    rcdir = ('/ihme/scratch/users/{user}/tests/jobmon/'
+             '{uuid}'.format(user=user, uuid=u))
+    try:
+        os.makedirs(rcdir)
+    except:
+        pass
+    yield rcdir
+    shutil.rmtree(rcdir)
+
+
+@pytest.fixture(scope='session')
+def rcfile(rcfile_dir):
     args = Namespace()
     args.force = False
+    args.file = "{}/jobmonrc".format(rcfile_dir)
     try:
         install_rcfile(args)
         cleanup_rcfile = True
     except FileExistsError:
         # It's OK for now if the rcfile already exists. May need to revisit
-        # this once we have a more sensible mechanism for versioning the RCFILEs
+        # this once we have a more sensible mechanism for versioning the
+        # RCFILEs
         cleanup_rcfile = False
 
-    opts_dct = GlobalConfig.get_file_opts("~/.jobmonrc")
+    opts_dct = GlobalConfig.get_file_opts(args.file)
     config.apply_opts_dct(opts_dct)
-    yield
+    yield args.file
 
     if cleanup_rcfile:
-        os.remove(os.path.expanduser("~/.jobmonrc"))
+        os.remove(os.path.expanduser(args.file))
 
 
 @pytest.fixture(scope='module')
@@ -67,7 +88,8 @@ def jsm_jqs(db_cfg):
     # logging does not work well with Threads in python < 2.7,
     # see https://docs.python.org/2/library/logging.html
     # Logging has to be set up BEFORE the Thread.
-    # Therefore we set up the job_state_manager's console logger here, before we put it in a Thread.
+    # Therefore we set up the job_state_manager's console logger here, before
+    # we put it in a Thread.
     jsm_logger = logging.getLogger("jobmon.job_state_manager")
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
@@ -105,6 +127,7 @@ def task_dag_manager(db_cfg):
 def tmp_out_dir():
     u = uuid.uuid4()
     user = pwd.getpwuid(os.getuid()).pw_name
-    output_root = '/ihme/scratch/users/{user}/tests/jobmon/{uuid}'.format(user=user, uuid=u)
+    output_root = ('/ihme/scratch/users/{user}/tests/jobmon/'
+                   '{uuid}'.format(user=user, uuid=u))
     yield output_root
     shutil.rmtree(output_root)

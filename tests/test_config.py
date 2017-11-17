@@ -19,7 +19,7 @@ def test_command_line(rcfile):
                 "jsm_rep_port": "1",
                 "jsm_pub_port": "2",
                 "jqs_port": "3"}
-    gc = GlobalConfig.from_file("~/.jobmonrc")
+    gc = GlobalConfig.from_file(rcfile)
     gc.apply_opts_dct(opts_dct)
     assert gc.conn_str == 'foo'
     assert gc.jm_rep_conn.host == 'bar'
