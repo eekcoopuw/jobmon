@@ -106,8 +106,10 @@ class JobStateManager(ReplyServer):
         logger.debug("Log DONE for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
-            self._update_job_instance_state(session, ji,
-                                            models.JobInstanceStatus.DONE)
+            msg = self._update_job_instance_state(session, ji,
+                                                  models.JobInstanceStatus.DONE)
+        if msg:
+            self.publisher.send_string(msg)
         return (ReturnCodes.OK,)
 
     def log_error(self, job_instance_id, error_message):
@@ -115,29 +117,35 @@ class JobStateManager(ReplyServer):
                                                               error_message))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
-            self._update_job_instance_state(session, ji,
-                                            models.JobInstanceStatus.ERROR)
+            msg = self._update_job_instance_state(
+                session, ji, models.JobInstanceStatus.ERROR)
             error = models.JobInstanceErrorLog(job_instance_id=job_instance_id,
                                                description=error_message)
             session.add(error)
+        if msg:
+            self.publisher.send_string(msg)
         return (ReturnCodes.OK,)
 
     def log_executor_id(self, job_instance_id, executor_id):
         logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
-            self._update_job_instance_state(
+            msg = self._update_job_instance_state(
                 session, ji,
                 models.JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
             self._update_job_instance(session, ji, executor_id=executor_id)
+        if msg:
+            self.publisher.send_string(msg)
         return (ReturnCodes.OK,)
 
     def log_running(self, job_instance_id):
         logger.debug("Log RUNNING for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
-            self._update_job_instance_state(session, ji,
-                                            models.JobInstanceStatus.RUNNING)
+            msg = self._update_job_instance_state(
+                session, ji, models.JobInstanceStatus.RUNNING)
+        if msg:
+            self.publisher.send_string(msg)
         return (ReturnCodes.OK,)
 
     def log_usage(self, job_instance_id, usage_str=None, wallclock=None,
@@ -163,14 +171,25 @@ class JobStateManager(ReplyServer):
         return job_instance
 
     def _update_job_instance_state(self, session, job_instance, status_id):
+        """Advances the states of job_instance and it's associated Job,
+        returning any messages that should be published based on
+        the transition"""
         logger.debug("Update JI state {} for  {}".format(status_id,
                                                          job_instance))
         job_instance.transition(status_id)
         job = job_instance.job
+
+        # TODO: Investigate moving this publish logic into some SQLAlchemy-
+        # event driven framework. Given the amount of code copying here, to
+        # ensure consistenty with committed transactions it doesn't feel like
+        # the JobStateManager should be the responsible party on this one.
+        #
+        # ... see tests/tests_job_state_manager.py for Event example
         if job.status in [models.JobStatus.DONE, models.JobStatus.ERROR_FATAL]:
-            msg = mogrify(job.dag_id, (job.job_id, job.status))
-            self.publisher.send_string(msg)
-        return (ReturnCodes.OK,)
+            to_publish = mogrify(job.dag_id, (job.job_id, job.status))
+            return to_publish
+        else:
+            return None
 
     def _update_job_instance(self, session, job_instance, **kwargs):
         logger.debug("Update JI  {}".format(job_instance))
