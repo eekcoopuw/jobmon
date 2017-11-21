@@ -48,13 +48,13 @@ def apply_args_to_config(args):
 
 
 def install_rcfile(args):
-    rcfile = os.path.abspath(os.path.expanduser("~/.jobmonrc"))
+    rcfile = os.path.abspath(os.path.expanduser(args.file))
     if os.path.exists(rcfile):
         if not args.force:
             raise FileExistsError("rcfile already exists. Use -f/--force if "
                                   "you want to overwrite it. The existing "
                                   "file will be backed up to "
-                                  "~/.jobmonrc.backup")
+                                  "{}.backup".format(rcfile))
         backup_file = "{}.backup".format(rcfile)
         shutil.move(rcfile, backup_file)
 
@@ -95,6 +95,7 @@ def parse_args(argstr=None):
         "configure", description="Installs jobmon rc file")
     config_parser.set_defaults(func=install_rcfile)
     config_parser.add_argument("-f", "--force", action='store_true')
+    config_parser.add_argument("--file", type=str, default="~/.jobmonrc")
 
     initdb_parser = subparsers.add_parser("initdb")
     initdb_parser.set_defaults(func=initdb)

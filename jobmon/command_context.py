@@ -42,6 +42,11 @@ def build_qsub(job, job_instance_id):
         project_cmd = ""
     cmd = build_wrapped_command(job, job_instance_id)
     thispath = os.path.dirname(os.path.abspath(__file__))
+
+    # NOTE: The -V or equivalent is critical here to propagate the value of the
+    # JOBMON_CONFIG environment variable to downstream Jobs... otherwise those
+    # Jobs could end up using a different config and not be able to talk back
+    # to the appropriate server(s)
     qsub_cmd = ('qsub -N {jn} '
                 '-pe multi_slot {slots} -l mem_free={mem}g '
                 '{project} '
