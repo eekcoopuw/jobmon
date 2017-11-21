@@ -12,6 +12,7 @@ from threading import Thread
 from jobmon.config import GlobalConfig, config
 from jobmon import database
 from jobmon.cli import install_rcfile
+from jobmon.job_list_manager import JobListManager
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
 from jobmon.workflow.task_dag_factory import TaskDagFactory
@@ -108,3 +109,11 @@ def tmp_out_dir():
     output_root = '/ihme/scratch/users/{user}/tests/jobmon/{uuid}'.format(user=user, uuid=u)
     yield output_root
     shutil.rmtree(output_root)
+
+
+@pytest.fixture(scope='function')
+def job_list_manager_sub(dag_id):
+    jlm = JobListManager(dag_id)
+    jlm._start_job_status_listener()
+    yield jlm
+    jlm.disconnect()
