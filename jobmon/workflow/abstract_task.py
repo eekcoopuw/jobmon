@@ -65,8 +65,11 @@ class AbstractTask(object):
            ValueError: If the hashed command is not allowed as an SGE job name;
            see is_valid_sge_job_name
         """
-        self.hash_name = hashlib.sha1(command.encode('utf-8')).hexdigest()
-        AbstractTask.is_valid_sge_job_name(command)
+        # Hash must be an integer, in order for it to be returned by __hash__
+        self.hash = int(hashlib.sha1(command.encode('utf-8')).hexdigest(), 16)
+        # Names of sge jobs can't start with a numeric.
+        self.hash_name = "task_{}".format(self.hash)
+        AbstractTask.is_valid_sge_job_name(self.hash_name)
 
         self.upstream_tasks = set()
         self.downstream_tasks = set()
@@ -76,13 +79,13 @@ class AbstractTask(object):
         Two tasks are equal if they have the same hash_name.
         Needed for sets
         """
-        return self.hash_name == other.hash_name
+        return self.hash == other.hash
 
     def __hash__(self):
         """
         Logic must match __eq__
         """
-        return self.hash_name
+        return self.hash
 
     def needs_to_execute(self):
         """

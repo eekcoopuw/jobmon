@@ -152,8 +152,10 @@ def test_fork_and_join_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
 
     output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
-        sleep_secs=1,
-        output_file_name="{}/a.out".format(root_out_dir)
+        command=("python " +
+                 sge.true_path("tests/remote_sleep_and_write.py") +
+                 " --sleep_secs 1 --output_file_path {ofn} --name {n}"
+                 .format(ofn=output_file_name, n=output_file_name))
     )
     dag.add_task(task_a)
 
@@ -230,8 +232,12 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, task_dag_manager,
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks_with_fatal_error")
 
+    output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
-        output_file_name="{}/a.out".format(root_out_dir)
+        command=("python " +
+                 sge.true_path("tests/remote_sleep_and_write.py") +
+                 " --sleep_secs 1 --output_file_path {ofn} --name {n}"
+                 .format(ofn=output_file_name, n=output_file_name))
     )
     dag.add_task(task_a)
 
@@ -301,8 +307,12 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, task_dag_mana
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks_with_retryable_error")
 
+    output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
-        output_file_name="{}/a.out".format(root_out_dir)
+        command=("python " +
+                 sge.true_path("tests/remote_sleep_and_write.py") +
+                 " --sleep_secs 1 --output_file_path {ofn} --name {n}"
+                 .format(ofn=output_file_name, n=output_file_name))
     )
     dag.add_task(task_a)
 
