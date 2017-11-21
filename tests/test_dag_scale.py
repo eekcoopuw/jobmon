@@ -27,16 +27,16 @@ def test_burdenator_scale(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     root_out_dir = "{}/mocks/test_burdenator_scale".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_burdenator_scale")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
     task_a = {}
     for i in range(N):
         output_file_name = "{}/a-{}.out".format(root_out_dir, i)
         task_a[i] = SleepAndWriteFileMockTask(
-            command=("python " +
-                     sge.true_path("tests/remote_sleep_and_write.py") +
-                     " --sleep_secs 1 --output_file_path {ofn} --name {n}"
-                        .format(ofn=output_file_name,
-                                n=output_file_name)))
+            command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script,
+                                         ofn=output_file_name,
+                                         n=output_file_name)))
         dag.add_task(task_a[i])
 
     # The B's all have varying run times. One a-task fans out to 3 b-tasks
@@ -45,11 +45,10 @@ def test_burdenator_scale(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
         sleep_secs = 5 + i % 7  # Add a bit of jitter to the runtimes
         output_file_name = "{}/b-{}.out".format(root_out_dir, i)
         task_b[i] = SleepAndWriteFileMockTask(
-            command=("python " +
-                     sge.true_path("tests/remote_sleep_and_write.py") +
-                     " --sleep_secs {ss} --output_file_path {ofn} --name {n}"
-                        .format(ss=sleep_secs, ofn=output_file_name,
-                                n=output_file_name)),
+            command=("python {cs} --sleep_secs {ss} --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script, ss=sleep_secs,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_a[i // 3]]  # // is truncating integer division
         )
         dag.add_task(task_b[i])
@@ -61,11 +60,10 @@ def test_burdenator_scale(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
         sleep_secs = 5 + i % 5,
         output_file_name = "{}/c-{}.out".format(root_out_dir, i)
         task_c[i] = SleepAndWriteFileMockTask(
-            command=("python " +
-                     sge.true_path("tests/remote_sleep_and_write.py") +
-                     " --sleep_secs {ss} --output_file_path {ofn} --name {n}"
-                        .format(ss=sleep_secs, ofn=output_file_name,
-                                n=output_file_name)),
+            command=("python {cs} --sleep_secs {ss} --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script, ss=sleep_secs,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_b[3 * i], task_b[3 * i + 1], task_b[3 * i + 2]]
         )
         dag.add_task(task_c[i])
@@ -73,13 +71,12 @@ def test_burdenator_scale(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     task_d = {}
     for i in range(N // 10):
         sleep_secs = 3 + i % 7,
-        output_file_name = "{}/d-{}.out".format(root_out_dir, i),
+        output_file_name = "{}/d-{}.out".format(root_out_dir, i)
         task_d[i] = SleepAndWriteFileMockTask(
-            command=("python " +
-                     sge.true_path("tests/remote_sleep_and_write.py") +
-                     " --sleep_secs {ss} --output_file_path {ofn} --name {n}"
-                        .format(ss=sleep_secs, ofn=output_file_name,
-                                n=output_file_name)),
+            command=("python {cs} --sleep_secs {ss} --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script, ss=sleep_secs,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_c[i + j] for j in range(10)]
         )
         dag.add_task(task_d[i])

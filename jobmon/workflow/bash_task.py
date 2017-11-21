@@ -1,13 +1,13 @@
 import logging
 
-import jobmon.workflow.executable_task as etk
+from jobmon.workflow.executable_task import ExecutableTask
 
 logger = logging.getLogger(__name__)
 
 
-class BashTask(etk.ExecutableTask):
+class BashTask(ExecutableTask):
     def __init__(self, command, upstream_tasks=[]):
-        etk.ExecutableTask.__init__(
+        ExecutableTask.__init__(
             self, command, upstream_tasks=upstream_tasks)
         self.command = command
 
