@@ -1,4 +1,5 @@
 import logging
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -8,9 +9,10 @@ class AbstractTask(object):
     The root of the Task class tree.
     All tasks have a set of upstream and a set of downstream tasks.
 
-    Executable jobs (in release Dugong) have a jobmon.Job, which is executedon the SGE cluster.
-    External Tasks (fin release Frog) do not have Jobs, because they represent input tasks that are "givens" and
-    cannot be executed.
+    Executable jobs (in release Dugong) have a jobmon.Job, which is executed on
+    the SGE cluster.
+    External Tasks (fin release Frog) do not have Jobs, because they represent
+    input tasks that are "givens" and cannot be executed.
     """
 
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
@@ -18,8 +20,8 @@ class AbstractTask(object):
     @staticmethod
     def is_valid_sge_job_name(name):
         """
-        If the name is invalid it will raises an exception. The list of illegal characters might not be complete,
-        I could not find an official list.
+        If the name is invalid it will raises an exception. The list of illegal
+        characters might not be complete, I could not find an official list.
 
         TBD This should probably be moved to the cluster_utils package
 
@@ -37,30 +39,34 @@ class AbstractTask(object):
         Raises:
             ValueError: if the name is not valid.
         """
-        error = ""
+
         if not name:
             raise ValueError("name cannot be None or empty")
         elif name[0].isdigit():
-            raise ValueError("name cannot begin with a digit, saw: '{}'".format(name[0]))
+            raise ValueError("name cannot begin with a digit, saw: '{}'"
+                             .format(name[0]))
         elif any(e in name for e in AbstractTask.ILLEGAL_SPECIAL_CHARACTERS):
-            raise ValueError("name contains illegal special character, illegal characters are: '{}'". \
-                format(AbstractTask.ILLEGAL_SPECIAL_CHARACTERS))
+            raise ValueError("name contains illegal special character, "
+                             "illegal characters are: '{}'"
+                             .format(AbstractTask.ILLEGAL_SPECIAL_CHARACTERS))
 
         return True
 
-    def __init__(self, hash_name):
+    def __init__(self, command):
         """
         Create a task
 
         Args
-         hash_name: the unique name for this Task, also readable by humans. Should include all parameters.
-         Two Tasks are equal (__eq__) iff they have the same hash_name
+         command: the unique command for this Task, also readable by humans.
+         Should include all parameters.
+         Two Tasks are equal (__eq__) iff they have the same command
 
          Raise:
-           ValueError: If the hash_name is not allowed as an SGE job name see is_valid_sge_job_name
+           ValueError: If the hashed command is not allowed as an SGE job name;
+           see is_valid_sge_job_name
         """
-        AbstractTask.is_valid_sge_job_name(hash_name)
-        self.hash_name = hash_name
+        self.hash_name = hashlib.sha1(command.encode('utf-8')).hexdigest()
+        AbstractTask.is_valid_sge_job_name(command)
 
         self.upstream_tasks = set()
         self.downstream_tasks = set()
@@ -76,7 +82,7 @@ class AbstractTask(object):
         """
         Logic must match __eq__
         """
-        return hash(self.hash_name)
+        return self.hash_name
 
     def needs_to_execute(self):
         """
