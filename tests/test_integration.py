@@ -1,13 +1,7 @@
 import pytest
 import sys
 import zmq
-from time import sleep
 from queue import Empty
-
-if sys.version_info < (3, 0):
-    from functools32 import partial
-else:
-    from functools import partial
 
 from jobmon import database, models
 from jobmon.config import config
@@ -15,6 +9,12 @@ from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 
 from tests.timeout_and_skip import timeout_and_skip
+
+if sys.version_info < (3, 0):
+    from functools32 import partial
+else:
+    from functools import partial
+
 
 @pytest.fixture(scope='module')
 def subscriber(dag_id):

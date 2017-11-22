@@ -119,4 +119,3 @@ class ExecutableTask(AbstractTask):
         return "[Task: jid={jid}, '{name}', status: {status}]". \
             format(jid=self.job_id, name=self.hash_name,
                    status=self.cached_status)
-

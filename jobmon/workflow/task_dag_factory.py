@@ -34,7 +34,10 @@ class TaskDagFactory(object):
             'action': 'add_task_dag',
             'kwargs': {'name': name, 'user': getuser()}
         })
-        job_list_manager = JobListManager(dag_id, executor=execute_sge, start_daemons=True)
-        dag = TaskDag(dag_id=dag_id, name=name, job_list_manager=job_list_manager, created_date=datetime.utcnow())
+        job_list_manager = JobListManager(dag_id, executor=execute_sge,
+                                          start_daemons=True)
+        dag = TaskDag(dag_id=dag_id, name=name,
+                      job_list_manager=job_list_manager,
+                      created_date=datetime.utcnow())
         logger.debug("New TaskDag created {}".format(dag))
         return dag

@@ -10,15 +10,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.skip(reason="Too big to run by default, only run shen specifically requested")
+@pytest.mark.skip(reason="Too big to run by default, only run when "
+                  "specifically requested")
 def test_burdenator_scale(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
-    Create and execute  a big four-phase fork and join dag with expanding and contracting phase sizes.
+    Create and execute  a big four-phase fork and join dag with expanding and
+    contracting phase sizes.
     No "guard" tasks between phases, so they can just roll through:
      a[0..N]->b[0..3*N]->c[0..N]->d[0..N/10]
 
-     Runtimes vary a little - uses modulo arithmetic (%) and relative primes for the jitter. Realtive primes should
-     create "interesting" patterns of timing collisions.
+     Runtimes vary a little - uses modulo arithmetic (%) and relative primes
+     for the jitter. Realtive primes should create "interesting" patterns of
+     timing collisions.
 
      N is big, e.g. 10,000
     """
@@ -49,7 +52,7 @@ def test_burdenator_scale(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
                      "--name {n}".format(cs=command_script, ss=sleep_secs,
                                          ofn=output_file_name,
                                          n=output_file_name)),
-            upstream_tasks=[task_a[i // 3]]  # // is truncating integer division
+            upstream_tasks=[task_a[i // 3]]  # // is truncating int division
         )
         dag.add_task(task_b[i])
 
@@ -64,7 +67,8 @@ def test_burdenator_scale(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
                      "--name {n}".format(cs=command_script, ss=sleep_secs,
                                          ofn=output_file_name,
                                          n=output_file_name)),
-            upstream_tasks=[task_b[3 * i], task_b[3 * i + 1], task_b[3 * i + 2]]
+            upstream_tasks=[task_b[3 * i], task_b[3 * i + 1],
+                            task_b[3 * i + 2]]
         )
         dag.add_task(task_c[i])
 

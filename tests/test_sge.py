@@ -67,15 +67,17 @@ def test_basic_submit():
 @pytest.mark.cluster
 def test_bad_arguments():
     with pytest.raises(ValueError) as exc_info:
-        _ = sge.qsub("/bin/true", "so true", memory=0, slots=0)
+        sge.qsub("/bin/true", "so true", memory=0, slots=0)
     assert "slots must be greater than zero" in str(exc_info)
 
     with pytest.raises(ValueError) as exc_info:
-        _ = sge.qsub("/bin/true", "so true", memory=0, holds=[999], hold_pattern="foo*")
+        sge.qsub("/bin/true", "so true", memory=0, holds=[999],
+                 hold_pattern="foo*")
     assert "Cannot have both" in str(exc_info)
 
     with pytest.raises(ValueError) as exc_info:
-        _ = sge.qsub("/bin/true", "so true", memory=0, parameters="read this and die")
+        sge.qsub("/bin/true", "so true", memory=0,
+                 parameters="read this and die")
     assert "parameters" in str(exc_info)
 
 

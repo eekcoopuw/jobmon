@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 
 def test_empty_dag(db_cfg, jsm_jqs, task_dag_manager):
     """
-    Create a dag with no Tasks. Call all the creation methods and check that it raises no Exceptions.
+    Create a dag with no Tasks. Call all the creation methods and check that it
+    raises no Exceptions.
     """
     dag = task_dag_manager.create_task_dag(name="test_empty")
     assert dag.name == "test_empty"
@@ -171,7 +172,8 @@ def test_fork_and_join_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
         dag.add_task(task_b[i])
 
     # Each c[i] depends exactly and only on b[i]
-    # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race conditions by creating a collision near d
+    # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race
+    # conditions by creating a collision near d
     task_c = {}
     for i in range(3):
         sleep_secs = 5 - i
@@ -217,14 +219,17 @@ def test_fork_and_join_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     assert task_d.cached_status == JobStatus.DONE
 
 
-def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
+def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs,
+                                              task_dag_manager, tmp_out_dir):
     """
     Create the same small fork and join dag.
     One of the b-tasks (#1) fails consistently, so c[1] will never be ready.
     """
-    root_out_dir = "{}/mocks/test_fork_and_join_tasks_with_fatal_error".format(tmp_out_dir)
+    root_out_dir = ("{}/mocks/test_fork_and_join_tasks_with_fatal_error"
+                    .format(tmp_out_dir))
     makedirs_safely(root_out_dir)
-    dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks_with_fatal_error")
+    dag = task_dag_manager.create_task_dag(
+        name="test_fork_and_join_tasks_with_fatal_error")
     command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
     output_file_name = "{}/a.out".format(root_out_dir)
@@ -275,7 +280,8 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, task_dag_manager,
     (rc, num_completed, num_failed) = dag.execute()
 
     assert not rc
-    assert num_completed == 1 + 2 + 2  # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
+    # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
+    assert num_completed == 1 + 2 + 2
     assert num_failed == 1  # b[1]
 
     assert task_a.cached_status == JobStatus.DONE
@@ -291,14 +297,20 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, task_dag_manager,
     assert task_d.cached_status == JobStatus.INSTANTIATED
 
 
-def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
+def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs,
+                                                  task_dag_manager,
+                                                  tmp_out_dir):
     """
-    Create the same fork and join dag with three Tasks a->b[0..3]->c and execute it.
-    One of the b-tasks fails once, so the retry handler should cover that, and the whole DAG should complete
+    Create the same fork and join dag with three Tasks a->b[0..3]->c and
+    execute it.
+    One of the b-tasks fails once, so the retry handler should cover that, and
+    the whole DAG should complete
     """
-    root_out_dir = "{}/mocks/test_fork_and_join_tasks_with_retryable_error".format(tmp_out_dir)
+    root_out_dir = ("{}/mocks/test_fork_and_join_tasks_with_retryable_error"
+                    .format(tmp_out_dir))
     makedirs_safely(root_out_dir)
-    dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks_with_retryable_error")
+    dag = task_dag_manager.create_task_dag(
+        name="test_fork_and_join_tasks_with_retryable_error")
     command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
     output_file_name = "{}/a.out".format(root_out_dir)
@@ -368,7 +380,8 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, task_dag_mana
 
 def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
-    Similar to the a small fork and join dag but with connections between early and late phases:
+    Similar to the a small fork and join dag but with connections between early
+    and late phases:
        a->b[0..2]->c[0..2]->d
     And also:
        c depends on a
@@ -401,7 +414,8 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
         dag.add_task(task_b[i])
 
     # Each c[i] depends exactly and only on b[i]
-    # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race conditions by creating a collision near d
+    # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race
+    # conditions by creating a collision near d
     task_c = {}
     for i in range(3):
         sleep_secs = 5 - i
@@ -432,9 +446,10 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
 
     (rc, num_completed, num_failed) = dag.execute()
 
-    # TODO: How to check that nothing was started before its upstream were done?
-    # Could we read database? Unfortunately not - submitted_date is initial creation, not qsub
-    # status_date is date of last change.
+    # TODO: How to check that nothing was started before its upstream were
+    # done?
+    # Could we read database? Unfortunately not - submitted_date is initial
+    # creation, not qsub status_date is date of last change.
     # Could we listen to job-instance state transitions?
 
     assert rc
@@ -452,4 +467,3 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     assert task_c[2].cached_status == JobStatus.DONE
 
     assert task_d.cached_status == JobStatus.DONE
-

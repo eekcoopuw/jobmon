@@ -101,14 +101,14 @@ class ReplyServer(object):
                     logmsg = 'Replying with: {}'.format(response)
                     logger.debug(logmsg)
                     self.socket.send_json(response)
-            except InvalidResponse as e:
+            except InvalidResponse:
                 logger.error(
                     "action has invalid response format: {}".format(
                         response))
                 response = (ReturnCodes.INVALID_RESPONSE_FORMAT,
                             "action has invalid response format")
                 self.socket.send_json(response)
-            except InvalidRequest as e:
+            except InvalidRequest:
                 logger.error(
                     "action has invalid request format: {}".format(
                         msg))
@@ -116,16 +116,17 @@ class ReplyServer(object):
                             "action has invalid request format")
                 self.socket.send_json(response)
 
-            except InvalidAction as e:
+            except InvalidAction:
                 logmsg = ("{} is not a valid action for this "
                           "ReplyServer. Available actions: {}".format(
                               msg['action'], ",".join(self.actions)))
                 logger.exception(logmsg)
                 response = (ReturnCodes.INVALID_ACTION, logmsg)
                 self.socket.send_json(response)
-            except Exception as e:
+            except Exception:
                 logmsg = (
-                    'ReplyServer sending "generic" error: {}'.format(traceback.format_exc()))
+                    'ReplyServer sending "generic" error: {}'
+                    .format(traceback.format_exc()))
                 logger.debug(logmsg)
                 traceback.print_exc()
                 response = (ReturnCodes.GENERIC_ERROR, logmsg)

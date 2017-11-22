@@ -1,11 +1,6 @@
 import pytest
 import sys
 
-if sys.version_info < (3, 0):
-    from functools32 import partial
-else:
-    from functools import partial
-
 from datetime import datetime, timedelta
 
 from jobmon import sge
@@ -15,6 +10,12 @@ from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 
 from tests.timeout_and_skip import timeout_and_skip
+
+
+if sys.version_info < (3, 0):
+    from functools32 import partial
+else:
+    from functools import partial
 
 
 @pytest.fixture(scope='function')
