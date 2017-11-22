@@ -44,7 +44,9 @@ class JobQueryServer(ReplyServer):
 
     def get_jobs(self, dag_id):
         """
-            Return a dictionary mapping job_id to a dict of the job's instance variables
+        Return a dictionary mapping job_id to a dict of the job's instance
+        variables
+
         Args
             dag_id:
         """
@@ -66,7 +68,7 @@ class JobQueryServer(ReplyServer):
                        Job.max_runtime != None).all()  # noqa: E711
             now = datetime.utcnow()
             timed_out = [r.to_wire() for r in running
-                         if (now-r.status_date).seconds > r.job.max_runtime]
+                         if (now - r.status_date).seconds > r.job.max_runtime]
         return (ReturnCodes.OK, timed_out)
 
     def listen(self):

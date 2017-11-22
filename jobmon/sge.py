@@ -15,7 +15,6 @@ import re
 import subprocess
 import types
 
-from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 
@@ -455,7 +454,8 @@ def qsub(
         job_id of submitted job
     """
     if slots <= 0:
-        raise ValueError("Requested number of slots must be greater than zero not {}".format(slots))
+        raise ValueError("Requested number of slots must be greater than "
+                         "zero not {}".format(slots))
 
     if holds and hold_pattern:
         raise ValueError("Cannot have both 'holds' and 'hold_pattern' set")
@@ -464,7 +464,8 @@ def qsub(
         raise ValueError("Must supply jobname, was empty or null")
 
     if isinstance(parameters, str):
-        raise ValueError("'parameters' cannot be a string, must be a list or a tuple. Value passed='{}'".format(parameters))
+        raise ValueError("'parameters' cannot be a string, must be a list or "
+                         "a tuple. Value passed='{}'".format(parameters))
 
     # Known suffix, has job_type, shfile
     # N             N             N      Run runfile.
@@ -472,7 +473,7 @@ def qsub(
     # N             Y             N      Run given jobtype's interpreter.
     # Y             Y             N      Run given jobtype's interpreter
     # N             N             Y      Run shfile with runfile as arg.
-    # Y             N             Y      Build args to shfile for found jobtype.
+    # Y             N             Y      Build args to shfile for found jobtype
     # N             Y             Y      Build args to shfile for jobtype.
     # Y             Y             Y      Use given jobtype and build args.
     if not jobtype:

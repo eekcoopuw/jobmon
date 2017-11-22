@@ -88,7 +88,7 @@ class EphemerDB(object):
                 logger.debug("Succeeded on attempt {}".format(attempt))
             except OperationalError:
                 logger.debug("Failed on attempt {}".format(attempt))
-                sleep_time = attempt*2
+                sleep_time = attempt * 2
                 sleep(sleep_time)
                 connected = False
                 continue

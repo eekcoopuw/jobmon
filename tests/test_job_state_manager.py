@@ -25,7 +25,8 @@ def commit_hooked_jsm(jsm_jqs):
                          if isinstance(j, Job) and
                          j.status == JobStatus.DONE]
             done_jobs = [j for j in done_jobs
-                         if not any([ji for ji in j.job_instances if ji.executor_id < 0])]
+                         if not any([ji for ji in j.job_instances
+                                    if ji.executor_id < 0])]
             if any(done_jobs):
                 raise OperationalError("Test hook", "", "")
         if any(session.new):
@@ -101,7 +102,7 @@ def test_single_publish_on_error(dag_id, job_list_manager_sub,
 
 
 def test_single_publish_on_done(dag_id, job_list_manager_sub,
-                                 commit_hooked_jsm):
+                                commit_hooked_jsm):
     """Ensures that status publications for DONE only happen once the
     database transaction has been committed"""
 

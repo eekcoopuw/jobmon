@@ -2,16 +2,16 @@ import pytest
 import sys
 from time import sleep
 
-if sys.version_info < (3, 0):
-    from functools32 import partial
-else:
-    from functools import partial
-
 from jobmon import sge
 from jobmon.job_instance_factory import execute_batch_dummy, execute_sge
 from jobmon.job_list_manager import JobListManager
 
 from tests.timeout_and_skip import timeout_and_skip
+
+if sys.version_info < (3, 0):
+    from functools32 import partial
+else:
+    from functools import partial
 
 
 @pytest.fixture(scope='function')
@@ -43,7 +43,7 @@ def job_list_manager_dummy_nod(dag_id):
 
 def test_reconciler_dummy(job_list_manager_dummy):
     # Flush the error queue to avoid false positives from other tests
-    errors_ignored = job_list_manager_dummy.get_new_errors()
+    job_list_manager_dummy.get_new_errors()
 
     # Queue a job
     job_id = job_list_manager_dummy.create_job("ls", "dummyfbb")
@@ -109,7 +109,7 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
 
 def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
-    errors = job_list_manager_sge.get_new_errors()
+    job_list_manager_sge.get_new_errors()
 
     # Queue a test job
     job_id = job_list_manager_sge.create_job(
@@ -119,8 +119,8 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job.
-    # The sleepy job tries to sleep for 60 seconds, but times out after 3 seconds (well, when the reconciler runs,
-    # typically every 10 seconds)
+    # The sleepy job tries to sleep for 60 seconds, but times out after 3
+    # seconds (well, when the reconciler runs, typically every 10 seconds)
 
     # 60
     timeout_and_skip(10, 90, 1, partial(
@@ -131,7 +131,8 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
         job_id=job_id))
 
 
-def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):
+def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
+                                 job_id):
     errors = job_list_manager_sge.get_new_errors()
     if len(errors) == 1:
         assert job_id in errors
@@ -148,7 +149,7 @@ def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):
 
 def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
-    errors_ignored = job_list_manager_sge.get_new_errors()
+    job_list_manager_sge.get_new_errors()
 
     # Qsub a long running job -> queue another job that waits on it,
     # to simulate a hqw -> set the timeout for that hqw job to something
@@ -161,7 +162,8 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job
-    # The sleepy job tries to sleep for 60 seconds, but times out after 3 seconds
+    # The sleepy job tries to sleep for 60 seconds, but times out after 3
+    # seconds
 
     timeout_and_skip(10, 90, 1, partial(
         ignore_qw_in_timeouts_check,

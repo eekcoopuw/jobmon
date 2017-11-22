@@ -28,7 +28,7 @@ def execute_sge(job, job_instance_id):
         qsub_cmd = build_qsub(job, job_instance_id)
         resp = subprocess.check_output(qsub_cmd, shell=True)
         idx = resp.split().index(b'job')
-        sge_jid = int(resp.split()[idx+1])
+        sge_jid = int(resp.split()[idx + 1])
 
         # TODO: FIX THIS ... DRMAA QSUB METHOD IS FAILING FOR SOME REASON,
         # NEED TO INVESTIGATE THE JOBTYPE ASSUMPTIONS. RESORTING TO

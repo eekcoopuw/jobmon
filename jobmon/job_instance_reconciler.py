@@ -91,9 +91,9 @@ class JobInstanceReconciler(object):
 
     def _get_timed_out_jobs(self):
         """Returns timed_out jobs as a list of dicts (rather than converting
-        them to JobInstance objects). The dicts are more convenient to transform
-        into a Pandas.DataFrame downstream, which is joined to qstat output
-        to determine whether any jobs should be qdel'd.
+        them to JobInstance objects). The dicts are more convenient to
+        transform into a Pandas.DataFrame downstream, which is joined to qstat
+        output to determine whether any jobs should be qdel'd.
 
         TODO: Explore whether there is any utility in in a
         "from_wire_as_dataframe" utility method on JobInstance, similar to the

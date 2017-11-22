@@ -19,18 +19,21 @@ class TaskDag(Base):
     user = Column(String(150))
     created_date = Column(DateTime)
 
-    def __init__(self, dag_id=None, name=None, user=None, job_list_manager=None, created_date=None):
+    def __init__(self, dag_id=None, name=None, user=None,
+                 job_list_manager=None, created_date=None):
         # TBD input validation, specifically dag_id == None
-        super(TaskDag, self).__init__(dag_id=dag_id, name=name, user=user, created_date=created_date)
+        super(TaskDag, self).__init__(dag_id=dag_id, name=name, user=user,
+                                      created_date=created_date)
         self.job_list_manager = job_list_manager
 
-        self.names_to_nodes = {}  # dictionary, TBD needs to scale to 1,000,000 jobs, untested at scale
+        # dictionary, TBD needs to scale to 1,000,000 jobs, untested at scale
+        self.names_to_nodes = {}
         self.top_fringe = []
 
     def validate(self, raises=True):
         """
-        Mostly useful for testing, but also for debugging, and also as a solid example of how this complex data
-        structure should look.
+        Mostly useful for testing, but also for debugging, and also as a solid
+        example of how this complex data structure should look.
 
         Check:
           - Only one graph - not two sub graphs TBD
@@ -38,10 +41,12 @@ class TaskDag(Base):
           - TBD
 
           Args:
-                raises (boolean): If True then raise ValueError if it detects a problem, otherwise return False and log
+                raises (boolean): If True then raise ValueError if it detects
+                a problem, otherwise return False and log
 
         Returns:
-                True if no problems. if raises is True, then it raises ValueError on first problem, else False
+                True if no problems. if raises is True, then it raises
+                ValueError on first problem, else False
         """
 
         # The empty graph cannot have errors
@@ -68,10 +73,13 @@ class TaskDag(Base):
         """
         Take a concrete DAG and queue all the Tasks that are not DONE.
 
-        Uses forward chaining from initial fringe, hence out-of-date is not applied transitively backwards
-        through the graph. It could also use backward chaining from an identified goal node, the effect is identical.
+        Uses forward chaining from initial fringe, hence out-of-date is not
+        applied transitively backwards through the graph. It could also use
+        backward chaining from an identified goal node, the effect is
+        dentical.
 
-        The internal data structures are lists, but might need to be changed to be better at scaling.
+        The internal data structures are lists, but might need to be changed to
+        be better at scaling.
 
         Conceptually:
         Mark all Tasks as not tried for this execution
@@ -97,11 +105,13 @@ class TaskDag(Base):
         # While there is something ready to be run, or something is running
         while fringe or all_running:
             # Everything in the fringe should be run or skipped,
-            # they either have no upstreams, or all upstreams are marked DONE in this execution
+            # they either have no upstreams, or all upstreams are marked DONE
+            # in this execution
 
             while fringe:
                 # Get the front of the queue, add to the end.
-                # That ensures breadth-first behavior, which is likely to maximize parallelism
+                # That ensures breadth-first behavior, which is likely to
+                # maximize parallelism
                 task = fringe.pop(0)
                 # Start this new jobs ASAP
                 logger.debug("Queueing newly ready task {}".format(task))
@@ -109,11 +119,15 @@ class TaskDag(Base):
                 all_running[task.job_id] = task
 
             # TBD timeout?
-            completed_and_status = self.job_list_manager.block_until_any_done_or_error()
-            logger.debug("Return from blocking call, completed_and_status {}".format(completed_and_status))
-            all_running, completed_tasks, failed_tasks = self.sort_jobs(all_running, completed_and_status)
+            completed_and_status = (
+                self.job_list_manager.block_until_any_done_or_error())
+            logger.debug("Return from blocking call, completed_and_status {}"
+                         .format(completed_and_status))
+            all_running, completed_tasks, failed_tasks = self.sort_jobs(
+                all_running, completed_and_status)
 
-            # Need to find the tasks that were that job, they will be in this "small" dic of active tasks
+            # Need to find the tasks that were that job, they will be in this
+            # "small" dic of active tasks
 
             all_completed += completed_tasks
             all_failed += failed_tasks
@@ -121,21 +135,25 @@ class TaskDag(Base):
                 fringe += self.propagate_results(task)
         # END while fringe or all_running
 
-        # To be a dynamic-DAG  tool, we must be prepared for the DAG to have changed.
-        # In general we would recompute forward from the the fringe. Not efficient, but correct.
-        # A more efficient algorithm would be to check the nodes that were added to see if they should be in the fringe,
-        # or if they have potentially affected the status of Tasks that were done (error case - disallowed??)
+        # To be a dynamic-DAG  tool, we must be prepared for the DAG to have
+        # changed. In general we would recompute forward from the the fringe.
+        # Not efficient, but correct. A more efficient algorithm would be to
+        # check the nodes that were added to see if they should be in the
+        # fringe, or if they have potentially affected the status of Tasks that
+        # were done (error case - disallowed??)
 
         if all_failed:
             logger.info("DAG execute finished, failed {}".format(all_failed))
             return False, len(all_completed), len(all_failed)
         else:
-            logger.info("DAG execute finished successfully, {} jobs".format(len(all_completed)))
+            logger.info("DAG execute finished successfully, {} jobs"
+                        .format(len(all_completed)))
             return True, len(all_completed), len(all_failed)
 
     def sort_jobs(self, runners, completed_and_failed):
         """
-        Sort into two list of completed and failed, and return an update runners dict
+        Sort into two list of completed and failed, and return an update
+        runners dict
         TBD don't like the side effect on runners
 
         Args:
@@ -156,8 +174,9 @@ class TaskDag(Base):
             elif status == JobStatus.ERROR_FATAL:
                 failed += [task]
             else:
-                raise ValueError("Job returned that is neither done nor error_fatal: jid: {}, status {}".
-                                 format(jid, status))
+                raise ValueError("Job returned that is neither done nor "
+                                 "error_fatal: jid: {}, status {}"
+                                 .format(jid, status))
         return runners, completed, failed
 
     def propagate_results(self, task):

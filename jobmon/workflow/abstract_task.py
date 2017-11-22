@@ -108,8 +108,9 @@ class AbstractTask(object):
 
     def add_upstream(self, ancestor):
         """
-        Add an upstream (ancestor) Task. This has Set semantics, an upstream task will only be added once.
-        Symmetrically, this method also adds this Task as a downstream on the ancestor.
+        Add an upstream (ancestor) Task. This has Set semantics, an upstream
+        task will only be added once. Symmetrically, this method also adds this
+        Task as a downstream on the ancestor.
         """
         self.upstream_tasks.add(ancestor)
         # avoid endless recursion, set directly
@@ -117,8 +118,9 @@ class AbstractTask(object):
 
     def add_downstream(self, descendent):
         """
-        Add an downstream (ancestor) Task. This has Set semantics, a downstream task will only be added once.
-        Symmetrically, this method also adds this Task as an upstream on the ancestor.
+        Add an downstream (ancestor) Task. This has Set semantics, a downstream
+        task will only be added once. Symmetrically, this method also adds this
+        Task as an upstream on the ancestor.
         """
         self.downstream_tasks.add(descendent)
         # avoid endless recursion, set directly

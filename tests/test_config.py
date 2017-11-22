@@ -1,7 +1,7 @@
 import pytest
-import shlex
 
 from jobmon.config import GlobalConfig, InvalidConfig
+
 
 def test_no_rcfile():
     with pytest.raises(FileNotFoundError):

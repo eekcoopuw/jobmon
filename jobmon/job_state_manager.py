@@ -106,8 +106,8 @@ class JobStateManager(ReplyServer):
         logger.debug("Log DONE for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
-            msg = self._update_job_instance_state(session, ji,
-                                                  models.JobInstanceStatus.DONE)
+            msg = self._update_job_instance_state(
+                session, ji, models.JobInstanceStatus.DONE)
         if msg:
             self.publisher.send_string(msg)
         return (ReturnCodes.OK,)

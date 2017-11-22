@@ -28,7 +28,5 @@ class ConnectionConfig(object):
         return \
             """ConnectionConfig(host=host, port=port,
                request_retries={}, request_timeout={})""".format(
-                                                          self.host,
-                                                          self.port,
-                                                          self.request_retries,
-                                                          self.request_timeout)
+                self.host, self.port, self.request_retries,
+                self.request_timeout)

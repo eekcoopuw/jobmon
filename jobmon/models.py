@@ -132,7 +132,7 @@ class JobInstance(Base):
                                                  "%Y-%m-%dT%H:%M:%S"))
 
     def to_wire(self):
-        time_since_status = (datetime.utcnow()-self.status_date).seconds
+        time_since_status = (datetime.utcnow() - self.status_date).seconds
         return {'job_instance_id': self.job_instance_id,
                 'executor_id': self.executor_id,
                 'job_id': self.job_id,

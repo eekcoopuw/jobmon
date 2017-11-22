@@ -20,7 +20,7 @@ def resp_no_rc():
 
 
 def act_sums_args(x, y):
-    return (0, x+y)
+    return (0, x + y)
 
 
 @pytest.fixture(scope='module')
