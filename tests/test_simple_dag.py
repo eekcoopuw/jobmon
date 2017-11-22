@@ -5,6 +5,7 @@ import pytest
 from cluster_utils.io import makedirs_safely
 
 from jobmon.models import JobStatus
+from jobmon import sge
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logging.basicConfig(level=logging.INFO)
@@ -43,10 +44,13 @@ def test_one_task(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_one_task")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
+    output_file_name = "{}/test_one_task/mock.out".format(tmp_out_dir)
     task = SleepAndWriteFileMockTask(
-        output_file_name="{}/test_one_task/mock.out".format(tmp_out_dir)
-    )
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}" .format(cs=command_script, ofn=output_file_name,
+                                      n=output_file_name)))
     dag.add_task(task)
 
     os.makedirs("{}/test_one_task".format(tmp_out_dir))
@@ -68,17 +72,20 @@ def test_two_tasks_same_name_errors(db_cfg, jsm_jqs, task_dag_manager,
     root_out_dir = "{}/mocks/test_two_tasks_same_name".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_two_tasks_same_name")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
+    output_file_name = "{}/test_two_tasks_same_name/a.out".format(tmp_out_dir)
     task_a = SleepAndWriteFileMockTask(
-        output_file_name="{}/test_two_tasks_same_name/a.out"
-        .format(tmp_out_dir)
-    )
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=output_file_name,
+                                     n=output_file_name)))
     dag.add_task(task_a)
 
     task_a_again = SleepAndWriteFileMockTask(
-        output_file_name="{}/test_two_tasks_same_name/a.out"
-        .format(tmp_out_dir)
-    )
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=output_file_name,
+                                     n=output_file_name)))
+
     with pytest.raises(ValueError):
         dag.add_task(task_a_again)
 
@@ -90,21 +97,31 @@ def test_three_linear_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     root_out_dir = "{}/mocks/test_three_linear_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_three_linear_tasks")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
+    a_output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
-        output_file_name="{}/a.out".format(root_out_dir),
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=a_output_file_name,
+                                     n=a_output_file_name)),
         upstream_tasks=[]  # To be clear
     )
     dag.add_task(task_a)
 
+    b_output_file_name = "{}/b.out".format(root_out_dir)
     task_b = SleepAndWriteFileMockTask(
-        output_file_name="{}/b.out".format(root_out_dir),
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=b_output_file_name,
+                                     n=b_output_file_name)),
         upstream_tasks=[task_a]
     )
     dag.add_task(task_b)
 
+    c_output_file_name = "{}/c.out".format(root_out_dir)
     task_c = SleepAndWriteFileMockTask(
-        output_file_name="{}/c.out".format(root_out_dir),
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=c_output_file_name,
+                                     n=c_output_file_name)),
         upstream_tasks=[task_b]
     )
     dag.add_task(task_c)
@@ -129,19 +146,26 @@ def test_fork_and_join_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
+    output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
-        sleep_secs=1,
-        output_file_name="{}/a.out".format(root_out_dir)
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=output_file_name,
+                                     n=output_file_name))
     )
     dag.add_task(task_a)
 
     # The B's all have varying runtimes,
     task_b = {}
     for i in range(3):
+        sleep_secs = 5 + i
+        output_file_name = "{}/b-{}.out".format(root_out_dir, i)
         task_b[i] = SleepAndWriteFileMockTask(
-            sleep_secs=5 + i,
-            output_file_name="{}/b-{}.out".format(root_out_dir, i),
+            command=("python {cs} --sleep_secs {ss} --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script, ss=sleep_secs,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_a]
         )
         dag.add_task(task_b[i])
@@ -150,16 +174,24 @@ def test_fork_and_join_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race conditions by creating a collision near d
     task_c = {}
     for i in range(3):
+        sleep_secs = 5 - i
+        output_file_name = "{}/c-{}.out".format(root_out_dir, i)
         task_c[i] = SleepAndWriteFileMockTask(
-            sleep_secs=5 - i,
-            output_file_name="{}/c-{}.out".format(root_out_dir, i),
+            command=("python {cs} --sleep_secs {ss} --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script, ss=sleep_secs,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_b[i]]
         )
         dag.add_task(task_c[i])
 
+    sleep_secs = 3
+    output_file_name = "{}/d.out".format(root_out_dir)
     task_d = SleepAndWriteFileMockTask(
-        sleep_secs=3,
-        output_file_name="{}/d.out".format(root_out_dir),
+        command=("python {cs} --sleep_secs {ss} --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ss=sleep_secs,
+                                     ofn=output_file_name,
+                                     n=output_file_name)),
         upstream_tasks=[task_c[i] for i in range(3)]
     )
     dag.add_task(task_d)
@@ -193,17 +225,25 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, task_dag_manager,
     root_out_dir = "{}/mocks/test_fork_and_join_tasks_with_fatal_error".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks_with_fatal_error")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
+    output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
-        output_file_name="{}/a.out".format(root_out_dir)
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=output_file_name,
+                                     n=output_file_name))
     )
     dag.add_task(task_a)
 
     task_b = {}
     for i in range(3):
+        output_file_name = "{}/b-{}.out".format(root_out_dir, i)
         # task b[1] will fail always
         task_b[i] = SleepAndWriteFileMockTask(
-            output_file_name="{}/b-{}.out".format(root_out_dir, i),
+            command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_a],
             fail_always=(i == 1)
         )
@@ -211,14 +251,21 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, task_dag_manager,
 
     task_c = {}
     for i in range(3):
+        output_file_name = "{}/c-{}.out".format(root_out_dir, i)
         task_c[i] = SleepAndWriteFileMockTask(
-            output_file_name="{}/c-{}.out".format(root_out_dir, i),
+            command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_b[i]]
         )
         dag.add_task(task_c[i])
 
+    output_file_name = "{}/d.out".format(root_out_dir)
     task_d = SleepAndWriteFileMockTask(
-        output_file_name="{}/d.out".format(root_out_dir),
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=output_file_name,
+                                     n=output_file_name)),
         upstream_tasks=[task_c[i] for i in range(3)]
     )
     dag.add_task(task_d)
@@ -252,17 +299,25 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, task_dag_mana
     root_out_dir = "{}/mocks/test_fork_and_join_tasks_with_retryable_error".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks_with_retryable_error")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
+    output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
-        output_file_name="{}/a.out".format(root_out_dir)
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=output_file_name,
+                                     n=output_file_name))
     )
     dag.add_task(task_a)
 
     task_b = {}
     for i in range(3):
+        output_file_name = "{}/b-{}.out".format(root_out_dir, i)
         # task b[1] will fail
         task_b[i] = SleepAndWriteFileMockTask(
-            output_file_name="{}/b-{}.out".format(root_out_dir, i),
+            command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_a],
             fail_count=1 if (i == 1) else 0
         )
@@ -270,14 +325,21 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs, task_dag_mana
 
     task_c = {}
     for i in range(3):
+        output_file_name = "{}/c-{}.out".format(root_out_dir, i)
         task_c[i] = SleepAndWriteFileMockTask(
-            output_file_name="{}/c-{}.out".format(root_out_dir, i),
+            command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_b[i]]
         )
         dag.add_task(task_c[i])
 
+    output_file_name = "{}/d.out".format(root_out_dir)
     task_d = SleepAndWriteFileMockTask(
-        output_file_name="{}/d.out".format(root_out_dir),
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=output_file_name,
+                                     n=output_file_name)),
         upstream_tasks=[task_c[i] for i in range(3)],
         fail_count=2
     )
@@ -315,19 +377,25 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     dag = task_dag_manager.create_task_dag(name="test_fork_and_join_tasks")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
+    output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
-        sleep_secs=1,
-        output_file_name="{}/a.out".format(root_out_dir)
-    )
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=output_file_name,
+                                     n=output_file_name)))
     dag.add_task(task_a)
 
     # The B's all have varying runtimes,
     task_b = {}
     for i in range(3):
+        sleep_secs = 5 + i
+        output_file_name = "{}/b-{}.out".format(root_out_dir, i)
         task_b[i] = SleepAndWriteFileMockTask(
-            sleep_secs=5 + i,
-            output_file_name="{}/b-{}.out".format(root_out_dir, i),
+            command=("python {cs} --sleep_secs {ss} --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script, ss=sleep_secs,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_a]
         )
         dag.add_task(task_b[i])
@@ -336,18 +404,26 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race conditions by creating a collision near d
     task_c = {}
     for i in range(3):
+        sleep_secs = 5 - i
+        output_file_name = "{}/c-{}.out".format(root_out_dir, i)
         task_c[i] = SleepAndWriteFileMockTask(
-            sleep_secs=5 - i,
-            output_file_name="{}/c-{}.out".format(root_out_dir, i),
+            command=("python {cs} --sleep_secs {ss} --output_file_path {ofn} "
+                     "--name {n}".format(cs=command_script, ss=sleep_secs,
+                                         ofn=output_file_name,
+                                         n=output_file_name)),
             upstream_tasks=[task_b[i], task_a]
         )
         dag.add_task(task_c[i])
 
     b_and_c = [task_b[i] for i in range(3)]
     b_and_c += [task_c[i] for i in range(3)]
+    sleep_secs = 3
+    output_file_name = "{}/d.out".format(root_out_dir)
     task_d = SleepAndWriteFileMockTask(
-        sleep_secs=3,
-        output_file_name="{}/d.out".format(root_out_dir),
+        command=("python {cs} --sleep_secs {ss} --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ss=sleep_secs,
+                                     ofn=output_file_name,
+                                     n=output_file_name)),
         upstream_tasks=b_and_c
     )
     dag.add_task(task_d)

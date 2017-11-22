@@ -14,8 +14,8 @@ class ExecutableTask(AbstractTask):
     specific Tasks (eg 'calculate percentage change)'
     """
 
-    def __init__(self, hash_name, upstream_tasks=None):
-        AbstractTask.__init__(self, hash_name)
+    def __init__(self, command, upstream_tasks=None):
+        AbstractTask.__init__(self, command)
         self.job_id = None  # will be None until executed
         # self.job = None  # cached, could be None in resume use case until
         # Job resurrected from dbs

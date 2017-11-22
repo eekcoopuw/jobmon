@@ -26,3 +26,6 @@ __pycache__
 # Ignore coverage reports
 .coverage
 htmlcov
+
+# Ignore mac files
+._*
