@@ -42,7 +42,7 @@ def commit_hooked_jsm(jsm_jqs):
 def test_jsm_valid_done(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, job_id = jsm.add_job("bar", 'hash', "baz", dag_id)
     jsm.queue_job(job_id)
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
@@ -56,8 +56,8 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
 def test_jsm_valid_error(jsm_jqs):
     jsm, jqs = jsm_jqs
 
-    _, dag_id = jsm.add_task_dag("mocks", "pytest user")
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash")
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
     jsm.queue_job(job_id)
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
@@ -69,8 +69,8 @@ def test_jsm_valid_error(jsm_jqs):
 def test_invalid_transition(jsm_jqs):
     jsm, jqs = jsm_jqs
 
-    _, dag_id = jsm.add_task_dag("mocks", "pytest user")
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash")
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
 
     with pytest.raises(InvalidStateTransition):
         _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
@@ -83,7 +83,7 @@ def test_single_publish_on_error(dag_id, job_list_manager_sub,
 
     jsm = commit_hooked_jsm
 
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
     jsm.queue_job(job_id)
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
@@ -111,7 +111,7 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
     # Note we need (2) attempts here, the first of which we will
     # use to force a transaction failure and the second of which
     # should transact successfully
-    _, job_id = jsm.add_job("bar", "baz", dag_id, max_attempts=2)
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id, max_attempts=2)
     jsm.queue_job(job_id)
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')

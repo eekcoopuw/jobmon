@@ -87,6 +87,9 @@ class AbstractTask(object):
         """
         return self.hash
 
+    def __lt__(self, other):
+        return self.hash < other.hash
+
     def needs_to_execute(self):
         """
         Should this Task be run? True if not done.

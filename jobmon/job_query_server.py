@@ -7,6 +7,8 @@ from jobmon.database import session_scope
 from jobmon.exceptions import ReturnCodes, NoDatabase
 from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
 from jobmon.reply_server import ReplyServer
+from jobmon.meta_models import TaskDagMeta
+from jobmon.workflow.workflow import WorkflowDAO
 
 
 class JobQueryServer(ReplyServer):
@@ -20,6 +22,10 @@ class JobQueryServer(ReplyServer):
         self.register_action("get_all_jobs", self.get_jobs)
         self.register_action("get_queued_for_instantiation",
                              self.get_queued_for_instantiation)
+        self.register_action("get_dag_ids_by_hash",
+                             self.get_dag_ids_by_hash)
+        self.register_action("get_workflows_by_inputs",
+                             self.get_workflows_by_inputs)
 
     def get_queued_for_instantiation(self, dag_id):
         with session_scope() as session:
@@ -70,6 +76,35 @@ class JobQueryServer(ReplyServer):
             timed_out = [r.to_wire() for r in running
                          if (now - r.status_date).seconds > r.job.max_runtime]
         return (ReturnCodes.OK, timed_out)
+
+    def get_dag_ids_by_hash(self, dag_hash):
+        """
+        Return a dictionary mapping job_id to a dict of the job's instance
+        variables
+
+        Args
+            dag_id:
+        """
+        with session_scope() as session:
+            dags = session.query(TaskDagMeta).filter(
+                TaskDagMeta.dag_hash == dag_hash).all()
+            dag_ids = [dag.dag_id for dag in dags]
+        return (ReturnCodes.OK, dag_ids)
+
+    def get_workflows_by_inputs(self, dag_id, workflow_args):
+        """
+        Return a dictionary mapping job_id to a dict of the job's instance
+        variables
+
+        Args
+            dag_id:
+        """
+        with session_scope() as session:
+            workflow = session.query(WorkflowDAO).\
+                filter(WorkflowDAO.dag_id.in_(dag_id)).\
+                filter(WorkflowDAO.workflow_args == workflow_args).first()
+            wf_id = workflow.id
+        return (ReturnCodes.OK, wf_id)
 
     def listen(self):
         """If the database is unavailable, don't allow the JobQueryServer to

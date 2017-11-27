@@ -77,7 +77,7 @@ class ExecutableTask(AbstractTask):
                 return False
         return True
 
-    def create_job(self, job_list_manager):
+    def bind(self, job_list_manager):
         """
         Abstract, must be overridden.
         This MUST set self.job_id
@@ -88,7 +88,25 @@ class ExecutableTask(AbstractTask):
         Returns:
             The job_id of the new Job
         """
-        raise NotImplementedError()
+        logger.debug("Create job, command = {}".format(self.command))
+
+        self.job_id = job_list_manager.create_job(
+            jobname=self.hash_name,
+            job_hash=self.hash,
+            command=self.command,
+            slots=1,
+            mem_free=2,
+            max_attempts=3
+        )
+        return self.job_id
+
+    @property
+    def bound(self):
+        """Boolean indicating whether the Task is bound to the DB"""
+        if self.job_id:
+            return True
+        else:
+            return False
 
     def queue_job(self, job_list_manager):
         """
