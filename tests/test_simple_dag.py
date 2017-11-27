@@ -513,9 +513,10 @@ def test_resume_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
         dag.execute()
 
     # ensure the dag that "fell over" has 2 out of the 3 jobs complete
-    assert dag.job_list_manager.job_statuses[1] == 7
-    assert dag.job_list_manager.job_statuses[2] == 7
-    assert dag.job_list_manager.job_statuses[3] != 7
+    statuses = list(dag.job_list_manager.job_statuses.values())
+    assert statuses[0] == JobStatus.DONE
+    assert statuses[1] == JobStatus.DONE
+    assert statuses[2] != JobStatus.DONE
 
     # relaunch dag, and ensure only one task runs
     rc, all_completed, all_failed = dag.execute()
