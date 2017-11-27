@@ -29,6 +29,17 @@ class TaskDag(Base):
         # dictionary, TBD needs to scale to 1,000,000 jobs, untested at scale
         self.names_to_nodes = {}
         self.top_fringe = []
+        self.fail_after_n_executions = None
+
+    def _set_fail_after_n_executions(self, n):
+        """
+        For use during testing, force the TaskDag to 'fall over' after n
+        executions, so that the resume case can be tested.
+
+        In every non-test case, self.fail_after_n_executions will be None, and
+        thus will never equal the number of executions and so the ValueError
+        'fall over' will not be triggered in production. """
+        self.fail_after_n_executions = n
 
     def validate(self, raises=True):
         """
@@ -93,11 +104,14 @@ class TaskDag(Base):
             A triple: True, len(all_completed_tasks), len(all_failed_tasks)
         """
 
+        logger.debug("self.fail_after_n_executions is {}"
+                     .format(self.fail_after_n_executions))
         fringe = self.top_fringe
 
         all_completed = []
         all_failed = []
         all_running = {}
+        n_executions = 0
 
         logger.debug("Execute DAG {}".format(self))
 
@@ -113,14 +127,18 @@ class TaskDag(Base):
                 # That ensures breadth-first behavior, which is likely to
                 # maximize parallelism
                 task = fringe.pop(0)
-                # Start this new jobs ASAP
-                logger.debug("Queueing newly ready task {}".format(task))
-                task.queue_job(self.job_list_manager)
-                all_running[task.job_id] = task
+                # Start the new jobs ASAP
+                if not task.am_i_done():
+                    logger.debug("Queueing newly ready task {}".format(task))
+                    task.queue_job(self.job_list_manager)
+                    all_running[task.job_id] = task
 
             # TBD timeout?
             completed_and_status = (
                 self.job_list_manager.block_until_any_done_or_error())
+            for job in completed_and_status:
+                if job[1] == JobStatus.DONE:
+                    n_executions += 1
             logger.debug("Return from blocking call, completed_and_status {}"
                          .format(completed_and_status))
             all_running, completed_tasks, failed_tasks = self.sort_jobs(
@@ -133,6 +151,11 @@ class TaskDag(Base):
             all_failed += failed_tasks
             for task in completed_tasks:
                 fringe += self.propagate_results(task)
+            if (self.fail_after_n_executions is not None and
+                n_executions >= self.fail_after_n_executions):
+                raise ValueError("Dag asked to fail after {} executions. "
+                                 "Failing now".format(n_executions))
+
         # END while fringe or all_running
 
         # To be a dynamic-DAG  tool, we must be prepared for the DAG to have
@@ -195,7 +218,7 @@ class TaskDag(Base):
         task.set_status(JobStatus.DONE)
         for downstream in task.downstream_tasks:
             logger.debug("  downstream {}".format(downstream))
-            if downstream.needs_to_execute() and downstream.all_upstreams_done():
+            if not downstream.am_i_done() and downstream.all_upstreams_done():
                 logger.debug("  and add to fringe")
                 new_fringe += [downstream]
                 # else Nothing - that Task ain't ready yet

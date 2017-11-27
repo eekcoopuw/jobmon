@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import pytest
 
 from cluster_utils.io import makedirs_safely
@@ -8,7 +9,7 @@ from jobmon.models import JobStatus
 from jobmon import sge
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 logger = logging.getLogger(__name__)
 
 # All Tests are written from the point of view of the Swarm, i.e the job
@@ -467,3 +468,57 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     assert task_c[2].cached_status == JobStatus.DONE
 
     assert task_d.cached_status == JobStatus.DONE
+
+
+def test_resume_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
+    root_out_dir = "{}/mocks/test_resume_dag".format(tmp_out_dir)
+    makedirs_safely(root_out_dir)
+    dag = task_dag_manager.create_task_dag(name="test_resume_dag")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+
+    a_output_file_name = "{}/a.out".format(root_out_dir)
+    task_a = SleepAndWriteFileMockTask(
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=a_output_file_name,
+                                     n=a_output_file_name)),
+        upstream_tasks=[]  # To be clear
+    )
+    dag.add_task(task_a)
+
+    b_output_file_name = "{}/b.out".format(root_out_dir)
+    task_b = SleepAndWriteFileMockTask(
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=b_output_file_name,
+                                     n=b_output_file_name)),
+        upstream_tasks=[task_a]
+    )
+    dag.add_task(task_b)
+
+    c_output_file_name = "{}/c.out".format(root_out_dir)
+    task_c = SleepAndWriteFileMockTask(
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}".format(cs=command_script, ofn=c_output_file_name,
+                                     n=c_output_file_name)),
+        upstream_tasks=[task_b]
+    )
+    dag.add_task(task_c)
+
+    logger.debug("DAG: {}".format(dag))
+    dag._set_fail_after_n_executions(2)  # set the dag to fail after 2 tasks
+    logger.debug("in launcher, self.fail_after_n_executions is {}"
+                 .format(dag.fail_after_n_executions))
+
+    # ensure dag officially "fell over"
+    with pytest.raises(ValueError):
+        dag.execute()
+
+    # ensure the dag that "fell over" has 2 out of the 3 jobs complete
+    assert dag.job_list_manager.job_statuses[1] == 7
+    assert dag.job_list_manager.job_statuses[2] == 7
+    assert dag.job_list_manager.job_statuses[3] != 7
+
+    # relaunch dag, and ensure only one task runs
+    rc, all_completed, all_failed = dag.execute()
+    assert rc is True
+    assert all_completed == 1
+    assert all_failed == 0

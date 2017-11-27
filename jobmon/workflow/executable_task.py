@@ -41,6 +41,27 @@ class ExecutableTask(AbstractTask):
     def set_status(self, new_status):
         self.cached_status = new_status
 
+    def am_i_done(self):
+        """
+        If my Job is not "DONE" then I must be run.
+
+        Only called when all of the upstream are DONE - either they completed
+        successfully or they were skipped because were not out of date, or this
+        is top_fringe (has no upstreams). Failed upstreams will NOT cause this
+        method to be called.
+
+        Delegates to Job
+
+        DOES NOT NEED TO BE OVERRIDDEN
+        """
+        if not self.get_status() == JobStatus.DONE:
+            logger.debug("am I done? {}; No (not DONE)".format(self))
+            return False
+        else:
+            logger.debug("am I done? {}; Yes (already DONE)"
+                         .format(self))
+            return True
+
     def needs_to_execute(self):
         """
         If my Job is not "DONE" then I must be run.

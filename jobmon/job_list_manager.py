@@ -16,8 +16,13 @@ from jobmon.subscriber import Subscriber
 logger = logging.getLogger(__name__)
 
 
-def listen_for_job_statuses(host, port, dag_id, done_queue,
+def listen_for_job_statuses(host, port, dag_id, job_statuses, done_queue,
                             error_queue, update_queue, disconnect_queue):
+    """ Be careful. Job statuses are cached in two places: here, and in the
+    job_status dictionary. Be sure to update in both.
+
+    Also, because we're dealing with threads, this can't be a method on a class
+    """
     logger.info("Listening for dag_id={} job status updates from {}:{}".format(
         dag_id, host, port))
     subscriber = Subscriber(host, port, dag_id)
@@ -30,6 +35,7 @@ def listen_for_job_statuses(host, port, dag_id, done_queue,
             pass
         msg = subscriber.receive()
         job_id, job_status = msg
+        job_statuses[job_id] = job_status
         if job_status == JobStatus.DONE:
             done_queue.put(job_id)
             update_queue.put((job_id, job_status))
@@ -233,7 +239,8 @@ class JobListManager(object):
     def _start_job_status_listener(self):
         self.jsl_proc = Thread(target=listen_for_job_statuses,
                                args=(config.jm_pub_conn.host,
-                                     config.jm_pub_conn.port, self.dag_id,
+                                     config.jm_pub_conn.port,
+                                     self.dag_id, self.job_statuses,
                                      self.done_queue, self.error_queue,
                                      self.update_queue, self.disconnect_queue))
         self.jsl_proc.daemon = True
