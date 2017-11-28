@@ -37,8 +37,7 @@ class TaskDag(Base):
         executions, so that the resume case can be tested.
 
         In every non-test case, self.fail_after_n_executions will be None, and
-        thus will never equal the number of executions and so the ValueError
-        'fall over' will not be triggered in production. """
+        so the 'fall over' will not be triggered in production. """
         self.fail_after_n_executions = n
 
     def validate(self, raises=True):
