@@ -101,7 +101,7 @@ class ExecutableTask(AbstractTask):
         return self.job_id
 
     @property
-    def bound(self):
+    def is_bound(self):
         """Boolean indicating whether the Task is bound to the DB"""
         if self.job_id:
             return True

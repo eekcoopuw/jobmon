@@ -73,7 +73,7 @@ class Workflow(object):
         self.jqs_req = Requester(config.jqs_rep_conn)
 
     @property
-    def bound(self):
+    def is_bound(self):
         if self.id:
             return True
         else:
@@ -101,6 +101,10 @@ class Workflow(object):
     def _bind(self):
         potential_wfs = self._matching_workflows()
         if len(potential_wfs) == 1:
+
+            # TODO: Should prompt the user, asking whether they really want to
+            # resume or whether they want to create a new Workflow... will need
+            # to sit outside this if/else block
             self.id = [k for k in potential_wfs.keys()][0]
             self.dag_id = [v for v in potential_wfs.values()][0]
             self.task_dag.bind_to_db(self.dag_id)
@@ -133,7 +137,7 @@ class Workflow(object):
         self.workflow_run = WorkflowRun(self.id)
 
     def execute(self):
-        if not self.bound:
+        if not self.is_bound:
             self._bind()
         self._create_workflow_run()
         self.task_dag.execute()
@@ -144,6 +148,8 @@ class Workflow(object):
         self._update_status(WorkflowStatus.COMPLETE)
 
     def stop(self):
+        # TODO: Decide whether we want to "execute" in a Process / Thread,
+        # that could be killed without sending Ctrl+C and co.
         if self.is_running():
             self.kill_running_tasks()
         self.workflow_run.update_stopped()

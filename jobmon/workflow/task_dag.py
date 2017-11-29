@@ -25,7 +25,7 @@ class TaskDag(object):
         self.top_fringe = []
 
     @property
-    def bound(self):
+    def is_bound(self):
         """Boolean indicating whether the Dag is bound to the DB"""
         if self.dag_id:
             return True
@@ -120,7 +120,7 @@ class TaskDag(object):
             A triple: True, len(all_completed_tasks), len(all_failed_tasks)
         """
 
-        if not self.bound:
+        if not self.is_bound:
             self.bind_to_db()
 
         fringe = self.top_fringe
