@@ -1,10 +1,12 @@
 import pytest
 from queue import Empty
+import socket
 
 from sqlalchemy.exc import OperationalError
 
+from jobmon.database import session_scope
 from jobmon.models import InvalidStateTransition, Job, JobInstanceErrorLog, \
-    JobStatus
+    JobStatus, JobInstance
 
 
 @pytest.fixture(scope='function')
@@ -136,3 +138,27 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
     jsm.log_done(job_instance_id)
     updates = job_list_manager_sub.block_until_any_done_or_error(5)
     assert (job_id, JobStatus.DONE) in updates
+
+
+def test_jsm_log_usage(jsm_jqs, dag_id):
+    jsm, jqs = jsm_jqs
+
+    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    jsm.queue_job(job_id)
+
+    _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
+    jsm.log_executor_id(job_instance_id, 12345)
+    jsm.log_running(job_instance_id)
+    jsm.log_usage(job_instance_id, usage_str='used resources',
+                  nodename=socket.gethostname(), wallclock='00:00:00',
+                  maxvmem='1g', cpu='00:00:00', io='1')
+    # open new session on the db and ensure job stats are being loggged
+    with session_scope() as session:
+        ji = session.query(JobInstance).first()
+        assert ji.usage_str == 'used resources'
+        assert ji.wallclock == '00:00:00'
+        assert ji.maxvmem == '1g'
+        assert ji.cpu == '00:00:00'
+        assert ji.io == '1'
+        assert ji.nodename == socket.gethostname()
+    jsm.log_done(job_instance_id)

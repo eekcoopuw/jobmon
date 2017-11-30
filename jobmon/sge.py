@@ -240,6 +240,11 @@ def qstat_details(jids):
     return jobdict
 
 
+def convert_wallclock_to_seconds(wallclock_str):
+    h, m, s = wallclock_str.split(':')
+    return int(h) * 3600 + int(m) * 60 + int(s)
+
+
 def qstat_usage(jids):
     """get usage details for list of jobs
 
@@ -257,7 +262,9 @@ def qstat_usage(jids):
         usagestr = info['usage']
         parsus = {u.split("=")[0]: u.split("=")[1]
                   for u in usagestr.split(", ")}
+        parsus['wallclock'] = convert_wallclock_to_seconds(parsus['wallclock'])
         usage[jid]['usage_str'] = usagestr
+        usage[jid]['nodename'] = info['exec_host_list']
         usage[jid].update(parsus)
     return usage
 
