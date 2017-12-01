@@ -39,6 +39,9 @@ class JobStateManager(ReplyServer):
         self.register_action("log_usage", self.log_usage)
 
         self.register_action("queue_job", self.queue_job)
+        self.register_action("reset_job", self.reset_job)
+        self.register_action("reset_incomplete_jobs",
+                             self.reset_incomplete_jobs)
 
         ctx = zmq.Context.instance()
         self.publisher = ctx.socket(zmq.PUB)
@@ -97,14 +100,16 @@ class JobStateManager(ReplyServer):
             job_instance.job.transition(models.JobStatus.INSTANTIATED)
         return (ReturnCodes.OK, ji_id)
 
-    def add_workflow(self, dag_id, workflow_args, name, user, description=""):
+    def add_workflow(self, dag_id, workflow_args, workflow_hash, name, user,
+                     description=""):
         wf = WorkflowDAO(dag_id=dag_id, workflow_args=workflow_args,
-                         name=name, user=user, description=description)
+                         workflow_hash=workflow_hash, name=name, user=user,
+                         description=description)
         with session_scope() as session:
             session.add(wf)
             session.commit()
-            wf_id = wf.id
-        return (ReturnCodes.OK, wf_id)
+            wf_dct = wf.to_wire()
+        return (ReturnCodes.OK, wf_dct)
 
     def add_workflow_run(self, workflow_id, user, hostname, pid):
         wfr = WorkflowRunDAO(workflow_id=workflow_id,
@@ -128,7 +133,8 @@ class JobStateManager(ReplyServer):
                 filter(WorkflowDAO.id == wf_id).first()
             wf.status = status
             session.commit()
-        return (ReturnCodes.OK, status)
+            wf_dct = wf.to_wire()
+        return (ReturnCodes.OK, wf_dct)
 
     def update_workflow_run(self, wfr_id, status):
         with session_scope() as session:
@@ -215,6 +221,23 @@ class JobStateManager(ReplyServer):
         with session_scope() as session:
             job = session.query(models.Job).filter_by(job_id=job_id).first()
             job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
+        return (ReturnCodes.OK,)
+
+    def reset_job(self, job_id):
+        with session_scope() as session:
+            job = session.query(models.Job).filter_by(job_id=job_id).first()
+            job.reset()
+            session.commit()
+        return (ReturnCodes.OK,)
+
+    def reset_incomplete_jobs(self, dag_id):
+        with session_scope() as session:
+            inc_jobs = session.query(models.Job).\
+                filter_by(dag_id=dag_id).\
+                filter(models.Job.status != models.JobStatus.DONE).all()
+            for job in inc_jobs:
+                job.reset()
+            session.commit()
         return (ReturnCodes.OK,)
 
     def _get_job_instance(self, session, job_instance_id):

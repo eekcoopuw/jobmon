@@ -101,10 +101,12 @@ class JobQueryServer(ReplyServer):
         """
         with session_scope() as session:
             workflow = session.query(WorkflowDAO).\
-                filter(WorkflowDAO.dag_id.in_(dag_id)).\
+                filter(WorkflowDAO.dag_id == dag_id).\
                 filter(WorkflowDAO.workflow_args == workflow_args).first()
-            wf_id = workflow.id
-        return (ReturnCodes.OK, wf_id)
+            if workflow:
+                return (ReturnCodes.OK, workflow.to_wire())
+            else:
+                return (ReturnCodes.NO_RESULTS, {})
 
     def listen(self):
         """If the database is unavailable, don't allow the JobQueryServer to

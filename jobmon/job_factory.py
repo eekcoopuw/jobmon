@@ -2,6 +2,7 @@ import json
 import logging
 
 from jobmon import requester
+from jobmon.exceptions import InvalidResponse, ReturnCodes
 from jobmon.config import config
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,9 @@ class JobFactory(object):
                        'max_attempts': max_attempts,
                        'max_runtime': max_runtime}
         })
+        if rc != ReturnCodes.OK:
+            raise InvalidResponse(
+                "{rc}: Could not create_job {e}".format(rc=rc, e=job_id))
         return job_id
 
     def queue_job(self, job_id):
@@ -57,4 +61,15 @@ class JobFactory(object):
             'action': 'queue_job',
             'kwargs': {'job_id': job_id}
         })
+        if rc[0] != ReturnCodes.OK:
+            raise InvalidResponse("{rc}: Could not queue_job".format(rc))
+        return rc
+
+    def reset_jobs(self):
+        rc = self.requester.send_request({
+            'action': 'reset_incomplete_jobs',
+            'kwargs': {'dag_id': self.dag_id}
+        })
+        if rc[0] != ReturnCodes.OK:
+            raise InvalidResponse("{rc}: Could not reset jobs".format(rc))
         return rc

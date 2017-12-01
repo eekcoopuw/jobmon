@@ -1,89 +1,56 @@
 import pytest
 
+from jobmon import database
+from jobmon.models import Job, JobInstanceStatus, JobStatus
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.task_dag import TaskDag
-from jobmon.workflow.workflow import Workflow
+from jobmon.workflow.workflow import Workflow, WorkflowStatus, \
+    WorkflowAlreadyComplete
+from jobmon.workflow.workflow_run import WorkflowRunStatus
 
 
-def test_simple(db_cfg, jsm_jqs):
+@pytest.fixture
+def simple_workflow(db_cfg, jsm_jqs):
     dag = TaskDag()
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
     dag.add_tasks([t1, t2, t3])
 
-    wfa = ""
+    wfa = "my_simple_dag"
     workflow = Workflow(dag, wfa)
     workflow.execute()
+    return workflow
 
-
-def test_wfargs_update():
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
-
+@pytest.fixture
+def simple_workflow_w_errors(db_cfg, jsm_jqs):
     dag = TaskDag()
-    dag.add_tasks([t1, t2, t3])
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("not_a_command 1", upstream_tasks=[t1])
+    t3 = BashTask("not_a_command 2", upstream_tasks=[t1])
+    t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3])
+    dag.add_tasks([t1, t2, t3, t4])
 
-    wfa1 = "v1"
-    wf1 = Workflow(dag, wfa1)
-    wf1.execute()
-
-    wfa2 = "v2"
-    wf2 = Workflow(dag, wfa2)
-    wf2.execute()
-
-    # Make sure the second Workflow has a distinct Workflow ID and WorkflowRun
-    # ID
-    assert wf1.id != wf2.id
-
-    # Make sure the second Workflow has a distinct hash
-    assert False
-
-    # Make sure the second Workflow has a distinct set of Jobs and JobInstances
-    assert False
+    wfa = "my_failing_dag"
+    workflow = Workflow(dag, wfa)
+    workflow.execute()
+    return workflow
 
 
-def test_dag_update():
+def test_wfargs_update(db_cfg, jsm_jqs):
+    # Create identical dags
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
 
     dag1 = TaskDag()
-    dag1.add_tasks([t1, t2])
+    dag1.add_tasks([t1, t2, t3])
 
+    t4 = BashTask("sleep 1")
+    t5 = BashTask("sleep 2", upstream_tasks=[t4])
+    t6 = BashTask("sleep 3", upstream_tasks=[t5])
     dag2 = TaskDag()
-    dag2.add_tasks([t1, t2, t3])
-
-    wfa = ""
-    wf1 = Workflow(dag1, wfa)
-    wf1.execute()
-
-    wfa = ""
-    wf2 = Workflow(dag2, wfa)
-    wf2.execute()
-
-    # Make sure the second Workflow has a distinct Workflow ID and WorkflowRun
-    # ID
-    assert wf1.id != wf2.id
-
-    # Make sure the second Workflow has a distinct hash
-    assert False
-
-    # Make sure the second Workflow has a distinct set of Jobs and JobInstances
-    assert False
-
-
-def test_wfagrs_dag_update():
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
-
-    dag1 = TaskDag()
-    dag1.add_tasks([t1, t2])
-
-    dag2 = TaskDag()
-    dag2.add_tasks([t1, t2, t3])
+    dag2.add_tasks([t4, t5, t6])
 
     wfa1 = "v1"
     wf1 = Workflow(dag1, wfa1)
@@ -98,41 +65,169 @@ def test_wfagrs_dag_update():
     assert wf1.id != wf2.id
 
     # Make sure the second Workflow has a distinct hash
-    assert False
+    assert wf1.hash != wf2.hash
 
-    # Make sure the second Workflow has a distinct set of Jobs and JobInstances
-    assert False
+    # Make sure the second Workflow has a distinct set of Jobs
+    assert not (set([t.job_id for _, t in wf1.task_dag.tasks.items()]) &
+                set([t.job_id for _, t in wf2.task_dag.tasks.items()]))
 
 
-def test_stop_resume():
-    # Run a dag
+def test_dag_update(db_cfg, jsm_jqs):
+    # Create different dags
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    t3 = BashTask("sleep 3", upstream_tasks=[t2])
 
+    dag1 = TaskDag()
+    dag1.add_tasks([t1, t2, t3])
+
+    t4 = BashTask("sleep 3")
+    t5 = BashTask("sleep 2", upstream_tasks=[t4])
+    t6 = BashTask("sleep 1", upstream_tasks=[t5])
+    dag2 = TaskDag()
+    dag2.add_tasks([t4, t5, t6])
+
+    wfa1 = "v1"
+    wf1 = Workflow(dag1, wfa1)
+    wf1.execute()
+
+    wfa2 = "v1"
+    wf2 = Workflow(dag2, wfa2)
+    wf2.execute()
+
+    # Make sure the second Workflow has a distinct Workflow ID and WorkflowRun
+    # ID
+    assert wf1.id != wf2.id
+
+    # Make sure the second Workflow has a distinct hash
+    assert wf1.hash != wf2.hash
+
+    # Make sure the second Workflow has a distinct set of Jobs
+    assert not (set([t.job_id for _, t in wf1.task_dag.tasks.items()]) &
+                set([t.job_id for _, t in wf2.task_dag.tasks.items()]))
+
+
+def test_wfagrs_dag_update(db_cfg, jsm_jqs):
+    # Create different dags
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+
+    dag1 = TaskDag()
+    dag1.add_tasks([t1, t2, t3])
+
+    t4 = BashTask("sleep 3")
+    t5 = BashTask("sleep 2", upstream_tasks=[t4])
+    t6 = BashTask("sleep 1", upstream_tasks=[t5])
+    dag2 = TaskDag()
+    dag2.add_tasks([t4, t5, t6])
+
+    wfa1 = "v1"
+    wf1 = Workflow(dag1, wfa1)
+    wf1.execute()
+
+    wfa2 = "v2"
+    wf2 = Workflow(dag2, wfa2)
+    wf2.execute()
+
+    # Make sure the second Workflow has a distinct Workflow ID and WorkflowRun
+    # ID
+    assert wf1.id != wf2.id
+
+    # Make sure the second Workflow has a distinct hash
+    assert wf1.hash != wf2.hash
+
+    # Make sure the second Workflow has a distinct set of Jobs
+    assert not (set([t.job_id for _, t in wf1.task_dag.tasks.items()]) &
+                set([t.job_id for _, t in wf2.task_dag.tasks.items()]))
+
+
+@pytest.mark.skip(reason="Need Christine's work on task_dag to allow resume")
+def test_stop_resume(simple_workflow):
     # Manually modify the database so that some mid-dag jobs appear in
     # a running / non-complete / non-error state
+    stopped_wf = simple_workflow
+    job_ids = [t.job_id for _, t in stopped_wf.task_dag.tasks.items()]
 
-    # Validate that the database has been modified
+    with database.session_scope() as session:
+        session.execute("""
+            UPDATE job
+            SET status={s}
+            WHERE job_id={jid}""".format(s=JobStatus.REGISTERED,
+                                         jid=job_ids[-1]))
+        session.execute("""
+            UPDATE workflow
+            SET status={s}
+            WHERE id={id}""".format(s=WorkflowStatus.STOPPED,
+                                             id=stopped_wf.id))
+        session.execute("""
+            UPDATE workflow_run
+            SET status={s}
+            WHERE workflow_id={id}""".format(s=WorkflowRunStatus.STOPPED,
+                                             id=stopped_wf.id))
+        session.execute("""
+            DELETE FROM job_instance
+            WHERE job_id={jid}""".format(s=JobStatus.REGISTERED,
+                                         jid=job_ids[-1]))
 
-    # Re-start the dag
+    # Re-create the dag "from scratch" (copy simple_workflow fixture)
+    dag = TaskDag()
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    dag.add_tasks([t1, t2, t3])
 
-    # Check that the user is prompted that they indeed want to resume...
+    wfa = "my_simple_dag"
+    workflow = Workflow(dag, wfa)
+    workflow.execute()
 
-    # Validate that the database indicates the Dag and its Jobs are complete
+    # TODO: Check that the user is prompted that they indeed want to resume...
+
+    # Validate that the new workflow has the same ID as the 'stopped' one
+    assert workflow.id == stopped_wf.id
 
     # Validate that a new WorkflowRun was created
-    pass
+    assert workflow.workflow_run.id != stopped_wf.workflow_run.id
+
+    # Validate that the database indicates the Dag and its Jobs are complete
+    assert workflow.status == WorkflowStatus.COMPLETE
+
+    for _, task in workflow.task_dag.tasks.items():
+        assert task.status == JobStatus.COMPLETE
 
 
+@pytest.mark.skip(reason="Need Christine's work on task_dag to allow resume")
 def test_reset_attempts_on_resume():
-    # Run a dag
-
     # Manually modify the database so that some mid-dag jobs appear in
     # error state, max-ing out the attempts
+    stopped_wf = simple_workflow
+    job_ids = [t.job_id for _, t in stopped_wf.task_dag.tasks.items()]
 
-    # Validate that the database has been modified
+    with database.session_scope() as session:
+        session.execute("""
+            UPDATE job
+            SET status={s}
+            WHERE job_id={jid}""".format(s=JobStatus.ERROR_FATAL,
+                                         jid=job_ids[1]))
+        session.execute("""
+            UPDATEjob_instance
+            SET status={s}
+            WHERE job_id={jid}""".format(s=JobInstanceStatus.ERROR,
+                                         jid=job_ids[1]))
+        session.execute("""
+            UPDATE workflow
+            SET status={s}
+            WHERE id={id}""".format(s=WorkflowStatus.STOPPED,
+                                             id=stopped_wf.id))
+        session.execute("""
+            UPDATE workflow_run
+            SET status={s}
+            WHERE workflow_id={id}""".format(s=WorkflowRunStatus.STOPPED,
+                                             id=stopped_wf.id))
 
     # Re-instantiate the DAG + Workflow
 
-    # Check that the user is prompted that they want to resume...
+    # TODO: Check that the user is prompted that they want to resume...
 
     # Before actually executing the DAG, validate that the database has
     # reset the attempt counters to 0 and the ERROR states to INSTANTIATED
@@ -148,10 +243,24 @@ def test_resume_dag_with_errors():
     pass
 
 
-def test_attempt_resume_on_complete_workflow():
-    # Should not allow a resume, but should prompt user to create a new
-    # workflow by modifying the WorkflowArgs (e.g. new version #)
-    pass
+def test_attempt_resume_on_complete_workflow(simple_workflow):
+    """Should not allow a resume, but should prompt user to create a new
+    workflow by modifying the WorkflowArgs (e.g. new version #)"""
+
+    stopped_wf = simple_workflow
+
+    # Re-create the dag "from scratch" (copy simple_workflow fixture)
+    dag = TaskDag()
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    dag.add_tasks([t1, t2, t3])
+
+    wfa = "my_simple_dag"
+    workflow = Workflow(dag, wfa)
+
+    with pytest.raises(WorkflowAlreadyComplete):
+        workflow.execute()
 
 
 def test_new_workflow_existing_dag():
@@ -164,9 +273,11 @@ def test_new_workflow_existing_dag():
     pass
 
 
-def test_force_new_workflow_instead_of_resume():
+def test_force_new_workflow_instead_of_resume(simple_workflow):
     # Run a dag
-
+    simple_workflow._create_workflow_run()
+    simple_workflow._create_workflow_run()
+    simple_workflow._create_workflow_run()
     # Manually modify the database so that some mid-dag jobs appear in
     # error state, max-ing out the attempts
 
@@ -181,3 +292,33 @@ def test_force_new_workflow_instead_of_resume():
     # Validate that the old Workflow stays as-is, and that a new Workflow is
     # created that runs to completion
     pass
+
+
+def test_dag_reset(jsm_jqs, simple_workflow_w_errors):
+    # Alias to shorter names...
+    jsm, _ = jsm_jqs
+    err_wf  = simple_workflow_w_errors
+
+    dag_id = err_wf.task_dag.dag_id
+
+    with database.session_scope() as session:
+        jobs = session.query(Job).filter_by(dag_id=dag_id).all()
+        assert len(jobs) == 4
+
+        xstatuses = [JobStatus.DONE, JobStatus.ERROR_FATAL,
+                     JobStatus.ERROR_FATAL, JobStatus.REGISTERED]
+        assert (sorted([j.status for j in jobs]) ==
+                sorted(xstatuses))
+
+
+    # Now RESET and make sure all the jobs that aren't "DONE" flip back to
+    # REGISTERED
+    jsm.reset_incomplete_jobs(dag_id)
+    with database.session_scope() as session:
+        jobs = session.query(Job).filter_by(dag_id=dag_id).all()
+        assert len(jobs) == 4
+
+        xstatuses = [JobStatus.DONE, JobStatus.REGISTERED,
+                     JobStatus.REGISTERED, JobStatus.REGISTERED]
+        assert (sorted([j.status for j in jobs]) ==
+                sorted(xstatuses))

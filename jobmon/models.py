@@ -98,6 +98,14 @@ class Job(Base):
         (JobStatus.ERROR_RECOVERABLE, JobStatus.ERROR_FATAL),
         (JobStatus.ERROR_RECOVERABLE, JobStatus.QUEUED_FOR_INSTANTIATION)]
 
+    def reset(self):
+        self.status = JobStatus.REGISTERED
+        self.num_attempts = 0
+        for ji in self.job_instances:
+            ji.status = JobInstanceStatus.ERROR
+            new_error = JobInstanceErrorLog(description="Job RESET requested")
+            ji.errors.append(new_error)
+
     def transition_to_error(self):
         self.transition(JobStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
@@ -163,6 +171,8 @@ class JobInstance(Base):
     submitted_date = Column(DateTime, default=datetime.utcnow())
     status_date = Column(DateTime, default=datetime.utcnow())
 
+    errors = relationship("JobInstanceErrorLog", back_populates="job_instance")
+
     valid_transitions = [
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
 
@@ -206,6 +216,8 @@ class JobInstanceErrorLog(Base):
         nullable=False)
     error_time = Column(DateTime, default=datetime.utcnow())
     description = Column(Text)
+
+    job_instance = relationship("JobInstance", back_populates="errors")
 
 
 class JobInstanceStatusLog(Base):

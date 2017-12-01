@@ -8,6 +8,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from jobmon.config import config
+from jobmon.exceptions import ReturnCodes
 from jobmon.requester import Requester
 from jobmon.sql_base import Base
 
@@ -17,7 +18,8 @@ class WorkflowRunStatus(Base):
 
     RUNNING = 1
     STOPPED = 2
-    COMPLETE = 3
+    ERROR = 3
+    COMPLETE = 4
 
     id = Column(Integer, primary_key=True)
     label = Column(String(150), nullable=False)
@@ -27,24 +29,6 @@ class WorkflowRunDAO(Base):
 
     __tablename__ = 'workflow_run'
 
-    @classmethod
-    def from_wire(cls, dct):
-        return cls(id=dct['dag_id'], job_id=dct['job_id'],
-                   name=dct['name'], command=dct['command'],
-                   slots=dct['slots'], mem_free=dct['mem_free'],
-                   project=dct['project'], status=dct['status'],
-                   num_attempts=dct['num_attempts'],
-                   max_attempts=dct['max_attempts'],
-                   context_args=dct['context_args'])
-
-    def to_wire(self):
-        return {'dag_id': self.dag_id, 'job_id': self.job_id, 'name':
-                self.name, 'command': self.command, 'status': self.status,
-                'slots': self.slots, 'mem_free': self.mem_free,
-                'project': self.project, 'num_attempts': self.num_attempts,
-                'max_attempts': self.max_attempts,
-                'context_args': self.context_args}
-
     id = Column(Integer, primary_key=True)
     workflow_id = Column(Integer, ForeignKey('workflow.id'))
     user = Column(String(150))
@@ -53,7 +37,7 @@ class WorkflowRunDAO(Base):
     created_date = Column(DateTime, default=datetime.utcnow())
     status_date = Column(DateTime, default=datetime.utcnow())
     status = Column(Integer,
-                    ForeignKey('workflow_status.id'),
+                    ForeignKey('workflow_run_status.id'),
                     nullable=False,
                     default=WorkflowRunStatus.RUNNING)
 
@@ -72,13 +56,18 @@ class WorkflowRun(object):
                        'hostname': socket.gethostname(),
                        'pid': os.getpid()}
         })
+        if rc != ReturnCodes.OK:
+            raise ValueError("Invalid Reponse")
         self.id = wfr_id
-
-    def update_stopped(self):
-        self._update_status(WorkflowRunStatus.STOPPED)
 
     def update_complete(self):
         self._update_status(WorkflowRunStatus.COMPLETE)
+
+    def update_error(self):
+        self._update_status(WorkflowRunStatus.ERROR)
+
+    def update_stopped(self):
+        self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
         rc, wfr_id = self.jsm_req.send_request({

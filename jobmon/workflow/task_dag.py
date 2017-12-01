@@ -41,9 +41,13 @@ class TaskDag(object):
             self.job_list_manager = JobListManager(dag_id,
                                                    executor=execute_sge,
                                                    start_daemons=True)
+
+            # Reset any jobs hung up in not-DONE states
+            self.job_list_manager.reset_jobs()
+
             # Sync task statuses via job_id... consider using hashes instead
-            for task in self.tasks:
-                job_id = self.job_list_manager.job_hash_id_map[task.hash_name]
+            for _, task in self.tasks.items():
+                job_id = self.job_list_manager.job_hash_id_map[str(task.hash)]
                 task.job_id = job_id
             self.dag_id = dag_id
         else:
@@ -54,7 +58,7 @@ class TaskDag(object):
                                                    executor=execute_sge,
                                                    start_daemons=True)
             self.dag_id = self.meta.dag_id
-            for task in self.tasks.values():
+            for _, task in self.tasks.items():
                 task.bind(self.job_list_manager)
 
     def validate(self, raises=True):

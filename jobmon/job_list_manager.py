@@ -211,6 +211,9 @@ class JobListManager(object):
         self.job_factory.queue_job(job_id)
         self.job_statuses[job_id] = JobStatus.QUEUED_FOR_INSTANTIATION
 
+    def reset_jobs(self):
+        self.job_factory.reset_jobs()
+
     def _sync(self, session):
         rc, jobs = self.jqs_req.send_request({
             'action': 'get_all_jobs',
