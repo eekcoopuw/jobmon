@@ -110,6 +110,7 @@ class TaskDag(Base):
 
         all_completed = []
         all_failed = []
+        all_already_done = []
         all_running = {}
         already_done = {}
         n_executions = 0
@@ -150,15 +151,17 @@ class TaskDag(Base):
                     n_executions += 1
             logger.debug("Return from blocking call, completed_and_status {}"
                          .format(completed_and_status))
-            all_running, completed_tasks, failed_tasks = self.sort_jobs(
-                all_running, already_done, completed_and_status)
+            all_running, completed_tasks, already_done_tasks, failed_tasks = (
+                self.sort_jobs(all_running, already_done,
+                               completed_and_status))
 
             # Need to find the tasks that were that job, they will be in this
             # "small" dic of active tasks
 
             all_completed += completed_tasks
             all_failed += failed_tasks
-            for task in completed_tasks:
+            all_already_done += already_done_tasks
+            for task in completed_tasks + already_done_tasks:
                 fringe += self.propagate_results(task)
             if (self.fail_after_n_executions is not None and
                 n_executions >= self.fail_after_n_executions):
@@ -176,11 +179,11 @@ class TaskDag(Base):
 
         if all_failed:
             logger.info("DAG execute finished, failed {}".format(all_failed))
-            return False, len(all_completed), len(all_failed)
+            return False, len(all_completed), len(all_already_done), len(all_failed)
         else:
             logger.info("DAG execute finished successfully, {} jobs"
                         .format(len(all_completed)))
-            return True, len(all_completed), len(all_failed)
+            return True, len(all_completed), len(all_already_done), len(all_failed)
 
     def sort_jobs(self, runners, already_done, completed_and_failed):
         """
@@ -197,23 +200,28 @@ class TaskDag(Base):
             A new runners dictionary, two lists of job_ids
         """
         completed = []
+        previously_completed = []
         failed = []
         for (jid, status) in completed_and_failed:
             if jid in runners:
                 task = runners.pop(jid)
+                running = True
             else:
                 task = already_done.pop(jid)
+                running = False
             task.cached_status = status
 
-            if status == JobStatus.DONE:
+            if status == JobStatus.DONE and running is True:
                 completed += [task]
+            elif status == JobStatus.DONE and running is False:
+                previously_completed += [task]
             elif status == JobStatus.ERROR_FATAL:
                 failed += [task]
             else:
                 raise ValueError("Job returned that is neither done nor "
                                  "error_fatal: jid: {}, status {}"
                                  .format(jid, status))
-        return runners, completed, failed
+        return runners, completed, previously_completed, failed
 
     def propagate_results(self, task):
         """

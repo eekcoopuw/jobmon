@@ -86,7 +86,8 @@ def test_resume_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     # keep track of all completed tasks from last run of the dag, and so the
     # number of all_completed will be all 5
     dag._set_fail_after_n_executions(None)
-    rc, all_completed, all_failed = dag.execute()
+    rc, all_completed, all_previously_complete, all_failed = dag.execute()
     assert rc is True
-    assert all_completed == 5
+    assert all_previously_complete == 2
+    assert all_completed == 3
     assert all_failed == 0

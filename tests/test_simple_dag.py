@@ -34,9 +34,10 @@ def test_empty_dag(db_cfg, jsm_jqs, task_dag_manager):
     assert dag.name == "test_empty"
     dag.execute()
 
-    (rc, num_completed, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
 
     assert rc
+    assert num_previously_complete == 0
     assert num_completed == 0
     assert num_failed == 0
 
@@ -58,10 +59,11 @@ def test_one_task(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     dag.add_task(task)
 
     os.makedirs("{}/test_one_task".format(tmp_out_dir))
-    (rc, num_completed, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
 
     assert rc
     assert num_completed == 1
+    assert num_previously_complete == 0
     assert num_failed == 0
     assert task.cached_status == JobStatus.DONE
 
@@ -131,9 +133,10 @@ def test_three_linear_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     dag.add_task(task_c)
 
     logger.debug("DAG: {}".format(dag))
-    (rc, num_completed, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
     assert rc
     assert num_completed == 3
+    assert num_previously_complete == 0
     assert num_failed == 0
 
     all([task_a, task_b, task_c])
@@ -203,10 +206,11 @@ def test_fork_and_join_tasks(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
 
     logger.info("DAG: {}".format(dag))
 
-    (rc, num_completed, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
 
     assert rc
     assert num_completed == 1 + 3 + 3 + 1
+    assert num_previously_complete == 0
     assert num_failed == 0
 
     assert task_a.cached_status == JobStatus.DONE
@@ -280,11 +284,12 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs,
 
     logger.info("DAG: {}".format(dag))
 
-    (rc, num_completed, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
 
     assert not rc
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
     assert num_completed == 1 + 2 + 2
+    assert num_previously_complete == 0
     assert num_failed == 1  # b[1]
 
     assert task_a.cached_status == JobStatus.DONE
@@ -362,10 +367,11 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs,
 
     logger.info("DAG: {}".format(dag))
 
-    (rc, num_completed, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
 
     assert rc
     assert num_completed == 1 + 3 + 3 + 1
+    assert num_previously_complete == 0
     assert num_failed == 0
 
     assert task_a.cached_status == JobStatus.DONE
@@ -447,7 +453,7 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
 
     logger.info("DAG: {}".format(dag))
 
-    (rc, num_completed, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
 
     # TODO: How to check that nothing was started before its upstream were
     # done?
@@ -457,6 +463,7 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
 
     assert rc
     assert num_completed == 1 + 3 + 3 + 1
+    assert num_previously_complete == 0
     assert num_failed == 0
 
     assert task_a.cached_status == JobStatus.DONE
