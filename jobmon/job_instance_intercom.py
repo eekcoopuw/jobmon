@@ -39,10 +39,10 @@ class JobInstanceIntercom(object):
         })
 
     def log_job_stats(self):
-        if os.getenv("JOB_ID"):
+        if os.environ["JOB_ID"]:
             logger.debug("In log_job_stats: JOB_ID is {}"
-                         .format(os.getenv("JOB_ID")))
-            job_id = os.getenv("JOB_ID")
+                         .format(os.environ["JOB_ID"]))
+            job_id = os.environ["JOB_ID"]
             self.usage = sge.qstat_usage(
                 job_id)
             dbukeys = ['usage_str', 'nodename', 'wallclock', 'maxvmem', 'cpu',
