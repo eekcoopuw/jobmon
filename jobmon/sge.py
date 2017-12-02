@@ -36,6 +36,7 @@ import drmaa
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
+
 # Comes from object_name in `man sge_types`. Also, * excluded.
 UGE_NAME_POLICY = re.compile(
     "[.#\n\t\r /\\\[\]:'{}\|\(\)@%,*]|[\n\t\r /\\\[\]:'{}\|\(\)@%,*]")

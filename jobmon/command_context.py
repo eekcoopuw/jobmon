@@ -95,7 +95,6 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
 def unwrap():
 
     import argparse
-
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
     # Similar to a stub or a container
@@ -124,7 +123,6 @@ def unwrap():
 
     # makes a dict
     args = vars(parser.parse_args())
-
     cc = ConnectionConfig(args["jsm_host"], args["jsm_port"])
     ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
                                       jm_rep_cc=cc)
@@ -163,8 +161,8 @@ def unwrap():
 
     # check return code
     if returncode != ReturnCodes.OK:
-        ji_intercom.log_job_stats()
+        ji_intercom.log_job_stats(os.environ['JOB_ID'])
         ji_intercom.log_error(str(stderr))
     else:
-        ji_intercom.log_job_stats()
+        ji_intercom.log_job_stats(os.environ['JOB_ID'])
         ji_intercom.log_done()

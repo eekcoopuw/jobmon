@@ -2,10 +2,12 @@ import logging
 import os
 import sys
 import pytest
+import socket
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon.models import JobStatus
+from jobmon.models import JobStatus, JobInstance
+from jobmon.database import session_scope
 from jobmon import sge
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
@@ -54,7 +56,6 @@ def test_one_task(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
                  "--name {n}" .format(cs=command_script, ofn=output_file_name,
                                       n=output_file_name)))
     dag.add_task(task)
-
     os.makedirs("{}/test_one_task".format(tmp_out_dir))
     (rc, num_completed, num_failed) = dag.execute()
 
@@ -62,6 +63,14 @@ def test_one_task(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     assert num_completed == 1
     assert num_failed == 0
     assert task.cached_status == JobStatus.DONE
+    with session_scope() as session:
+        ji = session.query(JobInstance).first()
+        assert ji.usage_str  # all these should exist and not be empty
+        assert ji.maxvmem
+        assert ji.cpu
+        assert ji.io
+        assert ji.nodename
+        assert ':' not in ji.wallclock  # wallclock should be in seconds
 
 
 def test_two_tasks_same_name_errors(db_cfg, jsm_jqs, task_dag_manager,

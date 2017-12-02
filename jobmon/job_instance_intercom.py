@@ -7,15 +7,7 @@ if os.getenv("SGE_CLUSTER_NAME"):
     from jobmon import sge
 
 
-# logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-handler = logging.FileHandler(
-    '/ihme/scratch/users/cpinho/tests/jobmon/status_check.log')
-f = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-handler.setFormatter(f)
-handler.setLevel(logging.DEBUG)
-logger.addHandler(handler)
 
 
 class JobInstanceIntercom(object):
@@ -38,13 +30,9 @@ class JobInstanceIntercom(object):
                        'error_message': error_message}
         })
 
-    def log_job_stats(self):
-        if os.environ["JOB_ID"]:
-            logger.debug("In log_job_stats: JOB_ID is {}"
-                         .format(os.environ["JOB_ID"]))
-            job_id = os.environ["JOB_ID"]
-            self.usage = sge.qstat_usage(
-                job_id)
+    def log_job_stats(self, job_id):
+        if job_id:
+            self.usage = sge.qstat_usage([job_id])[int(job_id)]
             dbukeys = ['usage_str', 'nodename', 'wallclock', 'maxvmem', 'cpu',
                        'io']
             kwargs = {k: self.usage[k] for k in dbukeys
@@ -56,7 +44,7 @@ class JobInstanceIntercom(object):
             logger.debug("In log_job_stats: msg is {}".format(msg))
             return self.requester.send_request(msg)
         else:
-            logger.debug("In log_job_stats: couldn't get JOB_ID")
+            logger.debug("In log_job_stats: job_id is None")
             return False
 
     def log_running(self):
