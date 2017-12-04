@@ -90,14 +90,14 @@ class AbstractTask(object):
     def __lt__(self, other):
         return self.hash < other.hash
 
-    def needs_to_execute(self):
+    def is_done(self):
         """
-        Should this Task be run? True if not done.
+        Is this Task done? True if done.
 
         Abstract
 
         Returns:
-            boolean: true if this must be executed, False if not
+            boolean: true if this is done, False if not
         """
         raise NotImplementedError()
 
