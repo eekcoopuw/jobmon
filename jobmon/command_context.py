@@ -159,10 +159,14 @@ def unwrap():
     print(stdout)
     eprint(stderr)
 
+    sge_id = os.environ.get('JOB_ID')
+    if not sge_id:  # This allows sequentially executed (not SGE) jobs to work
+        logger.debug("No job_id env variable set. Can't log job stats")
+
     # check return code
     if returncode != ReturnCodes.OK:
-        ji_intercom.log_job_stats(os.environ['JOB_ID'])
+        ji_intercom.log_job_stats(sge_id)
         ji_intercom.log_error(str(stderr))
     else:
-        ji_intercom.log_job_stats(os.environ['JOB_ID'])
+        ji_intercom.log_job_stats(sge_id)
         ji_intercom.log_done()

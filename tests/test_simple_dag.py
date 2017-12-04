@@ -481,6 +481,10 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
 def test_dag_logging(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Create a dag with one Task and execute it, and make sure logs show up in db
+
+    This is in a separate test from the jsm-specifc logging test, as this test
+    runs the jobmon pipeline as it would be run from the client perspective,
+    and makes sure the qstat usage details are automatically updated in the db
     """
     root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
@@ -504,58 +508,3 @@ def test_dag_logging(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
         assert ji.io
         assert ji.nodename
         assert ':' not in ji.wallclock  # wallclock should be in seconds
-
-
-def test_resume_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
-    root_out_dir = "{}/mocks/test_resume_dag".format(tmp_out_dir)
-    makedirs_safely(root_out_dir)
-    dag = task_dag_manager.create_task_dag(name="test_resume_dag")
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
-
-    a_output_file_name = "{}/a.out".format(root_out_dir)
-    task_a = SleepAndWriteFileMockTask(
-        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
-                 "--name {n}".format(cs=command_script, ofn=a_output_file_name,
-                                     n=a_output_file_name)),
-        upstream_tasks=[]  # To be clear
-    )
-    dag.add_task(task_a)
-
-    b_output_file_name = "{}/b.out".format(root_out_dir)
-    task_b = SleepAndWriteFileMockTask(
-        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
-                 "--name {n}".format(cs=command_script, ofn=b_output_file_name,
-                                     n=b_output_file_name)),
-        upstream_tasks=[task_a]
-    )
-    dag.add_task(task_b)
-
-    c_output_file_name = "{}/c.out".format(root_out_dir)
-    task_c = SleepAndWriteFileMockTask(
-        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
-                 "--name {n}".format(cs=command_script, ofn=c_output_file_name,
-                                     n=c_output_file_name)),
-        upstream_tasks=[task_b]
-    )
-    dag.add_task(task_c)
-
-    logger.debug("DAG: {}".format(dag))
-    dag._set_fail_after_n_executions(2)  # set the dag to fail after 2 tasks
-    logger.debug("in launcher, self.fail_after_n_executions is {}"
-                 .format(dag.fail_after_n_executions))
-
-    # ensure dag officially "fell over"
-    with pytest.raises(ValueError):
-        dag.execute()
-
-    # ensure the dag that "fell over" has 2 out of the 3 jobs complete
-    statuses = list(dag.job_list_manager.job_statuses.values())
-    assert statuses[0] == JobStatus.DONE
-    assert statuses[1] == JobStatus.DONE
-    assert statuses[2] != JobStatus.DONE
-
-    # relaunch dag, and ensure only one task runs
-    rc, all_completed, all_failed = dag.execute()
-    assert rc is True
-    assert all_completed == 1
-    assert all_failed == 0
