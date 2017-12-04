@@ -62,14 +62,6 @@ def test_one_task(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     assert num_previously_complete == 0
     assert num_failed == 0
     assert task.cached_status == JobStatus.DONE
-    with session_scope() as session:
-        ji = session.query(JobInstance).first()
-        assert ji.usage_str  # all these should exist and not be empty
-        assert ji.maxvmem
-        assert ji.cpu
-        assert ji.io
-        assert ji.nodename
-        assert ':' not in ji.wallclock  # wallclock should be in seconds
 
 
 def test_two_tasks_same_name_errors(db_cfg, jsm_jqs, task_dag_manager,

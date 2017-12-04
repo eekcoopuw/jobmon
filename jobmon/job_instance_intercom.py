@@ -41,7 +41,6 @@ class JobInstanceIntercom(object):
                 'action': 'log_usage',
                 'args': [self.job_instance_id],
                 'kwargs': kwargs}
-            logger.debug("In log_job_stats: msg is {}".format(msg))
             return self.requester.send_request(msg)
         else:
             logger.debug("In log_job_stats: job_id is None")

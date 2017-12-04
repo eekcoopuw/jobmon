@@ -92,11 +92,9 @@ def jsm_jqs(db_cfg):
     # Logging has to be set up BEFORE the Thread.
     # Therefore we set up the job_state_manager's console logger here, before
     # we put it in a Thread.
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     jsm_logger = logging.getLogger("jobmon.job_state_manager")
-    jsm_logger.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
     jsm_logger.addHandler(ch)
     jsm = JobStateManager(db_cfg.jm_rep_conn.port, db_cfg.jm_pub_conn.port)
 
