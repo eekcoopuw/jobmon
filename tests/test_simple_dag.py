@@ -2,7 +2,6 @@ import logging
 import os
 import sys
 import pytest
-import socket
 
 from cluster_utils.io import makedirs_safely
 
@@ -477,6 +476,34 @@ def test_bushy_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     assert task_c[2].cached_status == JobStatus.DONE
 
     assert task_d.cached_status == JobStatus.DONE
+
+
+def test_dag_logging(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
+    """
+    Create a dag with one Task and execute it, and make sure logs show up in db
+    """
+    root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
+    makedirs_safely(root_out_dir)
+    dag = task_dag_manager.create_task_dag(name="test_one_task")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+
+    output_file_name = "{}/test_one_task/mock.out".format(tmp_out_dir)
+    task = SleepAndWriteFileMockTask(
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}" .format(cs=command_script, ofn=output_file_name,
+                                      n=output_file_name)))
+    dag.add_task(task)
+    os.makedirs("{}/test_one_task".format(tmp_out_dir))
+    (rc, num_completed, num_failed) = dag.execute()
+
+    with session_scope() as session:
+        ji = session.query(JobInstance).first()
+        assert ji.usage_str  # all these should exist and not be empty
+        assert ji.maxvmem
+        assert ji.cpu
+        assert ji.io
+        assert ji.nodename
+        assert ':' not in ji.wallclock  # wallclock should be in seconds
 
 
 def test_resume_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
