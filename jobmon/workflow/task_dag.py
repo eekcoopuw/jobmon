@@ -1,4 +1,5 @@
 import logging
+import copy
 
 from sqlalchemy import Column, DateTime, Integer, String
 
@@ -29,6 +30,16 @@ class TaskDag(Base):
         # dictionary, TBD needs to scale to 1,000,000 jobs, untested at scale
         self.names_to_nodes = {}
         self.top_fringe = []
+        self.fail_after_n_executions = None
+
+    def _set_fail_after_n_executions(self, n):
+        """
+        For use during testing, force the TaskDag to 'fall over' after n
+        executions, so that the resume case can be tested.
+
+        In every non-test case, self.fail_after_n_executions will be None, and
+        so the 'fall over' will not be triggered in production. """
+        self.fail_after_n_executions = n
 
     def validate(self, raises=True):
         """
@@ -93,11 +104,16 @@ class TaskDag(Base):
             A triple: True, len(all_completed_tasks), len(all_failed_tasks)
         """
 
-        fringe = self.top_fringe
+        logger.debug("self.fail_after_n_executions is {}"
+                     .format(self.fail_after_n_executions))
+        fringe = copy.copy(self.top_fringe)
 
         all_completed = []
         all_failed = []
+        all_already_done = []
         all_running = {}
+        already_done = {}
+        n_executions = 0
 
         logger.debug("Execute DAG {}".format(self))
 
@@ -113,26 +129,45 @@ class TaskDag(Base):
                 # That ensures breadth-first behavior, which is likely to
                 # maximize parallelism
                 task = fringe.pop(0)
-                # Start this new jobs ASAP
-                logger.debug("Queueing newly ready task {}".format(task))
-                task.queue_job(self.job_list_manager)
-                all_running[task.job_id] = task
+                # Start the new jobs ASAP
+                if not task.is_done():
+                    logger.debug("Queueing newly ready task {}".format(task))
+                    task.queue_job(self.job_list_manager)
+                    all_running[task.job_id] = task
+                else:
+                    logger.debug("Task {} already done. Adding to completed "
+                                 "tasks".format(task))
+                    # have to put the already done task into the update_queue,
+                    # otherwise block_until_done_or_error will block forever
+                    self.job_list_manager.update_queue.put(
+                        (task.job_id, task.get_status()))
+                    already_done[task.job_id] = task
 
             # TBD timeout?
             completed_and_status = (
                 self.job_list_manager.block_until_any_done_or_error())
+            for job in completed_and_status:
+                if job[1] == JobStatus.DONE:
+                    n_executions += 1
             logger.debug("Return from blocking call, completed_and_status {}"
                          .format(completed_and_status))
-            all_running, completed_tasks, failed_tasks = self.sort_jobs(
-                all_running, completed_and_status)
+            all_running, completed_tasks, already_done_tasks, failed_tasks = (
+                self.sort_jobs(all_running, already_done,
+                               completed_and_status))
 
             # Need to find the tasks that were that job, they will be in this
             # "small" dic of active tasks
 
             all_completed += completed_tasks
             all_failed += failed_tasks
-            for task in completed_tasks:
+            all_already_done += already_done_tasks
+            for task in completed_tasks + already_done_tasks:
                 fringe += self.propagate_results(task)
+            if (self.fail_after_n_executions is not None and
+                n_executions >= self.fail_after_n_executions):
+                raise ValueError("Dag asked to fail after {} executions. "
+                                 "Failing now".format(n_executions))
+
         # END while fringe or all_running
 
         # To be a dynamic-DAG  tool, we must be prepared for the DAG to have
@@ -144,13 +179,13 @@ class TaskDag(Base):
 
         if all_failed:
             logger.info("DAG execute finished, failed {}".format(all_failed))
-            return False, len(all_completed), len(all_failed)
+            return False, len(all_completed), len(all_already_done), len(all_failed)
         else:
             logger.info("DAG execute finished successfully, {} jobs"
                         .format(len(all_completed)))
-            return True, len(all_completed), len(all_failed)
+            return True, len(all_completed), len(all_already_done), len(all_failed)
 
-    def sort_jobs(self, runners, completed_and_failed):
+    def sort_jobs(self, runners, already_done, completed_and_failed):
         """
         Sort into two list of completed and failed, and return an update
         runners dict
@@ -158,26 +193,35 @@ class TaskDag(Base):
 
         Args:
             runners (dictionary): of currently running jobs, by job_id
+            already_done (dictiony): of jobs that came in this dag already done
             completed_and_failed (list): List of tuples of (job_id, JobStatus)
 
         Returns:
             A new runners dictionary, two lists of job_ids
         """
         completed = []
+        previously_completed = []
         failed = []
         for (jid, status) in completed_and_failed:
-            task = runners.pop(jid)
+            if jid in runners:
+                task = runners.pop(jid)
+                running = True
+            else:
+                task = already_done.pop(jid)
+                running = False
             task.cached_status = status
 
-            if status == JobStatus.DONE:
+            if status == JobStatus.DONE and running is True:
                 completed += [task]
+            elif status == JobStatus.DONE and running is False:
+                previously_completed += [task]
             elif status == JobStatus.ERROR_FATAL:
                 failed += [task]
             else:
                 raise ValueError("Job returned that is neither done nor "
                                  "error_fatal: jid: {}, status {}"
                                  .format(jid, status))
-        return runners, completed, failed
+        return runners, completed, previously_completed, failed
 
     def propagate_results(self, task):
         """
@@ -195,7 +239,7 @@ class TaskDag(Base):
         task.set_status(JobStatus.DONE)
         for downstream in task.downstream_tasks:
             logger.debug("  downstream {}".format(downstream))
-            if downstream.needs_to_execute() and downstream.all_upstreams_done():
+            if downstream.all_upstreams_done():
                 logger.debug("  and add to fringe")
                 new_fringe += [downstream]
                 # else Nothing - that Task ain't ready yet

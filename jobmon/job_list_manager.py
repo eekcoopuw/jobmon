@@ -16,8 +16,10 @@ from jobmon.subscriber import Subscriber
 logger = logging.getLogger(__name__)
 
 
-def listen_for_job_statuses(host, port, dag_id, done_queue,
-                            error_queue, update_queue, disconnect_queue):
+def listen_for_job_statuses(host, port, dag_id, done_queue, error_queue,
+                            update_queue, disconnect_queue):
+    """ Because we're dealing with threads, this can't be a method on a class
+    """
     logger.info("Listening for dag_id={} job status updates from {}:{}".format(
         dag_id, host, port))
     subscriber = Subscriber(host, port, dag_id)
@@ -127,6 +129,9 @@ class JobListManager(object):
         """Returns any job updates since last called, or blocks until an update
         is received.
 
+        Be careful. Job statuses are cached in two places: in the update_queue,
+        and in the job_status dictionary. Be sure to update in both.
+
         Args:
             timeout (int, optional): Maximum time to block. If None (default),
                 block forever.
@@ -141,9 +146,10 @@ class JobListManager(object):
         if not self.update_queue.empty():
             while not self.update_queue.empty():
                 updates.append(self.update_queue.get(timeout=timeout))
-            return updates
         else:
-            return [self.update_queue.get(timeout=timeout)]
+            updates = [self.update_queue.get(timeout=timeout)]
+        self.job_statuses.update(dict(updates))  # update job_status here
+        return updates
 
     def block_until_no_instances(self, poll_interval=10,
                                  raise_on_any_error=True):
@@ -233,9 +239,10 @@ class JobListManager(object):
     def _start_job_status_listener(self):
         self.jsl_proc = Thread(target=listen_for_job_statuses,
                                args=(config.jm_pub_conn.host,
-                                     config.jm_pub_conn.port, self.dag_id,
-                                     self.done_queue, self.error_queue,
-                                     self.update_queue, self.disconnect_queue))
+                                     config.jm_pub_conn.port,
+                                     self.dag_id, self.done_queue,
+                                     self.error_queue, self.update_queue,
+                                     self.disconnect_queue))
         self.jsl_proc.daemon = True
         self.jsl_proc.start()
 
