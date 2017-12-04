@@ -87,7 +87,7 @@ class AbstractTask(object):
         """
         return self.hash
 
-    def am_i_done(self):
+    def is_done(self):
         """
         Is this Task done? True if done.
 

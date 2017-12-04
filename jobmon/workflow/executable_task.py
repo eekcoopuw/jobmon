@@ -41,7 +41,7 @@ class ExecutableTask(AbstractTask):
     def set_status(self, new_status):
         self.cached_status = new_status
 
-    def am_i_done(self):
+    def is_done(self):
         """
         If my Job is not "DONE" then I must be run.
 
