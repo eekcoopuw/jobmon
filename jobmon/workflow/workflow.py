@@ -146,6 +146,10 @@ class Workflow(object):
                                "Workflows should be unique on TaskDag and "
                                "WorkflowArgs".format(potential_wfs))
 
+    def _complete(self):
+        self.workflow_run.update_complete()
+        self._update_status(WorkflowStatus.COMPLETE)
+
     def _compute_hash(self):
         hashval = hashlib.sha1()
         hashval.update(bytes(self.workflow_args.encode('utf-8')))
@@ -155,6 +159,10 @@ class Workflow(object):
     def _create_workflow_run(self):
         # Create new workflow in Database
         self.workflow_run = WorkflowRun(self.id)
+
+    def _error(self):
+        self.workflow_run.update_error()
+        self._update_status(WorkflowStatus.ERROR)
 
     def _matching_dag_ids(self):
         rc, dag_ids = self.jqs_req.send_request({
@@ -182,14 +190,6 @@ class Workflow(object):
             'kwargs': {'wf_id': self.id, 'status': status}
         })
         self.wf_dao = WorkflowDAO.from_wire(wf_dct)
-
-    def complete(self):
-        self.workflow_run.update_complete()
-        self._update_status(WorkflowStatus.COMPLETE)
-
-    def error(self):
-        self.workflow_run.update_error()
-        self._update_status(WorkflowStatus.ERROR)
 
     def execute(self):
         if not self.is_bound:
