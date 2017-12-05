@@ -495,7 +495,7 @@ def test_dag_logging(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
                                       n=output_file_name)))
     dag.add_task(task)
     os.makedirs("{}/test_dag_logging".format(tmp_out_dir))
-    (rc, num_completed, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
 
     with session_scope() as session:
         ji = session.query(JobInstance).first()
