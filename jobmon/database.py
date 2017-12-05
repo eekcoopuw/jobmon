@@ -66,11 +66,11 @@ def load_default_statuses(session):
         status_obj = JobInstanceStatus(id=getattr(JobInstanceStatus, status),
                                        label=status)
         statuses.append(status_obj)
-    for status in ['CREATED', 'RUNNING', 'STOPPED', 'COMPLETE']:
+    for status in ['CREATED', 'RUNNING', 'STOPPED', 'ERROR', 'DONE']:
         wfs_obj = WorkflowStatus(id=getattr(WorkflowStatus, status),
                                  label=status)
         statuses.append(wfs_obj)
-    for status in ['RUNNING', 'STOPPED', 'COMPLETE']:
+    for status in ['RUNNING', 'STOPPED', 'ERROR', 'DONE']:
         wfrs_obj = WorkflowRunStatus(id=getattr(WorkflowRunStatus, status),
                                      label=status)
         statuses.append(wfrs_obj)

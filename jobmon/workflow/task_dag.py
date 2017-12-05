@@ -60,6 +60,7 @@ class TaskDag(object):
             for _, task in self.tasks.items():
                 job_id = self.job_list_manager.job_hash_id_map[str(task.hash)]
                 task.job_id = job_id
+                task.status = self.job_list_manager.job_statuses[job_id]
             self.dag_id = dag_id
         else:
             tdf = TaskDagMetaFactory()
@@ -243,7 +244,7 @@ class TaskDag(object):
             else:
                 task = already_done.pop(jid)
                 running = False
-            task.cached_status = status
+            task.status = status
 
             if status == JobStatus.DONE and running is True:
                 completed += [task]
@@ -273,8 +274,7 @@ class TaskDag(object):
         task.set_status(JobStatus.DONE)
         for downstream in task.downstream_tasks:
             logger.debug("  downstream {}".format(downstream))
-            if (not downstream.is_done() and
-                    downstream.all_upstreams_done()):
+            if downstream.all_upstreams_done():
                 logger.debug("  and add to fringe")
                 new_fringe += [downstream]
                 # else Nothing - that Task ain't ready yet

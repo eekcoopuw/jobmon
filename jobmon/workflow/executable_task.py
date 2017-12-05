@@ -19,7 +19,7 @@ class ExecutableTask(AbstractTask):
         self.job_id = None  # will be None until executed
         # self.job = None  # cached, could be None in resume use case until
         # Job resurrected from dbs
-        self.cached_status = JobStatus.INSTANTIATED
+        self.status = None  # will be None until bound to DB
 
         self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
 
@@ -36,10 +36,10 @@ class ExecutableTask(AbstractTask):
         Returns:
             JobStatus
         """
-        return self.cached_status
+        return self.status
 
     def set_status(self, new_status):
-        self.cached_status = new_status
+        self.status = new_status
 
     def is_done(self):
         """
@@ -98,6 +98,7 @@ class ExecutableTask(AbstractTask):
             mem_free=2,
             max_attempts=3
         )
+        self.status = JobStatus.REGISTERED
         return self.job_id
 
     @property
@@ -136,4 +137,4 @@ class ExecutableTask(AbstractTask):
         """
         return "[Task: jid={jid}, '{name}', status: {status}]". \
             format(jid=self.job_id, name=self.hash_name,
-                   status=self.cached_status)
+                   status=self.status)

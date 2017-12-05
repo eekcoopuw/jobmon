@@ -19,7 +19,7 @@ class WorkflowRunStatus(Base):
     RUNNING = 1
     STOPPED = 2
     ERROR = 3
-    COMPLETE = 4
+    DONE = 4
 
     id = Column(Integer, primary_key=True)
     label = Column(String(150), nullable=False)
@@ -60,8 +60,8 @@ class WorkflowRun(object):
             raise ValueError("Invalid Reponse")
         self.id = wfr_id
 
-    def update_complete(self):
-        self._update_status(WorkflowRunStatus.COMPLETE)
+    def update_done(self):
+        self._update_status(WorkflowRunStatus.DONE)
 
     def update_error(self):
         self._update_status(WorkflowRunStatus.ERROR)

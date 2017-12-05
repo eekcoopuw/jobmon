@@ -1,12 +1,13 @@
 import pytest
 
 from jobmon import database
+from jobmon.meta_models.task_dag import TaskDagMeta
 from jobmon.models import Job, JobInstanceStatus, JobStatus
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.task_dag import TaskDag
-from jobmon.workflow.workflow import Workflow, WorkflowStatus, \
+from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
     WorkflowAlreadyComplete
-from jobmon.workflow.workflow_run import WorkflowRunStatus
+from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
 
 @pytest.fixture
@@ -142,7 +143,6 @@ def test_wfagrs_dag_update(db_cfg, jsm_jqs):
                 set([t.job_id for _, t in wf2.task_dag.tasks.items()]))
 
 
-@pytest.mark.skip(reason="Need Christine's work on task_dag to allow resume")
 def test_stop_resume(simple_workflow):
     # Manually modify the database so that some mid-dag jobs appear in
     # a running / non-complete / non-error state
@@ -190,57 +190,94 @@ def test_stop_resume(simple_workflow):
     assert workflow.workflow_run.id != stopped_wf.workflow_run.id
 
     # Validate that the database indicates the Dag and its Jobs are complete
-    assert workflow.status == WorkflowStatus.COMPLETE
+    assert workflow.status == WorkflowStatus.DONE
 
     for _, task in workflow.task_dag.tasks.items():
-        assert task.status == JobStatus.COMPLETE
+        assert task.status == JobStatus.DONE
 
 
-@pytest.mark.skip(reason="Need Christine's work on task_dag to allow resume")
-def test_reset_attempts_on_resume():
+def test_reset_attempts_on_resume(simple_workflow):
     # Manually modify the database so that some mid-dag jobs appear in
     # error state, max-ing out the attempts
     stopped_wf = simple_workflow
     job_ids = [t.job_id for _, t in stopped_wf.task_dag.tasks.items()]
 
+    mod_jid = job_ids[1]
+
     with database.session_scope() as session:
         session.execute("""
             UPDATE job
-            SET status={s}
+            SET status={s}, num_attempts=3, max_attempts=3
             WHERE job_id={jid}""".format(s=JobStatus.ERROR_FATAL,
-                                         jid=job_ids[1]))
+                                         jid=mod_jid))
         session.execute("""
-            UPDATEjob_instance
+            UPDATE job_instance
             SET status={s}
             WHERE job_id={jid}""".format(s=JobInstanceStatus.ERROR,
-                                         jid=job_ids[1]))
+                                         jid=mod_jid))
         session.execute("""
             UPDATE workflow
             SET status={s}
-            WHERE id={id}""".format(s=WorkflowStatus.STOPPED,
+            WHERE id={id}""".format(s=WorkflowStatus.ERROR,
                                              id=stopped_wf.id))
         session.execute("""
             UPDATE workflow_run
             SET status={s}
-            WHERE workflow_id={id}""".format(s=WorkflowRunStatus.STOPPED,
+            WHERE workflow_id={id}""".format(s=WorkflowRunStatus.ERROR,
                                              id=stopped_wf.id))
 
     # Re-instantiate the DAG + Workflow
+    dag = TaskDag()
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    dag.add_tasks([t1, t2, t3])
 
-    # TODO: Check that the user is prompted that they want to resume...
+    wfa = "my_simple_dag"
+    workflow = Workflow(dag, wfa)
 
     # Before actually executing the DAG, validate that the database has
     # reset the attempt counters to 0 and the ERROR states to INSTANTIATED
+    workflow._bind()
+    assert t2.job_id == mod_jid  # Should be bound to stopped-run ID values
+
+    with database.session_scope() as session:
+        jobDAO = session.query(Job).filter_by(job_id=t2.job_id).first()
+        assert jobDAO.max_attempts == 3
+        assert jobDAO.num_attempts == 0
+        assert jobDAO.status == JobStatus.REGISTERED
+
+    workflow.execute()
+
+    # TODO: Check that the user is prompted that they want to resume...
 
     # Validate that the database indicates the Dag and its Jobs are complete
+    with database.session_scope() as session:
+        jobDAO = session.query(Job).filter_by(job_id=t2.job_id).first()
+        assert jobDAO.max_attempts == 3
+        assert jobDAO.num_attempts == 1
+        assert jobDAO.status == JobStatus.DONE
 
-    # Validate that a new WorkflowRun was created
-    pass
+    # Validate that a new WorkflowRun was created and is DONE
+    assert workflow.workflow_run.id != stopped_wf.workflow_run.id
+    with database.session_scope() as session:
+        wfDAO = session.query(WorkflowDAO).filter_by(id=workflow.id).first()
+        assert wfDAO.status == WorkflowStatus.DONE
+
+        wfrDAOs = session.query(WorkflowRunDAO).filter_by(
+            workflow_id=workflow.id).all()
+        assert len(wfrDAOs) == 2
+
+        done_wfr = [wfrd for wfrd in wfrDAOs
+                    if wfrd.id == workflow.workflow_run.id][0]
+        other_wfr = [wfrd for wfrd in wfrDAOs
+                    if wfrd.id != workflow.workflow_run.id][0]
+        assert done_wfr.status == WorkflowRunStatus.DONE
 
 
-def test_resume_dag_with_errors():
-    # Redundant with "test_reset_attempts_on_resume"??
-    pass
+        # TODO: Improve design for STOPPED/ERROR states for both Workflows and
+        # WorkflowRuns..
+        assert other_wfr.status == WorkflowRunStatus.STOPPED
 
 
 def test_attempt_resume_on_complete_workflow(simple_workflow):
@@ -263,34 +300,47 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
         workflow.execute()
 
 
-def test_new_workflow_existing_dag():
+def test_new_workflow_existing_dag(db_cfg, jsm_jqs):
     # Should allow creation of the Workflow, and should also create a new DAG.
+    dag_nowf = TaskDag()
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    dag_nowf.add_tasks([t1, t2])
+    dag_nowf.execute()
 
     # Need to ensure that the Workflow doesn't attach itself to the old DAG.
+    dag_wf = TaskDag()
+    t3 = BashTask("sleep 1")
+    t4 = BashTask("sleep 2", upstream_tasks=[t3])
+    dag_wf.add_tasks([t3, t4])
+
+    wfa = "my_simple_dag"
+    workflow = Workflow(dag_wf, wfa)
+    workflow.execute()
+
+    assert workflow.task_dag.dag_id != dag_nowf.dag_id
 
     # This will mean that the hash of the new DAG matches that of the old DAG,
     # but has a new dag_id
-    pass
+    with database.session_scope() as session:
+        nowf_tdms = session.query(TaskDagMeta).filter_by(
+            dag_id=dag_nowf.dag_id).all()
+        wf_tdms = session.query(TaskDagMeta).filter_by(
+            dag_id=workflow.task_dag.dag_id).all()
+
+        assert len(nowf_tdms) == 1
+        assert len(wf_tdms) == 1
+        assert wf_tdms[0].dag_hash == nowf_tdms[0].dag_hash
 
 
 def test_force_new_workflow_instead_of_resume(simple_workflow):
-    # Run a dag
-    simple_workflow._create_workflow_run()
-    simple_workflow._create_workflow_run()
-    simple_workflow._create_workflow_run()
-    # Manually modify the database so that some mid-dag jobs appear in
-    # error state, max-ing out the attempts
-
-    # Validate that the database has been modified
-
-    # Re-instantiate the DAG + Workflow
-
-    # Check that the user is prompted that they want to resume...
-
-    # Choose to 'create new' Workflow instead of resume...
-
-    # Validate that the old Workflow stays as-is, and that a new Workflow is
-    # created that runs to completion
+    # TODO (design): Is there ever a scenario where this is a good thing to do?
+    # This is more or less possible by updating WorkflowArgs... which I think
+    # is better practice than trying to create a new Workflow with identical
+    # args and DAG, which is a violation of our current concept of Workflow
+    # uniqueness. If we really want to all this behavior, we need to further
+    # refine that concept and potentially add another piece of information
+    # to the Workflow hash itself.
     pass
 
 

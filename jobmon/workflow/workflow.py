@@ -22,8 +22,8 @@ class WorkflowStatus(Base):
     CREATED = 1
     RUNNING = 2
     STOPPED = 3
-    ERROR = 3
-    COMPLETE = 4
+    ERROR = 4
+    DONE = 5
 
     id = Column(Integer, primary_key=True)
     label = Column(String(150), nullable=False)
@@ -106,7 +106,7 @@ class Workflow(object):
     @property
     def status(self):
         if self.is_bound:
-            return self.status
+            return self.wf_dao.status
         else:
             raise AttributeError("Workflow is not yet bound")
 
@@ -118,7 +118,7 @@ class Workflow(object):
             # resume or whether they want to create a new Workflow... will need
             # to sit outside this if/else block
             self.wf_dao = potential_wfs[0]
-            if self.wf_dao.status == WorkflowStatus.COMPLETE:
+            if self.wf_dao.status == WorkflowStatus.DONE:
                 raise WorkflowAlreadyComplete
             self.task_dag.bind_to_db(self.dag_id)
         elif len(potential_wfs) == 0:
@@ -146,9 +146,9 @@ class Workflow(object):
                                "Workflows should be unique on TaskDag and "
                                "WorkflowArgs".format(potential_wfs))
 
-    def _complete(self):
-        self.workflow_run.update_complete()
-        self._update_status(WorkflowStatus.COMPLETE)
+    def _done(self):
+        self.workflow_run.update_done()
+        self._update_status(WorkflowStatus.DONE)
 
     def _compute_hash(self):
         hashval = hashlib.sha1()
@@ -195,11 +195,11 @@ class Workflow(object):
         if not self.is_bound:
             self._bind()
         self._create_workflow_run()
-        success, n_complete, n_failed = self.task_dag.execute()
+        success, n_new_done, n_prev_done, n_failed = self.task_dag.execute()
         if success:
-            self.complete()
+            self._done()
         else:
-            self.error()
+            self._error()
 
     def is_running(self):
         # First check the database for last WorkflowRun... where we should

@@ -66,7 +66,7 @@ def test_one_task(db_cfg, jsm_jqs, tmp_out_dir):
     assert num_completed == 1
     assert num_previously_complete == 0
     assert num_failed == 0
-    assert task.cached_status == JobStatus.DONE
+    assert task.status == JobStatus.DONE
 
 
 def test_two_tasks_same_name_errors(db_cfg, jsm_jqs, tmp_out_dir):
@@ -213,17 +213,17 @@ def test_fork_and_join_tasks(db_cfg, jsm_jqs, tmp_out_dir):
     assert num_previously_complete == 0
     assert num_failed == 0
 
-    assert task_a.cached_status == JobStatus.DONE
+    assert task_a.status == JobStatus.DONE
 
-    assert task_b[0].cached_status == JobStatus.DONE
-    assert task_b[1].cached_status == JobStatus.DONE
-    assert task_b[2].cached_status == JobStatus.DONE
+    assert task_b[0].status == JobStatus.DONE
+    assert task_b[1].status == JobStatus.DONE
+    assert task_b[2].status == JobStatus.DONE
 
-    assert task_c[0].cached_status == JobStatus.DONE
-    assert task_c[1].cached_status == JobStatus.DONE
-    assert task_c[2].cached_status == JobStatus.DONE
+    assert task_c[0].status == JobStatus.DONE
+    assert task_c[1].status == JobStatus.DONE
+    assert task_c[2].status == JobStatus.DONE
 
-    assert task_d.cached_status == JobStatus.DONE
+    assert task_d.status == JobStatus.DONE
 
 
 def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, tmp_out_dir):
@@ -290,17 +290,17 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, jsm_jqs, tmp_out_dir):
     assert num_previously_complete == 0
     assert num_failed == 1  # b[1]
 
-    assert task_a.cached_status == JobStatus.DONE
+    assert task_a.status == JobStatus.DONE
 
-    assert task_b[0].cached_status == JobStatus.DONE
-    assert task_b[1].cached_status == JobStatus.ERROR_FATAL
-    assert task_b[2].cached_status == JobStatus.DONE
+    assert task_b[0].status == JobStatus.DONE
+    assert task_b[1].status == JobStatus.ERROR_FATAL
+    assert task_b[2].status == JobStatus.DONE
 
-    assert task_c[0].cached_status == JobStatus.DONE
-    assert task_c[1].cached_status == JobStatus.INSTANTIATED
-    assert task_c[2].cached_status == JobStatus.DONE
+    assert task_c[0].status == JobStatus.DONE
+    assert task_c[1].status == JobStatus.REGISTERED
+    assert task_c[2].status == JobStatus.DONE
 
-    assert task_d.cached_status == JobStatus.INSTANTIATED
+    assert task_d.status == JobStatus.REGISTERED
 
 
 def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs,
@@ -370,17 +370,17 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs,
     assert num_previously_complete == 0
     assert num_failed == 0
 
-    assert task_a.cached_status == JobStatus.DONE
+    assert task_a.status == JobStatus.DONE
 
-    assert task_b[0].cached_status == JobStatus.DONE
-    assert task_b[1].cached_status == JobStatus.DONE
-    assert task_b[2].cached_status == JobStatus.DONE
+    assert task_b[0].status == JobStatus.DONE
+    assert task_b[1].status == JobStatus.DONE
+    assert task_b[2].status == JobStatus.DONE
 
-    assert task_c[0].cached_status == JobStatus.DONE
-    assert task_c[1].cached_status == JobStatus.DONE
-    assert task_c[2].cached_status == JobStatus.DONE
+    assert task_c[0].status == JobStatus.DONE
+    assert task_c[1].status == JobStatus.DONE
+    assert task_c[2].status == JobStatus.DONE
 
-    assert task_d.cached_status == JobStatus.DONE
+    assert task_d.status == JobStatus.DONE
 
 
 def test_bushy_dag(db_cfg, jsm_jqs, tmp_out_dir):
@@ -462,14 +462,14 @@ def test_bushy_dag(db_cfg, jsm_jqs, tmp_out_dir):
     assert num_previously_complete == 0
     assert num_failed == 0
 
-    assert task_a.cached_status == JobStatus.DONE
+    assert task_a.status == JobStatus.DONE
 
-    assert task_b[0].cached_status == JobStatus.DONE
-    assert task_b[1].cached_status == JobStatus.DONE
-    assert task_b[2].cached_status == JobStatus.DONE
+    assert task_b[0].status == JobStatus.DONE
+    assert task_b[1].status == JobStatus.DONE
+    assert task_b[2].status == JobStatus.DONE
 
-    assert task_c[0].cached_status == JobStatus.DONE
-    assert task_c[1].cached_status == JobStatus.DONE
-    assert task_c[2].cached_status == JobStatus.DONE
+    assert task_c[0].status == JobStatus.DONE
+    assert task_c[1].status == JobStatus.DONE
+    assert task_c[2].status == JobStatus.DONE
 
-    assert task_d.cached_status == JobStatus.DONE
+    assert task_d.status == JobStatus.DONE
