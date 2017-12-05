@@ -32,7 +32,8 @@ class TaskDagFactory(object):
         req = Requester(config.jm_rep_conn)
         rc, dag_id = req.send_request({
             'action': 'add_task_dag',
-            'kwargs': {'name': name, 'user': getuser()}
+            'kwargs': {'name': name, 'user': getuser(),
+                       'created_date': str(datetime.utcnow())}
         })
         job_list_manager = JobListManager(dag_id, executor=execute_sge,
                                           start_daemons=True)

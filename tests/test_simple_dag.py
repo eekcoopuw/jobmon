@@ -5,6 +5,7 @@ import pytest
 from cluster_utils.io import makedirs_safely
 
 from jobmon.models import JobStatus, JobInstance
+from jobmon.workflow.task_dag import TaskDag
 from jobmon.database import session_scope
 from jobmon import sge
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
@@ -481,7 +482,8 @@ def test_dag_logging(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
 
     This is in a separate test from the jsm-specifc logging test, as this test
     runs the jobmon pipeline as it would be run from the client perspective,
-    and makes sure the qstat usage details are automatically updated in the db
+    and makes sure the qstat usage details are automatically updated in the db,
+    as well as the created_date for the dag
     """
     root_out_dir = "{}/mocks/test_dag_logging".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
@@ -505,3 +507,7 @@ def test_dag_logging(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
         assert ji.io
         assert ji.nodename
         assert ':' not in ji.wallclock  # wallclock should be in seconds
+
+        td = session.query(TaskDag).first()
+        print(td.created_date)
+        assert td.created_date  # this should not be empty

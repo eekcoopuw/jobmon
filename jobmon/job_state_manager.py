@@ -61,10 +61,11 @@ class JobStateManager(ReplyServer):
             job_id = job.job_id
         return (ReturnCodes.OK, job_id)
 
-    def add_task_dag(self, name, user):
+    def add_task_dag(self, name, user, created_date):
         dag = task_dag.TaskDag(
             name=name,
-            user=user)
+            user=user,
+            created_date=created_date)
         with session_scope() as session:
             session.add(dag)
             session.commit()
