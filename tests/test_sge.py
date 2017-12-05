@@ -189,3 +189,22 @@ def test_sh_wrap():
                       stderr="shellwaitererr.txt",
                       jobname="shellwaiter")
     assert sge._wait_done([sh0_id, sh1_id, sh2_id])
+
+
+def test_convert_wallclock():
+    wallclock_str = '10:11:50'
+    res = sge.convert_wallclock_to_seconds(wallclock_str)
+    assert res == 36710.0
+
+
+def test_convert_wallclock_with_days():
+    wallclock_str = '01:10:11:50'
+    res = sge.convert_wallclock_to_seconds(wallclock_str)
+    assert res == 123110.0
+
+
+def test_convert_wallclock_with_milleseconds():
+    wallclock_str = '01:10:11:50.15'
+    res = sge.convert_wallclock_to_seconds(wallclock_str)
+    assert res == 123110.15
+
