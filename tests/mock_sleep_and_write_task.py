@@ -49,6 +49,7 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
         self.job_id = job_list_manager.create_job(
             jobname=self.hash_name,
             command=self.command,
+            job_hash=self.hash,
             slots=1,
             mem_free=2,
             max_attempts=3,
