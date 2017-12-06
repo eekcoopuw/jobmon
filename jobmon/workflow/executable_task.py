@@ -97,6 +97,9 @@ class ExecutableTask(object):
         """
         return self.hash
 
+    def __lt__(self, other):
+        return self.hash < other.hash
+
     def get_status(self):
         """
         For executable jobs, my status is the status of my Job

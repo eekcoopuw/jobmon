@@ -321,7 +321,7 @@ class TaskDag(object):
 
     def __repr__(self):
         """
-        Very useful for devug logs, but this won't scale!
+        Very useful for debug logs, but this won't scale!
         Returns:
             String useful for debugging logs
         """
