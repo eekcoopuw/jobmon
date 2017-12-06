@@ -53,7 +53,7 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
             slots=1,
             mem_free=2,
             max_attempts=3,
-            project='proj_dalynator'
+            project='proj_jenkins'
             # TBD Project and stderr
             # stderr="{}/stderr/stderr-$JOB_ID-mock-test.txt"
             # .format(os.path.basename(self.output_file_name)),

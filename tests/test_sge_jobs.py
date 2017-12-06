@@ -29,8 +29,8 @@ def job_list_manager_sge(dag_id):
 def test_valid_command(dag_id, job_list_manager_sge):
     job_id = job_list_manager_sge.create_job(
         sge.true_path("tests/shellfiles/jmtest.sh"),
-        "sge_foobar", job_hash='somehash',slots=2, mem_free=4,
-        project="proj_qlogins", max_attempts=3)
+        "sge_foobar", job_hash='somehash', slots=2, mem_free=4,
+        project='proj_jenkins', max_attempts=3)
     job_list_manager_sge.queue_job(job_id)
 
     timeout_and_skip(10, 120, 1, partial(
@@ -52,6 +52,7 @@ def test_context_args(jsm_jqs, job_list_manager_sge):
     job_id = job_list_manager_sge.create_job(
         sge.true_path("tests/shellfiles/jmtest.sh"), "sge_foobar",
         job_hash='somehash', slots=2, mem_free=4, max_attempts=3,
+        project='proj_jenkins',
         context_args={'sge_add_args': '-a {}'.format(delay_to)})
     job_list_manager_sge.queue_job(job_id)
 
