@@ -138,6 +138,7 @@ class TaskDag(object):
 
         if not self.is_bound:
             self.bind_to_db()
+        self._set_top_fringe()
 
         logger.debug("self.fail_after_n_executions is {}"
                      .format(self.fail_after_n_executions))
@@ -199,7 +200,7 @@ class TaskDag(object):
             for task in completed_tasks + already_done_tasks:
                 fringe += self.propagate_results(task)
             if (self.fail_after_n_executions is not None and
-                n_executions >= self.fail_after_n_executions):
+                    n_executions >= self.fail_after_n_executions):
                 raise ValueError("Dag asked to fail after {} executions. "
                                  "Failing now".format(n_executions))
 
@@ -309,15 +310,19 @@ class TaskDag(object):
             raise ValueError("A task with hash '{}' already exists"
                              .format(task.hash))
         self.tasks[task.hash] = task
-        if not task.upstream_tasks:
-            self.top_fringe += [task]
-
-        logger.debug("Creating Job {}".format(task.hash))
+        logger.debug("Task {} added".format(task.hash))
         return task
 
     def add_tasks(self, tasks):
         for task in tasks:
             self.add_task(task)
+
+    def _set_top_fringe(self):
+        self.top_fringe = []
+        for task in self.tasks.values():
+            if not task.upstream_tasks:
+                self.top_fringe += [task]
+        return self.top_fringe
 
     def __repr__(self):
         """
