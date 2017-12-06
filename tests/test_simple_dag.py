@@ -471,7 +471,7 @@ def test_bushy_dag(db_cfg, jsm_jqs, tmp_out_dir):
     assert task_d.status == JobStatus.DONE
 
 
-def test_dag_logging(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
+def test_dag_logging(db_cfg, jsm_jqs, tmp_out_dir):
     """
     Create a dag with one Task and execute it, and make sure logs show up in db
 
@@ -481,7 +481,7 @@ def test_dag_logging(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     root_out_dir = "{}/mocks/test_dag_logging".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = task_dag_manager.create_task_dag(name="test_dag_logging")
+    dag = TaskDag(name="test_dag_logging")
     command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
     output_file_name = "{}/test_dag_logging/mock.out".format(tmp_out_dir)
