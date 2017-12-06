@@ -48,7 +48,7 @@ def job_list_manager_sge(dag_id):
 
 
 def test_invalid_command(subscriber, job_list_manager):
-    job_id = job_list_manager.create_job('foo', 'bar')
+    job_id = job_list_manager.create_job('foo', 'bar', 'somehash')
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
 
@@ -66,7 +66,7 @@ def test_invalid_command(subscriber, job_list_manager):
 
 
 def test_valid_command(subscriber, job_list_manager):
-    job_id = job_list_manager.create_job('ls', 'baz')
+    job_id = job_list_manager.create_job('ls', 'baz', 'somehash')
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
     assert len(job_list_manager.all_done) == 0
@@ -84,7 +84,7 @@ def test_valid_command(subscriber, job_list_manager):
 
 
 def test_daemon_invalid_command(job_list_manager_d):
-    job_id = job_list_manager_d.create_job("some new job", "foobar")
+    job_id = job_list_manager_d.create_job("some new job", "foobar", 'hash')
     job_list_manager_d.queue_job(job_id)
 
     # Give some time for the job to get to the executor
@@ -99,7 +99,7 @@ def daemon_invalid_command_check(job_list_manager_d):
 
 
 def test_daemon_valid_command(job_list_manager_d):
-    job_id = job_list_manager_d.create_job("ls", "foobarbaz")
+    job_id = job_list_manager_d.create_job("ls", "foobarbaz", 'somehash')
     job_list_manager_d.queue_job(job_id)
 
     # Give some time for the job to get to the executor
@@ -116,7 +116,7 @@ def daemon_valid_command_check(job_list_manager_d):
 def test_blocking_updates(job_list_manager_d):
 
     # Test 1 job
-    job_id = job_list_manager_d.create_job("sleep 2", "foobarbaz")
+    job_id = job_list_manager_d.create_job("sleep 2", "foobarbaz", 'somehash')
     job_list_manager_d.queue_job(job_id)
     done = job_list_manager_d.block_until_any_done_or_error()
     assert len(done) == 1
@@ -126,9 +126,9 @@ def test_blocking_updates(job_list_manager_d):
 
     job_list_manager_d.get_new_done()  # clear the done queue for this test
     job_list_manager_d.get_new_errors()  # clear the error queue too
-    job_id1 = job_list_manager_d.create_job("sleep 1", "foobarbaz1")
-    job_id2 = job_list_manager_d.create_job("sleep 1", "foobarbaz2")
-    job_id3 = job_list_manager_d.create_job("not a command", "foobarbaz2")
+    job_id1 = job_list_manager_d.create_job("sleep 1", "foobarbaz1", 'hash')
+    job_id2 = job_list_manager_d.create_job("sleep 1", "foobarbaz2", 'hash')
+    job_id3 = job_list_manager_d.create_job("not a command", "foobarbaz2", 'h1')
     job_list_manager_d.queue_job(job_id1)
     job_list_manager_d.queue_job(job_id2)
     job_list_manager_d.queue_job(job_id3)
@@ -155,14 +155,14 @@ def blocking_updates_check(job_list_manager_d, job_id1, job_id2, job_id3):
 
 
 def test_blocking_update_timeout(job_list_manager_d):
-    job_id = job_list_manager_d.create_job("sleep 3", "foobarbaz")
+    job_id = job_list_manager_d.create_job("sleep 3", "foobarbaz", 'hash')
     job_list_manager_d.queue_job(job_id)
     with pytest.raises(Empty):
         job_list_manager_d.block_until_any_done_or_error(timeout=2)
 
 
 def test_sge_valid_command(job_list_manager_sge):
-    job_id = job_list_manager_sge.create_job("ls", "sgefbb", slots=3,
+    job_id = job_list_manager_sge.create_job("ls", "sgefbb", 'hash', slots=3,
                                              mem_free=6)
     job_list_manager_sge.queue_job(job_id)
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()

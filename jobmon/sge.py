@@ -242,8 +242,15 @@ def qstat_details(jids):
 
 
 def convert_wallclock_to_seconds(wallclock_str):
-    h, m, s = wallclock_str.split(':')
-    return int(h) * 3600 + int(m) * 60 + int(s)
+    wc_list = wallclock_str.split(':')
+    wallclock = (float(wc_list[-1]) + int(wc_list[-2]) * 60 +
+                 int(wc_list[-3]) * 3600)  # seconds.milliseconds, minutes, hrs
+    if len(wc_list) == 4:
+        wallclock += (int(wc_list[-4]) * 86400)  # days
+    elif len(wc_list) > 4:
+        raise ValueError("Cant parse wallclock for logging. Contains more info"
+                         " than days, hours, minutes, seconds, milliseconds")
+    return wallclock
 
 
 def qstat_usage(jids):
