@@ -45,6 +45,17 @@ class WorkflowRunDAO(Base):
 
 
 class WorkflowRun(object):
+    """
+    WorkflowRun enables tracking for multiple runs of a single Workflow. A
+    Workflow may be started/paused/ and resumed multiple times. Each start or
+    resume represents a new WorkflowRun.
+
+    In order for a Workflow can be deemed to be DONE (successfully), it
+    must have 1 or more WorkflowRuns. In the current implementation, a Workflow
+    Job may belong to one or more WorkflowRuns, but once the Job reaches a DONE
+    state, it will no longer be added to a subsequent WorkflowRun. However,
+    this is not enforced via any database constraints.
+    """
 
     def __init__(self, workflow_id):
         self.workflow_id = workflow_id

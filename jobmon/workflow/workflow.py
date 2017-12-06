@@ -64,6 +64,21 @@ class WorkflowDAO(Base):
 
 
 class Workflow(object):
+    """(aka Batch, aka Swarm)
+    Defined by a TaskDag and a set of WorkflowArgs.
+
+    Workflow can only be re-loaded if the TaskDag and WorkflowArgs are shown to
+    be exact matches to a previous Workflow (have to work out how to
+    hash+compare).
+
+    A set of arguments that are used to deteremine the “uniqueness” of the
+    Workflow and whether it can be resumed. They must be hashable. For example,
+    CodCorrect or Como version might be passed as Args to the Workflow. For
+    now, the assumption is WorkflowArgs is a string. May explore in the future
+    a mechanism by which a subset of WorkflowArgs may be passed to TaskDag and
+    inform the shape of the Dag itself, as that would enable more extensive
+    code-reuse.
+    """
 
     def __init__(self, task_dag, workflow_args, name="", description=""):
         self.wf_dao = None
@@ -215,9 +230,6 @@ class Workflow(object):
     def kill_running_tasks(self):
         # First check the database for any tasks that are 'running' and
         # have SGE IDs. If these are still qstat'able... qdel them
-        pass
-
-    def prompt_user(self):
         pass
 
     def stop(self):
