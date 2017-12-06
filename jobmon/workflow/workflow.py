@@ -215,6 +215,21 @@ class Workflow(object):
             self._done()
         else:
             self._error()
+        self.report(success, n_new_done, n_prev_done, n_failed)
+
+    def report(self, success, n_new_done, n_prev_done, n_failed):
+        if success:
+            print("Workflow finished successfully!")
+            print("# finished jobs: {}".format(n_new_done + n_prev_done))
+        else:
+            print("Workflow FAILED")
+            print("# finished jobs (this run): {}".format(n_new_done))
+            print("# finished jobs (previous runs): {}".format(n_prev_done))
+            print("# failed jobs: {}".format(n_failed))
+
+    def run(self):
+        """Alias for self.execute"""
+        self.execute()
 
     def is_running(self):
         # First check the database for last WorkflowRun... where we should

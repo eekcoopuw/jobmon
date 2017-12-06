@@ -5,8 +5,8 @@ try this:
 
 ```python
 
-# Before running this script, install a ~/.jobmonrc file... Run or mimic
-# install_rcfile.py to do so
+# Before running this script, run 'jobmon configure to install a ~/.jobmonrc
+# file...
 
 from jobmon.job_list_manager import JobListManager
 from jobmon.job_instance_factory import execute_sge

@@ -4,7 +4,7 @@ import json
 import os
 import shlex
 import shutil
-import socket
+from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 
@@ -17,7 +17,8 @@ from jobmon.job_state_manager import JobStateManager
 
 def main():
     args = parse_args()
-    apply_args_to_config(args)
+    if args.sub_command != "configure":
+        apply_args_to_config(args)
     args.func(args)
 
 
@@ -54,17 +55,20 @@ def install_rcfile(args):
             raise FileExistsError("rcfile already exists. Use -f/--force if "
                                   "you want to overwrite it. The existing "
                                   "file will be backed up to "
-                                  "{}.backup".format(rcfile))
-        backup_file = "{}.backup".format(rcfile)
+                                  "{}.backup-{{datetime}}".format(rcfile))
+        now = datetime.now().strftime("%m%d%Y-%H%M%S")
+        backup_file = "{}.backup-{}".format(rcfile, now)
         shutil.move(rcfile, backup_file)
 
     with open(rcfile, "w") as jf:
+        conn_str = ("mysql://docker:docker@"
+                    "jobmon-p01.ihme.washington.edu/docker:3307")
         cfg_dct = {
-            "conn_str": "sqlite://",
-            "host": socket.gethostname(),
-            "jsm_rep_port": 3456,
-            "jsm_pub_port": 3457,
-            "jqs_port": 3458}
+            "conn_str": conn_str,
+            "host": "jobmon-p01.ihme.washington.edu",
+            "jsm_rep_port": 4556,
+            "jsm_pub_port": 4557,
+            "jqs_port": 4558}
         json.dump(cfg_dct, jf)
 
 
