@@ -8,6 +8,7 @@ from jobmon import sge
 from jobmon.database import session_scope
 from jobmon.models import JobStatus, JobInstance
 from jobmon.workflow.task_dag import TaskDag
+from jobmon.meta_models.task_dag import TaskDagMeta
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -503,6 +504,6 @@ def test_dag_logging(db_cfg, jsm_jqs, tmp_out_dir):
         assert ji.nodename
         assert ':' not in ji.wallclock  # wallclock should be in seconds
 
-        td = session.query(TaskDag).first()
+        td = session.query(TaskDagMeta).first()
         print(td.created_date)
         assert td.created_date  # this should not be empty
