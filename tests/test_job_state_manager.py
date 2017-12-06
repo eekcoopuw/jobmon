@@ -144,7 +144,7 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
 def test_jsm_log_usage(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
     jsm.queue_job(job_id)
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
