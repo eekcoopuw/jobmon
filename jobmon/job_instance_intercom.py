@@ -15,6 +15,7 @@ class JobInstanceIntercom(object):
     def __init__(self, job_instance_id, jm_rep_cc=None):
         self.job_instance_id = job_instance_id
         self.requester = Requester(jm_rep_cc)
+        logger.debug("Instantiated JobInstanceIntercom")
 
     def log_done(self):
         return self.requester.send_request({
@@ -29,12 +30,11 @@ class JobInstanceIntercom(object):
                        'error_message': error_message}
         })
 
-    def log_job_stats(self):
-        if os.getenv("JOB_ID"):
-            job_id = os.getenv("JOB_ID")
-            self.usage = sge.qstat_usage(
-                job_id)
-            dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
+    def log_job_stats(self, job_id):
+        if job_id:
+            self.usage = sge.qstat_usage([job_id])[int(job_id)]
+            dbukeys = ['usage_str', 'nodename', 'wallclock', 'maxvmem', 'cpu',
+                       'io']
             kwargs = {k: self.usage[k] for k in dbukeys
                       if k in self.usage.keys()}
             msg = {
@@ -43,6 +43,7 @@ class JobInstanceIntercom(object):
                 'kwargs': kwargs}
             return self.requester.send_request(msg)
         else:
+            logger.debug("In log_job_stats: job_id is None")
             return False
 
     def log_running(self):

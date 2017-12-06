@@ -1,19 +1,16 @@
 import logging
 import os
-import sys
 import pytest
 
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
-from jobmon.models import JobStatus
+from jobmon.database import session_scope
+from jobmon.models import JobStatus, JobInstance
 from jobmon.workflow.task_dag import TaskDag
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
-logger.addHandler(handler)
 
 # All Tests are written from the point of view of the Swarm, i.e the job
 # controller in the application.  These are all "In Memory" tests - create all
@@ -58,7 +55,6 @@ def test_one_task(db_cfg, jsm_jqs, tmp_out_dir):
                  "--name {n}" .format(cs=command_script, ofn=output_file_name,
                                       n=output_file_name)))
     dag.add_task(task)
-
     os.makedirs("{}/test_one_task".format(tmp_out_dir))
     (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
 
@@ -473,3 +469,35 @@ def test_bushy_dag(db_cfg, jsm_jqs, tmp_out_dir):
     assert task_c[2].status == JobStatus.DONE
 
     assert task_d.status == JobStatus.DONE
+
+
+def test_dag_logging(db_cfg, jsm_jqs, tmp_out_dir):
+    """
+    Create a dag with one Task and execute it, and make sure logs show up in db
+
+    This is in a separate test from the jsm-specifc logging test, as this test
+    runs the jobmon pipeline as it would be run from the client perspective,
+    and makes sure the qstat usage details are automatically updated in the db
+    """
+    root_out_dir = "{}/mocks/test_dag_logging".format(tmp_out_dir)
+    makedirs_safely(root_out_dir)
+    dag = TaskDag(name="test_dag_logging")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+
+    output_file_name = "{}/test_dag_logging/mock.out".format(tmp_out_dir)
+    task = SleepAndWriteFileMockTask(
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}" .format(cs=command_script, ofn=output_file_name,
+                                      n=output_file_name)))
+    dag.add_task(task)
+    os.makedirs("{}/test_dag_logging".format(tmp_out_dir))
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+
+    with session_scope() as session:
+        ji = session.query(JobInstance).first()
+        assert ji.usage_str  # all these should exist and not be empty
+        assert ji.maxvmem
+        assert ji.cpu
+        assert ji.io
+        assert ji.nodename
+        assert ':' not in ji.wallclock  # wallclock should be in seconds

@@ -39,7 +39,7 @@ def timeout_and_skip(step_size, max_time, max_qw, partial_test_function):
                         "timed out (qwait count {}), might be:" \
                         "   a real bug," \
                         "   cluster load, or" \
-                        "   project permissions for 'proj_qlogins'" \
+                        "   project permissions for 'proj_jenkins'" \
                         .format(qw_count)
             else:
                 #  Probe qstat and count the number of qw states.

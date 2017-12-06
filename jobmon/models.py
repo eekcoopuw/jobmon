@@ -159,6 +159,7 @@ class JobInstance(Base):
         nullable=False)
     job = relationship("Job", back_populates="job_instances")
     usage_str = Column(String(250))
+    nodename = Column(String(50))
     wallclock = Column(String(50))
     maxvmem = Column(String(50))
     cpu = Column(String(50))

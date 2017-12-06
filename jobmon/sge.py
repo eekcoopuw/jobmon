@@ -36,6 +36,7 @@ import drmaa
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
+
 # Comes from object_name in `man sge_types`. Also, * excluded.
 UGE_NAME_POLICY = re.compile(
     "[.#\n\t\r /\\\[\]:'{}\|\(\)@%,*]|[\n\t\r /\\\[\]:'{}\|\(\)@%,*]")
@@ -240,6 +241,18 @@ def qstat_details(jids):
     return jobdict
 
 
+def convert_wallclock_to_seconds(wallclock_str):
+    wc_list = wallclock_str.split(':')
+    wallclock = (float(wc_list[-1]) + int(wc_list[-2]) * 60 +
+                 int(wc_list[-3]) * 3600)  # seconds.milliseconds, minutes, hrs
+    if len(wc_list) == 4:
+        wallclock += (int(wc_list[-4]) * 86400)  # days
+    elif len(wc_list) > 4:
+        raise ValueError("Cant parse wallclock for logging. Contains more info"
+                         " than days, hours, minutes, seconds, milliseconds")
+    return wallclock
+
+
 def qstat_usage(jids):
     """get usage details for list of jobs
 
@@ -257,7 +270,9 @@ def qstat_usage(jids):
         usagestr = info['usage']
         parsus = {u.split("=")[0]: u.split("=")[1]
                   for u in usagestr.split(", ")}
+        parsus['wallclock'] = convert_wallclock_to_seconds(parsus['wallclock'])
         usage[jid]['usage_str'] = usagestr
+        usage[jid]['nodename'] = info['exec_host_list']
         usage[jid].update(parsus)
     return usage
 
