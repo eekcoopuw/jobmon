@@ -1,4 +1,5 @@
 import logging
+import os
 
 import jobmon.workflow.executable_task as etk
 
@@ -28,6 +29,8 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
 
         # NB this package must be installed into the conda env so that it will
         # be found
+        self.output_file_name = command.split(
+            '--output_file_path ')[1].split(" ")[0]
         self.command = command
         if self.fail_always:
             self.command += " --fail_always"
@@ -45,18 +48,16 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
           the job_id
         """
         logger.debug("Create job, command = {}".format(self.command))
-
         self.job_id = job_list_manager.create_job(
             jobname=self.hash_name,
             command=self.command,
             slots=1,
             mem_free=2,
             max_attempts=3,
-            project='proj_dalynator'
-            # TBD Project and stderr
-            # stderr="{}/stderr/stderr-$JOB_ID-mock-test.txt"
-            # .format(os.path.basename(self.output_file_name)),
-            # project="proj_burdenator",  # TBD which project?,
-            # process_timeout=30
+            project='proj_dalynator',
+            stderr=("{}/stderr/stderr-$JOB_ID-mock-test.txt"
+                    .format(os.path.dirname(self.output_file_name))),
+            stdout=("{}/stdout/stdout-$JOB_ID-mock-test.txt"
+                    .format(os.path.dirname(self.output_file_name)))
         )
         return self.job_id

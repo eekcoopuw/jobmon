@@ -36,14 +36,16 @@ def test_session_creation():
 
 @pytest.mark.cluster
 def test_basic_submit():
-    true_id = sge.qsub("/bin/true", "so true", memory=0)
+    true_id = sge.qsub("/bin/true", "so true", memory=0,
+                       project='proj_jenkins')
     assert true_id
 
-    mem_id = sge.qsub("/bin/true", "still true", slots=1, memory=1)
+    mem_id = sge.qsub("/bin/true", "still true", slots=1, memory=1,
+                      project='proj_jenkins')
     assert mem_id
 
     proj_id = sge.qsub("/bin/true", "still true", slots=1, memory=1,
-                       project="proj_qlogins")
+                       project="proj_jenkins")
     fail_msg = ("Test failed: check that you have permission to run under "
                 "'proj_qlogins' and that there are available jobs under this"
                 " project")
@@ -51,12 +53,12 @@ def test_basic_submit():
 
     sleep_id = sge.qsub("/bin/sleep", "wh#@$@&(*!",
                         parameters=[50],
-                        stdout="whatsleep.o$JOB_ID")
+                        stdout="whatsleep.o$JOB_ID", project='proj_jenkins')
     wait_id_a = sge.qsub("/bin/true", "dsf897  ",
                          holds=[sleep_id], jobtype="plain")
     assert wait_id_a
     wait_id_b = sge.qsub("/bin/true", "flou;nd  ",
-                         holds=[sleep_id])
+                         holds=[sleep_id], project='proj_jenkins')
     assert wait_id_b
     assert sge._wait_done(
         [true_id, mem_id, proj_id, sleep_id, wait_id_a, wait_id_b])
@@ -67,17 +69,18 @@ def test_basic_submit():
 @pytest.mark.cluster
 def test_bad_arguments():
     with pytest.raises(ValueError) as exc_info:
-        sge.qsub("/bin/true", "so true", memory=0, slots=0)
+        sge.qsub("/bin/true", "so true", memory=0, slots=0,
+                 project='proj_jenkins')
     assert "slots must be greater than zero" in str(exc_info)
 
     with pytest.raises(ValueError) as exc_info:
         sge.qsub("/bin/true", "so true", memory=0, holds=[999],
-                 hold_pattern="foo*")
+                 hold_pattern="foo*", project='proj_jenkins')
     assert "Cannot have both" in str(exc_info)
 
     with pytest.raises(ValueError) as exc_info:
         sge.qsub("/bin/true", "so true", memory=0,
-                 parameters="read this and die")
+                 parameters="read this and die", project='proj_jenkins')
     assert "parameters" in str(exc_info)
 
 
@@ -89,11 +92,12 @@ def example_job_args(tag):
 @pytest.mark.cluster
 def test_multi_submit():
     true_ids = sge.qsub("/bin/sleep", "howdy",
-                        parameters=[[1], [2], [1]])
+                        parameters=[[1], [2], [1]], project='proj_jenkins')
     assert len(true_ids) == 3
 
     gen_ids = sge.qsub("/bin/true", "generated",
-                       parameters=example_job_args("today"))
+                       parameters=example_job_args("today"),
+                       project='proj_jenkins')
     assert len(gen_ids) == 4
     assert sge._wait_done(true_ids + gen_ids)
 
@@ -106,11 +110,13 @@ def test_path_manipulation():
     """
     sort_a = sge.qsub(sge.true_path("tests/shellfiles/env_vars.sh"), "env-a",
                       slots=1, memory=0,
-                      stdout=os.path.abspath("env-a.out"))
+                      stdout=os.path.abspath("env-a.out"),
+                      project='proj_jenkins')
     sort_b = sge.qsub(sge.true_path("tests/shellfiles/env_vars.sh"), "env-b",
                       jobtype="shell", slots=1, memory=0,
                       prepend_to_path="~/DonaldDuck",
-                      stdout=os.path.abspath("env-b.out"))
+                      stdout=os.path.abspath("env-b.out"),
+                      project='proj_jenkins')
     assert sge._wait_done([sort_a, sort_b])
     assert "DonaldDuck" in open("env-b.out").read()
 
@@ -118,16 +124,17 @@ def test_path_manipulation():
 @pytest.mark.cluster
 def test_python_submit():
     py_id = sge.qsub(sge.true_path("waiter.py"), ".hum",
-                     parameters=[5], jobtype="python")
+                     parameters=[5], jobtype="python", project='proj_jenkins')
     assert py_id
 
     env_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
                       parameters=[3], stderr="env_id.e$JOB_ID",
-                      conda_env="fbd-0.1")
+                      conda_env="fbd-0.1", project='proj_jenkins')
     assert env_id
     abs_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
                       parameters=[3], stderr="abs_id.e$JOB_ID",
-                      conda_env="/ihme/forecasting/envs/fbd-0.1")
+                      conda_env="/ihme/forecasting/envs/fbd-0.1",
+                      project='proj_jenkins')
     assert abs_id
     dones = list()
     for idx, v in enumerate([py_id, env_id, abs_id]):
@@ -139,18 +146,19 @@ def test_python_submit():
 @pytest.mark.cluster
 def test_r_submit():
     rscript_id = sge.qsub(sge.true_path("hi.R"), ".rstuff&*(",
-                          parameters=[5], jobtype="R")
+                          parameters=[5], jobtype="R", project='proj_jenkins')
     notype_id = sge.qsub(sge.true_path("hi.R"), "##rb+@",
-                         parameters=[3])
+                         parameters=[3], project='proj_jenkins')
     assert sge._wait_done([rscript_id, notype_id])
 
 
 @pytest.mark.cluster
 def test_sh_submit():
     rscript_id = sge.qsub(sge.true_path("tests/shellfiles/env_vars.sh"),
-                          ".rstuff&*(", parameters=[5], jobtype="shell")
+                          ".rstuff&*(", parameters=[5], jobtype="shell",
+                          project='proj_jenkins')
     notype_id = sge.qsub(sge.true_path("tests/shellfiles/env_vars.sh"),
-                         "##rb+@", parameters=[3])
+                         "##rb+@", parameters=[3], project='proj_jenkins')
     assert sge._wait_done([rscript_id, notype_id])
 
 
@@ -167,7 +175,8 @@ def test_sh_loop():
             shell_file.write("echo I am {}\n".format(modify_idx))
         jobs.append(sge.qsub(sge.true_path("modout.sh"), "modshell",
                              stdout="out{}.txt".format(modify_idx),
-                             stderr="err{}.txt".format(modify_idx)))
+                             stderr="err{}.txt".format(modify_idx),
+                             project='proj_jenkins'))
     assert sge._wait_done(jobs)
 
 
@@ -177,17 +186,17 @@ def test_sh_wrap():
                       shfile=sge.true_path("sample.sh"),
                       stdout="shellwaitPython.txt",
                       stderr="shellwaitererr.txt",
-                      jobname="shellwaiter")
+                      jobname="shellwaiter", project='proj_jenkins')
     sh1_id = sge.qsub(sge.true_path("waiter.R"),
                       shfile=sge.true_path("sample.sh"),
                       stdout="shellwaitR.txt",
                       stderr="shellwaitererr.txt",
-                      jobname="shellwaiter")
+                      jobname="shellwaiter", project='proj_jenkins')
     sh2_id = sge.qsub(sge.true_path("waiter.do"),
                       shfile=sge.true_path("sample.sh"),
                       stdout="shellwaitStata.txt",
                       stderr="shellwaitererr.txt",
-                      jobname="shellwaiter")
+                      jobname="shellwaiter", project='proj_jenkins')
     assert sge._wait_done([sh0_id, sh1_id, sh2_id])
 
 

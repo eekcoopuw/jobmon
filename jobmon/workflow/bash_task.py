@@ -1,4 +1,5 @@
 import logging
+import os
 
 from jobmon.workflow.executable_task import ExecutableTask
 
@@ -28,6 +29,9 @@ class BashTask(ExecutableTask):
             command=self.command,
             slots=1,
             mem_free=2,
-            max_attempts=3
-        )
+            max_attempts=3,
+            stderr=(os.path.abspath("/stderr/stderr-$JOB_ID-{}.txt"
+                                    .format(self.hash_name))),
+            stdout=os.path.abspath(("/stdout/stdout-$JOB_ID-mock-test.txt"
+                                   .format(self.hash_name))))
         return self.job_id
