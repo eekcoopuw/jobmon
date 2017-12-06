@@ -9,7 +9,9 @@ from jobmon.database import session_scope
 from jobmon.exceptions import ReturnCodes, NoDatabase
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
-from jobmon.workflow import task_dag
+from jobmon.meta_models import task_dag
+from jobmon.workflow.workflow import WorkflowDAO
+from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -25,12 +27,21 @@ class JobStateManager(ReplyServer):
         self.register_action("add_job", self.add_job)
         self.register_action("add_task_dag", self.add_task_dag)
         self.register_action("add_job_instance", self.add_job_instance)
+        self.register_action("add_workflow", self.add_workflow)
+        self.register_action("add_workflow_run", self.add_workflow_run)
+        self.register_action("update_workflow", self.update_workflow)
+        self.register_action("update_workflow_run", self.update_workflow_run)
+
         self.register_action("log_done", self.log_done)
         self.register_action("log_error", self.log_error)
         self.register_action("log_executor_id", self.log_executor_id)
         self.register_action("log_running", self.log_running)
         self.register_action("log_usage", self.log_usage)
+
         self.register_action("queue_job", self.queue_job)
+        self.register_action("reset_job", self.reset_job)
+        self.register_action("reset_incomplete_jobs",
+                             self.reset_incomplete_jobs)
 
         ctx = zmq.Context.instance()
         self.publisher = ctx.socket(zmq.PUB)
@@ -42,10 +53,12 @@ class JobStateManager(ReplyServer):
             self.pub_port = self.publisher.bind_to_random_port('tcp://*')
         logger.info("Publishing to port {}".format(self.pub_port))
 
-    def add_job(self, name, command, dag_id, slots=1, mem_free=2, project=None,
-                max_attempts=1, max_runtime=None, context_args="{}"):
+    def add_job(self, name, job_hash, command, dag_id, slots=1,
+                mem_free=2, project=None, max_attempts=1,
+                max_runtime=None, context_args="{}"):
         job = models.Job(
             name=name,
+            job_hash=job_hash,
             command=command,
             dag_id=dag_id,
             slots=slots,
@@ -61,10 +74,11 @@ class JobStateManager(ReplyServer):
             job_id = job.job_id
         return (ReturnCodes.OK, job_id)
 
-    def add_task_dag(self, name, user, created_date):
-        dag = task_dag.TaskDag(
+    def add_task_dag(self, name, user, dag_hash, created_date):
+        dag = task_dag.TaskDagMeta(
             name=name,
             user=user,
+            dag_hash=dag_hash,
             created_date=created_date)
         with session_scope() as session:
             session.add(dag)
@@ -86,6 +100,50 @@ class JobStateManager(ReplyServer):
             # right post-create hook. Investigate.
             job_instance.job.transition(models.JobStatus.INSTANTIATED)
         return (ReturnCodes.OK, ji_id)
+
+    def add_workflow(self, dag_id, workflow_args, workflow_hash, name, user,
+                     description=""):
+        wf = WorkflowDAO(dag_id=dag_id, workflow_args=workflow_args,
+                         workflow_hash=workflow_hash, name=name, user=user,
+                         description=description)
+        with session_scope() as session:
+            session.add(wf)
+            session.commit()
+            wf_dct = wf.to_wire()
+        return (ReturnCodes.OK, wf_dct)
+
+    def add_workflow_run(self, workflow_id, user, hostname, pid):
+        wfr = WorkflowRunDAO(workflow_id=workflow_id,
+                             user=user,
+                             hostname=hostname,
+                             pid=pid)
+        with session_scope() as session:
+            workflow = session.query(WorkflowDAO).\
+                filter(WorkflowDAO.id == workflow_id).first()
+            # Set all previous runs to STOPPED
+            for run in workflow.workflow_runs:
+                run.status = WorkflowRunStatus.STOPPED
+            session.add(wfr)
+            session.commit()
+            wfr_id = wfr.id
+        return (ReturnCodes.OK, wfr_id)
+
+    def update_workflow(self, wf_id, status):
+        with session_scope() as session:
+            wf = session.query(WorkflowDAO).\
+                filter(WorkflowDAO.id == wf_id).first()
+            wf.status = status
+            session.commit()
+            wf_dct = wf.to_wire()
+        return (ReturnCodes.OK, wf_dct)
+
+    def update_workflow_run(self, wfr_id, status):
+        with session_scope() as session:
+            wfr = session.query(WorkflowRunDAO).\
+                filter(WorkflowRunDAO.id == wfr_id).first()
+            wfr.status = status
+            session.commit()
+        return (ReturnCodes.OK, status)
 
     def listen(self):
         """If the database is unavailable, don't allow the JobStateManager to
@@ -164,6 +222,23 @@ class JobStateManager(ReplyServer):
         with session_scope() as session:
             job = session.query(models.Job).filter_by(job_id=job_id).first()
             job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
+        return (ReturnCodes.OK,)
+
+    def reset_job(self, job_id):
+        with session_scope() as session:
+            job = session.query(models.Job).filter_by(job_id=job_id).first()
+            job.reset()
+            session.commit()
+        return (ReturnCodes.OK,)
+
+    def reset_incomplete_jobs(self, dag_id):
+        with session_scope() as session:
+            inc_jobs = session.query(models.Job).\
+                filter_by(dag_id=dag_id).\
+                filter(models.Job.status != models.JobStatus.DONE).all()
+            for job in inc_jobs:
+                job.reset()
+            session.commit()
         return (ReturnCodes.OK,)
 
     def _get_job_instance(self, session, job_instance_id):

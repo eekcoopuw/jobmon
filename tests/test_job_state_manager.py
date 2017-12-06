@@ -7,7 +7,7 @@ from datetime import datetime
 
 from jobmon.database import session_scope
 from jobmon.models import InvalidStateTransition, Job, JobInstanceErrorLog, \
-    JobStatus, JobInstance
+    JobInstanceStatus, JobStatus, JobInstance
 
 
 @pytest.fixture(scope='function')
@@ -45,7 +45,7 @@ def commit_hooked_jsm(jsm_jqs):
 def test_jsm_valid_done(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, job_id = jsm.add_job("bar", 'hash', "baz", dag_id)
     jsm.queue_job(job_id)
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
@@ -59,9 +59,11 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
 def test_jsm_valid_error(jsm_jqs):
     jsm, jqs = jsm_jqs
 
-    _, dag_id = jsm.add_task_dag("mocks", "pytest user", datetime.utcnow())
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash",
+                                 datetime.utcnow())
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
     jsm.queue_job(job_id)
+
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
@@ -72,8 +74,9 @@ def test_jsm_valid_error(jsm_jqs):
 def test_invalid_transition(jsm_jqs):
     jsm, jqs = jsm_jqs
 
-    _, dag_id = jsm.add_task_dag("mocks", "pytest user", datetime.utcnow())
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash",
+                                 datetime.utcnow())
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
 
     with pytest.raises(InvalidStateTransition):
         _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
@@ -86,7 +89,7 @@ def test_single_publish_on_error(dag_id, job_list_manager_sub,
 
     jsm = commit_hooked_jsm
 
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
     jsm.queue_job(job_id)
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
@@ -114,7 +117,7 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
     # Note we need (2) attempts here, the first of which we will
     # use to force a transaction failure and the second of which
     # should transact successfully
-    _, job_id = jsm.add_job("bar", "baz", dag_id, max_attempts=2)
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id, max_attempts=2)
     jsm.queue_job(job_id)
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
@@ -144,7 +147,7 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
 def test_jsm_log_usage(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
-    _, job_id = jsm.add_job("bar", "baz", dag_id)
+    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
     jsm.queue_job(job_id)
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
@@ -164,3 +167,44 @@ def test_jsm_log_usage(jsm_jqs, dag_id):
         assert ji.io == '1'
         assert ji.nodename == socket.gethostname()
     jsm.log_done(job_instance_id)
+
+
+def test_job_reset(jsm_jqs, dag_id):
+    jsm, jqs = jsm_jqs
+
+    _, job_id = jsm.add_job("bar", 'hash', "baz", dag_id, max_attempts=3)
+    jsm.queue_job(job_id)
+
+    # Create a couple of job instances
+    _, ji1 = jsm.add_job_instance(job_id, 'dummy_exec')
+    jsm.log_executor_id(ji1, 12345)
+    jsm.log_running(ji1)
+    jsm.log_error(ji1, "error 1")
+
+    _, ji2 = jsm.add_job_instance(job_id, 'dummy_exec')
+    jsm.log_executor_id(ji2, 12346)
+    jsm.log_running(ji2)
+    jsm.log_error(ji2, "error 1")
+
+    _, ji3 = jsm.add_job_instance(job_id, 'dummy_exec')
+    jsm.log_executor_id(ji3, 12347)
+    jsm.log_running(ji3)
+
+    # Reset the job to REGISTERED
+    jsm.reset_job(job_id)
+
+    with session_scope() as session:
+        jobs = session.query(Job).filter_by(dag_id=dag_id, job_id=job_id).all()
+        assert len(jobs) == 1
+        job = jobs[0]
+        assert job.status == JobStatus.REGISTERED
+        assert job.num_attempts == 0
+        assert len(job.job_instances) == 3
+        assert all([ji.status == JobInstanceStatus.ERROR
+                    for ji in job.job_instances])
+        errors = [e for ji in job.job_instances for e in ji.errors]
+
+        # The (2) original errors, plus a RESET error for each of the (3)
+        # jis... It's a little aggressive, but it's the safe way to ensure
+        # job_instances don't hang around in unknown states upon RESET
+        assert len(errors) == 5

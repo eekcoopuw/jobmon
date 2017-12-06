@@ -3,15 +3,13 @@ import logging
 from getpass import getuser
 
 from jobmon.config import config
-from jobmon.job_instance_factory import execute_sge
-from jobmon.job_list_manager import JobListManager
 from jobmon.requester import Requester
-from jobmon.workflow.task_dag import TaskDag
+from jobmon.meta_models import TaskDagMeta
 
 logger = logging.getLogger(__name__)
 
 
-class TaskDagFactory(object):
+class TaskDagMetaFactory(object):
     """
     Factory class for TaskDags.
 
@@ -21,7 +19,7 @@ class TaskDagFactory(object):
     def __init__(self):
         logger.debug("TaskDagFactory created")
 
-    def create_task_dag(self, name=None):
+    def create_task_dag(self, name, dag_hash, user):
         """
         Creates a new DAG, complete with its own JobListManager
 
@@ -32,13 +30,10 @@ class TaskDagFactory(object):
         req = Requester(config.jm_rep_conn)
         rc, dag_id = req.send_request({
             'action': 'add_task_dag',
-            'kwargs': {'name': name, 'user': getuser(),
+            'kwargs': {'name': name, 'user': getuser(), 'dag_hash': dag_hash,
                        'created_date': str(datetime.utcnow())}
         })
-        job_list_manager = JobListManager(dag_id, executor=execute_sge,
-                                          start_daemons=True)
-        dag = TaskDag(dag_id=dag_id, name=name,
-                      job_list_manager=job_list_manager,
-                      created_date=datetime.utcnow())
-        logger.debug("New TaskDag created {}".format(dag))
-        return dag
+        tdm = TaskDagMeta(dag_id=dag_id, name=name,
+                          created_date=datetime.utcnow())
+        logger.debug("New TaskDag created {}".format(tdm))
+        return tdm
