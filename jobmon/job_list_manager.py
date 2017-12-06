@@ -2,6 +2,7 @@ import logging
 import time
 from threading import Thread
 from queue import Queue, Empty
+from datetime import datetime
 
 from jobmon.config import config
 from jobmon.database import session_scope
@@ -85,7 +86,8 @@ class JobListManager(object):
         req = Requester(config.jm_rep_conn)
         rc, dag_id = req.send_request({
             'action': 'add_task_dag',
-            'kwargs': {'name': 'test dag', 'user': 'test user'}
+            'kwargs': {'name': 'test dag', 'user': 'test user',
+                       'dag_hash': 'hash', 'created_date': datetime.utcnow()}
         })
         req.disconnect()
         return cls(dag_id, executor=executor, start_daemons=start_daemons)
