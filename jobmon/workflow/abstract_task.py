@@ -87,6 +87,9 @@ class AbstractTask(object):
         """
         return self.hash
 
+    def __lt__(self, other):
+        return self.hash < other.hash
+
     def is_done(self):
         """
         Is this Task done? True if done.

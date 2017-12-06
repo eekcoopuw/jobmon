@@ -4,8 +4,9 @@ import pytest
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon.models import JobStatus
 from jobmon import sge
+from jobmon.models import JobStatus
+from jobmon.workflow.task_dag import TaskDag
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -14,10 +15,10 @@ handler.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 
-def test_resume_dag(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
+def test_resume_dag(db_cfg, jsm_jqs, tmp_out_dir):
     root_out_dir = "{}/mocks/test_resume_dag".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = task_dag_manager.create_task_dag(name="test_resume_dag")
+    dag = TaskDag(name="test_resume_dag")
     command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
     a_output_file_name = "{}/a.out".format(root_out_dir)

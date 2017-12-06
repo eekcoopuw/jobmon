@@ -51,19 +51,19 @@ class Job(Base):
     @classmethod
     def from_wire(cls, dct):
         return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
-                   name=dct['name'], command=dct['command'],
-                   slots=dct['slots'], mem_free=dct['mem_free'],
-                   project=dct['project'], status=dct['status'],
-                   num_attempts=dct['num_attempts'],
+                   job_hash=dct['job_hash'], name=dct['name'],
+                   command=dct['command'], slots=dct['slots'],
+                   mem_free=dct['mem_free'], project=dct['project'],
+                   status=dct['status'], num_attempts=dct['num_attempts'],
                    max_attempts=dct['max_attempts'],
                    context_args=dct['context_args'])
 
     def to_wire(self):
         return {'dag_id': self.dag_id, 'job_id': self.job_id, 'name':
-                self.name, 'command': self.command, 'status': self.status,
-                'slots': self.slots, 'mem_free': self.mem_free,
-                'project': self.project, 'num_attempts': self.num_attempts,
-                'max_attempts': self.max_attempts,
+                self.name, 'job_hash': self.job_hash, 'command': self.command,
+                'status': self.status, 'slots': self.slots, 'mem_free':
+                self.mem_free, 'project': self.project, 'num_attempts':
+                self.num_attempts, 'max_attempts': self.max_attempts,
                 'context_args': self.context_args}
 
     job_id = Column(Integer, primary_key=True)
@@ -71,6 +71,7 @@ class Job(Base):
     dag_id = Column(
         Integer,
         ForeignKey('task_dag.dag_id'))
+    job_hash = Column(String(255))
     name = Column(String(255))
     command = Column(Text)
     context_args = Column(String(1000))
@@ -96,6 +97,14 @@ class Job(Base):
         (JobStatus.RUNNING, JobStatus.ERROR_RECOVERABLE),
         (JobStatus.ERROR_RECOVERABLE, JobStatus.ERROR_FATAL),
         (JobStatus.ERROR_RECOVERABLE, JobStatus.QUEUED_FOR_INSTANTIATION)]
+
+    def reset(self):
+        self.status = JobStatus.REGISTERED
+        self.num_attempts = 0
+        for ji in self.job_instances:
+            ji.status = JobInstanceStatus.ERROR
+            new_error = JobInstanceErrorLog(description="Job RESET requested")
+            ji.errors.append(new_error)
 
     def transition_to_error(self):
         self.transition(JobStatus.ERROR_RECOVERABLE)
@@ -162,6 +171,8 @@ class JobInstance(Base):
     submitted_date = Column(DateTime, default=datetime.utcnow())
     status_date = Column(DateTime, default=datetime.utcnow())
 
+    errors = relationship("JobInstanceErrorLog", back_populates="job_instance")
+
     valid_transitions = [
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
 
@@ -205,6 +216,8 @@ class JobInstanceErrorLog(Base):
         nullable=False)
     error_time = Column(DateTime, default=datetime.utcnow())
     description = Column(Text)
+
+    job_instance = relationship("JobInstance", back_populates="errors")
 
 
 class JobInstanceStatusLog(Base):

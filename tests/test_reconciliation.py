@@ -46,7 +46,7 @@ def test_reconciler_dummy(job_list_manager_dummy):
     job_list_manager_dummy.get_new_errors()
 
     # Queue a job
-    job_id = job_list_manager_dummy.create_job("ls", "dummyfbb")
+    job_id = job_list_manager_dummy.create_job("ls", "dummyfbb", "hash")
     job_list_manager_dummy.queue_job(job_id)
     job_list_manager_dummy.job_inst_factory.instantiate_queued_jobs()
 
@@ -82,7 +82,7 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
 
     # Queue a job
     job_id = job_list_manager_sge.create_job(
-        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob")
+        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob", "hash")
     job_list_manager_sge.queue_job(job_id)
 
     # Give the job_state_manager some time to process the error message
@@ -113,7 +113,7 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
 
     # Queue a test job
     job_id = job_list_manager_sge.create_job(
-        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob",
+        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob", "hash",
         max_attempts=3, max_runtime=3)
     job_list_manager_sge.queue_job(job_id)
 
@@ -156,7 +156,7 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
     # short... make sure that job doesn't actually get killed
     # TBD I don't think that has been implemented.
     job_id = job_list_manager_sge.create_job(
-        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob",
+        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob", "hash",
         max_attempts=3, max_runtime=3)
     job_list_manager_sge.queue_job(job_id)
 
