@@ -1,6 +1,7 @@
 import logging
 import os
 
+from jobmon.models import JobStatus
 import jobmon.workflow.executable_task as etk
 
 logger = logging.getLogger(__name__)
@@ -60,4 +61,5 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
                     .format(os.path.dirname(self.output_file_name))),
             stdout=("{}/stdout/stdout-$JOB_ID-mock-test.txt"
                     .format(os.path.dirname(self.output_file_name))))
+        self.status = JobStatus.REGISTERED
         return self.job_id
