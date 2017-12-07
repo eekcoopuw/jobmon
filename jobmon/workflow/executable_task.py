@@ -1,5 +1,5 @@
 import logging
-import os
+import getpass
 
 from jobmon.models import JobStatus
 from jobmon.workflow.abstract_task import AbstractTask
@@ -98,10 +98,10 @@ class ExecutableTask(AbstractTask):
             slots=1,
             mem_free=2,
             max_attempts=3,
-            stderr=(os.path.abspath("/stderr/stderr-$JOB_ID-{}.txt"
-                                    .format(self.hash_name))),
-            stdout=(os.path.abspath(("/stdout/stdout-$JOB_ID-{}.txt"
-                                    .format(self.hash_name))))
+            stderr=('/ihme/scratch/users/{}/stderr/stderr-$JOB_ID-{}.txt'
+                    .format(getpass.getuser(), self.hash_name)),
+            stdout=('/ihme/scratch/users/{}//stdout/stdout-$JOB_ID-{}.txt'
+                    .format(getpass.getuser(), self.hash_name))
         )
         self.status = JobStatus.REGISTERED
         return self.job_id

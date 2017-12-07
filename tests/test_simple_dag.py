@@ -503,13 +503,13 @@ def test_dag_logging(db_cfg, jsm_jqs, tmp_out_dir):
         assert ':' not in ji.wallclock  # wallclock should be in seconds
 
 
-def test_dag_stderr_stdout(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
+def test_dag_stderr_stdout(db_cfg, jsm_jqs, tmp_out_dir):
     """
     Create a dag with one Task and execute it, and make sure stderr/stdout are
     created """
     root_out_dir = "{}/mocks/test_dag_stderr_stdout".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    dag = task_dag_manager.create_task_dag(name="test_dag_stderr_stdout")
+    dag = TaskDag(name="test_dag_stderr_stdout")
     command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
     output_file_name = "{}/test_dag_stderr_stdout/mock.out".format(tmp_out_dir)
