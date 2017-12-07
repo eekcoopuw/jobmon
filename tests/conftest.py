@@ -16,7 +16,8 @@ from jobmon.cli import install_rcfile
 from jobmon.job_list_manager import JobListManager
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
-from jobmon.workflow.task_dag_factory import TaskDagFactory
+from jobmon.workflow.task_dag_factory import TaskDagMetaFactory
+from jobmon.workflow.task_dag import TaskDag
 
 from .ephemerdb import EphemerDB
 
@@ -62,8 +63,8 @@ def rcfile(rcfile_dir):
         os.remove(os.path.expanduser(args.file))
 
 
-@pytest.fixture(scope='module')
-def db_cfg(rcfile):
+@pytest.fixture(scope='session')
+def session_edb(rcfile):
 
     edb = EphemerDB()
     conn_str = edb.start()
@@ -85,8 +86,22 @@ def db_cfg(rcfile):
     edb.stop()
 
 
+@pytest.fixture(scope='function')
+def db_cfg(session_edb):
+
+    database.delete_job_db()
+    database.create_job_db()
+    try:
+        with database.session_scope() as session:
+            database.load_default_statuses(session)
+    except IntegrityError:
+        pass
+
+    yield config
+
+
 @pytest.fixture(scope='module')
-def jsm_jqs(db_cfg):
+def jsm_jqs(session_edb):
     # logging does not work well with Threads in python < 2.7,
     # see https://docs.python.org/2/library/logging.html
     # Logging has to be set up BEFORE the Thread.
@@ -96,9 +111,10 @@ def jsm_jqs(db_cfg):
     ch = logging.StreamHandler()
     ch.setLevel(logging.INFO)
     jsm_logger.addHandler(ch)
-    jsm = JobStateManager(db_cfg.jm_rep_conn.port, db_cfg.jm_pub_conn.port)
+    jsm = JobStateManager(session_edb.jm_rep_conn.port,
+                          session_edb.jm_pub_conn.port)
 
-    jqs = JobQueryServer(db_cfg.jqs_rep_conn.port)
+    jqs = JobQueryServer(session_edb.jqs_rep_conn.port)
 
     t1 = Thread(target=jsm.listen)
     t1.daemon = True
@@ -114,15 +130,11 @@ def jsm_jqs(db_cfg):
 
 @pytest.fixture(scope='module')
 def dag_id(jsm_jqs):
+    import random
     jsm, jqs = jsm_jqs
-    rc, dag_id = jsm.add_task_dag('test_dag', 'test_user')
+    rc, dag_id = jsm.add_task_dag('test_dag', 'test_user',
+                                  'test_{}'.format(random.randint(1, 1000)))
     yield dag_id
-
-
-@pytest.fixture(scope='module')
-def task_dag_manager(db_cfg):
-    tdm = TaskDagFactory()
-    yield tdm
 
 
 @pytest.fixture(scope='module')

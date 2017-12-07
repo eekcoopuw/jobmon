@@ -47,7 +47,7 @@ def test_basic_submit():
     proj_id = sge.qsub("/bin/true", "still true", slots=1, memory=1,
                        project="proj_jenkins")
     fail_msg = ("Test failed: check that you have permission to run under "
-                "'proj_qlogins' and that there are available jobs under this"
+                "'proj_jenkins' and that there are available jobs under this"
                 " project")
     assert proj_id, fail_msg
 
@@ -55,7 +55,8 @@ def test_basic_submit():
                         parameters=[50],
                         stdout="whatsleep.o$JOB_ID", project='proj_jenkins')
     wait_id_a = sge.qsub("/bin/true", "dsf897  ",
-                         holds=[sleep_id], jobtype="plain")
+                         holds=[sleep_id], jobtype="plain",
+                         project='proj_jenkins')
     assert wait_id_a
     wait_id_b = sge.qsub("/bin/true", "flou;nd  ",
                          holds=[sleep_id], project='proj_jenkins')
@@ -186,17 +187,22 @@ def test_sh_wrap():
                       shfile=sge.true_path("sample.sh"),
                       stdout="shellwaitPython.txt",
                       stderr="shellwaitererr.txt",
-                      jobname="shellwaiter", project='proj_jenkins')
+                      jobname="shellwaiter",
+                      project='proj_jenkins')
+
     sh1_id = sge.qsub(sge.true_path("waiter.R"),
                       shfile=sge.true_path("sample.sh"),
                       stdout="shellwaitR.txt",
                       stderr="shellwaitererr.txt",
-                      jobname="shellwaiter", project='proj_jenkins')
+                      jobname="shellwaiter",
+                      project='proj_jenkins')
+
     sh2_id = sge.qsub(sge.true_path("waiter.do"),
                       shfile=sge.true_path("sample.sh"),
                       stdout="shellwaitStata.txt",
                       stderr="shellwaitererr.txt",
-                      jobname="shellwaiter", project='proj_jenkins')
+                      jobname="shellwaiter",
+                      project='proj_jenkins')
     assert sge._wait_done([sh0_id, sh1_id, sh2_id])
 
 

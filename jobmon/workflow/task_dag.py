@@ -1,34 +1,28 @@
+import getpass
+import hashlib
 import logging
 import copy
 
-from sqlalchemy import Column, DateTime, Integer, String
-
+from jobmon.job_instance_factory import execute_sge
+from jobmon.job_list_manager import JobListManager
 from jobmon.models import JobStatus
-from jobmon.sql_base import Base
+from jobmon.workflow.task_dag_factory import TaskDagMetaFactory
 
 logger = logging.getLogger(__name__)
 
 
-class TaskDag(Base):
+class TaskDag(object):
     """
     A DAG of Tasks.
     """
-    __tablename__ = 'task_dag'
 
-    dag_id = Column(Integer, primary_key=True)
-    name = Column(String(150))
-    user = Column(String(150))
-    created_date = Column(DateTime)
+    def __init__(self, name=""):
 
-    def __init__(self, dag_id=None, name=None, user=None,
-                 job_list_manager=None, created_date=None):
-        # TBD input validation, specifically dag_id == None
-        super(TaskDag, self).__init__(dag_id=dag_id, name=name, user=user,
-                                      created_date=created_date)
-        self.job_list_manager = job_list_manager
+        self.dag_id = None
 
-        # dictionary, TBD needs to scale to 1,000,000 jobs, untested at scale
-        self.names_to_nodes = {}
+        # TODO: Scale test to 1M jobs
+        self.name = name
+        self.tasks = {}  # dictionary for scalability to 1,000,000+ jobs
         self.top_fringe = []
         self.fail_after_n_executions = None
 
@@ -40,6 +34,44 @@ class TaskDag(Base):
         In every non-test case, self.fail_after_n_executions will be None, and
         so the 'fall over' will not be triggered in production. """
         self.fail_after_n_executions = n
+
+    @property
+    def is_bound(self):
+        """Boolean indicating whether the Dag is bound to the DB"""
+        if self.dag_id:
+            return True
+        else:
+            return False
+
+    def bind_to_db(self, dag_id=None):
+        # TODO: Database steps have to be lazy... otherwise we'll be
+        # re-inserting the DAG and jobs every time, rather than loading them
+        # when they already exist
+
+        if dag_id:
+            self.job_list_manager = JobListManager(dag_id,
+                                                   executor=execute_sge,
+                                                   start_daemons=True)
+
+            # Reset any jobs hung up in not-DONE states
+            self.job_list_manager.reset_jobs()
+
+            # Sync task statuses via job_id... consider using hashes instead
+            for _, task in self.tasks.items():
+                job_id = self.job_list_manager.job_hash_id_map[str(task.hash)]
+                task.job_id = job_id
+                task.status = self.job_list_manager.job_statuses[job_id]
+            self.dag_id = dag_id
+        else:
+            tdf = TaskDagMetaFactory()
+            self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
+                                            user=getpass.getuser())
+            self.job_list_manager = JobListManager(self.meta.dag_id,
+                                                   executor=execute_sge,
+                                                   start_daemons=True)
+            self.dag_id = self.meta.dag_id
+            for _, task in self.tasks.items():
+                task.bind(self.job_list_manager)
 
     def validate(self, raises=True):
         """
@@ -61,7 +93,7 @@ class TaskDag(Base):
         """
 
         # The empty graph cannot have errors
-        if len(self.names_to_nodes):
+        if len(self.tasks):
             return True
 
         error_message = None
@@ -103,6 +135,9 @@ class TaskDag(Base):
         Returns:
             A triple: True, len(all_completed_tasks), len(all_failed_tasks)
         """
+
+        if not self.is_bound:
+            self.bind_to_db()
 
         logger.debug("self.fail_after_n_executions is {}"
                      .format(self.fail_after_n_executions))
@@ -209,7 +244,7 @@ class TaskDag(Base):
             else:
                 task = already_done.pop(jid)
                 running = False
-            task.cached_status = status
+            task.status = status
 
             if status == JobStatus.DONE and running is True:
                 completed += [task]
@@ -247,15 +282,15 @@ class TaskDag(Base):
                 logger.debug("  not ready yet")
         return new_fringe
 
-    def _find_task(self, hash_name):
+    def _find_task(self, task_hash):
         """
         Args:
-           hash_name:
+           hash:
 
         Return:
-            The Task with that hash_name
+            The Task with that hash
         """
-        return self.names_to_nodes[hash_name]
+        return self.tasks[task_hash]
 
     def add_task(self, task):
         """
@@ -270,16 +305,19 @@ class TaskDag(Base):
             ValueError if a task is trying to be added but it already exists
         """
         logger.debug("Adding Task {}".format(task))
-        if task.hash_name in self.names_to_nodes:
-            raise ValueError("A task with hash_name '{}' already exists"
-                             .format(task.hash_name))
-        self.names_to_nodes[task.hash_name] = task
+        if task.hash in self.tasks:
+            raise ValueError("A task with hash '{}' already exists"
+                             .format(task.hash))
+        self.tasks[task.hash] = task
         if not task.upstream_tasks:
             self.top_fringe += [task]
 
-        logger.debug("Creating Job {}".format(task.hash_name))
-        job = task.create_job(self.job_list_manager)
-        return job
+        logger.debug("Creating Job {}".format(task.hash))
+        return task
+
+    def add_tasks(self, tasks):
+        for task in tasks:
+            self.add_task(task)
 
     def __repr__(self):
         """
@@ -288,7 +326,17 @@ class TaskDag(Base):
             String useful for debugging logs
         """
         s = "[DAG id={id}: '{n}':\n".format(id=self.dag_id, n=self.name)
-        for t in self.names_to_nodes.values():
+        for t in self.tasks.values():
             s += "  {}\n".format(t)
         s += "]"
         return s
+
+    @property
+    def hash(self):
+        hashval = hashlib.sha1()
+        for task_hash in sorted(self.tasks):
+            hashval.update(bytes("{:x}".format(task_hash).encode('utf-8')))
+            task = self.tasks[task_hash]
+            for dtask in sorted(task.downstream_tasks):
+                hashval.update(bytes("{:x}".format(dtask.hash).encode('utf-8')))
+        return hashval.hexdigest()

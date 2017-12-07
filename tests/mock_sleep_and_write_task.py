@@ -51,13 +51,13 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
         self.job_id = job_list_manager.create_job(
             jobname=self.hash_name,
             command=self.command,
+            job_hash=self.hash,
             slots=1,
             mem_free=2,
             max_attempts=3,
-            project='proj_dalynator',
+            project='proj_jenkins',
             stderr=("{}/stderr/stderr-$JOB_ID-mock-test.txt"
                     .format(os.path.dirname(self.output_file_name))),
             stdout=("{}/stdout/stdout-$JOB_ID-mock-test.txt"
-                    .format(os.path.dirname(self.output_file_name)))
-        )
+                    .format(os.path.dirname(self.output_file_name))))
         return self.job_id

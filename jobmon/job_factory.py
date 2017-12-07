@@ -2,6 +2,7 @@ import json
 import logging
 
 from jobmon import requester
+from jobmon.exceptions import InvalidResponse, ReturnCodes
 from jobmon.config import config
 
 logger = logging.getLogger(__name__)
@@ -13,15 +14,16 @@ class JobFactory(object):
         self.dag_id = dag_id
         self.requester = requester.Requester(config.jm_rep_conn)
 
-    def create_job(self, command, jobname, slots=1, mem_free=2, max_attempts=1,
-                   max_runtime=None, project=None, stderr=None, stdout=None,
-                   context_args=None):
+    def create_job(self, command, jobname, job_hash, slots=1, mem_free=2,
+                   max_attempts=1, max_runtime=None, project=None, stderr=None,
+                   stdout=None, context_args=None):
         """
         Create a job entry in the database.
 
         Args:
             command (str): the command to run
             jobname (str): name of the job
+            job_hash (str): hash of the job
             slots (int): Number of slots to request from SGE
             mem_free (int): Number of GB of memory to request from SGE
             max_attmpets (int): Maximum # of attempts before sending the job to
@@ -42,6 +44,7 @@ class JobFactory(object):
             'action': 'add_job',
             'kwargs': {'dag_id': self.dag_id,
                        'name': jobname,
+                       'job_hash': job_hash,
                        'command': command,
                        'context_args': context_args,
                        'slots': slots,
@@ -52,6 +55,9 @@ class JobFactory(object):
                        'stderr': stderr,
                        'stdout': stdout}
         })
+        if rc != ReturnCodes.OK:
+            raise InvalidResponse(
+                "{rc}: Could not create_job {e}".format(rc=rc, e=job_id))
         return job_id
 
     def queue_job(self, job_id):
@@ -59,4 +65,15 @@ class JobFactory(object):
             'action': 'queue_job',
             'kwargs': {'job_id': job_id}
         })
+        if rc[0] != ReturnCodes.OK:
+            raise InvalidResponse("{rc}: Could not queue_job".format(rc))
+        return rc
+
+    def reset_jobs(self):
+        rc = self.requester.send_request({
+            'action': 'reset_incomplete_jobs',
+            'kwargs': {'dag_id': self.dag_id}
+        })
+        if rc[0] != ReturnCodes.OK:
+            raise InvalidResponse("{rc}: Could not reset jobs".format(rc))
         return rc
