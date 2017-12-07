@@ -37,7 +37,7 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
         if self.fail_count:
             self.command += " --fail_count {}".format(fail_count)
 
-    def create_job(self, job_list_manager):
+    def bind(self, job_list_manager):
         """
         Creates the SGE Job
 
