@@ -151,7 +151,6 @@ class TaskDag(object):
         n_executions = 0
 
         logger.debug("Execute DAG {}".format(self))
-
         # These are all Tasks.
         # While there is something ready to be run, or something is running
         while fringe or all_running:
