@@ -3,6 +3,7 @@ from queue import Empty
 import socket
 
 from sqlalchemy.exc import OperationalError
+from datetime import datetime
 
 from jobmon.database import session_scope
 from jobmon.models import InvalidStateTransition, Job, JobInstanceErrorLog, \
@@ -58,7 +59,8 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
 def test_jsm_valid_error(jsm_jqs):
     jsm, jqs = jsm_jqs
 
-    _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash")
+    _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash",
+                                 datetime.utcnow())
     _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
     jsm.queue_job(job_id)
 
@@ -72,7 +74,8 @@ def test_jsm_valid_error(jsm_jqs):
 def test_invalid_transition(jsm_jqs):
     jsm, jqs = jsm_jqs
 
-    _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash")
+    _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash",
+                                 datetime.utcnow())
     _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
 
     with pytest.raises(InvalidStateTransition):

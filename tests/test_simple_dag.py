@@ -8,6 +8,7 @@ from jobmon import sge
 from jobmon.database import session_scope
 from jobmon.models import JobStatus, JobInstance
 from jobmon.workflow.task_dag import TaskDag
+from jobmon.meta_models.task_dag import TaskDagMeta
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -16,8 +17,6 @@ logger = logging.getLogger(__name__)
 # controller in the application.  These are all "In Memory" tests - create all
 # objects in memory and test that they work. The objects are created in the
 # database, but testing that round-trip is not an explicit goal of these tests.
-# RE-reading a DAG from the dbs will be part of the resume feature release,
-# which is Emu.
 
 # These tests all use SleepAndWriteFileMockTask (which calls
 # remote_sleep_and_write remotely)
@@ -477,7 +476,8 @@ def test_dag_logging(db_cfg, jsm_jqs, tmp_out_dir):
 
     This is in a separate test from the jsm-specifc logging test, as this test
     runs the jobmon pipeline as it would be run from the client perspective,
-    and makes sure the qstat usage details are automatically updated in the db
+    and makes sure the qstat usage details are automatically updated in the db,
+    as well as the created_date for the dag
     """
     root_out_dir = "{}/mocks/test_dag_logging".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
@@ -501,3 +501,30 @@ def test_dag_logging(db_cfg, jsm_jqs, tmp_out_dir):
         assert ji.io
         assert ji.nodename
         assert ':' not in ji.wallclock  # wallclock should be in seconds
+
+        td = session.query(TaskDagMeta).first()
+        print(td.created_date)
+        assert td.created_date  # this should not be empty
+
+
+def test_dag_stderr_stdout(db_cfg, jsm_jqs, tmp_out_dir):
+    """
+    Create a dag with one Task and execute it, and make sure stderr/stdout are
+    created """
+    root_out_dir = "{}/mocks/test_dag_stderr_stdout".format(tmp_out_dir)
+    makedirs_safely(root_out_dir)
+    dag = TaskDag(name="test_dag_stderr_stdout")
+    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+
+    output_file_name = "{}/test_dag_stderr_stdout/mock.out".format(tmp_out_dir)
+    task = SleepAndWriteFileMockTask(
+        command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
+                 "--name {n}" .format(cs=command_script, ofn=output_file_name,
+                                      n=output_file_name)))
+    dag.add_task(task)
+    os.makedirs("{}/test_dag_stderr_stdout".format(tmp_out_dir))
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+    assert os.path.exists("{}/stderr/stderr-$JOB_ID-mock-test.txt"
+                          .format(os.path.dirname(output_file_name)))
+    assert os.path.exists("{}/stdout/stdout-$JOB_ID-mock-test.txt"
+                          .format(os.path.dirname(output_file_name)))

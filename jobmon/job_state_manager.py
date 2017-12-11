@@ -53,9 +53,9 @@ class JobStateManager(ReplyServer):
             self.pub_port = self.publisher.bind_to_random_port('tcp://*')
         logger.info("Publishing to port {}".format(self.pub_port))
 
-    def add_job(self, name, job_hash, command, dag_id, slots=1,
-                mem_free=2, project=None, max_attempts=1,
-                max_runtime=None, context_args="{}"):
+    def add_job(self, name, job_hash, command, dag_id, slots=1, mem_free=2,
+                project=None, max_attempts=1, max_runtime=None,
+                stderr=None, stdout=None, context_args="{}"):
         job = models.Job(
             name=name,
             job_hash=job_hash,
@@ -66,6 +66,8 @@ class JobStateManager(ReplyServer):
             project=project,
             max_attempts=max_attempts,
             max_runtime=max_runtime,
+            stderr=stderr,
+            stdout=stdout,
             context_args=context_args,
             status=models.JobStatus.REGISTERED)
         with session_scope() as session:
@@ -74,11 +76,12 @@ class JobStateManager(ReplyServer):
             job_id = job.job_id
         return (ReturnCodes.OK, job_id)
 
-    def add_task_dag(self, name, user, dag_hash):
+    def add_task_dag(self, name, user, dag_hash, created_date):
         dag = task_dag.TaskDagMeta(
             name=name,
             user=user,
-            dag_hash=dag_hash)
+            dag_hash=dag_hash,
+            created_date=created_date)
         with session_scope() as session:
             session.add(dag)
             session.commit()

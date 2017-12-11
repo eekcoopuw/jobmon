@@ -1,5 +1,6 @@
 import logging
 import hashlib
+import getpass
 
 from jobmon.models import JobStatus
 
@@ -190,7 +191,11 @@ class ExecutableTask(object):
             command=self.command,
             slots=1,
             mem_free=2,
-            max_attempts=3
+            max_attempts=3,
+            stderr=('/ihme/scratch/users/{}/stderr/stderr-$JOB_ID-{}.txt'
+                    .format(getpass.getuser(), self.hash_name)),
+            stdout=('/ihme/scratch/users/{}//stdout/stdout-$JOB_ID-{}.txt'
+                    .format(getpass.getuser(), self.hash_name))
         )
         self.status = JobStatus.REGISTERED
         return self.job_id

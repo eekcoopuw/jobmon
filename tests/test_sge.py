@@ -45,7 +45,7 @@ def test_basic_submit():
     assert mem_id
 
     proj_id = sge.qsub("/bin/true", "still true", slots=1, memory=1,
-                       project='proj_jenkins')
+                       project="proj_jenkins")
     fail_msg = ("Test failed: check that you have permission to run under "
                 "'proj_jenkins' and that there are available jobs under this"
                 " project")
@@ -189,12 +189,14 @@ def test_sh_wrap():
                       stderr="shellwaitererr.txt",
                       jobname="shellwaiter",
                       project='proj_jenkins')
+
     sh1_id = sge.qsub(sge.true_path("waiter.R"),
                       shfile=sge.true_path("sample.sh"),
                       stdout="shellwaitR.txt",
                       stderr="shellwaitererr.txt",
                       jobname="shellwaiter",
                       project='proj_jenkins')
+
     sh2_id = sge.qsub(sge.true_path("waiter.do"),
                       shfile=sge.true_path("sample.sh"),
                       stdout="shellwaitStata.txt",
