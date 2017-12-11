@@ -30,7 +30,8 @@ class TaskDagMetaFactory(object):
         req = Requester(config.jm_rep_conn)
         rc, dag_id = req.send_request({
             'action': 'add_task_dag',
-            'kwargs': {'name': name, 'user': getuser(), 'dag_hash': dag_hash}
+            'kwargs': {'name': name, 'user': getuser(), 'dag_hash': dag_hash,
+                       'created_date': str(datetime.utcnow())}
         })
         tdm = TaskDagMeta(dag_id=dag_id, name=name,
                           created_date=datetime.utcnow())

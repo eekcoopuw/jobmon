@@ -5,6 +5,7 @@ import pytest
 import pwd
 import shutil
 import uuid
+from datetime import datetime
 
 from argparse import Namespace
 from sqlalchemy.exc import IntegrityError
@@ -133,7 +134,8 @@ def dag_id(jsm_jqs):
     import random
     jsm, jqs = jsm_jqs
     rc, dag_id = jsm.add_task_dag('test_dag', 'test_user',
-                                  'test_{}'.format(random.randint(1, 1000)))
+                                  'test_{}'.format(random.randint(1, 1000)),
+                                  datetime.utcnow())
     yield dag_id
 
 
