@@ -8,35 +8,36 @@ For users
 
     Workflow
         *(aka Batch, aka Swarm)*
-        Has a TaskDag and a set of WorkflowArgs.  Optionally, a subset of
-        WorkflowArgs may be passed to TaskDag and inform the shape of the Dag
-        itself. A Workflow can only be re-loaded if the TaskDag and
-        WorkflowArgs are shown to be exact matches to a previous Workflow (have
-        to work out how to hash+compare).
-
-        .. todo::
-            Work out how to hash+compare TaskDag+WorkflowArgs so we can
-            differentiate one Workflow from another and determine when a new
-            Workflow is required vs. simply a new WorkflowRun
+        Has a TaskDag and a set of WorkflowArgs. A Workflow can only be
+        re-loaded if the TaskDag and WorkflowArgs are shown to be exact matches
+        to a previous Workflow.
 
         .. todo::
             Consider capturing the pip freeze or other environmental markers as
             part of the Workflow hash?)
 
+        .. todo::
+            Explore a mechanism by which a subset of WorkflowArgs may be passed
+            to TaskDag and inform the shape of the Dag itself. This would
+            enable more extensive code-reuse, but would require more
+            intelligence in the Tasks themselves.
+
     WorkflowArgs
         A set of arguments that are used to deteremine the "uniqueness" of the
-        Workflow and whether it can be resumed. Must be hashable.  For example,
+        Workflow and whether it can be resumed. Must be hashable. For example,
         CodCorrect or Como version might be passed as Args to the Workflow.
-        Coupled with a populated TaskDag (which must be hashable upon
-        execution....  somehow) they define a Workflow.
+        Coupled with a populated TaskDag, WorkflowArgs define a Workflow.
 
     WorkflowRun
-        A Workflow may be started/paused/ and resumed multiple times.  Each
-        start or resume represents a new WorkflowRun. In order for a Workflow
-        can be deemed to be complete (successfully), it must have 1 or more
-        WorkflowRuns. A WorkflowJob may belong to one or more WorkflowRuns, but
-        once the Job reaches a COMPLETE state, it may longer be added to a
-        subsequent WorkflowRun.
+        WorkflowRun enables tracking for multiple runs of a single Workflow. A
+        Workflow may be started/paused/ and resumed multiple times. Each start
+        or resume represents a new WorkflowRun.
+
+        In order for a Workflow can be deemed to be DONE (successfully), it must
+        have 1 or more WorkflowRuns. In the current implementation, a Workflow Job
+        may belong to one or more WorkflowRuns, but once the Job reaches a DONE
+        state, it will no longer be added to a subsequent WorkflowRun. However,
+        this is not enforced via any database constraints.
 
     TaskDag
         A set of Tasks. Upon calling "execute()," it is frozen (i.e.  becomes
@@ -45,7 +46,7 @@ For users
 
     Task
         *(aka WorkflowJob, aka "Job that may have up/downstream dependencies")*
-        Can be created using the TaskDag method create_task().  Represents a
+        Can be created using the TaskDag method create_task(). Represents a
         unit of work with potential upstream/downstream dependencies.
 
     Job

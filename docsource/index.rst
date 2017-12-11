@@ -23,9 +23,9 @@ Table of Contents
     :maxdepth: 2
 
     quickstart
-    workflow
     services
     glossary
+    design_notes
     API Reference <modules>
 
 

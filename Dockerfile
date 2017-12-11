@@ -5,5 +5,4 @@ RUN apt-get update && apt-get install -y mysql-client
 COPY . /app
 WORKDIR /app
 RUN cp /app/jobmonrc-docker $HOME/.jobmonrc
-RUN pip install --requirement requirements.txt
 RUN pip install .
