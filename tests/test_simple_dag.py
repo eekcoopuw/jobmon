@@ -123,9 +123,9 @@ def test_three_linear_tasks(db_cfg, jsm_jqs, tmp_out_dir):
         command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
                  "--name {n}".format(cs=command_script, ofn=c_output_file_name,
                                      n=c_output_file_name)),
-        upstream_tasks=[task_b]
     )
     dag.add_task(task_c)
+    task_c.add_upstream(task_b)  # Exercise add_upstream post-instantiation
 
     logger.debug("DAG: {}".format(dag))
     (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
@@ -133,6 +133,7 @@ def test_three_linear_tasks(db_cfg, jsm_jqs, tmp_out_dir):
     assert num_completed == 3
     assert num_previously_complete == 0
     assert num_failed == 0
+    assert dag.top_fringe == [task_a]
 
     all([task_a, task_b, task_c])
 
