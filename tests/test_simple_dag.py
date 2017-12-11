@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
 # controller in the application.  These are all "In Memory" tests - create all
 # objects in memory and test that they work. The objects are created in the
 # database, but testing that round-trip is not an explicit goal of these tests.
-# RE-reading a DAG from the dbs will be part of the resume feature release,
-# which is Emu.
 
 # These tests all use SleepAndWriteFileMockTask (which calls
 # remote_sleep_and_write remotely)
