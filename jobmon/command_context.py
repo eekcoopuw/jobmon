@@ -9,6 +9,8 @@ import traceback
 
 import jsonpickle
 
+from cluster_utils.io import makedirs_safely
+
 from jobmon.config import config
 from jobmon.connection_config import ConnectionConfig
 from jobmon.job_instance_intercom import JobInstanceIntercom
@@ -40,6 +42,16 @@ def build_qsub(job, job_instance_id):
         project_cmd = "-P {}".format(job.project)
     else:
         project_cmd = ""
+    if job.stderr:
+        stderr_cmd = "-e {}".format(job.stderr)
+        makedirs_safely(job.stderr)
+    else:
+        stderr_cmd = ""
+    if job.stdout:
+        stdout_cmd = "-o {}".format(job.stdout)
+        makedirs_safely(job.stdout)
+    else:
+        stdout_cmd = ""
     cmd = build_wrapped_command(job, job_instance_id)
     thispath = os.path.dirname(os.path.abspath(__file__))
 
@@ -49,7 +61,7 @@ def build_qsub(job, job_instance_id):
     # to the appropriate server(s)
     qsub_cmd = ('qsub -N {jn} '
                 '-pe multi_slot {slots} -l mem_free={mem}g '
-                '{project} '
+                '{project} {stderr} {stdout}'
                 '{sge_add_args} '
                 '-V {path}/submit_master.sh '
                 '"{cmd}"'.format(
@@ -59,7 +71,9 @@ def build_qsub(job, job_instance_id):
                     sge_add_args=sge_add_args,
                     path=thispath,
                     cmd=cmd,
-                    project=project_cmd))
+                    project=project_cmd,
+                    stderr=stderr_cmd,
+                    stdout=stdout_cmd))
     return qsub_cmd
 
 

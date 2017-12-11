@@ -1,5 +1,7 @@
 import logging
+import os
 
+from jobmon.models import JobStatus
 import jobmon.workflow.executable_task as etk
 
 logger = logging.getLogger(__name__)
@@ -28,13 +30,15 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
 
         # NB this package must be installed into the conda env so that it will
         # be found
+        self.output_file_name = command.split(
+            '--output_file_path ')[1].split(" ")[0]
         self.command = command
         if self.fail_always:
             self.command += " --fail_always"
         if self.fail_count:
             self.command += " --fail_count {}".format(fail_count)
 
-    def create_job(self, job_list_manager):
+    def bind(self, job_list_manager):
         """
         Creates the SGE Job
 
@@ -45,7 +49,6 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
           the job_id
         """
         logger.debug("Create job, command = {}".format(self.command))
-
         self.job_id = job_list_manager.create_job(
             jobname=self.hash_name,
             command=self.command,
@@ -53,11 +56,10 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
             slots=1,
             mem_free=2,
             max_attempts=3,
-            project='proj_jenkins'
-            # TBD Project and stderr
-            # stderr="{}/stderr/stderr-$JOB_ID-mock-test.txt"
-            # .format(os.path.basename(self.output_file_name)),
-            # project="proj_burdenator",  # TBD which project?,
-            # process_timeout=30
-        )
+            project='proj_jenkins',
+            stderr=("{}/stderr/stderr-$JOB_ID-mock-test.txt"
+                    .format(os.path.dirname(self.output_file_name))),
+            stdout=("{}/stdout/stdout-$JOB_ID-mock-test.txt"
+                    .format(os.path.dirname(self.output_file_name))))
+        self.status = JobStatus.REGISTERED
         return self.job_id
