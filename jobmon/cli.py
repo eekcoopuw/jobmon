@@ -48,7 +48,7 @@ def apply_args_to_config(args):
     return config.config
 
 
-def install_rcfile(args):
+def install_rcfile(args, cfg_dct=None):
     rcfile = os.path.abspath(os.path.expanduser(args.file))
     if os.path.exists(rcfile):
         if not args.force:
@@ -61,14 +61,15 @@ def install_rcfile(args):
         shutil.move(rcfile, backup_file)
 
     with open(rcfile, "w") as jf:
-        conn_str = ("mysql://docker:docker@"
-                    "jobmon-p01.ihme.washington.edu/docker:3307")
-        cfg_dct = {
-            "conn_str": conn_str,
-            "host": "jobmon-p01.ihme.washington.edu",
-            "jsm_rep_port": 4556,
-            "jsm_pub_port": 4557,
-            "jqs_port": 4558}
+        if not cfg_dct:
+            conn_str = ("mysql://docker:docker@"
+                        "jobmon-p01.ihme.washington.edu/docker:3307")
+            cfg_dct = {
+                "conn_str": conn_str,
+                "host": "jobmon-p01.ihme.washington.edu",
+                "jsm_rep_port": 4556,
+                "jsm_pub_port": 4557,
+                "jqs_port": 4558}
         json.dump(cfg_dct, jf)
 
 

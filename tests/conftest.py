@@ -4,6 +4,7 @@ import os
 import pytest
 import pwd
 import shutil
+import socket
 import uuid
 from datetime import datetime
 
@@ -48,7 +49,12 @@ def rcfile(rcfile_dir):
     args.force = False
     args.file = "{}/jobmonrc".format(rcfile_dir)
     try:
-        install_rcfile(args)
+        install_rcfile(args,
+                       cfg_dct={"conn_str": "sqlite://",
+                                "host": socket.gethostname(),
+                                "jsm_rep_port": 3456,
+                                "jsm_pub_port": 3457,
+                                "jqs_port": 3458})
         cleanup_rcfile = True
     except FileExistsError:
         # It's OK for now if the rcfile already exists. May need to revisit
