@@ -43,12 +43,13 @@ class GlobalConfig(object):
     """
 
     default_opts = {
-        'conn_str': 'sqlite://',
-        'host': 'localhost',
-        'jsm_pub_port': 3456,
-        'jsm_rep_port': 3457,
-        'jqs_port': 3458,
-        'verbose': False}
+        "conn_str": ("mysql://docker:docker@"
+                     "jobmon-p01.ihme.washington.edu/docker:3307"),
+        "host": "jobmon-p01.ihme.washington.edu",
+        "jsm_rep_port": 4556,
+        "jsm_pub_port": 4557,
+        "jqs_port": 4558,
+        "verbose": False}
 
     def __init__(self, conn_str, host, jsm_rep_port, jsm_pub_port, jqs_port,
                  verbose):
