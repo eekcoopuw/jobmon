@@ -3,3 +3,4 @@ sphinx_rtd_theme
 pytest
 cluster_utils
 functools32; python_version < '3.0'
+subprocess32; python_version < '3.0'

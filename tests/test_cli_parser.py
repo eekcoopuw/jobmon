@@ -1,14 +1,15 @@
 import pytest
 from sqlalchemy.exc import OperationalError
+from exceptions import SystemExit
 
 from jobmon.cli import apply_args_to_config, parse_args
 
 
 def test_invalid_sub_command():
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, SystemExit)):
         # Should complain that jobmon requires a sub-command
         parse_args("--conn_str mysql://user:pass@host")
-    with pytest.raises(ValueError):
+    with pytest.raises((ValueError, SystemExit)):
         # Should complain that jobmon requires a sub-command
         parse_args("")
     with pytest.raises(SystemExit):

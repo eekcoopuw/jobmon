@@ -3,6 +3,12 @@ import pytest
 from jobmon.config import GlobalConfig, InvalidConfig
 
 
+try:
+    FileNotFoundError
+except NameError:
+    FileNotFoundError = IOError
+
+
 def test_no_rcfile():
     with pytest.raises(FileNotFoundError):
         GlobalConfig.from_file("thisisnotafile_foobarbaz_12345")
