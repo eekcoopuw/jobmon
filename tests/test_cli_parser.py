@@ -6,16 +6,16 @@ from jobmon.cli import apply_args_to_config, parse_args
 
 
 if sys.version_info < (3, 0):
-    from exceptions import SystemExit as SysExit
+    from exceptions import SystemExit as Py2Py3Exit
 else:
-    SysExit = ValueError
+    Py2Py3Exit = ValueError
 
 
 def test_invalid_sub_command():
-    with pytest.raises(SysExit):
+    with pytest.raises(Py2Py3Exit):
         # Should complain that jobmon requires a sub-command
         parse_args("--conn_str mysql://user:pass@host")
-    with pytest.raises(SysExit):
+    with pytest.raises(Py2Py3Exit):
         # Should complain that jobmon requires a sub-command
         parse_args("")
     with pytest.raises(SystemExit):
