@@ -87,7 +87,7 @@ def initdb(args):
             database.load_default_statuses(session)
     except IntegrityError as e:
         raise Exception("Database is not empty, "
-                        "could not create tables {}").format(e)
+                        "could not create tables {}").format(str(e))
 
 
 def parse_args(argstr=None):
