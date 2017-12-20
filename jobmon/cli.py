@@ -14,6 +14,11 @@ from jobmon.requester import Requester
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
 
+try:
+    FileExistsError
+except NameError:
+    FileExistsError = IOError
+
 
 def main():
     args = parse_args()
@@ -82,7 +87,7 @@ def initdb(args):
             database.load_default_statuses(session)
     except IntegrityError as e:
         raise Exception("Database is not empty, "
-                        "could not create tables") from e
+                        "could not create tables {}").format(str(e))
 
 
 def parse_args(argstr=None):

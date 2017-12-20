@@ -71,7 +71,7 @@ class Workflow(object):
     be exact matches to a previous Workflow (have to work out how to
     hash+compare).
 
-    A set of arguments that are used to deteremine the “uniqueness” of the
+    A set of arguments that are used to determine the "uniqueness" of the
     Workflow and whether it can be resumed. They must be hashable. For example,
     CodCorrect or Como version might be passed as Args to the Workflow. For
     now, the assumption is WorkflowArgs is a string. May explore in the future

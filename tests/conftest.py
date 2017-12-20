@@ -152,7 +152,7 @@ def tmp_out_dir():
     output_root = ('/ihme/scratch/users/{user}/tests/jobmon/'
                    '{uuid}'.format(user=user, uuid=u))
     yield output_root
-    shutil.rmtree(output_root)
+    shutil.rmtree(output_root, ignore_errors=True)
 
 
 @pytest.fixture(scope='function')

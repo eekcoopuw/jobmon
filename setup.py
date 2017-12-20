@@ -45,6 +45,9 @@ install_requires = [
     'drmaa',
     'jsonpickle',
 ]
+if sys.version_info < (3, 0):
+    install_requires.append('subprocess32')
+    install_requires.append('future')
 
 setup(
     version=versioneer.get_version(),
