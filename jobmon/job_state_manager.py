@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 class JobStateManager(ReplyServer):
 
     def __init__(self, rep_port=None, pub_port=None):
-        super().__init__(rep_port)
+        super(JobStateManager, self).__init__(rep_port)
         self.register_action("add_job", self.add_job)
         self.register_action("add_task_dag", self.add_task_dag)
         self.register_action("add_job_instance", self.add_job_instance)
@@ -157,10 +157,10 @@ class JobStateManager(ReplyServer):
             except OperationalError:
                 raise NoDatabase("JobStateManager could not connect to {}".
                                  format(config.conn_str))
-        super().listen()
+        super(JobStateManager, self).listen()
 
     def stop_listening(self):
-        super().stop_listening()
+        super(JobStateManager, self).stop_listening()
         self.publisher.close()
 
     def log_done(self, job_instance_id):

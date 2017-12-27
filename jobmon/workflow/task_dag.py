@@ -2,6 +2,7 @@ import getpass
 import hashlib
 import logging
 import copy
+from collections import OrderedDict
 
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
@@ -22,7 +23,7 @@ class TaskDag(object):
 
         # TODO: Scale test to 1M jobs
         self.name = name
-        self.tasks = {}  # dictionary for scalability to 1,000,000+ jobs
+        self.tasks = OrderedDict()  # dict for scalability to 1,000,000+ jobs
         self.top_fringe = []
         self.fail_after_n_executions = None
 

@@ -15,7 +15,7 @@ class JobQueryServer(ReplyServer):
     """This services basic queries surrounding jobs"""
 
     def __init__(self, rep_port=None):
-        super().__init__(rep_port)
+        super(JobQueryServer, self).__init__(rep_port)
         self.register_action("get_submitted_or_running",
                              self.get_submitted_or_running)
         self.register_action("get_timed_out", self.get_timed_out)
@@ -118,4 +118,4 @@ class JobQueryServer(ReplyServer):
             except OperationalError:
                 raise NoDatabase("JobQueryServer could not connect to {}".
                                  format(config.conn_str))
-        super().listen()
+        super(JobQueryServer, self).listen()

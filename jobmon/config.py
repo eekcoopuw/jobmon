@@ -7,6 +7,11 @@ from jobmon.connection_config import ConnectionConfig
 
 logger = logging.getLogger(__file__)
 
+try:
+    from json import JSONDecodeError
+except ImportError:
+    JSONDecodeError = ValueError
+
 
 class InvalidConfig(Exception):
     pass
@@ -131,7 +136,7 @@ class GlobalConfig(object):
         with open(rcfile) as json_file:
             try:
                 config = json.load(json_file)
-            except json.JSONDecodeError:
+            except JSONDecodeError:
                 raise InvalidConfig("Configuration error. {} is not "
                                     "valid JSON".format(rcfile))
         opts_dict = {k: v for k, v in config.items()
