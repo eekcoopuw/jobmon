@@ -14,6 +14,13 @@ To get started::
     properly
 
 .. note::
+    If you get **Could not find a version that satisfies the requirement jobmon (from version: )** then create (or append) the following to ``~/.pip/pip.conf``::
+
+        [global]
+        extra-index-url = http://dev-tomflem.ihme.washington.edu/simple
+        trusted-host = dev-tomflem.ihme.washington.edu
+
+.. note::
 
     Jobmon is intended to be used on the SGE cluster. At present, it has
     limited capabilities for executing jobs locally on a single machine using
