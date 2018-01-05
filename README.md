@@ -1,3 +1,7 @@
+# Documentation
+
+Documentation for this project is hosted [here](http://dev-tomflem.ihme.washington.edu/docs/jobmon/current/index.html)
+
 # Demo instructions
 
 To run some jobs on the cluster, including retry/timeout functionality
