@@ -9,7 +9,7 @@ try this:
 
 ```python
 
-# Before running this script, run 'jobmon configure to install a ~/.jobmonrc
+# Before running this script, run 'jobmon configure` to install a ~/.jobmonrc
 # file...
 
 from jobmon.job_list_manager import JobListManager
