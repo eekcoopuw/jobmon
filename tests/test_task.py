@@ -83,17 +83,17 @@ def test_bash_task_args(job_list_manager_sge):
 
 
 def test_python_task_equality():
-    a = PythonTask(runfile='~/runme.py', args=[1])
-    a_again = PythonTask(runfile='~/runme.py', args=[1])
+    a = PythonTask(script='~/runme.py', args=[1])
+    a_again = PythonTask(script='~/runme.py', args=[1])
     assert a == a_again
 
-    b = PythonTask(runfile='~/runme.py', args=[2], upstream_tasks=[a, a_again])
+    b = PythonTask(script='~/runme.py', args=[2], upstream_tasks=[a, a_again])
     assert b != a
     assert len(b.upstream_tasks) == 1
 
 
 def test_python_task_args(job_list_manager_sge):
-    a = PythonTask(runfile='~/runme.py', slots=1, mem_free=2,
+    a = PythonTask(script='~/runme.py', slots=1, mem_free=2,
                    project='proj_jenkins', max_attempts=1)
     job_id = a.bind(job_list_manager_sge)
 
@@ -108,7 +108,7 @@ def test_python_task_args(job_list_manager_sge):
         stderr = job[0].stderr
         stdout = job[0].stdout
     # check all job args
-    assert command == 'python ~/runme.py'
+    assert command == '{} ~/runme.py'.format(sys.executable)
     assert slots == 1
     assert mem_free == 2
     assert project == 'proj_jenkins'
@@ -116,6 +116,3 @@ def test_python_task_args(job_list_manager_sge):
     assert not max_runtime
     assert not stderr
     assert not stdout
-
-
-
