@@ -1,4 +1,5 @@
 import logging
+import sys
 
 from jobmon.workflow.executable_task import ExecutableTask
 from jobmon.models import JobStatus
@@ -8,10 +9,31 @@ logger = logging.getLogger(__name__)
 
 class PythonTask(ExecutableTask):
 
-    def __init__(self, path_to_python_binary="python", runfile=None, args=None,
-                 slots=1, mem_free=2, max_attempts=1, max_runtime=None,
-                 project=None, stderr=None, stdout=None, upstream_tasks=[]):
-        self.command = PythonTask.make_cmd(path_to_python_binary, runfile,
+    current_python = sys.executable
+
+    def __init__(self, path_to_python_binary=current_python, script=None,
+                 args=None, slots=1, mem_free=2, max_attempts=1,
+                 max_runtime=None, project=None, stderr=None, stdout=None,
+                 upstream_tasks=[]):
+        """
+        Args:
+            path_to_python_binary (str): the python install that should be used
+                Default is the Python install where Jobmon is installed
+            script (str): the full path to the python code to run
+            args (list): list of arguments to pass in to the script
+            slots (int): slots to request on the cluster. Default is 1
+            mem_free (int): amount of memory to request on the cluster.
+                Generally 2x slots. Default is 2
+            max_attempts (int): number of attempts to allow the cluster to try
+                before giving up. Default is 1
+            max_runtime (int, seconds): how long the job should be allowed to
+                run before having sge kill it. Default is None, for indefinite.
+            project (str): cluster project to run job under
+            stderr (str): filepath for where stderr should be saved
+            stdout (str): filepath for where stdout should be saved
+            upstream_tasks (list): Task objects that must be run prior to this
+        """
+        self.command = PythonTask.make_cmd(path_to_python_binary, script,
                                            args)
         ExecutableTask.__init__(self, self.command,
                                 upstream_tasks=upstream_tasks)
@@ -23,8 +45,8 @@ class PythonTask(ExecutableTask):
         self.stderr = stderr
         self.stdout = stdout
 
-    def make_cmd(path_to_python_binary, runfile, args):
-        cmd = [path_to_python_binary, runfile]
+    def make_cmd(path_to_python_binary, script, args):
+        cmd = [path_to_python_binary, script]
         if args:
             cmd.append(' '.join([str(x) for x in args]))
         return ' '.join(cmd)

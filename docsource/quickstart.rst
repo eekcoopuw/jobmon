@@ -43,6 +43,7 @@ TaskDag and adding a few tasks is simple::
     write_task = BashTask("touch ~/jobmon_qs.txt", project="proj_jenkins", slots=2, mem_free=4)
     copy_task = BashTask("cp ~/jobmon_qs.txt ~/cpof_jobmon_qs.txt", upstream_tasks=[write_task])
     del_task = BashTask("rm ~/jobmon_qs.txt", upstream_tasks=[copy_task])
+    # (create a runme.py in your home directory)
     run_task = PythonTask(path_to_python_binary='/ihme/code/central_comp/miniconda/bin/python',
                           runfile='~/runme.py', args=[1, 2], slots=2, mem_free=4, project=proj_jenkins)
 
