@@ -108,7 +108,7 @@ def test_python_task_args(job_list_manager_sge):
         stderr = job[0].stderr
         stdout = job[0].stdout
     # check all job args
-    assert command == 'python ~/runme.py'
+    assert command == '{} ~/runme.py'.format(sys.executable)
     assert slots == 1
     assert mem_free == 2
     assert project == 'proj_jenkins'
@@ -116,6 +116,3 @@ def test_python_task_args(job_list_manager_sge):
     assert not max_runtime
     assert not stderr
     assert not stdout
-
-
-
