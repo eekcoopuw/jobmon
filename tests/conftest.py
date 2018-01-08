@@ -1,5 +1,4 @@
 import logging
-import sys
 import os
 import pytest
 import pwd
@@ -18,8 +17,7 @@ from jobmon.cli import install_rcfile
 from jobmon.job_list_manager import JobListManager
 from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
-from jobmon.workflow.task_dag_factory import TaskDagMetaFactory
-from jobmon.workflow.task_dag import TaskDag
+from jobmon.job_instance_factory import execute_sge
 
 from .ephemerdb import EphemerDB
 
@@ -159,5 +157,13 @@ def tmp_out_dir():
 def job_list_manager_sub(dag_id):
     jlm = JobListManager(dag_id)
     jlm._start_job_status_listener()
+    yield jlm
+    jlm.disconnect()
+
+
+@pytest.fixture(scope='function')
+def job_list_manager_sge(dag_id):
+    jlm = JobListManager(dag_id, executor=execute_sge,
+                         start_daemons=True)
     yield jlm
     jlm.disconnect()

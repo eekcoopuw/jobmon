@@ -40,11 +40,18 @@ TaskDag and adding a few tasks is simple::
     my_dag = TaskDag(name="MyTaskTag")
 
     # Add some Tasks to it...
-    write_task = BashTask("touch ~/jobmon_qs.txt")
+    write_task = BashTask("touch ~/jobmon_qs.txt", project="proj_jenkins", slots=2, mem_free=4)
     copy_task = BashTask("cp ~/jobmon_qs.txt ~/cpof_jobmon_qs.txt", upstream_tasks=[write_task])
     del_task = BashTask("rm ~/jobmon_qs.txt", upstream_tasks=[copy_task])
 
     my_dag.add_tasks([write_task, copy_task, del_task])
+
+.. note::
+
+    Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you launch your
+    job the way you want. These include project, slots, mem_free, max_attempts, max_runtime, stderr,
+    and stdout. By default, slots used will be 1, mem_free 2, with a max_attempt of 1, no stderr/out
+    and no project, which will land you in the ihme_general queue.
 
 
 Create a Workflow
