@@ -34,8 +34,8 @@ class WorkflowRunDAO(Base):
     user = Column(String(150))
     hostname = Column(String(150))
     pid = Column(Integer)
-    created_date = Column(DateTime, default=datetime.utcnow())
-    status_date = Column(DateTime, default=datetime.utcnow())
+    created_date = Column(DateTime, default=datetime.utcnow)
+    status_date = Column(DateTime, default=datetime.utcnow)
     status = Column(Integer,
                     ForeignKey('workflow_run_status.id'),
                     nullable=False,

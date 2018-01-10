@@ -90,8 +90,8 @@ class Job(Base):
         Integer,
         ForeignKey('job_status.id'),
         nullable=False)
-    submitted_date = Column(DateTime, default=datetime.utcnow())
-    status_date = Column(DateTime, default=datetime.utcnow())
+    submitted_date = Column(DateTime, default=datetime.utcnow)
+    status_date = Column(DateTime, default=datetime.utcnow)
 
     valid_transitions = [
         (JobStatus.REGISTERED, JobStatus.QUEUED_FOR_INSTANTIATION),
@@ -174,8 +174,8 @@ class JobInstance(Base):
         ForeignKey('job_instance_status.id'),
         default=JobInstanceStatus.INSTANTIATED,
         nullable=False)
-    submitted_date = Column(DateTime, default=datetime.utcnow())
-    status_date = Column(DateTime, default=datetime.utcnow())
+    submitted_date = Column(DateTime, default=datetime.utcnow)
+    status_date = Column(DateTime, default=datetime.utcnow)
 
     errors = relationship("JobInstanceErrorLog", back_populates="job_instance")
 
@@ -220,7 +220,7 @@ class JobInstanceErrorLog(Base):
         Integer,
         ForeignKey('job_instance.job_instance_id'),
         nullable=False)
-    error_time = Column(DateTime, default=datetime.utcnow())
+    error_time = Column(DateTime, default=datetime.utcnow)
     description = Column(Text)
 
     job_instance = relationship("JobInstance", back_populates="errors")
@@ -238,4 +238,4 @@ class JobInstanceStatusLog(Base):
         Integer,
         ForeignKey('job_instance_status.id'),
         nullable=False)
-    status_time = Column(DateTime, default=datetime.utcnow())
+    status_time = Column(DateTime, default=datetime.utcnow)
