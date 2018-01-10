@@ -19,7 +19,7 @@ from jobmon.job_query_server import JobQueryServer
 from jobmon.job_state_manager import JobStateManager
 from jobmon.job_instance_factory import execute_sge
 
-from .ephemerdb import EphemerDB
+from cluster_utils.ephemerdb import create_ephemerdb
 
 
 @pytest.fixture(autouse=True)
@@ -71,7 +71,7 @@ def rcfile(rcfile_dir):
 @pytest.fixture(scope='session')
 def session_edb(rcfile):
 
-    edb = EphemerDB()
+    edb = create_ephemerdb()
     conn_str = edb.start()
     config.conn_str = conn_str
 

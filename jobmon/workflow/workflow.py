@@ -56,8 +56,8 @@ class WorkflowDAO(Base):
     description = Column(Text)
     name = Column(String(150))
     user = Column(String(150))
-    created_date = Column(DateTime, default=datetime.utcnow())
-    status_date = Column(DateTime, default=datetime.utcnow())
+    created_date = Column(DateTime, default=datetime.utcnow)
+    status_date = Column(DateTime, default=datetime.utcnow)
     status = Column(Integer,
                     ForeignKey('workflow_status.id'),
                     nullable=False,
