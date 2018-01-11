@@ -17,7 +17,7 @@ class StataTask(ExecutableTask):
                  max_runtime=None, project=None, stderr=None, stdout=None,
                  upstream_tasks=[]):
         """
-        This will run a stata file using stata-mp command, using the flags -b (bacth) and -q (quiet).
+        This will run a stata file using stata-mp command, using the flags -b (batch) and -q (quiet).
         It will write a stata log file in the root directory where the process executes,
         which is the home directory of the user who is running jobmon.
 
