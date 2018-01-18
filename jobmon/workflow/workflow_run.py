@@ -34,6 +34,9 @@ class WorkflowRunDAO(Base):
     user = Column(String(150))
     hostname = Column(String(150))
     pid = Column(Integer)
+    stderr = Column(String(1000))
+    stdout = Column(String(1000))
+    project = Column(String(150))
     created_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
     status = Column(Integer,
@@ -57,15 +60,21 @@ class WorkflowRun(object):
     this is not enforced via any database constraints.
     """
 
-    def __init__(self, workflow_id):
+    def __init__(self, workflow_id, stderr, stdout, project):
         self.workflow_id = workflow_id
         self.jsm_req = Requester(config.jm_rep_conn)
+        self.stderr = stderr
+        self.stdout = stdout
+        self.project = project
         rc, wfr_id = self.jsm_req.send_request({
             'action': 'add_workflow_run',
             'kwargs': {'workflow_id': workflow_id,
                        'user': getpass.getuser(),
                        'hostname': socket.gethostname(),
-                       'pid': os.getpid()}
+                       'pid': os.getpid(),
+                       'stderr': stderr,
+                       'stdout': stdout,
+                       'project': project,}
         })
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse")

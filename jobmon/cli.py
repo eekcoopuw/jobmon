@@ -133,6 +133,7 @@ def start(args):
     """Start the JobStateManager or JobQueryServer process listening"""
     if config.config.verbose:
         logging.basicConfig(level=logging.DEBUG)
+        pass
     if args.service == "job_state_manager":
         start_job_state_manager()
     elif args.service == "job_query_server":

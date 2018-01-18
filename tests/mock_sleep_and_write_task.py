@@ -55,11 +55,6 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
             job_hash=self.hash,
             slots=1,
             mem_free=2,
-            max_attempts=3,
-            project='proj_jenkins',
-            stderr=("{}/stderr/stderr-$JOB_ID-mock-test.txt"
-                    .format(os.path.dirname(self.output_file_name))),
-            stdout=("{}/stdout/stdout-$JOB_ID-mock-test.txt"
-                    .format(os.path.dirname(self.output_file_name))))
+            max_attempts=3)
         self.status = JobStatus.REGISTERED
         return self.job_id

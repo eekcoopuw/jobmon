@@ -21,11 +21,11 @@ def execute_sequentially(job, job_instance_id):
     return None
 
 
-def execute_sge(job, job_instance_id):
+def execute_sge(job, job_instance_id, stderr=None, stdout=None, project=None):
     from jobmon import sge
     try:
         import subprocess
-        qsub_cmd = build_qsub(job, job_instance_id)
+        qsub_cmd = build_qsub(job, job_instance_id, stderr, stdout, project)
         resp = subprocess.check_output(qsub_cmd, shell=True)
         idx = resp.split().index(b'job')
         sge_jid = int(resp.split()[idx + 1])

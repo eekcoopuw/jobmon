@@ -54,8 +54,7 @@ class JobStateManager(ReplyServer):
         logger.info("Publishing to port {}".format(self.pub_port))
 
     def add_job(self, name, job_hash, command, dag_id, slots=1, mem_free=2,
-                project=None, max_attempts=1, max_runtime=None,
-                stderr=None, stdout=None, context_args="{}"):
+                max_attempts=1, max_runtime=None, context_args="{}"):
         job = models.Job(
             name=name,
             job_hash=job_hash,
@@ -63,11 +62,8 @@ class JobStateManager(ReplyServer):
             dag_id=dag_id,
             slots=slots,
             mem_free=mem_free,
-            project=project,
             max_attempts=max_attempts,
             max_runtime=max_runtime,
-            stderr=stderr,
-            stdout=stdout,
             context_args=context_args,
             status=models.JobStatus.REGISTERED)
         with session_scope() as session:
@@ -114,11 +110,15 @@ class JobStateManager(ReplyServer):
             wf_dct = wf.to_wire()
         return (ReturnCodes.OK, wf_dct)
 
-    def add_workflow_run(self, workflow_id, user, hostname, pid):
+    def add_workflow_run(self, workflow_id, user, hostname, pid, stderr,
+                         stdout, project):
         wfr = WorkflowRunDAO(workflow_id=workflow_id,
                              user=user,
                              hostname=hostname,
-                             pid=pid)
+                             pid=pid,
+                             stderr=stderr,
+                             stdout=stdout,
+                             project=project)
         with session_scope() as session:
             workflow = session.query(WorkflowDAO).\
                 filter(WorkflowDAO.id == workflow_id).first()

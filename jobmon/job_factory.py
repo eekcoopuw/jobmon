@@ -30,9 +30,6 @@ class JobFactory(object):
                 ERROR_FATAL state
             max_runtime (int): Maximum runtime of a single job_instance before
                 killing and marking that instance as failed
-            project (str): name of the project to run the jobs under
-            stderr (str): filepath for how stderr files should be saved
-            stdout (str): filepath for how stdout files should be save
             context_args (dict): Additional arguments to be sent to the command
                 builders
         """
@@ -49,11 +46,8 @@ class JobFactory(object):
                        'context_args': context_args,
                        'slots': slots,
                        'mem_free': mem_free,
-                       'project': project,
                        'max_attempts': max_attempts,
-                       'max_runtime': max_runtime,
-                       'stderr': stderr,
-                       'stdout': stdout}
+                       'max_runtime': max_runtime}
         })
         if rc != ReturnCodes.OK:
             raise InvalidResponse(

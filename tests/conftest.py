@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import pytest
@@ -112,10 +113,6 @@ def jsm_jqs(session_edb):
     # Logging has to be set up BEFORE the Thread.
     # Therefore we set up the job_state_manager's console logger here, before
     # we put it in a Thread.
-    jsm_logger = logging.getLogger("jobmon.job_state_manager")
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.INFO)
-    jsm_logger.addHandler(ch)
     jsm = JobStateManager(session_edb.jm_rep_conn.port,
                           session_edb.jm_pub_conn.port)
 
@@ -162,8 +159,14 @@ def job_list_manager_sub(dag_id):
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_sge(dag_id):
-    jlm = JobListManager(dag_id, executor=execute_sge,
-                         start_daemons=True)
+def job_list_manager_sge(dag_id, tmpdir_factory):
+
+    elogdir = str(tmpdir_factory.mktemp("elogs"))
+    ologdir = str(tmpdir_factory.mktemp("ologs"))
+
+    executor = functools.partial(execute_sge, stderr=elogdir, stdout=ologdir,
+                                 project='proj_jenkins')
+    executor.__name__ = execute_sge.__name__
+    jlm = JobListManager(dag_id, executor=executor, start_daemons=True)
     yield jlm
     jlm.disconnect()

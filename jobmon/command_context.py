@@ -27,7 +27,7 @@ else:
 logger = logging.getLogger(__name__)
 
 
-def build_qsub(job, job_instance_id):
+def build_qsub(job, job_instance_id, stderr=None, stdout=None, project=None):
     """Process the Job's context_args, which are assumed to be
     a json-serialized dictionary"""
     # TODO: Settle on a sensible way to pass and validate settings for the
@@ -38,18 +38,18 @@ def build_qsub(job, job_instance_id):
         sge_add_args = ctx_args['sge_add_args']
     else:
         sge_add_args = ""
-    if job.project:
-        project_cmd = "-P {}".format(job.project)
+    if project:
+        project_cmd = "-P {}".format(project)
     else:
         project_cmd = ""
-    if job.stderr:
-        stderr_cmd = "-e {}".format(job.stderr)
-        makedirs_safely(job.stderr)
+    if stderr:
+        stderr_cmd = "-e {}".format(stderr)
+        makedirs_safely(stderr)
     else:
         stderr_cmd = ""
-    if job.stdout:
-        stdout_cmd = "-o {}".format(job.stdout)
-        makedirs_safely(job.stdout)
+    if stdout:
+        stdout_cmd = "-o {}".format(stdout)
+        makedirs_safely(stdout)
     else:
         stdout_cmd = ""
     cmd = build_wrapped_command(job, job_instance_id)
@@ -61,7 +61,7 @@ def build_qsub(job, job_instance_id):
     # to the appropriate server(s)
     qsub_cmd = ('qsub -N {jn} '
                 '-pe multi_slot {slots} -l mem_free={mem}g '
-                '{project} {stderr} {stdout}'
+                '{project} {stderr} {stdout} '
                 '{sge_add_args} '
                 '-V {path}/submit_master.sh '
                 '"{cmd}"'.format(

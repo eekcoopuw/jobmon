@@ -1,3 +1,4 @@
+import functools
 import getpass
 import hashlib
 import logging
@@ -44,14 +45,23 @@ class TaskDag(object):
         else:
             return False
 
-    def bind_to_db(self, dag_id=None):
-        # TODO: Database steps have to be lazy... otherwise we'll be
-        # re-inserting the DAG and jobs every time, rather than loading them
-        # when they already exist
+    def bind_to_db(self, dag_id=None, executor_args={}):
+        """Binds the dag to the database and starts Job Management services.
+
+        Args:
+            dag_id (int): Defaults to None, in which case a new dag_id is
+                created
+        """
+
+        # TODO: executor is expected to be a callable... so just pass the
+        # executor args as a partial. in future, we may want to formalize
+        # Executor as a class of its own
+        executor = functools.partial(execute_sge, **executor_args)
+        executor.__name__ = execute_sge.__name__
 
         if dag_id:
             self.job_list_manager = JobListManager(dag_id,
-                                                   executor=execute_sge,
+                                                   executor=executor,
                                                    start_daemons=True)
 
             # Reset any jobs hung up in not-DONE states
@@ -68,7 +78,7 @@ class TaskDag(object):
             self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
                                             user=getpass.getuser())
             self.job_list_manager = JobListManager(self.meta.dag_id,
-                                                   executor=execute_sge,
+                                                   executor=executor,
                                                    start_daemons=True)
             self.dag_id = self.meta.dag_id
             for _, task in self.tasks.items():
