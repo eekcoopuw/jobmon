@@ -6,9 +6,6 @@ from cluster_utils.io import makedirs_safely
 from jobmon import sge
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 
 @pytest.mark.skip(reason="Too big to run by default, only run when "
                   "specifically requested")

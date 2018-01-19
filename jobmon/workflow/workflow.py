@@ -83,12 +83,17 @@ class Workflow(object):
     code-reuse.
     """
 
-    def __init__(self, task_dag, workflow_args, name="", description=""):
+    def __init__(self, task_dag, workflow_args, name="", description="",
+                 stderr=None, stdout=None, project=None):
         self.wf_dao = None
         self.name = name
         self.description = description
         self.task_dag = task_dag
         self.workflow_args = workflow_args
+
+        self.stderr = stderr
+        self.stdout = stdout
+        self.project = project
 
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
@@ -138,10 +143,16 @@ class Workflow(object):
             self.wf_dao = potential_wfs[0]
             if self.wf_dao.status == WorkflowStatus.DONE:
                 raise WorkflowAlreadyComplete
-            self.task_dag.bind_to_db(self.dag_id)
+            self.task_dag.bind_to_db(
+                self.dag_id,
+                executor_args={'stderr': self.stderr,
+                               'stdout': self.stdout,
+                               'project': self.project,})
         elif len(potential_wfs) == 0:
             # Bind the dag ...
-            self.task_dag.bind_to_db()
+            self.task_dag.bind_to_db(executor_args={'stderr': self.stderr,
+                                                    'stdout': self.stdout,
+                                                    'project': self.project,})
 
             # Create new workflow in Database
             rc, wf_dct = self.jsm_req.send_request({
@@ -176,7 +187,8 @@ class Workflow(object):
 
     def _create_workflow_run(self):
         # Create new workflow in Database
-        self.workflow_run = WorkflowRun(self.id)
+        self.workflow_run = WorkflowRun(self.id, self.stderr, self.stdout,
+                                        self.project)
 
     def _error(self):
         self.workflow_run.update_error()

@@ -143,7 +143,7 @@ def test_wfagrs_dag_update(db_cfg, jsm_jqs):
                 set([t.job_id for _, t in wf2.task_dag.tasks.items()]))
 
 
-def test_stop_resume(simple_workflow):
+def test_stop_resume(simple_workflow, tmpdir):
     # Manually modify the database so that some mid-dag jobs appear in
     # a running / non-complete / non-error state
     stopped_wf = simple_workflow
@@ -178,7 +178,10 @@ def test_stop_resume(simple_workflow):
     dag.add_tasks([t1, t2, t3])
 
     wfa = "my_simple_dag"
-    workflow = Workflow(dag, wfa)
+    elogdir = str(tmpdir.mkdir("wf_elogs"))
+    ologdir = str(tmpdir.mkdir("wf_ologs"))
+    workflow = Workflow(dag, wfa, stderr=elogdir, stdout=ologdir,
+                        project='proj_jenkins')
     workflow.execute()
 
     # TODO: Check that the user is prompted that they indeed want to resume...
@@ -188,6 +191,11 @@ def test_stop_resume(simple_workflow):
 
     # Validate that a new WorkflowRun was created
     assert workflow.workflow_run.id != stopped_wf.workflow_run.id
+
+    # Validate that a new WorkflowRun has different logdirs and project
+    assert workflow.workflow_run.stderr != stopped_wf.workflow_run.stderr
+    assert workflow.workflow_run.stdout != stopped_wf.workflow_run.stdout
+    assert workflow.workflow_run.project != stopped_wf.workflow_run.project
 
     # Validate that the database indicates the Dag and its Jobs are complete
     assert workflow.status == WorkflowStatus.DONE
