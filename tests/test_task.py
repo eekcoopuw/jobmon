@@ -60,26 +60,20 @@ def test_hashing_bash_characters():
 
 def test_bash_task_args(job_list_manager_sge):
     a = BashTask(command="echo 'Hello Jobmon'", slots=1, mem_free=2,
-                 project='proj_jenkins', max_attempts=1)
+                 max_attempts=1)
     job_id = a.bind(job_list_manager_sge)
 
     with session_scope() as session:
         job = session.query(Job).filter_by(job_id=job_id).all()
         slots = job[0].slots
         mem_free = job[0].mem_free
-        project = job[0].project
         max_attempts = job[0].max_attempts
         max_runtime = job[0].max_runtime
-        stderr = job[0].stderr
-        stdout = job[0].stdout
     # check all job args
     assert slots == 1
     assert mem_free == 2
-    assert project == 'proj_jenkins'
     assert max_attempts == 1
     assert not max_runtime
-    assert not stderr
-    assert not stdout
 
 
 def test_python_task_equality():
@@ -93,8 +87,7 @@ def test_python_task_equality():
 
 
 def test_python_task_args(job_list_manager_sge):
-    a = PythonTask(script='~/runme.py', slots=1, mem_free=2,
-                   project='proj_jenkins', max_attempts=1)
+    a = PythonTask(script='~/runme.py', slots=1, mem_free=2, max_attempts=1)
     job_id = a.bind(job_list_manager_sge)
 
     with session_scope() as session:
@@ -102,17 +95,11 @@ def test_python_task_args(job_list_manager_sge):
         command = job[0].command
         slots = job[0].slots
         mem_free = job[0].mem_free
-        project = job[0].project
         max_attempts = job[0].max_attempts
         max_runtime = job[0].max_runtime
-        stderr = job[0].stderr
-        stdout = job[0].stdout
     # check all job args
     assert command == '{} ~/runme.py'.format(sys.executable)
     assert slots == 1
     assert mem_free == 2
-    assert project == 'proj_jenkins'
     assert max_attempts == 1
     assert not max_runtime
-    assert not stderr
-    assert not stdout

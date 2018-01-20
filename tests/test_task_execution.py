@@ -7,6 +7,7 @@ from jobmon.workflow.task_dag import TaskDag
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
 from jobmon.workflow.r_task import RTask
+from jobmon.workflow.stata_task import StataTask
 
 
 def test_bash_task(db_cfg, jsm_jqs):
@@ -61,6 +62,25 @@ def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
     makedirs_safely(root_out_dir)
 
     task = RTask(script=sge.true_path("tests/simple_R_script.r"), project="proj_jenkins")
+    dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+
+    assert rc
+    assert num_completed == 1
+    assert task.status == JobStatus.DONE
+
+
+def test_stata_task(db_cfg, jsm_jqs, tmp_out_dir):
+    """
+    Execute a simple stata Task
+    """
+    name = "test_stata_task"
+    dag = TaskDag(name=name)
+
+    root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
+    makedirs_safely(root_out_dir)
+
+    task = StataTask(script=sge.true_path("tests/simple_stata_script.do"), project="proj_jenkins")
     dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
 
