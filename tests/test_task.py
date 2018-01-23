@@ -29,8 +29,8 @@ def test_bad_names():
 
 
 class TheTestTask(ExecutableTask):
-    def __init__(self, hash_name, upstream_tasks=[]):
-        ExecutableTask.__init__(self, hash_name, upstream_tasks)
+    def __init__(self, command, upstream_tasks=[]):
+        ExecutableTask.__init__(self, command, upstream_tasks)
 
 
 def test_equality():
@@ -55,7 +55,7 @@ def test_bash_task_equality():
 
 def test_hashing_bash_characters():
     a = BashTask(command="touch ~/mytestfile")
-    assert a.is_valid_sge_job_name(a.hash_name)
+    assert a.is_valid_sge_job_name(a.name)
 
 
 def test_bash_task_args(job_list_manager_sge):

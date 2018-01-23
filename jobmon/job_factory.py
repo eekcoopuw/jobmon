@@ -15,8 +15,7 @@ class JobFactory(object):
         self.requester = requester.Requester(config.jm_rep_conn)
 
     def create_job(self, command, jobname, job_hash, slots=1, mem_free=2,
-                   max_attempts=1, max_runtime=None, project=None, stderr=None,
-                   stdout=None, context_args=None):
+                   max_attempts=1, max_runtime=None, context_args=None):
         """
         Create a job entry in the database.
 
