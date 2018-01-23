@@ -45,6 +45,7 @@ class RTask(ExecutableTask):
         self.stderr = stderr
         self.stdout = stdout
 
+    @staticmethod
     def make_cmd(path_to_R_binary, script, args):
         cmd = [path_to_R_binary, script]
         if args:

@@ -50,6 +50,7 @@ class StataTask(ExecutableTask):
         self.stderr = stderr
         self.stdout = stdout
 
+    @staticmethod
     def make_cmd(path_to_stata_binary, script, args):
         cmd = [path_to_stata_binary, '-q', '-b', script]
         if args:
