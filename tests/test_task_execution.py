@@ -82,7 +82,9 @@ def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
     retries = 5
     while retries > 0:
         try:
-            sge_jobname = check_output("qacct -j {} | grep jobname".format(jid), shell=True)
+            sge_jobname = check_output(
+                "qacct -j {} | grep jobname".format(jid),
+                shell=True).decode()
             break
         except:
             sleep(5-retries)
