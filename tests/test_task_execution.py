@@ -87,6 +87,13 @@ def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
                 shell=True).decode()
             break
         except:
+            try:
+                sge_jobname = check_output(
+                    "qstat -j {} | grep job_name".format(jid),
+                    shell=True).decode()
+                break
+            except:
+                pass
             sleep(5-retries)
             retries = retries-1
             if retries == 0:

@@ -34,6 +34,7 @@ def test_session_creation():
     assert s.drmsInfo is not None
 
 
+@pytest.mark.skip(reason="qsub and _wait_done aren't actually used anymore")
 @pytest.mark.cluster
 def test_basic_submit():
     true_id = sge.qsub("/bin/true", "so true", memory=0,
@@ -90,6 +91,7 @@ def example_job_args(tag):
         yield [tag, idx]
 
 
+@pytest.mark.skip(reason="qsub and _wait_done aren't actually used anymore")
 @pytest.mark.cluster
 def test_multi_submit():
     true_ids = sge.qsub("/bin/sleep", "howdy",
@@ -103,6 +105,7 @@ def test_multi_submit():
     assert sge._wait_done(true_ids + gen_ids)
 
 
+@pytest.mark.skip(reason="qsub and _wait_done aren't actually used anymore")
 @pytest.mark.cluster
 def test_path_manipulation():
     """
@@ -122,6 +125,7 @@ def test_path_manipulation():
     assert "DonaldDuck" in open("env-b.out").read()
 
 
+@pytest.mark.skip(reason="qsub and _wait_done aren't actually used anymore")
 @pytest.mark.cluster
 def test_python_submit():
     py_id = sge.qsub(sge.true_path("waiter.py"), ".hum",
@@ -144,6 +148,7 @@ def test_python_submit():
     assert not dones
 
 
+@pytest.mark.skip(reason="qsub and _wait_done aren't actually used anymore")
 @pytest.mark.cluster
 def test_r_submit():
     rscript_id = sge.qsub(sge.true_path("hi.R"), ".rstuff&*(",
@@ -153,6 +158,7 @@ def test_r_submit():
     assert sge._wait_done([rscript_id, notype_id])
 
 
+@pytest.mark.skip(reason="qsub and _wait_done aren't actually used anymore")
 @pytest.mark.cluster
 def test_sh_submit():
     rscript_id = sge.qsub(sge.true_path("tests/shellfiles/env_vars.sh"),
@@ -163,6 +169,7 @@ def test_sh_submit():
     assert sge._wait_done([rscript_id, notype_id])
 
 
+@pytest.mark.skip(reason="qsub and _wait_done aren't actually used anymore")
 @pytest.mark.cluster
 def test_sh_loop():
     """
@@ -181,6 +188,7 @@ def test_sh_loop():
     assert sge._wait_done(jobs)
 
 
+@pytest.mark.skip(reason="qsub and _wait_done aren't actually used anymore")
 @pytest.mark.cluster
 def test_sh_wrap():
     sh0_id = sge.qsub(sge.true_path("waiter.py"),
