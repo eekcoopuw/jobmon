@@ -330,7 +330,9 @@ class TaskDag(object):
     def _set_top_fringe(self):
         self.top_fringe = []
         for task in self.tasks.values():
-            if not task.upstream_tasks:
+            unfinished_upstreams = [u for u in task.upstream_tasks
+                                    if u.status != JobStatus.DONE]
+            if not unfinished_upstreams and task.status != JobStatus.DONE:
                 self.top_fringe += [task]
         return self.top_fringe
 

@@ -149,12 +149,13 @@ def test_stop_resume(simple_workflow, tmpdir):
     stopped_wf = simple_workflow
     job_ids = [t.job_id for _, t in stopped_wf.task_dag.tasks.items()]
 
+    to_run_jid = job_ids[-1]
     with database.session_scope() as session:
         session.execute("""
             UPDATE job
             SET status={s}
             WHERE job_id={jid}""".format(s=JobStatus.REGISTERED,
-                                         jid=job_ids[-1]))
+                                         jid=to_run_jid))
         session.execute("""
             UPDATE workflow
             SET status={s}
@@ -168,7 +169,7 @@ def test_stop_resume(simple_workflow, tmpdir):
         session.execute("""
             DELETE FROM job_instance
             WHERE job_id={jid}""".format(s=JobStatus.REGISTERED,
-                                         jid=job_ids[-1]))
+                                         jid=to_run_jid))
 
     # Re-create the dag "from scratch" (copy simple_workflow fixture)
     dag = TaskDag()
@@ -182,7 +183,11 @@ def test_stop_resume(simple_workflow, tmpdir):
     ologdir = str(tmpdir.mkdir("wf_ologs"))
     workflow = Workflow(dag, wfa, stderr=elogdir, stdout=ologdir,
                         project='proj_jenkins')
+    import pdb; pdb.set_trace()
     workflow.execute()
+
+    # Check that finished tasks aren't added to the top fringe
+    assert workflow.top_fringe == [to_run_jid]
 
     # TODO: Check that the user is prompted that they indeed want to resume...
 
