@@ -183,11 +183,10 @@ def test_stop_resume(simple_workflow, tmpdir):
     ologdir = str(tmpdir.mkdir("wf_ologs"))
     workflow = Workflow(dag, wfa, stderr=elogdir, stdout=ologdir,
                         project='proj_jenkins')
-    import pdb; pdb.set_trace()
     workflow.execute()
 
     # Check that finished tasks aren't added to the top fringe
-    assert workflow.top_fringe == [to_run_jid]
+    assert workflow.task_dag.top_fringe == [t3]
 
     # TODO: Check that the user is prompted that they indeed want to resume...
 

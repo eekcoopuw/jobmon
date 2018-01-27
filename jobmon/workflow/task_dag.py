@@ -208,7 +208,8 @@ class TaskDag(object):
             all_failed += failed_tasks
             all_already_done += already_done_tasks
             for task in completed_tasks + already_done_tasks:
-                fringe += self.propagate_results(task)
+                task_to_add = self.propagate_results(task)
+                fringe = list(set(fringe+task_to_add))
             if (self.fail_after_n_executions is not None and
                     n_executions >= self.fail_after_n_executions):
                 raise ValueError("Dag asked to fail after {} executions. "
