@@ -123,7 +123,7 @@ class TaskDag(object):
                 return False
         return True
 
-    def execute(self):
+    def execute(self, executor_args={}):
         """
         Take a concrete DAG and queue all the Tasks that are not DONE.
 
@@ -148,7 +148,7 @@ class TaskDag(object):
         """
 
         if not self.is_bound:
-            self.bind_to_db()
+            self.bind_to_db(executor_args=executor_args)
         self._set_top_fringe()
 
         logger.debug("self.fail_after_n_executions is {}"

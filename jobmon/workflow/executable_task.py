@@ -56,7 +56,7 @@ class ExecutableTask(object):
 
         return True
 
-    def __init__(self, command, upstream_tasks=None):
+    def __init__(self, command, upstream_tasks=None, name=None, slots=1, mem_free=2, max_attempts=3, max_runtime=None):
         """
         Create a task
 
@@ -69,11 +69,23 @@ class ExecutableTask(object):
            ValueError: If the hashed command is not allowed as an SGE job name;
            see is_valid_sge_job_name
         """
+        self.command = command
+
         # Hash must be an integer, in order for it to be returned by __hash__
         self.hash = int(hashlib.sha1(command.encode('utf-8')).hexdigest(), 16)
+
+        self.slots = slots
+        self.mem_free = mem_free
+        self.max_attempts = max_attempts
+        self.max_runtime = max_runtime
+
         # Names of sge jobs can't start with a numeric.
-        self.hash_name = "task_{}".format(self.hash)
-        ExecutableTask.is_valid_sge_job_name(self.hash_name)
+        if name is None:
+            self.name = "task_{}".format(self.hash)
+        else:
+            self.name = name
+
+        ExecutableTask.is_valid_sge_job_name(self.name)
 
         self.job_id = None  # will be None until executed
         # self.job = None  # cached, could be None in resume use case until
@@ -87,7 +99,7 @@ class ExecutableTask(object):
 
     def __eq__(self, other):
         """
-        Two tasks are equal if they have the same hash_name.
+        Two tasks are equal if they have the same hash.
         Needed for sets
         """
         return self.hash == other.hash
@@ -186,16 +198,13 @@ class ExecutableTask(object):
         logger.debug("Create job, command = {}".format(self.command))
 
         self.job_id = job_list_manager.create_job(
-            jobname=self.hash_name,
+            jobname=self.name,
             job_hash=self.hash,
             command=self.command,
-            slots=1,
-            mem_free=2,
-            max_attempts=3,
-            stderr=('/ihme/scratch/users/{}/stderr/stderr-$JOB_ID-{}.txt'
-                    .format(getpass.getuser(), self.hash_name)),
-            stdout=('/ihme/scratch/users/{}//stdout/stdout-$JOB_ID-{}.txt'
-                    .format(getpass.getuser(), self.hash_name))
+            slots=self.slots,
+            mem_free=self.mem_free,
+            max_attempts=self.max_attempts,
+            max_runtime=self.max_runtime,
         )
         self.status = JobStatus.REGISTERED
         return self.job_id
@@ -235,5 +244,5 @@ class ExecutableTask(object):
              String with information useful for a log message
         """
         return "[Task: jid={jid}, '{name}', status: {status}]". \
-            format(jid=self.job_id, name=self.hash_name,
+            format(jid=self.job_id, name=self.name,
                    status=self.status)

@@ -47,7 +47,7 @@ install_requires = [
 ]
 if sys.version_info < (3, 0):
     install_requires.append('subprocess32')
-    install_requires.append('future')
+    install_requires.append('future')  # adds a queue module to python2
 
 setup(
     version=versioneer.get_version(),
