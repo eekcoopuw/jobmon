@@ -271,10 +271,13 @@ class TaskDag(object):
         for downstream in task.downstream_tasks:
             logger.debug("  downstream {}".format(downstream))
             downstream_done = (downstream.status == JobStatus.DONE)
-            if downstream.all_upstreams_done() and not downstream_done:
-                logger.debug("  and add to fringe")
-                new_fringe += [downstream]
-                # else Nothing - that Task ain't ready yet
+            if not downstream_done:
+                if downstream.all_upstreams_done():
+                    logger.debug("  and add to fringe")
+                    new_fringe += [downstream]
+                    # else Nothing - that Task ain't ready yet
+                else:
+                    logger.debug("  not ready yet")
             else:
                 logger.debug("  not ready yet")
         return new_fringe
