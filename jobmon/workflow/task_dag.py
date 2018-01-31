@@ -157,9 +157,9 @@ class TaskDag(object):
 
         all_completed = []
         all_failed = []
-        all_already_done = []
         all_running = {}
-        already_done = {}
+        already_done = [task for task in self.tasks.values()
+                        if task.status == JobStatus.DONE]
         n_executions = 0
 
         logger.debug("Execute DAG {}".format(self))
@@ -181,13 +181,7 @@ class TaskDag(object):
                     task.queue_job(self.job_list_manager)
                     all_running[task.job_id] = task
                 else:
-                    logger.debug("Task {} already done. Adding to completed "
-                                 "tasks".format(task))
-                    # have to put the already done task into the update_queue,
-                    # otherwise block_until_done_or_error will block forever
-                    self.job_list_manager.update_queue.put(
-                        (task.job_id, task.get_status()))
-                    already_done[task.job_id] = task
+                    raise RuntimeError("Invalid DAG. Encountered a DONE node.")
 
             # TBD timeout?
             completed_and_status = (
@@ -197,18 +191,17 @@ class TaskDag(object):
                     n_executions += 1
             logger.debug("Return from blocking call, completed_and_status {}"
                          .format(completed_and_status))
-            all_running, completed_tasks, already_done_tasks, failed_tasks = (
-                self.sort_jobs(all_running, already_done,
-                               completed_and_status))
+            all_running, completed_tasks, failed_tasks = (
+                self.sort_jobs(all_running, completed_and_status))
 
             # Need to find the tasks that were that job, they will be in this
             # "small" dic of active tasks
 
             all_completed += completed_tasks
             all_failed += failed_tasks
-            all_already_done += already_done_tasks
-            for task in completed_tasks + already_done_tasks:
-                fringe += self.propagate_results(task)
+            for task in completed_tasks:
+                task_to_add = self.propagate_results(task)
+                fringe = list(set(fringe+task_to_add))
             if (self.fail_after_n_executions is not None and
                     n_executions >= self.fail_after_n_executions):
                 raise ValueError("Dag asked to fail after {} executions. "
@@ -225,13 +218,13 @@ class TaskDag(object):
 
         if all_failed:
             logger.info("DAG execute finished, failed {}".format(all_failed))
-            return False, len(all_completed), len(all_already_done), len(all_failed)
+            return False, len(all_completed), len(already_done), len(all_failed)
         else:
             logger.info("DAG execute finished successfully, {} jobs"
                         .format(len(all_completed)))
-            return True, len(all_completed), len(all_already_done), len(all_failed)
+            return True, len(all_completed), len(already_done), len(all_failed)
 
-    def sort_jobs(self, runners, already_done, completed_and_failed):
+    def sort_jobs(self, runners, completed_and_failed):
         """
         Sort into two list of completed and failed, and return an update
         runners dict
@@ -239,35 +232,27 @@ class TaskDag(object):
 
         Args:
             runners (dictionary): of currently running jobs, by job_id
-            already_done (dictiony): of jobs that came in this dag already done
             completed_and_failed (list): List of tuples of (job_id, JobStatus)
 
         Returns:
             A new runners dictionary, two lists of job_ids
         """
         completed = []
-        previously_completed = []
         failed = []
         for (jid, status) in completed_and_failed:
             if jid in runners:
                 task = runners.pop(jid)
-                running = True
-            else:
-                task = already_done.pop(jid)
-                running = False
             task.status = status
 
-            if status == JobStatus.DONE and running is True:
+            if status == JobStatus.DONE:
                 completed += [task]
-            elif status == JobStatus.DONE and running is False:
-                previously_completed += [task]
             elif status == JobStatus.ERROR_FATAL:
                 failed += [task]
             else:
                 raise ValueError("Job returned that is neither done nor "
                                  "error_fatal: jid: {}, status {}"
                                  .format(jid, status))
-        return runners, completed, previously_completed, failed
+        return runners, completed, failed
 
     def propagate_results(self, task):
         """
@@ -285,10 +270,14 @@ class TaskDag(object):
         task.set_status(JobStatus.DONE)
         for downstream in task.downstream_tasks:
             logger.debug("  downstream {}".format(downstream))
-            if downstream.all_upstreams_done():
-                logger.debug("  and add to fringe")
-                new_fringe += [downstream]
-                # else Nothing - that Task ain't ready yet
+            downstream_done = (downstream.status == JobStatus.DONE)
+            if not downstream_done:
+                if downstream.all_upstreams_done():
+                    logger.debug("  and add to fringe")
+                    new_fringe += [downstream]
+                    # else Nothing - that Task ain't ready yet
+                else:
+                    logger.debug("  not ready yet")
             else:
                 logger.debug("  not ready yet")
         return new_fringe
@@ -330,7 +319,9 @@ class TaskDag(object):
     def _set_top_fringe(self):
         self.top_fringe = []
         for task in self.tasks.values():
-            if not task.upstream_tasks:
+            unfinished_upstreams = [u for u in task.upstream_tasks
+                                    if u.status != JobStatus.DONE]
+            if not unfinished_upstreams and task.status != JobStatus.DONE:
                 self.top_fringe += [task]
         return self.top_fringe
 
