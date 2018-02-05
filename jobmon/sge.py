@@ -115,7 +115,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         stdout=subprocess.PIPE,
         shell=True)
     p2 = subprocess.Popen(
-        ["grep", "Master Queue", "-B2"],
+        ["grep", "Full jobname:", "-B1", "-A1"],
         stdin=p1.stdout,
         stdout=subprocess.PIPE)
 
@@ -172,6 +172,9 @@ def qstat(status=None, pattern=None, user=None, jids=None):
             continue
 
         if linetype == "job_host":
+            if "Master Queue" not in line:
+                job_hosts.append("")
+                continue
             host = line.split()[2].split("@")[1]
             job_hosts.append(host)
             lintype = "--"

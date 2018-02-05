@@ -68,7 +68,7 @@ class JobInstanceReconciler(object):
                 hostname = row.hostname
                 logger.debug("Killing timed out JI {}".format(int(ji_id)))
                 self._log_timeout_error(int(ji_id))
-                # self._log_timeout_hostname(int(ji_id), hostname)
+                self._log_timeout_hostname(int(ji_id), hostname)
 
     def _get_actual_submitted_or_running(self):
         # TODO: If we formalize the "Executor" concept as more than a
