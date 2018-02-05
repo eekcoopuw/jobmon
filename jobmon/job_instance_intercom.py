@@ -1,5 +1,6 @@
 import logging
 import os
+import socket
 
 from jobmon.requester import Requester
 
@@ -49,5 +50,6 @@ class JobInstanceIntercom(object):
     def log_running(self):
         return self.requester.send_request({
             'action': 'log_running',
-            'kwargs': {'job_instance_id': self.job_instance_id}
+            'kwargs': {'job_instance_id': self.job_instance_id,
+                       'nodename': socket.gethostname()}
         })
