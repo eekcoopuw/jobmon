@@ -16,7 +16,7 @@ class RTask(ExecutableTask):
         """
         Args:
             path_to_R_binary (str): the R install that should be used
-                Default is the cluster's R, which was /usr/local/bin/R in Jan 2018
+                Default is the cluster's R: /usr/local/bin/R in Jan 2018
             script (str): the full path to the python code to run
             args (list): list of arguments to pass in to the script
             slots (int): slots to request on the cluster. Default is 1
@@ -28,8 +28,7 @@ class RTask(ExecutableTask):
                 run before having sge kill it. Default is None, for indefinite.
             upstream_tasks (list): Task objects that must be run prior to this
         """
-        self.command = RTask.make_cmd(path_to_R_binary, script,
-                                           args)
+        self.command = RTask.make_cmd(path_to_R_binary, script, args)
         super(RTask, self).__init__(command=self.command, **kwargs)
 
     @staticmethod
