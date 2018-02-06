@@ -37,24 +37,3 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
             self.command += " --fail_always"
         if self.fail_count:
             self.command += " --fail_count {}".format(fail_count)
-
-    def bind(self, job_list_manager):
-        """
-        Creates the SGE Job
-
-        Args:
-            job_list_manager:
-
-        Returns:
-          the job_id
-        """
-        logger.debug("Create job, command = {}".format(self.command))
-        self.job_id = job_list_manager.create_job(
-            jobname=self.hash_name,
-            command=self.command,
-            job_hash=self.hash,
-            slots=1,
-            mem_free=2,
-            max_attempts=3)
-        self.status = JobStatus.REGISTERED
-        return self.job_id
