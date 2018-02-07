@@ -58,7 +58,7 @@ TaskDag and adding a few tasks is simple::
 .. note::
 
     Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you launch your
-    job the way you want. These include slots, mem_free, max_attempts, max_runtime. By default, slots used will be 1, mem_free 2, with a max_attempt of 1. Stderr, stdout, and project are set at the workflow level (see below).
+    job the way you want. These include slots, mem_free, max_attempts, max_runtime. By default, slots used will be 1, mem_free 2, with a max_attempt of 3. Stderr, stdout, and project are set at the workflow level (see below).
 
 
 Create a Workflow
