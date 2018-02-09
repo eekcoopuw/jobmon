@@ -44,7 +44,8 @@ class JobInstanceReconciler(object):
             if job_instance.executor_id:
                 if job_instance.executor_id not in actual:
                     job_instance_id = job_instance.job_instance_id
-                    self._log_mysterious_error(job_instance_id)
+                    self._log_mysterious_error(job_instance_id,
+                                               job_instance.executor_id)
                     missing_job_instance_ids.append(job_instance_id)
         return missing_job_instance_ids
 
@@ -119,11 +120,16 @@ class JobInstanceReconciler(object):
         }
         return self.jsm_req.send_request(msg)
 
-    def _log_mysterious_error(self, job_instance_id):
+    def _log_mysterious_error(self, job_instance_id, executor_id):
         return self.jsm_req.send_request({
             'action': 'log_error',
             'kwargs': {'job_instance_id': job_instance_id,
-                       'error_message': "Job has mysteriously disappeared"}
+                       'error_message': ("Job no longer visible in qstat, "
+                                         "check qacct or jobmon database for "
+                                         "sge executor_id {} and "
+                                         "job_instance_id {}"
+                                         .format(job_instance_id, executor_id))
+                       }
         })
 
     def _log_timeout_error(self, job_instance_id):
