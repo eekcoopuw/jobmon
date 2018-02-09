@@ -64,9 +64,12 @@ class JobInstanceReconciler(object):
         to_df = to_df[to_df.runtime_seconds > to_df.max_runtime]
         if len(to_df) > 0:
             sge.qdel(list(to_df.executor_id))
-            for ji in list(to_df.job_instance_id):
-                logger.debug("Killing timed out JI {}".format(int(ji)))
-                self._log_timeout_error(int(ji))
+            for _, row in to_df.iterrows():
+                ji_id = row.job_instance_id
+                hostname = row.hostname
+                logger.debug("Killing timed out JI {}".format(int(ji_id)))
+                self._log_timeout_error(int(ji_id))
+                self._log_timeout_hostname(int(ji_id), hostname)
 
     def _get_actual_submitted_or_running(self):
         # TODO: If we formalize the "Executor" concept as more than a
@@ -108,6 +111,14 @@ class JobInstanceReconciler(object):
         except TypeError:
             job_instances = []
         return job_instances
+
+    def _log_timeout_hostname(self, job_instance_id, hostname):
+        msg = {
+            'action': 'log_nodename',
+            'args': [job_instance_id],
+            'kwargs': {'nodename': hostname}
+        }
+        return self.jsm_req.send_request(msg)
 
     def _log_mysterious_error(self, job_instance_id, executor_id):
         return self.jsm_req.send_request({

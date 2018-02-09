@@ -23,17 +23,17 @@ def simple_workflow(db_cfg, jsm_jqs):
     workflow.execute()
     return workflow
 
+
 @pytest.fixture
 def simple_workflow_w_errors(db_cfg, jsm_jqs):
     dag = TaskDag()
     t1 = BashTask("sleep 1")
     t2 = BashTask("not_a_command 1", upstream_tasks=[t1])
-    t3 = BashTask("not_a_command 2", upstream_tasks=[t1])
+    t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime=1)
     t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3])
     dag.add_tasks([t1, t2, t3, t4])
 
-    wfa = "my_failing_dag"
-    workflow = Workflow(dag, wfa)
+    workflow = Workflow(dag, "my_failing_args")
     workflow.execute()
     return workflow
 
@@ -384,3 +384,21 @@ def test_dag_reset(jsm_jqs, simple_workflow_w_errors):
                      JobStatus.REGISTERED, JobStatus.REGISTERED]
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
+
+
+def test_nodename_on_fail(simple_workflow_w_errors):
+
+    err_wf  = simple_workflow_w_errors
+    dag_id = err_wf.task_dag.dag_id
+
+    with database.session_scope() as session:
+
+        # Get ERROR job instances
+        jobs = session.query(Job).filter_by(dag_id=dag_id).all()
+        jobs = [j for j in jobs if j.status == JobStatus.ERROR_FATAL]
+        jis = [ji for job in jobs for ji in job.job_instances
+               if ji.status == JobInstanceStatus.ERROR]
+
+        # Make sure all their node names were recorded
+        nodenames = [ji.nodename for ji in jis]
+        assert nodenames and all(nodenames)

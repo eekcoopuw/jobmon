@@ -115,7 +115,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         stdout=subprocess.PIPE,
         shell=True)
     p2 = subprocess.Popen(
-        ["grep", "Full jobname:", "-B1"],
+        ["grep", "Full jobname:", "-B1", "-A1"],
         stdin=p1.stdout,
         stdout=subprocess.PIPE)
 
@@ -137,13 +137,17 @@ def qstat(status=None, pattern=None, user=None, jids=None):
     job_datetimes = []
     job_runtimes = []
     job_runtime_strs = []
-    append_jobid = True
-    append_jobname = False
+    job_hosts = []
+    linetype = "job_summary"
     time_format = "%m/%d/%Y %H:%M:%S"
     now = datetime.now()
     for line in lines:
 
-        if append_jobid is True:
+        if line == '--':
+            linetype = "job_summary"
+            continue
+
+        if linetype == "job_summary":
             job_ids.append(int(line.split()[0]))
             job_users.append(line.split()[3])
             job_statuses.append(line.split()[4])
@@ -159,20 +163,26 @@ def qstat(status=None, pattern=None, user=None, jids=None):
             job_runtimes.append((now - job_datetime).total_seconds())
             job_runtime_strs.append(str(now - job_datetime))
             job_datetimes.append(datetime.strftime(job_datetime, time_format))
-            append_jobid = False
-            append_jobname = True
+            linetype = "job_name"
             continue
 
-        if append_jobname is True:
+        if linetype == "job_name":
             job_names.append(line.split()[2])
-            append_jobname = False
+            linetype = "job_host"
             continue
 
-        if line == '--':
-            append_jobid = True
+        if linetype == "job_host":
+            if "Master Queue" not in line:
+                job_hosts.append("")
+                continue
+            host = line.split()[2].split("@")[1]
+            job_hosts.append(host)
+            lintype = "--"
+            continue
 
     df = pd.DataFrame({
         'job_id': job_ids,
+        'hostname': job_hosts,
         'name': job_names,
         'user': job_users,
         'slots': job_slots,
@@ -184,8 +194,8 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         df = df[df.name.str.contains(pattern)]
     if jids is not None:
         df = df[df.job_id.isin(jids)]
-    return df[['job_id', 'name', 'slots', 'user', 'status', 'status_start',
-               'runtime', 'runtime_seconds']]
+    return df[['job_id', 'hostname', 'name', 'slots', 'user', 'status',
+               'status_start', 'runtime', 'runtime_seconds']]
 
 
 def qstat_details(jids):

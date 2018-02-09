@@ -36,6 +36,7 @@ class JobStateManager(ReplyServer):
         self.register_action("log_error", self.log_error)
         self.register_action("log_executor_id", self.log_executor_id)
         self.register_action("log_running", self.log_running)
+        self.register_action("log_nodename", self.log_nodename)
         self.register_action("log_usage", self.log_usage)
 
         self.register_action("queue_job", self.queue_job)
@@ -199,14 +200,22 @@ class JobStateManager(ReplyServer):
             self.publisher.send_string(msg)
         return (ReturnCodes.OK,)
 
-    def log_running(self, job_instance_id):
+    def log_running(self, job_instance_id, nodename=None):
         logger.debug("Log RUNNING for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             msg = self._update_job_instance_state(
                 session, ji, models.JobInstanceStatus.RUNNING)
+            ji.nodename = nodename
         if msg:
             self.publisher.send_string(msg)
+        return (ReturnCodes.OK,)
+
+    def log_nodename(self, job_instance_id, nodename=None):
+        logger.debug("Log USAGE for JI {}".format(job_instance_id))
+        with session_scope() as session:
+            ji = self._get_job_instance(session, job_instance_id)
+            self._update_job_instance(session, ji, nodename=nodename)
         return (ReturnCodes.OK,)
 
     def log_usage(self, job_instance_id, usage_str=None, nodename=None,
