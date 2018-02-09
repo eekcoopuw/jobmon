@@ -84,6 +84,7 @@ class ExecutableTask(object):
             self.name = "task_{}".format(self.hash)
         else:
             self.name = name
+        self.hash_name = self.name  # for backwards compatibility
 
         ExecutableTask.is_valid_sge_job_name(self.name)
 
