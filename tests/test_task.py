@@ -43,6 +43,11 @@ def test_equality():
     assert len(b.upstream_tasks) == 1
 
 
+def test_hash_name_compatibility():
+    a = TheTestTask("a")
+    assert a.hash_name == a.name
+
+
 def test_bash_task_equality():
     a = BashTask(command="echo 'Hello World'")
     a_again = BashTask(command="echo 'Hello World'")
