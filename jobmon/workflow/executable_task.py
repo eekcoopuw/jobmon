@@ -56,7 +56,8 @@ class ExecutableTask(object):
 
         return True
 
-    def __init__(self, command, upstream_tasks=None, name=None, slots=1, mem_free=2, max_attempts=3, max_runtime=None):
+    def __init__(self, command, upstream_tasks=None, name=None, slots=1,
+                 mem_free=2, max_attempts=3, max_runtime=None):
         """
         Create a task
 
