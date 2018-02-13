@@ -72,9 +72,9 @@ def install_rcfile(args, cfg_dct=None):
             cfg_dct = {
                 "conn_str": conn_str,
                 "host": "jobmon-p01.ihme.washington.edu",
-                "jsm_rep_port": 4656,
-                "jsm_pub_port": 4657,
-                "jqs_port": 4658}
+                "jsm_rep_port": 4756,
+                "jsm_pub_port": 4757,
+                "jqs_port": 4758}
         json.dump(cfg_dct, jf)
 
 

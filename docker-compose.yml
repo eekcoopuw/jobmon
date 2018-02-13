@@ -5,8 +5,8 @@ services:
     build: .
     image: jobmon
     ports:
-        - "4656:3456"
-        - "4657:3457"
+        - "4756:3456"
+        - "4757:3457"
 
     entrypoint:
         - ./wait-for-db.sh
@@ -24,7 +24,7 @@ services:
   jqs:
     image: jobmon
     ports:
-        - "4658:3458"
+        - "4758:3458"
     entrypoint:
         - ./wait-for-db.sh
         - db
