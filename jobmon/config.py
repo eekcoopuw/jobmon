@@ -49,7 +49,7 @@ class GlobalConfig(object):
 
     default_opts = {
         "conn_str": ("mysql://docker:docker@"
-                     "jobmon-p01.ihme.washington.edu/docker:3308"),
+                     "jobmon-p01.ihme.washington.edu/docker:3309"),
         "host": "jobmon-p01.ihme.washington.edu",
         "jsm_rep_port": 4756,
         "jsm_pub_port": 4757,
