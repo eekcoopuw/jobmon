@@ -244,11 +244,39 @@ class JobStateManager(ReplyServer):
 
     def reset_incomplete_jobs(self, dag_id):
         with session_scope() as session:
-            inc_jobs = session.query(models.Job).\
-                filter_by(dag_id=dag_id).\
-                filter(models.Job.status != models.JobStatus.DONE).all()
-            for job in inc_jobs:
-                job.reset()
+            up_job = """
+                UPDATE job
+                SET status=:registered_status, num_attempts=0
+                WHERE dag_id=:dag_id
+                AND job.status!=:done_status
+            """
+            up_job_instance = """
+                UPDATE job_instance
+                JOIN job USING(job_id)
+                SET job_instance.status=:error_status
+                WHERE job.dag_id=:dag_id
+                AND job.status!=:done_status
+            """
+            log_errors =  """
+                INSERT INTO job_instance_error_log
+                    (job_instance_id, description)
+                SELECT job_instance_id, 'Job RESET requested' as description
+                FROM job_instance
+                JOIN job USING(job_id)
+                WHERE job.dag_id=:dag_id
+                AND job.status!=:done_status
+            """
+            session.execute(up_job,
+                           {"dag_id": dag_id,
+                            "registered_status": models.JobStatus.REGISTERED,
+                            "done_status": models.JobStatus.DONE})
+            session.execute(up_job_instance,
+                           {"dag_id": dag_id,
+                            "error_status": models.JobInstanceStatus.ERROR,
+                            "done_status": models.JobStatus.DONE})
+            session.execute(log_errors,
+                           {"dag_id": dag_id,
+                            "done_status": models.JobStatus.DONE})
             session.commit()
         return (ReturnCodes.OK,)
 
