@@ -128,7 +128,7 @@ class JobInstanceReconciler(object):
                                          "check qacct or jobmon database for "
                                          "sge executor_id {} and "
                                          "job_instance_id {}"
-                                         .format(job_instance_id, executor_id))
+                                         .format(executor_id, job_instance_id))
                        }
         })
 
