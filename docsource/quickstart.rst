@@ -142,7 +142,7 @@ By default, your Workflow talks to our centrally-hosted jobmon server
 favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3309
+    port: 3310
     user: docker
     pass: docker
 

@@ -49,11 +49,11 @@ class GlobalConfig(object):
 
     default_opts = {
         "conn_str": ("mysql://docker:docker@"
-                     "jobmon-p01.ihme.washington.edu/docker:3309"),
+                     "jobmon-p01.ihme.washington.edu/docker:3310"),
         "host": "jobmon-p01.ihme.washington.edu",
-        "jsm_rep_port": 4756,
-        "jsm_pub_port": 4757,
-        "jqs_port": 4758,
+        "jsm_rep_port": 4856,
+        "jsm_pub_port": 4857,
+        "jqs_port": 4858,
         "verbose": False}
 
     def __init__(self, conn_str, host, jsm_rep_port, jsm_pub_port, jqs_port,
