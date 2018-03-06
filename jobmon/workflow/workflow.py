@@ -231,6 +231,7 @@ class Workflow(object):
         else:
             self._error()
         self.report(success, n_new_done, n_prev_done, n_failed)
+        return success
 
     def report(self, success, n_new_done, n_prev_done, n_failed):
         if success:
@@ -245,7 +246,7 @@ class Workflow(object):
 
     def run(self):
         """Alias for self.execute"""
-        self.execute()
+        return self.execute()
 
     def is_running(self):
         # First check the database for last WorkflowRun... where we should
