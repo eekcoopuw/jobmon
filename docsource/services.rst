@@ -48,7 +48,7 @@ The "jobmon server" is actually three separate docker containers, executing on j
 2. "docker ps" will show the running containers and their uptimes, for example see below.
 3. Logs (voluminous):  "docker logs --tail 10 jobmonemup3_jsm_1"
 4. To start a specific service use the name, eg:  "docker start jobmonemup3_jqs_1"
-5. A container can be restarted by container id, eg "docker restart 4594e55149456"
+5. A container can be restarted by container id or name, eg "docker restart 4594e55149456" or "docker restart jobmonemup3_jqs_1"
 
 
 .. image:: images/docker_ps.png
