@@ -98,9 +98,10 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
         "--command", "'{}'".format(job.command),
         "--job_instance_id", job_instance_id,
         "--jsm_host", config.jm_rep_conn.host,
-        "--jsm_port", config.jm_rep_conn.port,
-        "--process_timeout", process_timeout
+        "--jsm_port", config.jm_rep_conn.port
     ]
+    if process_timeout is not None:
+        wrapped_cmd += [ "--process_timeout", process_timeout ]
     wrapped_cmd = " ".join([str(i) for i in wrapped_cmd])
     logger.debug(wrapped_cmd)
     return wrapped_cmd
