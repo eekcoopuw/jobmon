@@ -17,7 +17,7 @@ class ConnectionConfig(object):
             response from the other side. Default=10 seconds
     """
 
-    def __init__(self, host, port, request_retries=3, request_timeout=10000):
+    def __init__(self, host, port, request_retries=3, request_timeout=30000):
 
         self.host = host
         self.port = port

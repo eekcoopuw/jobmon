@@ -35,15 +35,33 @@ has SELECT privileges on the jobmon database, but does not require INSERT or
 UPDATE privileges.
 
 
+Troubleshooting a running JobStateManager and JobQueryServer
+************************************************************
+
+The "jobmon server" is actually three separate docker containers, executing on jobmon-p01. For emu update 3 they are:
+
+1. jobmonemup3_jqs_1  (jobmon query service, emu update 3)
+2. jobmonemup3_jsm_1  (jobmon state manager, emu update 3)
+3. jobmonemup3_db_1  (jobmon database, emu update 3)
+
+1. ssh to jobmon-p01
+2. "docker ps" will show the running containers and their uptimes, for example see below.
+3. Logs (voluminous):  "docker logs --tail 10 jobmonemup3_jsm_1"
+4. To start a specific service use the name, eg:  "docker start jobmonemup3_jqs_1"
+5. A container can be restarted by container id or name, eg "docker restart 4594e55149456" or "docker restart jobmonemup3_jqs_1"
+
+
+.. image:: images/docker_ps.png
+
 Deploying JobStateManager and JobQueryServer
 ********************************************
 
 To deploy a centralized JobStateManager and JobQueryServer:
 
 1. Login to jobmon-p01
-2. Clone this repo into a folder called "jobmon_cavy"::
+2. Clone this repo into a folder called "jobmon_emu"::
 
-    git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git jobmon_cavy
+    git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git jobmon_emu
 
 3. From the root directory of the repo, run::
 
@@ -59,14 +77,29 @@ host and port settings in their ~/.jobmonrc::
       "jqs_port": 4458
     }
 
+
+Version Control
+***************
+
 For testing purposes, you can then access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3306
+    port: 3310
     user: docker
     pass: docker
 
+
+Each new version of jobmon increments the ports, so for example:
+
+======== ==== ===== ===== ====
+Version  jqs  jsm-1 jsm-2 db
+======== ==== ===== ===== ====
+emu.0    na   4556  4557  3307
+emu.1    4658 4656  4657  3308
+emu.2    4758 4756  4757  3309
+emu.3    4858 4856  4857  3310
+======== ==== ===== ===== ====
 
 .. todo::
 
@@ -78,3 +111,4 @@ from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 Deployment architecture
 ***********************
 .. image:: images/deployment_architecture.png
+
