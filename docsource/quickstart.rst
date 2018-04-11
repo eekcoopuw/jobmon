@@ -51,7 +51,7 @@ TaskDag and adding a few tasks is simple::
     del_task = BashTask("rm ~/jobmon_qs.txt", upstream_tasks=[copy_task])
     # (create a runme.py in your home directory)
     run_task = PythonTask(path_to_python_binary='/ihme/code/central_comp/miniconda/bin/python',
-                          runfile='~/runme.py', args=[1, 2], slots=2, mem_free=4)
+                          script='~/runme.py', args=[1, 2], slots=2, mem_free=4)
 
     my_dag.add_tasks([write_task, copy_task, del_task, run_task])
 
