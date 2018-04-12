@@ -58,12 +58,12 @@ def test_bash_task(db_cfg, jsm_jqs):
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
+        assert job.mem_free == 1
+        assert job.max_attempts == 2
+        assert job.max_runtime == 60
 
-    assert job.mem_free == 1
-    assert job.max_attempts == 2
-    assert job.max_runtime == 60
-
-    assert match_name_to_sge_name(jid) == name
+    sge_jobname = match_name_to_sge_name(jid)
+    assert sge_jobname == name
 
 
 def test_python_task(db_cfg, jsm_jqs, tmp_out_dir):
@@ -94,12 +94,12 @@ def test_python_task(db_cfg, jsm_jqs, tmp_out_dir):
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
+        assert job.mem_free == 1
+        assert job.max_attempts == 2
+        assert job.max_runtime == 60
 
-    assert job.mem_free == 1
-    assert job.max_attempts == 2
-    assert job.max_runtime == 60
-
-    assert match_name_to_sge_name(jid) == name
+    sge_jobname = match_name_to_sge_name(jid)
+    assert sge_jobname == name
 
 
 def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
@@ -125,12 +125,12 @@ def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
+        assert job.mem_free == 1
+        assert job.max_attempts == 2
+        assert job.max_runtime == 60
 
-    assert job.mem_free == 1
-    assert job.max_attempts == 2
-    assert job.max_runtime == 60
-
-    assert match_name_to_sge_name(jid) == name
+    sge_jobname = match_name_to_sge_name(jid)
+    assert sge_jobname == name
 
 
 def test_stata_task(db_cfg, jsm_jqs, tmp_out_dir):
@@ -156,9 +156,9 @@ def test_stata_task(db_cfg, jsm_jqs, tmp_out_dir):
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
+        assert job.mem_free == 1
+        assert job.max_attempts == 2
+        assert job.max_runtime == 60
 
-    assert job.mem_free == 1
-    assert job.max_attempts == 2
-    assert job.max_runtime == 60
-
-    assert match_name_to_sge_name(jid) == name
+    sge_jobname = match_name_to_sge_name(jid)
+    assert sge_jobname == name
