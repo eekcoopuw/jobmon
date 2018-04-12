@@ -13,6 +13,31 @@ from jobmon.workflow.r_task import RTask
 from jobmon.workflow.stata_task import StataTask
 
 
+def match_name_to_sge_name(jid):
+    # Try this a couple of times... SGE is weird
+    retries = 5
+    while retries > 0:
+        try:
+            sge_jobname = check_output(
+                "qacct -j {} | grep jobname".format(jid),
+                shell=True).decode()
+            break
+        except:
+            try:
+                sge_jobname = check_output(
+                    "qstat -j {} | grep job_name".format(jid),
+                    shell=True).decode()
+                break
+            except:
+                pass
+            sleep(5 - retries)
+            retries = retries - 1
+            if retries == 0:
+                raise
+    sge_jobname = sge_jobname.split()[-1].strip()
+    return sge_jobname
+
+
 def test_bash_task(db_cfg, jsm_jqs):
     """
     Create a dag with one very simple BashTask and execute it
@@ -20,7 +45,8 @@ def test_bash_task(db_cfg, jsm_jqs):
     name = "test_bash_task"
     dag = TaskDag(name=name)
 
-    task = BashTask(command="date")
+    task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
+                    max_runtime=60)
     dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
         dag.execute(executor_args={'project': 'proj_jenkins'}))
@@ -28,6 +54,16 @@ def test_bash_task(db_cfg, jsm_jqs):
     assert rc
     assert num_completed == 1
     assert task.status == JobStatus.DONE
+
+    with session_scope() as session:
+        job = session.query(Job).filter_by(name=name).first()
+        jid = [ji for ji in job.job_instances][0].executor_id
+
+    assert job.mem_free == 1
+    assert job.max_attempts == 2
+    assert job.max_runtime == 60
+
+    assert match_name_to_sge_name(jid) == name
 
 
 def test_python_task(db_cfg, jsm_jqs, tmp_out_dir):
@@ -45,27 +81,8 @@ def test_python_task(db_cfg, jsm_jqs, tmp_out_dir):
     task = PythonTask(script=sge.true_path("tests/remote_sleep_and_write.py"),
                       args=["--sleep_secs", "1",
                             "--output_file_path", output_file_name,
-                            "--name", name])
-    dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (
-        dag.execute(executor_args={'project': 'proj_jenkins'}))
-
-    assert rc
-    assert num_completed == 1
-    assert task.status == JobStatus.DONE
-
-
-def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
-    """
-    Execute an RTask
-    """
-    name = "test_R_task"
-    dag = TaskDag(name=name)
-
-    root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
-    makedirs_safely(root_out_dir)
-
-    task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name)
+                            "--name", name],
+                      name=name, mem_free=1, max_attempts=2, max_runtime=60)
     dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
         dag.execute(executor_args={'project': 'proj_jenkins'}))
@@ -78,28 +95,42 @@ def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
 
-    # Try this a couple of times... SGE is weird
-    retries = 5
-    while retries > 0:
-        try:
-            sge_jobname = check_output(
-                "qacct -j {} | grep jobname".format(jid),
-                shell=True).decode()
-            break
-        except:
-            try:
-                sge_jobname = check_output(
-                    "qstat -j {} | grep job_name".format(jid),
-                    shell=True).decode()
-                break
-            except:
-                pass
-            sleep(5-retries)
-            retries = retries-1
-            if retries == 0:
-                raise
-    sge_jobname = sge_jobname.split()[-1].strip()
-    assert sge_jobname == name
+    assert job.mem_free == 1
+    assert job.max_attempts == 2
+    assert job.max_runtime == 60
+
+    assert match_name_to_sge_name(jid) == name
+
+
+def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
+    """
+    Execute an RTask
+    """
+    name = "test_R_task"
+    dag = TaskDag(name=name)
+
+    root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
+    makedirs_safely(root_out_dir)
+
+    task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name,
+                 mem_free=1, max_attempts=2, max_runtime=60)
+    dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        dag.execute(executor_args={'project': 'proj_jenkins'}))
+
+    assert rc
+    assert num_completed == 1
+    assert task.status == JobStatus.DONE
+
+    with session_scope() as session:
+        job = session.query(Job).filter_by(name=name).first()
+        jid = [ji for ji in job.job_instances][0].executor_id
+
+    assert job.mem_free == 1
+    assert job.max_attempts == 2
+    assert job.max_runtime == 60
+
+    assert match_name_to_sge_name(jid) == name
 
 
 def test_stata_task(db_cfg, jsm_jqs, tmp_out_dir):
@@ -112,7 +143,8 @@ def test_stata_task(db_cfg, jsm_jqs, tmp_out_dir):
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
 
-    task = StataTask(script=sge.true_path("tests/simple_stata_script.do"))
+    task = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
+                     name=name, mem_free=1, max_attempts=2, max_runtime=60)
     dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
         dag.execute(executor_args={'project': 'proj_jenkins'}))
@@ -120,3 +152,13 @@ def test_stata_task(db_cfg, jsm_jqs, tmp_out_dir):
     assert rc
     assert num_completed == 1
     assert task.status == JobStatus.DONE
+
+    with session_scope() as session:
+        job = session.query(Job).filter_by(name=name).first()
+        jid = [ji for ji in job.job_instances][0].executor_id
+
+    assert job.mem_free == 1
+    assert job.max_attempts == 2
+    assert job.max_runtime == 60
+
+    assert match_name_to_sge_name(jid) == name

@@ -63,8 +63,17 @@ class ExecutableTask(object):
 
         Args
          command: the unique command for this Task, also readable by humans.
-         Should include all parameters.
-         Two Tasks are equal (__eq__) iff they have the same command
+            Should include all parameters.
+            Two Tasks are equal (__eq__) iff they have the same command
+        upstream_tasks (list): Task objects that must be run prior to this
+        name (str): name that will be visible in qstat for this job
+        slots (int): slots to request on the cluster. Default is 1
+        mem_free (int): amount of memory to request on the cluster.
+            Generally 2x slots. Default is 2
+        max_attempts (int): number of attempts to allow the cluster to try
+            before giving up. Default is 1
+        max_runtime (int, seconds): how long the job should be allowed to
+            run before having sge kill it. Default is None, for indefinite.
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
