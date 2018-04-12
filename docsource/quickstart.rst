@@ -76,11 +76,11 @@ Workflows come into play. With a Workflow you can:
 
 Let's attach our TaskDag to a Workflow and run it::
 
-    import os
+    import getpass
     from jobmon.workflow.workflow import Workflow
 
     # Add your TaskDag to a Workflow and run it
-    user = os.getusername()
+    user = getpass.getuse()
     wf = Workflow(my_dag, "version1", project='proj_jenkins',
                   stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
                   stdout='/ihme/scratch/users/{}/sgeoutput'.format(user))
