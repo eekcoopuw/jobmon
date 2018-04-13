@@ -74,7 +74,8 @@ class WorkflowRun(object):
                        'pid': os.getpid(),
                        'stderr': stderr,
                        'stdout': stdout,
-                       'project': project,}
+                       'project': project,
+                       }
         })
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse")

@@ -15,4 +15,5 @@ class TaskDagMeta(Base):
     dag_hash = Column(String(150))
     name = Column(String(150))
     user = Column(String(150))
+    heartbeat_date = Column(DateTime, default=datetime.utcnow)
     created_date = Column(DateTime, default=datetime.utcnow)

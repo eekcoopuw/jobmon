@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 import zmq
 from sqlalchemy.exc import OperationalError
@@ -35,6 +36,7 @@ class JobStateManager(ReplyServer):
         self.register_action("log_done", self.log_done)
         self.register_action("log_error", self.log_error)
         self.register_action("log_executor_id", self.log_executor_id)
+        self.register_action("log_heartbeat", self.log_heartbeat)
         self.register_action("log_running", self.log_running)
         self.register_action("log_nodename", self.log_nodename)
         self.register_action("log_usage", self.log_usage)
@@ -200,6 +202,13 @@ class JobStateManager(ReplyServer):
             self.publisher.send_string(msg)
         return (ReturnCodes.OK,)
 
+    def log_heartbeat(self, dag_id):
+        with session_scope() as session:
+            dag = session.query(TaskDagMeta).filter_by(
+                dag_id=dag_id)
+            dag.heartbeat_date = datetime.utcnow()
+        return (ReturnCodes.OK,)
+
     def log_running(self, job_instance_id, nodename=None):
         logger.debug("Log RUNNING for JI {}".format(job_instance_id))
         with session_scope() as session:
@@ -257,7 +266,7 @@ class JobStateManager(ReplyServer):
                 WHERE job.dag_id=:dag_id
                 AND job.status!=:done_status
             """
-            log_errors =  """
+            log_errors = """
                 INSERT INTO job_instance_error_log
                     (job_instance_id, description)
                 SELECT job_instance_id, 'Job RESET requested' as description
@@ -267,16 +276,16 @@ class JobStateManager(ReplyServer):
                 AND job.status!=:done_status
             """
             session.execute(up_job,
-                           {"dag_id": dag_id,
-                            "registered_status": models.JobStatus.REGISTERED,
-                            "done_status": models.JobStatus.DONE})
+                            {"dag_id": dag_id,
+                             "registered_status": models.JobStatus.REGISTERED,
+                             "done_status": models.JobStatus.DONE})
             session.execute(up_job_instance,
-                           {"dag_id": dag_id,
-                            "error_status": models.JobInstanceStatus.ERROR,
-                            "done_status": models.JobStatus.DONE})
+                            {"dag_id": dag_id,
+                             "error_status": models.JobInstanceStatus.ERROR,
+                             "done_status": models.JobStatus.DONE})
             session.execute(log_errors,
-                           {"dag_id": dag_id,
-                            "done_status": models.JobStatus.DONE})
+                            {"dag_id": dag_id,
+                             "done_status": models.JobStatus.DONE})
             session.commit()
         return (ReturnCodes.OK,)
 
