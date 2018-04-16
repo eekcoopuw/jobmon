@@ -1,7 +1,6 @@
 import logging
 
 from jobmon.workflow.executable_task import ExecutableTask
-from jobmon.models import JobStatus
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +22,7 @@ class RTask(ExecutableTask):
             upstream_tasks (list): Task objects that must be run prior to this
             name (str): name that will be visible in qstat for this job
             slots (int): slots to request on the cluster. Default is 1
-            mem_free (int): amount of memory to request on the cluster.
+            mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 2
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 1

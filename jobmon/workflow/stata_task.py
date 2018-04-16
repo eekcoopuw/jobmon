@@ -15,9 +15,9 @@ class StataTask(ExecutableTask):
                  args=None, upstream_tasks=None, name=None, slots=1,
                  mem_free=2, max_attempts=3, max_runtime=None):
         """
-        This will run a stata file using stata-mp command, using the flags -b
+        This runs a stata file using stata-mp command, using the flags -b
         (batch) and -q (quiet).
-        It will write a stata log file in the root directory where the process
+        It writes a stata log file in the root directory where the process
         executes, which is the home directory of the user who is running jobmon
 
         Args:
@@ -29,7 +29,7 @@ class StataTask(ExecutableTask):
             upstream_tasks (list): Task objects that must be run prior to this
             name (str): name that will be visible in qstat for this job
             slots (int): slots to request on the cluster. Default is 1
-            mem_free (int): amount of memory to request on the cluster.
+            mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 2
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 1
