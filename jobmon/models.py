@@ -134,6 +134,7 @@ class JobInstance(Base):
     @classmethod
     def from_wire(cls, dct):
         return cls(job_instance_id=dct['job_instance_id'],
+                   workflow_run_id=dct['workflow_run_id'],
                    executor_id=dct['executor_id'],
                    job_id=dct['job_id'],
                    status=dct['status'],
@@ -143,6 +144,7 @@ class JobInstance(Base):
     def to_wire(self):
         time_since_status = (datetime.utcnow() - self.status_date).seconds
         return {'job_instance_id': self.job_instance_id,
+                'workflow_run_id': self.workflow_run_id,
                 'executor_id': self.executor_id,
                 'job_id': self.job_id,
                 'status': self.status,
@@ -151,6 +153,7 @@ class JobInstance(Base):
                 'max_runtime': self.job.max_runtime}
 
     job_instance_id = Column(Integer, primary_key=True)
+    workflow_run_id = Column(Integer)
     executor_type = Column(String(50))
     executor_id = Column(Integer)
     job_id = Column(

@@ -85,11 +85,12 @@ class JobStateManager(ReplyServer):
             dag_id = dag.dag_id
         return (ReturnCodes.OK, dag_id)
 
-    def add_job_instance(self, job_id, executor_type):
+    def add_job_instance(self, job_id, executor_type, workflow_run_id):
         logger.debug("Add JI for job {}".format(job_id))
         job_instance = models.JobInstance(
             executor_type=executor_type,
-            job_id=job_id)
+            job_id=job_id,
+            workflow_run_id=workflow_run_id)
         with session_scope() as session:
             session.add(job_instance)
             session.commit()

@@ -124,7 +124,7 @@ class JobInstanceFactory(object):
             jobs = []
         return jobs
 
-    def _register_job_instance(self, job, executor_type):
+    def _register_job_instance(self, job, executor_type, workflow_run_id):
         rc, job_instance_id = self.jsm_req.send_request({
             'action': 'add_job_instance',
             'kwargs': {'job_id': job.job_id,
