@@ -33,7 +33,8 @@ def match_name_to_sge_name(jid):
             sleep(5 - retries)
             retries = retries - 1
             if retries == 0:
-                raise
+                raise RuntimeError("Attempted to use qstat to get jobname. "
+                                   "Giving up after 5 retries")
     sge_jobname = sge_jobname.split()[-1].strip()
     return sge_jobname
 
