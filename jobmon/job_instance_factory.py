@@ -109,7 +109,8 @@ class JobInstanceFactory(object):
         executor_id = self.executor(job, job_instance_id)
         if executor_id:
             self._register_submission_to_batch_executor(job_instance_id,
-                                                        executor_id)
+                                                        executor_id,
+                                                        workflow_run_id)
         return job_instance_id, executor_id
 
     def _get_jobs_queued_for_instantiation(self):
@@ -128,7 +129,8 @@ class JobInstanceFactory(object):
         rc, job_instance_id = self.jsm_req.send_request({
             'action': 'add_job_instance',
             'kwargs': {'job_id': job.job_id,
-                       'executor_type': executor_type}
+                       'executor_type': executor_type,
+                       'workflow_run_id': workflow_run_id}
         })
         return job_instance_id
 
