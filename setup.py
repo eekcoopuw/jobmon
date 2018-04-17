@@ -44,6 +44,7 @@ install_requires = [
     'pyzmq',
     'drmaa',
     'jsonpickle',
+    'cluster_utils'
 ]
 if sys.version_info < (3, 0):
     install_requires.append('subprocess32')
