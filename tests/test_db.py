@@ -1,11 +1,10 @@
-import pytest
 from time import sleep
 
 from jobmon.database import session_scope
 from jobmon.meta_models.task_dag import TaskDagMeta
-from jobmon.models import Job
-from jobmon.workflow.workflow import WorkflowDAO
-from jobmon.workflow.workflow_run import WorkflowRunDAO
+from jobmon.models import Job, JobStatus
+from jobmon.workflow.workflow import WorkflowDAO, WorkflowStatus
+from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
 
 def test_job_submit_times(db_cfg):
@@ -26,37 +25,39 @@ def test_job_submit_times(db_cfg):
         dag_id = dag.dag_id
 
         # Create workflows
-        wf1 = WorkflowDAO(dag_id=dag_id, status=1)
+        wf1 = WorkflowDAO(dag_id=dag_id, status=WorkflowStatus.CREATED)
         session.add(wf1)
         session.commit()
         sleep(1)
-        wf2 = WorkflowDAO(dag_id=dag_id, status=1)
+        wf2 = WorkflowDAO(dag_id=dag_id, status=WorkflowStatus.CREATED)
         session.add(wf2)
         session.commit()
 
         # And runs...
-        wfr1 = WorkflowRunDAO(workflow_id=wf1.id, status=1)
+        wfr1 = WorkflowRunDAO(workflow_id=wf1.id,
+                              status=WorkflowRunStatus.RUNNING)
         session.add(wfr1)
         session.commit()
         sleep(1)
-        wfr2 = WorkflowRunDAO(workflow_id=wf1.id, status=1)
+        wfr2 = WorkflowRunDAO(workflow_id=wf1.id,
+                              status=WorkflowRunStatus.RUNNING)
         session.add(wfr2)
         session.commit()
 
         # Create a job
-        job1 = Job(dag_id=dag_id, name='test1', status=1)
+        job1 = Job(dag_id=dag_id, name='test1', status=JobStatus.REGISTERED)
         session.add(job1)
         session.commit()
 
     sleep(1)
     with session_scope() as session:
-        job2 = Job(dag_id=dag_id, name='test2', status=1)
+        job2 = Job(dag_id=dag_id, name='test2', status=JobStatus.REGISTERED)
         session.add(job2)
         session.commit()
 
     sleep(1)
     with session_scope() as session:
-        job3 = Job(dag_id=dag_id, name='test3', status=1)
+        job3 = Job(dag_id=dag_id, name='test3', status=JobStatus.REGISTERED)
         session.add(job3)
         session.commit()
 

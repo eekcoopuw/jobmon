@@ -36,7 +36,7 @@ class JobInstanceStatus(Base):
     __tablename__ = 'job_instance_status'
 
     INSTANTIATED = 'I'
-    SUBMITTED_TO_BATCH_EXECUTOR = 'S'
+    SUBMITTED_TO_BATCH_EXECUTOR = 'B'
     RUNNING = 'R'
     ERROR = 'E'
     DONE = 'D'
