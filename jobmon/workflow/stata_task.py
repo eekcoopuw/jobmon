@@ -13,7 +13,7 @@ class StataTask(ExecutableTask):
     default_stata_script = "stata-mp"
 
     def __init__(self, path_to_stata_binary=default_stata_script, script=None,
-                 args=None, **kwargs):
+                 args=None, env_variables={}, **kwargs):
         """
         This will run a stata file using stata-mp command, using the flags -b (batch) and -q (quiet).
         It will write a stata log file in the root directory where the process executes,
@@ -24,6 +24,9 @@ class StataTask(ExecutableTask):
                 Default is the cluster's stata install, which was /usr/local/bin/stata in Jan 2018
             script (str): the full path to the python code to run
             args (list): list of arguments to pass in to the script
+            env_variables (dict): any environment variable that should be set
+                for this job, in the form of a key: value pair.
+                This will be prepended to the command.
             slots (int): slots to request on the cluster. Default is 1
             mem_free (int): amount of memory to request on the cluster.
                 Generally 2x slots. Default is 2
@@ -35,7 +38,9 @@ class StataTask(ExecutableTask):
         """
         self.command = StataTask.make_cmd(path_to_stata_binary, script,
                                            args)
-        super(StataTask, self).__init__(command=self.command, **kwargs)
+        super(StataTask, self).__init__(command=self.command,
+                                        env_variables=env_variables,
+                                        **kwargs)
 
     @staticmethod
     def make_cmd(path_to_stata_binary, script, args):

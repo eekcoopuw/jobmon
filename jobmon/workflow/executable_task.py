@@ -1,6 +1,5 @@
 import logging
 import hashlib
-import getpass
 
 from jobmon.models import JobStatus
 
@@ -56,20 +55,26 @@ class ExecutableTask(object):
 
         return True
 
-    def __init__(self, command, upstream_tasks=None, name=None, slots=1,
-                 mem_free=2, max_attempts=3, max_runtime=None):
+    def __init__(self, command, env_variables={}, upstream_tasks=None,
+                 name=None, slots=1, mem_free=2, max_attempts=3,
+                 max_runtime=None):
         """
         Create a task
 
         Args
          command: the unique command for this Task, also readable by humans.
-         Should include all parameters.
+         Should include all parameters, outside of setting environment
+         variables.
          Two Tasks are equal (__eq__) iff they have the same command
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
            see is_valid_sge_job_name
         """
+        if env_variables:
+            env_variables = ' '.join('{}={}'.format(key, val) for key, val
+                                     in env_variables.items())
+            command = ' '.join([env_variables, command])
         self.command = command
 
         # Hash must be an integer, in order for it to be returned by __hash__

@@ -12,13 +12,16 @@ class PythonTask(ExecutableTask):
     current_python = sys.executable
 
     def __init__(self, path_to_python_binary=current_python, script=None,
-                 args=None, **kwargs):
+                 args=None, env_variables={}, **kwargs):
         """
         Args:
             path_to_python_binary (str): the python install that should be used
                 Default is the Python install where Jobmon is installed
             script (str): the full path to the python code to run
             args (list): list of arguments to pass in to the script
+            env_variables (dict): any environment variable that should be set
+                for this job, in the form of a key: value pair.
+                This will be prepended to the command.
             slots (int): slots to request on the cluster. Default is 1
             mem_free (int): amount of memory to request on the cluster.
                 Generally 2x slots. Default is 2
@@ -30,7 +33,9 @@ class PythonTask(ExecutableTask):
         """
         self.command = PythonTask.make_cmd(path_to_python_binary, script,
                                            args)
-        super(PythonTask, self).__init__(command=self.command, **kwargs)
+        super(PythonTask, self).__init__(command=self.command,
+                                         env_variables=env_variables,
+                                         **kwargs)
 
     @staticmethod
     def make_cmd(path_to_python_binary, script, args):

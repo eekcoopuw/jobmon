@@ -12,13 +12,16 @@ class RTask(ExecutableTask):
     default_R_script = "Rscript"
 
     def __init__(self, path_to_R_binary=default_R_script, script=None,
-                 args=None, **kwargs):
+                 args=None, env_variables={}, **kwargs):
         """
         Args:
             path_to_R_binary (str): the R install that should be used
                 Default is the cluster's R: /usr/local/bin/R in Jan 2018
             script (str): the full path to the python code to run
             args (list): list of arguments to pass in to the script
+            env_variables (dict): any environment variable that should be set
+                for this job, in the form of a key: value pair.
+                This will be prepended to the command.
             slots (int): slots to request on the cluster. Default is 1
             mem_free (int): amount of memory to request on the cluster.
                 Generally 2x slots. Default is 2
@@ -29,7 +32,8 @@ class RTask(ExecutableTask):
             upstream_tasks (list): Task objects that must be run prior to this
         """
         self.command = RTask.make_cmd(path_to_R_binary, script, args)
-        super(RTask, self).__init__(command=self.command, **kwargs)
+        super(RTask, self).__init__(command=self.command,
+                                    env_variables=env_variables, **kwargs)
 
     @staticmethod
     def make_cmd(path_to_R_binary, script, args):
