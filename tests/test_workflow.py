@@ -416,7 +416,7 @@ def test_heartbeat(db_cfg, jsm_jqs):
 
     # give some time to make sure the dag's reconciliation process
     # has actually started
-    sleep(10)
+    sleep(20)
 
     hm = HealthMonitor()
     with database.session_scope() as session:
