@@ -11,7 +11,7 @@ class PythonTask(ExecutableTask):
     current_python = sys.executable
 
     def __init__(self, path_to_python_binary=current_python, script=None,
-                 args=None, env_variables={}, upstream_tasks=None, name=None,
+                 args=None, upstream_tasks=None, env_variables={}, name=None,
                  slots=1, mem_free=2, max_attempts=3, max_runtime=None):
         """
         Args:
@@ -19,10 +19,10 @@ class PythonTask(ExecutableTask):
                 Default is the Python install where Jobmon is installed
             script (str): the full path to the python code to run
             args (list): list of arguments to pass in to the script
+            upstream_tasks (list): Task objects that must be run prior to this
             env_variables (dict): any environment variable that should be set
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
-            upstream_tasks (list): Task objects that must be run prior to this
             name (str): name that will be visible in qstat for this job
             slots (int): slots to request on the cluster. Default is 1
             mem_free (int): amount of memory in GBs to request on the cluster.

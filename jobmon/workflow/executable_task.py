@@ -55,7 +55,7 @@ class ExecutableTask(object):
 
         return True
 
-    def __init__(self, command, env_variables={}, upstream_tasks=None,
+    def __init__(self, command, upstream_tasks=None, env_variables={},
                  name=None, slots=1, mem_free=2, max_attempts=3,
                  max_runtime=None):
         """
@@ -65,10 +65,10 @@ class ExecutableTask(object):
          command: the unique command for this Task, also readable by humans.
             Should include all parameters.
             Two Tasks are equal (__eq__) iff they have the same command
+        upstream_tasks (list): Task objects that must be run prior to this
         env_variables (dict): any environment variable that should be set
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
-        upstream_tasks (list): Task objects that must be run prior to this
         name (str): name that will be visible in qstat for this job
         slots (int): slots to request on the cluster. Default is 1
         mem_free (int): amount of memory to request on the cluster.
