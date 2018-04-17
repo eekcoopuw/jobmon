@@ -51,7 +51,7 @@ TaskDag and adding a few tasks is simple::
     del_task = BashTask("rm ~/jobmon_qs.txt", upstream_tasks=[copy_task])
     # (create a runme.py in your home directory)
     run_task = PythonTask(path_to_python_binary='/ihme/code/central_comp/miniconda/bin/python',
-                          script='~/runme.py', args=[1, 2], slots=2, mem_free=4)
+                          script='~/runme.py', env_variables={'OP_NUM_THREADS': 1}, args=[1, 2], slots=2, mem_free=4)
 
     my_dag.add_tasks([write_task, copy_task, del_task, run_task])
 
@@ -59,6 +59,9 @@ TaskDag and adding a few tasks is simple::
 
     Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you launch your
     job the way you want. These include slots, mem_free, max_attempts, max_runtime. By default, slots used will be 1, mem_free 2, with a max_attempt of 3. Stderr, stdout, and project are set at the workflow level (see below).
+
+.. note::
+    If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
 
 
 Create a Workflow
