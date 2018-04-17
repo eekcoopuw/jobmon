@@ -1,8 +1,10 @@
 import pytest
+from time import sleep
 
 from jobmon import database
 from jobmon.meta_models.task_dag import TaskDagMeta
 from jobmon.models import Job, JobInstanceStatus, JobStatus
+from jobmon.services.health_monitor import HealthMonitor
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.task_dag import TaskDag
 from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
@@ -402,3 +404,47 @@ def test_nodename_on_fail(simple_workflow_w_errors):
         # Make sure all their node names were recorded
         nodenames = [ji.nodename for ji in jis]
         assert nodenames and all(nodenames)
+
+
+def test_heartbeat(db_cfg, jsm_jqs):
+    dag = TaskDag()
+    workflow = Workflow(dag, "test_heartbeat")
+    workflow._bind()
+    workflow._create_workflow_run()
+
+    wfr = workflow.workflow_run
+
+    # give some time to make sure the dag's reconciliation process
+    # has actually started
+    sleep(10)
+
+    hm = HealthMonitor()
+    with database.session_scope() as session:
+
+        # This test's workflow should be in the 'active' list
+        active_wfrs = hm._get_active_workflow_runs(session)
+        assert wfr.id in [w.id for w in active_wfrs]
+
+        # Nothing should be lost since the default reconciliation heart rate
+        # is << than the health monitor's loss_threshold
+        lost = hm._get_lost_workflow_runs(session)
+        assert not lost
+
+
+    # Setup monitor with a very short loss threshold (~3s = 1min/20) and
+    hm_hyper = HealthMonitor(loss_threshold=1/20., notification_sink=print)
+    with database.session_scope() as session:
+
+        # the reconciliation heart rate is now > this monitor's threshold,
+        # so should be identified as lost
+        lost = hm_hyper._get_lost_workflow_runs(session)
+        assert lost
+
+        # register the run as lost...
+        hm_hyper._register_lost_workflow_runs(lost)
+
+    # ... meaning it should no longer be active... check in a new session
+    # to ensure the register-as-lost changes have taken effect
+    with database.session_scope() as session:
+        active = hm_hyper._get_active_workflow_runs(session)
+        assert wfr.id not in [w.id for w in active]

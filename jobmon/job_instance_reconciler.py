@@ -142,6 +142,6 @@ class JobInstanceReconciler(object):
     def _request_permission_to_reconcile(self):
         # sync
         return self.jsm_req.send_request({
-            'action': 'log_hearbeat',
+            'action': 'log_heartbeat',
             'kwargs': {'dag_id': self.dag_id}
         })

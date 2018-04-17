@@ -204,9 +204,13 @@ class JobStateManager(ReplyServer):
 
     def log_heartbeat(self, dag_id):
         with session_scope() as session:
-            dag = session.query(TaskDagMeta).filter_by(
-                dag_id=dag_id)
-            dag.heartbeat_date = datetime.utcnow()
+            dag = session.query(task_dag.TaskDagMeta).filter_by(
+                dag_id=dag_id).first()
+            if dag:
+                dag.heartbeat_date = datetime.utcnow()
+                session.commit()
+            else:
+                return (ReturnCodes.NO_RESULTS,)
         return (ReturnCodes.OK,)
 
     def log_running(self, job_instance_id, nodename=None):

@@ -38,6 +38,22 @@ services:
         options:
             max-size: "100m"
             max-file: "10"
+  monitor:
+    image: jobmon
+    entrypoint:
+        - ./wait-for-db.sh
+        - db
+    command: [
+        "jobmon",
+        "--verbose",
+        "start", "health_monitor"]
+    links:
+        - db
+        - jsm
+    logging:
+        options:
+            max-size: "100m"
+            max-file: "10"
   initdb:
     image: jobmon
     entrypoint:

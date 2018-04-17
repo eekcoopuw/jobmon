@@ -60,7 +60,8 @@ setup(
     author_email='tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu',
     include_package_data=True,
     install_requires=install_requires,
-    packages=['jobmon', 'jobmon.workflow', 'jobmon.meta_models'],
+    packages=['jobmon', 'jobmon.services', 'jobmon.workflow',
+              'jobmon.meta_models'],
     entry_points={
         'console_scripts': ["jobmon=jobmon.cli:main",
                             "jobmon_command=jobmon.command_context:unwrap"]})

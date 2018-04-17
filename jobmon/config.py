@@ -49,44 +49,54 @@ class GlobalConfig(object):
 
     default_opts = {
         "conn_str": ("mysql://docker:docker@"
-                     "jobmon-p01.ihme.washington.edu/docker:3310"),
-        "host": "jobmon-p01.ihme.washington.edu",
+                     "jobmon-p01.ihme.washington.edu:3310/docker"),
+        "jsm_host": "jobmon-p01.ihme.washington.edu",
+        "jqs_host": "jobmon-p01.ihme.washington.edu",
         "jsm_rep_port": 4856,
         "jsm_pub_port": 4857,
         "jqs_port": 4858,
         "verbose": False}
 
-    def __init__(self, conn_str, host, jsm_rep_port, jsm_pub_port, jqs_port,
+    def __init__(self, conn_str, jsm_host, jqs_host, jsm_rep_port, jsm_pub_port, jqs_port,
                  verbose):
 
         self.conn_str = conn_str
         self.verbose = False
 
-        self._host = host
+        self._jsm_host = jsm_host
+        self._jqs_host = jqs_host
         self._jsm_pub_port = jsm_pub_port
         self._jsm_rep_port = jsm_rep_port
         self._jqs_port = jqs_port
 
         self.jm_rep_conn = ConnectionConfig(
-            host=host,
+            host=jsm_host,
             port=str(jsm_rep_port))
         self.jm_pub_conn = ConnectionConfig(
-            host=host,
+            host=jsm_host,
             port=str(jsm_pub_port))
         self.jqs_rep_conn = ConnectionConfig(
-            host=host,
+            host=jqs_host,
             port=str(jqs_port))
 
     @property
-    def host(self):
-        return self._host
+    def jsm_host(self):
+        return self._jsm_host
 
-    @host.setter
-    def host(self, value):
-        self._host = value
-        self.jm_rep_conn.host = self._host
-        self.jm_pub_conn.host = self._host
-        self.jqs_rep_conn.host = self._host
+    @jsm_host.setter
+    def jsm_host(self, value):
+        self._jsm_host = value
+        self.jm_rep_conn.host = self._jsm_host
+        self.jm_pub_conn.host = self._jsm_host
+
+    @property
+    def jqs_host(self):
+        return self._jqs_host
+
+    @jqs_host.setter
+    def jqs_host(self, value):
+        self._jqs_host = value
+        self.jqs_rep_conn.host = self._jqs_host
 
     @property
     def jsm_pub_port(self):

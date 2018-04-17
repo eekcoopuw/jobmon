@@ -64,6 +64,7 @@ class WorkflowDAO(Base):
                     default=WorkflowStatus.CREATED)
 
     workflow_runs = relationship("WorkflowRunDAO", back_populates="workflow")
+    task_dag = relationship("TaskDagMeta", back_populates="workflow")
 
 
 class Workflow(object):
