@@ -153,17 +153,17 @@ def test_stop_resume(simple_workflow, tmpdir):
     with database.session_scope() as session:
         session.execute("""
             UPDATE job
-            SET status={s}
+            SET status='{s}'
             WHERE job_id={jid}""".format(s=JobStatus.REGISTERED,
                                          jid=to_run_jid))
         session.execute("""
             UPDATE workflow
-            SET status={s}
+            SET status='{s}'
             WHERE id={id}""".format(s=WorkflowStatus.STOPPED,
                                              id=stopped_wf.id))
         session.execute("""
             UPDATE workflow_run
-            SET status={s}
+            SET status='{s}'
             WHERE workflow_id={id}""".format(s=WorkflowRunStatus.STOPPED,
                                              id=stopped_wf.id))
         session.execute("""
@@ -219,22 +219,22 @@ def test_reset_attempts_on_resume(simple_workflow):
     with database.session_scope() as session:
         session.execute("""
             UPDATE job
-            SET status={s}, num_attempts=3, max_attempts=3
+            SET status='{s}', num_attempts=3, max_attempts=3
             WHERE job_id={jid}""".format(s=JobStatus.ERROR_FATAL,
                                          jid=mod_jid))
         session.execute("""
             UPDATE job_instance
-            SET status={s}
+            SET status='{s}'
             WHERE job_id={jid}""".format(s=JobInstanceStatus.ERROR,
                                          jid=mod_jid))
         session.execute("""
             UPDATE workflow
-            SET status={s}
+            SET status='{s}'
             WHERE id={id}""".format(s=WorkflowStatus.ERROR,
                                              id=stopped_wf.id))
         session.execute("""
             UPDATE workflow_run
-            SET status={s}
+            SET status='{s}'
             WHERE workflow_id={id}""".format(s=WorkflowRunStatus.ERROR,
                                              id=stopped_wf.id))
 
@@ -372,7 +372,6 @@ def test_dag_reset(jsm_jqs, simple_workflow_w_errors):
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
 
-
     # Now RESET and make sure all the jobs that aren't "DONE" flip back to
     # REGISTERED
     jsm.reset_incomplete_jobs(dag_id)
@@ -388,7 +387,7 @@ def test_dag_reset(jsm_jqs, simple_workflow_w_errors):
 
 def test_nodename_on_fail(simple_workflow_w_errors):
 
-    err_wf  = simple_workflow_w_errors
+    err_wf = simple_workflow_w_errors
     dag_id = err_wf.task_dag.dag_id
 
     with database.session_scope() as session:
