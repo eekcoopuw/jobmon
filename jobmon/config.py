@@ -55,10 +55,14 @@ class GlobalConfig(object):
         "jsm_rep_port": 4856,
         "jsm_pub_port": 4857,
         "jqs_port": 4858,
-        "verbose": False}
+        "verbose": False,
+        "slack_token": None,
+        "default_slack_channel": None,
+    }
 
-    def __init__(self, conn_str, jsm_host, jqs_host, jsm_rep_port, jsm_pub_port, jqs_port,
-                 verbose):
+    def __init__(self, conn_str, jsm_host, jqs_host, jsm_rep_port,
+                 jsm_pub_port, jqs_port, verbose, slack_token,
+                 default_slack_channel):
 
         self.conn_str = conn_str
         self.verbose = False
@@ -78,6 +82,9 @@ class GlobalConfig(object):
         self.jqs_rep_conn = ConnectionConfig(
             host=jqs_host,
             port=str(jqs_port))
+
+        self.slack_token = slack_token
+        self.default_slack_channel = default_slack_channel
 
     @property
     def jsm_host(self):

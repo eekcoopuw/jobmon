@@ -79,4 +79,4 @@ class HealthMonitor(object):
                        dag_id=dag.dag_id, dag_name=dag.name))
             logger.info(msg)
             if self._notification_sink:
-                self._notification_sink(msg)
+                self._notification_sink(msg, channel=wfr.slack_channel)

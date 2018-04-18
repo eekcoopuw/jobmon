@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from jobmon import database
 from jobmon import config
 from jobmon.requester import Requester
+from jobmon.notifiers import SlackNotifier
 from jobmon.services.health_monitor import HealthMonitor
 from jobmon.services.job_query_server import JobQueryServer
 from jobmon.services.job_state_manager import JobStateManager
@@ -145,7 +146,13 @@ def start(args):
 
 def start_health_monitor():
     """Start monitoring for lost workflow runs"""
-    hm = HealthMonitor()
+
+    if config.config.slack_token:
+        notifier = SlackNotifier(
+            config.config.slack_token,
+            config.config.default_slack_channel)
+        sink = notifier.send
+    hm = HealthMonitor(notification_sink=sink)
     hm.monitor_forever()
 
 

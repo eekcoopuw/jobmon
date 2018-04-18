@@ -9,7 +9,7 @@ services:
         - "4857:3457"
 
     entrypoint:
-        - ./wait-for-db.sh
+        - ./wait-for-tables.sh
         - db
     command: [
         "jobmon",
@@ -26,7 +26,7 @@ services:
     ports:
         - "4858:3458"
     entrypoint:
-        - ./wait-for-db.sh
+        - ./wait-for-tables.sh
         - db
     command: [
         "jobmon",
@@ -41,7 +41,7 @@ services:
   monitor:
     image: jobmon
     entrypoint:
-        - ./wait-for-db.sh
+        - ./wait-for-tables.sh
         - db
     command: [
         "jobmon",
