@@ -20,28 +20,28 @@ class InvalidStateTransition(Exception):
 class JobStatus(Base):
     __tablename__ = 'job_status'
 
-    REGISTERED = 1
-    QUEUED_FOR_INSTANTIATION = 2
-    INSTANTIATED = 3
-    RUNNING = 4
-    ERROR_RECOVERABLE = 5
-    ERROR_FATAL = 6
-    DONE = 7
+    REGISTERED = 'G'
+    QUEUED_FOR_INSTANTIATION = 'Q'
+    INSTANTIATED = 'I'
+    RUNNING = 'R'
+    ERROR_RECOVERABLE = 'E'
+    ERROR_FATAL = 'F'
+    DONE = 'D'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(1), primary_key=True)
     label = Column(String(150), nullable=False)
 
 
 class JobInstanceStatus(Base):
     __tablename__ = 'job_instance_status'
 
-    INSTANTIATED = 1
-    SUBMITTED_TO_BATCH_EXECUTOR = 2
-    RUNNING = 3
-    ERROR = 4
-    DONE = 5
+    INSTANTIATED = 'I'
+    SUBMITTED_TO_BATCH_EXECUTOR = 'B'
+    RUNNING = 'R'
+    ERROR = 'E'
+    DONE = 'D'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(1), primary_key=True)
     label = Column(String(150), nullable=False)
 
 
@@ -82,7 +82,7 @@ class Job(Base):
     max_attempts = Column(Integer, default=1)
     max_runtime = Column(Integer)
     status = Column(
-        Integer,
+        String(1),
         ForeignKey('job_status.id'),
         nullable=False)
     submitted_date = Column(DateTime, default=datetime.utcnow)
@@ -165,7 +165,7 @@ class JobInstance(Base):
     cpu = Column(String(50))
     io = Column(String(50))
     status = Column(
-        Integer,
+        String(1),
         ForeignKey('job_instance_status.id'),
         default=JobInstanceStatus.INSTANTIATED,
         nullable=False)
@@ -230,7 +230,7 @@ class JobInstanceStatusLog(Base):
         ForeignKey('job_instance.job_instance_id'),
         nullable=False)
     status = Column(
-        Integer,
+        String(1),
         ForeignKey('job_instance_status.id'),
         nullable=False)
     status_time = Column(DateTime, default=datetime.utcnow)
