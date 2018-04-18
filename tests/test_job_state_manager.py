@@ -64,7 +64,7 @@ def test_get_workflow_run_id_no_workflow(jsm_jqs):
     _, dag_id = jsm.add_task_dag("testing", "pytest user", "new_dag_hash",
                                  datetime.utcnow())
     _, job_id = jsm.add_job("foobar", 'new_hash', "baz", dag_id)
-    assert jsm._get_workflow_run_id(job_id) == 0
+    assert not jsm._get_workflow_run_id(job_id)
 
 
 def test_jsm_valid_done(jsm_jqs, dag_id):

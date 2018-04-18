@@ -91,7 +91,7 @@ class JobStateManager(ReplyServer):
             wf = session.query(WorkflowDAO).filter_by(dag_id=job.dag_id
                                                       ).first()
             if not wf:
-                return 0  # no workflow has started, so no workflow run
+                return None  # no workflow has started, so no workflow run
             wf_run = (session.query(WorkflowRunDAO).
                       filter_by(workflow_id=wf.id).
                       order_by(WorkflowRunDAO.id.desc()).first())
