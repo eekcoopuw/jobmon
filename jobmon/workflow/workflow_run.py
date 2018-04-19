@@ -16,12 +16,12 @@ from jobmon.sql_base import Base
 class WorkflowRunStatus(Base):
     __tablename__ = 'workflow_run_status'
 
-    RUNNING = 1
-    STOPPED = 2
-    ERROR = 3
-    DONE = 4
+    RUNNING = 'R'
+    STOPPED = 'S'
+    ERROR = 'E'
+    DONE = 'D'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(1), primary_key=True)
     label = Column(String(150), nullable=False)
 
 
@@ -39,7 +39,7 @@ class WorkflowRunDAO(Base):
     project = Column(String(150))
     created_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
-    status = Column(Integer,
+    status = Column(String(1),
                     ForeignKey('workflow_run_status.id'),
                     nullable=False,
                     default=WorkflowRunStatus.RUNNING)

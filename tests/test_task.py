@@ -1,9 +1,12 @@
 import pytest
 import sys
 
+from jobmon import sge
 from jobmon.workflow.executable_task import ExecutableTask
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
+from jobmon.workflow.r_task import RTask
+from jobmon.workflow.stata_task import StataTask
 from jobmon.database import session_scope
 from jobmon.models import Job
 
@@ -92,7 +95,8 @@ def test_python_task_equality():
 
 
 def test_python_task_args(job_list_manager_sge):
-    a = PythonTask(script='~/runme.py', slots=1, mem_free=2, max_attempts=1)
+    a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
+                   slots=1, mem_free=2, max_attempts=1)
     job_id = a.bind(job_list_manager_sge)
 
     with session_scope() as session:
@@ -103,7 +107,51 @@ def test_python_task_args(job_list_manager_sge):
         max_attempts = job[0].max_attempts
         max_runtime = job[0].max_runtime
     # check all job args
-    assert command == '{} ~/runme.py'.format(sys.executable)
+    assert command == 'OP_NUM_THREADS=1 {} ~/runme.py'.format(sys.executable)
+    assert slots == 1
+    assert mem_free == 2
+    assert max_attempts == 1
+    assert not max_runtime
+
+
+def test_r_task_args(job_list_manager_sge):
+    a = RTask(script=sge.true_path("tests/simple_R_script.r"),
+              env_variables={'OP_NUM_THREADS': 1},
+              slots=1, mem_free=2, max_attempts=1)
+    job_id = a.bind(job_list_manager_sge)
+
+    with session_scope() as session:
+        job = session.query(Job).filter_by(job_id=job_id).all()
+        command = job[0].command
+        slots = job[0].slots
+        mem_free = job[0].mem_free
+        max_attempts = job[0].max_attempts
+        max_runtime = job[0].max_runtime
+    # check all job args
+    assert command == ('OP_NUM_THREADS=1 Rscript {}'
+                       .format(sge.true_path("tests/simple_R_script.r")))
+    assert slots == 1
+    assert mem_free == 2
+    assert max_attempts == 1
+    assert not max_runtime
+
+
+def test_stata_task_args(job_list_manager_sge):
+    a = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
+                  env_variables={'OP_NUM_THREADS': 1},
+                  slots=1, mem_free=2, max_attempts=1)
+    job_id = a.bind(job_list_manager_sge)
+
+    with session_scope() as session:
+        job = session.query(Job).filter_by(job_id=job_id).all()
+        command = job[0].command
+        slots = job[0].slots
+        mem_free = job[0].mem_free
+        max_attempts = job[0].max_attempts
+        max_runtime = job[0].max_runtime
+    # check all job args
+    assert command == ('OP_NUM_THREADS=1 stata-mp -q -b {}'
+                       .format(sge.true_path("tests/simple_stata_script.do")))
     assert slots == 1
     assert mem_free == 2
     assert max_attempts == 1

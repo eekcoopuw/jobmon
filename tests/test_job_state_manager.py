@@ -1,6 +1,9 @@
 import pytest
 from queue import Empty
 import socket
+import getpass
+import hashlib
+import random
 
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
@@ -42,6 +45,28 @@ def commit_hooked_jsm(jsm_jqs):
     event.remove(Session, 'before_commit', inspect_on_done_or_error)
 
 
+def test_get_workflow_run_id(jsm_jqs, dag_id):
+    jsm, _ = jsm_jqs
+    user = getpass.getuser()
+    _, job_id = jsm.add_job("bar", 'hash', "baz", dag_id)
+    wf = jsm.add_workflow(
+        dag_id, "args_{}".format(random.randint(1, 1e7)),
+        hashlib.sha1('hash_{}'.format(random.randint(1, 1e7))
+                     .encode('utf-8')).hexdigest(), "test", user)
+    wf_run_id = jsm.add_workflow_run(wf[1]['id'], user, socket.gethostname(),
+                                     000, None, None, 'proj_jenkins')[1]
+    print(dag_id)
+    assert wf_run_id == jsm._get_workflow_run_id(job_id)
+
+
+def test_get_workflow_run_id_no_workflow(jsm_jqs):
+    jsm, _ = jsm_jqs
+    _, dag_id = jsm.add_task_dag("testing", "pytest user", "new_dag_hash",
+                                 datetime.utcnow())
+    _, job_id = jsm.add_job("foobar", 'new_hash', "baz", dag_id)
+    assert not jsm._get_workflow_run_id(job_id)
+
+
 def test_jsm_valid_done(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
@@ -63,7 +88,6 @@ def test_jsm_valid_error(jsm_jqs):
                                  datetime.utcnow())
     _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
     jsm.queue_job(job_id)
-
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)

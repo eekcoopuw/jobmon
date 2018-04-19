@@ -101,7 +101,7 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
         "--jsm_port", config.jm_rep_conn.port
     ]
     if process_timeout is not None:
-        wrapped_cmd += [ "--process_timeout", process_timeout ]
+        wrapped_cmd += ["--process_timeout", process_timeout]
     wrapped_cmd = " ".join([str(i) for i in wrapped_cmd])
     logger.debug(wrapped_cmd)
     return wrapped_cmd
@@ -150,19 +150,10 @@ def unwrap():
             args["command"],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            preexec_fn=os.setsid,
             shell=True)
 
         # communicate till done
-        stdout, stderr = proc.communicate(timeout=args["process_timeout"])
-        returncode = proc.returncode
-
-    except TimeoutExpired:
-        # kill process group
-        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
         stdout, stderr = proc.communicate()
-        stderr = stderr + " Process timed out after: {}".format(
-            args["process_timeout"])
         returncode = proc.returncode
 
     except Exception as exc:
