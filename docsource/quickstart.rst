@@ -99,9 +99,13 @@ Behind the scenes, the Workflow will launch your Tasks as soon as each is
 ready to run (i.e. as soon as the Task's upstream dependencies are DONE). It
 will automatically restart Tasks that die due to cluster instability or other
 intermittent issues. If for some reason, your Workflow itself dies (or you need
-to pause it), re-running the script at a later time will automatically pickup
-where you left off (i.e. 'resume'). It will not re-run any jobs that completed
-successfully in prior runs.
+to kill it yourself), resuming the script at a later time will automatically pickup
+where you left off (i.e. use the '--resume' flag). A resumed run will not
+re-run any jobs that completed successfully in prior runs.
+
+Note carefully the distinction between "restart" and "resume."
+Jobmon itself will restart individual jobs, whereas a human operator can resume the
+entire Workflow.
 
 .. note::
 
@@ -145,13 +149,46 @@ favorite DB browser (e.g. Sequel Pro) using the credentials::
     port: 3310
     user: docker
     pass: docker
+    database: docker
 
 .. todo for the jobmon developers::
 
     Create READ-ONLY credentials
 
-.. todo for the jobmon developers::
 
-    Explore other ways to expose relevant Database information to users without
-    forcing them to explore the DB directly... too much schema knownledge is
-    necessary to do anything useful.
+Running Queries in Jobmon
+*************************
+
+
+You can query the jobmon database to see the status of the whole dag, or any set of jobs.
+Open a SQL browser and connect to the database defined above.
+
+Tables:
+
+job
+    The (potential) call of a job. Like a function definition in python
+job_instance
+    An actual run of a job. Like calling a function in python. One job can have multiple job_instances if they are retried
+job_instance_error_log
+    Any errors produced by a job_instance.
+job_instance_status
+    Has the status of the running job_instance (as defined in the job_status table).
+job_status
+    Meta-data table that defines the four states of a job_instance.
+task_dag
+    Has every entry of task dags created, as identified by a dag_id and dag_hash
+workflow
+    Has every workflow created, along iwth it's associated dag_id, and workflow_args
+workflow_run
+    Has every run of a workflow, paired with it's workflow, as identified by workflow_id
+workflow_run_status
+    Meta-data table that defines the four states of a Workflow Run
+workflow_status
+    Meta-data table that defines the five states of a Workflow
+
+You will need to know your dag_id. Hopefully your application logged it, otherwise it will be obvious by name
+as one of the recent entries in the task_dag table.
+
+For example, the following command shows the current status of all jobs in dag 191:
+    SELECT status, count(*) FROM job WHERE dag_id=191 GROUP BY status
+
