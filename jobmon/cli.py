@@ -152,6 +152,8 @@ def start_health_monitor():
             config.config.slack_token,
             config.config.default_slack_channel)
         sink = notifier.send
+    else:
+        sink = None
     hm = HealthMonitor(notification_sink=sink)
     hm.monitor_forever()
 
