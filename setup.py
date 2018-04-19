@@ -44,6 +44,7 @@ install_requires = [
     'pyzmq',
     'drmaa',
     'jsonpickle',
+    'cluster_utils',
     'requests',
 ]
 if sys.version_info < (3, 0):
