@@ -40,6 +40,10 @@ def simple_workflow_w_errors(db_cfg, jsm_jqs):
     return workflow
 
 
+def mock_slack(msg, channel):
+    print("{} to be posted to channel: {}".format(msg, channel))
+
+
 def test_wfargs_update(db_cfg, jsm_jqs):
     # Create identical dags
     t1 = BashTask("sleep 1")
@@ -407,6 +411,19 @@ def test_nodename_on_fail(simple_workflow_w_errors):
 
 
 def test_heartbeat(db_cfg, jsm_jqs):
+
+    # TODO: Fix this awful hack... I believe the DAG fixtures above create
+    # reconcilers that will run for the duration of this module (since they
+    # are module level fixtures)... These will mess with the timings of
+    # our fresh heartbeat dag we're testing in this function. To get around it,
+    # these dummy dags will increment the ID of our dag-of-interest to
+    # avoid the timing collisions
+    with database.session_scope() as session:
+        for _ in range(5):
+            session.add(TaskDagMeta())
+        session.commit()
+
+    # ... now let's check out heartbeats
     dag = TaskDag()
     workflow = Workflow(dag, "test_heartbeat")
     workflow._bind()
@@ -425,14 +442,15 @@ def test_heartbeat(db_cfg, jsm_jqs):
         active_wfrs = hm._get_active_workflow_runs(session)
         assert wfr.id in [w.id for w in active_wfrs]
 
-        # Nothing should be lost since the default reconciliation heart rate
-        # is << than the health monitor's loss_threshold
+        # Nothing should be lost since the default (10s) reconciliation heart
+        # rate is << than the health monitor's loss_threshold (5min)
         lost = hm._get_lost_workflow_runs(session)
         assert not lost
 
 
-    # Setup monitor with a very short loss threshold (~3s = 1min/20) and
-    hm_hyper = HealthMonitor(loss_threshold=1/20., notification_sink=print)
+    # Setup monitor with a very short loss threshold (~3s = 1min/20)
+    hm_hyper = HealthMonitor(loss_threshold=1/20.,
+                             notification_sink=mock_slack)
     with database.session_scope() as session:
 
         # the reconciliation heart rate is now > this monitor's threshold,

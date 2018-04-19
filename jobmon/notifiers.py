@@ -6,7 +6,7 @@ class SlackNotifier(object):
     def __init__(self, token, default_channel):
 
         self._token = token
-        self.default_channel =
+        self.default_channel = default_channel
 
     def send(msg, channel=None):
         if not channel:
