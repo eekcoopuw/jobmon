@@ -87,11 +87,26 @@ class JobStateManager(ReplyServer):
             dag_id = dag.dag_id
         return (ReturnCodes.OK, dag_id)
 
+    def _get_workflow_run_id(self, job_id):
+        with session_scope() as session:
+            job = session.query(models.Job).filter_by(job_id=job_id).first()
+            wf = session.query(WorkflowDAO).filter_by(dag_id=job.dag_id
+                                                      ).first()
+            if not wf:
+                return None  # no workflow has started, so no workflow run
+            wf_run = (session.query(WorkflowRunDAO).
+                      filter_by(workflow_id=wf.id).
+                      order_by(WorkflowRunDAO.id.desc()).first())
+            wf_run_id = wf_run.id
+        return wf_run_id
+
     def add_job_instance(self, job_id, executor_type):
         logger.debug("Add JI for job {}".format(job_id))
+        workflow_run_id = self._get_workflow_run_id(job_id)
         job_instance = models.JobInstance(
             executor_type=executor_type,
-            job_id=job_id)
+            job_id=job_id,
+            workflow_run_id=workflow_run_id)
         with session_scope() as session:
             session.add(job_instance)
             session.commit()

@@ -22,13 +22,13 @@ class WorkflowAlreadyComplete(Exception):
 class WorkflowStatus(Base):
     __tablename__ = 'workflow_status'
 
-    CREATED = 1
-    RUNNING = 2
-    STOPPED = 3
-    ERROR = 4
-    DONE = 5
+    CREATED = 'C'
+    RUNNING = 'R'
+    STOPPED = 'S'
+    ERROR = 'E'
+    DONE = 'D'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(String(1), primary_key=True)
     label = Column(String(150), nullable=False)
 
 
@@ -39,7 +39,8 @@ class WorkflowDAO(Base):
     @classmethod
     def from_wire(cls, dct):
         return cls(id=dct['id'], dag_id=dct['dag_id'],
-                   workflow_args=dct['workflow_args'], workflow_hash=dct['workflow_hash'],
+                   workflow_args=dct['workflow_args'],
+                   workflow_hash=dct['workflow_hash'],
                    description=dct['description'], name=dct['name'],
                    user=dct['user'], status=dct['status'])
 
@@ -58,7 +59,7 @@ class WorkflowDAO(Base):
     user = Column(String(150))
     created_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
-    status = Column(Integer,
+    status = Column(String(1),
                     ForeignKey('workflow_status.id'),
                     nullable=False,
                     default=WorkflowStatus.CREATED)
