@@ -35,7 +35,7 @@ class JobInstanceIntercom(object):
     def log_job_stats(self, job_id):
         if job_id:
             self.usage = sge.qstat_usage([job_id])[int(job_id)]
-            dbukeys = ['usage_str', 'nodename', 'wallclock', 'maxvmem', 'cpu',
+            dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu',
                        'io']
             kwargs = {k: self.usage[k] for k in dbukeys
                       if k in self.usage.keys()}

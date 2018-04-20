@@ -1,9 +1,10 @@
-import pytest
-from queue import Empty
-import socket
 import getpass
 import hashlib
+import os
+import pytest
 import random
+import socket
+from queue import Empty
 
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
@@ -75,7 +76,7 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
-    jsm.log_running(job_instance_id)
+    jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
     jsm.log_usage(job_instance_id, usage_str='used resources',
                   wallclock='0', maxvmem='1g', cpu='00:00:00', io='1')
     jsm.log_done(job_instance_id)
@@ -91,7 +92,7 @@ def test_jsm_valid_error(jsm_jqs):
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
-    jsm.log_running(job_instance_id)
+    jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
     jsm.log_error(job_instance_id, "this is an error message")
 
 
@@ -118,7 +119,7 @@ def test_single_publish_on_error(dag_id, job_list_manager_sub,
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
-    jsm.log_running(job_instance_id)
+    jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
 
     # Force state where double publish was happening
     with pytest.raises(OperationalError):
@@ -146,7 +147,7 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
-    jsm.log_running(job_instance_id)
+    jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
     jsm.log_usage(job_instance_id, usage_str='used resources',
                   wallclock='0', maxvmem='1g', cpu='00:00:00', io='1')
     with pytest.raises(OperationalError):
@@ -160,7 +161,7 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
     jsm.log_error(job_instance_id, "skip_error_hook")
     _, job_instance_id = jsm.add_job_instance(job_id, 'skip_done_hook')
     jsm.log_executor_id(job_instance_id, -1)
-    jsm.log_running(job_instance_id)
+    jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
     jsm.log_usage(job_instance_id, usage_str='used resources',
                   wallclock='0', maxvmem='1g', cpu='00:00:00', io='1')
     jsm.log_done(job_instance_id)
@@ -176,9 +177,8 @@ def test_jsm_log_usage(jsm_jqs, dag_id):
 
     _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
-    jsm.log_running(job_instance_id)
-    jsm.log_usage(job_instance_id, usage_str='used resources',
-                  nodename=socket.gethostname(), wallclock='0',
+    jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
+    jsm.log_usage(job_instance_id, usage_str='used resources', wallclock='0',
                   maxvmem='1g', cpu='00:00:00', io='1')
     # open new session on the db and ensure job stats are being loggged
     with session_scope() as session:
@@ -202,17 +202,17 @@ def test_job_reset(jsm_jqs, dag_id):
     # Create a couple of job instances
     _, ji1 = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(ji1, 12345)
-    jsm.log_running(ji1)
+    jsm.log_running(ji1, socket.gethostname(), os.getpid())
     jsm.log_error(ji1, "error 1")
 
     _, ji2 = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(ji2, 12346)
-    jsm.log_running(ji2)
+    jsm.log_running(ji2, socket.gethostname(), os.getpid())
     jsm.log_error(ji2, "error 1")
 
     _, ji3 = jsm.add_job_instance(job_id, 'dummy_exec')
     jsm.log_executor_id(ji3, 12347)
-    jsm.log_running(ji3)
+    jsm.log_running(ji3, socket.gethostname(), os.getpid())
 
     # Reset the job to REGISTERED
     jsm.reset_job(job_id)

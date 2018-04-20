@@ -30,6 +30,8 @@ logger = logging.getLogger(__name__)
 
 def build_qsub(job, job_instance_id, stderr=None, stdout=None, project=None):
     """Process the Job's context_args, which are assumed to be
+        nonhazmap.to_csv("{rd}/info/nonhaz_map.csv".format(
+                rd=self.root_dir), index=False)
     a json-serialized dictionary"""
     # TODO: Settle on a sensible way to pass and validate settings for the
     # command's context (i.e. context = Executor, SGE/Sequential/Multiproc)
@@ -156,9 +158,8 @@ def unwrap():
     ji_intercom.log_running()
 
     try:
-
-        if args.last_nodename and args.last_pgid:
-            kill_remote_process_group(args.last_nodename, args.last_pgid)
+        if 'last_nodename' in args and 'last_pgid' in args:
+            kill_remote_process_group(args['last_nodename'], args['last_pgid'])
 
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(

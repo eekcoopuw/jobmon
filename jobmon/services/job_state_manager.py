@@ -248,13 +248,13 @@ class JobStateManager(ReplyServer):
             self._update_job_instance(session, ji, nodename=nodename)
         return (ReturnCodes.OK,)
 
-    def log_usage(self, job_instance_id, usage_str=None, nodename=None,
+    def log_usage(self, job_instance_id, usage_str=None,
                   wallclock=None, maxvmem=None, cpu=None, io=None):
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance(session, ji, usage_str=usage_str,
-                                      nodename=nodename, wallclock=wallclock,
+                                      wallclock=wallclock,
                                       maxvmem=maxvmem, cpu=cpu, io=io)
         return (ReturnCodes.OK,)
 
