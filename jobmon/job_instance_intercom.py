@@ -13,8 +13,9 @@ logger = logging.getLogger(__name__)
 
 class JobInstanceIntercom(object):
 
-    def __init__(self, job_instance_id, jm_rep_cc=None):
+    def __init__(self, job_instance_id, process_group_id, jm_rep_cc=None):
         self.job_instance_id = job_instance_id
+        self.process_group_id = process_group_id
         self.requester = Requester(jm_rep_cc)
         logger.debug("Instantiated JobInstanceIntercom")
 
@@ -51,5 +52,6 @@ class JobInstanceIntercom(object):
         return self.requester.send_request({
             'action': 'log_running',
             'kwargs': {'job_instance_id': self.job_instance_id,
-                       'nodename': socket.gethostname()}
+                       'nodename': socket.gethostname(),
+                       'process_group_id': self.process_group_id}
         })

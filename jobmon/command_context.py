@@ -13,8 +13,9 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon.config import config
 from jobmon.connection_config import ConnectionConfig
-from jobmon.job_instance_intercom import JobInstanceIntercom
 from jobmon.exceptions import ReturnCodes
+from jobmon.job_instance_intercom import JobInstanceIntercom
+from jobmon.utils import kill_remote_process_group
 
 if sys.version_info > (3, 0):
     import subprocess
@@ -100,6 +101,10 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
         "--jsm_host", config.jm_rep_conn.host,
         "--jsm_port", config.jm_rep_conn.port
     ]
+    if job.last_nodename:
+        wrapped_cmd.extend(["--last_nodename", job.last_nodename])
+    if job.last_process_group_id:
+        wrapped_cmd.extend(["--last_pgid", job.last_process_group_id])
     if process_timeout is not None:
         wrapped_cmd += ["--process_timeout", process_timeout]
     wrapped_cmd = " ".join([str(i) for i in wrapped_cmd])
@@ -133,18 +138,28 @@ def unwrap():
     parser.add_argument("--command", required=True)
     parser.add_argument("--jsm_host", required=True)
     parser.add_argument("--jsm_port", required=True)
+    parser.add_argument("--last_nodename", required=False)
+    parser.add_argument("--last_pgid", required=False)
     parser.add_argument("--process_timeout", required=False,
                         type=intnone_parser)
 
     # makes a dict
     args = vars(parser.parse_args())
     cc = ConnectionConfig(args["jsm_host"], args["jsm_port"])
-    ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
-                                      jm_rep_cc=cc)
 
+    # Any subprocesses spawned will have this parent process's PID as
+    # their PGID (useful for cleaning up processes in certain failure
+    # scenarios)
+    ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
+                                      process_group_id=os.getpid(),
+                                      jm_rep_cc=cc)
     ji_intercom.log_running()
 
     try:
+
+        if args.last_nodename and args.last_pgid:
+            kill_remote_process_group(args.last_nodename, args.last_pgid)
+
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(
             args["command"],
