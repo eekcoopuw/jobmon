@@ -67,9 +67,9 @@ To deploy a centralized JobStateManager and JobQueryServer:
 
     ./runserver.py
 
-You'll be prompted for your slack bot token, which should be available from you
-Slack app management page (https://api.slack.com/apps) (if you have one). If
-not, you can leave this blank.
+You'll be prompted for your slack bot token, which should be available from
+your Slack app management page (https://api.slack.com/apps) (if you have one).
+If not, you can leave this blank.
 
 That should do it. Now you'll just need to make sure your users have the proper
 host and port settings in their ~/.jobmonrc::

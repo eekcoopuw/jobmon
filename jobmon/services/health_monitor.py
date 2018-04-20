@@ -30,7 +30,10 @@ class HealthMonitor(object):
                  notification_sink=None):
 
         if poll_interval < loss_threshold:
-            raise ValueError("poll_interval must be exceed the loss_threshold")
+            raise ValueError("poll_interval ({pi} min) must exceed the "
+                             "loss_threshold ({lt} min)".format(
+                                 pi=poll_interval,
+                                 lt=loss_threshold))
 
         self._requester = Requester(config.jm_rep_conn)
         self._loss_threshold = timedelta(minutes=loss_threshold)
