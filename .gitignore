@@ -29,3 +29,6 @@ htmlcov
 
 # Ignore mac files
 ._*
+
+# Ignore secrets file
+jobmonrc-docker-wsecrets

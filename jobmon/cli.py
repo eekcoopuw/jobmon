@@ -11,8 +11,10 @@ from sqlalchemy.exc import IntegrityError
 from jobmon import database
 from jobmon import config
 from jobmon.requester import Requester
-from jobmon.job_query_server import JobQueryServer
-from jobmon.job_state_manager import JobStateManager
+from jobmon.notifiers import SlackNotifier
+from jobmon.services.health_monitor import HealthMonitor
+from jobmon.services.job_query_server import JobQueryServer
+from jobmon.services.job_state_manager import JobStateManager
 
 try:
     FileExistsError
@@ -68,7 +70,7 @@ def install_rcfile(args, cfg_dct=None):
     with open(rcfile, "w") as jf:
         if not cfg_dct:
             conn_str = ("mysql://docker:docker@"
-                        "jobmon-p01.ihme.washington.edu/docker:3310")
+                        "jobmon-p01.ihme.washington.edu:3310/docker")
             cfg_dct = {
                 "conn_str": conn_str,
                 "host": "jobmon-p01.ihme.washington.edu",
@@ -113,7 +115,8 @@ def parse_args(argstr=None):
     start_parser = subparsers.add_parser("start")
     start_parser.set_defaults(func=start)
     start_parser.add_argument("service", choices=['job_state_manager',
-                                                  'job_query_server'])
+                                                  'job_query_server',
+                                                  'health_monitor'])
 
     test_parser = subparsers.add_parser("test")
     test_parser.set_defaults(func=test_connection)
@@ -137,6 +140,22 @@ def start(args):
         start_job_state_manager()
     elif args.service == "job_query_server":
         start_job_query_server()
+    elif args.service == "health_monitor":
+        start_health_monitor()
+
+
+def start_health_monitor():
+    """Start monitoring for lost workflow runs"""
+
+    if config.config.slack_token:
+        notifier = SlackNotifier(
+            config.config.slack_token,
+            config.config.default_slack_channel)
+        sink = notifier.send
+    else:
+        sink = None
+    hm = HealthMonitor(notification_sink=sink)
+    hm.monitor_forever()
 
 
 def start_job_state_manager():

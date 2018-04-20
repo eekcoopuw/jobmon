@@ -15,8 +15,8 @@ from jobmon.config import GlobalConfig, config
 from jobmon import database
 from jobmon.cli import install_rcfile
 from jobmon.job_list_manager import JobListManager
-from jobmon.job_query_server import JobQueryServer
-from jobmon.job_state_manager import JobStateManager
+from jobmon.services.job_query_server import JobQueryServer
+from jobmon.services.job_state_manager import JobStateManager
 from jobmon.job_instance_factory import execute_sge
 
 from cluster_utils.ephemerdb import create_ephemerdb
@@ -49,7 +49,8 @@ def rcfile(rcfile_dir):
     try:
         install_rcfile(args,
                        cfg_dct={"conn_str": "sqlite://",
-                                "host": socket.gethostname(),
+                                "jsm_host": socket.gethostname(),
+                                "jqs_host": socket.gethostname(),
                                 "jsm_rep_port": 3456,
                                 "jsm_pub_port": 3457,
                                 "jqs_port": 3458})

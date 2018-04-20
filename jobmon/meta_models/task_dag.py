@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy.orm import relationship
 
 from jobmon.sql_base import Base
 
@@ -15,4 +16,7 @@ class TaskDagMeta(Base):
     dag_hash = Column(String(150))
     name = Column(String(150))
     user = Column(String(150))
+    heartbeat_date = Column(DateTime, default=datetime.utcnow)
     created_date = Column(DateTime, default=datetime.utcnow)
+
+    workflow = relationship("WorkflowDAO", back_populates="task_dag")
