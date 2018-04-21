@@ -2,7 +2,7 @@ import pytest
 
 from jobmon import database
 from jobmon.meta_models.task_dag import TaskDagMeta
-from jobmon.models import Job, JobInstanceStatus, JobStatus
+from jobmon.models import Job, JobInstance, JobInstanceStatus, JobStatus
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.task_dag import TaskDag
 from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
@@ -195,6 +195,16 @@ def test_stop_resume(simple_workflow, tmpdir):
 
     # Validate that a new WorkflowRun was created
     assert workflow.workflow_run.id != stopped_wf.workflow_run.id
+
+    # Validate that the old WorkflowRun was stopped
+    with database.session_scope() as session:
+        wf_run = (session.query(WorkflowRunDAO).filter_by(
+            id=stopped_wf.workflow_run.id).first())
+        assert wf_run.status == WorkflowRunStatus.STOPPED
+        wf_run_jobs = session.query(JobInstance).filter_by(
+            workflow_run_id=stopped_wf.workflow_run.id).all()
+        assert all(job.status != JobInstanceStatus.RUNNING
+                   for job in wf_run_jobs)
 
     # Validate that a new WorkflowRun has different logdirs and project
     assert workflow.workflow_run.stderr != stopped_wf.workflow_run.stderr

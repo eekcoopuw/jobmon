@@ -66,6 +66,12 @@ class WorkflowRun(object):
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
+        rc, wf_id = self.jsm_req.send_request({
+            'action': 'kill_previous_workflow_runs',
+            'kwargs': {'workflow_id': workflow_id}
+        })
+        if rc != ReturnCodes.OK:
+            raise ValueError("Invalid Reponse to kill_previous_workflow_runs")
         rc, wfr_id = self.jsm_req.send_request({
             'action': 'add_workflow_run',
             'kwargs': {'workflow_id': workflow_id,
@@ -74,10 +80,10 @@ class WorkflowRun(object):
                        'pid': os.getpid(),
                        'stderr': stderr,
                        'stdout': stdout,
-                       'project': project,}
+                       'project': project, }
         })
         if rc != ReturnCodes.OK:
-            raise ValueError("Invalid Reponse")
+            raise ValueError("Invalid Reponse to add_workflow_run")
         self.id = wfr_id
 
     def update_done(self):
