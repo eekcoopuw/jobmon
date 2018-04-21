@@ -1,10 +1,13 @@
 import logging
+import _thread
 from time import sleep
 
 import pandas as pd
+from zmq.error import ZMQError
 
 from jobmon import sge
 from jobmon.config import config
+from jobmon.exceptions import ReturnCodes
 from jobmon.models import JobInstance
 from jobmon.requester import Requester
 
@@ -23,10 +26,22 @@ class JobInstanceReconciler(object):
         logger.info("Reconciling jobs against 'qstat' at {}s "
                     "intervals".format(poll_interval))
         while True:
-            logging.debug("Reconciling at interval {}s".format(poll_interval))
-            self.reconcile()
-            self.terminate_timed_out_jobs()
-            sleep(poll_interval)
+            try:
+                logging.debug("Reconciling at interval {}s".format(poll_interval))
+                self.reconcile()
+                self.terminate_timed_out_jobs()
+                sleep(poll_interval)
+            except ZMQError as e:
+                # Tests rely on some funky usage of various REQ/REP pairs
+                # across threads, so interrupting here can be problematic...
+
+                # ... since this interrupt is primarily in reponse to potential
+                # SGE failures anyways, I'm just going to warn for now on ZMQ
+                # errors and save the interrupts for everything else
+                logger.warning(e)
+            except Exception as e:
+                logger.error(e)
+                _thread.interrupt_main()
 
     def reconcile(self):
         """Identifies jobs that have disappeared from the batch execution
@@ -55,7 +70,8 @@ class JobInstanceReconciler(object):
         jobs that got stuck in "r" state but never called back to the
         JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
         SUBMITTED_TO_BATCH_EXECUTOR)"""
-        to_df = pd.DataFrame.from_dict(self._get_timed_out_jobs())
+        to_jobs = self._get_timed_out_jobs()
+        to_df = pd.DataFrame.from_dict(to_jobs)
         if len(to_df) == 0:
             return
         sge_jobs = sge.qstat()
@@ -108,6 +124,8 @@ class JobInstanceReconciler(object):
                 'action': 'get_timed_out',
                 'kwargs': {'dag_id': self.dag_id}
             })
+            if rc != ReturnCodes.OK:
+                job_instances = []
         except TypeError:
             job_instances = []
         return job_instances
