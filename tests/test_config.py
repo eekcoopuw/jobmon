@@ -21,7 +21,8 @@ def test_invalid_rcfile():
 
 def test_command_line(rcfile):
     opts_dct = {"conn_str": "foo",
-                "host": "bar",
+                "jsm_host": "bar",
+                "jqs_host": "baz",
                 "jsm_rep_port": "1",
                 "jsm_pub_port": "2",
                 "jqs_port": "3"}
@@ -30,5 +31,5 @@ def test_command_line(rcfile):
     assert gc.conn_str == 'foo'
     assert gc.jm_rep_conn.host == 'bar'
     assert gc.jm_pub_conn.host == 'bar'
-    assert gc.jqs_rep_conn.host == 'bar'
+    assert gc.jqs_rep_conn.host == 'baz'
     assert gc.jqs_rep_conn.port == '3'

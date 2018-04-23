@@ -1,8 +1,10 @@
 import pytest
+from time import sleep
 
 from jobmon import database
 from jobmon.meta_models.task_dag import TaskDagMeta
-from jobmon.models import Job, JobInstance, JobInstanceStatus, JobStatus
+from jobmon.models import Job, JobInstanceStatus, JobInstance, JobStatus
+from jobmon.services.health_monitor import HealthMonitor
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.task_dag import TaskDag
 from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
@@ -36,6 +38,10 @@ def simple_workflow_w_errors(db_cfg, jsm_jqs):
     workflow = Workflow(dag, "my_failing_args")
     workflow.execute()
     return workflow
+
+
+def mock_slack(msg, channel):
+    print("{} to be posted to channel: {}".format(msg, channel))
 
 
 def test_wfargs_update(db_cfg, jsm_jqs):
@@ -160,7 +166,7 @@ def test_stop_resume(simple_workflow, tmpdir):
             UPDATE workflow
             SET status='{s}'
             WHERE id={id}""".format(s=WorkflowStatus.STOPPED,
-                                             id=stopped_wf.id))
+                                    id=stopped_wf.id))
         session.execute("""
             UPDATE workflow_run
             SET status='{s}'
@@ -241,7 +247,7 @@ def test_reset_attempts_on_resume(simple_workflow):
             UPDATE workflow
             SET status='{s}'
             WHERE id={id}""".format(s=WorkflowStatus.ERROR,
-                                             id=stopped_wf.id))
+                                    id=stopped_wf.id))
         session.execute("""
             UPDATE workflow_run
             SET status='{s}'
@@ -293,9 +299,8 @@ def test_reset_attempts_on_resume(simple_workflow):
         done_wfr = [wfrd for wfrd in wfrDAOs
                     if wfrd.id == workflow.workflow_run.id][0]
         other_wfr = [wfrd for wfrd in wfrDAOs
-                    if wfrd.id != workflow.workflow_run.id][0]
+                     if wfrd.id != workflow.workflow_run.id][0]
         assert done_wfr.status == WorkflowRunStatus.DONE
-
 
         # TODO: Improve design for STOPPED/ERROR states for both Workflows and
         # WorkflowRuns..
@@ -411,3 +416,61 @@ def test_nodename_on_fail(simple_workflow_w_errors):
         # Make sure all their node names were recorded
         nodenames = [ji.nodename for ji in jis]
         assert nodenames and all(nodenames)
+
+
+def test_heartbeat(db_cfg, jsm_jqs):
+
+    # TODO: Fix this awful hack... I believe the DAG fixtures above create
+    # reconcilers that will run for the duration of this module (since they
+    # are module level fixtures)... These will mess with the timings of
+    # our fresh heartbeat dag we're testing in this function. To get around it,
+    # these dummy dags will increment the ID of our dag-of-interest to
+    # avoid the timing collisions
+    with database.session_scope() as session:
+        for _ in range(5):
+            session.add(TaskDagMeta())
+        session.commit()
+
+    # ... now let's check out heartbeats
+    dag = TaskDag()
+    workflow = Workflow(dag, "test_heartbeat")
+    workflow._bind()
+    workflow._create_workflow_run()
+
+    wfr = workflow.workflow_run
+
+    # give some time to make sure the dag's reconciliation process
+    # has actually started
+    sleep(20)
+
+    hm = HealthMonitor()
+    with database.session_scope() as session:
+
+        # This test's workflow should be in the 'active' list
+        active_wfrs = hm._get_active_workflow_runs(session)
+        assert wfr.id in [w.id for w in active_wfrs]
+
+        # Nothing should be lost since the default (10s) reconciliation heart
+        # rate is << than the health monitor's loss_threshold (5min)
+        lost = hm._get_lost_workflow_runs(session)
+        assert not lost
+
+
+    # Setup monitor with a very short loss threshold (~3s = 1min/20)
+    hm_hyper = HealthMonitor(loss_threshold=1/20.,
+                             notification_sink=mock_slack)
+    with database.session_scope() as session:
+
+        # the reconciliation heart rate is now > this monitor's threshold,
+        # so should be identified as lost
+        lost = hm_hyper._get_lost_workflow_runs(session)
+        assert lost
+
+        # register the run as lost...
+        hm_hyper._register_lost_workflow_runs(lost)
+
+    # ... meaning it should no longer be active... check in a new session
+    # to ensure the register-as-lost changes have taken effect
+    with database.session_scope() as session:
+        active = hm_hyper._get_active_workflow_runs(session)
+        assert wfr.id not in [w.id for w in active]

@@ -9,7 +9,7 @@ services:
         - "4857:3457"
 
     entrypoint:
-        - ./wait-for-db.sh
+        - ./wait-for-tables.sh
         - db
     command: [
         "jobmon",
@@ -26,7 +26,7 @@ services:
     ports:
         - "4858:3458"
     entrypoint:
-        - ./wait-for-db.sh
+        - ./wait-for-tables.sh
         - db
     command: [
         "jobmon",
@@ -34,6 +34,22 @@ services:
         "start", "job_query_server"]
     links:
         - db
+    logging:
+        options:
+            max-size: "100m"
+            max-file: "10"
+  monitor:
+    image: jobmon
+    entrypoint:
+        - ./wait-for-tables.sh
+        - db
+    command: [
+        "jobmon",
+        "--verbose",
+        "start", "health_monitor"]
+    links:
+        - db
+        - jsm
     logging:
         options:
             max-size: "100m"

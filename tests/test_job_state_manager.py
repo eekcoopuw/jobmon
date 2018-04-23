@@ -54,7 +54,7 @@ def test_get_workflow_run_id(jsm_jqs, dag_id):
         hashlib.sha1('hash_{}'.format(random.randint(1, 1e7))
                      .encode('utf-8')).hexdigest(), "test", user)
     wf_run_id = jsm.add_workflow_run(wf[1]['id'], user, socket.gethostname(),
-                                     000, None, None, 'proj_jenkins')[1]
+                                     000, None, None, 'proj_jenkins', '')[1]
     print(dag_id)
     assert wf_run_id == jsm._get_workflow_run_id(job_id)
 

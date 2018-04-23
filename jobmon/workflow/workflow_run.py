@@ -37,6 +37,7 @@ class WorkflowRunDAO(Base):
     stderr = Column(String(1000))
     stdout = Column(String(1000))
     project = Column(String(150))
+    slack_channel = Column(String(150))
     created_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
     status = Column(String(1),
@@ -60,7 +61,8 @@ class WorkflowRun(object):
     this is not enforced via any database constraints.
     """
 
-    def __init__(self, workflow_id, stderr, stdout, project):
+    def __init__(self, workflow_id, stderr, stdout, project,
+                 slack_channel='jobmon-alerts'):
         self.workflow_id = workflow_id
         self.jsm_req = Requester(config.jm_rep_conn)
         self.stderr = stderr
@@ -80,7 +82,9 @@ class WorkflowRun(object):
                        'pid': os.getpid(),
                        'stderr': stderr,
                        'stdout': stdout,
-                       'project': project, }
+                       'project': project,
+                       'slack_channel': slack_channel,
+                       }
         })
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse to add_workflow_run")

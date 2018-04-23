@@ -92,35 +92,6 @@ class JobListManager(object):
         req.disconnect()
         return cls(dag_id, executor=executor, start_daemons=start_daemons)
 
-    @classmethod
-    def in_memory(cls, executor, start_daemons):
-        from threading import Thread
-        from sqlalchemy.exc import IntegrityError
-
-        from jobmon import database
-        from jobmon.config import config
-        from jobmon.job_query_server import JobQueryServer
-        from jobmon.job_state_manager import JobStateManager
-
-        database.create_job_db()
-        try:
-            with database.session_scope() as session:
-                database.load_default_statuses(session)
-        except IntegrityError:
-            pass
-
-        jsm = JobStateManager(config.jm_rep_conn.port, config.jm_pub_conn.port)
-
-        jqs = JobQueryServer(config.jqs_rep_conn.port)
-
-        t1 = Thread(target=jsm.listen)
-        t1.daemon = True
-        t1.start()
-        t2 = Thread(target=jqs.listen)
-        t2.daemon = True
-        t2.start()
-        return cls.from_new_dag(executor, start_daemons)
-
     @property
     def active_jobs(self):
         return [job_id for job_id, job_status in self.job_statuses.items()
