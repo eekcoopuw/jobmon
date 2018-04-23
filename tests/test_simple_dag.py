@@ -546,6 +546,7 @@ def test_dag_logging(db_cfg, jsm_jqs, tmp_out_dir):
         assert ji.maxvmem
         assert ji.cpu
         assert ji.io
+        assert ji.nodename
         assert ':' not in ji.wallclock  # wallclock should be in seconds
 
         td = session.query(TaskDagMeta).first()

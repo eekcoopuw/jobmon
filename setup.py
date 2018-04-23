@@ -46,6 +46,7 @@ install_requires = [
     'jsonpickle',
     'cluster_utils',
     'requests',
+    'paramiko',
 ]
 if sys.version_info < (3, 0):
     install_requires.append('subprocess32')
