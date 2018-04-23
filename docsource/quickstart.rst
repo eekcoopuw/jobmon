@@ -181,7 +181,7 @@ job_status
 task_dag
     Has every entry of task dags created, as identified by a dag_id and dag_hash
 workflow
-    Has every workflow created, along iwth it's associated dag_id, and workflow_args
+    Has every workflow created, along with it's associated dag_id, and workflow_args
 workflow_run
     Has every run of a workflow, paired with it's workflow, as identified by workflow_id
 workflow_run_status
