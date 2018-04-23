@@ -229,13 +229,14 @@ class JobStateManager(ReplyServer):
                 return (ReturnCodes.NO_RESULTS,)
         return (ReturnCodes.OK,)
 
-    def log_running(self, job_instance_id, nodename=None):
+    def log_running(self, job_instance_id, nodename, process_group_id):
         logger.debug("Log RUNNING for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             msg = self._update_job_instance_state(
                 session, ji, models.JobInstanceStatus.RUNNING)
             ji.nodename = nodename
+            ji.process_group_id = process_group_id
         if msg:
             self.publisher.send_string(msg)
         return (ReturnCodes.OK,)
@@ -247,13 +248,13 @@ class JobStateManager(ReplyServer):
             self._update_job_instance(session, ji, nodename=nodename)
         return (ReturnCodes.OK,)
 
-    def log_usage(self, job_instance_id, usage_str=None, nodename=None,
+    def log_usage(self, job_instance_id, usage_str=None,
                   wallclock=None, maxvmem=None, cpu=None, io=None):
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance(session, ji, usage_str=usage_str,
-                                      nodename=nodename, wallclock=wallclock,
+                                      wallclock=wallclock,
                                       maxvmem=maxvmem, cpu=cpu, io=io)
         return (ReturnCodes.OK,)
 

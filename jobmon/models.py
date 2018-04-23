@@ -56,16 +56,21 @@ class Job(Base):
                    mem_free=dct['mem_free'], status=dct['status'],
                    num_attempts=dct['num_attempts'],
                    max_attempts=dct['max_attempts'],
-                   context_args=dct['context_args'])
+                   context_args=dct['context_args'],
+                   last_nodename=dct['last_nodename'],
+                   last_process_group_id=dct['last_process_group_id'])
 
     def to_wire(self):
+        lnode, lpgid = self._last_instance_procinfo()
         return {'dag_id': self.dag_id, 'job_id': self.job_id,
                 'name': self.name, 'job_hash': self.job_hash,
                 'command': self.command, 'status': self.status,
                 'slots': self.slots, 'mem_free': self.mem_free,
                 'num_attempts': self.num_attempts,
                 'max_attempts': self.max_attempts,
-                'context_args': self.context_args}
+                'context_args': self.context_args,
+                'last_nodename': lnode,
+                'last_process_group_id': lpgid}
 
     job_id = Column(Integer, primary_key=True)
     job_instances = relationship("JobInstance", back_populates="job")
@@ -87,6 +92,10 @@ class Job(Base):
         nullable=False)
     submitted_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
+
+
+    last_nodename = None
+    last_process_group_id = None
 
     valid_transitions = [
         (JobStatus.REGISTERED, JobStatus.QUEUED_FOR_INSTANTIATION),
@@ -122,6 +131,13 @@ class Job(Base):
         self.status = new_state
         self.status_date = datetime.utcnow()
 
+    def _last_instance_procinfo(self):
+        if self.job_instances:
+            last_ji = max(self.job_instances, key=lambda i: i.job_instance_id)
+            return (last_ji.nodename, last_ji.process_group_id)
+        else:
+            return (None, None)
+
     def _validate_transition(self, new_state):
         if (self.status, new_state) not in self.__class__.valid_transitions:
             raise InvalidStateTransition('Job', self.job_id, self.status,
@@ -136,6 +152,8 @@ class JobInstance(Base):
         return cls(job_instance_id=dct['job_instance_id'],
                    workflow_run_id=dct['workflow_run_id'],
                    executor_id=dct['executor_id'],
+                   nodename=dct['nodename'],
+                   process_group_id=dct['process_group_id'],
                    job_id=dct['job_id'],
                    status=dct['status'],
                    status_date=datetime.strptime(dct['status_date'],
@@ -148,6 +166,8 @@ class JobInstance(Base):
                 'executor_id': self.executor_id,
                 'job_id': self.job_id,
                 'status': self.status,
+                'nodename': self.nodename,
+                'process_group_id': self.process_group_id,
                 'status_date': self.status_date.strftime("%Y-%m-%dT%H:%M:%S"),
                 'time_since_status_update': time_since_status,
                 'max_runtime': self.job.max_runtime}
@@ -163,6 +183,7 @@ class JobInstance(Base):
     job = relationship("Job", back_populates="job_instances")
     usage_str = Column(String(250))
     nodename = Column(String(50))
+    process_group_id = Column(Integer)
     wallclock = Column(String(50))
     maxvmem = Column(String(50))
     cpu = Column(String(50))
