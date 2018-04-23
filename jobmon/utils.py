@@ -14,26 +14,21 @@ _authorized_keyfiles = [os.path.join(_ssh_dir, fn) for fn in
 
 
 def kill_remote_process(hostname, pid, signal_number=signal.SIGKILL):
-    keyfile = _setup_keyfile()
-    client = SSHClient()
-    client.set_missing_host_key_policy(WarningPolicy)
-    client.connect(hostname, look_for_keys=False, key_filename=keyfile)
     kill_cmd = 'kill -{sn} {pid}'.format(sn=signal_number, pid=pid)
-    _, stdout, stderr = client.exec_command(kill_cmd)
-    exit_code = stdout.channel.recv_exit_status()
-    stdout_str = stdout.read()
-    stderr_str = stderr.read()
-    client.close()
-    return (exit_code, stdout_str, stderr_str)
+    return _run_remote_command(hostname, kill_cmd)
 
 
 def kill_remote_process_group(hostname, pgid, signal_number=signal.SIGKILL):
+    kill_cmd = 'kill -{sn} -{pgid}'.format(sn=signal_number, pgid=pgid)
+    return _run_remote_command(hostname, kill_cmd)
+
+
+def _run_remote_command(hostname, command):
     keyfile = _setup_keyfile()
     client = SSHClient()
     client.set_missing_host_key_policy(WarningPolicy)
     client.connect(hostname, look_for_keys=False, key_filename=keyfile)
-    kill_cmd = 'kill -{sn} -{pgid}'.format(sn=signal_number, pgid=pgid)
-    _, stdout, stderr = client.exec_command(kill_cmd)
+    _, stdout, stderr = client.exec_command(command)
     exit_code = stdout.channel.recv_exit_status()
     stdout_str = stdout.read()
     stderr_str = stderr.read()

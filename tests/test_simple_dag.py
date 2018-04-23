@@ -1,12 +1,14 @@
 import logging
 import os
 import pytest
+from subprocess import check_output
+from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
 from jobmon.database import session_scope
-from jobmon.models import JobStatus, JobInstance
+from jobmon.models import Job, JobStatus, JobInstance, JobInstanceStatus
 from jobmon.workflow.task_dag import TaskDag
 from jobmon.meta_models.task_dag import TaskDagMeta
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
@@ -20,6 +22,33 @@ logger = logging.getLogger(__name__)
 
 # These tests all use SleepAndWriteFileMockTask (which calls
 # remote_sleep_and_write remotely)
+
+
+def sge_submit_cmd_contains(jid, text):
+    # Try this a couple of times... SGE is weird
+    retries = 5
+    while retries > 0:
+        try:
+            cmd = check_output(
+                "qacct -j {} | grep submit_cmd".format(jid),
+                shell=True).decode()
+            break
+        except Exception as e:
+            print(e)
+            try:
+                cmd = check_output(
+                    "qacct -j {} | grep submit_cmd".format(jid),
+                    shell=True).decode()
+                break
+            except Exception as e:
+                print(e)
+            sleep(5 - retries)
+            retries = retries - 1
+            if retries == 0:
+                raise RuntimeError("Attempted to use qacct to get command for "
+                                   "jid {}. Giving up after 5 "
+                                   "retries".format(jid))
+    return text in cmd
 
 
 def test_empty_dag(db_cfg, jsm_jqs):
@@ -377,6 +406,23 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, jsm_jqs,
     assert task_c[2].status == JobStatus.DONE
 
     assert task_d.status == JobStatus.DONE
+
+    # Check that the failed task's nodename + pgid got propagated to
+    # its retry instance
+    with session_scope() as session:
+        job = session.query(Job).filter_by(job_id=task_b[1].job_id).first()
+        done_ji = [ji for ji in job.job_instances
+                   if ji.status == JobInstanceStatus.DONE][0]
+        err_ji = [ji for ji in job.job_instances
+                   if ji.status == JobInstanceStatus.ERROR][0]
+
+        err_nodename = err_ji.nodename
+        err_pgid = err_ji.process_group_id
+        done_sge_id = done_ji.executor_id
+    kill_nn_text = "--last_nodename {}".format(err_nodename)
+    kill_pgid_text = "--last_pgid {}".format(err_pgid)
+    assert sge_submit_cmd_contains(done_sge_id, kill_nn_text)
+    assert sge_submit_cmd_contains(done_sge_id, kill_pgid_text)
 
 
 def test_bushy_dag(db_cfg, jsm_jqs, tmp_out_dir):
