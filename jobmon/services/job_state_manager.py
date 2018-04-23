@@ -195,6 +195,7 @@ class JobStateManager(ReplyServer):
           B) Then flip the database of the previous WorkflowRun to STOPPED"""
         status, wf_run_id, hostname, pid = self._is_workflow_running(
             workflow_id)
+        sge_ids = []
         if status:
             kill_remote_process(hostname, pid)
             with session_scope() as session:

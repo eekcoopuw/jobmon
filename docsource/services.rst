@@ -76,9 +76,9 @@ host and port settings in their ~/.jobmonrc::
 
     {
       "host": "jobmon-p01.ihme.washington.edu",
-      "jsm_rep_port": 4456,
-      "jsm_pub_port": 4457,
-      "jqs_port": 4458
+      "jsm_rep_port": 4956,
+      "jsm_pub_port": 4957,
+      "jqs_port": 4958
     }
 
 
@@ -89,7 +89,7 @@ For testing purposes, you can then access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3310
+    port: 3311
     user: docker
     pass: docker
 
@@ -103,6 +103,7 @@ emu.0    na   4556  4557  3307
 emu.1    4658 4656  4657  3308
 emu.2    4758 4756  4757  3309
 emu.3    4858 4856  4857  3310
+emu.3    4958 4956  4957  3311
 ======== ==== ===== ===== ====
 
 .. todo::
