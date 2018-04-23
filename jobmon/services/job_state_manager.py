@@ -7,7 +7,6 @@ from sqlalchemy.exc import OperationalError
 from jobmon import models
 from jobmon.config import config
 from jobmon.database import session_scope
-from jobmon.sge import qdel
 from jobmon.utils import kill_remote_process
 from jobmon.exceptions import ReturnCodes, NoDatabase
 from jobmon.pubsub_helpers import mogrify
@@ -202,10 +201,9 @@ class JobStateManager(ReplyServer):
                 jis = session.query(models.JobInstance).filter_by(
                     workflow_run_id=wf_run_id).all()
                 sge_ids = [ji.executor_id for ji in jis]
-            qdel(sge_ids)
         if wf_run_id:  # if there are any workflow_run_ids to stop
             self.update_workflow(wf_run_id, WorkflowRunStatus.STOPPED)
-        return (ReturnCodes.OK, workflow_id)
+        return (ReturnCodes.OK, sge_ids)
 
     def listen(self):
         """If the database is unavailable, don't allow the JobStateManager to
