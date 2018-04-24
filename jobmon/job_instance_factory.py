@@ -1,5 +1,8 @@
 import logging
+import _thread
 from time import sleep
+
+from zmq.error import ZMQError
 
 from jobmon.config import config
 from jobmon.command_context import build_qsub, build_wrapped_command
@@ -64,9 +67,21 @@ class JobInstanceFactory(object):
         logger.info("Polling for and instantiating queued jobs at {}s "
                     "intervals".format(poll_interval))
         while True:
-            logger.debug("Queuing at interval {}s".format(poll_interval))
-            self.instantiate_queued_jobs()
-            sleep(poll_interval)
+            try:
+                logger.debug("Queuing at interval {}s".format(poll_interval))
+                self.instantiate_queued_jobs()
+                sleep(poll_interval)
+            except ZMQError as e:
+                # Tests rely on some funky usage of various REQ/REP pairs
+                # across threads, so interrupting here can be problematic...
+
+                # ... since this interrupt is primarily in reponse to potential
+                # SGE failures anyways, I'm just going to warn for now on ZMQ
+                # errors and save the interrupts for everything else
+                logger.warning(e)
+            except Exception as e:
+                logger.error(e)
+                _thread.interrupt_main()
 
     def instantiate_queued_jobs(self):
         jobs = self._get_jobs_queued_for_instantiation()
