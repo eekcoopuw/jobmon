@@ -47,6 +47,8 @@ def rcfile(rcfile_dir):
     args.force = False
     args.file = "{}/jobmonrc".format(rcfile_dir)
     try:
+        # these port numbers don't need to match the deploy ports,
+        # as they're for testing only
         install_rcfile(args,
                        cfg_dct={"conn_str": "sqlite://",
                                 "jsm_host": socket.gethostname(),

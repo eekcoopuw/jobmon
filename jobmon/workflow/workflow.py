@@ -149,12 +149,12 @@ class Workflow(object):
                 self.dag_id,
                 executor_args={'stderr': self.stderr,
                                'stdout': self.stdout,
-                               'project': self.project,})
+                               'project': self.project, })
         elif len(potential_wfs) == 0:
             # Bind the dag ...
             self.task_dag.bind_to_db(executor_args={'stderr': self.stderr,
                                                     'stdout': self.stdout,
-                                                    'project': self.project,})
+                                                    'project': self.project, })
 
             # Create new workflow in Database
             rc, wf_dct = self.jsm_req.send_request({
@@ -249,26 +249,3 @@ class Workflow(object):
     def run(self):
         """Alias for self.execute"""
         return self.execute()
-
-    def is_running(self):
-        # First check the database for last WorkflowRun... where we should
-        # store a hostname + pid + running_flag
-
-        # If in the database as 'running,' check the hostname
-        # + pid to see if the process is actually still running:
-        #   A) If so, inform the user to kill that Workflow and abort
-        #   B) If not, flip the database of the previous WorkflowRun to
-        #      STOPPED and create a new one
-        return True
-
-    def kill_running_tasks(self):
-        # First check the database for any tasks that are 'running' and
-        # have SGE IDs. If these are still qstat'able... qdel them
-        pass
-
-    def stop(self):
-        # TODO: Decide whether we want to "execute" in a Process / Thread,
-        # that could be killed without sending Ctrl+C and co.
-        if self.is_running():
-            self.kill_running_tasks()
-        self.workflow_run.update_stopped()

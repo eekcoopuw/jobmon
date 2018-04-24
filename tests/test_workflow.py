@@ -3,7 +3,7 @@ from time import sleep
 
 from jobmon import database
 from jobmon.meta_models.task_dag import TaskDagMeta
-from jobmon.models import Job, JobInstanceStatus, JobStatus
+from jobmon.models import Job, JobInstanceStatus, JobInstance, JobStatus
 from jobmon.services.health_monitor import HealthMonitor
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.task_dag import TaskDag
@@ -166,7 +166,7 @@ def test_stop_resume(simple_workflow, tmpdir):
             UPDATE workflow
             SET status='{s}'
             WHERE id={id}""".format(s=WorkflowStatus.STOPPED,
-                                             id=stopped_wf.id))
+                                    id=stopped_wf.id))
         session.execute("""
             UPDATE workflow_run
             SET status='{s}'
@@ -201,6 +201,16 @@ def test_stop_resume(simple_workflow, tmpdir):
 
     # Validate that a new WorkflowRun was created
     assert workflow.workflow_run.id != stopped_wf.workflow_run.id
+
+    # Validate that the old WorkflowRun was stopped
+    with database.session_scope() as session:
+        wf_run = (session.query(WorkflowRunDAO).filter_by(
+            id=stopped_wf.workflow_run.id).first())
+        assert wf_run.status == WorkflowRunStatus.STOPPED
+        wf_run_jobs = session.query(JobInstance).filter_by(
+            workflow_run_id=stopped_wf.workflow_run.id).all()
+        assert all(job.status != JobInstanceStatus.RUNNING
+                   for job in wf_run_jobs)
 
     # Validate that a new WorkflowRun has different logdirs and project
     assert workflow.workflow_run.stderr != stopped_wf.workflow_run.stderr
@@ -237,7 +247,7 @@ def test_reset_attempts_on_resume(simple_workflow):
             UPDATE workflow
             SET status='{s}'
             WHERE id={id}""".format(s=WorkflowStatus.ERROR,
-                                             id=stopped_wf.id))
+                                    id=stopped_wf.id))
         session.execute("""
             UPDATE workflow_run
             SET status='{s}'
@@ -289,9 +299,8 @@ def test_reset_attempts_on_resume(simple_workflow):
         done_wfr = [wfrd for wfrd in wfrDAOs
                     if wfrd.id == workflow.workflow_run.id][0]
         other_wfr = [wfrd for wfrd in wfrDAOs
-                    if wfrd.id != workflow.workflow_run.id][0]
+                     if wfrd.id != workflow.workflow_run.id][0]
         assert done_wfr.status == WorkflowRunStatus.DONE
-
 
         # TODO: Improve design for STOPPED/ERROR states for both Workflows and
         # WorkflowRuns..
