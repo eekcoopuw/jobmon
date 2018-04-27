@@ -101,9 +101,10 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
         try:
             # In case the job never actually got out of qw due to a busy
             # cluster
-            jsm.log_running(job_instance.job_instance_id)
-        except:
-            pass
+            jsm.log_running(job_instance.job_instance_id,
+                            nodename='not_a_node', process_group_id=1234)
+        except Exception as e:
+            print(e)
         jsm.log_done(job_instance.job_instance_id)
 
 
