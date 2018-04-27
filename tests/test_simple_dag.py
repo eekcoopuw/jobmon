@@ -9,7 +9,6 @@ from cluster_utils.io import makedirs_safely
 from jobmon import sge
 from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus, JobInstance, JobInstanceStatus
-from jobmon.workflow.task_dag import TaskDag
 from jobmon.meta_models.task_dag import TaskDagMeta
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
@@ -49,16 +48,6 @@ def sge_submit_cmd_contains(jid, text):
                                    "jid {}. Giving up after 5 "
                                    "retries".format(jid))
     return text in cmd
-
-
-@pytest.fixture(scope='function')
-def dag(db_cfg, jsm_jqs, request):
-    """Use a fxiture for dag creation so that the dags' JobInstanceFactories
-    and JobInstanceReconcilers get cleaned up after each test"""
-    dag = TaskDag(name=request.node.name)
-    yield dag
-    if dag.job_list_manager:
-        dag.job_list_manager.disconnect()
 
 
 def test_empty_dag(dag):
