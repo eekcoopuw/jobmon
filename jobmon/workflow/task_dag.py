@@ -21,6 +21,7 @@ class TaskDag(object):
     def __init__(self, name=""):
 
         self.dag_id = None
+        self.job_list_manager = None
 
         # TODO: Scale test to 1M jobs
         self.name = name
