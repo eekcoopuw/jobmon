@@ -18,6 +18,7 @@ from jobmon.job_list_manager import JobListManager
 from jobmon.services.job_query_server import JobQueryServer
 from jobmon.services.job_state_manager import JobStateManager
 from jobmon.job_instance_factory import execute_sge
+from jobmon.workflow.task_dag import TaskDag
 
 from cluster_utils.ephemerdb import create_ephemerdb
 
@@ -154,7 +155,7 @@ def tmp_out_dir():
 
 @pytest.fixture(scope='function')
 def job_list_manager_sub(dag_id):
-    jlm = JobListManager(dag_id)
+    jlm = JobListManager(dag_id, interrupt_on_error=False)
     jlm._start_job_status_listener()
     yield jlm
     jlm.disconnect()
@@ -169,6 +170,17 @@ def job_list_manager_sge(dag_id, tmpdir_factory):
     executor = functools.partial(execute_sge, stderr=elogdir, stdout=ologdir,
                                  project='proj_jenkins')
     executor.__name__ = execute_sge.__name__
-    jlm = JobListManager(dag_id, executor=executor, start_daemons=True)
+    jlm = JobListManager(dag_id, executor=executor, start_daemons=True,
+                         interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
+
+
+@pytest.fixture(scope='function')
+def dag(db_cfg, jsm_jqs, request):
+    """Use a fxiture for dag creation so that the dags' JobInstanceFactories
+    and JobInstanceReconcilers get cleaned up after each test"""
+    dag = TaskDag(name=request.node.name, interrupt_on_error=False)
+    yield dag
+    if dag.job_list_manager:
+        dag.job_list_manager.disconnect()

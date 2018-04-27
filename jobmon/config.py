@@ -179,7 +179,9 @@ else:
     CONFIG_FILE = "~/.jobmonrc"
 if os.path.isfile(os.path.expanduser(CONFIG_FILE)):
     config = GlobalConfig.from_file(CONFIG_FILE)
+    logger.warn("Found a local config file {}. Therefore we cannot configure "
+                "from defaults and you may be accessing an out-of-date "
+                "server/database. Consider deleting your .jobmonrc and "
+                "relaunching".format(CONFIG_FILE))
 else:
-    logger.warn("Could not find config file {}. Configuring from "
-                "defaults".format(CONFIG_FILE))
     config = GlobalConfig.from_defaults()

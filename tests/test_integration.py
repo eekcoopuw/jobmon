@@ -29,21 +29,21 @@ def subscriber(dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager(dag_id):
-    jlm = JobListManager(dag_id)
+    jlm = JobListManager(dag_id, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
 def job_list_manager_d(dag_id):
-    jlm = JobListManager(dag_id, start_daemons=True)
+    jlm = JobListManager(dag_id, start_daemons=True, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
 def job_list_manager_sge(dag_id):
-    jlm = JobListManager(dag_id, executor=execute_sge)
+    jlm = JobListManager(dag_id, executor=execute_sge, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
 

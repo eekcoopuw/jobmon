@@ -18,15 +18,20 @@ class TaskDag(object):
     A DAG of Tasks.
     """
 
-    def __init__(self, name=""):
+    def __init__(self, name="", interrupt_on_error=True):
 
         self.dag_id = None
+        self.job_list_manager = None
 
         # TODO: Scale test to 1M jobs
         self.name = name
         self.tasks = OrderedDict()  # dict for scalability to 1,000,000+ jobs
         self.top_fringe = []
         self.fail_after_n_executions = None
+
+        # Control whether the JIF/JIR daemons should interrupt on errors...
+        # this should primarily be set to True, except for test purposes
+        self.interrupt_on_error = interrupt_on_error
 
     def _set_fail_after_n_executions(self, n):
         """
@@ -60,9 +65,9 @@ class TaskDag(object):
         executor.__name__ = execute_sge.__name__
 
         if dag_id:
-            self.job_list_manager = JobListManager(dag_id,
-                                                   executor=executor,
-                                                   start_daemons=True)
+            self.job_list_manager = JobListManager(
+                dag_id, executor=executor, start_daemons=True,
+                interrupt_on_error=self.interrupt_on_error)
 
             # Reset any jobs hung up in not-DONE states
             self.job_list_manager.reset_jobs()
@@ -77,9 +82,9 @@ class TaskDag(object):
             tdf = TaskDagMetaFactory()
             self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
                                             user=getpass.getuser())
-            self.job_list_manager = JobListManager(self.meta.dag_id,
-                                                   executor=executor,
-                                                   start_daemons=True)
+            self.job_list_manager = JobListManager(
+                self.meta.dag_id, executor=executor, start_daemons=True,
+                interrupt_on_error=self.interrupt_on_error)
             self.dag_id = self.meta.dag_id
             for _, task in self.tasks.items():
                 task.bind(self.job_list_manager)
