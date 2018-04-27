@@ -1,3 +1,4 @@
+import pytest
 from subprocess import check_output
 from time import sleep
 
@@ -6,7 +7,6 @@ from cluster_utils.io import makedirs_safely
 from jobmon import sge
 from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus
-from jobmon.workflow.task_dag import TaskDag
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
 from jobmon.workflow.r_task import RTask
@@ -39,13 +39,11 @@ def match_name_to_sge_name(jid):
     return sge_jobname
 
 
-def test_bash_task(db_cfg, jsm_jqs):
+def test_bash_task(dag):
     """
     Create a dag with one very simple BashTask and execute it
     """
-    name = "test_bash_task"
-    dag = TaskDag(name=name)
-
+    name = 'bash_task'
     task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
                     max_runtime=60)
     dag.add_task(task)
@@ -67,13 +65,11 @@ def test_bash_task(db_cfg, jsm_jqs):
     assert sge_jobname == name
 
 
-def test_python_task(db_cfg, jsm_jqs, tmp_out_dir):
+def test_python_task(dag, tmp_out_dir):
     """
     Execute a PythonTask
     """
-    name = "test_python_task"
-    dag = TaskDag(name=name)
-
+    name = 'python_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
 
@@ -103,12 +99,11 @@ def test_python_task(db_cfg, jsm_jqs, tmp_out_dir):
     assert sge_jobname == name
 
 
-def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
+def test_R_task(dag, tmp_out_dir):
     """
     Execute an RTask
     """
-    name = "test_R_task"
-    dag = TaskDag(name=name)
+    name = 'r_task'
 
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
@@ -134,13 +129,11 @@ def test_R_task(db_cfg, jsm_jqs, tmp_out_dir):
     assert sge_jobname == name
 
 
-def test_stata_task(db_cfg, jsm_jqs, tmp_out_dir):
+def test_stata_task(dag, tmp_out_dir):
     """
     Execute a simple stata Task
     """
-    name = "test_stata_task"
-    dag = TaskDag(name=name)
-
+    name = 'stata_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
 

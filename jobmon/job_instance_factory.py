@@ -53,10 +53,11 @@ def execute_batch_dummy(job, job_instance_id):
 
 class JobInstanceFactory(object):
 
-    def __init__(self, dag_id, executor=None):
+    def __init__(self, dag_id, executor=None, interrupt_on_error=True):
         self.dag_id = dag_id
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
+        self.interrupt_on_error = interrupt_on_error
 
         if executor:
             self.set_executor(executor)
@@ -81,7 +82,10 @@ class JobInstanceFactory(object):
                 logger.warning(e)
             except Exception as e:
                 logger.error(e)
-                _thread.interrupt_main()
+                if self.interrupt_on_error:
+                    _thread.interrupt_main()
+                else:
+                    raise
 
     def instantiate_queued_jobs(self):
         jobs = self._get_jobs_queued_for_instantiation()

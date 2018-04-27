@@ -17,10 +17,11 @@ logger = logging.getLogger(__name__)
 
 class JobInstanceReconciler(object):
 
-    def __init__(self, dag_id):
+    def __init__(self, dag_id, interrupt_on_error=True):
         self.dag_id = dag_id
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
+        self.interrupt_on_error = interrupt_on_error
 
     def reconcile_periodically(self, poll_interval=10):
         logger.info("Reconciling jobs against 'qstat' at {}s "
@@ -41,7 +42,10 @@ class JobInstanceReconciler(object):
                 logger.warning(e)
             except Exception as e:
                 logger.error(e)
-                _thread.interrupt_main()
+                if self.interrupt_on_error:
+                    _thread.interrupt_main()
+                else:
+                    raise
 
     def reconcile(self):
         """Identifies jobs that have disappeared from the batch execution

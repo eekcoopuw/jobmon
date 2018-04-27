@@ -45,13 +45,15 @@ class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, db_sync_interval=None,
                  start_daemons=False, reconciliation_interval=10,
-                 job_instantiation_interval=1):
+                 job_instantiation_interval=1, interrupt_on_error=True):
 
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
 
-        self.job_inst_factory = JobInstanceFactory(dag_id, executor)
-        self.job_inst_reconciler = JobInstanceReconciler(dag_id)
+        self.job_inst_factory = JobInstanceFactory(dag_id, executor,
+                                                   interrupt_on_error)
+        self.job_inst_reconciler = JobInstanceReconciler(dag_id,
+                                                         interrupt_on_error)
 
         self.jqs_req = Requester(config.jqs_rep_conn)
 

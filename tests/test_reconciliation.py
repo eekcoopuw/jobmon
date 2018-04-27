@@ -20,7 +20,7 @@ def job_list_manager_dummy(dag_id):
     # but we do need it to subscribe to status updates for reconciliation
     # tests. Start this thread manually.
     jlm = JobListManager(dag_id, executor=execute_batch_dummy,
-                         start_daemons=False)
+                         start_daemons=False, interrupt_on_error=False)
     jlm._start_job_status_listener()
     return jlm
 
@@ -28,7 +28,8 @@ def job_list_manager_dummy(dag_id):
 @pytest.fixture(scope='function')
 def job_list_manager_sge(dag_id):
     jlm = JobListManager(dag_id, executor=execute_sge,
-                         start_daemons=True, reconciliation_interval=2)
+                         start_daemons=True, reconciliation_interval=2,
+                         interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
 
@@ -36,7 +37,7 @@ def job_list_manager_sge(dag_id):
 @pytest.fixture(scope='function')
 def job_list_manager_dummy_nod(dag_id):
     jlm = JobListManager(dag_id, executor=execute_batch_dummy,
-                         start_daemons=False)
+                         start_daemons=False, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
 
