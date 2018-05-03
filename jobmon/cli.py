@@ -148,13 +148,19 @@ def start_health_monitor():
     """Start monitoring for lost workflow runs"""
 
     if config.config.slack_token:
-        notifier = SlackNotifier(
+        wf_notifier = SlackNotifier(
             config.config.slack_token,
-            config.config.default_slack_channel)
-        sink = notifier.send
+            config.config.default_wf_slack_channel)
+        wf_sink = wf_notifier.send
+        node_notifier = SlackNotifier(
+            config.config.slack_token,
+            config.config.default_node_slack_channel)
+        node_sink = node_notifier.send
     else:
-        sink = None
-    hm = HealthMonitor(notification_sink=sink)
+        wf_sink = None
+        node_sink = None
+    hm = HealthMonitor(wf_notification_sink=wf_sink,
+                       node_notification_sink=node_sink)
     hm.monitor_forever()
 
 
