@@ -16,7 +16,7 @@ from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 def second_dag(db_cfg, jsm_jqs, request):
     """Use a fxiture for dag creation so that the dags' JobInstanceFactories
     and JobInstanceReconcilers get cleaned up after each test"""
-    dag = TaskDag(name=request.node.name+"2", interrupt_on_error=False)
+    dag = TaskDag(name=request.node.name + "2", interrupt_on_error=False)
     yield dag
     if dag.job_list_manager:
         dag.job_list_manager.disconnect()
@@ -462,10 +462,9 @@ def test_heartbeat(dag):
         lost = hm._get_lost_workflow_runs(session)
         assert not lost
 
-
     # Setup monitor with a very short loss threshold (~3s = 1min/20)
-    hm_hyper = HealthMonitor(loss_threshold=1/20.,
-                             notification_sink=mock_slack)
+    hm_hyper = HealthMonitor(loss_threshold=1 / 20.,
+                             wf_notification_sink=mock_slack)
     with database.session_scope() as session:
 
         # the reconciliation heart rate is now > this monitor's threshold,

@@ -48,8 +48,8 @@ class HealthMonitor(object):
             with session_scope() as session:
                 lost_wrs = self._get_lost_workflow_runs(session)
                 failing_nodes = self._calculate_node_failure_rate(session)
-            self._register_lost_workflow_runs(lost_wrs)
-            self._notify_of_failing_nodes(failing_nodes)
+                self._register_lost_workflow_runs(lost_wrs)
+                self._notify_of_failing_nodes(failing_nodes)
             sleep(self._poll_interval * 60)
 
     def _get_succeeding_active_workflow_runs(self, session):
