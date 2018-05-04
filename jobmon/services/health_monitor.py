@@ -44,7 +44,7 @@ class HealthMonitor(object):
         while True:
             with session_scope() as session:
                 lost_wrs = self._get_lost_workflow_runs(session)
-            self._register_lost_workflow_runs(lost_wrs)
+                self._register_lost_workflow_runs(lost_wrs)
             sleep(self._poll_interval*60)
 
     def _get_active_workflow_runs(self, session):
@@ -82,4 +82,4 @@ class HealthMonitor(object):
                        dag_id=dag.dag_id, dag_name=dag.name))
             logger.info(msg)
             if self._notification_sink:
-                self._notification_sink(msg, channel=wfr.slack_channel)
+                self._notification_sink(None, msg, channel=wfr.slack_channel)
