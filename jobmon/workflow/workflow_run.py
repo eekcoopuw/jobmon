@@ -72,12 +72,12 @@ class WorkflowRun(object):
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
-        rc, previous_run_sge_ids = self.jsm_req.send_request({
-            'action': 'kill_previous_workflow_runs',
-            'kwargs': {'workflow_id': workflow_id}
-        })
-        if rc != ReturnCodes.OK:
-            raise ValueError("Invalid Reponse to kill_previous_workflow_runs")
+        # rc, previous_run_sge_ids = self.jsm_req.send_request({
+        #     'action': 'kill_previous_workflow_runs',
+        #     'kwargs': {'workflow_id': workflow_id}
+        # })
+        # if rc != ReturnCodes.OK:
+        #     raise ValueError("Invalid Reponse to kill_previous_workflow_runs")
         if previous_run_sge_ids:
             qdel(previous_run_sge_ids)
         rc, wfr_id = self.jsm_req.send_request({
