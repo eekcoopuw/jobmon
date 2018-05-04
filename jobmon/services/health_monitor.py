@@ -143,5 +143,10 @@ class HealthMonitor(object):
                        wf_id=wf.id, wf_args=wf.workflow_args,
                        dag_id=dag.dag_id, dag_name=dag.name))
             logger.info(msg)
+<<<<<<< HEAD
             if self._wf_notification_sink:
                 self._wf_notification_sink(msg, channel=wfr.slack_channel)
+=======
+            if self._notification_sink:
+                self._notification_sink(None, msg, channel=wfr.slack_channel)
+>>>>>>> upstream/master

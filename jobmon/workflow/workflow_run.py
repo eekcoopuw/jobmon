@@ -8,9 +8,12 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from jobmon.config import config
-from jobmon.exceptions import ReturnCodes
+from jobmon.exceptions import ReturnCodes, SGENotAvailable
 from jobmon.requester import Requester
-from jobmon.sge import qdel
+try:
+    from jobmon.sge import qdel
+except SGENotAvailable:
+    pass
 from jobmon.sql_base import Base
 
 
