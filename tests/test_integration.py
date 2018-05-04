@@ -49,6 +49,7 @@ def job_list_manager_sge(dag_id):
 
 
 def test_invalid_command(subscriber, job_list_manager):
+    import pdb; pdb.set_trace()
     job_id = job_list_manager.create_job('foo', 'bar', 'somehash')
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
