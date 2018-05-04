@@ -33,8 +33,8 @@ class JobStateManager(ReplyServer):
         self.register_action("add_workflow_run", self.add_workflow_run)
         self.register_action("update_workflow", self.update_workflow)
         self.register_action("update_workflow_run", self.update_workflow_run)
-        # self.register_action("kill_previous_workflow_runs",
-        #                      self.kill_previous_workflow_runs)
+        self.register_action("kill_previous_workflow_runs",
+                             self.kill_previous_workflow_runs)
 
         self.register_action("log_done", self.log_done)
         self.register_action("log_error", self.log_error)
