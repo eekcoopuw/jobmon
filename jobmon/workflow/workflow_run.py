@@ -108,13 +108,10 @@ class WorkflowRun(object):
         if not status:
             return
         kill_remote_process(hostname, pid)
-        rc, sge_ids = self.jsm_req.send_request({
+        _, sge_ids = self.jsm_req.send_request({
             'action': 'get_sge_ids_of_previous_workflow_run',
             'kwargs': {'workflow_run_id': wf_run_id}})
-        if rc != ReturnCodes.OK:
-            raise ValueError("Invalid Reponse to "
-                             "get_sge_ids_of_previous_workflow_run")
-        rc, _ = self.jsm_req.send_request({
+        _, _ = self.jsm_req.send_request({
             'action': 'update_workflow_run',
             'kwargs': {'workflow_run_id': wf_run_id,
                        'status': WorkflowRunStatus.STOPPED}})

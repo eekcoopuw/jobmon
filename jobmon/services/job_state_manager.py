@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+import getpass
 
 import zmq
 from sqlalchemy.exc import OperationalError
@@ -32,8 +33,10 @@ class JobStateManager(ReplyServer):
         self.register_action("add_workflow_run", self.add_workflow_run)
         self.register_action("update_workflow", self.update_workflow)
         self.register_action("update_workflow_run", self.update_workflow_run)
-        self.register_action("kill_previous_workflow_runs",
-                             self.kill_previous_workflow_runs)
+        self.register_action("is_workflow_running",
+                             self.is_workflow_running)
+        self.register_action("get_sge_ids_of_previous_workflow_run",
+                             self.get_sge_ids_of_previous_workflow_run)
 
         self.register_action("log_done", self.log_done)
         self.register_action("log_error", self.log_error)
@@ -169,10 +172,11 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK, status)
 
     def is_workflow_running(self, workflow_id):
-        """Check if a previous workflow run is still running """
+        """Check if a previous workflow run for your user is still running """
         with session_scope() as session:
             wf_run = (session.query(WorkflowRunDAO).filter_by(
-                workflow_id=workflow_id, status=WorkflowRunStatus.RUNNING
+                workflow_id=workflow_id, status=WorkflowRunStatus.RUNNING,
+                user=getpass.getuser()
             ).order_by(WorkflowRunDAO.id.desc()).first())
             if not wf_run:
                 return (ReturnCodes.OK, False, None, None, None)

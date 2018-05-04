@@ -43,7 +43,8 @@ def job_list_manager_d(dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager_sge(dag_id):
-    jlm = JobListManager(dag_id, executor=execute_sge, interrupt_on_error=False)
+    jlm = JobListManager(dag_id, executor=execute_sge,
+                         interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
 
