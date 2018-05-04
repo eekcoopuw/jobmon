@@ -47,7 +47,10 @@ class HealthMonitor(object):
         while True:
             with session_scope() as session:
                 lost_wrs = self._get_lost_workflow_runs(session)
-                failing_nodes = self._calculate_node_failure_rate(session)
+                working_wf_runs = self._get_succeeding_active_workflow_runs(
+                    session)
+                failing_nodes = self._calculate_node_failure_rate(
+                    session, working_wf_runs)
                 self._register_lost_workflow_runs(lost_wrs)
                 self._notify_of_failing_nodes(failing_nodes)
             sleep(self._poll_interval * 60)
@@ -76,13 +79,12 @@ class HealthMonitor(object):
         else:
             return []
 
-    def _calculate_node_failure_rate(self, session):
+    def _calculate_node_failure_rate(self, session, working_wf_runs):
         """Collect all nodenames used in currently running,
         currently successful workflow runs, and report the ones that have at
         least 5 job instances and at least 50% failure rate on that node"""
-        working_wf_runs = self._get_succeeding_active_workflow_runs(session)
         if not working_wf_runs:
-            # no workflow runs in the last 2 hours have < 10% failure
+            # no active/successful workflow runs have < 10% failure
             return []
         working_wf_runs = " and ".join(n for n in working_wf_runs)
         query = (
@@ -107,7 +109,7 @@ class HealthMonitor(object):
     def _notify_of_failing_nodes(self, nodes):
         msg = "Potentially failing nodes found: {}".format(nodes)
         if self._node_notification_sink:
-            self._node_notification_sink(msg)
+            self._node_notification_sink(None, msg)
 
     def _get_active_workflow_runs(self, session):
         wrs = session.query(WorkflowRunDAO).filter_by(
@@ -143,10 +145,5 @@ class HealthMonitor(object):
                        wf_id=wf.id, wf_args=wf.workflow_args,
                        dag_id=dag.dag_id, dag_name=dag.name))
             logger.info(msg)
-<<<<<<< HEAD
-            if self._wf_notification_sink:
-                self._wf_notification_sink(msg, channel=wfr.slack_channel)
-=======
             if self._notification_sink:
                 self._notification_sink(None, msg, channel=wfr.slack_channel)
->>>>>>> upstream/master

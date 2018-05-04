@@ -480,3 +480,41 @@ def test_heartbeat(dag):
     with database.session_scope() as session:
         active = hm_hyper._get_active_workflow_runs(session)
         assert wfr.id not in [w.id for w in active]
+
+
+def test_failing_nodes(dag):
+
+    # these dummy dags will increment the ID of our dag-of-interest to
+    # avoid the timing collisions
+    with database.session_scope() as session:
+        for _ in range(5):
+            session.add(TaskDagMeta())
+        session.commit()
+
+    workflow = Workflow(dag, "test_failing_nodes")
+    workflow._bind()
+    workflow._create_workflow_run()
+
+    wfr = workflow.workflow_run
+
+    # give some time to make sure the dag's reconciliation process
+    # has actually started
+    sleep(20)
+
+    hm = HealthMonitor()
+    with database.session_scope() as session:
+
+        # This test's workflow should be in the 'active' AND succeeding list
+        active_wfrs = hm._get_succeeding_active_workflow_runs(session)
+        assert wfr.id in [w.id for w in active_wfrs]
+
+        # Manually make 5 job instances land on the same node & have them fail
+        session.execute("""
+            UPDATE job_instance
+            SET nodename='fake_node.ihme.washington.edu', status={s}
+            WHERE workflow_run_id={wfr_id} AND job_instance_id < 5
+            """.format(s=JobStatus.ERROR_FATAL, wfr_id=wfr.id))
+        failing_nodes = hm._calculate_node_failure_rate(session, active_wfrs)
+        assert 'fake_node.ihme.washington.edu' in failing_nodes
+
+
