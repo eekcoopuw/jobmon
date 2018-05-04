@@ -42,6 +42,7 @@ class HealthMonitor(object):
         self._poll_interval = poll_interval
         self._wf_notification_sink = wf_notification_sink
         self._node_notification_sink = node_notification_sink
+        self._database = 'docker'
 
     def monitor_forever(self):
         while True:
@@ -65,14 +66,14 @@ class HealthMonitor(object):
                     ELSE NULL
                 END) / COUNT(job_instance_id)) AS failure_rate
             FROM
-                docker.job_instance ji
+                {db}.job_instance ji
             JOIN
-                docker.workflow_run wf ON ji.workflow_run_id = wf.id
+                {db}.workflow_run wf ON ji.workflow_run_id = wf.id
             WHERE
-                wf.status = 'R'
+                wf.status = "{s}"
             GROUP BY workflow_run_id
             HAVING failure_rate <= .1
-                 """)
+                 """.format(db=self._database, s=WorkflowRunStatus.RUNNING))
         res = session.execute(query).fetchall()
         if res:
             return [tup[0] for tup in res]
@@ -86,21 +87,21 @@ class HealthMonitor(object):
         if not working_wf_runs:
             # no active/successful workflow runs have < 10% failure
             return []
-        working_wf_runs = " and ".join(n for n in working_wf_runs)
+        working_wf_runs = ", ".join(n for n in working_wf_runs)
         query = (
             """SELECT
                 nodename,
            (COUNT(CASE when ji.status = 'E' then job_instance_id else NULL END)
                 / COUNT(job_instance_id)) as failure_rate
             FROM
-                docker.job_instance ji
+                {db}.job_instance ji
             JOIN
-                docker.workflow_run wf ON ji.workflow_run_id = wf.id
+                {db}.workflow_run wf ON ji.workflow_run_id = wf.id
             WHERE
-                ji.workflow_run_id IN({})
+                ji.workflow_run_id IN({wf})
             GROUP BY nodename
             HAVING COUNT(job_instance_id) > 5 and failure_rate > .5;"""
-            .format(working_wf_runs))
+            .format(db=self._database, wf=working_wf_runs))
         res = session.execute(query).fetchall()
         if res:
             return [tup[0] for tup in res]
