@@ -12,6 +12,7 @@ from jobmon.exceptions import ReturnCodes
 from jobmon.requester import Requester
 from jobmon.sge import qdel
 from jobmon.sql_base import Base
+from jobmon.utils import kill_remote_process
 
 
 class WorkflowRunStatus(Base):
@@ -69,14 +70,7 @@ class WorkflowRun(object):
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
-        rc, previous_run_sge_ids = self.jsm_req.send_request({
-            'action': 'kill_previous_workflow_runs',
-            'kwargs': {'workflow_id': workflow_id}
-        })
-        if rc != ReturnCodes.OK:
-            raise ValueError("Invalid Reponse to kill_previous_workflow_runs")
-        if previous_run_sge_ids:
-            qdel(previous_run_sge_ids)
+        self.kill_previous_workflow_runs()
         rc, wfr_id = self.jsm_req.send_request({
             'action': 'add_workflow_run',
             'kwargs': {'workflow_id': workflow_id,
@@ -92,6 +86,40 @@ class WorkflowRun(object):
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse to add_workflow_run")
         self.id = wfr_id
+
+    def check_if_workflow_is_running(self):
+        rc, status, wf_run_id, hostname, pid = self.jsm_req.send_request({
+            'action': 'is_workflow_running',
+            'kwargs': {'workflow_id': self.workflow_id}})
+        if rc != ReturnCodes.OK:
+            raise ValueError("Invalid Reponse to is_workflow_running")
+        return status, wf_run_id, hostname, pid
+
+    def kill_previous_workflow_runs(self):
+        """First check the database for last WorkflowRun... where we store a
+        hostname + pid + running_flag
+
+        If in the database as 'running,' check the hostname
+        + pid to see if the process is actually still running:
+          A) If so, kill those pids and any still running jobs
+          B) Then flip the database of the previous WorkflowRun to STOPPED"""
+        _, status, wf_run_id, hostname, pid = (
+            self.check_if_workflow_is_running())
+        if not status:
+            return
+        kill_remote_process(hostname, pid)
+        rc, sge_ids = self.jsm_req.send_request({
+            'action': 'get_sge_ids_of_previous_workflow_run',
+            'kwargs': {'workflow_run_id': wf_run_id}})
+        if rc != ReturnCodes.OK:
+            raise ValueError("Invalid Reponse to "
+                             "get_sge_ids_of_previous_workflow_run")
+        rc, _ = self.jsm_req.send_request({
+            'action': 'update_workflow_run',
+            'kwargs': {'workflow_run_id': wf_run_id,
+                       'status': WorkflowRunStatus.STOPPED}})
+        if sge_ids:
+            qdel(sge_ids)
 
     def update_done(self):
         self._update_status(WorkflowRunStatus.DONE)

@@ -7,7 +7,6 @@ from sqlalchemy.exc import OperationalError
 from jobmon import models
 from jobmon.config import config
 from jobmon.database import session_scope
-from jobmon.utils import kill_remote_process
 from jobmon.exceptions import ReturnCodes, NoDatabase
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
@@ -169,41 +168,24 @@ class JobStateManager(ReplyServer):
             session.commit()
         return (ReturnCodes.OK, status)
 
-    def _is_workflow_running(self, workflow_id):
+    def is_workflow_running(self, workflow_id):
         """Check if a previous workflow run is still running """
         with session_scope() as session:
             wf_run = (session.query(WorkflowRunDAO).filter_by(
-                workflow_id=workflow_id).order_by(WorkflowRunDAO.id.desc())
-                .first())
+                workflow_id=workflow_id, status=WorkflowRunStatus.RUNNING
+            ).order_by(WorkflowRunDAO.id.desc()).first())
             if not wf_run:
-                return (False, None, None, None)
+                return (ReturnCodes.OK, False, None, None, None)
             wf_run_id = wf_run.id
             hostname = wf_run.hostname
             pid = wf_run.pid
-            status = wf_run.status
-        if status == WorkflowRunStatus.RUNNING:
-            return (True, wf_run_id, hostname, pid)
-        return (False, wf_run_id, hostname, pid)
+        return (ReturnCodes.OK, True, wf_run_id, hostname, pid)
 
-    def kill_previous_workflow_runs(self, workflow_id):
-        """First check the database for last WorkflowRun... where we store a
-        hostname + pid + running_flag
-
-        If in the database as 'running,' check the hostname
-        + pid to see if the process is actually still running:
-          A) If so, kill those pids and any still running jobs
-          B) Then flip the database of the previous WorkflowRun to STOPPED"""
-        status, wf_run_id, hostname, pid = self._is_workflow_running(
-            workflow_id)
-        sge_ids = []
-        if status:
-            kill_remote_process(hostname, pid)
-            with session_scope() as session:
-                jis = session.query(models.JobInstance).filter_by(
-                    workflow_run_id=wf_run_id).all()
-                sge_ids = [ji.executor_id for ji in jis]
-        if wf_run_id:  # if there are any workflow_run_ids to stop
-            self.update_workflow(wf_run_id, WorkflowRunStatus.STOPPED)
+    def get_sge_ids_of_previous_workflow_run(workflow_run_id):
+        with session_scope() as session:
+            jis = session.query(models.JobInstance).filter_by(
+                workflow_run_id=workflow_run_id).all()
+            sge_ids = [ji.executor_id for ji in jis]
         return (ReturnCodes.OK, sge_ids)
 
     def listen(self):
