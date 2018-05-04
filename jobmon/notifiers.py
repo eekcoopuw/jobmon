@@ -8,7 +8,7 @@ class SlackNotifier(object):
         self._token = token
         self.default_channel = default_channel
 
-    def send(msg, channel=None):
+    def send(self, msg, channel=None):
         if not channel:
             channel = self.default_channel
         resp = requests.post(
