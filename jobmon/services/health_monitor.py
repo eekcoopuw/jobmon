@@ -87,7 +87,7 @@ class HealthMonitor(object):
         if not working_wf_runs:
             # no active/successful workflow runs have < 10% failure
             return []
-        working_wf_runs = ", ".join(n for n in working_wf_runs)
+        working_wf_runs = ", ".join(str(n) for n in working_wf_runs)
         query = (
             """SELECT
                 nodename,
