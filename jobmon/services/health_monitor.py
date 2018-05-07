@@ -12,14 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 class HealthMonitor(object):
-    """Watches for disappearing dags / workflows
+    """Watches for disappearing dags / workflows, as well as failing nodes
 
     Args:
         loss_threshold (int) (in minutes): consider a workflow run lost
             if the time since its last heartbeat exceeds this threshold
         poll_interval (int) (in minutes): time elapsed between successive
-            checks for workflow run heartbeats. should be greater than
-             the loss_threshold
+            checks for workflow run heartbeats + failing nodes. should be
+             greater than the loss_threshold
         wf_notification_sink (callable(str), optional): a callable that
             takes a string, where info can be sent whenever a lost
             workflow run is identified

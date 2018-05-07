@@ -526,8 +526,8 @@ def test_failing_nodes(dag):
         session.execute("""
             UPDATE job_instance
             SET nodename='fake_node.ihme.washington.edu', status="{s}"
-            WHERE workflow_run_id={wfr_id} AND job_instance_id < 6
-            """.format(s=JobInstanceStatus.ERROR_FATAL, wfr_id=wfr.id))
+            WHERE job_instance_id < 7 and workflow_run_id={wfr_id}
+            """.format(s=JobInstanceStatus.ERROR, wfr_id=wfr.id))
         failing_nodes = hm._calculate_node_failure_rate(session, active_wfrs)
         assert 'fake_node.ihme.washington.edu' in failing_nodes
 
