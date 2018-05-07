@@ -100,7 +100,7 @@ class HealthMonitor(object):
             WHERE
                 ji.workflow_run_id IN({wf})
             GROUP BY nodename
-            HAVING COUNT(job_instance_id) > 5 and failure_rate > .5;"""
+            HAVING COUNT(job_instance_id) > 5 and failure_rate > .2;"""
             .format(db=self._database, wf=working_wf_runs))
         res = session.execute(query).fetchall()
         if res:
