@@ -48,7 +48,7 @@ def simple_workflow_w_errors(dag):
     return workflow
 
 
-def mock_slack(msg, channel):
+def mock_slack(self, msg, channel):
     print("{} to be posted to channel: {}".format(msg, channel))
 
 
@@ -507,7 +507,7 @@ def test_failing_nodes(dag):
     # has actually started
     sleep(20)
 
-    hm = HealthMonitor()
+    hm = HealthMonitor(node_notification_sink=mock_slack)
     hm._database = 'singularity'
     with database.session_scope() as session:
 
