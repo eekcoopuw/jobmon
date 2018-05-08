@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime
-import getpass
 
 import zmq
 from sqlalchemy.exc import OperationalError
@@ -176,14 +175,14 @@ class JobStateManager(ReplyServer):
         with session_scope() as session:
             wf_run = (session.query(WorkflowRunDAO).filter_by(
                 workflow_id=workflow_id, status=WorkflowRunStatus.RUNNING,
-                user=getpass.getuser()
             ).order_by(WorkflowRunDAO.id.desc()).first())
             if not wf_run:
-                return (ReturnCodes.OK, False, None, None, None)
+                return (ReturnCodes.OK, False, None, None, None, None)
             wf_run_id = wf_run.id
             hostname = wf_run.hostname
             pid = wf_run.pid
-        return (ReturnCodes.OK, True, wf_run_id, hostname, pid)
+            user = wf_run.user
+        return (ReturnCodes.OK, True, wf_run_id, hostname, pid, user)
 
     def get_sge_ids_of_previous_workflow_run(workflow_run_id):
         with session_scope() as session:

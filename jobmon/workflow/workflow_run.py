@@ -2,6 +2,8 @@ import getpass
 import os
 import socket
 from datetime import datetime
+import getpass
+import logging
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 
@@ -16,6 +18,8 @@ except SGENotAvailable:
     pass
 from jobmon.sql_base import Base
 from jobmon.utils import kill_remote_process
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowRunStatus(Base):
@@ -106,20 +110,35 @@ class WorkflowRun(object):
         + pid to see if the process is actually still running:
           A) If so, kill those pids and any still running jobs
           B) Then flip the database of the previous WorkflowRun to STOPPED"""
-        status, wf_run_id, hostname, pid = (
-            self.check_if_workflow_is_running())
+        status, wf_run_id, hostname, pid, user = \
+            self.check_if_workflow_is_running()
         if not status:
             return
-        kill_remote_process(hostname, pid)
-        _, sge_ids = self.jsm_req.send_request({
-            'action': 'get_sge_ids_of_previous_workflow_run',
-            'kwargs': {'workflow_run_id': wf_run_id}})
-        _, _ = self.jsm_req.send_request({
-            'action': 'update_workflow_run',
-            'kwargs': {'workflow_run_id': wf_run_id,
-                       'status': WorkflowRunStatus.STOPPED}})
-        if sge_ids:
-            qdel(sge_ids)
+        if user != getpass.getuser():
+            msg = ("Workflow_run_id {} for this workflow_id is still in "
+                   "running mode by user {}. Please ask this user to kill "
+                   "their processes and qdel their jobs. Be aware that if you "
+                   "restart this workflow prior to the other user killing "
+                   "theirs, this error will not re-raise but you may be "
+                   "creating orphaned processes and hard-to-find bugs"
+                   .format(wf_run_id, user))
+            logger.error(msg)
+            _, _ = self.jsm_req.send_request({
+                'action': 'update_workflow_run',
+                'kwargs': {'workflow_run_id': wf_run_id,
+                           'status': WorkflowRunStatus.STOPPED}})
+            raise RuntimeError(msg)
+        else:
+            kill_remote_process(hostname, pid)
+            _, sge_ids = self.jsm_req.send_request({
+                'action': 'get_sge_ids_of_previous_workflow_run',
+                'kwargs': {'workflow_run_id': wf_run_id}})
+            _, _ = self.jsm_req.send_request({
+                'action': 'update_workflow_run',
+                'kwargs': {'workflow_run_id': wf_run_id,
+                           'status': WorkflowRunStatus.STOPPED}})
+            if sge_ids:
+                qdel(sge_ids)
 
     def update_done(self):
         self._update_status(WorkflowRunStatus.DONE)
