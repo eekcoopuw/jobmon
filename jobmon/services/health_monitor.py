@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from time import sleep
 
 from jobmon.config import config
-from jobmon.database import session_scope
+from jobmon.database import session_scope, engine
 from jobmon.requester import Requester
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
@@ -42,7 +42,7 @@ class HealthMonitor(object):
         self._poll_interval = poll_interval
         self._wf_notification_sink = wf_notification_sink
         self._node_notification_sink = node_notification_sink
-        self._database = 'docker'
+        self._database = engine.url.translate_connect_args()['database']
 
     def monitor_forever(self):
         while True:
@@ -77,8 +77,7 @@ class HealthMonitor(object):
         res = session.execute(query).fetchall()
         if res:
             return [tup[0] for tup in res]
-        else:
-            return []
+        return []
 
     def _calculate_node_failure_rate(self, session, working_wf_runs):
         """Collect all nodenames used in currently running,
