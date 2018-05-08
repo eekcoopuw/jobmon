@@ -133,12 +133,12 @@ class WorkflowRun(object):
             _, sge_ids = self.jsm_req.send_request({
                 'action': 'get_sge_ids_of_previous_workflow_run',
                 'kwargs': {'workflow_run_id': wf_run_id}})
+            if sge_ids:
+                qdel(sge_ids)
             _, _ = self.jsm_req.send_request({
                 'action': 'update_workflow_run',
                 'kwargs': {'workflow_run_id': wf_run_id,
                            'status': WorkflowRunStatus.STOPPED}})
-            if sge_ids:
-                qdel(sge_ids)
 
     def update_done(self):
         self._update_status(WorkflowRunStatus.DONE)
