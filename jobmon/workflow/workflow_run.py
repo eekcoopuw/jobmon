@@ -2,7 +2,6 @@ import getpass
 import os
 import socket
 from datetime import datetime
-import getpass
 import logging
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
@@ -95,12 +94,13 @@ class WorkflowRun(object):
         self.id = wfr_id
 
     def check_if_workflow_is_running(self):
-        rc, status, wf_run_id, hostname, pid = self.jsm_req.send_request({
-            'action': 'is_workflow_running',
-            'kwargs': {'workflow_id': self.workflow_id}})
+        rc, status, wf_run_id, hostname, pid, user = \
+            self.jsm_req.send_request({
+                'action': 'is_workflow_running',
+                'kwargs': {'workflow_id': self.workflow_id}})
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse to is_workflow_running")
-        return status, wf_run_id, hostname, pid
+        return status, wf_run_id, hostname, pid, user
 
     def kill_previous_workflow_runs(self):
         """First check the database for last WorkflowRun... where we store a
