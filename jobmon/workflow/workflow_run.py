@@ -3,6 +3,7 @@ import os
 import socket
 from datetime import datetime
 import logging
+from time import sleep
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 
@@ -12,7 +13,7 @@ from jobmon.config import config
 from jobmon.exceptions import ReturnCodes, SGENotAvailable
 from jobmon.requester import Requester
 try:
-    from jobmon.sge import qdel
+    from jobmon.sge import qdel, qstat
 except SGENotAvailable:
     pass
 from jobmon.sql_base import Base
@@ -135,10 +136,26 @@ class WorkflowRun(object):
                 'kwargs': {'workflow_run_id': wf_run_id}})
             if sge_ids:
                 qdel(sge_ids)
+            self.poll_for_lagging_jobs(sge_ids)
             _, _ = self.jsm_req.send_request({
                 'action': 'update_workflow_run',
                 'kwargs': {'workflow_run_id': wf_run_id,
                            'status': WorkflowRunStatus.STOPPED}})
+
+    def poll_for_lagging_jobs(self, sge_ids):
+        lagging_jobs = qstat(jids=sge_ids)
+        logger.info("Qdelling sge_ids {} from a previous workflow run, and "
+                    "polling to ensure they disappear from qstat"
+                    .format(sge_ids))
+        seconds = 0
+        while seconds <= 60 and lagging_jobs:
+            sleep(5)
+            lagging_jobs = qstat(jids=sge_ids)
+            if seconds == 60 and lagging_jobs:
+                raise RuntimeError("Polled for 60 seconds waiting for qdel-ed "
+                                   "sge_ids {} to disappear from qstat but "
+                                   "they still exist. Timing out."
+                                   .format(lagging_jobs.job_id.unique()))
 
     def update_done(self):
         self._update_status(WorkflowRunStatus.DONE)
