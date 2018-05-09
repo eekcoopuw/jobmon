@@ -149,6 +149,7 @@ class WorkflowRun(object):
                     .format(sge_ids))
         seconds = 0
         while seconds <= 60 and lagging_jobs:
+            seconds += 5
             sleep(5)
             lagging_jobs = qstat(jids=sge_ids)
             if seconds == 60 and lagging_jobs:
