@@ -178,7 +178,7 @@ def job_list_manager_sge(dag_id, tmpdir_factory):
 
 @pytest.fixture(scope='function')
 def dag(db_cfg, jsm_jqs, request):
-    """Use a fxiture for dag creation so that the dags' JobInstanceFactories
+    """Use a fixture for dag creation so that the dags' JobInstanceFactories
     and JobInstanceReconcilers get cleaned up after each test"""
     dag = TaskDag(name=request.node.name, interrupt_on_error=False)
     yield dag

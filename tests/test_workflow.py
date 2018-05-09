@@ -16,7 +16,7 @@ from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 def second_dag(db_cfg, jsm_jqs, request):
     """Use a fxiture for dag creation so that the dags' JobInstanceFactories
     and JobInstanceReconcilers get cleaned up after each test"""
-    dag = TaskDag(name=request.node.name+"2", interrupt_on_error=False)
+    dag = TaskDag(name=request.node.name + "2", interrupt_on_error=False)
     yield dag
     if dag.job_list_manager:
         dag.job_list_manager.disconnect()
@@ -48,7 +48,7 @@ def simple_workflow_w_errors(dag):
     return workflow
 
 
-def mock_slack(msg, channel):
+def mock_slack(self, msg, channel):
     print("{} to be posted to channel: {}".format(msg, channel))
 
 
@@ -462,10 +462,9 @@ def test_heartbeat(dag):
         lost = hm._get_lost_workflow_runs(session)
         assert not lost
 
-
     # Setup monitor with a very short loss threshold (~3s = 1min/20)
-    hm_hyper = HealthMonitor(loss_threshold=1/20.,
-                             notification_sink=mock_slack)
+    hm_hyper = HealthMonitor(loss_threshold=1 / 20.,
+                             wf_notification_sink=mock_slack)
     with database.session_scope() as session:
 
         # the reconciliation heart rate is now > this monitor's threshold,
@@ -481,3 +480,55 @@ def test_heartbeat(dag):
     with database.session_scope() as session:
         active = hm_hyper._get_active_workflow_runs(session)
         assert wfr.id not in [w.id for w in active]
+
+
+def test_failing_nodes(dag):
+
+    # these dummy dags will increment the ID of our dag-of-interest to
+    # avoid the timing collisions
+    with database.session_scope() as session:
+        for _ in range(5):
+            session.add(TaskDagMeta())
+        session.commit()
+
+    t1 = BashTask("echo 'hello'")
+    t2 = BashTask("echo 'to'", upstream_tasks=[t1])
+    t3 = BashTask("echo 'the'", upstream_tasks=[t2])
+    t4 = BashTask("echo 'beautiful'", upstream_tasks=[t3])
+    t5 = BashTask("echo 'world'", upstream_tasks=[t4])
+    t6 = BashTask("sleep 1", upstream_tasks=[t5])
+    dag.add_tasks([t1, t2, t3, t4, t5, t6])
+    workflow = Workflow(dag, "test_failing_nodes")
+    workflow.run()
+
+    wfr = workflow.workflow_run
+
+    # give some time to make sure the dag's reconciliation process
+    # has actually started
+    sleep(20)
+
+    hm = HealthMonitor(node_notification_sink=mock_slack)
+    hm._database = 'singularity'
+    with database.session_scope() as session:
+
+        # Manually make the workflow run look like it's still running
+        session.execute("""
+            UPDATE workflow_run
+            SET status='{s}'
+            WHERE workflow_id={id}""".format(s=WorkflowRunStatus.RUNNING,
+                                             id=workflow.id))
+
+        # This test's workflow should be in the 'active' AND succeeding list
+        active_wfrs = hm._get_succeeding_active_workflow_runs(session)
+        assert wfr.id in active_wfrs
+
+        # Manually make 5 job instances land on the same node & have them fail
+        session.execute("""
+            UPDATE job_instance
+            SET nodename='fake_node.ihme.washington.edu', status="{s}"
+            WHERE job_instance_id < 7 and workflow_run_id={wfr_id}
+            """.format(s=JobInstanceStatus.ERROR, wfr_id=wfr.id))
+        failing_nodes = hm._calculate_node_failure_rate(session, active_wfrs)
+        assert 'fake_node.ihme.washington.edu' in failing_nodes
+
+
