@@ -56,9 +56,9 @@ def test_empty_dag(dag):
     raises no Exceptions.
     """
     assert dag.name == "test_empty_dag"
-    dag.execute()
+    dag._execute()
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
     assert rc
     assert num_previously_complete == 0
@@ -81,7 +81,7 @@ def test_one_task(tmp_out_dir, dag):
                                       n=output_file_name)))
     dag.add_task(task)
     os.makedirs("{}/test_one_task".format(tmp_out_dir))
-    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
     assert rc
     assert num_completed == 1
@@ -152,7 +152,7 @@ def test_three_linear_tasks(tmp_out_dir, dag):
     task_c.add_upstream(task_b)  # Exercise add_upstream post-instantiation
 
     logger.debug("DAG: {}".format(dag))
-    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
     assert rc
     assert num_completed == 3
     assert num_previously_complete == 0
@@ -225,7 +225,7 @@ def test_fork_and_join_tasks(tmp_out_dir, dag):
 
     logger.info("DAG: {}".format(dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
     assert rc
     assert num_completed == 1 + 3 + 3 + 1
@@ -300,7 +300,7 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
 
     logger.info("DAG: {}".format(dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
     assert not rc
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
@@ -379,7 +379,7 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
 
     logger.info("DAG: {}".format(dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
     assert rc
     assert num_completed == 1 + 3 + 3 + 1
@@ -481,7 +481,7 @@ def test_bushy_dag(tmp_out_dir, dag):
 
     logger.info("DAG: {}".format(dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
     # TODO: How to check that nothing was started before its upstream were
     # done?
@@ -527,7 +527,7 @@ def test_dag_logging(tmp_out_dir, dag):
                                       n=output_file_name)))
     dag.add_task(task)
     os.makedirs("{}/test_dag_logging".format(tmp_out_dir))
-    (rc, num_completed, num_previously_complete, num_failed) = dag.execute()
+    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
     with session_scope() as session:
         ji = session.query(JobInstance).first()

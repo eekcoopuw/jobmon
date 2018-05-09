@@ -28,11 +28,18 @@ To get started::
     the primary goal for the project.
 
 
+Getting Started
+***************
+Users will primarily interact with jobmon by creating a :term:`TaskDag` and
+attaching it to a :term:`Workflow`. While a TaskDag defines the relationships between the tasks,
+a Workflow defines the relationship between multiple runs of the same TaskDag. Each Workflow is
+uniquely defined by its :term:`WorkflowArgs`. A Workflow can only be re-loaded if the TaskDag and WorkflowArgs are shown to be exact matches to a previous Workflow.
+
+
 Create a TaskDag
 ****************
 
-Users will primarily interact with jobmon by creating a :term:`TaskDag` and
-attaching it to a :term:`Workflow`. A TaskDag is so-named because it represents
+A TaskDag is so-named because it represents
 a set of Tasks which may depend on one another such that if each relationship
 were drawn (Task A) -> (Task B depends on Task A), it would form a
 `directed-acyclic graph (DAG)
@@ -67,8 +74,8 @@ TaskDag and adding a few tasks is simple::
 Create a Workflow
 *****************
 
-You might want to re-use your TaskDag definition multiple times.  This is where
-Workflows come into play. With a Workflow you can:
+A workflow can be run multiple times with the same task dag,
+and allows for sophisticated tracking of how many times a DAG gets executed, who ran them and when, and does some work to kill off any job instances that might be left over from previous failed attempts. With a Workflow you can:
 
 #. Re-use a TaskDag
 #. Stop a Dag mid-run and resume it (either intentionally or unfortunately, as

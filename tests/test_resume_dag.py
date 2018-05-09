@@ -71,7 +71,7 @@ def test_resume_dag(dag, tmp_out_dir):
 
     # ensure dag officially "fell over"
     with pytest.raises(ValueError):
-        dag.execute()
+        dag._execute()
 
     # ensure the dag that "fell over" has 2 out of the 5 jobs complete
     statuses = list(dag.job_list_manager.job_statuses.values())
@@ -85,7 +85,7 @@ def test_resume_dag(dag, tmp_out_dir):
     # keep track of all completed tasks from last run of the dag, and so the
     # number of all_completed will be all 5
     dag._set_fail_after_n_executions(None)
-    rc, all_completed, all_previously_complete, all_failed = dag.execute()
+    rc, all_completed, all_previously_complete, all_failed = dag._execute()
     assert rc is True
     assert all_previously_complete == 2
     assert all_completed == 3
