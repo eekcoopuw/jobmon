@@ -7,13 +7,11 @@ we want to link up each job only to the previous jobs that it requires, not to e
 in that phase. The parallelization strategies for each phase are a little different,
 complicating the dependency scheme.
 
-    -Most-detailed jobs are parallelized by location, year;
-    -Loc-agg jobs are parallelized by measure, year, rei, and sex;
-    -Cleanup jobs are parallelized by location, measure, year
-    -Pct-change jobs are parallelized by location_id, measure, start_year, end_year;
-        -For most-detailed locations, this can run immediately after the most-detailed phase
-        -For aggregate locations, this has to be run after both loc-agg and cleanup
-    -Upload jobs are parallelized by measure
+1. Most-detailed jobs are parallelized by location, year;
+2. Loc-agg jobs are parallelized by measure, year, rei, and sex;
+3. Cleanup jobs are parallelized by location, measure, year
+4. Pct-change jobs are parallelized by location_id, measure, start_year, end_year; For most-detailed locations, this can run immediately after the most-detailed phase. But for aggregate locations, this has to be run after both loc-agg and cleanup
+5. Upload jobs are parallelized by measure
 
 To begin, we create an empty dictionary for each phase and when we build each task, we add the
 task to its dictionary. Then the task in the following phase can find its upstream task using
