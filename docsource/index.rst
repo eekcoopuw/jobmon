@@ -23,6 +23,7 @@ Table of Contents
     :maxdepth: 2
 
     quickstart
+    advanced_dependencies
     services
     glossary
     design_notes

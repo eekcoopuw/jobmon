@@ -1,11 +1,11 @@
-jobmon\.meta\_models package
-============================
+jobmon.meta\_models package
+===========================
 
 Submodules
 ----------
 
-jobmon\.meta\_models\.task\_dag module
---------------------------------------
+jobmon.meta\_models.task\_dag module
+------------------------------------
 
 .. automodule:: jobmon.meta_models.task_dag
     :members:

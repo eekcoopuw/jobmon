@@ -1,18 +1,19 @@
 Example for How to Use Jobmon for Advanced Dependencies
 *******************************************************
 
-For this example, we'll use a slighly simplified version of the Burdenator which has five "phases":
-most-detailed, pct-change, loc-agg, cleanup, and upload. To reduce runtime, we want to link up each
-job only to the previous jobs that it requires, not to every job in that phase. The parallelization
-strategies for each phase are a little different, complicating the dependency scheme::
+For this example, we'll use a slighly simplified version of the Burdenator which has five
+"phases": most-detailed, pct-change, loc-agg, cleanup, and upload. To reduce runtime,
+we want to link up each job only to the previous jobs that it requires, not to every job
+in that phase. The parallelization strategies for each phase are a little different,
+complicating the dependency scheme.
 
-    Most-detailed jobs are parallelized by location, year;
-    Loc-agg jobs are parallelized by measure, year, rei, and sex;
-    Cleanup jobs are parallelized by location, measure, year
-    Pct-change jobs are parallelized by location_id, measure, start_year, end_year;
-        For most-detailed locations, this can run immediately after the most-detailed phase
-        For aggregate locations, this has to be run after both loc-agg and cleanup
-    Upload jobs are parallelized by measure
+    -Most-detailed jobs are parallelized by location, year;
+    -Loc-agg jobs are parallelized by measure, year, rei, and sex;
+    -Cleanup jobs are parallelized by location, measure, year
+    -Pct-change jobs are parallelized by location_id, measure, start_year, end_year;
+        -For most-detailed locations, this can run immediately after the most-detailed phase
+        -For aggregate locations, this has to be run after both loc-agg and cleanup
+    -Upload jobs are parallelized by measure
 
 To begin, we create an empty dictionary for each phase and when we build each task, we add the
 task to its dictionary. Then the task in the following phase can find its upstream task using
@@ -86,12 +87,14 @@ downstream tasks depend on these jobs.
                     for year in self.year_ids:
                         task = PythonTask(script='run_cleanup', args=[measure, loc, year],
                                           name='cleanup_{}_{}_{}'.format(measure, loc, year),
-                                          slots=25, mem_free=50, max_runtime=360, max_attempts=11)
+                                          slots=25, mem_free=50, max_runtime=360,
+                                          max_attempts=11)
                         for sex in self.sex_ids:
                             for rei in self.rei_ids:
                                 task.add_upstream(
                                     self.loc_agg_jobs_by_command['loc_agg_{}_{}_{}_{}'
-                                                                 .format(measure, year, sex, rei)])
+                                                                 .format(measure, year,
+                                                                         sex, rei)])
                         self.task_dag.add_task
                         self.cleanup_jobs_by_command[task.name] = task
 
@@ -105,9 +108,13 @@ downstream tasks depend on these jobs.
                             is_aggregate = True
                         else:
                             is_aggregate = False
-                        task = PythonTask(script='run_pct_change', args=[measure, loc, start_year, end_year],
-                                          name='pct_change_{}_{}_{}_{}'.format(measure, loc, start_year, end_year),
-                                          slots=45, mem_free=90, max_attempts=11, max_runtime=540)
+                        task = PythonTask(script='run_pct_change', args=[measure, loc,
+                                                                         start_year,
+                                                                         end_year],
+                                          name=('pct_change_{}_{}_{}_{}'
+                                                .format(measure, loc, start_year, end_year),
+                                          slots=45, mem_free=90, max_attempts=11,
+                                          max_runtime=540)
                         for year in [start_year, end_year]:
                             if is_aggregate:
                                 task.add_upstream(
