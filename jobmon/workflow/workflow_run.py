@@ -2,6 +2,8 @@ import getpass
 import os
 import socket
 from datetime import datetime
+import logging
+from time import sleep
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 
@@ -11,10 +13,13 @@ from jobmon.config import config
 from jobmon.exceptions import ReturnCodes, SGENotAvailable
 from jobmon.requester import Requester
 try:
-    from jobmon.sge import qdel
+    from jobmon.sge import qdel, qstat
 except SGENotAvailable:
     pass
 from jobmon.sql_base import Base
+from jobmon.utils import kill_remote_process
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowRunStatus(Base):
@@ -72,14 +77,7 @@ class WorkflowRun(object):
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
-        rc, previous_run_sge_ids = self.jsm_req.send_request({
-            'action': 'kill_previous_workflow_runs',
-            'kwargs': {'workflow_id': workflow_id}
-        })
-        if rc != ReturnCodes.OK:
-            raise ValueError("Invalid Reponse to kill_previous_workflow_runs")
-        if previous_run_sge_ids:
-            qdel(previous_run_sge_ids)
+        self.kill_previous_workflow_runs()
         rc, wfr_id = self.jsm_req.send_request({
             'action': 'add_workflow_run',
             'kwargs': {'workflow_id': workflow_id,
@@ -95,6 +93,70 @@ class WorkflowRun(object):
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse to add_workflow_run")
         self.id = wfr_id
+
+    def check_if_workflow_is_running(self):
+        rc, status, wf_run_id, hostname, pid, user = \
+            self.jsm_req.send_request({
+                'action': 'is_workflow_running',
+                'kwargs': {'workflow_id': self.workflow_id}})
+        if rc != ReturnCodes.OK:
+            raise ValueError("Invalid Reponse to is_workflow_running")
+        return status, wf_run_id, hostname, pid, user
+
+    def kill_previous_workflow_runs(self):
+        """First check the database for last WorkflowRun... where we store a
+        hostname + pid + running_flag
+
+        If in the database as 'running,' check the hostname
+        + pid to see if the process is actually still running:
+          A) If so, kill those pids and any still running jobs
+          B) Then flip the database of the previous WorkflowRun to STOPPED"""
+        status, wf_run_id, hostname, pid, user = \
+            self.check_if_workflow_is_running()
+        if not status:
+            return
+        if user != getpass.getuser():
+            msg = ("Workflow_run_id {} for this workflow_id is still in "
+                   "running mode by user {}. Please ask this user to kill "
+                   "their processes and qdel their jobs. Be aware that if you "
+                   "restart this workflow prior to the other user killing "
+                   "theirs, this error will not re-raise but you may be "
+                   "creating orphaned processes and hard-to-find bugs"
+                   .format(wf_run_id, user))
+            logger.error(msg)
+            _, _ = self.jsm_req.send_request({
+                'action': 'update_workflow_run',
+                'kwargs': {'workflow_run_id': wf_run_id,
+                           'status': WorkflowRunStatus.STOPPED}})
+            raise RuntimeError(msg)
+        else:
+            kill_remote_process(hostname, pid)
+            _, sge_ids = self.jsm_req.send_request({
+                'action': 'get_sge_ids_of_previous_workflow_run',
+                'kwargs': {'workflow_run_id': wf_run_id}})
+            if sge_ids:
+                qdel(sge_ids)
+            self.poll_for_lagging_jobs(sge_ids)
+            _, _ = self.jsm_req.send_request({
+                'action': 'update_workflow_run',
+                'kwargs': {'workflow_run_id': wf_run_id,
+                           'status': WorkflowRunStatus.STOPPED}})
+
+    def poll_for_lagging_jobs(self, sge_ids):
+        lagging_jobs = qstat(jids=sge_ids)
+        logger.info("Qdelling sge_ids {} from a previous workflow run, and "
+                    "polling to ensure they disappear from qstat"
+                    .format(sge_ids))
+        seconds = 0
+        while seconds <= 60 and lagging_jobs:
+            seconds += 5
+            sleep(5)
+            lagging_jobs = qstat(jids=sge_ids)
+            if seconds == 60 and lagging_jobs:
+                raise RuntimeError("Polled for 60 seconds waiting for qdel-ed "
+                                   "sge_ids {} to disappear from qstat but "
+                                   "they still exist. Timing out."
+                                   .format(lagging_jobs.job_id.unique()))
 
     def update_done(self):
         self._update_status(WorkflowRunStatus.DONE)
