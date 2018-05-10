@@ -128,7 +128,7 @@ class TaskDag(object):
                 return False
         return True
 
-    def execute(self, executor_args={}):
+    def _execute(self, executor_args={}):
         """
         Take a concrete DAG and queue all the Tasks that are not DONE.
 

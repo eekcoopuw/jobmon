@@ -84,7 +84,7 @@ def test_burdenator_scale(db_cfg, jsm_jqs, task_dag_manager, tmp_out_dir):
 
     logger.info("DAG: {}".format(dag))
 
-    (rc, num_completed, num_failed) = dag.execute()
+    (rc, num_completed, num_failed) = dag._execute()
 
     assert rc
     assert num_completed == N + 3 * N + N + (N // 10)

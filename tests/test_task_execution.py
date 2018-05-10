@@ -48,7 +48,7 @@ def test_bash_task(dag):
                     max_runtime=60)
     dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
-        dag.execute(executor_args={'project': 'proj_jenkins'}))
+        dag._execute(executor_args={'project': 'proj_jenkins'}))
 
     assert rc
     assert num_completed == 1
@@ -82,7 +82,7 @@ def test_python_task(dag, tmp_out_dir):
                       name=name, mem_free=1, max_attempts=2, max_runtime=60)
     dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
-        dag.execute(executor_args={'project': 'proj_jenkins'}))
+        dag._execute(executor_args={'project': 'proj_jenkins'}))
 
     assert rc
     assert num_completed == 1
@@ -112,7 +112,7 @@ def test_R_task(dag, tmp_out_dir):
                  mem_free=1, max_attempts=2, max_runtime=60)
     dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
-        dag.execute(executor_args={'project': 'proj_jenkins'}))
+        dag._execute(executor_args={'project': 'proj_jenkins'}))
 
     assert rc
     assert num_completed == 1
@@ -141,7 +141,7 @@ def test_stata_task(dag, tmp_out_dir):
                      name=name, mem_free=1, max_attempts=2, max_runtime=60)
     dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
-        dag.execute(executor_args={'project': 'proj_jenkins'}))
+        dag._execute(executor_args={'project': 'proj_jenkins'}))
 
     assert rc
     assert num_completed == 1
