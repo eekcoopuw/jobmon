@@ -2,6 +2,7 @@ sphinx
 sphinx_rtd_theme
 pytest
 cluster_utils
+graphviz
 functools32; python_version < '3.0'
 subprocess32; python_version < '3.0'
 
