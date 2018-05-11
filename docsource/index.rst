@@ -24,6 +24,7 @@ Table of Contents
 
     quickstart
     advanced_dependencies
+    dag_visualization
     services
     glossary
     design_notes
