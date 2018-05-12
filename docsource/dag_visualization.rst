@@ -16,3 +16,5 @@ To do this is very simple. First you must have your dag created and all tasks al
                output_format='svg').render()
 
 The resulting image will show up in the graph_outdir, with the filename matching the name of your dag.
+
+Optionally you may specify options to TaskDagViz() to change the number of inches between nodes of different levels (ranksep), number of inches between nodes of the same level (nodesep), overall width of the graph (width), and over height of the graph (height).
