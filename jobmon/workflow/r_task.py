@@ -12,7 +12,8 @@ class RTask(ExecutableTask):
 
     def __init__(self, path_to_R_binary=default_R_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=1, mem_free=2, max_attempts=3, max_runtime=None):
+                 tag=None, slots=1, mem_free=2, max_attempts=3,
+                 max_runtime=None):
         """
         Args:
             path_to_R_binary (str): the R install that should be used
@@ -24,6 +25,7 @@ class RTask(ExecutableTask):
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
             name (str): name that will be visible in qstat for this job
+            tag (str): a group identifier. Default is None.
             slots (int): slots to request on the cluster. Default is 1
             mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 2
@@ -35,7 +37,7 @@ class RTask(ExecutableTask):
         self.command = RTask.make_cmd(path_to_R_binary, script, args)
         super(RTask, self).__init__(
             command=self.command, env_variables=env_variables,
-            upstream_tasks=upstream_tasks, name=name, slots=slots,
+            upstream_tasks=upstream_tasks, name=name, tag=tag, slots=slots,
             mem_free=mem_free, max_attempts=max_attempts,
             max_runtime=max_runtime)
 

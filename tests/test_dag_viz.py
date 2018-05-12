@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 from cluster_utils.io import makedirs_safely
 
@@ -66,5 +67,10 @@ def test_dag_viz(tmp_out_dir, dag):
     )
     dag.add_task(task_d)
 
-    TaskDagViz(dag, graph_outdir=tmp_out_dir, output_format='pdf').render()
-    assert os.path.exists('{}/{}.pdf'.format(tmp_out_dir, dag.name))
+    TaskDagViz(dag, graph_outdir=tmp_out_dir, output_format='svg').render()
+    graph_name = '{}/{}.svg'.format(tmp_out_dir, dag.name)
+    assert os.path.exists(graph_name)
+    node_num = subprocess.check_output(
+        """less {} | grep 'class="node"' | wc -l""".format(graph_name),
+        shell=True)
+    assert int(node_num) == 8

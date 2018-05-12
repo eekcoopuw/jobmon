@@ -29,6 +29,8 @@ class TaskDag(object):
         self.top_fringe = []
         self.fail_after_n_executions = None
 
+        self.tags = set()
+
         # Control whether the JIF/JIR daemons should interrupt on errors...
         # this should primarily be set to True, except for test purposes
         self.interrupt_on_error = interrupt_on_error
@@ -314,6 +316,7 @@ class TaskDag(object):
             raise ValueError("A task with hash '{}' already exists"
                              .format(task.hash))
         self.tasks[task.hash] = task
+        self.tags.add(task.tag)
         logger.debug("Task {} added".format(task.hash))
         return task
 

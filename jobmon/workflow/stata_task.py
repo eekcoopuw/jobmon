@@ -13,7 +13,8 @@ class StataTask(ExecutableTask):
 
     def __init__(self, path_to_stata_binary=default_stata_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=1, mem_free=2, max_attempts=3, max_runtime=None):
+                 tag=None, slots=1, mem_free=2, max_attempts=3,
+                 max_runtime=None):
         """
         This runs a stata file using stata-mp command, using the flags -b
         (batch) and -q (quiet).
@@ -31,6 +32,7 @@ class StataTask(ExecutableTask):
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
             name (str): name that will be visible in qstat for this job
+            tag (str): a group identifier. Default is None.
             slots (int): slots to request on the cluster. Default is 1
             mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 2
@@ -42,7 +44,7 @@ class StataTask(ExecutableTask):
         self.command = StataTask.make_cmd(path_to_stata_binary, script, args)
         super(StataTask, self).__init__(
             command=self.command, env_variables=env_variables,
-            upstream_tasks=upstream_tasks, name=name, slots=slots,
+            upstream_tasks=upstream_tasks, name=name, tag=tag, slots=slots,
             mem_free=mem_free, max_attempts=max_attempts,
             max_runtime=max_runtime)
 

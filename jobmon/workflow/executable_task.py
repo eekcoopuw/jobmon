@@ -56,7 +56,7 @@ class ExecutableTask(object):
         return True
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
-                 name=None, slots=1, mem_free=2, max_attempts=3,
+                 name=None, tag=None, slots=1, mem_free=2, max_attempts=3,
                  max_runtime=None):
         """
         Create a task
@@ -70,6 +70,7 @@ class ExecutableTask(object):
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
         name (str): name that will be visible in qstat for this job
+        tag (str): a group identifier. Default is None.
         slots (int): slots to request on the cluster. Default is 1
         mem_free (int): amount of memory to request on the cluster.
             Generally 2x slots. Default is 2
@@ -102,6 +103,7 @@ class ExecutableTask(object):
         else:
             self.name = name
         self.hash_name = self.name  # for backwards compatibility
+        self.tag = tag
 
         ExecutableTask.is_valid_sge_job_name(self.name)
 
@@ -219,6 +221,7 @@ class ExecutableTask(object):
             jobname=self.name,
             job_hash=self.hash,
             command=self.command,
+            tag=self.tag,
             slots=self.slots,
             mem_free=self.mem_free,
             max_attempts=self.max_attempts,
