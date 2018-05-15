@@ -57,7 +57,7 @@ class ExecutableTask(object):
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
                  name=None, slots=1, mem_free=2, max_attempts=3,
-                 max_runtime=None):
+                 max_runtime=None, tag=None):
         """
         Create a task
 
@@ -77,6 +77,9 @@ class ExecutableTask(object):
             before giving up. Default is 1
         max_runtime (int, seconds): how long the job should be allowed to
             run before having sge kill it. Default is None, for indefinite.
+        tag (str): a group identifier. Currently just used for visualization.
+            All tasks with the same tag will be colored the same in a
+            TaskDagViz instance. Default is None.
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
@@ -102,6 +105,7 @@ class ExecutableTask(object):
         else:
             self.name = name
         self.hash_name = self.name  # for backwards compatibility
+        self.tag = tag
 
         ExecutableTask.is_valid_sge_job_name(self.name)
 
@@ -219,6 +223,7 @@ class ExecutableTask(object):
             jobname=self.name,
             job_hash=self.hash,
             command=self.command,
+            tag=self.tag,
             slots=self.slots,
             mem_free=self.mem_free,
             max_attempts=self.max_attempts,

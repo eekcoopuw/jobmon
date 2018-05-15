@@ -14,8 +14,9 @@ class JobFactory(object):
         self.dag_id = dag_id
         self.requester = requester.Requester(config.jm_rep_conn)
 
-    def create_job(self, command, jobname, job_hash, slots=1, mem_free=2,
-                   max_attempts=1, max_runtime=None, context_args=None):
+    def create_job(self, command, jobname, job_hash, slots=1,
+                   mem_free=2, max_attempts=1, max_runtime=None,
+                   context_args=None, tag=None):
         """
         Create a job entry in the database.
 
@@ -31,6 +32,7 @@ class JobFactory(object):
                 killing and marking that instance as failed
             context_args (dict): Additional arguments to be sent to the command
                 builders
+            tag (str, default None): a group identifier
         """
         if not context_args:
             context_args = json.dumps({})
@@ -46,7 +48,8 @@ class JobFactory(object):
                        'slots': slots,
                        'mem_free': mem_free,
                        'max_attempts': max_attempts,
-                       'max_runtime': max_runtime}
+                       'max_runtime': max_runtime,
+                       'tag': tag}
         })
         if rc != ReturnCodes.OK:
             raise InvalidResponse(

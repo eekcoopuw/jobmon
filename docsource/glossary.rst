@@ -56,6 +56,11 @@ For users
         difference between a Job and a Task is that a Task is a Job that has
         dependencies or dependents.
 
+    Tag
+        A identifier attribute of a Task that allows tasks to be grouped together.
+        Currently, this identifier is only used for purposes of visualization: all
+        tasks with the same tag will be colored the same.
+
 
 For developers
 **************

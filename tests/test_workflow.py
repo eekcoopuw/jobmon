@@ -341,7 +341,7 @@ def test_new_workflow_existing_dag(dag, second_dag):
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
     dag_nowf.add_tasks([t1, t2])
-    dag_nowf.execute()
+    dag_nowf._execute()
 
     # Need to ensure that the Workflow doesn't attach itself to the old DAG.
     dag_wf = second_dag
