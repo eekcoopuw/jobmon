@@ -24,7 +24,7 @@ services:
   jqs:
     image: jobmon
     ports:
-        - "4958:3458"
+        - "5058:3458"
     entrypoint:
         - ./wait-for-tables.sh
         - db
