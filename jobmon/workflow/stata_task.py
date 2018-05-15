@@ -32,7 +32,9 @@ class StataTask(ExecutableTask):
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
             name (str): name that will be visible in qstat for this job
-            tag (str): a group identifier. Default is None.
+            tag (str): a group identifier. Currently just used for
+                visualization. All tasks with the same tag will be colored the
+                same in a TaskDagViz instance. Default is None.
             slots (int): slots to request on the cluster. Default is 1
             mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 2

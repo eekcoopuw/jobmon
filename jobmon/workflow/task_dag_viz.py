@@ -42,7 +42,7 @@ class TaskDagViz(object):
     def get_colors(self):
         color_map = {}
         for i, tag in enumerate(self.task_dag.tags):
-            # ring buffer the color spectrum
+            # ring buffer the color array. Set312 is a 12 member color spectrum
             color_map[tag] = "/set312/" + str((i + 1) % 12)
         return color_map
 
