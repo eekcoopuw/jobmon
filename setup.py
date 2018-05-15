@@ -47,6 +47,7 @@ install_requires = [
     'cluster_utils',
     'requests',
     'paramiko',
+    'graphviz'
 ]
 if sys.version_info < (3, 0):
     install_requires.append('subprocess32')

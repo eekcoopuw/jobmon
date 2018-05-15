@@ -52,7 +52,7 @@ class Job(Base):
     def from_wire(cls, dct):
         return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
                    job_hash=dct['job_hash'], name=dct['name'],
-                   command=dct['command'], slots=dct['slots'],
+                   tag=dct['tag'], command=dct['command'], slots=dct['slots'],
                    mem_free=dct['mem_free'], status=dct['status'],
                    num_attempts=dct['num_attempts'],
                    max_attempts=dct['max_attempts'],
@@ -63,7 +63,7 @@ class Job(Base):
     def to_wire(self):
         lnode, lpgid = self._last_instance_procinfo()
         return {'dag_id': self.dag_id, 'job_id': self.job_id,
-                'name': self.name, 'job_hash': self.job_hash,
+                'name': self.name, 'tag': self.tag, 'job_hash': self.job_hash,
                 'command': self.command, 'status': self.status,
                 'slots': self.slots, 'mem_free': self.mem_free,
                 'num_attempts': self.num_attempts,
@@ -79,6 +79,7 @@ class Job(Base):
         ForeignKey('task_dag.dag_id'))
     job_hash = Column(String(255))
     name = Column(String(255))
+    tag = Column(String(255))
     command = Column(Text)
     context_args = Column(String(1000))
     slots = Column(Integer, default=1)

@@ -12,7 +12,8 @@ class RTask(ExecutableTask):
 
     def __init__(self, path_to_R_binary=default_R_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=1, mem_free=2, max_attempts=3, max_runtime=None):
+                 slots=1, mem_free=2, max_attempts=3, max_runtime=None,
+                 tag=None):
         """
         Args:
             path_to_R_binary (str): the R install that should be used
@@ -31,13 +32,16 @@ class RTask(ExecutableTask):
                 before giving up. Default is 1
             max_runtime (int, seconds): how long the job should be allowed to
                 run before having sge kill it. Default is None, for indefinite.
+            tag (str): a group identifier. Currently just used for
+                visualization. All tasks with the same tag will be colored the
+                same in a TaskDagViz instance. Default is None.
         """
         self.command = RTask.make_cmd(path_to_R_binary, script, args)
         super(RTask, self).__init__(
             command=self.command, env_variables=env_variables,
             upstream_tasks=upstream_tasks, name=name, slots=slots,
             mem_free=mem_free, max_attempts=max_attempts,
-            max_runtime=max_runtime)
+            max_runtime=max_runtime, tag=tag)
 
     @staticmethod
     def make_cmd(path_to_R_binary, script, args):
