@@ -14,9 +14,9 @@ class JobFactory(object):
         self.dag_id = dag_id
         self.requester = requester.Requester(config.jm_rep_conn)
 
-    def create_job(self, command, jobname, job_hash, tag=None, slots=1,
+    def create_job(self, command, jobname, job_hash, slots=1,
                    mem_free=2, max_attempts=1, max_runtime=None,
-                   context_args=None):
+                   context_args=None, tag=None):
         """
         Create a job entry in the database.
 
@@ -24,7 +24,6 @@ class JobFactory(object):
             command (str): the command to run
             jobname (str): name of the job
             job_hash (str): hash of the job
-            tag (str, default None): a group identifier
             slots (int): Number of slots to request from SGE
             mem_free (int): Number of GB of memory to request from SGE
             max_attmpets (int): Maximum # of attempts before sending the job to
@@ -33,6 +32,7 @@ class JobFactory(object):
                 killing and marking that instance as failed
             context_args (dict): Additional arguments to be sent to the command
                 builders
+            tag (str, default None): a group identifier
         """
         if not context_args:
             context_args = json.dumps({})
@@ -42,14 +42,14 @@ class JobFactory(object):
             'action': 'add_job',
             'kwargs': {'dag_id': self.dag_id,
                        'name': jobname,
-                       'tag': tag,
                        'job_hash': job_hash,
                        'command': command,
                        'context_args': context_args,
                        'slots': slots,
                        'mem_free': mem_free,
                        'max_attempts': max_attempts,
-                       'max_runtime': max_runtime}
+                       'max_runtime': max_runtime,
+                       'tag': tag}
         })
         if rc != ReturnCodes.OK:
             raise InvalidResponse(

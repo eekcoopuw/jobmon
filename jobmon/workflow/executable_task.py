@@ -56,8 +56,8 @@ class ExecutableTask(object):
         return True
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
-                 name=None, tag=None, slots=1, mem_free=2, max_attempts=3,
-                 max_runtime=None):
+                 name=None, slots=1, mem_free=2, max_attempts=3,
+                 max_runtime=None, tag=None):
         """
         Create a task
 
@@ -70,9 +70,6 @@ class ExecutableTask(object):
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
         name (str): name that will be visible in qstat for this job
-        tag (str): a group identifier. Currently just used for visualization.
-            All tasks with the same tag will be colored the same in a
-            TaskDagViz instance. Default is None.
         slots (int): slots to request on the cluster. Default is 1
         mem_free (int): amount of memory to request on the cluster.
             Generally 2x slots. Default is 2
@@ -80,6 +77,9 @@ class ExecutableTask(object):
             before giving up. Default is 1
         max_runtime (int, seconds): how long the job should be allowed to
             run before having sge kill it. Default is None, for indefinite.
+        tag (str): a group identifier. Currently just used for visualization.
+            All tasks with the same tag will be colored the same in a
+            TaskDagViz instance. Default is None.
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
