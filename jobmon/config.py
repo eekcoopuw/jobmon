@@ -49,12 +49,12 @@ class GlobalConfig(object):
 
     default_opts = {
         "conn_str": ("mysql://docker:docker@"
-                     "jobmon-p01.ihme.washington.edu:3311/docker"),
+                     "jobmon-p01.ihme.washington.edu:3312/docker"),
         "jsm_host": "jobmon-p01.ihme.washington.edu",
         "jqs_host": "jobmon-p01.ihme.washington.edu",
-        "jsm_rep_port": 4956,
-        "jsm_pub_port": 4957,
-        "jqs_port": 4958,
+        "jsm_rep_port": 5056,
+        "jsm_pub_port": 5057,
+        "jqs_port": 5058,
         "verbose": False,
         "slack_token": None,
         "default_wf_slack_channel": None,
