@@ -92,7 +92,7 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
     Returns:
         sge job id
     """
-    jobmon_command = config.get('jobmon_command', None)
+    jobmon_command = config.default_opts.get('jobmon_command', None)
     if not jobmon_command:
         jobmon_command = subprocess.check_output(["which", "jobmon_command"])
     jobmon_command = jobmon_command.strip().decode("utf-8")
