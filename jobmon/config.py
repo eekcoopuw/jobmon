@@ -58,12 +58,14 @@ class GlobalConfig(object):
         "verbose": False,
         "slack_token": None,
         "default_wf_slack_channel": None,
-        "default_node_slack_channel": None
+        "default_node_slack_channel": None,
+        "jobmon_command": None
     }
 
     def __init__(self, conn_str, jsm_host, jqs_host, jsm_rep_port,
                  jsm_pub_port, jqs_port, verbose, slack_token,
-                 default_wf_slack_channel, default_node_slack_channel):
+                 default_wf_slack_channel, default_node_slack_channel,
+                 jobmon_command):
 
         self.conn_str = conn_str
         self.verbose = False
@@ -73,6 +75,7 @@ class GlobalConfig(object):
         self._jsm_pub_port = jsm_pub_port
         self._jsm_rep_port = jsm_rep_port
         self._jqs_port = jqs_port
+        self._jobmon_command = jobmon_command
 
         self.jm_rep_conn = ConnectionConfig(
             host=jsm_host,
@@ -170,7 +173,18 @@ class GlobalConfig(object):
                 gc_opts[opt] = opts_dict[opt]
             else:
                 gc_opts[opt] = GlobalConfig.default_opts[opt]
+        GlobalConfig.default_opts['jobmon_command'] = \
+            GlobalConfig.derive_jobmon_command_from_env()
         return gc_opts
+
+    @staticmethod
+    def derive_jobmon_command_from_env():
+        singularity_img_path = os.environ.get('SINGULARITYENV_IMGPATH', None)
+        if singularity_img_path:
+            return (
+                'singularity run --app /opt/conda/bin/jobmon_command {}'
+                .format(singularity_img_path))
+        return None
 
 
 # The config singleton... if you need to update it, modify the object directly
