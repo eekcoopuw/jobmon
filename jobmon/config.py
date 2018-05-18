@@ -179,7 +179,7 @@ class GlobalConfig(object):
 
     @staticmethod
     def derive_jobmon_command_from_env():
-        singularity_img_path = os.environ.get('SINGULARITYENV_IMGPATH', None)
+        singularity_img_path = os.environ.get('IMGPATH', None)
         if singularity_img_path:
             return (
                 'singularity run --app /opt/conda/bin/jobmon_command {}'
