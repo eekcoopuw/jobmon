@@ -184,15 +184,6 @@ class GlobalConfig(object):
                 gc_opts[opt] = GlobalConfig.default_opts[opt]
         return gc_opts
 
-    @staticmethod
-    def derive_jobmon_command_from_env():
-        singularity_img_path = os.environ.get('SINGULARITYENV_IMGPATH', None)
-        if singularity_img_path:
-            return (
-                'singularity run --app /opt/conda/bin/jobmon_command {}'
-                .format(singularity_img_path))
-        return None
-
 
 # The config singleton... if you need to update it, modify the object directly
 # via the setter or apply_opts_dct methods. Don't create a new one.
