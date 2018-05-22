@@ -88,8 +88,15 @@ class ReplyServer(object):
         logger.info('Listening on port {}.'.format(self.port))
         while True:
             try:
+                # Random chatter on the socket has been leading to decode
+                # errors on non-json messages
+                # (e.g. JSONDecodeError: Expecting value: line 1 column 1
+                #       (char 0))
+                #
+                # We don't believe these are "real" errors, but rather
+                # random networking/monitoring blips. Logging and
+                # continuing for now.
                 msg = self.socket.recv_json()  # server blocks on receive
-                # logger.debug("Received json {}".format(msg))
                 try:
                     if msg == 'stop':
                         logger.info("ReplyServer stopping")
