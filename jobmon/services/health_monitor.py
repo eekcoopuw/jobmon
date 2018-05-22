@@ -109,7 +109,7 @@ class HealthMonitor(object):
     def _notify_of_failing_nodes(self, nodes):
         msg = "Potentially failing nodes found: {}".format(nodes)
         if self._node_notification_sink:
-            self._node_notification_sink(None, msg)
+            self._node_notification_sink(msg)
 
     def _get_active_workflow_runs(self, session):
         wrs = session.query(WorkflowRunDAO).filter_by(
@@ -146,5 +146,5 @@ class HealthMonitor(object):
                        dag_id=dag.dag_id, dag_name=dag.name))
             logger.info(msg)
             if self._wf_notification_sink:
-                self._wf_notification_sink(None, msg,
+                self._wf_notification_sink(msg=msg,
                                            channel=wfr.slack_channel)
