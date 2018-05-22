@@ -48,7 +48,7 @@ def simple_workflow_w_errors(dag):
     return workflow
 
 
-def mock_slack(self, msg, channel):
+def mock_slack(msg, channel):
     print("{} to be posted to channel: {}".format(msg, channel))
 
 
