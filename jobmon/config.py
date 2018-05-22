@@ -84,7 +84,6 @@ class GlobalConfig(object):
         self._jsm_pub_port = jsm_pub_port
         self._jsm_rep_port = jsm_rep_port
         self._jqs_port = jqs_port
-        self._jobmon_command = jobmon_command
 
         self.jm_rep_conn = ConnectionConfig(
             host=jsm_host,
@@ -99,6 +98,7 @@ class GlobalConfig(object):
         self.slack_token = slack_token
         self.default_wf_slack_channel = default_wf_slack_channel
         self.default_node_slack_channel = default_node_slack_channel
+        self.jobmon_command = jobmon_command
 
     @property
     def jsm_host(self):
