@@ -1,6 +1,7 @@
 import logging
 import os
 import traceback
+from json.decoder import JSONDecodeError
 from socket import gethostname
 
 import zmq
@@ -86,51 +87,61 @@ class ReplyServer(object):
             self.open_socket()
         logger.info('Listening on port {}.'.format(self.port))
         while True:
-            msg = self.socket.recv_json()  # server blocks on receive
-            # logger.debug("Received json {}".format(msg))
             try:
-                if msg == 'stop':
-                    logger.info("ReplyServer stopping")
-                    self.socket.send_json(
-                        (ReturnCodes.OK, "ReplyServer stopping"))
-                    break
-                else:
-                    self._validate_request(msg)
-                    response = self._process_message(msg)
-                    self._validate_response(response)
-                    logmsg = 'Replying with: {}'.format(response)
-                    logger.debug(logmsg)
+                # Random chatter on the socket has been leading to decode
+                # errors on non-json messages
+                # (e.g. JSONDecodeError: Expecting value: line 1 column 1
+                #       (char 0))
+                #
+                # We don't believe these are "real" errors, but rather
+                # random networking/monitoring blips. Logging and
+                # continuing for now.
+                msg = self.socket.recv_json()  # server blocks on receive
+                try:
+                    if msg == 'stop':
+                        logger.info("ReplyServer stopping")
+                        self.socket.send_json(
+                            (ReturnCodes.OK, "ReplyServer stopping"))
+                        break
+                    else:
+                        self._validate_request(msg)
+                        response = self._process_message(msg)
+                        self._validate_response(response)
+                        logmsg = 'Replying with: {}'.format(response)
+                        logger.debug(logmsg)
+                        self.socket.send_json(response)
+                except InvalidResponse:
+                    logger.error(
+                        "action has invalid response format: {}".format(
+                            response))
+                    response = (ReturnCodes.INVALID_RESPONSE_FORMAT,
+                                "action has invalid response format")
                     self.socket.send_json(response)
-            except InvalidResponse:
-                logger.error(
-                    "action has invalid response format: {}".format(
-                        response))
-                response = (ReturnCodes.INVALID_RESPONSE_FORMAT,
-                            "action has invalid response format")
-                self.socket.send_json(response)
-            except InvalidRequest:
-                logger.error(
-                    "action has invalid request format: {}".format(
-                        msg))
-                response = (ReturnCodes.INVALID_REQUEST_FORMAT,
-                            "action has invalid request format")
-                self.socket.send_json(response)
+                except InvalidRequest:
+                    logger.error(
+                        "action has invalid request format: {}".format(
+                            msg))
+                    response = (ReturnCodes.INVALID_REQUEST_FORMAT,
+                                "action has invalid request format")
+                    self.socket.send_json(response)
 
-            except InvalidAction:
-                logmsg = ("{} is not a valid action for this "
-                          "ReplyServer. Available actions: {}".format(
-                              msg['action'], ",".join(self.actions)))
-                logger.exception(logmsg)
-                response = (ReturnCodes.INVALID_ACTION, logmsg)
-                self.socket.send_json(response)
-            except Exception:
-                logmsg = (
-                    'ReplyServer sending "generic" error: {}'
-                    .format(traceback.format_exc()))
-                logger.debug(logmsg)
-                traceback.print_exc()
-                response = (ReturnCodes.GENERIC_ERROR, logmsg)
-                self.socket.send_json(response)
+                except InvalidAction:
+                    logmsg = ("{} is not a valid action for this "
+                              "ReplyServer. Available actions: {}".format(
+                                  msg['action'], ",".join(self.actions)))
+                    logger.exception(logmsg)
+                    response = (ReturnCodes.INVALID_ACTION, logmsg)
+                    self.socket.send_json(response)
+                except Exception:
+                    logmsg = (
+                        'ReplyServer sending "generic" error: {}'
+                        .format(traceback.format_exc()))
+                    logger.debug(logmsg)
+                    traceback.print_exc()
+                    response = (ReturnCodes.GENERIC_ERROR, logmsg)
+                    self.socket.send_json(response)
+            except JSONDecodeError as e:
+                logger.error(e)
         self.close_socket()
 
     def register_action(self, name, action):
