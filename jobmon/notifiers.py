@@ -16,16 +16,13 @@ class SlackNotifier(object):
     def send(self, msg, channel=None):
         if not channel:
             channel = self.default_channel
-        try:
-            resp = requests.post(
-                self.slack_api_url,
-                headers={'Authorization': 'Bearer {}'.format(self._token)},
-                json={'channel': channel, 'text': msg})
-            if resp.status_code != requests.codes.OK:
-                raise RuntimeError(
-                    "Could not send Slack message. {}".format(resp.content))
-        except RuntimeError as e:
-            if "Server Error" in str(e):  # catch Slack server outage error
-                logger.error(str(e))
+        resp = requests.post(
+            self.slack_api_url,
+            headers={'Authorization': 'Bearer {}'.format(self._token)},
+            json={'channel': channel, 'text': msg})
+        if resp.status_code != requests.codes.OK:
+            error = "Could not send Slack message. {}".format(resp.content)
+            if "Server Error" in error:  # catch Slack server outage error
+                logger.error(error)
             else:
-                raise
+                raise RuntimeError(error)
