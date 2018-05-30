@@ -140,7 +140,7 @@ class ReplyServer(object):
                     traceback.print_exc()
                     response = (ReturnCodes.GENERIC_ERROR, logmsg)
                     self.socket.send_json(response)
-            except JSONDecodeError as e:
+            except (JSONDecodeError, UnicodeDecodeError) as e:
                 logger.error(e)
         self.close_socket()
 
