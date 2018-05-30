@@ -107,6 +107,8 @@ class HealthMonitor(object):
         return []
 
     def _notify_of_failing_nodes(self, nodes):
+        if not nodes:
+            return
         msg = "Potentially failing nodes found: {}".format(nodes)
         if self._node_notification_sink:
             self._node_notification_sink(msg)
