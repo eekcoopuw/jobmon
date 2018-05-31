@@ -7,7 +7,7 @@ from time import sleep
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
-from jobmon.database import session_scope
+from jobmon.session_scope import session_scope
 from jobmon.models import Job, JobStatus, JobInstance, JobInstanceStatus
 from jobmon.meta_models.task_dag import TaskDagMeta
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask

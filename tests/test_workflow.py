@@ -1,7 +1,7 @@
 import pytest
 from time import sleep
 
-from jobmon.database import session_scope
+from jobmon.session_scope import session_scope
 from jobmon.meta_models.task_dag import TaskDagMeta
 from jobmon.models import Job, JobInstanceStatus, JobInstance, JobStatus
 from jobmon.services.health_monitor import HealthMonitor

@@ -5,7 +5,7 @@ from time import sleep
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
-from jobmon.database import session_scope
+from jobmon.session_scope import session_scope
 from jobmon.models import Job, JobStatus
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask

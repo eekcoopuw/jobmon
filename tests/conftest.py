@@ -13,6 +13,7 @@ from threading import Thread
 
 from jobmon.config import GlobalConfig, config
 from jobmon import database
+from jobmon.session_scope import session_scope
 from jobmon.cli import install_rcfile
 from jobmon.job_list_manager import JobListManager
 from jobmon.services.job_query_server import JobQueryServer
@@ -83,7 +84,7 @@ def session_edb(rcfile):
     database.recreate_engine()
     database.create_job_db()
     try:
-        with database.session_scope() as session:
+        with session_scope() as session:
             database.load_default_statuses(session)
     except IntegrityError:
         pass
@@ -101,7 +102,7 @@ def db_cfg(session_edb):
     database.delete_job_db()
     database.create_job_db()
     try:
-        with database.session_scope() as session:
+        with session_scope() as session:
             database.load_default_statuses(session)
     except IntegrityError:
         pass

@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 
 from jobmon import database
 from jobmon import config
+from jobmon.session_scope import session_scope
 from jobmon.requester import Requester
 from jobmon.notifiers import SlackNotifier
 from jobmon.services.health_monitor import HealthMonitor
@@ -85,7 +86,7 @@ def initdb(args):
     Job and JobInstance statuses"""
     database.create_job_db()
     try:
-        with database.session_scope() as session:
+        with session_scope() as session:
             database.load_default_statuses(session)
     except IntegrityError as e:
         raise Exception("Database is not empty, "

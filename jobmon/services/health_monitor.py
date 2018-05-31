@@ -3,7 +3,8 @@ from datetime import datetime, timedelta
 from time import sleep
 
 from jobmon.config import config
-from jobmon.database import session_scope, engine
+from jobmon.database import engine
+from jobmon.session_scope import session_scope
 from jobmon.requester import Requester
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
