@@ -1,5 +1,3 @@
-from contextlib import contextmanager
-
 import sqlalchemy as sql
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -27,20 +25,6 @@ else:
     engine = sql.create_engine(config.conn_str, pool_recycle=300,
                                pool_size=3, max_overflow=100, pool_timeout=120)
 Session = sessionmaker(bind=engine)
-
-
-@contextmanager
-def session_scope():
-    """Provide a transactional scope around a series of operations."""
-    session = Session()
-    try:
-        yield session
-        session.commit()
-    except:
-        session.rollback()
-        raise
-    finally:
-        session.close()
 
 
 def create_job_db():

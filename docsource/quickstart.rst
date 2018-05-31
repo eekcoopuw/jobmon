@@ -30,27 +30,30 @@ To get started::
 
 Getting Started
 ***************
-Users will primarily interact with jobmon by creating a :term:`TaskDag` and
-attaching it to a :term:`Workflow`. While a TaskDag defines the relationships between the tasks,
-a Workflow defines the relationship between multiple runs of the same TaskDag. Each Workflow is
-uniquely defined by its :term:`WorkflowArgs`. A Workflow can only be re-loaded if the TaskDag and WorkflowArgs are shown to be exact matches to a previous Workflow.
+Users will primarily interact with jobmon by creating a :term:`Workflow` and iteratively
+adding :term:`Task` to it. Each Workflow is uniquely defined by its :term:`WorkflowArgs`. A Workflow can only be re-loaded if the WorkflowArgs and all Tasks added to it are shown to be exact matches to a previous Workflow.
 
 
-Create a TaskDag
+Create a Workflow
 ****************
 
-A TaskDag is so-named because it represents
-a set of Tasks which may depend on one another such that if each relationship
-were drawn (Task A) -> (Task B depends on Task A), it would form a
-`directed-acyclic graph (DAG)
-<https://en.wikipedia.org/wiki/Directed_acyclic_graph>`_.  Constructing a
-TaskDag and adding a few tasks is simple::
+A Workflow is a framework by which a user may define the relationship between tasks and define the relationship between multiple runs of the same set of tasks.
 
-    from jobmon.workflow.task_dag import TaskDag
+A Workflow represents a set of Tasks which may depend on one another such that if each relationship were drawn (Task A) -> (Task B depends on Task A), it would form a `directed-acyclic graph (DAG) <https://en.wikipedia.org/wiki/Directed_acyclic_graph>`_.  A Workflow is further uniquely identified by a set of WorkflowArgs which are required if the Workflow is to be resumable.
+
+Constructing a Workflow and adding a few tasks is simple::
+
+    import getpass
+
+    from jobmon.workflow.workflow import Workflow
     from jobmon.workflow.bash_task import BashTask
+    from jobmon.workflow.python_task import PythonTask
 
-    # Create a TaskDag
-    my_dag = TaskDag(name="MyTaskTag")
+    # Create a Workflow
+    user = getpass.getuser()
+    my_wf = Workflow(workflow_args="quickstart", project='proj_jenkins',
+                     stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
+                     stdout='/ihme/scratch/users/{}/sgeoutput'.format(user)))
 
     # Add some Tasks to it...
     write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
@@ -60,44 +63,56 @@ TaskDag and adding a few tasks is simple::
     run_task = PythonTask(path_to_python_binary='/ihme/code/central_comp/miniconda/bin/python',
                           script='~/runme.py', env_variables={'OP_NUM_THREADS': 1}, args=[1, 2], slots=2, mem_free=4)
 
-    my_dag.add_tasks([write_task, copy_task, del_task, run_task])
+    my_wf.add_tasks([write_task, copy_task, del_task, run_task])
+    my_wf.run()
+
+.. note::
+    If you know that your Workflow is to be used for a one-off project only, you may choose to use an anonymous Workflow, meaning you leave workflow_args blank. In this case, WorkflowArgs will default to a UUID which, as it is randomly generated, will be harder to remember and thus is not recommended for use cases outside of the one-off project.
 
 .. note::
 
-    Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you launch your
-    job the way you want. These include slots, mem_free, max_attempts, max_runtime. By default, slots used will be 1, mem_free 2, with a max_attempt of 3. Stderr, stdout, and project are set at the workflow level (see below).
+    Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you launch your job the way you want. These include slots, mem_free, max_attempts, max_runtime. By default, slots used will be 1, mem_free 2, with a max_attempt of 3. Stderr, stdout, and project are set at the workflow level (see below).
 
 .. note::
     If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
 
 
-Create a Workflow
+Resume a Workflow
 *****************
 
-A workflow can be run multiple times with the same task dag,
-and allows for sophisticated tracking of how many times a DAG gets executed, who ran them and when, and does some work to kill off any job instances that might be left over from previous failed attempts. With a Workflow you can:
+A Workflow allows for sophisticated tracking of how many times a DAG gets executed, who ran them and when, and does some work to kill off any job instances that might be left over from previous failed attempts. With a Workflow you can:
 
-#. Re-use a TaskDag
-#. Stop a Dag mid-run and resume it (either intentionally or unfortunately, as
+#. Re-use a set of tasks
+#. Stop a set of tasks mid-run and resume it (either intentionally or unfortunately, as
    a result of an adverse cluster event)
-#. Re-attempt a TaskDag that may have ERROR'd out in the middle (assuming you
+#. Re-attempt a set of Tasks that may have ERROR'd out in the middle (assuming you
    identified and fixed the source of the error)
 #. Set stderr, stdout, and project qsub arguments from the top level
 
-Let's attach our TaskDag to a Workflow and run it::
+To resume the Workflow created above::
 
     import getpass
     from jobmon.workflow.workflow import Workflow
 
-    # Add your TaskDag to a Workflow and run it
+    # Re-instantiate your Workflow with the same WorkflowArgs
     user = getpass.getuser()
-    wf = Workflow(my_dag, "version1", project='proj_jenkins',
+    my_wf = Workflow(workflow_args"quickstart", project='proj_jenkins',
                   stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
                   stdout='/ihme/scratch/users/{}/sgeoutput'.format(user))
-    wf.run()
 
-That's it. When run() is finished, you should see the file
-*cpof_jobmon_qs.txt* in your home directory.
+    # Re-add the same Tasks to it...
+    write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
+    copy_task = BashTask("cp ~/jobmon_qs.txt ~/cpof_jobmon_qs.txt", upstream_tasks=[write_task])
+    del_task = BashTask("rm ~/jobmon_qs.txt", upstream_tasks=[copy_task])
+    # (create a runme.py in your home directory)
+    run_task = PythonTask(path_to_python_binary='/ihme/code/central_comp/miniconda/bin/python',
+                          script='~/runme.py', env_variables={'OP_NUM_THREADS': 1}, args=[1, 2], slots=2, mem_free=4)
+
+    my_wf.add_tasks([write_task, copy_task, del_task, run_task])
+
+    my_wf.run()
+
+That's it. When run() is called, the Workflow will find all jobs that are not done and pick up from there.
 
 For more examples, take a look at the `tests <https://stash.ihme.washington.edu/projects/CC/repos/jobmon/browse/tests/test_workflow.py>`_.
 
@@ -119,7 +134,7 @@ entire Workflow.
 
 .. note::
 
-    Remember, a Workflow is defined by its WorkflowArgs and TaskDag. If you
+    Remember, a Workflow is defined by its WorkflowArgs and the TasksTaskDag. If you
     want to resume a previously stopped run, make sure you haven't changed the
     values of WorkflowArgs or modified TaskDag. If either of these change,
     you will end up creating a brand new Workflow.

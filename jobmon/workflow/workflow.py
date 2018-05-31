@@ -2,6 +2,7 @@ import getpass
 import hashlib
 import logging
 from datetime import datetime
+import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
@@ -11,6 +12,7 @@ from jobmon.exceptions import ReturnCodes
 from jobmon.requester import Requester
 from jobmon.sql_base import Base
 from jobmon.workflow.workflow_run import WorkflowRun
+from jobmon.workflow.task_dag import TaskDag
 
 logger = logging.getLogger(__name__)
 
@@ -70,28 +72,33 @@ class WorkflowDAO(Base):
 
 class Workflow(object):
     """(aka Batch, aka Swarm)
-    Defined by a TaskDag and a set of WorkflowArgs.
+    A Workflow is a framework by which a user may define the relationship
+    between tasks and define the relationship between multiple runs of the same
+    set of tasks. The great benefit of the Workflow is that it's resumable.
+    A Workflow can only be re-loaded if two things are shown to be exact
+    matches to a previous Workflow:
 
-    Workflow can only be re-loaded if the TaskDag and WorkflowArgs are shown to
-    be exact matches to a previous Workflow (have to work out how to
-    hash+compare).
+    1. WorkflowArgs: It is recommended to pass a meaningful unique identifier
+        to workflow_args, to ease resuming. However, if the Workflow is a
+        one-off project, you may instantiate the Workflow anonymously, without
+        WorkflowArgs. Under the hood, the WorkflowArgs will default to a UUID
+        which, as it is randomly generated, will be harder to remember and thus
+        harder to resume.
 
-    A set of arguments that are used to determine the "uniqueness" of the
-    Workflow and whether it can be resumed. They must be hashable. For example,
-    CodCorrect or Como version might be passed as Args to the Workflow. For
-    now, the assumption is WorkflowArgs is a string. May explore in the future
-    a mechanism by which a subset of WorkflowArgs may be passed to TaskDag and
-    inform the shape of the Dag itself, as that would enable more extensive
-    code-reuse.
+        Workflow args must be hashable. For example, CodCorrect or Como version
+        might be passed as Args to the Workflow. For now, the assumption is
+        WorkflowArgs is a string.
+
+    2. The tasks added to the workflow. A Workflow's TaskDag is built up by
+        using Workflow.add_task().In order to resume a Workflow, all the same
+        tasks must be added with the same dependencies between tasks.
     """
 
-    def __init__(self, task_dag, workflow_args, name="", description="",
-                 stderr=None, stdout=None, project=None):
+    def __init__(self, task_dag=None, workflow_args=None, name="",
+                 description="", stderr=None, stdout=None, project=None):
         self.wf_dao = None
         self.name = name
         self.description = description
-        self.task_dag = task_dag
-        self.workflow_args = workflow_args
 
         self.stderr = stderr
         self.stdout = stdout
@@ -99,6 +106,23 @@ class Workflow(object):
 
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
+
+        if task_dag:
+            self.task_dag = task_dag
+        else:
+            self.task_dag = TaskDag()
+
+        if workflow_args:
+            self.workflow_args = workflow_args
+        else:
+            self.workflow_args = uuid.uuid4()
+            logger.info("Workflow_args defaulting to uuid {}. To resume this "
+                        "workflow, you must re-instantiate Workflow and pass "
+                        "this uuid in as the workflow_args. As a uuid is hard "
+                        "to remember, we recommend you name your workflows and"
+                        " make workflow_args a meaningful unique identifier. "
+                        "Then add the same tasks to this workflow"
+                        .format(self.workflow_args))
 
     @property
     def dag_id(self):
@@ -134,6 +158,12 @@ class Workflow(object):
             return self.wf_dao.status
         else:
             raise AttributeError("Workflow is not yet bound")
+
+    def add_task(self, task):
+        return self.task_dag.add_task(task)
+
+    def add_tasks(self, tasks):
+        self.task_dag.add_tasks(tasks)
 
     def _bind(self):
         potential_wfs = self._matching_workflows()
