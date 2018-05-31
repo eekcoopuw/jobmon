@@ -5,14 +5,14 @@ Dag Visualization
 Visualize your dag
 ******************
 
-After you create your dag, you may want to inspect its interdepencies via a visualization.
-To do this is very simple. First you must have your dag created and all tasks already added to it. Then do the following:
+After you create your workflow, you may want to inspect its interdepencies via a visualization.
+To do this is very simple. First you must have your workflow created and all tasks already added to it. Then do the following:
 
 ..code::
 
     from jobmon.workflow.task_dag_viz import TaskDagViz
 
-    TaskDagViz(task_dag, graph_outdir='path/to/my/outdir',
+    TaskDagViz(workflow.task_dag, graph_outdir='path/to/my/outdir',
                output_format='svg').render()
 
 The resulting image will show up in the graph_outdir, with the filename matching the name of your dag.

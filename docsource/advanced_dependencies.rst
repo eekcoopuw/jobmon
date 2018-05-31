@@ -22,7 +22,6 @@ downstream tasks depend on these jobs.
 
     # python 3
     from jobmon.workflow.workflow import Workflow
-    from jobmon.workflow.task_dag import TaskDag
     from jobmon.workflow.python_task import PythonTask
 
     from my_app.utils import split_locs_by_loc_set
@@ -40,8 +39,9 @@ downstream tasks depend on these jobs.
             self.sex_ids = sex_ids
             self.version = version
 
-            self.task_dag = TaskDag(
-                name='burdenator_v{v}'.format(v=self.version))
+            self.workflow = Workflow(
+                workflow_args='burdenator_v{v}'.format(v=self.version),
+                name='burdenator', project='proj_burdenator')
             self.most_detailed_jobs_by_command = {}
             self.pct_change_jobs_by_command = {}
             self.loc_agg_jobs_by_command = {}
@@ -56,7 +56,7 @@ downstream tasks depend on these jobs.
                                       name='most_detailed_{}_{}'.format(loc, year),
                                       slots=40, mem_free=20, max_attempts=5,
                                       max_runtime=360)
-                    self.task_dag.add_task(task)
+                    self.workflow.add_task(task)
                     self.most_detailed_jobs_by_command[task.name] = task
 
         def create_loc_agg_jobs(self):
@@ -75,7 +75,7 @@ downstream tasks depend on these jobs.
                                 task.add_upstream(
                                     self.most_detailed_jobs_by_command['most_detailed_{}_{}'
                                                                        .format(loc, year)])
-                            self.task_dag.add_task(task)
+                            self.workflow.add_task(task)
                             self.loc_agg_jobs_by_command[task.name] = task
 
         def create_cleanup_jobs(self):
@@ -93,7 +93,7 @@ downstream tasks depend on these jobs.
                                     self.loc_agg_jobs_by_command['loc_agg_{}_{}_{}_{}'
                                                                  .format(measure, year,
                                                                          sex, rei)])
-                        self.task_dag.add_task
+                        self.workflow.add_task
                         self.cleanup_jobs_by_command[task.name] = task
 
         def create_pct_change_jobs(self):
@@ -122,7 +122,7 @@ downstream tasks depend on these jobs.
                                 task.add_upstream(
                                     self.most_detailed_jobs_by_command['most_detailed_{}_{}'
                                                                        .format(loc, year)])
-                        self.task_dag.add_task(task)
+                        self.workflow.add_task(task)
                         self.pct_change_jobs_by_command[task.name] = task
 
         def create_upload_jobs(self):
@@ -137,12 +137,10 @@ downstream tasks depend on these jobs.
                             self.pct_change_jobs_by_command['pct_change_{}_{}_{}_{}'
                                                             .format(measure, location,
                                                                     start_year, end_year])
-                self.task_dag.add_task(task)
+                self.workflow.add_task(task)
 
         def run():
-            wf = Workflow(self.task_dag, str(self.version),
-                          project='proj_burdenator')
-            success = wf.run()
+            success = self.workflow.run()
             if success:
                 print("You win at life")
             else:

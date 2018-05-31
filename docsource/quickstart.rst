@@ -77,8 +77,8 @@ Constructing a Workflow and adding a few tasks is simple::
     If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
 
 
-Resume a Workflow
-*****************
+Restart Tasks and Resume Workflows
+=======================================
 
 A Workflow allows for sophisticated tracking of how many times a DAG gets executed, who ran them and when, and does some work to kill off any job instances that might be left over from previous failed attempts. With a Workflow you can:
 
@@ -112,13 +112,7 @@ To resume the Workflow created above::
 
     my_wf.run()
 
-That's it. When run() is called, the Workflow will find all jobs that are not done and pick up from there.
-
-For more examples, take a look at the `tests <https://stash.ihme.washington.edu/projects/CC/repos/jobmon/browse/tests/test_workflow.py>`_.
-
-
-Restarting Tasks and Resuming Workflows
-=======================================
+That's it.
 
 Behind the scenes, the Workflow will launch your Tasks as soon as each is
 ready to run (i.e. as soon as the Task's upstream dependencies are DONE). It
@@ -132,11 +126,13 @@ Note carefully the distinction between "restart" and "resume."
 Jobmon itself will restart individual jobs, whereas a human operator can resume the
 entire Workflow.
 
+For more examples, take a look at the `tests <https://stash.ihme.washington.edu/projects/CC/repos/jobmon/browse/tests/test_workflow.py>`_.
+
 .. note::
 
-    Remember, a Workflow is defined by its WorkflowArgs and the TasksTaskDag. If you
+    Remember, a Workflow is defined by its WorkflowArgs and its Tasks. If you
     want to resume a previously stopped run, make sure you haven't changed the
-    values of WorkflowArgs or modified TaskDag. If either of these change,
+    values of WorkflowArgs or added any different Tasks to it. If either of these change,
     you will end up creating a brand new Workflow.
 
 .. note::
@@ -153,10 +149,10 @@ entire Workflow.
     but that leads to the question of what utilities we want to expose to help
     users to debug in general.
 
-As soon as you change any of the values of your WorkflowArgs or modify the
-TaskDag, you'll cause a new Workflow entry to be created in the jobmon
+As soon as you change any of the values of your WorkflowArgs or modify its Tasks,
+you'll cause a new Workflow entry to be created in the jobmon
 database. When calling run() on this new Workflow, any progress through the
-TaskDag that may have been made in previous Workflows will be ignored.
+Tasks that may have been made in previous Workflows will be ignored.
 
 .. todo for the jobmon developers::
 
@@ -185,7 +181,7 @@ Running Queries in Jobmon
 *************************
 
 
-You can query the jobmon database to see the status of the whole dag, or any set of jobs.
+You can query the jobmon database to see the status of a whole Workflow, or any set of jobs.
 Open a SQL browser and connect to the database defined above.
 
 Tables:
@@ -211,8 +207,7 @@ workflow_run_status
 workflow_status
     Meta-data table that defines the five states of a Workflow
 
-You will need to know your dag_id. Hopefully your application logged it, otherwise it will be obvious by name
-as one of the recent entries in the task_dag table.
+You will need to know your workflow_id or dag_id. Hopefully your application logged it, otherwise it will be obvious by name as one of the recent entries in the task_dag table.
 
 For example, the following command shows the current status of all jobs in dag 191:
     SELECT status, count(*) FROM job WHERE dag_id=191 GROUP BY status
