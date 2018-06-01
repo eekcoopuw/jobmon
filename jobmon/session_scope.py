@@ -25,9 +25,10 @@ def db_session():
 def session_scope(ephemera=False):
     """Provide a transactional scope around a series of operations."""
     if ephemera:
-        session = ephemera_session()
+        Session = ephemera_session()
     else:
-        session = db_session()
+        Session = db_session()
+    session = Session()
 
     try:
         yield session
