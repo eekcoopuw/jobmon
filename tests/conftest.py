@@ -11,10 +11,10 @@ from argparse import Namespace
 from sqlalchemy.exc import IntegrityError
 from threading import Thread
 
+from jobmon.bootstrap import install_rcfile
 from jobmon.config import GlobalConfig, config
 from jobmon import database
-from jobmon.session_scope import session_scope
-from jobmon.cli import install_rcfile
+from jobmon import session_scope
 from jobmon.job_list_manager import JobListManager
 from jobmon.services.job_query_server import JobQueryServer
 from jobmon.services.job_state_manager import JobStateManager
@@ -84,7 +84,7 @@ def session_edb(rcfile):
     database.recreate_engine()
     database.create_job_db()
     try:
-        with session_scope() as session:
+        with session_scope.session_scope(ephemera=True) as session:
             database.load_default_statuses(session)
     except IntegrityError:
         pass
@@ -102,7 +102,7 @@ def db_cfg(session_edb):
     database.delete_job_db()
     database.create_job_db()
     try:
-        with session_scope() as session:
+        with session_scope.session_scope(ephemera=True) as session:
             database.load_default_statuses(session)
     except IntegrityError:
         pass

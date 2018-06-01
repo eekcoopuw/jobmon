@@ -49,7 +49,7 @@ def test_context_args(jsm_jqs, job_list_manager_sge):
 
 
 def context_args_check(job_id):
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         jis = session.query(JobInstance).filter_by(job_id=job_id).all()
         njis = len(jis)
         status = jis[0].status

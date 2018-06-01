@@ -6,29 +6,29 @@ from sqlalchemy.pool import StaticPool
 from jobmon.config import config
 
 
-if 'sqlite' in config.conn_str:
-
-    # TODO: I've intermittently seen transaction errors when using a
-    # sqlite backend. If those continue, investigate these sections of the
-    # sqlalchemy docs:
-    #
-    # http://docs.sqlalchemy.org/en/latest/dialects/sqlite.html#sqlite-isolation-level
-    # http://docs.sqlalchemy.org/en/latest/dialects/sqlite.html#pysqlite-serializable
-    #
-    # There seem to be some known issues with the pysqlite driver...
-    engine = sql.create_engine(config.conn_str,
+def ephemera_session():
+    engine = sql.create_engine('sqlite://',
                                connect_args={'check_same_thread': False},
                                poolclass=StaticPool)
-else:
+    Session = sessionmaker(bind=engine)
+    return Session
+
+
+def db_session():
     engine = sql.create_engine(config.conn_str, pool_recycle=300,
                                pool_size=3, max_overflow=100, pool_timeout=120)
-Session = sessionmaker(bind=engine)
+    Session = sessionmaker(bind=engine)
+    return Session
 
 
 @contextmanager
-def session_scope():
+def session_scope(ephemera=False):
     """Provide a transactional scope around a series of operations."""
-    session = Session()
+    if ephemera:
+        session = ephemera_session()
+    else:
+        session = db_session()
+
     try:
         yield session
         session.commit()

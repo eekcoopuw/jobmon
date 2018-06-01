@@ -54,7 +54,7 @@ def test_bash_task(dag):
     assert num_completed == 1
     assert task.status == JobStatus.DONE
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
         assert job.mem_free == 1
@@ -88,7 +88,7 @@ def test_python_task(dag, tmp_out_dir):
     assert num_completed == 1
     assert task.status == JobStatus.DONE
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
         assert job.mem_free == 1
@@ -118,7 +118,7 @@ def test_R_task(dag, tmp_out_dir):
     assert num_completed == 1
     assert task.status == JobStatus.DONE
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
         assert job.mem_free == 1
@@ -147,7 +147,7 @@ def test_stata_task(dag, tmp_out_dir):
     assert num_completed == 1
     assert task.status == JobStatus.DONE
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
         assert job.mem_free == 1

@@ -9,7 +9,7 @@ from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
 def test_job_submit_times(db_cfg):
     """Test that db datetimes aren't all the same..."""
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
 
         # Create dags
         dag = TaskDagMeta(dag_hash='abcd', name='foo', user='bar')
@@ -50,18 +50,18 @@ def test_job_submit_times(db_cfg):
         session.commit()
 
     sleep(1)
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         job2 = Job(dag_id=dag_id, name='test2', status=JobStatus.REGISTERED)
         session.add(job2)
         session.commit()
 
     sleep(1)
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         job3 = Job(dag_id=dag_id, name='test3', status=JobStatus.REGISTERED)
         session.add(job3)
         session.commit()
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
 
         dags = session.query(TaskDagMeta).all()
         wfs = session.query(WorkflowDAO).all()

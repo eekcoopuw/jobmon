@@ -102,11 +102,11 @@ def test_dag_update(dag, second_dag):
     dag2 = second_dag
     dag2.add_tasks([t4, t5, t6])
 
-    wfa1 = "v1"
+    wfa1 = "dag_update"
     wf1 = Workflow(dag1, wfa1)
     wf1.execute()
 
-    wfa2 = "v1"
+    wfa2 = "dag_update"
     wf2 = Workflow(dag2, wfa2)
     wf2.execute()
 
@@ -137,11 +137,11 @@ def test_wfagrs_dag_update(dag, second_dag):
     dag2 = second_dag
     dag2.add_tasks([t4, t5, t6])
 
-    wfa1 = "v1"
+    wfa1 = "wfargs_dag_update"
     wf1 = Workflow(dag1, wfa1)
     wf1.execute()
 
-    wfa2 = "v2"
+    wfa2 = "wfargs_dag_update"
     wf2 = Workflow(dag2, wfa2)
     wf2.execute()
 
@@ -164,7 +164,7 @@ def test_stop_resume(simple_workflow, tmpdir, second_dag):
     job_ids = [t.job_id for _, t in stopped_wf.task_dag.tasks.items()]
 
     to_run_jid = job_ids[-1]
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         session.execute("""
             UPDATE job
             SET status='{s}'
@@ -211,7 +211,7 @@ def test_stop_resume(simple_workflow, tmpdir, second_dag):
     assert workflow.workflow_run.id != stopped_wf.workflow_run.id
 
     # Validate that the old WorkflowRun was stopped
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         wf_run = (session.query(WorkflowRunDAO).filter_by(
             id=stopped_wf.workflow_run.id).first())
         assert wf_run.status == WorkflowRunStatus.STOPPED
@@ -240,7 +240,7 @@ def test_reset_attempts_on_resume(simple_workflow, second_dag):
 
     mod_jid = job_ids[1]
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         session.execute("""
             UPDATE job
             SET status='{s}', num_attempts=3, max_attempts=3
@@ -269,7 +269,7 @@ def test_reset_attempts_on_resume(simple_workflow, second_dag):
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
     dag.add_tasks([t1, t2, t3])
 
-    wfa = "my_simple_dag"
+    wfa = "reset_attempts_on_resume"
     workflow = Workflow(dag, wfa)
 
     # Before actually executing the DAG, validate that the database has
@@ -277,7 +277,7 @@ def test_reset_attempts_on_resume(simple_workflow, second_dag):
     workflow._bind()
     assert t2.job_id == mod_jid  # Should be bound to stopped-run ID values
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         jobDAO = session.query(Job).filter_by(job_id=t2.job_id).first()
         assert jobDAO.max_attempts == 3
         assert jobDAO.num_attempts == 0
@@ -288,7 +288,7 @@ def test_reset_attempts_on_resume(simple_workflow, second_dag):
     # TODO: Check that the user is prompted that they want to resume...
 
     # Validate that the database indicates the Dag and its Jobs are complete
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         jobDAO = session.query(Job).filter_by(job_id=t2.job_id).first()
         assert jobDAO.max_attempts == 3
         assert jobDAO.num_attempts == 1
@@ -296,7 +296,7 @@ def test_reset_attempts_on_resume(simple_workflow, second_dag):
 
     # Validate that a new WorkflowRun was created and is DONE
     assert workflow.workflow_run.id != stopped_wf.workflow_run.id
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         wfDAO = session.query(WorkflowDAO).filter_by(id=workflow.id).first()
         assert wfDAO.status == WorkflowStatus.DONE
 
@@ -328,7 +328,7 @@ def test_attempt_resume_on_complete_workflow(simple_workflow, second_dag):
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
     dag.add_tasks([t1, t2, t3])
 
-    wfa = "my_simple_dag"
+    wfa = "reset_on_compute_workflow"
     workflow = Workflow(dag, wfa)
 
     with pytest.raises(WorkflowAlreadyComplete):
@@ -349,7 +349,7 @@ def test_new_workflow_existing_dag(dag, second_dag):
     t4 = BashTask("sleep 2", upstream_tasks=[t3])
     dag_wf.add_tasks([t3, t4])
 
-    wfa = "my_simple_dag"
+    wfa = "new_workflow_existing_dag"
     workflow = Workflow(dag_wf, wfa)
     workflow.execute()
 
@@ -357,7 +357,7 @@ def test_new_workflow_existing_dag(dag, second_dag):
 
     # This will mean that the hash of the new DAG matches that of the old DAG,
     # but has a new dag_id
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         nowf_tdms = session.query(TaskDagMeta).filter_by(
             dag_id=dag_nowf.dag_id).all()
         wf_tdms = session.query(TaskDagMeta).filter_by(
@@ -386,7 +386,7 @@ def test_dag_reset(jsm_jqs, simple_workflow_w_errors):
 
     dag_id = err_wf.task_dag.dag_id
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id).all()
         assert len(jobs) == 4
 
@@ -398,7 +398,7 @@ def test_dag_reset(jsm_jqs, simple_workflow_w_errors):
     # Now RESET and make sure all the jobs that aren't "DONE" flip back to
     # REGISTERED
     jsm.reset_incomplete_jobs(dag_id)
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id).all()
         assert len(jobs) == 4
 
@@ -413,7 +413,7 @@ def test_nodename_on_fail(simple_workflow_w_errors):
     err_wf = simple_workflow_w_errors
     dag_id = err_wf.task_dag.dag_id
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
 
         # Get ERROR job instances
         jobs = session.query(Job).filter_by(dag_id=dag_id).all()
@@ -434,7 +434,7 @@ def test_heartbeat(dag):
     # our fresh heartbeat dag we're testing in this function. To get around it,
     # these dummy dags will increment the ID of our dag-of-interest to
     # avoid the timing collisions
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         for _ in range(5):
             session.add(TaskDagMeta())
         session.commit()
@@ -451,7 +451,7 @@ def test_heartbeat(dag):
     sleep(20)
 
     hm = HealthMonitor()
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
 
         # This test's workflow should be in the 'active' list
         active_wfrs = hm._get_active_workflow_runs(session)
@@ -465,7 +465,7 @@ def test_heartbeat(dag):
     # Setup monitor with a very short loss threshold (~3s = 1min/20)
     hm_hyper = HealthMonitor(loss_threshold=1 / 20.,
                              wf_notification_sink=mock_slack)
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
 
         # the reconciliation heart rate is now > this monitor's threshold,
         # so should be identified as lost
@@ -477,7 +477,7 @@ def test_heartbeat(dag):
 
     # ... meaning it should no longer be active... check in a new session
     # to ensure the register-as-lost changes have taken effect
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         active = hm_hyper._get_active_workflow_runs(session)
         assert wfr.id not in [w.id for w in active]
 
@@ -486,7 +486,7 @@ def test_failing_nodes(dag):
 
     # these dummy dags will increment the ID of our dag-of-interest to
     # avoid the timing collisions
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         for _ in range(5):
             session.add(TaskDagMeta())
         session.commit()
@@ -509,7 +509,7 @@ def test_failing_nodes(dag):
 
     hm = HealthMonitor(node_notification_sink=mock_slack)
     hm._database = 'singularity'
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
 
         # Manually make the workflow run look like it's still running
         session.execute("""
@@ -538,12 +538,12 @@ def test_add_tasks_to_workflow():
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
 
-    wfa = "workflow_add_tasks"
+    wfa = "add_tasks_to_workflow"
     workflow = Workflow(workflow_args=wfa)
     workflow.add_tasks([t1, t2, t3])
     workflow.run()
 
-    with session_scope() as session:
+    with session_scope(ephemera=True) as session:
         w = session.query(Workflow).filter_by(workflow_id=workflow.id).first()
         assert w.status == 'D'
         j = session.query(Job).filter_by(dag_id=workflow.task_dag.dag_id).all
