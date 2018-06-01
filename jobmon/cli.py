@@ -5,6 +5,7 @@ import shlex
 from sqlalchemy.exc import IntegrityError
 
 from jobmon import database
+from jobmon import database_loaders
 from jobmon import config
 from jobmon.session_scope import session_scope
 from jobmon.requester import Requester
@@ -55,10 +56,10 @@ def apply_args_to_config(args):
 def initdb(args):
     """Create the database tables and load them with the requisite
     Job and JobInstance statuses"""
-    database.create_job_db()
+    database_loaders.create_job_db()
     try:
         with session_scope() as session:
-            database.load_default_statuses(session)
+            database_loaders.load_default_statuses(session)
     except IntegrityError as e:
         raise Exception("Database is not empty, "
                         "could not create tables {}").format(str(e))

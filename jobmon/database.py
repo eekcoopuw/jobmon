@@ -1,53 +1,47 @@
-from jobmon.models import Base, JobStatus, JobInstanceStatus
-from jobmon.workflow.workflow import WorkflowStatus
-from jobmon.workflow.workflow_run import WorkflowRunStatus
-from jobmon import session_scope
+from contextlib import contextmanager
+import sqlalchemy as sql
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from jobmon.config import config
 
 
-def create_job_db():
-    """create sqlite database from models schema"""
-    Base.metadata.create_all(session_scope.engine)  # doesn't create if exists
-    return True
+if 'sqlite' in config.conn_str:
+
+    # TODO: I've intermittently seen transaction errors when using a
+    # sqlite backend. If those continue, investigate these sections of the
+    # sqlalchemy docs:
+    #
+    # http://docs.sqlalchemy.org/en/latest/dialects/sqlite.html#sqlite-isolation-level
+    # http://docs.sqlalchemy.org/en/latest/dialects/sqlite.html#pysqlite-serializable
+    #
+    # There seem to be some known issues with the pysqlite driver...
+    engine = sql.create_engine(config.conn_str,
+                               connect_args={'check_same_thread': False},
+                               poolclass=StaticPool)
+else:
+    engine = sql.create_engine(config.conn_str, pool_recycle=300,
+                               pool_size=3, max_overflow=100, pool_timeout=120)
+Session = sessionmaker(bind=engine)
 
 
-def delete_job_db():
-    """delete sqlite database from models schema"""
-    Base.metadata.drop_all(session_scope.engine)
-    return True
+@contextmanager
+def session_scope():
+    """Provide a transactional scope around a series of operations."""
+    session = Session()
 
-
-def load_default_statuses(session):
-    statuses = []
-    for status in ['REGISTERED', 'QUEUED_FOR_INSTANTIATION', 'INSTANTIATED',
-                   'RUNNING', 'ERROR_RECOVERABLE', 'ERROR_FATAL', 'DONE']:
-        status_obj = JobStatus(id=getattr(JobStatus, status), label=status)
-        statuses.append(status_obj)
-    for status in ['INSTANTIATED', 'SUBMITTED_TO_BATCH_EXECUTOR', 'RUNNING',
-                   'ERROR', 'DONE']:
-        status_obj = JobInstanceStatus(id=getattr(JobInstanceStatus, status),
-                                       label=status)
-        statuses.append(status_obj)
-    for status in ['CREATED', 'RUNNING', 'STOPPED', 'ERROR', 'DONE']:
-        wfs_obj = WorkflowStatus(id=getattr(WorkflowStatus, status),
-                                 label=status)
-        statuses.append(wfs_obj)
-    for status in ['RUNNING', 'STOPPED', 'ERROR', 'DONE']:
-        wfrs_obj = WorkflowRunStatus(id=getattr(WorkflowRunStatus, status),
-                                     label=status)
-        statuses.append(wfrs_obj)
-    session.add_all(statuses)
-
-
-if __name__ == "__main__":
-
-    create_job_db()
-
-    session = session_scope.Session()
     try:
-        load_default_statuses(session)
+        yield session
         session.commit()
     except:
         session.rollback()
         raise
     finally:
         session.close()
+
+
+def recreate_engine():
+    global engine, Session
+    engine = sql.create_engine(config.conn_str, pool_recycle=300,
+                               pool_size=3, max_overflow=100, pool_timeout=120)
+    Session = sessionmaker(bind=engine)

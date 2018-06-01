@@ -3,7 +3,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import contains_eager
 
 from jobmon.config import config
-from jobmon.session_scope import session_scope
+from jobmon.database import session_scope
 from jobmon.exceptions import ReturnCodes, NoDatabase
 from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
 from jobmon.reply_server import ReplyServer

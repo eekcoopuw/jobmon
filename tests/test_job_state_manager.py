@@ -9,7 +9,7 @@ from queue import Empty
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
 
-from jobmon.session_scope import session_scope
+from jobmon.database import session_scope
 from jobmon.models import InvalidStateTransition, Job, JobInstanceErrorLog, \
     JobInstanceStatus, JobStatus, JobInstance
 

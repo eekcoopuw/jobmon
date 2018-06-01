@@ -5,7 +5,7 @@ import zmq
 from queue import Empty
 
 from jobmon import models
-from jobmon.session_scope import session_scope
+from jobmon.database import session_scope
 from jobmon.config import config
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager

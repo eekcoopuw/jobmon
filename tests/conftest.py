@@ -55,7 +55,7 @@ os.environ["JOBMON_CONFIG"] = sqlite_rcfile
 
 from jobmon.config import GlobalConfig, config
 from jobmon import database
-from jobmon import session_scope
+from jobmon import database_loaders
 from jobmon.job_list_manager import JobListManager
 from jobmon.services.job_query_server import JobQueryServer
 from jobmon.services.job_state_manager import JobStateManager
@@ -92,11 +92,11 @@ def session_edb(rcfile):
     config.conn_str = conn_str
 
     # The config has to be reloaded to use the EphemerDB
-    session_scope.recreate_engine()
-    database.create_job_db()
+    database.recreate_engine()
+    database_loaders.create_job_db()
     try:
-        with session_scope.session_scope(ephemera=True) as session:
-            database.load_default_statuses(session)
+        with database.session_scope() as session:
+            database_loaders.load_default_statuses(session)
     except IntegrityError:
         pass
 
@@ -110,11 +110,11 @@ def session_edb(rcfile):
 @pytest.fixture(scope='function')
 def db_cfg(session_edb):
 
-    database.delete_job_db()
-    database.create_job_db()
+    database_loaders.delete_job_db()
+    database_loaders.create_job_db()
     try:
-        with session_scope.session_scope(ephemera=True) as session:
-            database.load_default_statuses(session)
+        with database.session_scope() as session:
+            database_loaders.load_default_statuses(session)
     except IntegrityError:
         pass
 

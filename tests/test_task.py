@@ -7,7 +7,7 @@ from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
 from jobmon.workflow.r_task import RTask
 from jobmon.workflow.stata_task import StataTask
-from jobmon.session_scope import session_scope
+from jobmon.database import session_scope
 from jobmon.models import Job
 
 

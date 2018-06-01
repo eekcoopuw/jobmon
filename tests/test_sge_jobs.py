@@ -3,7 +3,7 @@ import sys
 from datetime import datetime, timedelta
 
 from jobmon import sge
-from jobmon.session_scope import session_scope
+from jobmon.database import session_scope
 from jobmon.models import JobInstance, JobInstanceStatus
 
 from tests.timeout_and_skip import timeout_and_skip
