@@ -12,6 +12,47 @@ from sqlalchemy.exc import IntegrityError
 from threading import Thread
 
 from jobmon.bootstrap import install_rcfile
+
+
+def create_rcfile_dir():
+    u = uuid.uuid4()
+    user = pwd.getpwuid(os.getuid()).pw_name
+    rcdir = ('/ihme/scratch/users/{user}/tests/jobmon/'
+             '{uuid}'.format(user=user, uuid=u))
+    try:
+        os.makedirs(rcdir)
+    except:
+        pass
+    return rcdir
+
+
+def create_sqlite_rcfile(rcdir):
+    args = Namespace()
+    args.force = False
+    args.file = "{}/jobmonrc".format(rcdir)
+    try:
+        install_rcfile(args,
+                       cfg_dct={"conn_str": "sqlite://",
+                                "jsm_host": socket.gethostname(),
+                                "jqs_host": socket.gethostname(),
+                                "jsm_rep_port": 3456,
+                                "jsm_pub_port": 3457,
+                                "jqs_port": 3458})
+
+        cleanup_rcfile = True
+    except FileExistsError:
+        # It's OK for now if the rcfile already exists. May need to revisit
+        # this once we have a more sensible mechanism for versioning the
+        # RCFILEs
+        cleanup_rcfile = False
+    return args.file, cleanup_rcfile
+
+
+rcdir = create_rcfile_dir()
+sqlite_rcfile, cleanup_sqlite_rcfile = create_sqlite_rcfile(rcdir)
+os.environ["JOBMON_CONFIG"] = sqlite_rcfile
+
+
 from jobmon.config import GlobalConfig, config
 from jobmon import database
 from jobmon import session_scope
@@ -31,46 +72,16 @@ def env_var(monkeypatch, rcfile):
 
 @pytest.fixture(scope='session')
 def rcfile_dir():
-    u = uuid.uuid4()
-    user = pwd.getpwuid(os.getuid()).pw_name
-    rcdir = ('/ihme/scratch/users/{user}/tests/jobmon/'
-             '{uuid}'.format(user=user, uuid=u))
-    try:
-        os.makedirs(rcdir)
-    except:
-        pass
     yield rcdir
     shutil.rmtree(rcdir)
 
 
 @pytest.fixture(scope='session')
 def rcfile(rcfile_dir):
-    args = Namespace()
-    args.force = False
-    args.file = "{}/jobmonrc".format(rcfile_dir)
-    try:
-        # these port numbers don't need to match the deploy ports,
-        # as they're for testing only
-        install_rcfile(args,
-                       cfg_dct={"conn_str": "sqlite://",
-                                "jsm_host": socket.gethostname(),
-                                "jqs_host": socket.gethostname(),
-                                "jsm_rep_port": 3456,
-                                "jsm_pub_port": 3457,
-                                "jqs_port": 3458})
-        cleanup_rcfile = True
-    except FileExistsError:
-        # It's OK for now if the rcfile already exists. May need to revisit
-        # this once we have a more sensible mechanism for versioning the
-        # RCFILEs
-        cleanup_rcfile = False
+    yield sqlite_rcfile
 
-    opts_dct = GlobalConfig.get_file_opts(args.file)
-    config.apply_opts_dct(opts_dct)
-    yield args.file
-
-    if cleanup_rcfile:
-        os.remove(os.path.expanduser(args.file))
+    if cleanup_sqlite_rcfile:
+        os.remove(os.path.expanduser(sqlite_rcfile))
 
 
 @pytest.fixture(scope='session')
@@ -81,7 +92,7 @@ def session_edb(rcfile):
     config.conn_str = conn_str
 
     # The config has to be reloaded to use the EphemerDB
-    database.recreate_engine()
+    session_scope.recreate_engine()
     database.create_job_db()
     try:
         with session_scope.session_scope(ephemera=True) as session:
