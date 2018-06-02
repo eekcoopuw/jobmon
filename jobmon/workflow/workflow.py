@@ -115,7 +115,7 @@ class Workflow(object):
         if workflow_args:
             self.workflow_args = workflow_args
         else:
-            self.workflow_args = uuid.uuid4()
+            self.workflow_args = str(uuid.uuid4())
             logger.info("Workflow_args defaulting to uuid {}. To resume this "
                         "workflow, you must re-instantiate Workflow and pass "
                         "this uuid in as the workflow_args. As a uuid is hard "

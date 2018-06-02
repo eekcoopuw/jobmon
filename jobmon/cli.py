@@ -7,7 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from jobmon import database
 from jobmon import database_loaders
 from jobmon import config
-from jobmon.session_scope import session_scope
+from jobmon.bootstrap import install_rcfile
+from jobmon.database import session_scope
 from jobmon.requester import Requester
 from jobmon.notifiers import SlackNotifier
 from jobmon.services.health_monitor import HealthMonitor
