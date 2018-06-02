@@ -269,7 +269,7 @@ def test_reset_attempts_on_resume(simple_workflow, second_dag):
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
     dag.add_tasks([t1, t2, t3])
 
-    wfa = "reset_attempts_on_resume"
+    wfa = "my_simple_dag"
     workflow = Workflow(dag, wfa)
 
     # Before actually executing the DAG, validate that the database has
@@ -328,7 +328,7 @@ def test_attempt_resume_on_complete_workflow(simple_workflow, second_dag):
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
     dag.add_tasks([t1, t2, t3])
 
-    wfa = "reset_on_compute_workflow"
+    wfa = "my_simple_dag"
     workflow = Workflow(dag, wfa)
 
     with pytest.raises(WorkflowAlreadyComplete):
@@ -544,9 +544,9 @@ def test_add_tasks_to_workflow():
     workflow.run()
 
     with session_scope() as session:
-        w = session.query(Workflow).filter_by(workflow_id=workflow.id).first()
+        w = session.query(WorkflowDAO).filter_by(id=workflow.id).first()
         assert w.status == 'D'
-        j = session.query(Job).filter_by(dag_id=workflow.task_dag.dag_id).all
+        j = session.query(Job).filter_by(dag_id=workflow.task_dag.dag_id).all()
         assert all(t.status == 'D' for t in j)
 
 
@@ -562,10 +562,11 @@ def test_anonymous_workflow():
 
     assert workflow.workflow_args is not None
 
-    # Restart it using the uuid. Make sure it's the same workflow
+    # Restart it using the uuid.
     uu_id = workflow.workflow_args
     new_workflow = Workflow(workflow_args=uu_id)
     workflow.add_tasks([t1, t2, t3])
     workflow.run()
 
+    # Make sure it's the same workflow
     assert workflow.id == new_workflow.id
