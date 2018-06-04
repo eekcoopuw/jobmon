@@ -13,6 +13,15 @@ except ImportError:
     JSONDecodeError = ValueError
 
 
+def derive_jobmon_command_from_env():
+    singularity_img_path = os.environ.get('IMGPATH', None)
+    if singularity_img_path:
+        return (
+            'singularity run --app jobmon_command {}'
+            .format(singularity_img_path).encode())
+    return None
+
+
 class InvalidConfig(Exception):
     pass
 
@@ -58,12 +67,14 @@ class GlobalConfig(object):
         "verbose": False,
         "slack_token": None,
         "default_wf_slack_channel": None,
-        "default_node_slack_channel": None
+        "default_node_slack_channel": None,
+        "jobmon_command": derive_jobmon_command_from_env()
     }
 
     def __init__(self, conn_str, jsm_host, jqs_host, jsm_rep_port,
                  jsm_pub_port, jqs_port, verbose, slack_token,
-                 default_wf_slack_channel, default_node_slack_channel):
+                 default_wf_slack_channel, default_node_slack_channel,
+                 jobmon_command):
 
         self.conn_str = conn_str
         self.verbose = False
@@ -87,6 +98,7 @@ class GlobalConfig(object):
         self.slack_token = slack_token
         self.default_wf_slack_channel = default_wf_slack_channel
         self.default_node_slack_channel = default_node_slack_channel
+        self.jobmon_command = jobmon_command
 
     @property
     def jsm_host(self):
