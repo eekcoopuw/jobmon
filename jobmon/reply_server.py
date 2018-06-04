@@ -1,7 +1,6 @@
 import logging
 import os
 import traceback
-from json.decoder import JSONDecodeError
 from socket import gethostname
 
 import zmq
@@ -10,6 +9,11 @@ from jobmon.connection_config import ConnectionConfig
 from jobmon.exceptions import InvalidAction, InvalidRequest, InvalidResponse, \
     ReturnCodes
 from jobmon.requester import Requester
+
+try:
+    from json.decoder import JSONDecodeError
+except ImportError:
+    JSONDecodeError = ValueError
 
 
 logger = logging.getLogger(__name__)

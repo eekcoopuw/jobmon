@@ -56,14 +56,14 @@ def test_invalid_command(subscriber, job_list_manager):
     assert len(njobs0) == 0
 
     job_list_manager.queue_job(job_id)
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job_list_manager._sync(session)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
     assert len(job_list_manager.all_error) == 0
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job_list_manager._sync(session)
     assert len(job_list_manager.all_error) > 0
 
@@ -75,13 +75,13 @@ def test_valid_command(subscriber, job_list_manager):
     assert len(job_list_manager.all_done) == 0
 
     job_list_manager.queue_job(job_id)
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job_list_manager._sync(session)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job_list_manager._sync(session)
     assert len(job_list_manager.all_done) > 0
 
@@ -169,7 +169,7 @@ def test_sge_valid_command(job_list_manager_sge):
                                              mem_free=6)
     job_list_manager_sge.queue_job(job_id)
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job_list_manager_sge._sync(session)
     assert (job_list_manager_sge.job_statuses[job_id] ==
             models.JobStatus.INSTANTIATED)

@@ -181,7 +181,7 @@ def test_jsm_log_usage(jsm_jqs, dag_id):
     jsm.log_usage(job_instance_id, usage_str='used resources', wallclock='0',
                   maxvmem='1g', cpu='00:00:00', io='1')
     # open new session on the db and ensure job stats are being loggged
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         ji = session.query(JobInstance).filter(
             JobInstance.job_instance_id == job_instance_id).first()
         assert ji.usage_str == 'used resources'
@@ -217,7 +217,7 @@ def test_job_reset(jsm_jqs, dag_id):
     # Reset the job to REGISTERED
     jsm.reset_job(job_id)
 
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id, job_id=job_id).all()
         assert len(jobs) == 1
         job = jobs[0]

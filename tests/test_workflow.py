@@ -562,11 +562,26 @@ def test_anonymous_workflow():
 
     assert workflow.workflow_args is not None
 
+    # Manually flip one of the jobs to Failed
+    with session_scope() as session:
+        session.execute("""
+            UPDATE workflow_run
+            SET status='E'
+            WHERE workflow_id={id}""".format(id=workflow.id))
+        session.execute("""
+            UPDATE workflow
+            SET status='E'
+            WHERE id={id}""".format(id=workflow.id))
+        session.execute("""
+            UPDATE job
+            SET status='F'
+            WHERE job_id={id}""".format(id=t3.id))
+
     # Restart it using the uuid.
     uu_id = workflow.workflow_args
     new_workflow = Workflow(workflow_args=uu_id)
-    workflow.add_tasks([t1, t2, t3])
-    workflow.run()
+    new_workflow.add_tasks([t1, t2, t3])
+    new_workflow.run()
 
     # Make sure it's the same workflow
     assert workflow.id == new_workflow.id

@@ -71,7 +71,7 @@ def test_bash_task_args(job_list_manager_sge):
                  max_attempts=1)
     job_id = a.bind(job_list_manager_sge)
 
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job = session.query(Job).filter_by(job_id=job_id).all()
         slots = job[0].slots
         mem_free = job[0].mem_free
@@ -99,7 +99,7 @@ def test_python_task_args(job_list_manager_sge):
                    slots=1, mem_free=2, max_attempts=1)
     job_id = a.bind(job_list_manager_sge)
 
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job = session.query(Job).filter_by(job_id=job_id).all()
         command = job[0].command
         slots = job[0].slots
@@ -120,7 +120,7 @@ def test_r_task_args(job_list_manager_sge):
               slots=1, mem_free=2, max_attempts=1)
     job_id = a.bind(job_list_manager_sge)
 
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job = session.query(Job).filter_by(job_id=job_id).all()
         command = job[0].command
         slots = job[0].slots
@@ -142,7 +142,7 @@ def test_stata_task_args(job_list_manager_sge):
                   slots=1, mem_free=2, max_attempts=1)
     job_id = a.bind(job_list_manager_sge)
 
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job = session.query(Job).filter_by(job_id=job_id).all()
         command = job[0].command
         slots = job[0].slots

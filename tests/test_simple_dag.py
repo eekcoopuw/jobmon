@@ -400,12 +400,12 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
 
     # Check that the failed task's nodename + pgid got propagated to
     # its retry instance
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         job = session.query(Job).filter_by(job_id=task_b[1].job_id).first()
         done_ji = [ji for ji in job.job_instances
                    if ji.status == JobInstanceStatus.DONE][0]
         err_ji = [ji for ji in job.job_instances
-                   if ji.status == JobInstanceStatus.ERROR][0]
+                  if ji.status == JobInstanceStatus.ERROR][0]
 
         err_nodename = err_ji.nodename
         err_pgid = err_ji.process_group_id
@@ -529,7 +529,7 @@ def test_dag_logging(tmp_out_dir, dag):
     os.makedirs("{}/test_dag_logging".format(tmp_out_dir))
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    with session_scope(ephemera=True) as session:
+    with session_scope() as session:
         ji = session.query(JobInstance).first()
         assert ji.usage_str  # all these should exist and not be empty
         assert ji.maxvmem
