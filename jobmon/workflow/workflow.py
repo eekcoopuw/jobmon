@@ -90,7 +90,7 @@ class Workflow(object):
         WorkflowArgs is a string.
 
     2. The tasks added to the workflow. A Workflow's TaskDag is built up by
-        using Workflow.add_task().In order to resume a Workflow, all the same
+        using Workflow.add_task(). In order to resume a Workflow, all the same
         tasks must be added with the same dependencies between tasks.
     """
 

@@ -31,17 +31,17 @@ To get started::
 Getting Started
 ***************
 Users will primarily interact with jobmon by creating a :term:`Workflow` and iteratively
-adding :term:`Task` to it. Each Workflow is uniquely defined by its :term:`WorkflowArgs`. A Workflow can only be re-loaded if the WorkflowArgs and all Tasks added to it are shown to be exact matches to a previous Workflow.
+adding :term:`Task` to it. Each Workflow is uniquely defined by its :term:`WorkflowArgs` and the set of Tasks attached to it. A Workflow can only be re-loaded if the WorkflowArgs and all Tasks added to it are shown to be exact matches to a previous Workflow.
 
 
 Create a Workflow
 ****************
 
-A Workflow is a framework by which a user may define the relationship between tasks and define the relationship between multiple runs of the same set of tasks.
+A Workflow is a framework by which a user may define the relationship between Tasks and define the relationship between multiple runs of the same set of Tasks.
 
-A Workflow represents a set of Tasks which may depend on one another such that if each relationship were drawn (Task A) -> (Task B depends on Task A), it would form a `directed-acyclic graph (DAG) <https://en.wikipedia.org/wiki/Directed_acyclic_graph>`_.  A Workflow is further uniquely identified by a set of WorkflowArgs which are required if the Workflow is to be resumable.
+A Workflow represents a set of Tasks which may depend on one another such that if each relationship were drawn (Task A) -> (Task B) meaning that Task B depends on Task A, it would form a `directed-acyclic graph (DAG) <https://en.wikipedia.org/wiki/Directed_acyclic_graph>`_.  A Workflow is further uniquely identified by a set of WorkflowArgs which are required if the Workflow is to be resumable.
 
-Constructing a Workflow and adding a few tasks is simple::
+Constructing a Workflow and adding a few Tasks is simple::
 
     import getpass
 
@@ -74,7 +74,7 @@ Constructing a Workflow and adding a few tasks is simple::
     Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you launch your job the way you want. These include slots, mem_free, max_attempts, max_runtime. By default, slots used will be 1, mem_free 2, with a max_attempt of 3. Stderr, stdout, and project are set at the workflow level (see below).
 
 .. note::
-    If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
+    If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon Task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
 
 
 Restart Tasks and Resume Workflows
@@ -82,8 +82,8 @@ Restart Tasks and Resume Workflows
 
 A Workflow allows for sophisticated tracking of how many times a DAG gets executed, who ran them and when, and does some work to kill off any job instances that might be left over from previous failed attempts. With a Workflow you can:
 
-#. Re-use a set of tasks
-#. Stop a set of tasks mid-run and resume it (either intentionally or unfortunately, as
+#. Re-use a set of Tasks
+#. Stop a set of Tasks mid-run and resume it (either intentionally or unfortunately, as
    a result of an adverse cluster event)
 #. Re-attempt a set of Tasks that may have ERROR'd out in the middle (assuming you
    identified and fixed the source of the error)

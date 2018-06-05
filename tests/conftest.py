@@ -48,12 +48,22 @@ def create_sqlite_rcfile(rcdir):
     return args.file, cleanup_rcfile
 
 
-rcdir = create_rcfile_dir()
-sqlite_rcfile, cleanup_sqlite_rcfile = create_sqlite_rcfile(rcdir)
-os.environ["JOBMON_CONFIG"] = sqlite_rcfile
+def bootstrap_tests():
+    """The ordering of this script is essential. Bootstrap_tests must be called
+       here to force the CONFIG changes to happen before any jobmon module
+       actually attempts to load the config"""
+    global rcdir
+    rcdir = create_rcfile_dir()
+    global sqlite_rcfile
+    global cleanup_sqlite_rcfile
+    sqlite_rcfile, cleanup_sqlite_rcfile = create_sqlite_rcfile(rcdir)
+    os.environ["JOBMON_CONFIG"] = sqlite_rcfile
 
 
-from jobmon.config import GlobalConfig, config
+bootstrap_tests()
+
+
+from jobmon.config import config
 from jobmon import database
 from jobmon import database_loaders
 from jobmon.job_list_manager import JobListManager

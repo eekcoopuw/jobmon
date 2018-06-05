@@ -10,7 +10,7 @@ For users
         *(aka Batch, aka Swarm)*
         Has a set of tasks or a TaskDag and a set of WorkflowArgs.
         A Workflow can only be re-loaded if the WorkflowArgs and the Tasks
-        that are attached to it are shown to be exact matchesto a previous Workflow.
+        that are attached to it are shown to be exact matches to a previous Workflow.
 
         .. todo::
             Consider capturing the pip freeze or other environmental markers as
