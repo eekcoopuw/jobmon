@@ -532,7 +532,7 @@ def test_failing_nodes(dag):
         assert 'fake_node.ihme.washington.edu' in failing_nodes
 
 
-def test_add_tasks_to_workflow():
+def test_add_tasks_to_workflow(db_cfg, jsm_jqs):
     """Make sure adding tasks to a workflow (and not just a task dag) works"""
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
@@ -550,7 +550,7 @@ def test_add_tasks_to_workflow():
         assert all(t.status == 'D' for t in j)
 
 
-def test_anonymous_workflow():
+def test_anonymous_workflow(db_cfg, jsm_jqs):
     # Make sure uuid is created for an anonymous workflow
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
