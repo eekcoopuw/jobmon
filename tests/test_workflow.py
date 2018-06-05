@@ -575,7 +575,7 @@ def test_anonymous_workflow():
         session.execute("""
             UPDATE job
             SET status='F'
-            WHERE job_id={id}""".format(id=t3.id))
+            WHERE job_id={id}""".format(id=t3.job_id))
 
     # Restart it using the uuid.
     uu_id = workflow.workflow_args
