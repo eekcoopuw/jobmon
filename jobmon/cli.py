@@ -1,15 +1,14 @@
 import argparse
 import logging
-import json
-import os
 import shlex
-import shutil
-from datetime import datetime
 
 from sqlalchemy.exc import IntegrityError
 
 from jobmon import database
+from jobmon import database_loaders
 from jobmon import config
+from jobmon.bootstrap import install_rcfile
+from jobmon.database import session_scope
 from jobmon.requester import Requester
 from jobmon.notifiers import SlackNotifier
 from jobmon.services.health_monitor import HealthMonitor
@@ -55,38 +54,13 @@ def apply_args_to_config(args):
     return config.config
 
 
-def install_rcfile(args, cfg_dct=None):
-    rcfile = os.path.abspath(os.path.expanduser(args.file))
-    if os.path.exists(rcfile):
-        if not args.force:
-            raise FileExistsError("rcfile already exists. Use -f/--force if "
-                                  "you want to overwrite it. The existing "
-                                  "file will be backed up to "
-                                  "{}.backup-{{datetime}}".format(rcfile))
-        now = datetime.now().strftime("%m%d%Y-%H%M%S")
-        backup_file = "{}.backup-{}".format(rcfile, now)
-        shutil.move(rcfile, backup_file)
-
-    with open(rcfile, "w") as jf:
-        if not cfg_dct:
-            conn_str = ("mysql://docker:docker@"
-                        "jobmon-p01.ihme.washington.edu:3312/docker")
-            cfg_dct = {
-                "conn_str": conn_str,
-                "host": "jobmon-p01.ihme.washington.edu",
-                "jsm_rep_port": 5056,
-                "jsm_pub_port": 5057,
-                "jqs_port": 5058}
-        json.dump(cfg_dct, jf)
-
-
 def initdb(args):
     """Create the database tables and load them with the requisite
     Job and JobInstance statuses"""
-    database.create_job_db()
+    database_loaders.create_job_db()
     try:
-        with database.session_scope() as session:
-            database.load_default_statuses(session)
+        with session_scope() as session:
+            database_loaders.load_default_statuses(session)
     except IntegrityError as e:
         raise Exception("Database is not empty, "
                         "could not create tables {}").format(str(e))

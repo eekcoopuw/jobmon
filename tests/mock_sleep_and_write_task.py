@@ -1,7 +1,5 @@
 import logging
-import os
 
-from jobmon.models import JobStatus
 import jobmon.workflow.executable_task as etk
 
 logger = logging.getLogger(__name__)

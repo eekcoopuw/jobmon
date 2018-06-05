@@ -1,4 +1,3 @@
-import logging
 import pytest
 
 from cluster_utils.io import makedirs_safely

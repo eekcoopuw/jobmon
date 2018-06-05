@@ -405,7 +405,7 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
         done_ji = [ji for ji in job.job_instances
                    if ji.status == JobInstanceStatus.DONE][0]
         err_ji = [ji for ji in job.job_instances
-                   if ji.status == JobInstanceStatus.ERROR][0]
+                  if ji.status == JobInstanceStatus.ERROR][0]
 
         err_nodename = err_ji.nodename
         err_pgid = err_ji.process_group_id

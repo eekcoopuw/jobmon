@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from time import sleep
 
 from jobmon.config import config
-from jobmon.database import session_scope, engine
+from jobmon import database
 from jobmon.requester import Requester
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
@@ -42,11 +42,12 @@ class HealthMonitor(object):
         self._poll_interval = poll_interval
         self._wf_notification_sink = wf_notification_sink
         self._node_notification_sink = node_notification_sink
-        self._database = engine.url.translate_connect_args()['database']
+        self._database = database.engine.url.translate_connect_args()[
+            'database']
 
     def monitor_forever(self):
         while True:
-            with session_scope() as session:
+            with database.session_scope() as session:
                 lost_wrs = self._get_lost_workflow_runs(session)
                 working_wf_runs = self._get_succeeding_active_workflow_runs(
                     session)
