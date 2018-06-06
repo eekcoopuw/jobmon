@@ -591,7 +591,7 @@ def test_workflow_status_dates(simple_workflow):
     """Make sure the workflow status dates actually get updated"""
     wfid = simple_workflow.wf_dao.id
     with session_scope() as session:
-        wf_dao = session.query(WorkflowDAO).filter_by(workflow_id=wfid).first()
+        wf_dao = session.query(WorkflowDAO).filter_by(id=wfid).first()
         assert wf_dao.status_date != wf_dao.created_date
 
         wf_runs = wf_dao.workflow_runs
