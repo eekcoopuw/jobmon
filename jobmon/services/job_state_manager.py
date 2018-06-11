@@ -160,6 +160,7 @@ class JobStateManager(ReplyServer):
             wf = session.query(WorkflowDAO).\
                 filter(WorkflowDAO.id == wf_id).first()
             wf.status = status
+            wf.status_date = datetime.utcnow()
             session.commit()
             wf_dct = wf.to_wire()
         return (ReturnCodes.OK, wf_dct)
@@ -169,6 +170,7 @@ class JobStateManager(ReplyServer):
             wfr = session.query(WorkflowRunDAO).\
                 filter(WorkflowRunDAO.id == wfr_id).first()
             wfr.status = status
+            wfr.status_date = datetime.utcnow()
             session.commit()
         return (ReturnCodes.OK, status)
 
