@@ -35,7 +35,7 @@ adding :term:`Task` to it. Each Workflow is uniquely defined by its :term:`Workf
 
 
 Create a Workflow
-****************
+*****************
 
 A Workflow is a framework by which a user may define the relationship between Tasks and define the relationship between multiple runs of the same set of Tasks.
 
