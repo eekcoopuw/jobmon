@@ -66,11 +66,12 @@ def _drmaa_exit():
 # TODO Should this be two separate functions?
 def true_path(file_or_dir=None, executable=None):
     """Get true path to file or executable.
+
     Args:
         file_or_dir (str): partial file path, to be expanded as per the current
             user
         executable (str): the name of an executable, which will be resolved
-        using "which"
+            using "which"
 
     Specify one of the two arguments, not both.
     """
