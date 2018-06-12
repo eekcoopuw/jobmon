@@ -67,12 +67,12 @@ def _drmaa_exit():
 def true_path(file_or_dir=None, executable=None):
     """Get true path to file or executable.
     Args:
-        :param file_or_dir partial file path, to be expanded
-               as per the current user
-        :param executable  the name of an executable, which
-               will be resolved using "which"
+        file_or_dir (str): partial file path, to be expanded as per the current
+            user
+        executable (str): the name of an executable, which will be resolved
+        using "which"
 
-        Specify one of the two arguments, not both.
+    Specify one of the two arguments, not both.
     """
     if file_or_dir is not None:
         f = file_or_dir
@@ -441,6 +441,7 @@ def qsub(
         jobtype (string, optional): joint purpose argument for specifying what
             to pass into the shell_file. can be arbitrary string or one of the
             below options. default is 'python'
+
                 'python':
                     Uses the default python on the path to execute run_file.
                 'stata':
@@ -448,16 +449,17 @@ def qsub(
                 'R':
                     /usr/local/bin/R < runfile --no-save --args
                 'shell':
-                    For shell scripts. Add -shell y to the arguments.
-                    This also ensures SGE copies the shell script
-                    so that if you modify it after submission the original
-                    submitted script is what runs.
+                    For shell scripts. Add -shell y to the arguments.  This
+                    also ensures SGE copies the shell script so that if you
+                    modify it after submission the original submitted script is
+                    what runs.
                 'plain':
                     Don't use any interpreter, even if the runfile suffix
                     is known.
                 None:
                     Look at runfile's suffix to pick interpreter, if it's
                     known.
+
         stdout (string, optional): where to pipe standard out to. default is
             /dev/null. Recognizes $HOME, $USER, $JOB_ID, $JOB_NAME, $HOSTNAME,
             and $TASK_ID.

@@ -109,8 +109,10 @@ class WorkflowRun(object):
 
         If in the database as 'running,' check the hostname
         + pid to see if the process is actually still running:
-          A) If so, kill those pids and any still running jobs
-          B) Then flip the database of the previous WorkflowRun to STOPPED"""
+
+            A) If so, kill those pids and any still running jobs
+            B) Then flip the database of the previous WorkflowRun to STOPPED
+        """
         status, wf_run_id, hostname, pid, user = \
             self.check_if_workflow_is_running()
         if not status:

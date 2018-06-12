@@ -225,10 +225,12 @@ class TaskDag(object):
 
         if all_failed:
             logger.info("DAG execute finished, failed {}".format(all_failed))
+            self.job_list_manager.disconnect()
             return False, len(all_completed), len(already_done), len(all_failed)
         else:
             logger.info("DAG execute finished successfully, {} jobs"
                         .format(len(all_completed)))
+            self.job_list_manager.disconnect()
             return True, len(all_completed), len(already_done), len(all_failed)
 
     def sort_jobs(self, runners, completed_and_failed):
