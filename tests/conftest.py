@@ -26,6 +26,14 @@ def create_rcfile_dir():
     return rcdir
 
 
+def get_random_port():
+    sock = socket.socket()
+    sock.bind(('', 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+
 def create_sqlite_rcfile(rcdir):
     args = Namespace()
     args.force = False
@@ -35,9 +43,9 @@ def create_sqlite_rcfile(rcdir):
                        cfg_dct={"conn_str": "sqlite://",
                                 "jsm_host": socket.gethostname(),
                                 "jqs_host": socket.gethostname(),
-                                "jsm_rep_port": 3456,
-                                "jsm_pub_port": 3457,
-                                "jqs_port": 3458})
+                                "jsm_rep_port": get_random_port(),
+                                "jsm_pub_port": get_random_port(),
+                                "jqs_port": get_random_port()})
 
         cleanup_rcfile = True
     except FileExistsError:
