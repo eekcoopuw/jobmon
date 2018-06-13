@@ -65,6 +65,7 @@ class JobListManager(object):
 
         self.job_statuses = {}  # {job_id: status_id}
         self.job_hash_id_map = {}  # {job_hash: job_id}
+        self.job_id_hash_map = {}  # {job_id: job_hash}
         self.all_done = set()
         self.all_error = set()
         with session_scope() as session:
@@ -192,8 +193,22 @@ class JobListManager(object):
         self.job_factory.queue_job(job_id)
         self.job_statuses[job_id] = JobStatus.QUEUED_FOR_INSTANTIATION
 
+    def queue_task(self, task):
+        job_id = self.job_hash_id_map[task.hash]
+        self.queue_job(job_id)
+
     def reset_jobs(self):
         self.job_factory.reset_jobs()
+
+    def status_from_hash(self, job_hash):
+        job_id = self.job_hash_id_map[job_hash]
+        return self.status_from_id(job_id)
+
+    def status_from_id(self, job_id):
+        return self.job_statuses[job_id]
+
+    def status_from_task(self, task):
+        return self.status_from_hash(task.hash)
 
     def _sync(self, session):
         rc, jobs = self.jqs_req.send_request({
@@ -204,6 +219,7 @@ class JobListManager(object):
         for job in jobs:
             self.job_statuses[job.job_id] = job.status
             self.job_hash_id_map[job.job_hash] = job.job_id
+            self.job_id_hash_map[job.job_id] = job.job_hash
         self.all_done = set([job.job_id for job in jobs
                              if job.status == JobStatus.DONE])
         self.all_error = set([job.job_id for job in jobs if job.status ==

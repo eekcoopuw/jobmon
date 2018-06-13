@@ -87,7 +87,7 @@ def test_one_task(tmp_out_dir, dag):
     assert num_completed == 1
     assert num_previously_complete == 0
     assert num_failed == 0
-    assert task.status == JobStatus.DONE
+    assert dag.job_list_manager.status_from_task(task) == JobStatus.DONE
 
 
 def test_two_tasks_same_name_errors(tmp_out_dir, dag):

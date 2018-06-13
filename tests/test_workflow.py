@@ -228,8 +228,9 @@ def test_stop_resume(simple_workflow, tmpdir, second_dag):
     # Validate that the database indicates the Dag and its Jobs are complete
     assert workflow.status == WorkflowStatus.DONE
 
+    jlm = workflow.task_dag.job_list_manager
     for _, task in workflow.task_dag.tasks.items():
-        assert task.status == JobStatus.DONE
+        assert jlm.status_from_task(task) == JobStatus.DONE
 
 
 def test_reset_attempts_on_resume(simple_workflow, second_dag):

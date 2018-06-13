@@ -1,8 +1,6 @@
 import logging
 import hashlib
 
-from jobmon.models import JobStatus
-
 logger = logging.getLogger(__name__)
 
 
@@ -109,82 +107,10 @@ class ExecutableTask(object):
 
         ExecutableTask.is_valid_sge_job_name(self.name)
 
-        self.job_id = None  # will be None until executed
-        # self.job = None  # cached, could be None in resume use case until
-        # Job resurrected from dbs
-        self.status = None  # will be None until bound to DB
-
         self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
         self.downstream_tasks = set()
         for up in self.upstream_tasks:
             up.add_downstream(self)
-
-    def __eq__(self, other):
-        """
-        Two tasks are equal if they have the same hash.
-        Needed for sets
-        """
-        return self.hash == other.hash
-
-    def __hash__(self):
-        """
-        Logic must match __eq__
-        """
-        return self.hash
-
-    def __lt__(self, other):
-        return self.hash < other.hash
-
-    def get_status(self):
-        """
-        For executable jobs, my status is the status of my Job
-        Cached because the status is returned from the
-        block_until_any_done_or_error calls to job_list_manager, rather than by
-        retrieving the entire job from the database (for efficiency).
-
-        Returns:
-            JobStatus
-        """
-        return self.status
-
-    def set_status(self, new_status):
-        self.status = new_status
-
-    def is_done(self):
-        """
-        If my Job is not "DONE" then I must be run.
-
-        Only called when all of the upstream are DONE - either they completed
-        successfully or they were skipped because were not out of date, or this
-        is top_fringe (has no upstreams). Failed upstreams will NOT cause this
-        method to be called.
-
-        Delegates to Job
-
-        DOES NOT NEED TO BE OVERRIDDEN
-        """
-        if not self.get_status() == JobStatus.DONE:
-            logger.debug("am I done? {}; No (not DONE)".format(self))
-            return False
-        else:
-            logger.debug("am I done? {}; Yes (already DONE)"
-                         .format(self))
-            return True
-
-    def all_upstreams_done(self):
-        """
-        Are all my upstreams marked done in this execution cycle?
-
-        DOES NOT NEED TO BE OVERRIDDEN
-        Returns:
-            True if no upstreams, or they are all DONE.
-        """
-        logger.debug("Checking all upstreams for {}".format(self))
-        for task in self.upstream_tasks:
-            logger.debug("  Examine {}".format(task))
-            if not task.get_status() == JobStatus.DONE:
-                return False
-        return True
 
     def add_upstream(self, ancestor):
         """
@@ -206,59 +132,21 @@ class ExecutableTask(object):
         # avoid endless recursion, set directly
         descendent.upstream_tasks.add(self)
 
-    def bind(self, job_list_manager):
+    def __eq__(self, other):
         """
-        Abstract, must be overridden.
-        This MUST set self.job_id
-
-        Args:
-            job_list_manager: Used to create the Job
-
-        Returns:
-            The job_id of the new Job
+        Two tasks are equal if they have the same hash.
+        Needed for sets
         """
-        logger.debug("Create job, command = {}".format(self.command))
+        return self.hash == other.hash
 
-        self.job_id = job_list_manager.create_job(
-            jobname=self.name,
-            job_hash=self.hash,
-            command=self.command,
-            tag=self.tag,
-            slots=self.slots,
-            mem_free=self.mem_free,
-            max_attempts=self.max_attempts,
-            max_runtime=self.max_runtime,
-        )
-        self.status = JobStatus.REGISTERED
-        return self.job_id
-
-    @property
-    def is_bound(self):
-        """Boolean indicating whether the Task is bound to the DB"""
-        if self.job_id:
-            return True
-        else:
-            return False
-
-    def queue_job(self, job_list_manager):
+    def __hash__(self):
         """
-        Ask the job_list_manager to queue the job.
-         DOES NOT NEED TO BE OVERRIDDEN
-
-        Args:
-             job_list_manager:
-
-        Returns:
-            The job_id (for convenience)
-
-        Raises:
-            ValueError if my job_id is None
+        Logic must match __eq__
         """
-        if not self.job_id:
-            raise ValueError("Cannot queue Task because job_id is None: {}"
-                             .format(self))
-        job_list_manager.queue_job(self.job_id)
-        return self.job_id
+        return self.hash
+
+    def __lt__(self, other):
+        return self.hash < other.hash
 
     def __repr__(self):
         """
@@ -266,6 +154,5 @@ class ExecutableTask(object):
         Returns:
              String with information useful for a log message
         """
-        return "[Task: jid={jid}, '{name}', status: {status}]". \
-            format(jid=self.job_id, name=self.name,
-                   status=self.status)
+        return "[Task: hash={hs}, '{name}']". \
+            format(hs=self.hash, name=self.name)

@@ -38,6 +38,11 @@ def match_name_to_sge_name(jid):
     return sge_jobname
 
 
+def get_task_status(dag, task):
+    job_list_manager = dag.job_list_manager
+    return job_list_manager.status_from_task(task)
+
+
 def test_bash_task(dag):
     """
     Create a dag with one very simple BashTask and execute it
@@ -51,7 +56,7 @@ def test_bash_task(dag):
 
     assert rc
     assert num_completed == 1
-    assert task.status == JobStatus.DONE
+    assert get_task_status(dag, task) == JobStatus.DONE
 
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
@@ -85,7 +90,7 @@ def test_python_task(dag, tmp_out_dir):
 
     assert rc
     assert num_completed == 1
-    assert task.status == JobStatus.DONE
+    assert get_task_status(dag, task) == JobStatus.DONE
 
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
@@ -115,7 +120,7 @@ def test_R_task(dag, tmp_out_dir):
 
     assert rc
     assert num_completed == 1
-    assert task.status == JobStatus.DONE
+    assert get_task_status(dag, task) == JobStatus.DONE
 
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
@@ -144,7 +149,7 @@ def test_stata_task(dag, tmp_out_dir):
 
     assert rc
     assert num_completed == 1
-    assert task.status == JobStatus.DONE
+    assert get_task_status(dag, task) == JobStatus.DONE
 
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
