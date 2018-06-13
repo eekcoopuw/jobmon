@@ -257,7 +257,9 @@ class Workflow(object):
         if not self.is_bound:
             self._bind()
         self._create_workflow_run()
-        success, n_new_done, n_prev_done, n_failed = self.task_dag._execute()
+        success, n_new_done, n_prev_done, n_failed = (
+            self.task_dag._execute_interruptible())
+
         if success:
             self._done()
         else:

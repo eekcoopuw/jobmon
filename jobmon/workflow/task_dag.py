@@ -130,6 +130,10 @@ class TaskDag(object):
                 return False
         return True
 
+    def disconnect(self):
+        if self.job_list_manager:
+            self.job_list_manager.disconnect()
+
     def _execute(self, executor_args={}):
         """
         Take a concrete DAG and queue all the Tasks that are not DONE.
@@ -225,13 +229,26 @@ class TaskDag(object):
 
         if all_failed:
             logger.info("DAG execute finished, failed {}".format(all_failed))
-            self.job_list_manager.disconnect()
-            return False, len(all_completed), len(already_done), len(all_failed)
+            self.disconnect()
+            return (False, len(all_completed), len(already_done),
+                    len(all_failed))
         else:
             logger.info("DAG execute finished successfully, {} jobs"
                         .format(len(all_completed)))
-            self.job_list_manager.disconnect()
+            self.disconnect()
             return True, len(all_completed), len(already_done), len(all_failed)
+
+    def _execute_interruptible(self, executor_args={}):
+        try:
+            self._execute(executor_args)
+        except KeyboardInterrupt:
+            confirm = input("Are you sure you want to exit (y/n): ")
+            confirm = confirm.lower().strip()
+            if confirm == "y":
+                self.disconnect()
+            else:
+                print("Continuing jobmon execution...")
+                self._execute_interruptible(executor_args)
 
     def sort_jobs(self, runners, completed_and_failed):
         """
@@ -354,5 +371,6 @@ class TaskDag(object):
             hashval.update(bytes("{:x}".format(task_hash).encode('utf-8')))
             task = self.tasks[task_hash]
             for dtask in sorted(task.downstream_tasks):
-                hashval.update(bytes("{:x}".format(dtask.hash).encode('utf-8')))
+                hashval.update(
+                    bytes("{:x}".format(dtask.hash).encode('utf-8')))
         return hashval.hexdigest()
