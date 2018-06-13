@@ -1,6 +1,6 @@
 import logging
 import time
-from threading import Thread
+from threading import Event, Thread
 from queue import Queue, Empty
 from datetime import datetime
 
@@ -50,10 +50,11 @@ class JobListManager(object):
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
 
-        self.job_inst_factory = JobInstanceFactory(dag_id, executor,
-                                                   interrupt_on_error)
-        self.job_inst_reconciler = JobInstanceReconciler(dag_id,
-                                                         interrupt_on_error)
+        self._stop_event = Event()
+        self.job_inst_factory = JobInstanceFactory(
+            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
+        self.job_inst_reconciler = JobInstanceReconciler(
+            dag_id, interrupt_on_error, stop_event=self._stop_event)
 
         self.jqs_req = Requester(config.jqs_rep_conn)
 
@@ -167,6 +168,7 @@ class JobListManager(object):
         self.job_inst_reconciler.jsm_req.disconnect()
         self.jqs_req.disconnect()
         self.disconnect_queue.put('stop')
+        self._stop_event.set()
 
     def get_new_done(self):
         new_done = []

@@ -62,7 +62,7 @@ class JobFactory(object):
             'kwargs': {'job_id': job_id}
         })
         if rc[0] != ReturnCodes.OK:
-            raise InvalidResponse("{rc}: Could not queue_job".format(rc))
+            raise InvalidResponse("{rc}: Could not queue_job".format(rc=rc))
         return rc
 
     def reset_jobs(self):
@@ -71,5 +71,5 @@ class JobFactory(object):
             'kwargs': {'dag_id': self.dag_id}
         })
         if rc[0] != ReturnCodes.OK:
-            raise InvalidResponse("{rc}: Could not reset jobs".format(rc))
+            raise InvalidResponse("{rc}: Could not reset jobs".format(rc=rc))
         return rc
