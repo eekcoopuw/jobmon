@@ -5,6 +5,7 @@ from time import sleep
 from jobmon import sge
 from jobmon.job_instance_factory import execute_batch_dummy, execute_sge
 from jobmon.job_list_manager import JobListManager
+from jobmon.workflow.executable_task import ExecutableTask as Task
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -47,8 +48,9 @@ def test_reconciler_dummy(job_list_manager_dummy):
     job_list_manager_dummy.get_new_errors()
 
     # Queue a job
-    job_id = job_list_manager_dummy.create_job("ls", "dummyfbb", "hash")
-    job_list_manager_dummy.queue_job(job_id)
+    task = Task(command="ls", name="dummyfbb")
+    job = job_list_manager_dummy.bind_task(task)
+    job_list_manager_dummy.queue_job(job)
     job_list_manager_dummy.job_inst_factory.instantiate_queued_jobs()
 
     jir = job_list_manager_dummy.job_inst_reconciler
@@ -62,10 +64,10 @@ def test_reconciler_dummy(job_list_manager_dummy):
     # TODO: Fix that 'super unlucky' bit
     jir.reconcile()
 
-    timeout_and_skip(5, 30, 1, partial(
-        reconciler_dummy_check,
+    sleep(10)
+    reconciler_dummy_check(
         job_list_manager_dummy=job_list_manager_dummy,
-        job_id=job_id))
+        job_id=job.job_id)
 
 
 def reconciler_dummy_check(job_list_manager_dummy, job_id):
@@ -82,9 +84,10 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
     errors = job_list_manager_sge.get_new_errors()
 
     # Queue a job
-    job_id = job_list_manager_sge.create_job(
-        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob", "hash")
-    job_list_manager_sge.queue_job(job_id)
+    task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
+                name="sleepyjob")
+    job = job_list_manager_sge.bind_task(task)
+    job_list_manager_sge.queue_job(job)
 
     # Give the job_state_manager some time to process the error message
     # This test job just sleeps for 30s, so it should not be missing
@@ -114,10 +117,10 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
     job_list_manager_sge.get_new_errors()
 
     # Queue a test job
-    job_id = job_list_manager_sge.create_job(
-        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob", "hash",
-        max_attempts=3, max_runtime=3)
-    job_list_manager_sge.queue_job(job_id)
+    task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
+                name="sleepyjob", max_attempts=3, max_runtime=3)
+    job = job_list_manager_sge.bind_task(task)
+    job_list_manager_sge.queue_job(job)
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job.
@@ -130,7 +133,7 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
         job_list_manager_sge=job_list_manager_sge,
         jsm_jqs=jsm_jqs,
         dag_id=dag_id,
-        job_id=job_id))
+        job_id=job.job_id))
 
 
 def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
@@ -157,10 +160,10 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
     # to simulate a hqw -> set the timeout for that hqw job to something
     # short... make sure that job doesn't actually get killed
     # TBD I don't think that has been implemented.
-    job_id = job_list_manager_sge.create_job(
-        sge.true_path("tests/shellfiles/sleep.sh"), "sleepyjob", "hash",
-        max_attempts=3, max_runtime=3)
-    job_list_manager_sge.queue_job(job_id)
+    task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
+                name="sleepyjob", max_attempts=3, max_runtime=3)
+    job = job_list_manager_sge.bind_task(task)
+    job_list_manager_sge.queue_job(job)
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job
@@ -172,7 +175,7 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
         job_list_manager_sge=job_list_manager_sge,
         jsm_jqs=jsm_jqs,
         dag_id=dag_id,
-        job_id=job_id))
+        job_id=job.job_id))
 
 
 def ignore_qw_in_timeouts_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):

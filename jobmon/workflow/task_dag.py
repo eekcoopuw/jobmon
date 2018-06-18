@@ -25,7 +25,8 @@ class TaskDag(object):
 
         # TODO: Scale test to 1M jobs
         self.name = name
-        self.tasks = OrderedDict()  # dict for scalability to 1,000,000+ jobs
+        self.tasks = OrderedDict()  # {job_hash: Task} .. dict for scalability to 1,000,000+ jobs
+        self.bound_tasks = None
         self.top_fringe = []
         self.fail_after_n_executions = None
 
@@ -87,17 +88,11 @@ class TaskDag(object):
                 self.meta.dag_id, executor=executor, start_daemons=True,
                 interrupt_on_error=self.interrupt_on_error)
             self.dag_id = self.meta.dag_id
-            for _, task in self.tasks.items():
-                self.job_list_manager.create_job(
-                    jobname=task.name,
-                    job_hash=task.hash,
-                    command=task.command,
-                    tag=task.tag,
-                    slots=task.slots,
-                    mem_free=task.mem_free,
-                    max_attempts=task.max_attempts,
-                    max_runtime=task.max_runtime,
-                )
+
+        # Bind all the tasks to the job_list_manager
+        for _, task in self.tasks.items():
+            bound_task = self.job_list_manager.bind_task(task)
+        self.bound_tasks = self.job_list_manager.bound_tasks
 
     def validate(self, raises=True):
         """
@@ -164,6 +159,8 @@ class TaskDag(object):
 
         if not self.is_bound:
             self.bind_to_db(executor_args=executor_args)
+
+        previously_completed = copy.copy(self.job_list_manager.all_done)
         self._set_top_fringe()
 
         logger.debug("self.fail_after_n_executions is {}"
@@ -186,27 +183,21 @@ class TaskDag(object):
                 # maximize parallelism
                 task = fringe.pop(0)
                 # Start the new jobs ASAP
-                job_id = self.job_list_manager.job_hash_id_map[task.hash]
-                task_is_done = self.job_list_manager.job_statuses[job_id]
-                if task_is_done:
+                if task.is_done:
                     raise RuntimeError("Invalid DAG. Encountered a DONE node.")
                 else:
                     logger.debug("Queueing newly ready task {}".format(task))
                     self.job_list_manager.queue_task(task)
 
             # TBD timeout?
-            fresh_statuses = (
+            completed_tasks, failed_tasks  = (
                 self.job_list_manager.block_until_any_done_or_error())
-            for job in fresh_statuses:
-                if job[1] == JobStatus.DONE:
+            for task in completed_tasks:
                     n_executions += 1
-            logger.debug("Return from blocking call, fresh_statuses {}"
-                         .format(fresh_statuses))
-
-            # Need to find the tasks that were that job, they will be in this
-            # "small" dic of active tasks
-            completed_tasks, _ = self.sort_into_completed_and_failed_tasks(
-                fresh_statuses)
+            logger.debug(
+                "Return from blocking call, completed: {}, failed: {}".format(
+                    [t.job_id for t in completed_tasks],
+                    [t.job_id for t in failed_tasks]))
 
             for task in completed_tasks:
                 task_to_add = self.propagate_results(task)
@@ -225,44 +216,20 @@ class TaskDag(object):
         # fringe, or if they have potentially affected the status of Tasks that
         # were done (error case - disallowed??)
 
-        all_completed = self.job_list_manager.all_done()
-        all_failed = self.job_list_manager.all_error()
+        all_completed = self.job_list_manager.all_done
+        num_new_completed = len(all_completed) - len(previously_completed)
+        all_failed = self.job_list_manager.all_error
         if all_failed:
             logger.info("DAG execute finished, failed {}".format(all_failed))
             self.job_list_manager.disconnect()
-            return False, len(all_completed), len(all_failed)
+            return (False, num_new_completed, len(previously_completed),
+                    len(all_failed))
         else:
             logger.info("DAG execute finished successfully, {} jobs"
-                        .format(len(all_completed)))
+                        .format(num_new_completed))
             self.job_list_manager.disconnect()
-            return True, len(all_completed), len(all_failed)
-
-    def sort_into_completed_and_failed_tasks(self, fresh_statuses):
-        """
-        Sort IDs into two lists of completed and failed tasks
-
-        Args:
-            runners (dictionary): of currently running jobs, by job_id
-            fresh_statuses (list): List of tuples of (job_id, JobStatus)
-
-        Returns:
-            Two lists of Tasks:  (CompletedTasks[], FailedTasks[])
-        """
-        completed = []
-        failed = []
-        for (jid, status) in fresh_statuses:
-            job_hash = self.job_list_manager.job_id_hash_map[jid]
-            task = self.tasks[job_hash]
-
-            if status == JobStatus.DONE:
-                completed += [task]
-            elif status == JobStatus.ERROR_FATAL:
-                failed += [task]
-            else:
-                raise ValueError("Job returned that is neither done nor "
-                                 "error_fatal: jid: {}, status {}"
-                                 .format(jid, status))
-        return completed, failed
+            return (True, num_new_completed, len(previously_completed),
+                    len(all_failed))
 
     def propagate_results(self, task):
         """
@@ -281,7 +248,7 @@ class TaskDag(object):
             logger.debug("  downstream {}".format(downstream))
             downstream_done = (downstream.status == JobStatus.DONE)
             if not downstream_done:
-                if downstream.all_upstreams_done():
+                if downstream.all_upstreams_done:
                     logger.debug("  and add to fringe")
                     new_fringe += [downstream]
                     # else Nothing - that Task ain't ready yet
@@ -328,13 +295,10 @@ class TaskDag(object):
 
     def _set_top_fringe(self):
         self.top_fringe = []
-        for task in self.tasks.values():
-            task_status = self.job_list_manager.status_from_task(task)
-            unfinished_upstreams = [
-                u for u in task.upstream_tasks
-                if (self.job_list_manager.status_from_task(u) !=
-                    JobStatus.DONE)]
-            if not unfinished_upstreams and task_status != JobStatus.DONE:
+        for task in self.bound_tasks.values():
+            unfinished_upstreams = [u for u in task.upstream_tasks
+                                    if u.status != JobStatus.DONE]
+            if not unfinished_upstreams and task.status != JobStatus.DONE:
                 self.top_fringe += [task]
         return self.top_fringe
 

@@ -12,6 +12,7 @@ from jobmon.job_instance_factory import JobInstanceFactory
 from jobmon.job_instance_reconciler import JobInstanceReconciler
 from jobmon.requester import Requester
 from jobmon.subscriber import Subscriber
+from jobmon.workflow.executable_task import BoundTask
 
 
 logger = logging.getLogger(__name__)
@@ -63,9 +64,9 @@ class JobListManager(object):
         self.update_queue = Queue()
         self.disconnect_queue = Queue()
 
-        self.job_statuses = {}  # {job_id: status_id}
-        self.job_hash_id_map = {}  # {job_hash: job_id}
-        self.job_id_hash_map = {}  # {job_id: job_hash}
+        self.bound_tasks = {}  # {job_id: BoundTask}
+        self.hash_job_map = {}  # {job_hash: job}
+        self.job_hash_map = {}  # {job: job_hash}
         self.all_done = set()
         self.all_error = set()
         with session_scope() as session:
@@ -97,24 +98,44 @@ class JobListManager(object):
 
     @property
     def active_jobs(self):
-        return [job_id for job_id, job_status in self.job_statuses.items()
-                if job_status not in [JobStatus.REGISTERED,
-                                      JobStatus.DONE,
-                                      JobStatus.ERROR_FATAL]]
+        return [task for job_id, task in self.bound_tasks.items()
+                if task.status not in [JobStatus.REGISTERED,
+                                       JobStatus.DONE,
+                                       JobStatus.ERROR_FATAL]]
+
+    def bind_task(self, task):
+        if task.hash in self.hash_job_map:
+            job = self.hash_job_map[task.hash]
+        else:
+            job = self._create_job(
+                jobname=task.name,
+                job_hash=task.hash,
+                command=task.command,
+                tag=task.tag,
+                slots=task.slots,
+                mem_free=task.mem_free,
+                max_attempts=task.max_attempts,
+                max_runtime=task.max_runtime,
+                context_args=task.context_args,
+            )
+        bound_task = BoundTask(task=task, job=job, job_list_manager=self)
+        self.bound_tasks[job.job_id] = bound_task
+        return bound_task
+
 
     def block_until_any_done_or_error(self, timeout=None):
-        """Returns any job updates since last called, or blocks until an update
-        is received.
+        """Returns bound tasks that have either completed or failed since last
+        called, or blocks until an update is received.
 
         Be careful. Job statuses are cached in two places: in the update_queue,
-        and in the job_status dictionary. Be sure to update in both.
+        and in the bound_tasks list. Be sure to update in both.
 
         Args:
             timeout (int, optional): Maximum time to block. If None (default),
                 block forever.
 
         Returns:
-            list of (job_id, job_status) tuples
+            Two lists of Tasks:  (CompletedTasks[], FailedTasks[])
         """
         # TODO: Consider whether the done and error queues should also be
         # cleared by this method... or whether they should continue to be
@@ -125,8 +146,28 @@ class JobListManager(object):
                 updates.append(self.update_queue.get(timeout=timeout))
         else:
             updates = [self.update_queue.get(timeout=timeout)]
-        self.job_statuses.update(dict(updates))  # update job_status here
-        return updates
+
+        completed = []
+        completed_ids = []
+        failed = []
+        failed_ids = []
+        for job_id, status in updates:
+            task = self.bound_tasks[job_id]
+            task.status = status
+            if task.status == JobStatus.DONE:
+                completed += [task]
+                completed_ids += [task.job_id]
+            elif task.status == JobStatus.ERROR_FATAL:
+                failed += [task]
+                failed_ids += [task.job_id]
+            else:
+                raise ValueError("Job returned that is neither done nor "
+                                 "error_fatal: jid: {}, status {}"
+                                 .format(job_id, status))
+        self.all_done.update(set(completed_ids))
+        self.all_error -= set(completed_ids)
+        self.all_error.update(set(failed_ids))
+        return completed, failed
 
     def block_until_no_instances(self, poll_interval=10,
                                  raise_on_any_error=True):
@@ -155,10 +196,11 @@ class JobListManager(object):
             self._sync_at_interval()
         return done, errors
 
-    def create_job(self, *args, **kwargs):
-        job_id = self.job_factory.create_job(*args, **kwargs)
-        self.job_statuses[job_id] = JobStatus.REGISTERED
-        return job_id
+    def _create_job(self, *args, **kwargs):
+        job = self.job_factory.create_job(*args, **kwargs)
+        self.hash_job_map[job.job_hash] = job
+        self.job_hash_map[job] = job.job_hash
+        return job
 
     def disconnect(self):
         self.job_factory.requester.disconnect()
@@ -174,8 +216,9 @@ class JobListManager(object):
         while not self.done_queue.empty():
             done_id = self.done_queue.get()
             new_done.append(done_id)
-            self.job_statuses[done_id] = JobStatus.DONE
+            self.bound_tasks[done_id].status = JobStatus.DONE
         self.all_done.update(new_done)
+        self.all_error -= set(new_done)
         self._sync_at_interval()
         return new_done
 
@@ -184,31 +227,36 @@ class JobListManager(object):
         while not self.error_queue.empty():
             error_id = self.error_queue.get()
             new_errors.append(error_id)
-            self.job_statuses[error_id] = JobStatus.ERROR_FATAL
+            self.bound_tasks[error_id].status = JobStatus.ERROR_FATAL
         self.all_error.update(new_errors)
         self._sync_at_interval()
         return new_errors
 
-    def queue_job(self, job_id):
-        self.job_factory.queue_job(job_id)
-        self.job_statuses[job_id] = JobStatus.QUEUED_FOR_INSTANTIATION
+    def queue_job(self, job):
+        self.job_factory.queue_job(job.job_id)
+        task = self.bound_tasks[job.job_id]
+        task.status = JobStatus.QUEUED_FOR_INSTANTIATION
 
     def queue_task(self, task):
-        job_id = self.job_hash_id_map[task.hash]
-        self.queue_job(job_id)
+        job = self.hash_job_map[task.hash]
+        self.queue_job(job)
 
     def reset_jobs(self):
         self.job_factory.reset_jobs()
 
     def status_from_hash(self, job_hash):
-        job_id = self.job_hash_id_map[job_hash]
-        return self.status_from_id(job_id)
+        job = self.hash_job_map[job_hash]
+        return self.status_from_job(job)
 
-    def status_from_id(self, job_id):
-        return self.job_statuses[job_id]
+    def status_from_job(self, job):
+        return self.bound_tasks[job.job_id].status
 
     def status_from_task(self, task):
         return self.status_from_hash(task.hash)
+
+    def bound_task_from_task(self, task):
+        job = self.hash_job_map[task.hash]
+        return self.bound_tasks[job.job_id]
 
     def _sync(self, session):
         rc, jobs = self.jqs_req.send_request({
@@ -217,9 +265,12 @@ class JobListManager(object):
         })
         jobs = [Job.from_wire(j) for j in jobs]
         for job in jobs:
-            self.job_statuses[job.job_id] = job.status
-            self.job_hash_id_map[job.job_hash] = job.job_id
-            self.job_id_hash_map[job.job_id] = job.job_hash
+            if job.job_id in self.bound_tasks:
+                self.bound_tasks[job.job_id].status = job.status
+            else:
+                self.bound_tasks[job.job_id] = None
+            self.hash_job_map[job.job_hash] = job
+            self.job_hash_map[job] = job.job_hash
         self.all_done = set([job.job_id for job in jobs
                              if job.status == JobStatus.DONE])
         self.all_error = set([job.job_id for job in jobs if job.status ==

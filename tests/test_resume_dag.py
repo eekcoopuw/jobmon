@@ -74,12 +74,12 @@ def test_resume_dag(dag, tmp_out_dir):
         dag._execute()
 
     # ensure the dag that "fell over" has 2 out of the 5 jobs complete
-    statuses = list(dag.job_list_manager.job_statuses.values())
-    assert statuses[0] == JobStatus.DONE
-    assert statuses[1] == JobStatus.DONE
-    assert statuses[2] != JobStatus.DONE
-    assert statuses[3] != JobStatus.DONE
-    assert statuses[4] != JobStatus.DONE
+    bound_tasks = list(dag.job_list_manager.bound_tasks.values())
+    assert bound_tasks[0].status == JobStatus.DONE
+    assert bound_tasks[1].status == JobStatus.DONE
+    assert bound_tasks[2].status != JobStatus.DONE
+    assert bound_tasks[3].status != JobStatus.DONE
+    assert bound_tasks[4].status != JobStatus.DONE
 
     # relaunch dag, and ensure all tasks are marked complete now. the dag will
     # keep track of all completed tasks from last run of the dag, and so the

@@ -4,6 +4,7 @@ import logging
 from jobmon import requester
 from jobmon.exceptions import InvalidResponse, ReturnCodes
 from jobmon.config import config
+from jobmon.models import Job
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ class JobFactory(object):
             context_args = json.dumps({})
         else:
             context_args = json.dumps(context_args)
-        rc, job_id = self.requester.send_request({
+        rc, job_dct = self.requester.send_request({
             'action': 'add_job',
             'kwargs': {'dag_id': self.dag_id,
                        'name': jobname,
@@ -54,7 +55,7 @@ class JobFactory(object):
         if rc != ReturnCodes.OK:
             raise InvalidResponse(
                 "{rc}: Could not create_job {e}".format(rc=rc, e=job_id))
-        return job_id
+        return Job.from_wire(job_dct)
 
     def queue_job(self, job_id):
         rc = self.requester.send_request({

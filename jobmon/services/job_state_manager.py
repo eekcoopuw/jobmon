@@ -78,8 +78,8 @@ class JobStateManager(ReplyServer):
         with session_scope() as session:
             session.add(job)
             session.commit()
-            job_id = job.job_id
-        return (ReturnCodes.OK, job_id)
+            job_dct = job.to_wire()
+        return (ReturnCodes.OK, job_dct)
 
     def add_task_dag(self, name, user, dag_hash, created_date):
         dag = task_dag.TaskDagMeta(

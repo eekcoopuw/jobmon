@@ -1,6 +1,8 @@
 import logging
 import hashlib
 
+from jobmon.models import JobStatus
+
 logger = logging.getLogger(__name__)
 
 
@@ -55,7 +57,7 @@ class ExecutableTask(object):
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
                  name=None, slots=1, mem_free=2, max_attempts=3,
-                 max_runtime=None, tag=None):
+                 max_runtime=None, tag=None, context_args=None):
         """
         Create a task
 
@@ -96,6 +98,7 @@ class ExecutableTask(object):
         self.mem_free = mem_free
         self.max_attempts = max_attempts
         self.max_runtime = max_runtime
+        self.context_args = context_args
 
         # Names of sge jobs can't start with a numeric.
         if name is None:
@@ -156,3 +159,34 @@ class ExecutableTask(object):
         """
         return "[Task: hash={hs}, '{name}']". \
             format(hs=self.hash, name=self.name)
+
+
+class BoundTask(object):
+
+    def __init__(self, task, job, job_list_manager):
+
+        self.hash = task.hash
+        self.job_id = job.job_id
+        self.status = job.status
+
+        self._jlm = job_list_manager
+        self._job = job
+        self._task = task
+
+    @property
+    def all_upstreams_done(self):
+        return all([u.is_done for u in self.upstream_tasks])
+
+    @property
+    def is_done(self):
+        return self.status == JobStatus.DONE
+
+    @property
+    def downstream_tasks(self):
+        return [self._jlm.bound_task_from_task(task)
+                for task in self._task.downstream_tasks]
+
+    @property
+    def upstream_tasks(self):
+        return [self._jlm.bound_task_from_task(task)
+                for task in self._task.upstream_tasks]
