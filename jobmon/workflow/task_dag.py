@@ -53,7 +53,8 @@ class TaskDag(object):
         else:
             return False
 
-    def bind_to_db(self, dag_id=None, executor_args={}):
+    def bind_to_db(self, dag_id=None, executor_args={},
+                   reset_running_jobs=True):
         """Binds the dag to the database and starts Job Management services.
 
         Args:
@@ -72,12 +73,13 @@ class TaskDag(object):
                 dag_id, executor=executor, start_daemons=True,
                 interrupt_on_error=self.interrupt_on_error)
 
-            # TODO: We only want to reset jobs in the cold-resume case. In
+            # We only want to reset jobs in the cold-resume case. In
             # the hot-resume case, we want to allow running jobs to continue
             # and only pickup failed / not-yet-run jobs
-
+            #
             # Reset any jobs hung up in not-DONE states
-            self.job_list_manager.reset_jobs()
+            if reset_running_jobs:
+                self.job_list_manager.reset_jobs()
 
             self.dag_id = dag_id
         else:
@@ -91,7 +93,7 @@ class TaskDag(object):
 
         # Bind all the tasks to the job_list_manager
         for _, task in self.tasks.items():
-            bound_task = self.job_list_manager.bind_task(task)
+            self.job_list_manager.bind_task(task)
         self.bound_tasks = self.job_list_manager.bound_tasks
 
     def validate(self, raises=True):

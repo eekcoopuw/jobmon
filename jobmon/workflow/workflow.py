@@ -95,7 +95,8 @@ class Workflow(object):
     """
 
     def __init__(self, task_dag=None, workflow_args=None, name="",
-                 description="", stderr=None, stdout=None, project=None):
+                 description="", stderr=None, stdout=None, project=None,
+                 reset_running_jobs=True):
         self.wf_dao = None
         self.name = name
         self.description = description
@@ -106,6 +107,8 @@ class Workflow(object):
 
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
+
+        self.reset_running_jobs = reset_running_jobs
 
         if task_dag:
             self.task_dag = task_dag
@@ -179,12 +182,17 @@ class Workflow(object):
                 self.dag_id,
                 executor_args={'stderr': self.stderr,
                                'stdout': self.stdout,
-                               'project': self.project, })
+                               'project': self.project, },
+                reset_running_jobs=self.reset_running_jobs,
+            )
         elif len(potential_wfs) == 0:
             # Bind the dag ...
-            self.task_dag.bind_to_db(executor_args={'stderr': self.stderr,
-                                                    'stdout': self.stdout,
-                                                    'project': self.project, })
+            self.task_dag.bind_to_db(
+                executor_args={'stderr': self.stderr,
+                               'stdout': self.stdout,
+                               'project': self.project, },
+                reset_running_jobs=self.reset_running_jobs,
+            )
 
             # Create new workflow in Database
             rc, wf_dct = self.jsm_req.send_request({
@@ -219,8 +227,9 @@ class Workflow(object):
 
     def _create_workflow_run(self):
         # Create new workflow in Database
-        self.workflow_run = WorkflowRun(self.id, self.stderr, self.stdout,
-                                        self.project)
+        self.workflow_run = WorkflowRun(
+            self.id, self.stderr, self.stdout, self.project,
+            reset_running_jobs=self.reset_running_jobs)
 
     def _error(self):
         self.workflow_run.update_error()
