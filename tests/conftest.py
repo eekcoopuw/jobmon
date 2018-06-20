@@ -163,8 +163,8 @@ def jsm_jqs(session_edb):
     jqs.stop_listening()
 
 
-@pytest.fixture(scope='module')
-def dag_id(jsm_jqs):
+@pytest.fixture(scope='function')
+def dag_id(jsm_jqs, db_cfg):
     import random
     jsm, jqs = jsm_jqs
     rc, dag_id = jsm.add_task_dag('test_dag', 'test_user',

@@ -10,6 +10,7 @@ from jobmon import sge
 from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus, JobInstance, JobInstanceStatus
 from jobmon.meta_models.task_dag import TaskDagMeta
+from jobmon.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,10 @@ def sge_submit_cmd_contains(jid, text):
     return text in cmd
 
 
+def task_status(dag, task):
+    return dag.job_list_manager.status_from_task(task)
+
+
 def test_empty_dag(dag):
     """
     Create a dag with no Tasks. Call all the creation methods and check that it
@@ -60,7 +65,7 @@ def test_empty_dag(dag):
 
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_previously_complete == 0
     assert num_completed == 0
     assert num_failed == 0
@@ -83,11 +88,11 @@ def test_one_task(tmp_out_dir, dag):
     os.makedirs("{}/test_one_task".format(tmp_out_dir))
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
     assert num_previously_complete == 0
     assert num_failed == 0
-    assert task.status == JobStatus.DONE
+    assert dag.job_list_manager.status_from_task(task) == JobStatus.DONE
 
 
 def test_two_tasks_same_name_errors(tmp_out_dir, dag):
@@ -153,7 +158,7 @@ def test_three_linear_tasks(tmp_out_dir, dag):
 
     logger.debug("DAG: {}".format(dag))
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 3
     assert num_previously_complete == 0
     assert num_failed == 0
@@ -227,22 +232,22 @@ def test_fork_and_join_tasks(tmp_out_dir, dag):
 
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0
 
-    assert task_a.status == JobStatus.DONE
+    assert task_status(dag, task_a) == JobStatus.DONE
 
-    assert task_b[0].status == JobStatus.DONE
-    assert task_b[1].status == JobStatus.DONE
-    assert task_b[2].status == JobStatus.DONE
+    assert task_status(dag, task_b[0]) == JobStatus.DONE
+    assert task_status(dag, task_b[1]) == JobStatus.DONE
+    assert task_status(dag, task_b[2]) == JobStatus.DONE
 
-    assert task_c[0].status == JobStatus.DONE
-    assert task_c[1].status == JobStatus.DONE
-    assert task_c[2].status == JobStatus.DONE
+    assert task_status(dag, task_c[0]) == JobStatus.DONE
+    assert task_status(dag, task_c[1]) == JobStatus.DONE
+    assert task_status(dag, task_c[2]) == JobStatus.DONE
 
-    assert task_d.status == JobStatus.DONE
+    assert task_status(dag, task_d) == JobStatus.DONE
 
 
 def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
@@ -302,23 +307,23 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
 
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert not rc
+    assert rc == DagExecutionStatus.FAILED
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
     assert num_completed == 1 + 2 + 2
     assert num_previously_complete == 0
     assert num_failed == 1  # b[1]
 
-    assert task_a.status == JobStatus.DONE
+    assert task_status(dag, task_a) == JobStatus.DONE
 
-    assert task_b[0].status == JobStatus.DONE
-    assert task_b[1].status == JobStatus.ERROR_FATAL
-    assert task_b[2].status == JobStatus.DONE
+    assert task_status(dag, task_b[0]) == JobStatus.DONE
+    assert task_status(dag, task_b[1]) == JobStatus.ERROR_FATAL
+    assert task_status(dag, task_b[2]) == JobStatus.DONE
 
-    assert task_c[0].status == JobStatus.DONE
-    assert task_c[1].status == JobStatus.REGISTERED
-    assert task_c[2].status == JobStatus.DONE
+    assert task_status(dag, task_c[0]) == JobStatus.DONE
+    assert task_status(dag, task_c[1]) == JobStatus.REGISTERED
+    assert task_status(dag, task_c[2]) == JobStatus.DONE
 
-    assert task_d.status == JobStatus.REGISTERED
+    assert task_status(dag, task_d) == JobStatus.REGISTERED
 
 
 def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
@@ -381,27 +386,28 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
 
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0
 
-    assert task_a.status == JobStatus.DONE
+    assert task_status(dag, task_a) == JobStatus.DONE
 
-    assert task_b[0].status == JobStatus.DONE
-    assert task_b[1].status == JobStatus.DONE
-    assert task_b[2].status == JobStatus.DONE
+    assert task_status(dag, task_b[0]) == JobStatus.DONE
+    assert task_status(dag, task_b[1]) == JobStatus.DONE
+    assert task_status(dag, task_b[2]) == JobStatus.DONE
 
-    assert task_c[0].status == JobStatus.DONE
-    assert task_c[1].status == JobStatus.DONE
-    assert task_c[2].status == JobStatus.DONE
+    assert task_status(dag, task_c[0]) == JobStatus.DONE
+    assert task_status(dag, task_c[1]) == JobStatus.DONE
+    assert task_status(dag, task_c[2]) == JobStatus.DONE
 
-    assert task_d.status == JobStatus.DONE
+    assert task_status(dag, task_d) == JobStatus.DONE
 
     # Check that the failed task's nodename + pgid got propagated to
     # its retry instance
     with session_scope() as session:
-        job = session.query(Job).filter_by(job_id=task_b[1].job_id).first()
+        bound_task = dag.job_list_manager.bound_task_from_task(task_b[1])
+        job = session.query(Job).filter_by(job_id=bound_task.job_id).first()
         done_ji = [ji for ji in job.job_instances
                    if ji.status == JobInstanceStatus.DONE][0]
         err_ji = [ji for ji in job.job_instances
@@ -489,22 +495,22 @@ def test_bushy_dag(tmp_out_dir, dag):
     # creation, not qsub status_date is date of last change.
     # Could we listen to job-instance state transitions?
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0
 
-    assert task_a.status == JobStatus.DONE
+    assert task_status(dag, task_a) == JobStatus.DONE
 
-    assert task_b[0].status == JobStatus.DONE
-    assert task_b[1].status == JobStatus.DONE
-    assert task_b[2].status == JobStatus.DONE
+    assert task_status(dag, task_b[0]) == JobStatus.DONE
+    assert task_status(dag, task_b[1]) == JobStatus.DONE
+    assert task_status(dag, task_b[2]) == JobStatus.DONE
 
-    assert task_c[0].status == JobStatus.DONE
-    assert task_c[1].status == JobStatus.DONE
-    assert task_c[2].status == JobStatus.DONE
+    assert task_status(dag, task_c[0]) == JobStatus.DONE
+    assert task_status(dag, task_c[1]) == JobStatus.DONE
+    assert task_status(dag, task_c[2]) == JobStatus.DONE
 
-    assert task_d.status == JobStatus.DONE
+    assert task_status(dag, task_d) == JobStatus.DONE
 
 
 def test_dag_logging(tmp_out_dir, dag):

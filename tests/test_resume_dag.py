@@ -6,6 +6,7 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
 from jobmon.models import JobStatus
+from jobmon.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -74,19 +75,19 @@ def test_resume_dag(dag, tmp_out_dir):
         dag._execute()
 
     # ensure the dag that "fell over" has 2 out of the 5 jobs complete
-    statuses = list(dag.job_list_manager.job_statuses.values())
-    assert statuses[0] == JobStatus.DONE
-    assert statuses[1] == JobStatus.DONE
-    assert statuses[2] != JobStatus.DONE
-    assert statuses[3] != JobStatus.DONE
-    assert statuses[4] != JobStatus.DONE
+    bound_tasks = list(dag.job_list_manager.bound_tasks.values())
+    assert bound_tasks[0].status == JobStatus.DONE
+    assert bound_tasks[1].status == JobStatus.DONE
+    assert bound_tasks[2].status != JobStatus.DONE
+    assert bound_tasks[3].status != JobStatus.DONE
+    assert bound_tasks[4].status != JobStatus.DONE
 
     # relaunch dag, and ensure all tasks are marked complete now. the dag will
     # keep track of all completed tasks from last run of the dag, and so the
     # number of all_completed will be all 5
     dag._set_fail_after_n_executions(None)
-    rc, all_completed, all_previously_complete, all_failed = dag._execute()
-    assert rc is True
+    status, all_completed, all_previously_complete, all_failed = dag._execute()
+    assert status  == DagExecutionStatus.SUCCEEDED
     assert all_previously_complete == 2
     assert all_completed == 3
     assert all_failed == 0

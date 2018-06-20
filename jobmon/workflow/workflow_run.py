@@ -71,13 +71,13 @@ class WorkflowRun(object):
     """
 
     def __init__(self, workflow_id, stderr, stdout, project,
-                 slack_channel='jobmon-alerts'):
+                 slack_channel='jobmon-alerts', reset_running_jobs=True):
         self.workflow_id = workflow_id
         self.jsm_req = Requester(config.jm_rep_conn)
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
-        self.kill_previous_workflow_runs()
+        self.kill_previous_workflow_runs(reset_running_jobs)
         rc, wfr_id = self.jsm_req.send_request({
             'action': 'add_workflow_run',
             'kwargs': {'workflow_id': workflow_id,
@@ -103,7 +103,7 @@ class WorkflowRun(object):
             raise ValueError("Invalid Reponse to is_workflow_running")
         return status, wf_run_id, hostname, pid, user
 
-    def kill_previous_workflow_runs(self):
+    def kill_previous_workflow_runs(self, reset_running_jobs):
         """First check the database for last WorkflowRun... where we store a
         hostname + pid + running_flag
 
@@ -133,12 +133,13 @@ class WorkflowRun(object):
             raise RuntimeError(msg)
         else:
             kill_remote_process(hostname, pid)
-            _, sge_ids = self.jsm_req.send_request({
-                'action': 'get_sge_ids_of_previous_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run_id}})
-            if sge_ids:
-                qdel(sge_ids)
-            self.poll_for_lagging_jobs(sge_ids)
+            if reset_running_jobs:
+                _, sge_ids = self.jsm_req.send_request({
+                    'action': 'get_sge_ids_of_previous_workflow_run',
+                    'kwargs': {'workflow_run_id': wf_run_id}})
+                if sge_ids:
+                    qdel(sge_ids)
+                self.poll_for_lagging_jobs(sge_ids)
             _, _ = self.jsm_req.send_request({
                 'action': 'update_workflow_run',
                 'kwargs': {'workflow_run_id': wf_run_id,
