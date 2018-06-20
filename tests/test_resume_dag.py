@@ -6,6 +6,7 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
 from jobmon.models import JobStatus
+from jobmon.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -85,8 +86,8 @@ def test_resume_dag(dag, tmp_out_dir):
     # keep track of all completed tasks from last run of the dag, and so the
     # number of all_completed will be all 5
     dag._set_fail_after_n_executions(None)
-    rc, all_completed, all_previously_complete, all_failed = dag._execute()
-    assert rc is True
+    status, all_completed, all_previously_complete, all_failed = dag._execute()
+    assert status  == DagExecutionStatus.SUCCEEDED
     assert all_previously_complete == 2
     assert all_completed == 3
     assert all_failed == 0

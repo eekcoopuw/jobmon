@@ -12,7 +12,7 @@ from jobmon.exceptions import ReturnCodes
 from jobmon.requester import Requester
 from jobmon.sql_base import Base
 from jobmon.workflow.workflow_run import WorkflowRun
-from jobmon.workflow.task_dag import TaskDag
+from jobmon.workflow.task_dag import DagExecutionStatus, TaskDag
 
 logger = logging.getLogger(__name__)
 
@@ -235,6 +235,10 @@ class Workflow(object):
         self.workflow_run.update_error()
         self._update_status(WorkflowStatus.ERROR)
 
+    def _stopped(self):
+        self.workflow_run.update_stopped()
+        self._update_status(WorkflowStatus.STOPPED)
+
     def _matching_dag_ids(self):
         rc, dag_ids = self.jqs_req.send_request({
             'action': 'get_dag_ids_by_hash',
@@ -266,24 +270,35 @@ class Workflow(object):
         if not self.is_bound:
             self._bind()
         self._create_workflow_run()
-        success, n_new_done, n_prev_done, n_failed = self.task_dag._execute()
-        if success:
-            self._done()
-        else:
-            self._error()
-        self.report(success, n_new_done, n_prev_done, n_failed)
-        return success
+        dag_status, n_new_done, n_prev_done, n_failed = (
+            self.task_dag._execute_interruptible())
 
-    def report(self, success, n_new_done, n_prev_done, n_failed):
-        if success:
+        if dag_status == DagExecutionStatus.SUCCEEDED:
+            self._done()
+        elif dag_status == DagExecutionStatus.FAILED:
+            self._error()
+        elif dag_status == DagExecutionStatus.STOPPED_BY_USER:
+            self._stopped()
+        else:
+            raise RuntimeError("Received unknown response from "
+                               "TaskDag._execute()")
+
+        self.report(dag_status, n_new_done, n_prev_done, n_failed)
+        return dag_status
+
+    def report(self, dag_status, n_new_done, n_prev_done, n_failed):
+        if dag_status == DagExecutionStatus.SUCCEEDED:
             logger.info("Workflow finished successfully!")
             logger.info("# finished jobs: {}".format(n_new_done + n_prev_done))
-        else:
+        elif dag_status == DagExecutionStatus.FAILED:
             logger.info("Workflow FAILED")
             logger.info("# finished jobs (this run): {}".format(n_new_done))
             logger.info("# finished jobs (previous runs): {}"
                         .format(n_prev_done))
             logger.info("# failed jobs: {}".format(n_failed))
+        elif dag_status == DagExecutionStatus.STOPPED_BY_USER:
+            logger.info("Workflow STOPPED_BY_USER")
+            logger.info("# finished jobs: {}", n_new_done)
 
     def run(self):
         """Alias for self.execute"""

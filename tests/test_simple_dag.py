@@ -10,6 +10,7 @@ from jobmon import sge
 from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus, JobInstance, JobInstanceStatus
 from jobmon.meta_models.task_dag import TaskDagMeta
+from jobmon.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -64,7 +65,7 @@ def test_empty_dag(dag):
 
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_previously_complete == 0
     assert num_completed == 0
     assert num_failed == 0
@@ -87,7 +88,7 @@ def test_one_task(tmp_out_dir, dag):
     os.makedirs("{}/test_one_task".format(tmp_out_dir))
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
     assert num_previously_complete == 0
     assert num_failed == 0
@@ -157,7 +158,7 @@ def test_three_linear_tasks(tmp_out_dir, dag):
 
     logger.debug("DAG: {}".format(dag))
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 3
     assert num_previously_complete == 0
     assert num_failed == 0
@@ -231,7 +232,7 @@ def test_fork_and_join_tasks(tmp_out_dir, dag):
 
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0
@@ -306,7 +307,7 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
 
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert not rc
+    assert rc == DagExecutionStatus.FAILED
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
     assert num_completed == 1 + 2 + 2
     assert num_previously_complete == 0
@@ -385,7 +386,7 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
 
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0
@@ -494,7 +495,7 @@ def test_bushy_dag(tmp_out_dir, dag):
     # creation, not qsub status_date is date of last change.
     # Could we listen to job-instance state transitions?
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0

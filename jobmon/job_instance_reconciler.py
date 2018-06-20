@@ -1,4 +1,5 @@
 import logging
+import threading
 import _thread
 from time import sleep
 
@@ -17,16 +18,21 @@ logger = logging.getLogger(__name__)
 
 class JobInstanceReconciler(object):
 
-    def __init__(self, dag_id, interrupt_on_error=True):
+    def __init__(self, dag_id, interrupt_on_error=True, stop_event=None):
         self.dag_id = dag_id
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
         self.interrupt_on_error = interrupt_on_error
 
+        if not stop_event:
+            self._stop_event = threading.Event()
+        else:
+            self._stop_event = stop_event
+
     def reconcile_periodically(self, poll_interval=10):
         logger.info("Reconciling jobs against 'qstat' at {}s "
                     "intervals".format(poll_interval))
-        while True:
+        while True and not self._stop_event.is_set():
             try:
                 logging.debug("Reconciling at interval {}s".format(poll_interval))
                 self.reconcile()
@@ -44,6 +50,7 @@ class JobInstanceReconciler(object):
                 logger.error(e)
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
+                    self._stop_event.set()
                 else:
                     raise
 

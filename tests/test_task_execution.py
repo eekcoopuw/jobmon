@@ -10,6 +10,7 @@ from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
 from jobmon.workflow.r_task import RTask
 from jobmon.workflow.stata_task import StataTask
+from jobmon.workflow.task_dag import DagExecutionStatus
 
 
 def match_name_to_sge_name(jid):
@@ -54,7 +55,7 @@ def test_bash_task(dag):
     (rc, num_completed, num_previously_complete, num_failed) = (
         dag._execute(executor_args={'project': 'proj_jenkins'}))
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
     assert get_task_status(dag, task) == JobStatus.DONE
 
@@ -88,7 +89,7 @@ def test_python_task(dag, tmp_out_dir):
     (rc, num_completed, num_previously_complete, num_failed) = (
         dag._execute(executor_args={'project': 'proj_jenkins'}))
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
     assert get_task_status(dag, task) == JobStatus.DONE
 
@@ -118,7 +119,7 @@ def test_R_task(dag, tmp_out_dir):
     (rc, num_completed, num_previously_complete, num_failed) = (
         dag._execute(executor_args={'project': 'proj_jenkins'}))
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
     assert get_task_status(dag, task) == JobStatus.DONE
 
@@ -147,7 +148,7 @@ def test_stata_task(dag, tmp_out_dir):
     (rc, num_completed, num_previously_complete, num_failed) = (
         dag._execute(executor_args={'project': 'proj_jenkins'}))
 
-    assert rc
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
     assert get_task_status(dag, task) == JobStatus.DONE
 

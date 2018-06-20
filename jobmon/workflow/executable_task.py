@@ -165,13 +165,17 @@ class BoundTask(object):
 
     def __init__(self, task, job, job_list_manager):
 
-        self.hash = task.hash
         self.job_id = job.job_id
         self.status = job.status
 
         self._jlm = job_list_manager
         self._job = job
         self._task = task
+
+        if task:
+            self.hash = task.hash
+        else:
+            self.hash = None
 
     @property
     def all_upstreams_done(self):

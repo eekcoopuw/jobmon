@@ -1,6 +1,6 @@
 import logging
 import time
-from threading import Thread
+from threading import Event, Thread
 from queue import Queue, Empty
 from datetime import datetime
 
@@ -51,10 +51,11 @@ class JobListManager(object):
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
 
-        self.job_inst_factory = JobInstanceFactory(dag_id, executor,
-                                                   interrupt_on_error)
-        self.job_inst_reconciler = JobInstanceReconciler(dag_id,
-                                                         interrupt_on_error)
+        self._stop_event = Event()
+        self.job_inst_factory = JobInstanceFactory(
+            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
+        self.job_inst_reconciler = JobInstanceReconciler(
+            dag_id, interrupt_on_error, stop_event=self._stop_event)
 
         self.jqs_req = Requester(config.jqs_rep_conn)
 
@@ -210,6 +211,7 @@ class JobListManager(object):
         self.job_inst_reconciler.jsm_req.disconnect()
         self.jqs_req.disconnect()
         self.disconnect_queue.put('stop')
+        self._stop_event.set()
 
     def get_new_done(self):
         new_done = []
@@ -243,6 +245,8 @@ class JobListManager(object):
 
     def reset_jobs(self):
         self.job_factory.reset_jobs()
+        with session_scope() as session:
+            self._sync(session)
 
     def status_from_hash(self, job_hash):
         job = self.hash_job_map[job_hash]
@@ -268,7 +272,8 @@ class JobListManager(object):
             if job.job_id in self.bound_tasks:
                 self.bound_tasks[job.job_id].status = job.status
             else:
-                self.bound_tasks[job.job_id] = None
+                self.bound_tasks[job.job_id] = BoundTask(
+                    task=None, job=job, job_list_manager=self)
             self.hash_job_map[job.job_hash] = job
             self.job_hash_map[job] = job.job_hash
         self.all_done = set([job.job_id for job in jobs

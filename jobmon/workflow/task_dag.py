@@ -13,6 +13,13 @@ from jobmon.workflow.task_dag_factory import TaskDagMetaFactory
 logger = logging.getLogger(__name__)
 
 
+class DagExecutionStatus(object):
+    """Enumerate possible exit statuses for TaskDag._execute()"""
+    SUCCEEDED = 0
+    FAILED = 1
+    STOPPED_BY_USER = 2
+
+
 class TaskDag(object):
     """
     A DAG of Tasks.
@@ -73,6 +80,15 @@ class TaskDag(object):
                 dag_id, executor=executor, start_daemons=True,
                 interrupt_on_error=self.interrupt_on_error)
 
+            # Bind all the tasks to the job_list_manager... This has to be done
+            # before the reset happens. TODO: Investigate the sequencing,
+            # and at minimum push some error messaging down into
+            # job_list_manager if RESETTING without any bound tasks. Perhaps,
+            # we shouldn't allow most methods to be called until all job_ids
+            # are bound to tasks
+            for _, task in self.tasks.items():
+                self.job_list_manager.bind_task(task)
+
             # We only want to reset jobs in the cold-resume case. In
             # the hot-resume case, we want to allow running jobs to continue
             # and only pickup failed / not-yet-run jobs
@@ -91,9 +107,9 @@ class TaskDag(object):
                 interrupt_on_error=self.interrupt_on_error)
             self.dag_id = self.meta.dag_id
 
-        # Bind all the tasks to the job_list_manager
-        for _, task in self.tasks.items():
-            self.job_list_manager.bind_task(task)
+            # Bind all the tasks to the job_list_manager
+            for _, task in self.tasks.items():
+                self.job_list_manager.bind_task(task)
         self.bound_tasks = self.job_list_manager.bound_tasks
 
     def validate(self, raises=True):
@@ -134,6 +150,10 @@ class TaskDag(object):
                 logger.warning(error_message)
                 return False
         return True
+
+    def disconnect(self):
+        if self.job_list_manager:
+            self.job_list_manager.disconnect()
 
     def _execute(self, executor_args={}):
         """
@@ -224,14 +244,30 @@ class TaskDag(object):
         if all_failed:
             logger.info("DAG execute finished, failed {}".format(all_failed))
             self.job_list_manager.disconnect()
-            return (False, num_new_completed, len(previously_completed),
-                    len(all_failed))
+            return (DagExecutionStatus.FAILED, num_new_completed,
+                    len(previously_completed), len(all_failed))
         else:
             logger.info("DAG execute finished successfully, {} jobs"
                         .format(num_new_completed))
             self.job_list_manager.disconnect()
-            return (True, num_new_completed, len(previously_completed),
-                    len(all_failed))
+            return (DagExecutionStatus.SUCCEEDED, num_new_completed,
+                    len(previously_completed), len(all_failed))
+
+    def _execute_interruptible(self, executor_args={}):
+        keep_running = True
+        while keep_running:
+            try:
+                return self._execute(executor_args)
+            except KeyboardInterrupt:
+                confirm = input("Are you sure you want to exit (y/n): ")
+                confirm = confirm.lower().strip()
+                if confirm == "y":
+                    keep_running = False
+                    self.disconnect()
+                    return (DagExecutionStatus.STOPPED_BY_USER,
+                            len(self.job_list_manager.all_done), None, None)
+                else:
+                    print("Continuing jobmon execution...")
 
     def propagate_results(self, task):
         """
@@ -300,7 +336,8 @@ class TaskDag(object):
         for task in self.bound_tasks.values():
             unfinished_upstreams = [u for u in task.upstream_tasks
                                     if u.status != JobStatus.DONE]
-            if not unfinished_upstreams and task.status != JobStatus.DONE:
+            if not unfinished_upstreams and \
+                    task.status == JobStatus.REGISTERED:
                 self.top_fringe += [task]
         return self.top_fringe
 
