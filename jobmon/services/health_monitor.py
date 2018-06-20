@@ -19,7 +19,7 @@ class HealthMonitor(object):
             if the time since its last heartbeat exceeds this threshold
         poll_interval (int) (in minutes): time elapsed between successive
             checks for workflow run heartbeats + failing nodes. should be
-             greater than the loss_threshold
+            greater than the loss_threshold
         wf_notification_sink (callable(str), optional): a callable that
             takes a string, where info can be sent whenever a lost
             workflow run is identified
@@ -48,13 +48,17 @@ class HealthMonitor(object):
     def monitor_forever(self):
         while True:
             with database.session_scope() as session:
+                # Identify and log lost workflow runs
                 lost_wrs = self._get_lost_workflow_runs(session)
+                self._register_lost_workflow_runs(lost_wrs)
+
+                # Identify and log any potentially failing nodes
                 working_wf_runs = self._get_succeeding_active_workflow_runs(
                     session)
                 failing_nodes = self._calculate_node_failure_rate(
                     session, working_wf_runs)
-                self._register_lost_workflow_runs(lost_wrs)
-                self._notify_of_failing_nodes(failing_nodes)
+                if failing_nodes:
+                    self._notify_of_failing_nodes(failing_nodes)
             sleep(self._poll_interval * 60)
 
     def _get_succeeding_active_workflow_runs(self, session):
