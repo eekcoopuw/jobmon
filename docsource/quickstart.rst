@@ -53,7 +53,8 @@ Constructing a Workflow and adding a few Tasks is simple::
     user = getpass.getuser()
     my_wf = Workflow(workflow_args="quickstart", project='proj_jenkins',
                      stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
-                     stdout='/ihme/scratch/users/{}/sgeoutput'.format(user)))
+                     stdout='/ihme/scratch/users/{}/sgeoutput'.format(user)),
+                     working_dir='/homes/{}'.format(user))
 
     # Add some Tasks to it...
     write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
@@ -71,7 +72,7 @@ Constructing a Workflow and adding a few Tasks is simple::
 
 .. note::
 
-    Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you launch your job the way you want. These include slots, mem_free, max_attempts, max_runtime. By default, slots used will be 1, mem_free 2, with a max_attempt of 3. Stderr, stdout, and project are set at the workflow level (see below).
+    Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you launch your job the way you want. These include slots, mem_free, max_attempts, max_runtime. By default, slots used will be 1, mem_free 2, with a max_attempt of 3. Stderr, stdout, project, and working_dir (if desired) are set at the workflow level (see below).
 
 .. note::
     If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon Task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
@@ -87,7 +88,7 @@ A Workflow allows for sophisticated tracking of how many times a DAG gets execut
    a result of an adverse cluster event)
 #. Re-attempt a set of Tasks that may have ERROR'd out in the middle (assuming you
    identified and fixed the source of the error)
-#. Set stderr, stdout, and project qsub arguments from the top level
+#. Set stderr, stdout, working_dir, and project qsub arguments from the top level
 
 To resume the Workflow created above::
 
@@ -98,7 +99,8 @@ To resume the Workflow created above::
     user = getpass.getuser()
     my_wf = Workflow(workflow_args"quickstart", project='proj_jenkins',
                   stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
-                  stdout='/ihme/scratch/users/{}/sgeoutput'.format(user))
+                  stdout='/ihme/scratch/users/{}/sgeoutput'.format(user),
+                  working_dir='/homes/{}'.format(user))
 
     # Re-add the same Tasks to it...
     write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
