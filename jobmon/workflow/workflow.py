@@ -224,7 +224,8 @@ class Workflow(object):
     def _create_workflow_run(self):
         # Create new workflow in Database
         self.workflow_run = WorkflowRun(self.id, self.stderr, self.stdout,
-                                        self.project, self.working_dir)
+                                        self.project,
+                                        working_dir=self.working_dir)
 
     def _error(self):
         self.workflow_run.update_error()
