@@ -135,7 +135,7 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK, wf_dct)
 
     def add_workflow_run(self, workflow_id, user, hostname, pid, stderr,
-                         stdout, project, slack_channel):
+                         stdout, project, slack_channel, working_dir):
         wfr = WorkflowRunDAO(workflow_id=workflow_id,
                              user=user,
                              hostname=hostname,
@@ -143,7 +143,8 @@ class JobStateManager(ReplyServer):
                              stderr=stderr,
                              stdout=stdout,
                              project=project,
-                             slack_channel=slack_channel)
+                             slack_channel=slack_channel,
+                             working_dir=working_dir)
         with session_scope() as session:
             workflow = session.query(WorkflowDAO).\
                 filter(WorkflowDAO.id == workflow_id).first()
