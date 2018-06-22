@@ -531,6 +531,18 @@ def test_failing_nodes(dag):
         failing_nodes = hm._calculate_node_failure_rate(session, active_wfrs)
         assert 'fake_node.ihme.washington.edu' in failing_nodes
 
+        # Manually make those job instances land on the same node and have
+        # them fail BUT also manually make there dates be older than an hour
+        # Ensure they they don't come up because of the time window
+        session.execute("""
+            UPDATE job_instance
+            SET nodename='new_fake_node.ihme.washington.edu', status="{s}",
+            status_date = '2018-05-16 17:17:54'
+            WHERE job_instance_id < 7 and workflow_run_id={wfr_id}
+            """.format(s=JobInstanceStatus.ERROR, wfr_id=wfr.id))
+        failing_nodes = hm._calculate_node_failure_rate(session, active_wfrs)
+        assert 'new_fake_node.ihme.washington.edu' not in failing_nodes
+
 
 def test_add_tasks_to_workflow(db_cfg, jsm_jqs):
     """Make sure adding tasks to a workflow (and not just a task dag) works"""

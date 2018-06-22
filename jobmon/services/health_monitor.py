@@ -103,6 +103,7 @@ class HealthMonitor(object):
                 {db}.workflow_run wf ON ji.workflow_run_id = wf.id
             WHERE
                 ji.workflow_run_id IN({wf})
+                AND ji.status_date > DATE_SUB(NOW(), INTERVAL 1 HOUR)
             GROUP BY nodename
             HAVING COUNT(job_instance_id) > 5 and failure_rate > .2;"""
             .format(db=self._database, wf=working_wf_runs))
