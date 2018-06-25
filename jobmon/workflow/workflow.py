@@ -95,7 +95,8 @@ class Workflow(object):
     """
 
     def __init__(self, task_dag=None, workflow_args=None, name="",
-                 description="", stderr=None, stdout=None, project=None):
+                 description="", stderr=None, stdout=None, project=None,
+                 working_dir=None):
         self.wf_dao = None
         self.name = name
         self.description = description
@@ -103,6 +104,7 @@ class Workflow(object):
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
+        self.working_dir = working_dir
 
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
@@ -179,12 +181,14 @@ class Workflow(object):
                 self.dag_id,
                 executor_args={'stderr': self.stderr,
                                'stdout': self.stdout,
-                               'project': self.project, })
+                               'project': self.project,
+                               'working_dir': self.working_dir, })
         elif len(potential_wfs) == 0:
             # Bind the dag ...
             self.task_dag.bind_to_db(executor_args={'stderr': self.stderr,
                                                     'stdout': self.stdout,
-                                                    'project': self.project, })
+                                                    'project': self.project,
+                                                    'working_dir': self.working_dir, })
 
             # Create new workflow in Database
             rc, wf_dct = self.jsm_req.send_request({
@@ -220,7 +224,8 @@ class Workflow(object):
     def _create_workflow_run(self):
         # Create new workflow in Database
         self.workflow_run = WorkflowRun(self.id, self.stderr, self.stdout,
-                                        self.project)
+                                        self.project,
+                                        working_dir=self.working_dir)
 
     def _error(self):
         self.workflow_run.update_error()
