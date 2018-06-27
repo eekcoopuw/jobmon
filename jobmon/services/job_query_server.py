@@ -1,10 +1,10 @@
 from datetime import datetime
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import contains_eager
 
-from jobmon.config import config
+from flask import jsonify
+
 from jobmon.database import session_scope
-from jobmon.exceptions import ReturnCodes, NoDatabase
+from jobmon.exceptions import ReturnCodes
 from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
 from jobmon.reply_server import ReplyServer
 from jobmon.meta_models import TaskDagMeta
@@ -14,27 +14,21 @@ from jobmon.workflow.workflow import WorkflowDAO
 class JobQueryServer(ReplyServer):
     """This services basic queries surrounding jobs"""
 
-    def __init__(self, rep_port=None):
-        super(JobQueryServer, self).__init__(rep_port)
-        self.register_action("get_submitted_or_running",
-                             self.get_submitted_or_running)
-        self.register_action("get_timed_out", self.get_timed_out)
-        self.register_action("get_all_jobs", self.get_jobs)
-        self.register_action("get_queued_for_instantiation",
-                             self.get_queued_for_instantiation)
-        self.register_action("get_dag_ids_by_hash",
-                             self.get_dag_ids_by_hash)
-        self.register_action("get_workflows_by_inputs",
-                             self.get_workflows_by_inputs)
+    app = ReplyServer.app
 
+    def __init__(self, rep_port=None):
+        super(JobQueryServer, self).__init__()
+
+    @app.route('/job', method=['GET'])
     def get_queued_for_instantiation(self, dag_id):
         with session_scope() as session:
             jobs = session.query(Job).filter_by(
                 status=JobStatus.QUEUED_FOR_INSTANTIATION,
                 dag_id=dag_id).all()
             job_dcts = [j.to_wire() for j in jobs]
-        return (ReturnCodes.OK, job_dcts)
+        return jsonify(return_code=ReturnCodes.OK, job_dcts=job_dcts)
 
+    @app.route('/job_instance', method=['GET'])
     def get_submitted_or_running(self, dag_id):
         with session_scope() as session:
             instances = session.query(JobInstance).\
@@ -46,8 +40,9 @@ class JobQueryServer(ReplyServer):
                 options(contains_eager(JobInstance.job)).\
                 filter_by(dag_id=dag_id).all()
             instances = [i.to_wire() for i in instances]
-        return (ReturnCodes.OK, instances)
+        return jsonify(return_code=ReturnCodes.OK, ji_dcts=instances)
 
+    @app.route('/job', method=['GET'])
     def get_jobs(self, dag_id):
         """
         Return a dictionary mapping job_id to a dict of the job's instance
@@ -59,8 +54,9 @@ class JobQueryServer(ReplyServer):
         with session_scope() as session:
             jobs = session.query(Job).filter(Job.dag_id == dag_id).all()
             job_dcts = [j.to_wire() for j in jobs]
-        return (ReturnCodes.OK, job_dcts)
+        return jsonify(return_code=ReturnCodes.OK, job_dcts=job_dcts)
 
+    @app.route('/job_instance', method=['GET'])
     def get_timed_out(self, dag_id):
         with session_scope() as session:
             running = session.query(JobInstance).\
@@ -75,8 +71,9 @@ class JobQueryServer(ReplyServer):
             now = datetime.utcnow()
             timed_out = [r.to_wire() for r in running
                          if (now - r.status_date).seconds > r.job.max_runtime]
-        return (ReturnCodes.OK, timed_out)
+        return jsonify(return_code=ReturnCodes.OK, timed_out=timed_out)
 
+    @app.route('/task_dag', method=['GET'])
     def get_dag_ids_by_hash(self, dag_hash):
         """
         Return a dictionary mapping job_id to a dict of the job's instance
@@ -89,8 +86,9 @@ class JobQueryServer(ReplyServer):
             dags = session.query(TaskDagMeta).filter(
                 TaskDagMeta.dag_hash == dag_hash).all()
             dag_ids = [dag.dag_id for dag in dags]
-        return (ReturnCodes.OK, dag_ids)
+        return jsonify(return_code=ReturnCodes.OK, dag_ids=dag_ids)
 
+    @app.route('/workflow', method=['GET'])
     def get_workflows_by_inputs(self, dag_id, workflow_args):
         """
         Return a dictionary mapping job_id to a dict of the job's instance
@@ -104,18 +102,8 @@ class JobQueryServer(ReplyServer):
                 filter(WorkflowDAO.dag_id == dag_id).\
                 filter(WorkflowDAO.workflow_args == workflow_args).first()
             if workflow:
-                return (ReturnCodes.OK, workflow.to_wire())
+                return jsonify(return_code=ReturnCodes.OK,
+                               workflow_dct=workflow.to_wire())
             else:
-                return (ReturnCodes.NO_RESULTS, {})
-
-    def listen(self):
-        """If the database is unavailable, don't allow the JobQueryServer to
-        start listening. This would defeat its purpose, as it wouldn't have
-        anywhere to persist Job state..."""
-        with session_scope() as session:
-            try:
-                session.connection()
-            except OperationalError:
-                raise NoDatabase("JobQueryServer could not connect to {}".
-                                 format(config.conn_str))
-        super(JobQueryServer, self).listen()
+                return jsonify(return_code=ReturnCodes.NO_RESULTS,
+                               workflow_dct={})

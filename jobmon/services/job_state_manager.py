@@ -1,13 +1,11 @@
 import logging
 from datetime import datetime
 
-import zmq
-from sqlalchemy.exc import OperationalError
+from flask import jsonify
 
 from jobmon import models
-from jobmon.config import config
 from jobmon.database import session_scope
-from jobmon.exceptions import ReturnCodes, NoDatabase
+from jobmon.exceptions import ReturnCodes
 from jobmon.pubsub_helpers import mogrify
 from jobmon.reply_server import ReplyServer
 from jobmon.meta_models import task_dag
@@ -23,43 +21,12 @@ logger = logging.getLogger(__name__)
 
 class JobStateManager(ReplyServer):
 
-    def __init__(self, rep_port=None, pub_port=None):
-        super(JobStateManager, self).__init__(rep_port)
-        self.register_action("add_job", self.add_job)
-        self.register_action("add_task_dag", self.add_task_dag)
-        self.register_action("add_job_instance", self.add_job_instance)
-        self.register_action("add_workflow", self.add_workflow)
-        self.register_action("add_workflow_run", self.add_workflow_run)
-        self.register_action("update_workflow", self.update_workflow)
-        self.register_action("update_workflow_run", self.update_workflow_run)
-        self.register_action("is_workflow_running",
-                             self.is_workflow_running)
-        self.register_action("get_sge_ids_of_previous_workflow_run",
-                             self.get_sge_ids_of_previous_workflow_run)
+    app = ReplyServer.app
 
-        self.register_action("log_done", self.log_done)
-        self.register_action("log_error", self.log_error)
-        self.register_action("log_executor_id", self.log_executor_id)
-        self.register_action("log_heartbeat", self.log_heartbeat)
-        self.register_action("log_running", self.log_running)
-        self.register_action("log_nodename", self.log_nodename)
-        self.register_action("log_usage", self.log_usage)
+    def __init__(self):
+        super(JobStateManager, self).__init__()
 
-        self.register_action("queue_job", self.queue_job)
-        self.register_action("reset_job", self.reset_job)
-        self.register_action("reset_incomplete_jobs",
-                             self.reset_incomplete_jobs)
-
-        ctx = zmq.Context.instance()
-        self.publisher = ctx.socket(zmq.PUB)
-        self.publisher.setsockopt(zmq.LINGER, 0)
-        if pub_port:
-            self.pub_port = pub_port
-            self.publisher.bind('tcp://*:{}'.format(self.pub_port))
-        else:
-            self.pub_port = self.publisher.bind_to_random_port('tcp://*')
-        logger.info("Publishing to port {}".format(self.pub_port))
-
+    @app.route('/job', methods=['POST'])
     def add_job(self, name, job_hash, command, dag_id, slots=1,
                 mem_free=2, max_attempts=1, max_runtime=None,
                 context_args="{}", tag=None):
@@ -79,8 +46,9 @@ class JobStateManager(ReplyServer):
             session.add(job)
             session.commit()
             job_id = job.job_id
-        return (ReturnCodes.OK, job_id)
+        return jsonify(return_code=ReturnCodes.OK, job_id=job_id)
 
+    @app.route('/task_dag', methods=['POST'])
     def add_task_dag(self, name, user, dag_hash, created_date):
         dag = task_dag.TaskDagMeta(
             name=name,
@@ -91,7 +59,7 @@ class JobStateManager(ReplyServer):
             session.add(dag)
             session.commit()
             dag_id = dag.dag_id
-        return (ReturnCodes.OK, dag_id)
+        return jsonify(return_code=ReturnCodes.OK, dag_id=dag_id)
 
     def _get_workflow_run_id(self, job_id):
         with session_scope() as session:
@@ -106,6 +74,7 @@ class JobStateManager(ReplyServer):
             wf_run_id = wf_run.id
         return wf_run_id
 
+    @app.route('/job_instance', methods=['POST'])
     def add_job_instance(self, job_id, executor_type):
         logger.debug("Add JI for job {}".format(job_id))
         workflow_run_id = self._get_workflow_run_id(job_id)
@@ -121,8 +90,9 @@ class JobStateManager(ReplyServer):
             # TODO: Would prefer putting this in the model, but can't find the
             # right post-create hook. Investigate.
             job_instance.job.transition(models.JobStatus.INSTANTIATED)
-        return (ReturnCodes.OK, ji_id)
+        return jsonify(return_code=ReturnCodes.OK, job_instance_id=ji_id)
 
+    @app.route('/workflow', methods=['POST'])
     def add_workflow(self, dag_id, workflow_args, workflow_hash, name, user,
                      description=""):
         wf = WorkflowDAO(dag_id=dag_id, workflow_args=workflow_args,
@@ -132,8 +102,9 @@ class JobStateManager(ReplyServer):
             session.add(wf)
             session.commit()
             wf_dct = wf.to_wire()
-        return (ReturnCodes.OK, wf_dct)
+        return jsonify(return_code=ReturnCodes.OK, workflow_dct=wf_dct)
 
+    @app.route('/workflow_run', methods=['POST'])
     def add_workflow_run(self, workflow_id, user, hostname, pid, stderr,
                          stdout, project, slack_channel):
         wfr = WorkflowRunDAO(workflow_id=workflow_id,
@@ -153,8 +124,9 @@ class JobStateManager(ReplyServer):
             session.add(wfr)
             session.commit()
             wfr_id = wfr.id
-        return (ReturnCodes.OK, wfr_id)
+        return jsonify(return_code=ReturnCodes.OK, workflow_run_id=wfr_id)
 
+    @app.route('/workflow', methods=['POST'])
     def update_workflow(self, wf_id, status):
         with session_scope() as session:
             wf = session.query(WorkflowDAO).\
@@ -163,8 +135,9 @@ class JobStateManager(ReplyServer):
             wf.status_date = datetime.utcnow()
             session.commit()
             wf_dct = wf.to_wire()
-        return (ReturnCodes.OK, wf_dct)
+        return jsonify(code=ReturnCodes.OK, workflow_dct=wf_dct)
 
+    @app.route('/workflow_run', methods=['POST'])
     def update_workflow_run(self, wfr_id, status):
         with session_scope() as session:
             wfr = session.query(WorkflowRunDAO).\
@@ -172,8 +145,9 @@ class JobStateManager(ReplyServer):
             wfr.status = status
             wfr.status_date = datetime.utcnow()
             session.commit()
-        return (ReturnCodes.OK, status)
+        return jsonify(return_code=ReturnCodes.OK, status=status)
 
+    @app.route('/workflow', methods=['GET'])
     def is_workflow_running(self, workflow_id):
         """Check if a previous workflow run for your user is still running """
         with session_scope() as session:
@@ -181,36 +155,26 @@ class JobStateManager(ReplyServer):
                 workflow_id=workflow_id, status=WorkflowRunStatus.RUNNING,
             ).order_by(WorkflowRunDAO.id.desc()).first())
             if not wf_run:
-                return (ReturnCodes.OK, False, None, None, None, None)
+                return jsonify(return_code=ReturnCodes.OK,
+                               status=False, workflow_run_id=None,
+                               hostname=None, pid=None, user=None)
             wf_run_id = wf_run.id
             hostname = wf_run.hostname
             pid = wf_run.pid
             user = wf_run.user
-        return (ReturnCodes.OK, True, wf_run_id, hostname, pid, user)
+        return jsonify(return_code=ReturnCodes.OK, status=True,
+                       workflow_run_id=wf_run_id, hostname=hostname,
+                       pid=pid, user=user)
 
+    @app.route('/workflow_run', methods=['GET'])
     def get_sge_ids_of_previous_workflow_run(workflow_run_id):
         with session_scope() as session:
             jis = session.query(models.JobInstance).filter_by(
                 workflow_run_id=workflow_run_id).all()
             sge_ids = [ji.executor_id for ji in jis]
-        return (ReturnCodes.OK, sge_ids)
+        return jsonify(return_code=ReturnCodes.OK, sge_ids=sge_ids)
 
-    def listen(self):
-        """If the database is unavailable, don't allow the JobStateManager to
-        start listening. This would defeat its purpose, as it wouldn't have
-        anywhere to persist Job state..."""
-        with session_scope() as session:
-            try:
-                session.connection()
-            except OperationalError:
-                raise NoDatabase("JobStateManager could not connect to {}".
-                                 format(config.conn_str))
-        super(JobStateManager, self).listen()
-
-    def stop_listening(self):
-        super(JobStateManager, self).stop_listening()
-        self.publisher.close()
-
+    @app.route('/job_instance', methods=['POST'])
     def log_done(self, job_instance_id):
         logger.debug("Log DONE for JI {}".format(job_instance_id))
         with session_scope() as session:
@@ -219,8 +183,9 @@ class JobStateManager(ReplyServer):
                 session, ji, models.JobInstanceStatus.DONE)
         if msg:
             self.publisher.send_string(msg)
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
+    @app.route('/job_instance', methods=['POST'])
     def log_error(self, job_instance_id, error_message):
         logger.debug("Log ERROR for JI {}, message={}".format(job_instance_id,
                                                               error_message))
@@ -233,8 +198,9 @@ class JobStateManager(ReplyServer):
             session.add(error)
         if msg:
             self.publisher.send_string(msg)
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
+    @app.route('/job_instance', methods=['POST'])
     def log_executor_id(self, job_instance_id, executor_id):
         logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
         with session_scope() as session:
@@ -245,8 +211,9 @@ class JobStateManager(ReplyServer):
             self._update_job_instance(session, ji, executor_id=executor_id)
         if msg:
             self.publisher.send_string(msg)
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
+    @app.route('/task_dag', methods=['POST'])
     def log_heartbeat(self, dag_id):
         with session_scope() as session:
             dag = session.query(task_dag.TaskDagMeta).filter_by(
@@ -255,9 +222,10 @@ class JobStateManager(ReplyServer):
                 dag.heartbeat_date = datetime.utcnow()
                 session.commit()
             else:
-                return (ReturnCodes.NO_RESULTS,)
-        return (ReturnCodes.OK,)
+                return jsonify(return_code=ReturnCodes.NO_RESULTS,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
+    @app.route('/job_instance', methods=['POST'])
     def log_running(self, job_instance_id, nodename, process_group_id):
         logger.debug("Log RUNNING for JI {}".format(job_instance_id))
         with session_scope() as session:
@@ -268,15 +236,17 @@ class JobStateManager(ReplyServer):
             ji.process_group_id = process_group_id
         if msg:
             self.publisher.send_string(msg)
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
+    @app.route('/job_instance', methods=['POST'])
     def log_nodename(self, job_instance_id, nodename=None):
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance(session, ji, nodename=nodename)
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
+    @app.route('/job_instance', methods=['POST'])
     def log_usage(self, job_instance_id, usage_str=None,
                   wallclock=None, maxvmem=None, cpu=None, io=None):
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
@@ -285,22 +255,25 @@ class JobStateManager(ReplyServer):
             self._update_job_instance(session, ji, usage_str=usage_str,
                                       wallclock=wallclock,
                                       maxvmem=maxvmem, cpu=cpu, io=io)
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
+    @app.route('/job', methods=['POST'])
     def queue_job(self, job_id):
         logger.debug("Queue Job {}".format(job_id))
         with session_scope() as session:
             job = session.query(models.Job).filter_by(job_id=job_id).first()
             job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
+    @app.route('/job', methods=['POST'])
     def reset_job(self, job_id):
         with session_scope() as session:
             job = session.query(models.Job).filter_by(job_id=job_id).first()
             job.reset()
             session.commit()
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
+    @app.route('/task_dag', methods=['POST'])
     def reset_incomplete_jobs(self, dag_id):
         with session_scope() as session:
             up_job = """
@@ -337,7 +310,7 @@ class JobStateManager(ReplyServer):
                             {"dag_id": dag_id,
                              "done_status": models.JobStatus.DONE})
             session.commit()
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
 
     def _get_job_instance(self, session, job_instance_id):
         job_instance = session.query(models.JobInstance).filter_by(
@@ -369,4 +342,4 @@ class JobStateManager(ReplyServer):
         logger.debug("Update JI  {}".format(job_instance))
         for k, v in kwargs.items():
             setattr(job_instance, k, v)
-        return (ReturnCodes.OK,)
+        return jsonify(return_code=ReturnCodes.OK,)
