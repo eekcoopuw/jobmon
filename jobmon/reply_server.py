@@ -146,6 +146,9 @@ class ReplyServer(object):
                     self.socket.send_json(response)
             except (JSONDecodeError, UnicodeDecodeError) as e:
                 logger.error(e)
+                response = (ReturnCodes.INVALID_REQUEST_FORMAT,
+                            "could not decode request")
+                self.socket.send_json(response)
         self.close_socket()
 
     def register_action(self, name, action):
