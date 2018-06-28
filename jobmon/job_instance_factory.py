@@ -55,8 +55,8 @@ class JobInstanceFactory(object):
 
     def __init__(self, dag_id, executor=None, interrupt_on_error=True):
         self.dag_id = dag_id
-        self.jsm_req = Requester(config.jm_rep_conn)
-        self.jqs_req = Requester(config.jqs_rep_conn)
+        self.jsm_req = Requester(config.jm_url)
+        self.jqs_req = Requester(config.jqs_url)
         self.interrupt_on_error = interrupt_on_error
 
         if executor:
@@ -133,10 +133,10 @@ class JobInstanceFactory(object):
 
     def _get_jobs_queued_for_instantiation(self):
         try:
-            rc, jobs = self.jqs_req.send_request({
-                'action': 'get_queued_for_instantiation',
-                'kwargs': {'dag_id': self.dag_id}
-            })
+            rc, jobs = self.jqs_req.send_request(
+                app_route='/get_queued_for_instantiation',
+                message={'dag_id': self.dag_id},
+                request_type='get')
             jobs = [Job.from_wire(j) for j in jobs]
         except TypeError:
             # Ignore if there are no jobs queued
@@ -144,17 +144,17 @@ class JobInstanceFactory(object):
         return jobs
 
     def _register_job_instance(self, job, executor_type):
-        rc, job_instance_id = self.jsm_req.send_request({
-            'action': 'add_job_instance',
-            'kwargs': {'job_id': job.job_id,
-                       'executor_type': executor_type}
-        })
+        rc, job_instance_id = self.jsm_req.send_request(
+            app_route='/add_job_instance',
+            message={'job_id': job.job_id,
+                     'executor_type': executor_type},
+            request_type='post')
         return job_instance_id
 
     def _register_submission_to_batch_executor(self, job_instance_id,
                                                executor_id):
-        self.jsm_req.send_request({
-            'action': 'log_executor_id',
-            'kwargs': {'job_instance_id': job_instance_id,
-                       'executor_id': executor_id}
-        })
+        self.jsm_req.send_request(
+            app_route='/log_executor_id',
+            message={'job_instance_id': job_instance_id,
+                     'executor_id': executor_id},
+            request_type='post')

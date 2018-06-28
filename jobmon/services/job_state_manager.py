@@ -26,7 +26,7 @@ class JobStateManager(ReplyServer):
     def __init__(self):
         super(JobStateManager, self).__init__()
 
-    @app.route('/job', methods=['POST'])
+    @app.route('/add_job', methods=['POST'])
     def add_job(self, name, job_hash, command, dag_id, slots=1,
                 mem_free=2, max_attempts=1, max_runtime=None,
                 context_args="{}", tag=None):
@@ -48,7 +48,7 @@ class JobStateManager(ReplyServer):
             job_id = job.job_id
         return jsonify(return_code=ReturnCodes.OK, job_id=job_id)
 
-    @app.route('/task_dag', methods=['POST'])
+    @app.route('/add_task_dag', methods=['POST'])
     def add_task_dag(self, name, user, dag_hash, created_date):
         dag = task_dag.TaskDagMeta(
             name=name,
@@ -74,7 +74,7 @@ class JobStateManager(ReplyServer):
             wf_run_id = wf_run.id
         return wf_run_id
 
-    @app.route('/job_instance', methods=['POST'])
+    @app.route('/add_job_instance', methods=['POST'])
     def add_job_instance(self, job_id, executor_type):
         logger.debug("Add JI for job {}".format(job_id))
         workflow_run_id = self._get_workflow_run_id(job_id)
@@ -92,7 +92,7 @@ class JobStateManager(ReplyServer):
             job_instance.job.transition(models.JobStatus.INSTANTIATED)
         return jsonify(return_code=ReturnCodes.OK, job_instance_id=ji_id)
 
-    @app.route('/workflow', methods=['POST'])
+    @app.route('/add_workflow', methods=['POST'])
     def add_workflow(self, dag_id, workflow_args, workflow_hash, name, user,
                      description=""):
         wf = WorkflowDAO(dag_id=dag_id, workflow_args=workflow_args,
@@ -104,7 +104,7 @@ class JobStateManager(ReplyServer):
             wf_dct = wf.to_wire()
         return jsonify(return_code=ReturnCodes.OK, workflow_dct=wf_dct)
 
-    @app.route('/workflow_run', methods=['POST'])
+    @app.route('/add_workflow_run', methods=['POST'])
     def add_workflow_run(self, workflow_id, user, hostname, pid, stderr,
                          stdout, project, slack_channel):
         wfr = WorkflowRunDAO(workflow_id=workflow_id,
@@ -126,7 +126,7 @@ class JobStateManager(ReplyServer):
             wfr_id = wfr.id
         return jsonify(return_code=ReturnCodes.OK, workflow_run_id=wfr_id)
 
-    @app.route('/workflow', methods=['POST'])
+    @app.route('/update_workflow', methods=['POST'])
     def update_workflow(self, wf_id, status):
         with session_scope() as session:
             wf = session.query(WorkflowDAO).\
@@ -137,7 +137,7 @@ class JobStateManager(ReplyServer):
             wf_dct = wf.to_wire()
         return jsonify(code=ReturnCodes.OK, workflow_dct=wf_dct)
 
-    @app.route('/workflow_run', methods=['POST'])
+    @app.route('/update_workflow_run', methods=['POST'])
     def update_workflow_run(self, wfr_id, status):
         with session_scope() as session:
             wfr = session.query(WorkflowRunDAO).\
@@ -147,7 +147,7 @@ class JobStateManager(ReplyServer):
             session.commit()
         return jsonify(return_code=ReturnCodes.OK, status=status)
 
-    @app.route('/workflow', methods=['GET'])
+    @app.route('/workflow_running', methods=['GET'])
     def is_workflow_running(self, workflow_id):
         """Check if a previous workflow run for your user is still running """
         with session_scope() as session:
@@ -166,7 +166,7 @@ class JobStateManager(ReplyServer):
                        workflow_run_id=wf_run_id, hostname=hostname,
                        pid=pid, user=user)
 
-    @app.route('/workflow_run', methods=['GET'])
+    @app.route('/sge_ids_of_previous_workflow_run', methods=['GET'])
     def get_sge_ids_of_previous_workflow_run(workflow_run_id):
         with session_scope() as session:
             jis = session.query(models.JobInstance).filter_by(
@@ -174,7 +174,7 @@ class JobStateManager(ReplyServer):
             sge_ids = [ji.executor_id for ji in jis]
         return jsonify(return_code=ReturnCodes.OK, sge_ids=sge_ids)
 
-    @app.route('/job_instance', methods=['POST'])
+    @app.route('/log_done', methods=['POST'])
     def log_done(self, job_instance_id):
         logger.debug("Log DONE for JI {}".format(job_instance_id))
         with session_scope() as session:
@@ -185,7 +185,7 @@ class JobStateManager(ReplyServer):
             self.publisher.send_string(msg)
         return jsonify(return_code=ReturnCodes.OK,)
 
-    @app.route('/job_instance', methods=['POST'])
+    @app.route('/log_error', methods=['POST'])
     def log_error(self, job_instance_id, error_message):
         logger.debug("Log ERROR for JI {}, message={}".format(job_instance_id,
                                                               error_message))
@@ -200,7 +200,7 @@ class JobStateManager(ReplyServer):
             self.publisher.send_string(msg)
         return jsonify(return_code=ReturnCodes.OK,)
 
-    @app.route('/job_instance', methods=['POST'])
+    @app.route('/log_executor_id', methods=['POST'])
     def log_executor_id(self, job_instance_id, executor_id):
         logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
         with session_scope() as session:
@@ -213,7 +213,7 @@ class JobStateManager(ReplyServer):
             self.publisher.send_string(msg)
         return jsonify(return_code=ReturnCodes.OK,)
 
-    @app.route('/task_dag', methods=['POST'])
+    @app.route('/log_heartbeat', methods=['POST'])
     def log_heartbeat(self, dag_id):
         with session_scope() as session:
             dag = session.query(task_dag.TaskDagMeta).filter_by(
@@ -225,7 +225,7 @@ class JobStateManager(ReplyServer):
                 return jsonify(return_code=ReturnCodes.NO_RESULTS,)
         return jsonify(return_code=ReturnCodes.OK,)
 
-    @app.route('/job_instance', methods=['POST'])
+    @app.route('/log_running', methods=['POST'])
     def log_running(self, job_instance_id, nodename, process_group_id):
         logger.debug("Log RUNNING for JI {}".format(job_instance_id))
         with session_scope() as session:
@@ -238,7 +238,7 @@ class JobStateManager(ReplyServer):
             self.publisher.send_string(msg)
         return jsonify(return_code=ReturnCodes.OK,)
 
-    @app.route('/job_instance', methods=['POST'])
+    @app.route('/log_nodename', methods=['POST'])
     def log_nodename(self, job_instance_id, nodename=None):
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
@@ -246,7 +246,7 @@ class JobStateManager(ReplyServer):
             self._update_job_instance(session, ji, nodename=nodename)
         return jsonify(return_code=ReturnCodes.OK,)
 
-    @app.route('/job_instance', methods=['POST'])
+    @app.route('/log_usage', methods=['POST'])
     def log_usage(self, job_instance_id, usage_str=None,
                   wallclock=None, maxvmem=None, cpu=None, io=None):
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
@@ -257,7 +257,7 @@ class JobStateManager(ReplyServer):
                                       maxvmem=maxvmem, cpu=cpu, io=io)
         return jsonify(return_code=ReturnCodes.OK,)
 
-    @app.route('/job', methods=['POST'])
+    @app.route('/queue_job', methods=['POST'])
     def queue_job(self, job_id):
         logger.debug("Queue Job {}".format(job_id))
         with session_scope() as session:
@@ -265,7 +265,7 @@ class JobStateManager(ReplyServer):
             job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
         return jsonify(return_code=ReturnCodes.OK,)
 
-    @app.route('/job', methods=['POST'])
+    @app.route('/reset_job', methods=['POST'])
     def reset_job(self, job_id):
         with session_scope() as session:
             job = session.query(models.Job).filter_by(job_id=job_id).first()
@@ -273,7 +273,7 @@ class JobStateManager(ReplyServer):
             session.commit()
         return jsonify(return_code=ReturnCodes.OK,)
 
-    @app.route('/task_dag', methods=['POST'])
+    @app.route('/reset_incomplete_jobs', methods=['POST'])
     def reset_incomplete_jobs(self, dag_id):
         with session_scope() as session:
             up_job = """

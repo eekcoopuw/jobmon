@@ -138,26 +138,11 @@ def start_health_monitor():
     hm.monitor_forever()
 
 
-def start_job_state_manager():
-    """Start the JobStateManager process listening"""
-    jsm = JobStateManager(config.config.jm_rep_conn.port,
-                          config.config.jm_pub_conn.port)
-    jsm.open_socket()
-    jsm.listen()
-
-
-def start_job_query_server():
-    """Start the JobQueryServer process listening"""
-    jqs = JobQueryServer(config.config.jqs_rep_conn.port)
-    jqs.open_socket()
-    jqs.listen()
-
-
 def test_connection(args):
-    jsm_req = Requester(config.jm_rep_conn)
-    jsm_req.send_request({'action': 'alive'})
-    jqs_req = Requester(config.jqs_rep_conn)
-    jqs_req.send_request({'action': 'alive'})
+    jsm_req = Requester(config.jm_url)
+    jsm_req.send_request(app_route='/', request_type='get')  # is alive?
+    jqs_req = Requester(config.jqs_url)
+    jqs_req.send_request(app_route='/', request_type='get')  # is alive?
 
 
 if __name__ == "__main__":

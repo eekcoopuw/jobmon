@@ -19,8 +19,8 @@ class JobInstanceReconciler(object):
 
     def __init__(self, dag_id, interrupt_on_error=True):
         self.dag_id = dag_id
-        self.jsm_req = Requester(config.jm_rep_conn)
-        self.jqs_req = Requester(config.jqs_rep_conn)
+        self.jsm_req = Requester(config.jm_url)
+        self.jqs_req = Requester(config.jqs_url)
         self.interrupt_on_error = interrupt_on_error
 
     def reconcile_periodically(self, poll_interval=10):
@@ -104,10 +104,10 @@ class JobInstanceReconciler(object):
 
     def _get_presumed_submitted_or_running(self):
         try:
-            rc, job_instances = self.jqs_req.send_request({
-                'action': 'get_submitted_or_running',
-                'kwargs': {'dag_id': self.dag_id}
-            })
+            rc, job_instances = self.jqs_req.send_request(
+                app_route='/get_submitted_or_running',
+                message={'dag_id': self.dag_id},
+                request_type='get')
             job_instances = [JobInstance.from_wire(j) for j in job_instances]
         except TypeError:
             job_instances = []
@@ -124,10 +124,10 @@ class JobInstanceReconciler(object):
         current "from_wire" utility.
         """
         try:
-            rc, job_instances = self.jqs_req.send_request({
-                'action': 'get_timed_out',
-                'kwargs': {'dag_id': self.dag_id}
-            })
+            rc, job_instances = self.jqs_req.send_request(
+                app_route='/get_timed_out',
+                message={'dag_id': self.dag_id},
+                request_type='get')
             if rc != ReturnCodes.OK:
                 job_instances = []
         except TypeError:
@@ -135,35 +135,33 @@ class JobInstanceReconciler(object):
         return job_instances
 
     def _log_timeout_hostname(self, job_instance_id, hostname):
-        msg = {
-            'action': 'log_nodename',
-            'args': [job_instance_id],
-            'kwargs': {'nodename': hostname}
-        }
-        return self.jsm_req.send_request(msg)
+        return self.jsm_req.send_request(
+            app_route='/log_nodename',
+            message={'job_instance_id': [job_instance_id],
+                     'nodename': hostname},
+            request_type='post')
 
     def _log_mysterious_error(self, job_instance_id, executor_id):
-        return self.jsm_req.send_request({
-            'action': 'log_error',
-            'kwargs': {'job_instance_id': job_instance_id,
-                       'error_message': ("Job no longer visible in qstat, "
-                                         "check qacct or jobmon database for "
-                                         "sge executor_id {} and "
-                                         "job_instance_id {}"
-                                         .format(executor_id, job_instance_id))
-                       }
-        })
+        return self.jsm_req.send_request(
+            app_route='/log_error',
+            message={'job_instance_id': job_instance_id,
+                     'error_message': ("Job no longer visible in qstat, "
+                                       "check qacct or jobmon database for "
+                                       "sge executor_id {} and "
+                                       "job_instance_id {}"
+                                       .format(executor_id, job_instance_id))},
+            request_type='post')
 
     def _log_timeout_error(self, job_instance_id):
-        return self.jsm_req.send_request({
-            'action': 'log_error',
-            'kwargs': {'job_instance_id': job_instance_id,
-                       'error_message': "Timed out"}
-        })
+        return self.jsm_req.send_request(
+            app_route='/log_error',
+            message={'job_instance_id': job_instance_id,
+                     'error_message': "Timed out"},
+            request_type='post')
 
     def _request_permission_to_reconcile(self):
         # sync
-        return self.jsm_req.send_request({
-            'action': 'log_heartbeat',
-            'kwargs': {'dag_id': self.dag_id}
-        })
+        return self.jsm_req.send_request(
+            app_route='/log_heartbeat',
+            message={'dag_id': self.dag_id},
+            request_type='post')

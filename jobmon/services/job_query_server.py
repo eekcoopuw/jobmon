@@ -19,7 +19,7 @@ class JobQueryServer(ReplyServer):
     def __init__(self, rep_port=None):
         super(JobQueryServer, self).__init__()
 
-    @app.route('/job', method=['GET'])
+    @app.route('/get_queued_for_instantiation', method=['GET'])
     def get_queued_for_instantiation(self, dag_id):
         with session_scope() as session:
             jobs = session.query(Job).filter_by(
@@ -28,7 +28,7 @@ class JobQueryServer(ReplyServer):
             job_dcts = [j.to_wire() for j in jobs]
         return jsonify(return_code=ReturnCodes.OK, job_dcts=job_dcts)
 
-    @app.route('/job_instance', method=['GET'])
+    @app.route('/get_submitted_or_running', method=['GET'])
     def get_submitted_or_running(self, dag_id):
         with session_scope() as session:
             instances = session.query(JobInstance).\
@@ -42,7 +42,7 @@ class JobQueryServer(ReplyServer):
             instances = [i.to_wire() for i in instances]
         return jsonify(return_code=ReturnCodes.OK, ji_dcts=instances)
 
-    @app.route('/job', method=['GET'])
+    @app.route('/get_jobs', method=['GET'])
     def get_jobs(self, dag_id):
         """
         Return a dictionary mapping job_id to a dict of the job's instance
@@ -56,7 +56,7 @@ class JobQueryServer(ReplyServer):
             job_dcts = [j.to_wire() for j in jobs]
         return jsonify(return_code=ReturnCodes.OK, job_dcts=job_dcts)
 
-    @app.route('/job_instance', method=['GET'])
+    @app.route('/get_timed_out', method=['GET'])
     def get_timed_out(self, dag_id):
         with session_scope() as session:
             running = session.query(JobInstance).\
@@ -73,7 +73,7 @@ class JobQueryServer(ReplyServer):
                          if (now - r.status_date).seconds > r.job.max_runtime]
         return jsonify(return_code=ReturnCodes.OK, timed_out=timed_out)
 
-    @app.route('/task_dag', method=['GET'])
+    @app.route('/get_dag_ids_by_hash', method=['GET'])
     def get_dag_ids_by_hash(self, dag_hash):
         """
         Return a dictionary mapping job_id to a dict of the job's instance
@@ -88,7 +88,7 @@ class JobQueryServer(ReplyServer):
             dag_ids = [dag.dag_id for dag in dags]
         return jsonify(return_code=ReturnCodes.OK, dag_ids=dag_ids)
 
-    @app.route('/workflow', method=['GET'])
+    @app.route('/get_workflows_by_inputs', method=['GET'])
     def get_workflows_by_inputs(self, dag_id, workflow_args):
         """
         Return a dictionary mapping job_id to a dict of the job's instance

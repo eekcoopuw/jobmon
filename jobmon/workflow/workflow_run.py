@@ -73,32 +73,32 @@ class WorkflowRun(object):
     def __init__(self, workflow_id, stderr, stdout, project,
                  slack_channel='jobmon-alerts'):
         self.workflow_id = workflow_id
-        self.jsm_req = Requester(config.jm_rep_conn)
+        self.jsm_req = Requester(config.jm_url)
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
         self.kill_previous_workflow_runs()
-        rc, wfr_id = self.jsm_req.send_request({
-            'action': 'add_workflow_run',
-            'kwargs': {'workflow_id': workflow_id,
-                       'user': getpass.getuser(),
-                       'hostname': socket.gethostname(),
-                       'pid': os.getpid(),
-                       'stderr': stderr,
-                       'stdout': stdout,
-                       'project': project,
-                       'slack_channel': slack_channel,
-                       }
-        })
+        rc, wfr_id = self.jsm_req.send_request(
+            app_route='/add_workflow_run',
+            message={'workflow_id': workflow_id,
+                     'user': getpass.getuser(),
+                     'hostname': socket.gethostname(),
+                     'pid': os.getpid(),
+                     'stderr': stderr,
+                     'stdout': stdout,
+                     'project': project,
+                     'slack_channel': slack_channel},
+            request_type='post')
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse to add_workflow_run")
         self.id = wfr_id
 
     def check_if_workflow_is_running(self):
         rc, status, wf_run_id, hostname, pid, user = \
-            self.jsm_req.send_request({
-                'action': 'is_workflow_running',
-                'kwargs': {'workflow_id': self.workflow_id}})
+            self.jsm_req.send_request(
+                app_route='/is_workflow_running',
+                message={'workflow_id': self.workflow_id},
+                request_type='get')
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse to is_workflow_running")
         return status, wf_run_id, hostname, pid, user
@@ -126,23 +126,26 @@ class WorkflowRun(object):
                    "creating orphaned processes and hard-to-find bugs"
                    .format(wf_run_id, user))
             logger.error(msg)
-            _, _ = self.jsm_req.send_request({
-                'action': 'update_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run_id,
-                           'status': WorkflowRunStatus.STOPPED}})
+            _, _ = self.jsm_req.send_request(
+                app_route='/update_workflow_run',
+                message={'workflow_run_id': wf_run_id,
+                         'status': WorkflowRunStatus.STOPPED},
+                request_type='post')
             raise RuntimeError(msg)
         else:
             kill_remote_process(hostname, pid)
-            _, sge_ids = self.jsm_req.send_request({
-                'action': 'get_sge_ids_of_previous_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run_id}})
+            _, sge_ids = self.jsm_req.send_request(
+                app_route='/get_sge_ids_of_previous_workflow_run',
+                message={'workflow_run_id': wf_run_id},
+                request_type='get')
             if sge_ids:
                 qdel(sge_ids)
             self.poll_for_lagging_jobs(sge_ids)
-            _, _ = self.jsm_req.send_request({
-                'action': 'update_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run_id,
-                           'status': WorkflowRunStatus.STOPPED}})
+            _, _ = self.jsm_req.send_request(
+                app_route='/update_workflow_run',
+                message={'workflow_run_id': wf_run_id,
+                         'status': WorkflowRunStatus.STOPPED},
+                request_type='post')
 
     def poll_for_lagging_jobs(self, sge_ids):
         lagging_jobs = qstat(jids=sge_ids)
@@ -170,7 +173,7 @@ class WorkflowRun(object):
         self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
-        rc, wfr_id = self.jsm_req.send_request({
-            'action': 'update_workflow_run',
-            'kwargs': {'wfr_id': self.id, 'status': status}
-        })
+        rc, wfr_id = self.jsm_req.send_request(
+            app_route='/update_workflow_run',
+            message={'wfr_id': self.id, 'status': status},
+            request_type='post')

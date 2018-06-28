@@ -55,7 +55,7 @@ class JobListManager(object):
         self.job_inst_reconciler = JobInstanceReconciler(dag_id,
                                                          interrupt_on_error)
 
-        self.jqs_req = Requester(config.jqs_rep_conn)
+        self.jqs_req = Requester(config.jqs_url)
 
         self.db_sync_interval = None
         self.done_queue = Queue()
@@ -85,13 +85,12 @@ class JobListManager(object):
         from jobmon.config import config
         from jobmon.requester import Requester
 
-        req = Requester(config.jm_rep_conn)
-        rc, dag_id = req.send_request({
-            'action': 'add_task_dag',
-            'kwargs': {'name': 'test dag', 'user': 'test user',
-                       'dag_hash': 'hash', 'created_date': datetime.utcnow()}
-        })
-        req.disconnect()
+        req = Requester(config.jm_url)
+        rc, dag_id = req.send_request(
+            app_route='/add_task_dag',
+            message={'name': 'test dag', 'user': 'test user',
+                     'dag_hash': 'hash', 'created_date': datetime.utcnow()},
+            request_type='post')
         return cls(dag_id, executor=executor, start_daemons=start_daemons)
 
     @property
@@ -159,15 +158,6 @@ class JobListManager(object):
         self.job_statuses[job_id] = JobStatus.REGISTERED
         return job_id
 
-    def disconnect(self):
-        self.job_factory.requester.disconnect()
-        self.job_inst_factory.jqs_req.disconnect()
-        self.job_inst_factory.jsm_req.disconnect()
-        self.job_inst_reconciler.jqs_req.disconnect()
-        self.job_inst_reconciler.jsm_req.disconnect()
-        self.jqs_req.disconnect()
-        self.disconnect_queue.put('stop')
-
     def get_new_done(self):
         new_done = []
         while not self.done_queue.empty():
@@ -196,10 +186,10 @@ class JobListManager(object):
         self.job_factory.reset_jobs()
 
     def _sync(self, session):
-        rc, jobs = self.jqs_req.send_request({
-            'action': 'get_all_jobs',
-            'kwargs': {'dag_id': self.dag_id}
-        })
+        rc, jobs = self.jqs_req.send_request(
+            app_route='/get_all_jobs',
+            message={'dag_id': self.dag_id},
+            request_type='get')
         jobs = [Job.from_wire(j) for j in jobs]
         for job in jobs:
             self.job_statuses[job.job_id] = job.status

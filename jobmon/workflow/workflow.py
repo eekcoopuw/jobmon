@@ -104,8 +104,8 @@ class Workflow(object):
         self.stdout = stdout
         self.project = project
 
-        self.jsm_req = Requester(config.jm_rep_conn)
-        self.jqs_req = Requester(config.jqs_rep_conn)
+        self.jsm_req = Requester(config.jm_url)
+        self.jqs_req = Requester(config.jqs_url)
 
         if task_dag:
             self.task_dag = task_dag
@@ -187,15 +187,15 @@ class Workflow(object):
                                                     'project': self.project, })
 
             # Create new workflow in Database
-            rc, wf_dct = self.jsm_req.send_request({
-                'action': 'add_workflow',
-                'kwargs': {'dag_id': self.task_dag.dag_id,
-                           'workflow_args': self.workflow_args,
-                           'workflow_hash': self._compute_hash(),
-                           'name': self.name,
-                           'description': self.description,
-                           'user': getpass.getuser()}
-            })
+            rc, wf_dct = self.jsm_req.send_request(
+                app_route='/add_workflow',
+                message={'dag_id': self.task_dag.dag_id,
+                         'workflow_args': self.workflow_args,
+                         'workflow_hash': self._compute_hash(),
+                         'name': self.name,
+                         'description': self.description,
+                         'user': getpass.getuser()},
+                request_type='post')
             self.wf_dao = WorkflowDAO.from_wire(wf_dct)
         else:
             # This case should never happen... we have application side
@@ -227,30 +227,30 @@ class Workflow(object):
         self._update_status(WorkflowStatus.ERROR)
 
     def _matching_dag_ids(self):
-        rc, dag_ids = self.jqs_req.send_request({
-            'action': 'get_dag_ids_by_hash',
-            'kwargs': {'dag_hash': self.task_dag.hash}
-        })
+        rc, dag_ids = self.jqs_req.send_request(
+            app_route='/get_dag_ids_by_hash',
+            message={'dag_hash': self.task_dag.hash},
+            request_type='get')
         return dag_ids
 
     def _matching_workflows(self):
         dag_ids = self._matching_dag_ids()
         workflows = []
         for dag_id in dag_ids:
-            rc, wf = self.jqs_req.send_request({
-                'action': 'get_workflows_by_inputs',
-                'kwargs': {'dag_id': dag_id,
-                           'workflow_args': self.workflow_args}
-            })
+            rc, wf = self.jqs_req.send_request(
+                app_route='/get_workflows_by_inputs',
+                message={'dag_id': dag_id,
+                         'workflow_args': self.workflow_args},
+                request_type='get')
             if rc == ReturnCodes.OK:
                 workflows.append(wf)
         return [WorkflowDAO.from_wire(w) for w in workflows]
 
     def _update_status(self, status):
-        rc, wf_dct = self.jsm_req.send_request({
-            'action': 'update_workflow',
-            'kwargs': {'wf_id': self.id, 'status': status}
-        })
+        rc, wf_dct = self.jsm_req.send_request(
+            app_route='/update_workflow',
+            message={'wf_id': self.id, 'status': status},
+            request_type='post')
         self.wf_dao = WorkflowDAO.from_wire(wf_dct)
 
     def execute(self):
