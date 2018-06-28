@@ -2,6 +2,7 @@ from datetime import datetime
 from sqlalchemy.orm import contains_eager
 
 from flask import jsonify
+from http import HTTPStatus
 
 from jobmon.database import session_scope
 from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
@@ -18,6 +19,14 @@ class JobQueryServer(ReplyServer):
     def __init__(self, rep_port=None):
         super(JobQueryServer, self).__init__()
 
+    @app.errorhandler(404)
+    def no_results(self, error=None):
+        message = {'message': 'Results not found {}'.format(error)}
+        resp = jsonify(message)
+        resp.status_code = 404
+
+        return resp
+
     @app.route('/get_queued_for_instantiation', method=['GET'])
     def get_queued_for_instantiation(self, dag_id):
         with session_scope() as session:
@@ -25,7 +34,9 @@ class JobQueryServer(ReplyServer):
                 status=JobStatus.QUEUED_FOR_INSTANTIATION,
                 dag_id=dag_id).all()
             job_dcts = [j.to_wire() for j in jobs]
-        return jsonify(job_dcts=job_dcts)
+        resp = jsonify(job_dcts=job_dcts)
+        resp.status_code = HTTPStatus.OK
+        return resp
 
     @app.route('/get_submitted_or_running', method=['GET'])
     def get_submitted_or_running(self, dag_id):
@@ -39,7 +50,9 @@ class JobQueryServer(ReplyServer):
                 options(contains_eager(JobInstance.job)).\
                 filter_by(dag_id=dag_id).all()
             instances = [i.to_wire() for i in instances]
-        return jsonify(ji_dcts=instances)
+        resp = jsonify(ji_dcts=instances)
+        resp.status_code = HTTPStatus.OK
+        return resp
 
     @app.route('/get_jobs', method=['GET'])
     def get_jobs(self, dag_id):
@@ -53,7 +66,9 @@ class JobQueryServer(ReplyServer):
         with session_scope() as session:
             jobs = session.query(Job).filter(Job.dag_id == dag_id).all()
             job_dcts = [j.to_wire() for j in jobs]
-        return jsonify(job_dcts=job_dcts)
+        resp = jsonify(job_dcts=job_dcts)
+        resp.status_code = HTTPStatus.OK
+        return resp
 
     @app.route('/get_timed_out', method=['GET'])
     def get_timed_out(self, dag_id):
@@ -70,7 +85,9 @@ class JobQueryServer(ReplyServer):
             now = datetime.utcnow()
             timed_out = [r.to_wire() for r in running
                          if (now - r.status_date).seconds > r.job.max_runtime]
-        return jsonify(timed_out=timed_out)
+        resp = jsonify(timed_out=timed_out)
+        resp.status_code = HTTPStatus.OK
+        return resp
 
     @app.route('/get_dag_ids_by_hash', method=['GET'])
     def get_dag_ids_by_hash(self, dag_hash):
@@ -85,7 +102,9 @@ class JobQueryServer(ReplyServer):
             dags = session.query(TaskDagMeta).filter(
                 TaskDagMeta.dag_hash == dag_hash).all()
             dag_ids = [dag.dag_id for dag in dags]
-        return jsonify(dag_ids=dag_ids)
+        resp = jsonify(dag_ids=dag_ids)
+        resp.status_code = HTTPStatus.OK
+        return resp
 
     @app.route('/get_workflows_by_inputs', method=['GET'])
     def get_workflows_by_inputs(self, dag_id, workflow_args):
@@ -101,6 +120,8 @@ class JobQueryServer(ReplyServer):
                 filter(WorkflowDAO.dag_id == dag_id).\
                 filter(WorkflowDAO.workflow_args == workflow_args).first()
             if workflow:
-                return jsonify(workflow_dct=workflow.to_wire())
+                resp = jsonify(workflow_dct=workflow.to_wire())
+                resp.status_code = HTTPStatus.OK
             else:
-                return jsonify(workflow_dct={})
+                resp = self.no_results()
+        return resp

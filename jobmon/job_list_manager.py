@@ -1,7 +1,6 @@
 import logging
 import time
 from threading import Thread
-from queue import Queue, Empty
 from datetime import datetime
 
 from jobmon.config import config
@@ -11,34 +10,9 @@ from jobmon.job_factory import JobFactory
 from jobmon.job_instance_factory import JobInstanceFactory
 from jobmon.job_instance_reconciler import JobInstanceReconciler
 from jobmon.requester import Requester
-from jobmon.subscriber import Subscriber
 
 
 logger = logging.getLogger(__name__)
-
-
-def listen_for_job_statuses(host, port, dag_id, done_queue, error_queue,
-                            update_queue, disconnect_queue):
-    """ Because we're dealing with threads, this can't be a method on a class
-    """
-    logger.info("Listening for dag_id={} job status updates from {}:{}".format(
-        dag_id, host, port))
-    subscriber = Subscriber(host, port, dag_id)
-
-    while True:
-        try:
-            disconnect_queue.get_nowait()
-            break
-        except Empty:
-            pass
-        msg = subscriber.receive()
-        job_id, job_status = msg
-        if job_status == JobStatus.DONE:
-            done_queue.put(job_id)
-            update_queue.put((job_id, job_status))
-        elif job_status == JobStatus.ERROR_FATAL:
-            error_queue.put(job_id)
-            update_queue.put((job_id, job_status))
 
 
 class JobListManager(object):
@@ -58,10 +32,6 @@ class JobListManager(object):
         self.jqs_req = Requester(config.jqs_port)
 
         self.db_sync_interval = None
-        self.done_queue = Queue()
-        self.error_queue = Queue()
-        self.update_queue = Queue()
-        self.disconnect_queue = Queue()
 
         self.job_statuses = {}  # {job_id: status_id}
         self.job_hash_id_map = {}  # {job_hash: job_id}
@@ -73,7 +43,6 @@ class JobListManager(object):
         self.reconciliation_interval = reconciliation_interval
         self.job_instantiation_interval = job_instantiation_interval
         if start_daemons:
-            self._start_job_status_listener()
             self._start_job_instance_manager()
 
     @classmethod
@@ -206,16 +175,6 @@ class JobListManager(object):
             if (time.time() - self.last_sync) > self.db_sync_interval:
                 with session_scope() as session:
                     self._sync(session)
-
-    def _start_job_status_listener(self):
-        self.jsl_proc = Thread(target=listen_for_job_statuses,
-                               args=(config.jm_pub_conn.host,
-                                     config.jm_pub_conn.port,
-                                     self.dag_id, self.done_queue,
-                                     self.error_queue, self.update_queue,
-                                     self.disconnect_queue))
-        self.jsl_proc.daemon = True
-        self.jsl_proc.start()
 
     def _start_job_instance_manager(self):
         self.jif_proc = Thread(

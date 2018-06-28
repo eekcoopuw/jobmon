@@ -3,7 +3,6 @@ import _thread
 from time import sleep
 
 import pandas as pd
-from zmq.error import ZMQError
 from http import HTTPStatus
 
 from jobmon import sge
@@ -28,18 +27,11 @@ class JobInstanceReconciler(object):
                     "intervals".format(poll_interval))
         while True:
             try:
-                logging.debug("Reconciling at interval {}s".format(poll_interval))
+                logging.debug("Reconciling at interval {}s"
+                              .format(poll_interval))
                 self.reconcile()
                 self.terminate_timed_out_jobs()
                 sleep(poll_interval)
-            except ZMQError as e:
-                # Tests rely on some funky usage of various REQ/REP pairs
-                # across threads, so interrupting here can be problematic...
-
-                # ... since this interrupt is primarily in reponse to potential
-                # SGE failures anyways, I'm just going to warn for now on ZMQ
-                # errors and save the interrupts for everything else
-                logger.warning(e)
             except Exception as e:
                 logger.error(e)
                 if self.interrupt_on_error:

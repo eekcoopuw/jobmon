@@ -2,8 +2,6 @@ import logging
 import _thread
 from time import sleep
 
-from zmq.error import ZMQError
-
 from jobmon.config import config
 from jobmon.command_context import build_qsub, build_wrapped_command
 from jobmon.models import Job
@@ -25,7 +23,6 @@ def execute_sequentially(job, job_instance_id):
 
 
 def execute_sge(job, job_instance_id, stderr=None, stdout=None, project=None):
-    from jobmon import sge
     try:
         import subprocess
         qsub_cmd = build_qsub(job, job_instance_id, stderr, stdout, project)
@@ -72,14 +69,6 @@ class JobInstanceFactory(object):
                 logger.debug("Queuing at interval {}s".format(poll_interval))
                 self.instantiate_queued_jobs()
                 sleep(poll_interval)
-            except ZMQError as e:
-                # Tests rely on some funky usage of various REQ/REP pairs
-                # across threads, so interrupting here can be problematic...
-
-                # ... since this interrupt is primarily in reponse to potential
-                # SGE failures anyways, I'm just going to warn for now on ZMQ
-                # errors and save the interrupts for everything else
-                logger.warning(e)
             except Exception as e:
                 logger.error(e)
                 if self.interrupt_on_error:
