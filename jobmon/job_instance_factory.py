@@ -133,22 +133,23 @@ class JobInstanceFactory(object):
 
     def _get_jobs_queued_for_instantiation(self):
         try:
-            rc, jobs = self.jqs_req.send_request(
+            rc, response = self.jqs_req.send_request(
                 app_route='/get_queued_for_instantiation',
                 message={'dag_id': self.dag_id},
                 request_type='get')
-            jobs = [Job.from_wire(j) for j in jobs]
+            jobs = [Job.from_wire(j) for j in response['job_dcts']]
         except TypeError:
             # Ignore if there are no jobs queued
             jobs = []
         return jobs
 
     def _register_job_instance(self, job, executor_type):
-        rc, job_instance_id = self.jsm_req.send_request(
+        rc, response = self.jsm_req.send_request(
             app_route='/add_job_instance',
             message={'job_id': job.job_id,
                      'executor_type': executor_type},
             request_type='post')
+        job_instance_id = response['job_instance_id']
         return job_instance_id
 
     def _register_submission_to_batch_executor(self, job_instance_id,

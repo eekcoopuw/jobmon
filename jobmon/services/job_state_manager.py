@@ -46,7 +46,7 @@ class JobStateManager(ReplyServer):
             session.add(job)
             session.commit()
             job_id = job.job_id
-        return jsonify(return_code=ReturnCodes.OK, job_id=job_id)
+        return jsonify(job_id=job_id)
 
     @app.route('/add_task_dag', methods=['POST'])
     def add_task_dag(self, name, user, dag_hash, created_date):
@@ -59,7 +59,7 @@ class JobStateManager(ReplyServer):
             session.add(dag)
             session.commit()
             dag_id = dag.dag_id
-        return jsonify(return_code=ReturnCodes.OK, dag_id=dag_id)
+        return jsonify(dag_id=dag_id)
 
     def _get_workflow_run_id(self, job_id):
         with session_scope() as session:
@@ -90,7 +90,7 @@ class JobStateManager(ReplyServer):
             # TODO: Would prefer putting this in the model, but can't find the
             # right post-create hook. Investigate.
             job_instance.job.transition(models.JobStatus.INSTANTIATED)
-        return jsonify(return_code=ReturnCodes.OK, job_instance_id=ji_id)
+        return jsonify(job_instance_id=ji_id)
 
     @app.route('/add_workflow', methods=['POST'])
     def add_workflow(self, dag_id, workflow_args, workflow_hash, name, user,
@@ -102,7 +102,7 @@ class JobStateManager(ReplyServer):
             session.add(wf)
             session.commit()
             wf_dct = wf.to_wire()
-        return jsonify(return_code=ReturnCodes.OK, workflow_dct=wf_dct)
+        return jsonify(workflow_dct=wf_dct)
 
     @app.route('/add_workflow_run', methods=['POST'])
     def add_workflow_run(self, workflow_id, user, hostname, pid, stderr,
@@ -124,7 +124,7 @@ class JobStateManager(ReplyServer):
             session.add(wfr)
             session.commit()
             wfr_id = wfr.id
-        return jsonify(return_code=ReturnCodes.OK, workflow_run_id=wfr_id)
+        return jsonify(workflow_run_id=wfr_id)
 
     @app.route('/update_workflow', methods=['POST'])
     def update_workflow(self, wf_id, status):
@@ -135,7 +135,7 @@ class JobStateManager(ReplyServer):
             wf.status_date = datetime.utcnow()
             session.commit()
             wf_dct = wf.to_wire()
-        return jsonify(code=ReturnCodes.OK, workflow_dct=wf_dct)
+        return jsonify(workflow_dct=wf_dct)
 
     @app.route('/update_workflow_run', methods=['POST'])
     def update_workflow_run(self, wfr_id, status):
@@ -145,7 +145,7 @@ class JobStateManager(ReplyServer):
             wfr.status = status
             wfr.status_date = datetime.utcnow()
             session.commit()
-        return jsonify(return_code=ReturnCodes.OK, status=status)
+        return jsonify(status=status)
 
     @app.route('/workflow_running', methods=['GET'])
     def is_workflow_running(self, workflow_id):
@@ -155,16 +155,14 @@ class JobStateManager(ReplyServer):
                 workflow_id=workflow_id, status=WorkflowRunStatus.RUNNING,
             ).order_by(WorkflowRunDAO.id.desc()).first())
             if not wf_run:
-                return jsonify(return_code=ReturnCodes.OK,
-                               status=False, workflow_run_id=None,
+                return jsonify(status=False, workflow_run_id=None,
                                hostname=None, pid=None, user=None)
             wf_run_id = wf_run.id
             hostname = wf_run.hostname
             pid = wf_run.pid
             user = wf_run.user
-        return jsonify(return_code=ReturnCodes.OK, status=True,
-                       workflow_run_id=wf_run_id, hostname=hostname,
-                       pid=pid, user=user)
+        return jsonify(status=True, workflow_run_id=wf_run_id,
+                       hostname=hostname, pid=pid, user=user)
 
     @app.route('/sge_ids_of_previous_workflow_run', methods=['GET'])
     def get_sge_ids_of_previous_workflow_run(workflow_run_id):
@@ -172,7 +170,7 @@ class JobStateManager(ReplyServer):
             jis = session.query(models.JobInstance).filter_by(
                 workflow_run_id=workflow_run_id).all()
             sge_ids = [ji.executor_id for ji in jis]
-        return jsonify(return_code=ReturnCodes.OK, sge_ids=sge_ids)
+        return jsonify(sge_ids=sge_ids)
 
     @app.route('/log_done', methods=['POST'])
     def log_done(self, job_instance_id):
@@ -183,7 +181,6 @@ class JobStateManager(ReplyServer):
                 session, ji, models.JobInstanceStatus.DONE)
         if msg:
             self.publisher.send_string(msg)
-        return jsonify(return_code=ReturnCodes.OK,)
 
     @app.route('/log_error', methods=['POST'])
     def log_error(self, job_instance_id, error_message):
@@ -198,7 +195,6 @@ class JobStateManager(ReplyServer):
             session.add(error)
         if msg:
             self.publisher.send_string(msg)
-        return jsonify(return_code=ReturnCodes.OK,)
 
     @app.route('/log_executor_id', methods=['POST'])
     def log_executor_id(self, job_instance_id, executor_id):
@@ -211,7 +207,6 @@ class JobStateManager(ReplyServer):
             self._update_job_instance(session, ji, executor_id=executor_id)
         if msg:
             self.publisher.send_string(msg)
-        return jsonify(return_code=ReturnCodes.OK,)
 
     @app.route('/log_heartbeat', methods=['POST'])
     def log_heartbeat(self, dag_id):
@@ -221,9 +216,6 @@ class JobStateManager(ReplyServer):
             if dag:
                 dag.heartbeat_date = datetime.utcnow()
                 session.commit()
-            else:
-                return jsonify(return_code=ReturnCodes.NO_RESULTS,)
-        return jsonify(return_code=ReturnCodes.OK,)
 
     @app.route('/log_running', methods=['POST'])
     def log_running(self, job_instance_id, nodename, process_group_id):
@@ -236,7 +228,6 @@ class JobStateManager(ReplyServer):
             ji.process_group_id = process_group_id
         if msg:
             self.publisher.send_string(msg)
-        return jsonify(return_code=ReturnCodes.OK,)
 
     @app.route('/log_nodename', methods=['POST'])
     def log_nodename(self, job_instance_id, nodename=None):
@@ -244,7 +235,6 @@ class JobStateManager(ReplyServer):
         with session_scope() as session:
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance(session, ji, nodename=nodename)
-        return jsonify(return_code=ReturnCodes.OK,)
 
     @app.route('/log_usage', methods=['POST'])
     def log_usage(self, job_instance_id, usage_str=None,
@@ -255,7 +245,6 @@ class JobStateManager(ReplyServer):
             self._update_job_instance(session, ji, usage_str=usage_str,
                                       wallclock=wallclock,
                                       maxvmem=maxvmem, cpu=cpu, io=io)
-        return jsonify(return_code=ReturnCodes.OK,)
 
     @app.route('/queue_job', methods=['POST'])
     def queue_job(self, job_id):
@@ -263,7 +252,6 @@ class JobStateManager(ReplyServer):
         with session_scope() as session:
             job = session.query(models.Job).filter_by(job_id=job_id).first()
             job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
-        return jsonify(return_code=ReturnCodes.OK,)
 
     @app.route('/reset_job', methods=['POST'])
     def reset_job(self, job_id):
@@ -271,7 +259,6 @@ class JobStateManager(ReplyServer):
             job = session.query(models.Job).filter_by(job_id=job_id).first()
             job.reset()
             session.commit()
-        return jsonify(return_code=ReturnCodes.OK,)
 
     @app.route('/reset_incomplete_jobs', methods=['POST'])
     def reset_incomplete_jobs(self, dag_id):
@@ -310,7 +297,6 @@ class JobStateManager(ReplyServer):
                             {"dag_id": dag_id,
                              "done_status": models.JobStatus.DONE})
             session.commit()
-        return jsonify(return_code=ReturnCodes.OK,)
 
     def _get_job_instance(self, session, job_instance_id):
         job_instance = session.query(models.JobInstance).filter_by(
@@ -342,4 +328,3 @@ class JobStateManager(ReplyServer):
         logger.debug("Update JI  {}".format(job_instance))
         for k, v in kwargs.items():
             setattr(job_instance, k, v)
-        return jsonify(return_code=ReturnCodes.OK,)

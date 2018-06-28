@@ -1,8 +1,9 @@
 import json
 import logging
+from http import HTTPStatus
 
 from jobmon import requester
-from jobmon.exceptions import InvalidResponse, ReturnCodes
+from jobmon.exceptions import InvalidResponse
 from jobmon.config import config
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class JobFactory(object):
             context_args = json.dumps({})
         else:
             context_args = json.dumps(context_args)
-        rc, job_id = self.requester.send_request(
+        rc, response = self.requester.send_request(
             app_route='/add_job',
             message={'dag_id': self.dag_id,
                      'name': jobname,
@@ -51,7 +52,8 @@ class JobFactory(object):
                      'max_runtime': max_runtime,
                      'tag': tag},
             request_type='post')
-        if rc != ReturnCodes.OK:
+        job_id = response['job_id']
+        if rc != HTTPStatus.OK:
             raise InvalidResponse(
                 "{rc}: Could not create_job {e}".format(rc=rc, e=job_id))
         return job_id
@@ -61,7 +63,7 @@ class JobFactory(object):
             app_route='/queue_job',
             message={'job_id': job_id},
             request_type='post')
-        if rc[0] != ReturnCodes.OK:
+        if rc != HTTPStatus.OK:
             raise InvalidResponse("{rc}: Could not queue_job".format(rc))
         return rc
 
@@ -70,6 +72,6 @@ class JobFactory(object):
             app_route='/reset_incomplete_jobs',
             message={'dag_id': self.dag_id},
             request_type='post')
-        if rc[0] != ReturnCodes.OK:
+        if rc != HTTPStatus.OK:
             raise InvalidResponse("{rc}: Could not reset jobs".format(rc))
         return rc

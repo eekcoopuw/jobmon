@@ -48,12 +48,15 @@ class Requester(object):
             raise ValueError("request_type must be one of 'get' or 'post'. "
                              "Got {}".format(request_type))
         if request_type == 'post':
-            reply = requests.post(route, data=message)
+            r = requests.post(route, data=message)
         else:
-            reply = requests.get(route, params=message)
+            r = requests.get(route, params=message)
         if verbose is True:
-            logger.debug(reply)
-        return reply
+            logger.debug(r.json)
+        if r.json:
+            return r.status_code, r.json
+        else:
+            return r.status_code
 
     def build_full_url(self, app_route):
         return self.url + app_route

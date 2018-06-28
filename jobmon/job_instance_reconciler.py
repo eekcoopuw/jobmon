@@ -4,10 +4,10 @@ from time import sleep
 
 import pandas as pd
 from zmq.error import ZMQError
+from http import HTTPStatus
 
 from jobmon import sge
 from jobmon.config import config
-from jobmon.exceptions import ReturnCodes
 from jobmon.models import JobInstance
 from jobmon.requester import Requester
 
@@ -104,10 +104,11 @@ class JobInstanceReconciler(object):
 
     def _get_presumed_submitted_or_running(self):
         try:
-            rc, job_instances = self.jqs_req.send_request(
+            rc, response = self.jqs_req.send_request(
                 app_route='/get_submitted_or_running',
                 message={'dag_id': self.dag_id},
                 request_type='get')
+            job_instances = response['ji_dcts']
             job_instances = [JobInstance.from_wire(j) for j in job_instances]
         except TypeError:
             job_instances = []
@@ -124,11 +125,12 @@ class JobInstanceReconciler(object):
         current "from_wire" utility.
         """
         try:
-            rc, job_instances = self.jqs_req.send_request(
+            rc, response = self.jqs_req.send_request(
                 app_route='/get_timed_out',
                 message={'dag_id': self.dag_id},
                 request_type='get')
-            if rc != ReturnCodes.OK:
+            job_instances = response['timed_out']
+            if rc != HTTPStatus.OK:
                 job_instances = []
         except TypeError:
             job_instances = []

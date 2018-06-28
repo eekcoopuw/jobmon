@@ -86,12 +86,13 @@ class JobListManager(object):
         from jobmon.requester import Requester
 
         req = Requester(config.jm_port)
-        rc, dag_id = req.send_request(
+        rc, response = req.send_request(
             app_route='/add_task_dag',
             message={'name': 'test dag', 'user': 'test user',
                      'dag_hash': 'hash', 'created_date': datetime.utcnow()},
             request_type='post')
-        return cls(dag_id, executor=executor, start_daemons=start_daemons)
+        return cls(response['dag_id'], executor=executor,
+                   start_daemons=start_daemons)
 
     @property
     def active_jobs(self):
@@ -186,11 +187,11 @@ class JobListManager(object):
         self.job_factory.reset_jobs()
 
     def _sync(self, session):
-        rc, jobs = self.jqs_req.send_request(
-            app_route='/get_all_jobs',
+        rc, response = self.jqs_req.send_request(
+            app_route='/get_jobs',
             message={'dag_id': self.dag_id},
             request_type='get')
-        jobs = [Job.from_wire(j) for j in jobs]
+        jobs = [Job.from_wire(j) for j in response['job_dcts']]
         for job in jobs:
             self.job_statuses[job.job_id] = job.status
             self.job_hash_id_map[job.job_hash] = job.job_id

@@ -5,12 +5,12 @@ from datetime import datetime
 import logging
 from time import sleep
 
+from http import HTTPStatus
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-
 from sqlalchemy.orm import relationship
 
 from jobmon.config import config
-from jobmon.exceptions import ReturnCodes, SGENotAvailable
+from jobmon.exceptions import SGENotAvailable
 from jobmon.requester import Requester
 try:
     from jobmon.sge import qdel, qstat
@@ -78,7 +78,7 @@ class WorkflowRun(object):
         self.stdout = stdout
         self.project = project
         self.kill_previous_workflow_runs()
-        rc, wfr_id = self.jsm_req.send_request(
+        rc, response = self.jsm_req.send_request(
             app_route='/add_workflow_run',
             message={'workflow_id': workflow_id,
                      'user': getpass.getuser(),
@@ -89,19 +89,21 @@ class WorkflowRun(object):
                      'project': project,
                      'slack_channel': slack_channel},
             request_type='post')
-        if rc != ReturnCodes.OK:
+        wfr_id = response['workflow_run_id']
+        if rc != HTTPStatus.OK:
             raise ValueError("Invalid Reponse to add_workflow_run")
         self.id = wfr_id
 
     def check_if_workflow_is_running(self):
-        rc, status, wf_run_id, hostname, pid, user = \
+        rc, response = \
             self.jsm_req.send_request(
                 app_route='/is_workflow_running',
                 message={'workflow_id': self.workflow_id},
                 request_type='get')
-        if rc != ReturnCodes.OK:
+        if rc != HTTPStatus.OK:
             raise ValueError("Invalid Reponse to is_workflow_running")
-        return status, wf_run_id, hostname, pid, user
+        return response['status'], response['workflow_run_id'], \
+            response['hostname'], response['pid'], response['user']
 
     def kill_previous_workflow_runs(self):
         """First check the database for last WorkflowRun... where we store a
@@ -134,10 +136,11 @@ class WorkflowRun(object):
             raise RuntimeError(msg)
         else:
             kill_remote_process(hostname, pid)
-            _, sge_ids = self.jsm_req.send_request(
+            _, response = self.jsm_req.send_request(
                 app_route='/get_sge_ids_of_previous_workflow_run',
                 message={'workflow_run_id': wf_run_id},
                 request_type='get')
+            sge_ids = response['sge_ids']
             if sge_ids:
                 qdel(sge_ids)
             self.poll_for_lagging_jobs(sge_ids)
@@ -173,7 +176,7 @@ class WorkflowRun(object):
         self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
-        rc, wfr_id = self.jsm_req.send_request(
+        rc, _ = self.jsm_req.send_request(
             app_route='/update_workflow_run',
             message={'wfr_id': self.id, 'status': status},
             request_type='post')
