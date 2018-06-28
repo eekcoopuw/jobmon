@@ -12,7 +12,7 @@ class JobFactory(object):
 
     def __init__(self, dag_id):
         self.dag_id = dag_id
-        self.requester = requester.Requester(config.jsm_url)
+        self.requester = requester.Requester(config.jsm_port)
 
     def create_job(self, command, jobname, job_hash, slots=1,
                    mem_free=2, max_attempts=1, max_runtime=None,

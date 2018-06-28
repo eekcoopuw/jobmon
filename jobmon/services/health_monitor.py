@@ -37,7 +37,7 @@ class HealthMonitor(object):
                                  pi=poll_interval,
                                  lt=loss_threshold))
 
-        self._requester = Requester(config.jm_url)
+        self._requester = Requester(config.jm_port)
         self._loss_threshold = timedelta(minutes=loss_threshold)
         self._poll_interval = poll_interval
         self._wf_notification_sink = wf_notification_sink

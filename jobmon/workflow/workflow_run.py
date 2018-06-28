@@ -73,7 +73,7 @@ class WorkflowRun(object):
     def __init__(self, workflow_id, stderr, stdout, project,
                  slack_channel='jobmon-alerts'):
         self.workflow_id = workflow_id
-        self.jsm_req = Requester(config.jm_url)
+        self.jsm_req = Requester(config.jm_port)
         self.stderr = stderr
         self.stdout = stdout
         self.project = project

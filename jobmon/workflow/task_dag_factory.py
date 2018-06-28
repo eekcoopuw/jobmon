@@ -27,7 +27,7 @@ class TaskDagMetaFactory(object):
              the new task dag
         """
         logger.debug("DagFactory creating new DAG {}".format(name))
-        req = Requester(config.jm_url)
+        req = Requester(config.jm_port)
         rc, dag_id = req.send_request(
             app_route='add_task_dag',
             message={'name': name, 'user': getuser(), 'dag_hash': dag_hash,

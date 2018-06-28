@@ -1,6 +1,8 @@
 import logging
 import requests
 
+from jobmon.config import config
+
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +18,10 @@ class Requester(object):
             jobmon instance
     """
 
-    def __init__(self, base_url):
+    def __init__(self, port):
         """set class defaults. attempt to connect with server."""
 
-        self.url = base_url
+        self.url = config.host + ":{}".format(port)
 
     def send_request(self, app_route, message, request_type, verbose=False):
         """send request to server. Need to document what form this message
@@ -54,4 +56,4 @@ class Requester(object):
         return reply
 
     def build_full_url(self, app_route):
-        return self.base_url + app_route
+        return self.url + app_route

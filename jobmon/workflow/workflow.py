@@ -104,8 +104,8 @@ class Workflow(object):
         self.stdout = stdout
         self.project = project
 
-        self.jsm_req = Requester(config.jm_url)
-        self.jqs_req = Requester(config.jqs_url)
+        self.jsm_req = Requester(config.jm_port)
+        self.jqs_req = Requester(config.jqs_port)
 
         if task_dag:
             self.task_dag = task_dag

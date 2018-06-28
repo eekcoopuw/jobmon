@@ -55,7 +55,7 @@ class JobListManager(object):
         self.job_inst_reconciler = JobInstanceReconciler(dag_id,
                                                          interrupt_on_error)
 
-        self.jqs_req = Requester(config.jqs_url)
+        self.jqs_req = Requester(config.jqs_port)
 
         self.db_sync_interval = None
         self.done_queue = Queue()
@@ -85,7 +85,7 @@ class JobListManager(object):
         from jobmon.config import config
         from jobmon.requester import Requester
 
-        req = Requester(config.jm_url)
+        req = Requester(config.jm_port)
         rc, dag_id = req.send_request(
             app_route='/add_task_dag',
             message={'name': 'test dag', 'user': 'test user',

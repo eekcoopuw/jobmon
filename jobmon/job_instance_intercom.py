@@ -17,7 +17,7 @@ class JobInstanceIntercom(object):
     def __init__(self, job_instance_id, process_group_id):
         self.job_instance_id = job_instance_id
         self.process_group_id = process_group_id
-        self.requester = Requester(config.jsm_url)
+        self.requester = Requester(config.jsm_port)
         logger.debug("Instantiated JobInstanceIntercom")
 
     def log_done(self):

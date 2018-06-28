@@ -12,8 +12,6 @@ from jobmon.database import session_scope
 from jobmon.requester import Requester
 from jobmon.notifiers import SlackNotifier
 from jobmon.services.health_monitor import HealthMonitor
-from jobmon.services.job_query_server import JobQueryServer
-from jobmon.services.job_state_manager import JobStateManager
 
 try:
     FileExistsError
@@ -139,9 +137,9 @@ def start_health_monitor():
 
 
 def test_connection(args):
-    jsm_req = Requester(config.jm_url)
+    jsm_req = Requester(config.jm_port)
     jsm_req.send_request(app_route='/', request_type='get')  # is alive?
-    jqs_req = Requester(config.jqs_url)
+    jqs_req = Requester(config.jqs_port)
     jqs_req.send_request(app_route='/', request_type='get')  # is alive?
 
 

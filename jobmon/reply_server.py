@@ -1,10 +1,10 @@
 import logging
 import os
 import socket
-from contextlib import closing
 from flask import Flask, jsonify
 
 from jobmon.exceptions import ReturnCodes
+from jobmon.config import config
 
 try:
     from json.decoder import JSONDecodeError
@@ -33,14 +33,15 @@ class ReplyServer(object):
         self._is_alive
         port = self.port()
         logger.info("{} is running on {}:{} "
-                    .format(__name__, self.node_name(), port))
+                    .format(__name__, config.host, port))
         self.app.run(host="0.0.0.0", port=port, debug=True, threaded=True)
 
     @property
     def port(self):
-        with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
-            s.bind(('', 0))
-            port = s.getsockname()[1]
+        if self.__class__.__name__ == 'JobStateManager':
+            port = config.jsm_port
+        elif self.__class__.__name__ == 'JobQueryServer':
+            port = config.jqs_port
         return port
 
     @property
