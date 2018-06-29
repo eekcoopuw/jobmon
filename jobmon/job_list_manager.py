@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 class JobListManager(object):
 
-    def __init__(self, dag_id, executor=None, db_sync_interval=None,
-                 start_daemons=False, reconciliation_interval=10,
+    def __init__(self, dag_id, executor=None, start_daemons=False,
+                 reconciliation_interval=10,
                  job_instantiation_interval=1, interrupt_on_error=True):
 
         self.dag_id = dag_id
@@ -31,10 +31,7 @@ class JobListManager(object):
 
         self.jqs_req = Requester(config.jqs_port)
 
-        self.db_sync_interval = None
-
         self.job_statuses = {}  # {job_id: status_id}
-        self.job_hash_id_map = {}  # {job_hash: job_id}
         self.all_done = set()
         self.all_error = set()
         with session_scope() as session:
@@ -70,44 +67,45 @@ class JobListManager(object):
                                       JobStatus.DONE,
                                       JobStatus.ERROR_FATAL]]
 
-    def block_until_any_done_or_error(self, timeout=None):
-        """Returns any job updates since last called, or blocks until an update
-        is received.
+    def get_job_statuses(self):
+        rc, response = self.jqs_req.send_request(
+            app_route='/get_jobs',
+            message={'dag_id': self.dag_id},
+            request_type='get')
+        jobs = [Job.from_wire(j) for j in response['job_dcts']]
+        return jobs
 
-        Be careful. Job statuses are cached in two places: in the update_queue,
-        and in the job_status dictionary. Be sure to update in both.
+    def parse_done_and_errors(self, jobs):
+        for job in jobs:
+            if job.job_status == JobStatus.DONE:
+                self.all_done.add(job.jd)
+            elif job.job_status == JobStatus.ERROR_FATAL:
+                self.all_error.add(job.id)
+            self.job_statuses[job.id] = job.job_status
+        return self.all_done.union(self.all_error)
 
-        Args:
-            timeout (int, optional): Maximum time to block. If None (default),
-                block forever.
+    def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
+        time_since_last_update = 0
+        while True:
+            if time_since_last_update > timeout:
+                return None
+            jobs = self.get_job_statuses()
+            updates = self.parse_done_and_errors(jobs)
+            if updates:
+                return updates
+            time.sleep(poll_interval)
+            time_since_last_update += poll_interval
 
-        Returns:
-            list of (job_id, job_status) tuples
-        """
-        # TODO: Consider whether the done and error queues should also be
-        # cleared by this method... or whether they should continue to be
-        # independent of the general update queue
-        updates = []
-        if not self.update_queue.empty():
-            while not self.update_queue.empty():
-                updates.append(self.update_queue.get(timeout=timeout))
-        else:
-            updates = [self.update_queue.get(timeout=timeout)]
-        self.job_statuses.update(dict(updates))  # update job_status here
-        return updates
-
-    def block_until_no_instances(self, poll_interval=10,
+    def block_until_no_instances(self, timeout=36000, poll_interval=10,
                                  raise_on_any_error=True):
         logger.info("Blocking, poll interval = {}".format(poll_interval))
 
-        done = []
-        errors = []
+        time_since_last_update = 0
         while True:
-            new_done = self.get_new_done()
-            done.extend(new_done)
-
-            new_errors = self.get_new_errors()
-            errors.extend(new_errors)
+            if time_since_last_update > timeout:
+                return None
+            jobs = self.get_job_statuses()
+            self.parse_done_and_errors(jobs)
 
             if len(self.active_jobs) == 0:
                 break
@@ -116,37 +114,17 @@ class JobListManager(object):
                 if len(self.all_error) > 0:
                     raise RuntimeError("1 or more jobs encountered a "
                                        "fatal error")
-
             logger.debug("{} active jobs. Waiting {} seconds...".format(
                 len(self.active_jobs), poll_interval))
             time.sleep(poll_interval)
-            self._sync_at_interval()
-        return done, errors
+            time_since_last_update += poll_interval
+
+        return self.all_done, self.all_errors
 
     def create_job(self, *args, **kwargs):
         job_id = self.job_factory.create_job(*args, **kwargs)
         self.job_statuses[job_id] = JobStatus.REGISTERED
         return job_id
-
-    def get_new_done(self):
-        new_done = []
-        while not self.done_queue.empty():
-            done_id = self.done_queue.get()
-            new_done.append(done_id)
-            self.job_statuses[done_id] = JobStatus.DONE
-        self.all_done.update(new_done)
-        self._sync_at_interval()
-        return new_done
-
-    def get_new_errors(self):
-        new_errors = []
-        while not self.error_queue.empty():
-            error_id = self.error_queue.get()
-            new_errors.append(error_id)
-            self.job_statuses[error_id] = JobStatus.ERROR_FATAL
-        self.all_error.update(new_errors)
-        self._sync_at_interval()
-        return new_errors
 
     def queue_job(self, job_id):
         self.job_factory.queue_job(job_id)
@@ -154,27 +132,6 @@ class JobListManager(object):
 
     def reset_jobs(self):
         self.job_factory.reset_jobs()
-
-    def _sync(self, session):
-        rc, response = self.jqs_req.send_request(
-            app_route='/get_jobs',
-            message={'dag_id': self.dag_id},
-            request_type='get')
-        jobs = [Job.from_wire(j) for j in response['job_dcts']]
-        for job in jobs:
-            self.job_statuses[job.job_id] = job.status
-            self.job_hash_id_map[job.job_hash] = job.job_id
-        self.all_done = set([job.job_id for job in jobs
-                             if job.status == JobStatus.DONE])
-        self.all_error = set([job.job_id for job in jobs if job.status ==
-                              JobStatus.ERROR_FATAL])
-        self.last_sync = time.time()
-
-    def _sync_at_interval(self):
-        if self.db_sync_interval:
-            if (time.time() - self.last_sync) > self.db_sync_interval:
-                with session_scope() as session:
-                    self._sync(session)
 
     def _start_job_instance_manager(self):
         self.jif_proc = Thread(
