@@ -1,13 +1,14 @@
 import logging
+import os
 from datetime import datetime
 
-from flask import jsonify
+from flask import jsonify, Flask
 from http import HTTPStatus
 
 from jobmon import models
 from jobmon.database import session_scope
 from jobmon.pubsub_helpers import mogrify
-from jobmon.reply_server import ReplyServer
+from jobmon.config import config
 from jobmon.meta_models import task_dag
 from jobmon.workflow.workflow import WorkflowDAO
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
@@ -19,12 +20,24 @@ from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 logger = logging.getLogger(__name__)
 
 
-class JobStateManager(ReplyServer):
+class JobStateManager(object):
 
-    app = ReplyServer.app
+    app = Flask(__name__)
 
     def __init__(self):
-        super(JobStateManager, self).__init__()
+        self.app.run(host="0.0.0.0", port=config.jsm_port, debug=False,
+                     threaded=True)
+        self._is_alive()
+
+    @app.route('/', methods=['GET'])
+    def _is_alive(self):
+        """A simple 'action' that sends a response to the requester indicating
+        that this responder is in fact listening"""
+        logmsg = "{}: Responder received is_alive?".format(os.getpid())
+        logger.debug(logmsg)
+        resp = jsonify(msg="Yes, I am alive")
+        resp.status_code = HTTPStatus.OK
+        return resp
 
     @app.route('/add_job', methods=['POST'])
     def add_job(self, name, job_hash, command, dag_id, slots=1,

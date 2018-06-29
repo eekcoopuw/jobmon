@@ -76,8 +76,7 @@ class GlobalConfig(object):
         self.conn_str = conn_str
         self.verbose = False
 
-        self._jsm_host = host
-        self._jqs_host = host
+        self._host = host
         self._jsm_port = jsm_port
         self._jqs_port = jqs_port
 

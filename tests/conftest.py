@@ -138,14 +138,8 @@ def db_cfg(session_edb):
 
 @pytest.fixture(scope='module')
 def jsm_jqs(session_edb):
-    # logging does not work well with Threads in python < 2.7,
-    # see https://docs.python.org/2/library/logging.html
-    # Logging has to be set up BEFORE the Thread.
-    # Therefore we set up the job_state_manager's console logger here, before
-    # we put it in a Thread.
-    jsm = JobStateManager(session_edb.jm_rep_conn.port,
-                          session_edb.jm_pub_conn.port)
-    jqs = JobQueryServer(session_edb.jqs_rep_conn.port)
+    jsm = JobStateManager()
+    jqs = JobQueryServer()
 
     yield jsm, jqs
 

@@ -1,23 +1,40 @@
+import logging
+import os
 from datetime import datetime
 from sqlalchemy.orm import contains_eager
 
-from flask import jsonify
+from flask import jsonify, Flask
 from http import HTTPStatus
 
+from jobmon.config import config
 from jobmon.database import session_scope
 from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
-from jobmon.reply_server import ReplyServer
 from jobmon.meta_models import TaskDagMeta
 from jobmon.workflow.workflow import WorkflowDAO
 
 
-class JobQueryServer(ReplyServer):
+logger = logging.getLogger(__name__)
+
+
+class JobQueryServer(object):
     """This services basic queries surrounding jobs"""
 
-    app = ReplyServer.app
+    app = Flask(__name__)
 
-    def __init__(self, rep_port=None):
-        super(JobQueryServer, self).__init__()
+    def __init__(self):
+        self.app.run(host="0.0.0.0", port=config.jqs_port, debug=False,
+                     threaded=True)
+        self._is_alive()
+
+    @app.route('/', methods=['GET'])
+    def _is_alive(self):
+        """A simple 'action' that sends a response to the requester indicating
+        that this responder is in fact listening"""
+        logmsg = "{}: Responder received is_alive?".format(os.getpid())
+        logger.debug(logmsg)
+        resp = jsonify(msg="Yes, I am alive")
+        resp.status_code = HTTPStatus.OK
+        return resp
 
     @app.errorhandler(404)
     def no_results(self, error=None):
