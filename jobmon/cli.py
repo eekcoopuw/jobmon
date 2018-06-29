@@ -86,9 +86,7 @@ def parse_args(argstr=None):
 
     start_parser = subparsers.add_parser("start")
     start_parser.set_defaults(func=start)
-    start_parser.add_argument("service", choices=['job_state_manager',
-                                                  'job_query_server',
-                                                  'health_monitor'])
+    start_parser.add_argument("service", choices=['health_monitor'])
 
     test_parser = subparsers.add_parser("test")
     test_parser.set_defaults(func=test_connection)
@@ -108,12 +106,11 @@ def start(args):
     """Start the JobStateManager or JobQueryServer process listening"""
     if config.config.verbose:
         logging.basicConfig(level=logging.DEBUG)
-    if args.service == "job_state_manager":
-        start_job_state_manager()
-    elif args.service == "job_query_server":
-        start_job_query_server()
-    elif args.service == "health_monitor":
+    if args.service == "health_monitor":
         start_health_monitor()
+    else:
+        raise ValueError("Only health_monitor server can be 'started'. Got {}"
+                         .format(args.service))
 
 
 def start_health_monitor():

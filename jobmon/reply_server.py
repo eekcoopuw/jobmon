@@ -49,7 +49,7 @@ class ReplyServer(object):
         """name of node that server is running on"""
         return socket.gethostname()
 
-    @app.route('/', method=['GET'])
+    @app.route('/', methods=['GET'])
     def _is_alive(self):
         """A simple 'action' that sends a response to the requester indicating
         that this responder is in fact listening"""

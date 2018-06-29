@@ -9,7 +9,6 @@ from datetime import datetime
 
 from argparse import Namespace
 from sqlalchemy.exc import IntegrityError
-from threading import Thread
 
 from jobmon.bootstrap import install_rcfile
 
@@ -41,10 +40,8 @@ def create_sqlite_rcfile(rcdir):
     try:
         install_rcfile(args,
                        cfg_dct={"conn_str": "sqlite://",
-                                "jsm_host": socket.gethostname(),
-                                "jqs_host": socket.gethostname(),
-                                "jsm_rep_port": get_random_port(),
-                                "jsm_pub_port": get_random_port(),
+                                "host": socket.gethostname(),
+                                "jsm_port": get_random_port(),
                                 "jqs_port": get_random_port()})
 
         cleanup_rcfile = True
@@ -148,19 +145,9 @@ def jsm_jqs(session_edb):
     # we put it in a Thread.
     jsm = JobStateManager(session_edb.jm_rep_conn.port,
                           session_edb.jm_pub_conn.port)
-
     jqs = JobQueryServer(session_edb.jqs_rep_conn.port)
 
-    t1 = Thread(target=jsm.listen)
-    t1.daemon = True
-    t1.start()
-    t2 = Thread(target=jqs.listen)
-    t2.daemon = True
-    t2.start()
-
     yield jsm, jqs
-    jsm.stop_listening()
-    jqs.stop_listening()
 
 
 @pytest.fixture(scope='module')
@@ -186,9 +173,7 @@ def tmp_out_dir():
 @pytest.fixture(scope='function')
 def job_list_manager_sub(dag_id):
     jlm = JobListManager(dag_id, interrupt_on_error=False)
-    jlm._start_job_status_listener()
     yield jlm
-    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -203,7 +188,6 @@ def job_list_manager_sge(dag_id, tmpdir_factory):
     jlm = JobListManager(dag_id, executor=executor, start_daemons=True,
                          interrupt_on_error=False)
     yield jlm
-    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -212,5 +196,3 @@ def dag(db_cfg, jsm_jqs, request):
     and JobInstanceReconcilers get cleaned up after each test"""
     dag = TaskDag(name=request.node.name, interrupt_on_error=False)
     yield dag
-    if dag.job_list_manager:
-        dag.job_list_manager.disconnect()

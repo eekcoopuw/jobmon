@@ -31,13 +31,13 @@ def test_start_subcommand():
     with pytest.raises(SystemExit):
         parse_args("start")
 
-    # Either job_query_server or job_state_manager
-    parse_args("start job_query_server")
+    # Must be health_monitor
+    parse_args("start health_monitor")
 
     # ... and the start function and service name should be attached
-    args = parse_args("start job_state_manager")
+    args = parse_args("start health_monitor")
     assert args.func.__name__ == "start"
-    assert args.service == "job_state_manager"
+    assert args.service == "health_monitor"
 
     # Not something else...
     with pytest.raises(SystemExit):

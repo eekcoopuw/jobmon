@@ -27,7 +27,7 @@ class JobQueryServer(ReplyServer):
 
         return resp
 
-    @app.route('/get_queued_for_instantiation', method=['GET'])
+    @app.route('/get_queued_for_instantiation', methods=['GET'])
     def get_queued_for_instantiation(self, dag_id):
         with session_scope() as session:
             jobs = session.query(Job).filter_by(
@@ -38,7 +38,7 @@ class JobQueryServer(ReplyServer):
         resp.status_code = HTTPStatus.OK
         return resp
 
-    @app.route('/get_submitted_or_running', method=['GET'])
+    @app.route('/get_submitted_or_running', methods=['GET'])
     def get_submitted_or_running(self, dag_id):
         with session_scope() as session:
             instances = session.query(JobInstance).\
@@ -54,7 +54,7 @@ class JobQueryServer(ReplyServer):
         resp.status_code = HTTPStatus.OK
         return resp
 
-    @app.route('/get_jobs', method=['GET'])
+    @app.route('/get_jobs', methods=['GET'])
     def get_jobs(self, dag_id):
         """
         Return a dictionary mapping job_id to a dict of the job's instance
@@ -70,7 +70,7 @@ class JobQueryServer(ReplyServer):
         resp.status_code = HTTPStatus.OK
         return resp
 
-    @app.route('/get_timed_out', method=['GET'])
+    @app.route('/get_timed_out', methods=['GET'])
     def get_timed_out(self, dag_id):
         with session_scope() as session:
             running = session.query(JobInstance).\
@@ -89,7 +89,7 @@ class JobQueryServer(ReplyServer):
         resp.status_code = HTTPStatus.OK
         return resp
 
-    @app.route('/get_dag_ids_by_hash', method=['GET'])
+    @app.route('/get_dag_ids_by_hash', methods=['GET'])
     def get_dag_ids_by_hash(self, dag_hash):
         """
         Return a dictionary mapping job_id to a dict of the job's instance
@@ -106,7 +106,7 @@ class JobQueryServer(ReplyServer):
         resp.status_code = HTTPStatus.OK
         return resp
 
-    @app.route('/get_workflows_by_inputs', method=['GET'])
+    @app.route('/get_workflows_by_inputs', methods=['GET'])
     def get_workflows_by_inputs(self, dag_id, workflow_args):
         """
         Return a dictionary mapping job_id to a dict of the job's instance
