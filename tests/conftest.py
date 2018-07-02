@@ -1,3 +1,4 @@
+import pdb; pdb.set_trace()
 import functools
 import os
 import pytest
@@ -41,8 +42,8 @@ def create_sqlite_rcfile(rcdir):
         install_rcfile(args,
                        cfg_dct={"conn_str": "sqlite://",
                                 "host": socket.gethostname(),
-                                "jsm_port": get_random_port(),
-                                "jqs_port": get_random_port()})
+                                "jsm_port": 5056,
+                                "jqs_port": 5058})
 
         cleanup_rcfile = True
     except FileExistsError:
