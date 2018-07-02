@@ -12,6 +12,7 @@ from jobmon.database import session_scope
 from jobmon.requester import Requester
 from jobmon.notifiers import SlackNotifier
 from jobmon.services.health_monitor import HealthMonitor
+from jobmon.services import job_state_manager, job_query_server
 
 try:
     FileExistsError
@@ -86,7 +87,9 @@ def parse_args(argstr=None):
 
     start_parser = subparsers.add_parser("start")
     start_parser.set_defaults(func=start)
-    start_parser.add_argument("service", choices=['health_monitor'])
+    start_parser.add_argument("service", choices=['health_monitor',
+                                                  'job_state_manager',
+                                                  'job_query_server'])
 
     test_parser = subparsers.add_parser("test")
     test_parser.set_defaults(func=test_connection)
@@ -103,14 +106,29 @@ def parse_args(argstr=None):
 
 
 def start(args):
-    """Start the JobStateManager or JobQueryServer process listening"""
+    """Start the services"""
     if config.config.verbose:
         logging.basicConfig(level=logging.DEBUG)
-    if args.service == "health_monitor":
+    if args.service == "job_state_manager":
+        start_job_state_manager()
+    elif args.service == "job_query_server":
+        start_job_query_server()
+    elif args.service == "health_monitor":
         start_health_monitor()
     else:
-        raise ValueError("Only health_monitor server can be 'started'. Got {}"
+        raise ValueError("Only health_monitor, job_query_server, and "
+                         "job_state_manager server can be 'started'. Got {}"
                          .format(args.service))
+
+
+def start_job_state_manager():
+    """Start the JobStateManager process"""
+    job_state_manager.start()
+
+
+def start_job_query_server():
+    """Start the JobQueryServer process"""
+    job_query_server.start()
 
 
 def start_health_monitor():

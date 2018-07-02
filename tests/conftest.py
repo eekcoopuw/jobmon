@@ -72,8 +72,8 @@ from jobmon.config import config
 from jobmon import database
 from jobmon import database_loaders
 from jobmon.job_list_manager import JobListManager
-from jobmon.services.job_query_server import JobQueryServer
-from jobmon.services.job_state_manager import JobStateManager
+from jobmon.services import job_query_server as jqs
+from jobmon.services import job_state_manager as jsm
 from jobmon.job_instance_factory import execute_sge
 from jobmon.workflow.task_dag import TaskDag
 
@@ -138,16 +138,13 @@ def db_cfg(session_edb):
 
 @pytest.fixture(scope='module')
 def jsm_jqs(session_edb):
-    jsm = JobStateManager()
-    jqs = JobQueryServer()
-
-    yield jsm, jqs
+    jsm.start()
+    jqs.start()
 
 
 @pytest.fixture(scope='module')
 def dag_id(jsm_jqs):
     import random
-    jsm, jqs = jsm_jqs
     rc, dag_id = jsm.add_task_dag('test_dag', 'test_user',
                                   'test_{}'.format(random.randint(1, 1000)),
                                   datetime.utcnow())
