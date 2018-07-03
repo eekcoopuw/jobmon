@@ -1,3 +1,4 @@
+from builtins import str
 import getpass
 import os
 import socket
@@ -98,7 +99,7 @@ class WorkflowRun(object):
         rc, response = \
             self.jsm_req.send_request(
                 app_route='/is_workflow_running',
-                message={'workflow_id': self.workflow_id},
+                message={'workflow_id': str(self.workflow_id)},
                 request_type='get')
         if rc != HTTPStatus.OK:
             raise ValueError("Invalid Reponse to is_workflow_running")

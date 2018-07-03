@@ -33,7 +33,7 @@ def get_random_port():
     return port
 
 
-def get_node_name(self):
+def get_node_name():
     """name of node that server is running on"""
     return socket.gethostname()
 
