@@ -1,10 +1,10 @@
-import pdb; pdb.set_trace()
 import functools
 import os
 import pytest
 import pwd
 import shutil
 import socket
+import threading
 import uuid
 from datetime import datetime
 
@@ -139,8 +139,18 @@ def db_cfg(session_edb):
 
 @pytest.fixture(scope='module')
 def jsm_jqs(session_edb):
-    jsm.start()
-    jqs.start()
+    t1 = threading.Thread(target=jsm.flask_thread)
+    t1.daemon = True
+    t1.start()
+
+    t2 = threading.Thread(target=jqs.flask_thread)
+    t2.daemon = True
+    t2.start()
+
+    yield
+
+    t1.join()
+    t2.join()
 
 
 @pytest.fixture(scope='module')

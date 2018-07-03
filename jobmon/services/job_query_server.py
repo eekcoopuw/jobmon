@@ -18,8 +18,9 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
 
-def start():
-    app.run(host="0.0.0.0", port=config.jqs_port, debug=False, threaded=True)
+def flask_thread():
+    app.run(host="0.0.0.0", port=config.jqs_port, debug=True,
+            use_reloader=False, threaded=True)
 
 
 @app.route('/', methods=['GET'])
