@@ -1,11 +1,13 @@
 import pytest
 from time import sleep
+import os
 
 from jobmon.database import session_scope
 from jobmon.meta_models.task_dag import TaskDagMeta
 from jobmon.models import Job, JobInstanceStatus, JobInstance, JobStatus
 from jobmon.services.health_monitor import HealthMonitor
 from jobmon.workflow.bash_task import BashTask
+from jobmon.workflow.python_task import PythonTask
 from jobmon.workflow.task_dag import TaskDag
 from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
     WorkflowAlreadyComplete
@@ -536,6 +538,18 @@ def test_failing_nodes(dag):
         failing_nodes = hm._calculate_node_failure_rate(session, active_wfrs)
         assert 'fake_node.ihme.washington.edu' in failing_nodes
 
+        # Manually make those job instances land on the same node and have
+        # them fail BUT also manually make there dates be older than an hour
+        # Ensure they they don't come up because of the time window
+        session.execute("""
+            UPDATE job_instance
+            SET nodename='new_fake_node.ihme.washington.edu', status="{s}",
+            status_date = '2018-05-16 17:17:54'
+            WHERE job_instance_id < 7 and workflow_run_id={wfr_id}
+            """.format(s=JobInstanceStatus.ERROR, wfr_id=wfr.id))
+        failing_nodes = hm._calculate_node_failure_rate(session, active_wfrs)
+        assert 'new_fake_node.ihme.washington.edu' not in failing_nodes
+
 
 def test_add_tasks_to_workflow(db_cfg, jsm_jqs):
     """Make sure adding tasks to a workflow (and not just a task dag) works"""
@@ -604,3 +618,25 @@ def test_workflow_status_dates(simple_workflow):
         wf_runs = wf_dao.workflow_runs
         for wfr in wf_runs:
             assert wfr.created_date != wfr.status_date
+
+
+def test_workflow_sge_args(dag):
+    t1 = PythonTask(script='{}/executor_args_check.py'.format(
+        os.path.dirname(os.path.realpath(__file__))))
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    dag.add_tasks([t1, t2, t3])
+
+    wfa = "my_simple_dag"
+    workflow = Workflow(dag, wfa, project='proj_jenkins',
+                        working_dir='/ihme/centralcomp/auto_test_data',
+                        stderr='/ihme/centralcomp/auto_test_data',
+                        stdout='/ihme/centralcomp/auto_test_data')
+    success = workflow.execute()
+    assert success
+
+    assert workflow.workflow_run.project == 'proj_jenkins'
+    assert workflow.workflow_run.working_dir == (
+        '/ihme/centralcomp/auto_test_data')
+    assert workflow.workflow_run.stderr == '/ihme/centralcomp/auto_test_data'
+    assert workflow.workflow_run.stdout == '/ihme/centralcomp/auto_test_data'

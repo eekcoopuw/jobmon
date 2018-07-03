@@ -46,6 +46,7 @@ class WorkflowRunDAO(Base):
     stderr = Column(String(1000))
     stdout = Column(String(1000))
     project = Column(String(150))
+    working_dir = Column(String(1000), default=None)
     slack_channel = Column(String(150))
     created_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
@@ -71,12 +72,14 @@ class WorkflowRun(object):
     """
 
     def __init__(self, workflow_id, stderr, stdout, project,
-                 slack_channel='jobmon-alerts', reset_running_jobs=True):
+                 slack_channel='jobmon-alerts', working_dir=None,
+                 reset_running_jobs=True):
         self.workflow_id = workflow_id
         self.jsm_req = Requester(config.jm_rep_conn)
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
+        self.working_dir = working_dir
         self.kill_previous_workflow_runs(reset_running_jobs)
         rc, wfr_id = self.jsm_req.send_request({
             'action': 'add_workflow_run',
@@ -88,6 +91,7 @@ class WorkflowRun(object):
                        'stdout': stdout,
                        'project': project,
                        'slack_channel': slack_channel,
+                       'working_dir': self.working_dir
                        }
         })
         if rc != ReturnCodes.OK:

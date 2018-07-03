@@ -1,4 +1,4 @@
-import getpass
+Import getpass
 import hashlib
 import logging
 from datetime import datetime
@@ -96,7 +96,8 @@ class Workflow(object):
 
     def __init__(self, task_dag=None, workflow_args=None, name="",
                  description="", stderr=None, stdout=None, project=None,
-                 reset_running_jobs=True):
+                 reset_running_jobs=True,
+                 working_dir=None):
         self.wf_dao = None
         self.name = name
         self.description = description
@@ -104,6 +105,7 @@ class Workflow(object):
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
+        self.working_dir = working_dir
 
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
@@ -182,7 +184,9 @@ class Workflow(object):
                 self.dag_id,
                 executor_args={'stderr': self.stderr,
                                'stdout': self.stdout,
-                               'project': self.project, },
+                               'working_dir': self.working_dir,
+                               'project': self.project,
+                              },
                 reset_running_jobs=self.reset_running_jobs,
             )
         elif len(potential_wfs) == 0:
@@ -190,7 +194,9 @@ class Workflow(object):
             self.task_dag.bind_to_db(
                 executor_args={'stderr': self.stderr,
                                'stdout': self.stdout,
-                               'project': self.project, },
+                               'working_dir': self.working_dir,
+                               'project': self.project,
+                              },
                 reset_running_jobs=self.reset_running_jobs,
             )
 
@@ -229,7 +235,11 @@ class Workflow(object):
         # Create new workflow in Database
         self.workflow_run = WorkflowRun(
             self.id, self.stderr, self.stdout, self.project,
-            reset_running_jobs=self.reset_running_jobs)
+            reset_running_jobs=self.reset_running_jobs,
+            working_dir=self.working_dir)
+        self.workflow_run = WorkflowRun(self.id, self.stderr, self.stdout,
+                                        self.project,
+                                        working_dir=self.working_dir)
 
     def _error(self):
         self.workflow_run.update_error()
