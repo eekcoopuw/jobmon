@@ -4,7 +4,6 @@ import pytest
 import pwd
 import shutil
 import socket
-import threading
 import uuid
 from datetime import datetime
 
@@ -32,6 +31,11 @@ def get_random_port():
     port = sock.getsockname()[1]
     sock.close()
     return port
+
+
+def get_node_name(self):
+    """name of node that server is running on"""
+    return socket.gethostname()
 
 
 def create_sqlite_rcfile(rcdir):
@@ -139,23 +143,31 @@ def db_cfg(session_edb):
 
 @pytest.fixture(scope='module')
 def jsm_jqs(session_edb):
-    t1 = threading.Thread(target=jsm.flask_thread)
-    t1.daemon = True
-    t1.start()
+    from multiprocessing import Process
+    p1 = Process(target=jsm.flask_thread)
+    p1.start()
 
-    t2 = threading.Thread(target=jqs.flask_thread)
-    t2.daemon = True
-    t2.start()
+    p2 = Process(target=jqs.flask_thread)
+    p2.start()
 
     yield
 
-    t1.join()
-    t2.join()
+    p1.terminate()
+    p2.terminate()
 
 
 @pytest.fixture(scope='module')
 def dag_id(jsm_jqs):
     import random
+    from jobmon.requester import Requester
+
+    req = Requester(config.jsm_port, host=get_node_name())
+    rc, response = req.send_request(
+        app_route='/add_task_dag',
+        message={'name': 'test dag', 'user': 'test user',
+                 'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
+                 'created_date': datetime.utcnow()},
+        request_type='post')
     rc, dag_id = jsm.add_task_dag('test_dag', 'test_user',
                                   'test_{}'.format(random.randint(1, 1000)),
                                   datetime.utcnow())

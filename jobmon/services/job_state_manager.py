@@ -23,7 +23,7 @@ app = Flask(__name__)
 
 
 def flask_thread():
-    app.run(host="0.0.0.0", port=config.jqs_port, debug=True,
+    app.run(host="0.0.0.0", port=config.jsm_port, debug=True,
             use_reloader=False, threaded=True)
 
 
@@ -186,7 +186,7 @@ def is_workflow_running():
     """Check if a previous workflow run for your user is still running """
     with session_scope() as session:
         wf_run = (session.query(WorkflowRunDAO).filter_by(
-            workflow_id=request.form['workflow_id'],
+            workflow_id=request.args['workflow_id'],
             status=WorkflowRunStatus.RUNNING,
         ).order_by(WorkflowRunDAO.id.desc()).first())
         if not wf_run:
@@ -206,7 +206,7 @@ def is_workflow_running():
 def get_sge_ids_of_previous_workflow_run():
     with session_scope() as session:
         jis = session.query(models.JobInstance).filter_by(
-            workflow_run_id=request.form['workflow_run_id']).all()
+            workflow_run_id=request.args['workflow_run_id']).all()
         sge_ids = [ji.executor_id for ji in jis]
     resp = jsonify(sge_ids=sge_ids)
     resp.status_code = HTTPStatus.OK

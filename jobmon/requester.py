@@ -18,10 +18,12 @@ class Requester(object):
             jobmon instance
     """
 
-    def __init__(self, port):
+    def __init__(self, port, host=None):
         """set class defaults. attempt to connect with server."""
 
-        self.url = config.host + ":{}".format(port)
+        if not host:
+            host = config.host
+        self.url = "http://" + host + ":{}".format(port)
 
     def send_request(self, app_route, message, request_type, verbose=False):
         """send request to server. Need to document what form this message

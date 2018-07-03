@@ -48,7 +48,7 @@ def get_queued_for_instantiation():
     with session_scope() as session:
         jobs = session.query(Job).filter_by(
             status=JobStatus.QUEUED_FOR_INSTANTIATION,
-            dag_id=request.form['dag_id']).all()
+            dag_id=request.args['dag_id']).all()
         job_dcts = [j.to_wire() for j in jobs]
     resp = jsonify(job_dcts=job_dcts)
     resp.status_code = HTTPStatus.OK
@@ -65,7 +65,7 @@ def get_submitted_or_running():
                     JobInstanceStatus.RUNNING])).\
             join(Job).\
             options(contains_eager(JobInstance.job)).\
-            filter_by(dag_id=request.form['dag_id']).all()
+            filter_by(dag_id=request.args['dag_id']).all()
         instances = [i.to_wire() for i in instances]
     resp = jsonify(ji_dcts=instances)
     resp.status_code = HTTPStatus.OK
@@ -83,7 +83,7 @@ def get_jobs():
     """
     with session_scope() as session:
         jobs = session.query(Job).filter(
-            Job.dag_id == request.form['dag_id']).all()
+            Job.dag_id == request.args['dag_id']).all()
         job_dcts = [j.to_wire() for j in jobs]
     resp = jsonify(job_dcts=job_dcts)
     resp.status_code = HTTPStatus.OK
@@ -100,7 +100,7 @@ def get_timed_out():
                     JobInstanceStatus.RUNNING])).\
             join(Job).\
             options(contains_eager(JobInstance.job)).\
-            filter(Job.dag_id == request.form['dag_id'],
+            filter(Job.dag_id == request.args['dag_id'],
                    Job.max_runtime != None).all()  # noqa: E711
         now = datetime.utcnow()
         timed_out = [r.to_wire() for r in running
@@ -121,7 +121,7 @@ def get_dag_ids_by_hash():
     """
     with session_scope() as session:
         dags = session.query(TaskDagMeta).filter(
-            TaskDagMeta.dag_hash == request.form['dag_hash']).all()
+            TaskDagMeta.dag_hash == request.args['dag_hash']).all()
         dag_ids = [dag.dag_id for dag in dags]
     resp = jsonify(dag_ids=dag_ids)
     resp.status_code = HTTPStatus.OK
@@ -139,8 +139,8 @@ def get_workflows_by_inputs():
     """
     with session_scope() as session:
         workflow = session.query(WorkflowDAO).\
-            filter(WorkflowDAO.dag_id == request.form['dag_id']).\
-            filter(WorkflowDAO.workflow_args == request.form['workflow_args'])\
+            filter(WorkflowDAO.dag_id == request.args['dag_id']).\
+            filter(WorkflowDAO.workflow_args == request.args['workflow_args'])\
             .first()
         if workflow:
             resp = jsonify(workflow_dct=workflow.to_wire())

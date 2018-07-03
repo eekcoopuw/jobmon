@@ -1,12 +1,10 @@
 from builtins import str
 import pytest
 import sys
-import zmq
 from queue import Empty
 
 from jobmon import models
 from jobmon.database import session_scope
-from jobmon.config import config
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 
@@ -16,16 +14,6 @@ if sys.version_info < (3, 0):
     from functools32 import partial
 else:
     from functools import partial
-
-
-@pytest.fixture(scope='module')
-def subscriber(dag_id):
-    ctx = zmq.Context.instance()
-    sub = ctx.socket(zmq.SUB)
-    sub.setsockopt_string(zmq.SUBSCRIBE, str(dag_id))
-    sub.connect("tcp://localhost:{}".format(config.jm_pub_conn.port))
-    return sub
-    sub.close()
 
 
 @pytest.fixture(scope='function')
@@ -50,7 +38,7 @@ def job_list_manager_sge(dag_id):
     jlm.disconnect()
 
 
-def test_invalid_command(subscriber, job_list_manager):
+def test_invalid_command(job_list_manager):
     job_id = job_list_manager.create_job('foo', 'bar', 'somehash')
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
@@ -68,7 +56,7 @@ def test_invalid_command(subscriber, job_list_manager):
     assert len(job_list_manager.all_error) > 0
 
 
-def test_valid_command(subscriber, job_list_manager):
+def test_valid_command(job_list_manager):
     job_id = job_list_manager.create_job('ls', 'baz', 'somehash')
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
