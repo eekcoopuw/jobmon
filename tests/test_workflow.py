@@ -8,7 +8,7 @@ from jobmon.models import Job, JobInstanceStatus, JobInstance, JobStatus
 from jobmon.services.health_monitor import HealthMonitor
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
-from jobmon.workflow.task_dag import TaskDag
+from jobmon.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
     WorkflowAlreadyComplete
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
@@ -85,8 +85,8 @@ def test_wfargs_update(dag, second_dag):
     assert wf1.hash != wf2.hash
 
     # Make sure the second Workflow has a distinct set of Jobs
-    assert not (set([t.job_id for _, t in wf1.task_dag.tasks.items()]) &
-                set([t.job_id for _, t in wf2.task_dag.tasks.items()]))
+    assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
+                set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
 
 def test_dag_update(dag, second_dag):
@@ -120,8 +120,8 @@ def test_dag_update(dag, second_dag):
     assert wf1.hash != wf2.hash
 
     # Make sure the second Workflow has a distinct set of Jobs
-    assert not (set([t.job_id for _, t in wf1.task_dag.tasks.items()]) &
-                set([t.job_id for _, t in wf2.task_dag.tasks.items()]))
+    assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
+                set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
 
 def test_wfagrs_dag_update(dag, second_dag):
@@ -155,15 +155,15 @@ def test_wfagrs_dag_update(dag, second_dag):
     assert wf1.hash != wf2.hash
 
     # Make sure the second Workflow has a distinct set of Jobs
-    assert not (set([t.job_id for _, t in wf1.task_dag.tasks.items()]) &
-                set([t.job_id for _, t in wf2.task_dag.tasks.items()]))
+    assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
+                set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
 
 def test_stop_resume(simple_workflow, tmpdir, second_dag):
     # Manually modify the database so that some mid-dag jobs appear in
     # a running / non-complete / non-error state
     stopped_wf = simple_workflow
-    job_ids = [t.job_id for _, t in stopped_wf.task_dag.tasks.items()]
+    job_ids = [t.job_id for _, t in stopped_wf.task_dag.bound_tasks.items()]
 
     to_run_jid = job_ids[-1]
     with session_scope() as session:
@@ -201,6 +201,9 @@ def test_stop_resume(simple_workflow, tmpdir, second_dag):
                         project='proj_jenkins')
     workflow.execute()
 
+    # TODO: FIGURE OUT WHETHER IT's SENSIBLE TO CLEAR THE done/error
+    # QUEUES AFTER THE __init__ _sync() call in job_list_manager...
+
     # Check that finished tasks aren't added to the top fringe
     assert workflow.task_dag.top_fringe == [t3]
 
@@ -230,15 +233,16 @@ def test_stop_resume(simple_workflow, tmpdir, second_dag):
     # Validate that the database indicates the Dag and its Jobs are complete
     assert workflow.status == WorkflowStatus.DONE
 
+    jlm = workflow.task_dag.job_list_manager
     for _, task in workflow.task_dag.tasks.items():
-        assert task.status == JobStatus.DONE
+        assert jlm.status_from_task(task) == JobStatus.DONE
 
 
 def test_reset_attempts_on_resume(simple_workflow, second_dag):
     # Manually modify the database so that some mid-dag jobs appear in
     # error state, max-ing out the attempts
     stopped_wf = simple_workflow
-    job_ids = [t.job_id for _, t in stopped_wf.task_dag.tasks.items()]
+    job_ids = [t.job_id for _, t in stopped_wf.task_dag.bound_tasks.items()]
 
     mod_jid = job_ids[1]
 
@@ -277,10 +281,11 @@ def test_reset_attempts_on_resume(simple_workflow, second_dag):
     # Before actually executing the DAG, validate that the database has
     # reset the attempt counters to 0 and the ERROR states to INSTANTIATED
     workflow._bind()
-    assert t2.job_id == mod_jid  # Should be bound to stopped-run ID values
+    bt2 = dag.job_list_manager.bound_task_from_task(t2)
+    assert bt2.job_id == mod_jid  # Should be bound to stopped-run ID values
 
     with session_scope() as session:
-        jobDAO = session.query(Job).filter_by(job_id=t2.job_id).first()
+        jobDAO = session.query(Job).filter_by(job_id=bt2.job_id).first()
         assert jobDAO.max_attempts == 3
         assert jobDAO.num_attempts == 0
         assert jobDAO.status == JobStatus.REGISTERED
@@ -291,7 +296,7 @@ def test_reset_attempts_on_resume(simple_workflow, second_dag):
 
     # Validate that the database indicates the Dag and its Jobs are complete
     with session_scope() as session:
-        jobDAO = session.query(Job).filter_by(job_id=t2.job_id).first()
+        jobDAO = session.query(Job).filter_by(job_id=bt2.job_id).first()
         assert jobDAO.max_attempts == 3
         assert jobDAO.num_attempts == 1
         assert jobDAO.status == JobStatus.DONE
@@ -574,6 +579,8 @@ def test_anonymous_workflow(db_cfg, jsm_jqs):
     workflow.add_tasks([t1, t2, t3])
     workflow.run()
 
+    bt3 = workflow.task_dag.job_list_manager.bound_task_from_task(t3)
+
     assert workflow.workflow_args is not None
 
     # Manually flip one of the jobs to Failed
@@ -589,7 +596,7 @@ def test_anonymous_workflow(db_cfg, jsm_jqs):
         session.execute("""
             UPDATE job
             SET status='F'
-            WHERE job_id={id}""".format(id=t3.job_id))
+            WHERE job_id={id}""".format(id=bt3.job_id))
 
     # Restart it using the uuid.
     uu_id = workflow.workflow_args
@@ -625,8 +632,8 @@ def test_workflow_sge_args(dag):
                         working_dir='/ihme/centralcomp/auto_test_data',
                         stderr='/ihme/centralcomp/auto_test_data',
                         stdout='/ihme/centralcomp/auto_test_data')
-    success = workflow.execute()
-    assert success
+    wf_status = workflow.execute()
+    assert wf_status == DagExecutionStatus.SUCCEEDED
 
     assert workflow.workflow_run.project == 'proj_jenkins'
     assert workflow.workflow_run.working_dir == (

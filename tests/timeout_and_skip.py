@@ -54,4 +54,3 @@ def timeout_and_skip(step_size, max_time, max_qw, partial_test_function):
 
     # To be clear that we are done and everything passed
     return True
-
