@@ -8,7 +8,7 @@ from jobmon.models import Job, JobInstanceStatus, JobInstance, JobStatus
 from jobmon.services.health_monitor import HealthMonitor
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
-from jobmon.workflow.task_dag import TaskDag
+from jobmon.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
     WorkflowAlreadyComplete
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
@@ -632,8 +632,8 @@ def test_workflow_sge_args(dag):
                         working_dir='/ihme/centralcomp/auto_test_data',
                         stderr='/ihme/centralcomp/auto_test_data',
                         stdout='/ihme/centralcomp/auto_test_data')
-    success = workflow.execute()
-    assert success
+    wf_status = workflow.execute()
+    assert wf_status == DagExecutionStatus.SUCCEEDED
 
     assert workflow.workflow_run.project == 'proj_jenkins'
     assert workflow.workflow_run.working_dir == (

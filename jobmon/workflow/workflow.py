@@ -237,9 +237,6 @@ class Workflow(object):
             self.id, self.stderr, self.stdout, self.project,
             reset_running_jobs=self.reset_running_jobs,
             working_dir=self.working_dir)
-        self.workflow_run = WorkflowRun(self.id, self.stderr, self.stdout,
-                                        self.project,
-                                        working_dir=self.working_dir)
 
     def _error(self):
         self.workflow_run.update_error()
