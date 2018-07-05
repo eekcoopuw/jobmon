@@ -53,7 +53,8 @@ class Requester(object):
             r = requests.post(route, json=message,
                               headers={'Content-type': 'application/json'})
         else:
-            r = requests.get(route, params=message)
+            r = requests.get(route, params=message,
+                             headers={'Content-type': 'application/json'})
         if verbose is True:
             logger.debug(r.json)
         if r.json:
