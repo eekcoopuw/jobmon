@@ -64,7 +64,7 @@ def add_job():
 
 @app.route('/add_task_dag', methods=['POST'])
 def add_task_dag():
-    data = request.get_json()
+    data = request.get_json(force=True)
     dag = task_dag.TaskDagMeta(
         name=data['name'],
         user=data['user'],

@@ -50,7 +50,8 @@ class Requester(object):
             raise ValueError("request_type must be one of 'get' or 'post'. "
                              "Got {}".format(request_type))
         if request_type == 'post':
-            r = requests.post(route, data=message)
+            r = requests.post(route, json=message,
+                              headers={'Content-type': 'application/json'})
         else:
             r = requests.get(route, params=message)
         if verbose is True:
