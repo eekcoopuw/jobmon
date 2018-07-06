@@ -1,3 +1,4 @@
+from builtins import str
 import functools
 import os
 import pytest
@@ -141,23 +142,43 @@ def db_cfg(session_edb):
     yield config
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
 def jsm_jqs(session_edb):
-    from multiprocessing import Process
-    p1 = Process(target=jsm.flask_thread)
-    p1.start()
-
-    p2 = Process(target=jqs.flask_thread)
-    p2.start()
-
-    yield
-
-    p1.terminate()
-    p2.terminate()
+    jsm_app = jsm.app
+    jqs_app = jqs.app
+    jsm_app.config['TESTING'] = True
+    jqs_app.config['TESTING'] = True
+    jsm_client = jsm_app.test_client()
+    jqs_client = jqs_app.test_client()
+    yield jsm_client, jqs_client
 
 
-@pytest.fixture(scope='module')
-def dag_id(jsm_jqs):
+@pytest.fixture(scope='session')
+def monkeypatch_session():
+    from _pytest.monkeypatch import MonkeyPatch
+    m = MonkeyPatch()
+    yield m
+    m.undo()
+
+
+@pytest.fixture(scope='session', autouse=True)
+def no_requests_jsm(monkeypatch_session, jsm_jqs):
+    import requests
+    jsm_client, _ = jsm_jqs
+    monkeypatch_session.setattr(requests, 'get', jsm_client.get)
+    monkeypatch_session.setattr(requests, 'post', jsm_client.post)
+
+
+@pytest.fixture(scope='session', autouse=True)
+def no_requests_jqs(monkeypatch_session, jsm_jqs):
+    import requests
+    _, jqs_client = jsm_jqs
+    monkeypatch_session.setattr(requests, 'get', jqs_client.get)
+    monkeypatch_session.setattr(requests, 'post', jqs_client.post)
+
+
+@pytest.fixture(scope='function')
+def dag_id(no_requests_jsm, no_requests_jqs):
     import random
     from jobmon.requester import Requester
 
@@ -166,12 +187,9 @@ def dag_id(jsm_jqs):
         app_route='/add_task_dag',
         message={'name': 'test dag', 'user': 'test user',
                  'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
-                 'created_date': datetime.utcnow()},
+                 'created_date': str(datetime.utcnow())},
         request_type='post')
-    rc, dag_id = jsm.add_task_dag('test_dag', 'test_user',
-                                  'test_{}'.format(random.randint(1, 1000)),
-                                  datetime.utcnow())
-    yield dag_id
+    yield response['dag_id']
 
 
 @pytest.fixture(scope='module')

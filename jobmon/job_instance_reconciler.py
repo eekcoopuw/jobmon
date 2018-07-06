@@ -18,7 +18,7 @@ class JobInstanceReconciler(object):
 
     def __init__(self, dag_id, interrupt_on_error=True):
         self.dag_id = dag_id
-        self.jsm_req = Requester(config.jm_port)
+        self.jsm_req = Requester(config.jsm_port)
         self.jqs_req = Requester(config.jqs_port)
         self.interrupt_on_error = interrupt_on_error
 

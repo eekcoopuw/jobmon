@@ -4,7 +4,6 @@ import sys
 from queue import Empty
 
 from jobmon import models
-from jobmon.database import session_scope
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 
@@ -20,14 +19,12 @@ else:
 def job_list_manager(dag_id):
     jlm = JobListManager(dag_id, interrupt_on_error=False)
     yield jlm
-    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
 def job_list_manager_d(dag_id):
     jlm = JobListManager(dag_id, start_daemons=True, interrupt_on_error=False)
     yield jlm
-    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -35,7 +32,6 @@ def job_list_manager_sge(dag_id):
     jlm = JobListManager(dag_id, executor=execute_sge,
                          interrupt_on_error=False)
     yield jlm
-    jlm.disconnect()
 
 
 def test_invalid_command(job_list_manager):
@@ -44,15 +40,11 @@ def test_invalid_command(job_list_manager):
     assert len(njobs0) == 0
 
     job_list_manager.queue_job(job_id)
-    with session_scope() as session:
-        job_list_manager._sync(session)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
     assert len(job_list_manager.all_error) == 0
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    with session_scope() as session:
-        job_list_manager._sync(session)
     assert len(job_list_manager.all_error) > 0
 
 
@@ -63,14 +55,10 @@ def test_valid_command(job_list_manager):
     assert len(job_list_manager.all_done) == 0
 
     job_list_manager.queue_job(job_id)
-    with session_scope() as session:
-        job_list_manager._sync(session)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    with session_scope() as session:
-        job_list_manager._sync(session)
     assert len(job_list_manager.all_done) > 0
 
 
@@ -157,7 +145,5 @@ def test_sge_valid_command(job_list_manager_sge):
                                              mem_free=6)
     job_list_manager_sge.queue_job(job_id)
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
-    with session_scope() as session:
-        job_list_manager_sge._sync(session)
     assert (job_list_manager_sge.job_statuses[job_id] ==
             models.JobStatus.INSTANTIATED)

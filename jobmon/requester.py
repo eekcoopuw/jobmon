@@ -25,7 +25,7 @@ class Requester(object):
             host = config.host
         self.url = "http://" + host + ":{}".format(port)
 
-    def send_request(self, app_route, message, request_type, verbose=False):
+    def send_request(self, app_route, message, request_type, verbose=True):
         """send request to server. Need to document what form this message
         takes.
 
@@ -55,10 +55,14 @@ class Requester(object):
         else:
             r = requests.get(route, params=message,
                              headers={'Content-type': 'application/json'})
-        if verbose is True:
-            logger.debug(r.json)
-        if r.json:
-            return r.status_code, r.json
+        if r.headers.get('content-type') == 'application/json':
+            content = r.json()
+        else:
+            content = r.content
+        if content:
+            if verbose is True:
+                logger.debug(content)
+            return r.status_code, content
         else:
             return r.status_code
 

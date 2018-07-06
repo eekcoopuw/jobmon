@@ -23,8 +23,7 @@ app = Flask(__name__)
 
 
 def flask_thread():
-    app.run(host="0.0.0.0", port=config.jsm_port, debug=True,
-            use_reloader=False, threaded=True)
+    app.run(host="0.0.0.0", port=config.jsm_port, debug=True)
 
 
 @app.route('/', methods=['GET'])
@@ -410,3 +409,7 @@ def _update_job_instance(session, job_instance, **kwargs):
     for k, v in kwargs.items():
         setattr(job_instance, k, v)
     return
+
+
+if __name__ == '__main__':
+    flask_thread()

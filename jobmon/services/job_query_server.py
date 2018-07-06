@@ -19,8 +19,7 @@ app = Flask(__name__)
 
 
 def flask_thread():
-    app.run(host="0.0.0.0", port=config.jqs_port, debug=True,
-            use_reloader=False, threaded=True)
+    app.run(host="0.0.0.0", port=config.jqs_port, debug=True)
 
 
 @app.route('/', methods=['GET'])
@@ -148,3 +147,7 @@ def get_workflows_by_inputs():
         else:
             resp = no_results()
     return resp
+
+
+if __name__ == '__main__':
+    flask_thread()

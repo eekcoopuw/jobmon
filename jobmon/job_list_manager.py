@@ -4,7 +4,6 @@ from threading import Thread
 from datetime import datetime
 
 from jobmon.config import config
-from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus
 from jobmon.job_factory import JobFactory
 from jobmon.job_instance_factory import JobInstanceFactory
@@ -34,8 +33,6 @@ class JobListManager(object):
         self.job_statuses = {}  # {job_id: status_id}
         self.all_done = set()
         self.all_error = set()
-        with session_scope() as session:
-            self._sync(session)
 
         self.reconciliation_interval = reconciliation_interval
         self.job_instantiation_interval = job_instantiation_interval

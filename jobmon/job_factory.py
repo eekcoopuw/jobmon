@@ -52,11 +52,10 @@ class JobFactory(object):
                      'max_runtime': max_runtime,
                      'tag': tag},
             request_type='post')
-        job_id = response['job_id']
         if rc != HTTPStatus.OK:
             raise InvalidResponse(
-                "{rc}: Could not create_job {e}".format(rc=rc, e=job_id))
-        return job_id
+                "{rc}: Could not create_job {e}".format(rc=rc, e=jobname))
+        return response['job_id']
 
     def queue_job(self, job_id):
         rc = self.requester.send_request(
