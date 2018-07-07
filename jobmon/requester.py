@@ -51,20 +51,26 @@ class Requester(object):
                              "Got {}".format(request_type))
         if request_type == 'post':
             r = requests.post(route, json=message,
-                              headers={'Content-type': 'application/json'})
+                              headers={'Content-Type': 'application/json'})
         else:
-            r = requests.get(route, params=message,
-                             headers={'Content-type': 'application/json'})
-        if r.headers.get('content-type') == 'application/json':
-            content = r.json()
-        else:
-            content = r.content
+            r = requests.get(route, query_string=message,
+                             headers={'Content-Type': 'application/json'})
+        content = self.get_content(r)
         if content:
             if verbose is True:
                 logger.debug(content)
             return r.status_code, content
         else:
             return r.status_code
+
+    def get_content(self, response):
+        if response.headers.get('Content-Type') == 'application/json':
+            content = response.json
+        elif response.headers.get('Content-Type') == 'text/html; charset=utf-8':
+            content = response.data
+        else:
+            content = response.content
+        return content
 
     def build_full_url(self, app_route):
         return self.url + app_route

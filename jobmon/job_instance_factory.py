@@ -1,3 +1,4 @@
+from builtins import str
 import logging
 import _thread
 from time import sleep
@@ -124,7 +125,7 @@ class JobInstanceFactory(object):
         try:
             rc, response = self.jqs_req.send_request(
                 app_route='/get_queued_for_instantiation',
-                message={'dag_id': self.dag_id},
+                message={'dag_id': str(self.dag_id)},
                 request_type='get')
             jobs = [Job.from_wire(j) for j in response['job_dcts']]
         except TypeError:
@@ -135,7 +136,7 @@ class JobInstanceFactory(object):
     def _register_job_instance(self, job, executor_type):
         rc, response = self.jsm_req.send_request(
             app_route='/add_job_instance',
-            message={'job_id': job.job_id,
+            message={'job_id': str(job.job_id),
                      'executor_type': executor_type},
             request_type='post')
         job_instance_id = response['job_instance_id']
@@ -145,6 +146,6 @@ class JobInstanceFactory(object):
                                                executor_id):
         self.jsm_req.send_request(
             app_route='/log_executor_id',
-            message={'job_instance_id': job_instance_id,
-                     'executor_id': executor_id},
+            message={'job_instance_id': str(job_instance_id),
+                     'executor_id': str(executor_id)},
             request_type='post')

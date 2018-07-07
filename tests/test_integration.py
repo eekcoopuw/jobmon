@@ -44,6 +44,7 @@ def test_invalid_command(job_list_manager):
     assert len(njobs1) == 1
     assert len(job_list_manager.all_error) == 0
 
+    import pdb; pdb.set_trace()
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
     assert len(job_list_manager.all_error) > 0
 
