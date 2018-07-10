@@ -4,6 +4,7 @@ import sys
 from queue import Empty
 
 from jobmon import models
+from jobmon.database import session_scope
 from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 
@@ -46,6 +47,8 @@ def test_invalid_command(job_list_manager):
     assert len(job_list_manager.all_error) == 0
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
+    with session_scope() as session:
+        job_list_manager._sync(session)
     assert len(job_list_manager.all_error) > 0
 
 
