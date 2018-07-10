@@ -47,6 +47,7 @@ class WorkflowRunDAO(Base):
     stderr = Column(String(1000))
     stdout = Column(String(1000))
     project = Column(String(150))
+    working_dir = Column(String(1000), default=None)
     slack_channel = Column(String(150))
     created_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
@@ -72,13 +73,15 @@ class WorkflowRun(object):
     """
 
     def __init__(self, workflow_id, stderr, stdout, project,
-                 slack_channel='jobmon-alerts'):
+                 slack_channel='jobmon-alerts', working_dir=None,
+                 reset_running_jobs=True):
         self.workflow_id = workflow_id
         self.jsm_req = Requester(config.jm_port)
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
-        self.kill_previous_workflow_runs()
+        self.working_dir = working_dir
+        self.kill_previous_workflow_runs(reset_running_jobs)
         rc, response = self.jsm_req.send_request(
             app_route='/add_workflow_run',
             message={'workflow_id': workflow_id,
@@ -88,7 +91,8 @@ class WorkflowRun(object):
                      'stderr': stderr,
                      'stdout': stdout,
                      'project': project,
-                     'slack_channel': slack_channel},
+                     'slack_channel': slack_channel,
+                     'working_dir': self.working_dir},
             request_type='post')
         wfr_id = response['workflow_run_id']
         if rc != HTTPStatus.OK:
@@ -106,7 +110,7 @@ class WorkflowRun(object):
         return response['status'], response['workflow_run_id'], \
             response['hostname'], response['pid'], response['user']
 
-    def kill_previous_workflow_runs(self):
+    def kill_previous_workflow_runs(self, reset_running_jobs):
         """First check the database for last WorkflowRun... where we store a
         hostname + pid + running_flag
 
@@ -137,14 +141,15 @@ class WorkflowRun(object):
             raise RuntimeError(msg)
         else:
             kill_remote_process(hostname, pid)
-            _, response = self.jsm_req.send_request(
-                app_route='/get_sge_ids_of_previous_workflow_run',
-                message={'workflow_run_id': wf_run_id},
-                request_type='get')
-            sge_ids = response['sge_ids']
-            if sge_ids:
-                qdel(sge_ids)
-            self.poll_for_lagging_jobs(sge_ids)
+            if reset_running_jobs:
+                _, response = self.jsm_req.send_request(
+                    app_route='/get_sge_ids_of_previous_workflow_run',
+                    message={'workflow_run_id': wf_run_id},
+                    request_type='get')
+                sge_ids = response['sge_ids']
+                if sge_ids:
+                    qdel(sge_ids)
+                self.poll_for_lagging_jobs(sge_ids)
             _, _ = self.jsm_req.send_request(
                 app_route='/update_workflow_run',
                 message={'workflow_run_id': wf_run_id,

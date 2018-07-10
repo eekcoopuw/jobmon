@@ -153,7 +153,6 @@ def get_workflows_by_inputs():
 @app.route('/workflow_running', methods=['GET'])
 def is_workflow_running():
     """Check if a previous workflow run for your user is still running """
-    print(request.args)
     with session_scope() as session:
         wf_run = (session.query(WorkflowRunDAO).filter_by(
             workflow_id=request.args['workflow_id'],

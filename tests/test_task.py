@@ -69,7 +69,7 @@ def test_hashing_bash_characters():
 def test_bash_task_args(job_list_manager_sge):
     a = BashTask(command="echo 'Hello Jobmon'", slots=1, mem_free=2,
                  max_attempts=1)
-    job_id = a.bind(job_list_manager_sge)
+    job_id = job_list_manager_sge.bind_task(a).job_id
 
     with session_scope() as session:
         job = session.query(Job).filter_by(job_id=job_id).all()
@@ -97,7 +97,7 @@ def test_python_task_equality():
 def test_python_task_args(job_list_manager_sge):
     a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
                    slots=1, mem_free=2, max_attempts=1)
-    job_id = a.bind(job_list_manager_sge)
+    job_id = job_list_manager_sge.bind_task(a).job_id
 
     with session_scope() as session:
         job = session.query(Job).filter_by(job_id=job_id).all()
@@ -118,7 +118,7 @@ def test_r_task_args(job_list_manager_sge):
     a = RTask(script=sge.true_path("tests/simple_R_script.r"),
               env_variables={'OP_NUM_THREADS': 1},
               slots=1, mem_free=2, max_attempts=1)
-    job_id = a.bind(job_list_manager_sge)
+    job_id = job_list_manager_sge.bind_task(a).job_id
 
     with session_scope() as session:
         job = session.query(Job).filter_by(job_id=job_id).all()
@@ -140,7 +140,7 @@ def test_stata_task_args(job_list_manager_sge):
     a = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
                   env_variables={'OP_NUM_THREADS': 1},
                   slots=1, mem_free=2, max_attempts=1)
-    job_id = a.bind(job_list_manager_sge)
+    job_id = job_list_manager_sge.bind_task(a).job_id
 
     with session_scope() as session:
         job = session.query(Job).filter_by(job_id=job_id).all()

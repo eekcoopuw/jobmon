@@ -12,7 +12,11 @@ from datetime import datetime
 from jobmon.database import session_scope
 from jobmon.models import InvalidStateTransition, Job, JobInstanceErrorLog, \
     JobInstanceStatus, JobStatus, JobInstance
+from jobmon.workflow.executable_task import ExecutableTask
 
+
+HASH = 12345
+SECOND_HASH = 12346
 
 @pytest.fixture(scope='function')
 def commit_hooked_jsm(jsm_jqs):
@@ -49,32 +53,37 @@ def commit_hooked_jsm(jsm_jqs):
 def test_get_workflow_run_id(jsm_jqs, dag_id):
     jsm, _ = jsm_jqs
     user = getpass.getuser()
-    _, job_id = jsm.add_job("bar", 'hash', "baz", dag_id)
+    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
+    job = Job.from_wire(job_dct)
     wf = jsm.add_workflow(
         dag_id, "args_{}".format(random.randint(1, 1e7)),
         hashlib.sha1('hash_{}'.format(random.randint(1, 1e7))
                      .encode('utf-8')).hexdigest(), "test", user)
     wf_run_id = jsm.add_workflow_run(wf[1]['id'], user, socket.gethostname(),
-                                     000, None, None, 'proj_jenkins', '')[1]
+                                     000, None, None, 'proj_jenkins', '', ''
+                                     )[1]
     print(dag_id)
-    assert wf_run_id == jsm._get_workflow_run_id(job_id)
+    assert wf_run_id == jsm._get_workflow_run_id(job.job_id)
 
 
 def test_get_workflow_run_id_no_workflow(jsm_jqs):
     jsm, _ = jsm_jqs
     _, dag_id = jsm.add_task_dag("testing", "pytest user", "new_dag_hash",
                                  datetime.utcnow())
-    _, job_id = jsm.add_job("foobar", 'new_hash', "baz", dag_id)
-    assert not jsm._get_workflow_run_id(job_id)
+    _, job_dct = jsm.add_job("foobar", SECOND_HASH, "baz", dag_id)
+    job = Job.from_wire(job_dct)
+    assert not jsm._get_workflow_run_id(job.job_id)
 
 
 def test_jsm_valid_done(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
-    _, job_id = jsm.add_job("bar", 'hash', "baz", dag_id)
-    jsm.queue_job(job_id)
+    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
+    job = Job.from_wire(job_dct)
+    jsm.queue_job(job.job_id)
 
-    _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
+
+    _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
     jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
     jsm.log_usage(job_instance_id, usage_str='used resources',
@@ -87,10 +96,11 @@ def test_jsm_valid_error(jsm_jqs):
 
     _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash",
                                  datetime.utcnow())
-    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
-    jsm.queue_job(job_id)
+    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
+    job = Job.from_wire(job_dct)
+    jsm.queue_job(job.job_id)
 
-    _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
+    _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
     jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
     jsm.log_error(job_instance_id, "this is an error message")
@@ -101,10 +111,11 @@ def test_invalid_transition(jsm_jqs):
 
     _, dag_id = jsm.add_task_dag("mocks", "pytest user", "dag_hash",
                                  datetime.utcnow())
-    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
+    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
+    job = Job.from_wire(job_dct)
 
     with pytest.raises(InvalidStateTransition):
-        _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
+        _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
 
 
 def test_single_publish_on_error(dag_id, job_list_manager_sub,
@@ -114,10 +125,11 @@ def test_single_publish_on_error(dag_id, job_list_manager_sub,
 
     jsm = commit_hooked_jsm
 
-    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
-    jsm.queue_job(job_id)
+    task = ExecutableTask(command="bar", name="baz", max_attempts=1)
+    job = job_list_manager_sub.bind_task(task)._job
+    jsm.queue_job(job.job_id)
 
-    _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
+    _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
     jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
 
@@ -128,8 +140,9 @@ def test_single_publish_on_error(dag_id, job_list_manager_sub,
         updates = job_list_manager_sub.block_until_any_done_or_error(5)
 
     jsm.log_error(job_instance_id, "skip_error_hook")
-    updates = job_list_manager_sub.block_until_any_done_or_error(5)
-    assert (job_id, JobStatus.ERROR_FATAL) in updates
+    _, failed = job_list_manager_sub.block_until_any_done_or_error(5)
+    assert failed[0].job_id == job.job_id
+    assert failed[0].status == JobStatus.ERROR_FATAL
 
 
 def test_single_publish_on_done(dag_id, job_list_manager_sub,
@@ -142,10 +155,11 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
     # Note we need (2) attempts here, the first of which we will
     # use to force a transaction failure and the second of which
     # should transact successfully
-    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id, max_attempts=2)
-    jsm.queue_job(job_id)
+    task = ExecutableTask(command="bar", name="baz", max_attempts=2)
+    job = job_list_manager_sub.bind_task(task)._job
+    jsm.queue_job(job.job_id)
 
-    _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
+    _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
     jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
     jsm.log_usage(job_instance_id, usage_str='used resources',
@@ -159,23 +173,25 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
 
     # Try again... skipping the done hook
     jsm.log_error(job_instance_id, "skip_error_hook")
-    _, job_instance_id = jsm.add_job_instance(job_id, 'skip_done_hook')
+    _, job_instance_id = jsm.add_job_instance(job.job_id, 'skip_done_hook')
     jsm.log_executor_id(job_instance_id, -1)
     jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
     jsm.log_usage(job_instance_id, usage_str='used resources',
                   wallclock='0', maxvmem='1g', cpu='00:00:00', io='1')
     jsm.log_done(job_instance_id)
-    updates = job_list_manager_sub.block_until_any_done_or_error(5)
-    assert (job_id, JobStatus.DONE) in updates
+    done, _ = job_list_manager_sub.block_until_any_done_or_error(5)
+    assert done[0].job_id == job.job_id
+    assert done[0].status == JobStatus.DONE
 
 
 def test_jsm_log_usage(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
-    _, job_id = jsm.add_job("bar", "hash", "baz", dag_id)
-    jsm.queue_job(job_id)
+    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
+    job = Job.from_wire(job_dct)
+    jsm.queue_job(job.job_id)
 
-    _, job_instance_id = jsm.add_job_instance(job_id, 'dummy_exec')
+    _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
     jsm.log_executor_id(job_instance_id, 12345)
     jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
     jsm.log_usage(job_instance_id, usage_str='used resources', wallclock='0',
@@ -196,29 +212,31 @@ def test_jsm_log_usage(jsm_jqs, dag_id):
 def test_job_reset(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
-    _, job_id = jsm.add_job("bar", 'hash', "baz", dag_id, max_attempts=3)
-    jsm.queue_job(job_id)
+    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id, max_attempts=3)
+    job = Job.from_wire(job_dct)
+    jsm.queue_job(job.job_id)
 
     # Create a couple of job instances
-    _, ji1 = jsm.add_job_instance(job_id, 'dummy_exec')
+    _, ji1 = jsm.add_job_instance(job.job_id, 'dummy_exec')
     jsm.log_executor_id(ji1, 12345)
     jsm.log_running(ji1, socket.gethostname(), os.getpid())
     jsm.log_error(ji1, "error 1")
 
-    _, ji2 = jsm.add_job_instance(job_id, 'dummy_exec')
+    _, ji2 = jsm.add_job_instance(job.job_id, 'dummy_exec')
     jsm.log_executor_id(ji2, 12346)
     jsm.log_running(ji2, socket.gethostname(), os.getpid())
     jsm.log_error(ji2, "error 1")
 
-    _, ji3 = jsm.add_job_instance(job_id, 'dummy_exec')
+    _, ji3 = jsm.add_job_instance(job.job_id, 'dummy_exec')
     jsm.log_executor_id(ji3, 12347)
     jsm.log_running(ji3, socket.gethostname(), os.getpid())
 
     # Reset the job to REGISTERED
-    jsm.reset_job(job_id)
+    jsm.reset_job(job.job_id)
 
     with session_scope() as session:
-        jobs = session.query(Job).filter_by(dag_id=dag_id, job_id=job_id).all()
+        jobs = session.query(Job).filter_by(dag_id=dag_id,
+                                            job_id=job.job_id).all()
         assert len(jobs) == 1
         job = jobs[0]
         assert job.status == JobStatus.REGISTERED

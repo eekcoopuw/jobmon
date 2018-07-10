@@ -1,5 +1,6 @@
 from builtins import str
 import logging
+import threading
 import _thread
 from time import sleep
 
@@ -23,10 +24,12 @@ def execute_sequentially(job, job_instance_id):
     return None
 
 
-def execute_sge(job, job_instance_id, stderr=None, stdout=None, project=None):
+def execute_sge(job, job_instance_id, stderr=None, stdout=None, project=None,
+                working_dir=None):
     try:
         import subprocess
-        qsub_cmd = build_qsub(job, job_instance_id, stderr, stdout, project)
+        qsub_cmd = build_qsub(job, job_instance_id, stderr, stdout, project,
+                              working_dir)
         resp = subprocess.check_output(qsub_cmd, shell=True)
         idx = resp.split().index(b'job')
         sge_jid = int(resp.split()[idx + 1])
@@ -51,7 +54,8 @@ def execute_batch_dummy(job, job_instance_id):
 
 class JobInstanceFactory(object):
 
-    def __init__(self, dag_id, executor=None, interrupt_on_error=True):
+    def __init__(self, dag_id, executor=None, interrupt_on_error=True,
+                 stop_event=None):
         self.dag_id = dag_id
         self.jsm_req = Requester(config.jsm_port)
         self.jqs_req = Requester(config.jqs_port)
@@ -62,10 +66,15 @@ class JobInstanceFactory(object):
         else:
             self.set_executor(execute_sequentially)
 
+        if not stop_event:
+            self._stop_event = threading.Event()
+        else:
+            self._stop_event = stop_event
+
     def instantiate_queued_jobs_periodically(self, poll_interval=1):
         logger.info("Polling for and instantiating queued jobs at {}s "
                     "intervals".format(poll_interval))
-        while True:
+        while True and not self._stop_event.is_set():
             try:
                 logger.debug("Queuing at interval {}s".format(poll_interval))
                 self.instantiate_queued_jobs()
@@ -74,6 +83,7 @@ class JobInstanceFactory(object):
                 logger.error(e)
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
+                    self._stop_event.set()
                 else:
                     raise
 

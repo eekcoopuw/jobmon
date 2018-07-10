@@ -55,8 +55,8 @@ def add_job():
     with session_scope() as session:
         session.add(job)
         session.commit()
-        job_id = job.job_id
-    resp = jsonify(job_id=job_id)
+        job_dct = job.to_wire()
+    resp = jsonify(job_dct=job_dct)
     resp.status_code = HTTPStatus.OK
     return resp
 
@@ -80,8 +80,7 @@ def add_task_dag():
 
 def _get_workflow_run_id(job_id):
     with session_scope() as session:
-        job = session.query(models.Job).filter_by(
-            job_id=job_id).first()
+        job = session.query(models.Job).filter_by(job_id=job_id).first()
         wf = session.query(WorkflowDAO).filter_by(dag_id=job.dag_id
                                                   ).first()
         if not wf:

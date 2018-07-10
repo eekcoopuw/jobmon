@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from jobmon import sge
 from jobmon.database import session_scope
 from jobmon.models import JobInstance, JobInstanceStatus
+from jobmon.workflow.executable_task import ExecutableTask as Task
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -16,10 +17,10 @@ else:
 
 
 def test_valid_command(dag_id, job_list_manager_sge):
-    job_id = job_list_manager_sge.create_job(
-        sge.true_path("tests/shellfiles/jmtest.sh"),
-        "sge_foobar", job_hash='somehash', slots=2, mem_free=4, max_attempts=3)
-    job_list_manager_sge.queue_job(job_id)
+    job = job_list_manager_sge.bind_task(
+        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+             name="sge_foobar", slots=2, mem_free=4, max_attempts=3))
+    job_list_manager_sge.queue_job(job)
 
     timeout_and_skip(10, 120, 1, partial(
         valid_command_check,
@@ -37,15 +38,15 @@ def valid_command_check(job_list_manager_sge):
 
 def test_context_args(jsm_jqs, job_list_manager_sge):
     delay_to = (datetime.now() + timedelta(minutes=5)).strftime("%m%d%H%M")
-    job_id = job_list_manager_sge.create_job(
-        sge.true_path("tests/shellfiles/jmtest.sh"), "sge_foobar",
-        job_hash='somehash', slots=2, mem_free=4, max_attempts=3,
-        context_args={'sge_add_args': '-a {}'.format(delay_to)})
-    job_list_manager_sge.queue_job(job_id)
+    job = job_list_manager_sge.bind_task(
+        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+             name="sge_foobar", slots=2, mem_free=4, max_attempts=3,
+             context_args={'sge_add_args': '-a {}'.format(delay_to)}))
+    job_list_manager_sge.queue_job(job)
 
     timeout_and_skip(10, 180, 1, partial(
         context_args_check,
-        job_id=job_id))
+        job_id=job.job_id))
 
 
 def context_args_check(job_id):

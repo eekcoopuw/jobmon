@@ -51,7 +51,7 @@ class Job(Base):
     @classmethod
     def from_wire(cls, dct):
         return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
-                   job_hash=dct['job_hash'], name=dct['name'],
+                   job_hash=int(dct['job_hash']), name=dct['name'],
                    tag=dct['tag'], command=dct['command'], slots=dct['slots'],
                    mem_free=dct['mem_free'], status=dct['status'],
                    num_attempts=dct['num_attempts'],
@@ -77,7 +77,7 @@ class Job(Base):
     dag_id = Column(
         Integer,
         ForeignKey('task_dag.dag_id'))
-    job_hash = Column(String(255))
+    job_hash = Column(String(255), nullable=False)
     name = Column(String(255))
     tag = Column(String(255))
     command = Column(Text)
@@ -143,6 +143,12 @@ class Job(Base):
         if (self.status, new_state) not in self.__class__.valid_transitions:
             raise InvalidStateTransition('Job', self.job_id, self.status,
                                          new_state)
+
+    def __hash__(self):
+        return self.job_id
+
+    def __eq__(self, other):
+        return self.job_id == other.job_id
 
 
 class JobInstance(Base):

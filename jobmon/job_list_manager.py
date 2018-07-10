@@ -1,14 +1,16 @@
 import logging
 import time
-from threading import Thread
+from threading import Event, Thread
 from datetime import datetime
 
 from jobmon.config import config
+from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus
 from jobmon.job_factory import JobFactory
 from jobmon.job_instance_factory import JobInstanceFactory
 from jobmon.job_instance_reconciler import JobInstanceReconciler
 from jobmon.requester import Requester
+from jobmon.workflow.executable_task import BoundTask
 
 
 logger = logging.getLogger(__name__)
@@ -23,14 +25,18 @@ class JobListManager(object):
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
 
-        self.job_inst_factory = JobInstanceFactory(dag_id, executor,
-                                                   interrupt_on_error)
-        self.job_inst_reconciler = JobInstanceReconciler(dag_id,
-                                                         interrupt_on_error)
+        self._stop_event = Event()
+        self.job_inst_factory = JobInstanceFactory(
+            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
+        self.job_inst_reconciler = JobInstanceReconciler(
+            dag_id, interrupt_on_error, stop_event=self._stop_event)
 
         self.jqs_req = Requester(config.jqs_port)
 
-        self.job_statuses = {}  # {job_id: status_id}
+        self.bound_tasks = {}  # {job_id: BoundTask}
+        self.hash_job_map = {}  # {job_hash: job}
+        self.job_hash_map = {}  # {job: job_hash}
+
         self.all_done = set()
         self.all_error = set()
 
@@ -59,10 +65,29 @@ class JobListManager(object):
 
     @property
     def active_jobs(self):
-        return [job_id for job_id, job_status in self.job_statuses.items()
-                if job_status not in [JobStatus.REGISTERED,
-                                      JobStatus.DONE,
-                                      JobStatus.ERROR_FATAL]]
+        return [task for job_id, task in self.bound_tasks.items()
+                if task.status not in [JobStatus.REGISTERED,
+                                       JobStatus.DONE,
+                                       JobStatus.ERROR_FATAL]]
+
+    def bind_task(self, task):
+        if task.hash in self.hash_job_map:
+            job = self.hash_job_map[task.hash]
+        else:
+            job = self._create_job(
+                jobname=task.name,
+                job_hash=task.hash,
+                command=task.command,
+                tag=task.tag,
+                slots=task.slots,
+                mem_free=task.mem_free,
+                max_attempts=task.max_attempts,
+                max_runtime=task.max_runtime,
+                context_args=task.context_args,
+            )
+        bound_task = BoundTask(task=task, job=job, job_list_manager=self)
+        self.bound_tasks[job.job_id] = bound_task
+        return bound_task
 
     def get_job_statuses(self):
         rc, response = self.jqs_req.send_request(
@@ -70,15 +95,39 @@ class JobListManager(object):
             message={'dag_id': self.dag_id},
             request_type='get')
         jobs = [Job.from_wire(j) for j in response['job_dcts']]
+        for job in jobs:
+            if job.job_id in self.bound_tasks:
+                self.bound_tasks[job.job_id].status = job.status
+            else:
+                self.bound_tasks[job.job_id] = BoundTask(
+                    task=None, job=job, job_list_manager=self)
+            self.hash_job_map[job.job_hash] = job
+            self.job_hash_map[job] = job.job_hash
+        self.all_done = set([job.job_id for job in jobs
+                             if job.status == JobStatus.DONE])
+        self.all_error = set([job.job_id for job in jobs if job.status ==
+                              JobStatus.ERROR_FATAL])
         return jobs
 
     def parse_done_and_errors(self, jobs):
-        for job in jobs:
-            if job.job_status == JobStatus.DONE:
-                self.all_done.add(job.jd)
-            elif job.job_status == JobStatus.ERROR_FATAL:
-                self.all_error.add(job.id)
-            self.job_statuses[job.id] = job.job_status
+        completed = []
+        completed_ids = []
+        failed = []
+        failed_ids = []
+        for task in jobs:
+            if task.status == JobStatus.DONE:
+                completed += [task]
+                completed_ids += [task.job_id]
+            elif task.status == JobStatus.ERROR_FATAL:
+                failed += [task]
+                failed_ids += [task.job_id]
+            else:
+                raise ValueError("Job returned that is neither done nor "
+                                 "error_fatal: jid: {}, status {}"
+                                 .format(task.job_id, task.status))
+        self.all_done.update(set(completed_ids))
+        self.all_error -= set(completed_ids)
+        self.all_error.update(set(failed_ids))
         return self.all_done.union(self.all_error)
 
     def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
@@ -118,17 +167,39 @@ class JobListManager(object):
 
         return self.all_done, self.all_errors
 
-    def create_job(self, *args, **kwargs):
-        job_id = self.job_factory.create_job(*args, **kwargs)
-        self.job_statuses[job_id] = JobStatus.REGISTERED
-        return job_id
+    def _create_job(self, *args, **kwargs):
+        job = self.job_factory.create_job(*args, **kwargs)
+        self.hash_job_map[job.job_hash] = job
+        self.job_hash_map[job] = job.job_hash
+        return job
 
-    def queue_job(self, job_id):
-        self.job_factory.queue_job(job_id)
-        self.job_statuses[job_id] = JobStatus.QUEUED_FOR_INSTANTIATION
+    def queue_job(self, job):
+        self.job_factory.queue_job(job.job_id)
+        task = self.bound_tasks[job.job_id]
+        task.status = JobStatus.QUEUED_FOR_INSTANTIATION
+
+    def queue_task(self, task):
+        job = self.hash_job_map[task.hash]
+        self.queue_job(job)
 
     def reset_jobs(self):
         self.job_factory.reset_jobs()
+        with session_scope() as session:
+            self._sync(session)
+
+    def status_from_hash(self, job_hash):
+        job = self.hash_job_map[job_hash]
+        return self.status_from_job(job)
+
+    def status_from_job(self, job):
+        return self.bound_tasks[job.job_id].status
+
+    def status_from_task(self, task):
+        return self.status_from_hash(task.hash)
+
+    def bound_task_from_task(self, task):
+        job = self.hash_job_map[task.hash]
+        return self.bound_tasks[job.job_id]
 
     def _start_job_instance_manager(self):
         self.jif_proc = Thread(

@@ -27,7 +27,8 @@ else:
 logger = logging.getLogger(__name__)
 
 
-def build_qsub(job, job_instance_id, stderr=None, stdout=None, project=None):
+def build_qsub(job, job_instance_id, stderr=None, stdout=None, project=None,
+               working_dir=None):
     """Process the Job's context_args, which are assumed to be
     a json-serialized dictionary"""
     # TODO: Settle on a sensible way to pass and validate settings for the
@@ -52,6 +53,10 @@ def build_qsub(job, job_instance_id, stderr=None, stdout=None, project=None):
         makedirs_safely(stdout)
     else:
         stdout_cmd = ""
+    if working_dir:
+        wd_cmd = "-wd {}".format(working_dir)
+    else:
+        wd_cmd = ""
     cmd = build_wrapped_command(job, job_instance_id)
     thispath = os.path.dirname(os.path.abspath(__file__))
 
@@ -59,12 +64,13 @@ def build_qsub(job, job_instance_id, stderr=None, stdout=None, project=None):
     # JOBMON_CONFIG environment variable to downstream Jobs... otherwise those
     # Jobs could end up using a different config and not be able to talk back
     # to the appropriate server(s)
-    qsub_cmd = ('qsub -N {jn} '
+    qsub_cmd = ('qsub {wd} -N {jn} '
                 '-pe multi_slot {slots} -l mem_free={mem}g '
                 '{project} {stderr} {stdout} '
                 '{sge_add_args} '
                 '-V {path}/submit_master.sh '
                 '"{cmd}"'.format(
+                    wd=wd_cmd,
                     jn=job.name,
                     slots=job.slots,
                     mem=job.mem_free,
