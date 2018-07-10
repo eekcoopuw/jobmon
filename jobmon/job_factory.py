@@ -5,6 +5,7 @@ from http import HTTPStatus
 from jobmon import requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.config import config
+from jobmon.models import Job
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,7 @@ class JobFactory(object):
         if rc != HTTPStatus.OK:
             raise InvalidResponse(
                 "{rc}: Could not create_job {e}".format(rc=rc, e=jobname))
-        return response['job_id']
+        return Job.from_wire(response['job_dct'])
 
     def queue_job(self, job_id):
         rc = self.requester.send_request(
