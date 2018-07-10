@@ -165,7 +165,6 @@ def monkeypatch_session():
 def no_requests_jsm(monkeypatch_session, jsm_jqs):
     import requests
     jsm_client, _ = jsm_jqs
-    monkeypatch_session.setattr(requests, 'get', jsm_client.get)
     monkeypatch_session.setattr(requests, 'post', jsm_client.post)
 
 
@@ -173,7 +172,11 @@ def no_requests_jsm(monkeypatch_session, jsm_jqs):
 def no_requests_jqs(monkeypatch_session, jsm_jqs):
     import requests
     _, jqs_client = jsm_jqs
-    monkeypatch_session.setattr(requests, 'get', jqs_client.get)
+
+    def get_jqs(url, params, headers):
+        url = "/" + url.split('/')[-1]
+        return jqs_client.get(path=url, query_string=params, headers=headers)
+    monkeypatch_session.setattr(requests, 'get', get_jqs)
     monkeypatch_session.setattr(requests, 'post', jqs_client.post)
 
 

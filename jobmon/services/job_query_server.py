@@ -11,6 +11,7 @@ from jobmon.database import session_scope
 from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
 from jobmon.meta_models import TaskDagMeta
 from jobmon.workflow.workflow import WorkflowDAO
+from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,7 @@ def no_results(error=None):
     return resp
 
 
-@app.route('/get_queued_for_instantiation', methods=['GET'])
+@app.route('/get_queued', methods=['GET'])
 def get_queued_for_instantiation():
     with session_scope() as session:
         jobs = session.query(Job).filter_by(
@@ -146,6 +147,39 @@ def get_workflows_by_inputs():
             resp.status_code = HTTPStatus.OK
         else:
             resp = no_results()
+    return resp
+
+
+@app.route('/workflow_running', methods=['GET'])
+def is_workflow_running():
+    """Check if a previous workflow run for your user is still running """
+    print(request.args)
+    with session_scope() as session:
+        wf_run = (session.query(WorkflowRunDAO).filter_by(
+            workflow_id=request.args['workflow_id'],
+            status=WorkflowRunStatus.RUNNING,
+        ).order_by(WorkflowRunDAO.id.desc()).first())
+        if not wf_run:
+            return jsonify(status=False, workflow_run_id=None,
+                           hostname=None, pid=None, user=None)
+        wf_run_id = wf_run.id
+        hostname = wf_run.hostname
+        pid = wf_run.pid
+        user = wf_run.user
+    resp = jsonify(status=True, workflow_run_id=wf_run_id,
+                   hostname=hostname, pid=pid, user=user)
+    resp.status_code = HTTPStatus.OK
+    return resp
+
+
+@app.route('/sge_ids_of_previous_workflow_run', methods=['GET'])
+def get_sge_ids_of_previous_workflow_run():
+    with session_scope() as session:
+        jis = session.query(JobInstance).filter_by(
+            workflow_run_id=request.args['workflow_run_id']).all()
+        sge_ids = [ji.executor_id for ji in jis]
+    resp = jsonify(sge_ids=sge_ids)
+    resp.status_code = HTTPStatus.OK
     return resp
 
 

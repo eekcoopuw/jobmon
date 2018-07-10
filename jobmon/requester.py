@@ -45,6 +45,7 @@ class Requester(object):
         Returns:
             Server reply message
         """
+        # route = self.build_full_url(app_route)
         route = self.build_full_url(app_route)
         if request_type not in ['get', 'post']:
             raise ValueError("request_type must be one of 'get' or 'post'. "
@@ -53,7 +54,7 @@ class Requester(object):
             r = requests.post(route, json=message,
                               headers={'Content-Type': 'application/json'})
         else:
-            r = requests.get(route, query_string=message,
+            r = requests.get(route, params=message,
                              headers={'Content-Type': 'application/json'})
         content = self.get_content(r)
         if content:
@@ -64,9 +65,9 @@ class Requester(object):
             return r.status_code
 
     def get_content(self, response):
-        if response.headers.get('Content-Type') == 'application/json':
+        if 'application/json' in response.headers.get('Content-Type'):
             content = response.json
-        elif response.headers.get('Content-Type') == 'text/html; charset=utf-8':
+        elif 'text/html' in response.headers.get('Content-Type'):
             content = response.data
         else:
             content = response.content

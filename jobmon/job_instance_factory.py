@@ -124,7 +124,7 @@ class JobInstanceFactory(object):
     def _get_jobs_queued_for_instantiation(self):
         try:
             rc, response = self.jqs_req.send_request(
-                app_route='/get_queued_for_instantiation',
+                app_route='/get_queued',
                 message={'dag_id': str(self.dag_id)},
                 request_type='get')
             jobs = [Job.from_wire(j) for j in response['job_dcts']]

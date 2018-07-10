@@ -48,7 +48,7 @@ class JobListManager(object):
         from jobmon.config import config
         from jobmon.requester import Requester
 
-        req = Requester(config.jm_port)
+        req = Requester(config.jsm_port)
         rc, response = req.send_request(
             app_route='/add_task_dag',
             message={'name': 'test dag', 'user': 'test user',
