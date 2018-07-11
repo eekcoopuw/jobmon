@@ -54,7 +54,8 @@ class JobFactory(object):
         })
         if rc != ReturnCodes.OK:
             raise InvalidResponse(
-                "{rc}: Could not create_job {e}".format(rc=rc, e=job_id))
+                "{rc}: Could not create_job {e}".format(rc=rc,
+                                                        e=job_dct['job_id']))
         return Job.from_wire(job_dct)
 
     def queue_job(self, job_id):

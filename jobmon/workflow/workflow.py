@@ -96,16 +96,25 @@ class Workflow(object):
 
     def __init__(self, task_dag=None, workflow_args=None, name="",
                  description="", stderr=None, stdout=None, project=None,
-                 reset_running_jobs=True,
-                 working_dir=None):
+                 reset_running_jobs=True, working_dir=None,
+                 executor_class='SGEExecutor'):
         self.wf_dao = None
         self.name = name
         self.description = description
 
+        # TODO: These parameters are only applicable to the SGE Executor
+        # case. Consider moving them to config instead of the param list.
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
         self.working_dir = working_dir
+        self.executor_args = {
+            'stderr': self.stderr,
+            'stdout': self.stdout,
+            'working_dir': self.working_dir,
+            'project': self.project,
+        }
+        self.set_executor(executor_class)
 
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
@@ -128,6 +137,26 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
+
+    def set_executor(self, executor_class):
+        if executor_class:
+            if not hasattr(executor_class, "execute"):
+                raise AttributeError("Executor must have an execute() method")
+            if not hasattr(executor_class, "reconcile"):
+                raise AttributeError("Executor must have a reconcile() method")
+        self.executor_class = executor_class
+        if self.executor_class == 'SGEExecutor':
+            from jobmon.executors.sge import SGEExecutor
+            self.executor = SGEExecutor(**self.executor_args)
+        elif self.executor_class == "SequentialExecutor":
+            from jobmon.exeuctors.sequential import SequentialExecutor
+            self.executor = SequentialExecutor()
+        elif self.executor_class == "DummyExecutor":
+            from jobmon.executors.dummy import DummyExecutor
+            self.executor = DummyExecutor()
+        else:
+            raise ValueError("{} is not a valid "
+                             "executor_class".format(executor_class))
 
     @property
     def dag_id(self):
@@ -182,21 +211,11 @@ class Workflow(object):
                 raise WorkflowAlreadyComplete
             self.task_dag.bind_to_db(
                 self.dag_id,
-                executor_args={'stderr': self.stderr,
-                               'stdout': self.stdout,
-                               'working_dir': self.working_dir,
-                               'project': self.project,
-                              },
                 reset_running_jobs=self.reset_running_jobs,
             )
         elif len(potential_wfs) == 0:
             # Bind the dag ...
             self.task_dag.bind_to_db(
-                executor_args={'stderr': self.stderr,
-                               'stdout': self.stdout,
-                               'working_dir': self.working_dir,
-                               'project': self.project,
-                              },
                 reset_running_jobs=self.reset_running_jobs,
             )
 

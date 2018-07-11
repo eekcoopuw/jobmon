@@ -94,7 +94,6 @@ class Job(Base):
     submitted_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
 
-
     last_nodename = None
     last_process_group_id = None
 
@@ -220,6 +219,22 @@ class JobInstance(Base):
         (JobInstanceStatus.RUNNING, JobInstanceStatus.ERROR),
 
         (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
+
+    def register(self, requester, executor_type):
+        rc, job_instance_id = requester.send_request({
+            'action': 'add_job_instance',
+            'kwargs': {'job_id': self.job.job_id,
+                       'executor_type': executor_type}
+        })
+        self.job_instance_id = job_instance_id
+        return self.job_instance_id
+
+    def assign_executor_id(self, requester, executor_id):
+        requester.send_request({
+            'action': 'log_executor_id',
+            'kwargs': {'job_instance_id': self.job_instance_id,
+                       'executor_id': executor_id}
+        })
 
     def transition(self, new_state):
         self._validate_transition(new_state)

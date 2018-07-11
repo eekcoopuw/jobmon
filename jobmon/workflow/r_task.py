@@ -31,7 +31,8 @@ class RTask(ExecutableTask):
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 1
             max_runtime (int, seconds): how long the job should be allowed to
-                run before having sge kill it. Default is None, for indefinite.
+                run before having the executor kill it. Default is None, for
+                indefinite.
             tag (str): a group identifier. Currently just used for
                 visualization. All tasks with the same tag will be colored the
                 same in a TaskDagViz instance. Default is None.

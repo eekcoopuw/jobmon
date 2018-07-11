@@ -34,8 +34,8 @@ class JobStateManager(ReplyServer):
         self.register_action("update_workflow_run", self.update_workflow_run)
         self.register_action("is_workflow_running",
                              self.is_workflow_running)
-        self.register_action("get_sge_ids_of_previous_workflow_run",
-                             self.get_sge_ids_of_previous_workflow_run)
+        self.register_action("get_job_instances_of_workflow_run",
+                             self.get_job_instances_of_workflow_run)
 
         self.register_action("log_done", self.log_done)
         self.register_action("log_error", self.log_error)
@@ -182,19 +182,15 @@ class JobStateManager(ReplyServer):
                 workflow_id=workflow_id, status=WorkflowRunStatus.RUNNING,
             ).order_by(WorkflowRunDAO.id.desc()).first())
             if not wf_run:
-                return (ReturnCodes.OK, False, None, None, None, None)
-            wf_run_id = wf_run.id
-            hostname = wf_run.hostname
-            pid = wf_run.pid
-            user = wf_run.user
-        return (ReturnCodes.OK, True, wf_run_id, hostname, pid, user)
+                return (ReturnCodes.OK, False, {})
+        return (ReturnCodes.OK, True, wf_run.to_wire())
 
-    def get_sge_ids_of_previous_workflow_run(workflow_run_id):
+    def get_job_instances_of_workflow_run(workflow_run_id):
         with session_scope() as session:
             jis = session.query(models.JobInstance).filter_by(
                 workflow_run_id=workflow_run_id).all()
-            sge_ids = [ji.executor_id for ji in jis]
-        return (ReturnCodes.OK, sge_ids)
+            jis = [ji.to_wire() for ji in jis]
+        return (ReturnCodes.OK, jis)
 
     def listen(self):
         """If the database is unavailable, don't allow the JobStateManager to

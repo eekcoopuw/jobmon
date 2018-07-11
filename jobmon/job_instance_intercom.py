@@ -1,11 +1,7 @@
 import logging
-import os
 import socket
 
 from jobmon.requester import Requester
-
-if os.getenv("SGE_CLUSTER_NAME"):
-    from jobmon import sge
 
 
 logger = logging.getLogger(__name__)
@@ -13,10 +9,13 @@ logger = logging.getLogger(__name__)
 
 class JobInstanceIntercom(object):
 
-    def __init__(self, job_instance_id, process_group_id, jm_rep_cc=None):
+    def __init__(self, job_instance_id, executor_class, process_group_id,
+                 jm_rep_cc=None):
         self.job_instance_id = job_instance_id
         self.process_group_id = process_group_id
         self.requester = Requester(jm_rep_cc)
+        self.executor_class = executor_class
+        self.executor = executor_class()
         logger.debug("Instantiated JobInstanceIntercom")
 
     def log_done(self):
@@ -32,21 +31,19 @@ class JobInstanceIntercom(object):
                        'error_message': error_message}
         })
 
-    def log_job_stats(self, job_id):
-        if job_id:
-            self.usage = sge.qstat_usage([job_id])[int(job_id)]
-            dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu',
-                       'io']
-            kwargs = {k: self.usage[k] for k in dbukeys
-                      if k in self.usage.keys()}
+    def log_job_stats(self):
+        try:
+            usage = self.executor.get_usage_stats()
+            dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
+            kwargs = {k: usage[k] for k in dbukeys if k in usage.keys()}
             msg = {
                 'action': 'log_usage',
                 'args': [self.job_instance_id],
                 'kwargs': kwargs}
             return self.requester.send_request(msg)
-        else:
-            logger.debug("In log_job_stats: job_id is None")
-            return False
+        except NotImplementedError:
+            logger.warning("Usage stats not available for {} "
+                           "executors".format(self.executor_class))
 
     def log_running(self):
         return self.requester.send_request({
