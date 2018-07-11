@@ -183,7 +183,9 @@ def monkeypatch_session():
 def no_requests_jsm(monkeypatch_session, jsm_jqs):
     import requests
     jsm_client, _ = jsm_jqs
-    monkeypatch_session.setattr(requests, 'post', jsm_client.post)
+    # WILL ALSO NEED TO PATCH RESPONSE OBJECT DATA ATTRIBUTE.
+    # EXISTS IN TEST_CLIENT, NOT REQUESTS
+    # monkeypatch_session.setattr(requests, 'post', jsm_client.post)
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -191,11 +193,11 @@ def no_requests_jqs(monkeypatch_session, jsm_jqs):
     import requests
     _, jqs_client = jsm_jqs
 
-    def get_jqs(url, params, headers):
-        url = "/" + url.split('/')[-1]
-        return jqs_client.get(path=url, query_string=params, headers=headers)
-    monkeypatch_session.setattr(requests, 'get', get_jqs)
-    monkeypatch_session.setattr(requests, 'post', jqs_client.post)
+    # def get_jqs(url, params, headers):
+    #     url = "/" + url.split('/')[-1]
+    #     return jqs_client.get(path=url, query_string=params, headers=headers)
+    # monkeypatch_session.setattr(requests, 'get', get_jqs)
+    # monkeypatch_session.setattr(requests, 'post', jqs_client.post)
 
 
 @pytest.fixture(scope='function')

@@ -69,6 +69,7 @@ def test_valid_command(job_list_manager):
     assert len(njobs1) == 1
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
+    job_list_manager.get_job_statuses()
     assert len(job_list_manager.all_done) > 0
 
 
@@ -84,8 +85,8 @@ def test_daemon_invalid_command(job_list_manager_d):
 
 
 def daemon_invalid_command_check(job_list_manager_d):
-    errors = job_list_manager_d.get_new_errors()
-    return len(errors) == 1
+    job_list_manager_d.get_job_statuses()
+    return len(job_list_manager_d.all_error) == 1
 
 
 def test_daemon_valid_command(job_list_manager_d):
@@ -99,8 +100,8 @@ def test_daemon_valid_command(job_list_manager_d):
 
 
 def daemon_valid_command_check(job_list_manager_d):
-    done = job_list_manager_d.get_new_done()
-    return len(done) == 1
+    job_list_manager_d.get_job_statuses()
+    return len(job_list_manager_d.all_done) == 1
 
 
 def test_blocking_updates(job_list_manager_d):

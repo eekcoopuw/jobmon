@@ -128,7 +128,7 @@ class JobListManager(object):
         self.all_done.update(set(completed_ids))
         self.all_error -= set(completed_ids)
         self.all_error.update(set(failed_ids))
-        return self.all_done.union(self.all_error)
+        return list(self.all_done), list(self.all_error)
 
     def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
         time_since_last_update = 0
@@ -136,9 +136,9 @@ class JobListManager(object):
             if time_since_last_update > timeout:
                 return None
             jobs = self.get_job_statuses()
-            updates = self.parse_done_and_errors(jobs)
-            if updates:
-                return updates
+            done, error = self.parse_done_and_errors(jobs)
+            if done or error:
+                return done, error
             time.sleep(poll_interval)
             time_since_last_update += poll_interval
 

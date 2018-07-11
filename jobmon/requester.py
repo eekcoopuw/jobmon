@@ -70,9 +70,7 @@ class Requester(object):
 
     def get_content(self, response):
         if 'application/json' in response.headers.get('Content-Type'):
-            content = response.json
-        elif 'text/html' in response.headers.get('Content-Type'):
-            content = response.data
+            content = response.json()
         else:
             content = response.content
         return content
