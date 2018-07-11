@@ -150,7 +150,7 @@ class JobListManager(object):
         while True:
             if time_since_last_update > timeout:
                 return None
-            jobs = self.get_job_statuses()
+            jobs = self.get_job_statuses
             self.parse_done_and_errors(jobs)
 
             if len(self.active_jobs) == 0:
@@ -184,8 +184,6 @@ class JobListManager(object):
 
     def reset_jobs(self):
         self.job_factory.reset_jobs()
-        with session_scope() as session:
-            self._sync(session)
 
     def status_from_hash(self, job_hash):
         job = self.hash_job_map[job_hash]

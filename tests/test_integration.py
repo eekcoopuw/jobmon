@@ -24,26 +24,26 @@ class Task(ExecutableTask):
 
 
 @pytest.fixture(scope='function')
-def job_list_manager(dag_id):
-    jlm = JobListManager(dag_id, interrupt_on_error=False)
+def job_list_manager(real_dag_id):
+    jlm = JobListManager(real_dag_id, interrupt_on_error=False)
     yield jlm
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_d(dag_id):
-    jlm = JobListManager(dag_id, start_daemons=True, interrupt_on_error=False)
+def job_list_manager_d(real_dag_id):
+    jlm = JobListManager(real_dag_id, start_daemons=True,
+                         interrupt_on_error=False)
     yield jlm
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_sge(dag_id):
-    jlm = JobListManager(dag_id, executor=execute_sge,
+def job_list_manager_sge(real_dag_id):
+    jlm = JobListManager(real_dag_id, executor=execute_sge,
                          interrupt_on_error=False)
     yield jlm
 
 
 def test_invalid_command(job_list_manager):
-    import pdb; pdb.set_trace()
     job = job_list_manager.bind_task(Task(command='foo', name='bar'))
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0

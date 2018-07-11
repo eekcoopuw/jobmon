@@ -79,7 +79,6 @@ from jobmon import database
 from jobmon import database_loaders
 from jobmon.job_list_manager import JobListManager
 from jobmon.services import job_query_server as jqs
-from jobmon.services import job_state_manager as jsm
 from jobmon.job_instance_factory import execute_sge
 from jobmon.workflow.task_dag import TaskDag
 
@@ -143,7 +142,26 @@ def db_cfg(session_edb):
 
 
 @pytest.fixture(scope='session')
+def real_jsm_jqs(session_edb):
+    from jobmon.services import job_state_manager as jsm
+    from jobmon.services import job_query_server as jqs
+    from multiprocessing import Process
+    p1 = Process(target=jsm.flask_thread)
+    p1.start()
+
+    p2 = Process(target=jqs.flask_thread)
+    p2.start()
+
+    yield
+
+    p1.terminate()
+    p2.terminate()
+
+
+@pytest.fixture(scope='session')
 def jsm_jqs(session_edb):
+    from jobmon.services import job_state_manager as jsm
+    from jobmon.services import job_query_server as jqs
     jsm_app = jsm.app
     jqs_app = jqs.app
     jsm_app.config['TESTING'] = True
@@ -181,7 +199,22 @@ def no_requests_jqs(monkeypatch_session, jsm_jqs):
 
 
 @pytest.fixture(scope='function')
-def dag_id(no_requests_jsm, no_requests_jqs):
+def dag_id(no_requests_jsm, no_requests_jqs, db_cfg):
+    import random
+    from jobmon.requester import Requester
+
+    req = Requester(config.jsm_port, host=get_node_name())
+    rc, response = req.send_request(
+        app_route='/add_task_dag',
+        message={'name': 'test dag', 'user': 'test user',
+                 'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
+                 'created_date': str(datetime.utcnow())},
+        request_type='post')
+    yield response['dag_id']
+
+
+@pytest.fixture(scope='function')
+def real_dag_id(real_jsm_jqs, db_cfg):
     import random
     from jobmon.requester import Requester
 

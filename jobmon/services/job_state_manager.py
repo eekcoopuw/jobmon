@@ -367,7 +367,7 @@ def _update_job_instance_state(session, job_instance, status_id):
         to_publish = mogrify(job.dag_id, (job.job_id, job.status))
         return to_publish
     else:
-        return None
+        return ""
 
 
 def _update_job_instance(session, job_instance, **kwargs):

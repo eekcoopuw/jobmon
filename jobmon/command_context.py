@@ -11,7 +11,6 @@ import jsonpickle
 from cluster_utils.io import makedirs_safely
 
 from jobmon.config import config
-from jobmon.connection_config import ConnectionConfig
 from jobmon.exceptions import ReturnCodes
 from jobmon.job_instance_intercom import JobInstanceIntercom
 from jobmon.utils import kill_remote_process_group
@@ -105,8 +104,8 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
         jobmon_command,
         "--command", "'{}'".format(job.command),
         "--job_instance_id", job_instance_id,
-        "--jsm_host", config.jm_rep_conn.host,
-        "--jsm_port", config.jm_rep_conn.port
+        "--jsm_host", config.jsm_conn.host,
+        "--jsm_port", config.jsm_conn.port
     ]
     if job.last_nodename:
         wrapped_cmd.extend(["--last_nodename", job.last_nodename])
@@ -121,6 +120,7 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
 
 def unwrap():
 
+    print("in unwrap")
     import argparse
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
@@ -152,14 +152,12 @@ def unwrap():
 
     # makes a dict
     args = vars(parser.parse_args())
-    cc = ConnectionConfig(args["jsm_host"], args["jsm_port"])
-
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
     ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
                                       process_group_id=os.getpid(),
-                                      jm_rep_cc=cc)
+                                      hostname=args['jsm_host'])
     ji_intercom.log_running()
 
     try:
