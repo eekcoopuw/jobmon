@@ -8,20 +8,41 @@ logger = logging.getLogger(__name__)
 
 
 class Executor(object):
+    """Base class for executors. Subclasses are required to implement an
+    exeucte() method that takes a JobInstance, constructs a jombon-interpretable
+    exectable command (typically using this base class's
+    build_wrapped_command()), and optionally returns an executor_id.
 
-    def __init__(*args, **kwargs):
+    While not required, implementing get_usage_stats() will allow collection
+    of CPU/memory utilization stats for each job.
+
+    Also optional, get_actual_submitted_or_running() and
+    terminate_job_instances() are recommended in case jobs fail in ways
+    that they are unable to contact Jobmon re: the reasons for their failure.
+    These methods will allow jobmon to identify jobs that have been lost
+    and retry them.
+    """
+
+    def __init__(self, *args, **kwargs):
+        logger.info("Initializing {}".format(self.__class__.__name__))
+
+    def execute(self, job_instance):
+        """SUBCLASSES ARE REQUIRED TO IMPLEMENT THIS METHOD.
+
+        It is recommended that subclasses use build_wrapped_command() to
+        generate the executable command string itself. It is then up to the
+        Executor subclass to provide a means of actually executing that
+        command.
+        """
         raise NotImplementedError
 
-    def execute(job_instance):
+    def get_usage_stats(self):
         raise NotImplementedError
 
-    def get_usage_stats(job_id):
+    def get_actual_submitted_or_running(self):
         raise NotImplementedError
 
-    def get_actual_submitted_or_running():
-        raise NotImplementedError
-
-    def terminate_job_instances(job_instance_list):
+    def terminate_job_instances(self, job_instance_list):
         """If implemented, return a list of (job_instance_id, hostname) tuples
         for any job_instances that are terminated"""
         raise NotImplementedError

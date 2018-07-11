@@ -8,11 +8,10 @@ import pandas as pd
 
 from cluster_utils.io import makedirs_safely
 from jobmon import sge
-from jobmon.command_context import build_qsub
 from jobmon.executors import Executor
 
 
-logger = logging.getlogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class SGEExecutor(Executor):
@@ -28,8 +27,10 @@ class SGEExecutor(Executor):
 
     def _execute_sge(self, job, job_instance_id):
         try:
-            qsub_cmd = build_qsub(job, job_instance_id, self.stderr,
-                                  self.stdout, self.project, self.working_dir)
+            qsub_cmd = self.build_wrapped_command(job, job_instance_id,
+                                                   self.stderr, self.stdout,
+                                                   self.project,
+                                                   self.working_dir)
             resp = subprocess.check_output(qsub_cmd, shell=True)
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
@@ -45,8 +46,8 @@ class SGEExecutor(Executor):
             return -99999
 
     def execute(self, job_instance):
-        self._execute_sge(job_instance.job,
-                          job_instance.job_instance_id)
+        return self._execute_sge(job_instance.job,
+                                 job_instance.job_instance_id)
 
     def get_usage_stats(self):
         sge_id = os.environ.get('JOB_ID')
@@ -68,11 +69,10 @@ class SGEExecutor(Executor):
         ji_dict_list = [ji.to_wire() for ji in job_instance_list]
         to_df = pd.DataFrame.from_dict(ji_dict_list)
         if len(to_df) == 0:
-            return
+            return []
         sge_jobs = sge.qstat()
         sge_jobs = sge_jobs[~sge_jobs.status.isin(['hqw', 'qw'])]
         to_df = to_df.merge(sge_jobs, left_on='executor_id', right_on='job_id')
-        to_df = to_df[to_df.runtime_seconds > to_df.max_runtime]
         return_list = []
         if len(to_df) > 0:
             sge.qdel(list(to_df.executor_id))
@@ -80,21 +80,20 @@ class SGEExecutor(Executor):
                 ji_id = row.job_instance_id
                 hostname = row.hostname
                 return_list.append((int(ji_id), hostname))
-        self._poll_for_lagging_jobs(job_instance_list)
+        self._poll_for_lagging_jobs(list(to_df.executor_id))
         return return_list
 
-    def _poll_for_lagging_jobs(self, job_instance_list):
-        executor_ids = [ji.executor_id for ji in job_instance_list]
+    def _poll_for_lagging_jobs(self, executor_ids):
         lagging_jobs = sge.qstat(jids=executor_ids)
         logger.info("Qdelling executor_ids {} from a previous workflow run, "
                     "and polling to ensure they disappear from qstat"
                     .format(executor_ids))
         seconds = 0
-        while seconds <= 60 and lagging_jobs:
+        while seconds <= 60 and len(lagging_jobs) > 0:
             seconds += 5
             sleep(5)
             lagging_jobs = sge.qstat(jids=executor_ids)
-            if seconds == 60 and lagging_jobs:
+            if seconds == 60 and len(lagging_jobs) > 0:
                 raise RuntimeError("Polled for 60 seconds waiting for qdel-ed "
                                    "executor_ids {} to disappear from qstat "
                                    "but they still exist. Timing out."

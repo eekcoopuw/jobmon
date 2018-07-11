@@ -124,7 +124,7 @@ class Workflow(object):
         if task_dag:
             self.task_dag = task_dag
         else:
-            self.task_dag = TaskDag()
+            self.task_dag = TaskDag(executor=self.executor)
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -139,17 +139,12 @@ class Workflow(object):
                         .format(self.workflow_args))
 
     def set_executor(self, executor_class):
-        if executor_class:
-            if not hasattr(executor_class, "execute"):
-                raise AttributeError("Executor must have an execute() method")
-            if not hasattr(executor_class, "reconcile"):
-                raise AttributeError("Executor must have a reconcile() method")
         self.executor_class = executor_class
         if self.executor_class == 'SGEExecutor':
             from jobmon.executors.sge import SGEExecutor
             self.executor = SGEExecutor(**self.executor_args)
         elif self.executor_class == "SequentialExecutor":
-            from jobmon.exeuctors.sequential import SequentialExecutor
+            from jobmon.executors.sequential import SequentialExecutor
             self.executor = SequentialExecutor()
         elif self.executor_class == "DummyExecutor":
             from jobmon.executors.dummy import DummyExecutor
@@ -157,6 +152,9 @@ class Workflow(object):
         else:
             raise ValueError("{} is not a valid "
                              "executor_class".format(executor_class))
+
+        if not hasattr(self.executor, "execute"):
+            raise AttributeError("Executor must have an execute() method")
 
     @property
     def dag_id(self):

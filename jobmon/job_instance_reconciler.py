@@ -7,7 +7,7 @@ from zmq.error import ZMQError
 
 from jobmon.config import config
 from jobmon.exceptions import ReturnCodes
-from jobmon.exeutors.sequential import SequentialExecutor
+from jobmon.executors.sequential import SequentialExecutor
 from jobmon.models import JobInstance
 from jobmon.requester import Requester
 
@@ -84,7 +84,12 @@ class JobInstanceReconciler(object):
         fatal errors"""
         presumed = self._get_presumed_submitted_or_running()
         self._request_permission_to_reconcile()
-        actual = self.executor.get_actual_submitted_or_running()
+        try:
+            actual = self.executor.get_actual_submitted_or_running()
+        except NotImplementedError:
+            logger.warn("{} does not implement reconciliation methods".format(
+                self.executor.__class__.__name__))
+            return []
 
         # This is kludgy... Re-visit the data structure used for communicating
         # executor IDs back from the JobQueryServer
@@ -105,10 +110,15 @@ class JobInstanceReconciler(object):
         JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
         SUBMITTED_TO_BATCH_EXECUTOR)"""
         to_jobs = self._get_timed_out_jobs()
-        terminated_job_instances = self.executor.handle_timeouts(to_jobs)
-        for ji_id, hostname in terminated_job_instances:
-            self._log_timeout_error(int(ji_id))
-            self._log_timeout_hostname(int(ji_id), hostname)
+        try:
+            terminated_job_instances = self.executor.terminate_job_instances(
+                to_jobs)
+            for ji_id, hostname in terminated_job_instances:
+                self._log_timeout_error(int(ji_id))
+                self._log_timeout_hostname(int(ji_id), hostname)
+        except NotImplementedError:
+            logger.warn("{} does not implement reconciliation methods".format(
+                self.executor.__class__.__name__))
 
     def _get_presumed_submitted_or_running(self):
         try:

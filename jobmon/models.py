@@ -167,16 +167,17 @@ class JobInstance(Base):
 
     def to_wire(self):
         time_since_status = (datetime.utcnow() - self.status_date).seconds
-        return {'job_instance_id': self.job_instance_id,
-                'workflow_run_id': self.workflow_run_id,
-                'executor_id': self.executor_id,
-                'job_id': self.job_id,
-                'status': self.status,
-                'nodename': self.nodename,
-                'process_group_id': self.process_group_id,
-                'status_date': self.status_date.strftime("%Y-%m-%dT%H:%M:%S"),
-                'time_since_status_update': time_since_status,
-                'max_runtime': self.job.max_runtime}
+        return {
+            'job_instance_id': self.job_instance_id,
+            'workflow_run_id': self.workflow_run_id,
+            'executor_id': self.executor_id,
+            'job_id': self.job_id,
+            'status': self.status,
+            'nodename': self.nodename,
+            'process_group_id': self.process_group_id,
+            'status_date': self.status_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            'time_since_status_update': time_since_status,
+        }
 
     job_instance_id = Column(Integer, primary_key=True)
     workflow_run_id = Column(Integer)

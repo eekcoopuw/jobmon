@@ -6,7 +6,7 @@ from time import sleep
 from zmq.error import ZMQError
 
 from jobmon.config import config
-from jobmon.exeutors.sequential import SequentialExecutor
+from jobmon.executors.sequential import SequentialExecutor
 from jobmon.models import Job, JobInstance
 from jobmon.requester import Requester
 
@@ -103,7 +103,7 @@ class JobInstanceFactory(object):
         logger.debug("Executing {}".format(job.command))
         executor_id = self.executor.execute(job_instance)
         if executor_id:
-            job_instance.assign_executor_id(executor_id)
+            job_instance.assign_executor_id(self.jsm_req, executor_id)
         return job_instance, executor_id
 
     def _get_jobs_queued_for_instantiation(self):

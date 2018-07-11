@@ -54,7 +54,7 @@ class JobListManager(object):
         self.job_inst_factory = JobInstanceFactory(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
-            dag_id, interrupt_on_error, stop_event=self._stop_event)
+            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
 
         self.jqs_req = Requester(config.jqs_rep_conn)
 

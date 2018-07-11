@@ -12,22 +12,22 @@ from jobmon.models import Job
 
 
 def test_good_names():
-    assert ExecutableTask.is_valid_sge_job_name("fred")
-    assert ExecutableTask.is_valid_sge_job_name("fred123")
-    assert ExecutableTask.is_valid_sge_job_name("fred_and-friends")
+    assert ExecutableTask.is_valid_job_name("fred")
+    assert ExecutableTask.is_valid_job_name("fred123")
+    assert ExecutableTask.is_valid_job_name("fred_and-friends")
 
 
 def test_bad_names():
     with pytest.raises(ValueError) as exc:
-        ExecutableTask.is_valid_sge_job_name("")
+        ExecutableTask.is_valid_job_name("")
     assert "None" in str(exc.value)
 
     with pytest.raises(ValueError) as exc:
-        ExecutableTask.is_valid_sge_job_name("16")
+        ExecutableTask.is_valid_job_name("16")
     assert "digit" in str(exc.value)
 
     with pytest.raises(ValueError) as exc:
-        ExecutableTask.is_valid_sge_job_name("bad/dog")
+        ExecutableTask.is_valid_job_name("bad/dog")
     assert "special" in str(exc.value)
 
 
@@ -63,7 +63,7 @@ def test_bash_task_equality():
 
 def test_hashing_bash_characters():
     a = BashTask(command="touch ~/mytestfile")
-    assert a.is_valid_sge_job_name(a.name)
+    assert a.is_valid_job_name(a.name)
 
 
 def test_bash_task_args(job_list_manager_sge):
