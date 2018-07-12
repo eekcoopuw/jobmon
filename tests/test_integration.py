@@ -129,10 +129,10 @@ def test_blocking_updates(job_list_manager_d):
     timeout_and_skip(3, 30, 1, partial(
         blocking_updates_check,
         job_list_manager_d=job_list_manager_d,
-        prev_job=job,
-        job_id1=job1,
-        job_id2=job2,
-        job_id3=job3)
+        prev_job=job.job_id,
+        job_id1=job1.job_id,
+        job_id2=job2.job_id,
+        job_id3=job3.job_id)
     )
 
 
@@ -142,8 +142,9 @@ def blocking_updates_check(job_list_manager_d, prev_job, job_id1, job_id2,
         raise_on_any_error=False)
     if len(done) == 3:
         assert len(errors) == 1
-        assert set(done) == set([prev_job, job_id1, job_id2])
-        assert set(errors) == set([job_id3])
+        assert set([j.job_id for j in done]) == set([prev_job, job_id1,
+                                                    job_id2])
+        assert errors[0].job_id == job_id3
         return True
     else:
         return False

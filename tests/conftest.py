@@ -143,19 +143,20 @@ def db_cfg(session_edb):
 @pytest.fixture(scope='session')
 def real_jsm_jqs(session_edb):
     import pdb; pdb.set_trace()
-    from jobmon.services import job_state_manager as jsm
-    from jobmon.services import job_query_server as jqs
-    from multiprocessing import Process
-    p1 = Process(target=jsm.flask_thread)
-    p1.start()
+    return None
+    # from jobmon.services import job_state_manager as jsm
+    # from jobmon.services import job_query_server as jqs
+    # from multiprocessing import Process
+    # p1 = Process(target=jsm.flask_thread)
+    # p1.start()
 
-    p2 = Process(target=jqs.flask_thread)
-    p2.start()
+    # p2 = Process(target=jqs.flask_thread)
+    # p2.start()
 
-    yield
+    # yield
 
-    p1.terminate()
-    p2.terminate()
+    # p1.terminate()
+    # p2.terminate()
 
 
 @pytest.fixture(scope='session')
