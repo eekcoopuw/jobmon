@@ -24,7 +24,7 @@ app = Flask(__name__)
 
 def flask_thread():
     app.run(host="0.0.0.0", port=config.jsm_port, debug=True,
-            use_reloader=False, threaded=True)
+            use_reloader=False, threaded=False)
 
 
 @app.route('/', methods=['GET'])

@@ -78,7 +78,6 @@ from jobmon.config import config
 from jobmon import database
 from jobmon import database_loaders
 from jobmon.job_list_manager import JobListManager
-from jobmon.services import job_query_server as jqs
 from jobmon.job_instance_factory import execute_sge
 from jobmon.workflow.task_dag import TaskDag
 
@@ -143,6 +142,7 @@ def db_cfg(session_edb):
 
 @pytest.fixture(scope='session')
 def real_jsm_jqs(session_edb):
+    import pdb; pdb.set_trace()
     from jobmon.services import job_state_manager as jsm
     from jobmon.services import job_query_server as jqs
     from multiprocessing import Process
@@ -183,9 +183,6 @@ def monkeypatch_session():
 def no_requests_jsm(monkeypatch_session, jsm_jqs):
     import requests
     jsm_client, _ = jsm_jqs
-    # WILL ALSO NEED TO PATCH RESPONSE OBJECT DATA ATTRIBUTE.
-    # EXISTS IN TEST_CLIENT, NOT REQUESTS.
-    # request.json is also a function in requests
     # monkeypatch_session.setattr(requests, 'post', jsm_client.post)
 
 

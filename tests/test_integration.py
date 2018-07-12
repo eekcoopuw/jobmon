@@ -138,7 +138,6 @@ def test_blocking_updates(job_list_manager_d):
 
 def blocking_updates_check(job_list_manager_d, prev_job, job_id1, job_id2,
                            job_id3):
-    import pdb; pdb.set_trace()
     done, errors = job_list_manager_d.block_until_no_instances(
         raise_on_any_error=False)
     if len(done) == 3:
