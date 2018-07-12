@@ -2,7 +2,6 @@ import logging
 import time
 from threading import Event, Thread
 from queue import Queue, Empty
-from datetime import datetime
 
 from jobmon.config import config
 from jobmon.database import session_scope
@@ -55,7 +54,7 @@ class JobListManager(object):
         self.job_inst_factory = JobInstanceFactory(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
-            dag_id, interrupt_on_error, stop_event=self._stop_event)
+            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
 
         self.jqs_req = Requester(config.jqs_rep_conn)
 
@@ -78,24 +77,6 @@ class JobListManager(object):
         if start_daemons:
             self._start_job_status_listener()
             self._start_job_instance_manager()
-
-    @classmethod
-    def from_new_dag(cls, executor=None, start_daemons=False):
-
-        # TODO: This should really be the work of the DAG manager itself,
-        # but for the sake of expediting early development work, allow the
-        # JobListManager to obtain it's own dag_id
-        from jobmon.config import config
-        from jobmon.requester import Requester
-
-        req = Requester(config.jm_rep_conn)
-        rc, dag_id = req.send_request({
-            'action': 'add_task_dag',
-            'kwargs': {'name': 'test dag', 'user': 'test user',
-                       'dag_hash': 'hash', 'created_date': datetime.utcnow()}
-        })
-        req.disconnect()
-        return cls(dag_id, executor=executor, start_daemons=start_daemons)
 
     @property
     def active_jobs(self):
@@ -122,7 +103,6 @@ class JobListManager(object):
         bound_task = BoundTask(task=task, job=job, job_list_manager=self)
         self.bound_tasks[job.job_id] = bound_task
         return bound_task
-
 
     def block_until_any_done_or_error(self, timeout=None):
         """Returns bound tasks that have either completed or failed since last

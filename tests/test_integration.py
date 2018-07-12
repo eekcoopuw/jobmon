@@ -6,8 +6,8 @@ from queue import Empty
 
 from jobmon import models
 from jobmon.database import session_scope
+from jobmon.executors.sge import SGEExecutor
 from jobmon.config import config
-from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 from jobmon.workflow.executable_task import ExecutableTask
 
@@ -52,7 +52,8 @@ def job_list_manager_d(dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager_sge(dag_id):
-    jlm = JobListManager(dag_id, executor=execute_sge,
+    executor = SGEExecutor()
+    jlm = JobListManager(dag_id, executor=executor,
                          interrupt_on_error=False)
     yield jlm
     jlm.disconnect()

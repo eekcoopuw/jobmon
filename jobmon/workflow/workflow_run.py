@@ -3,19 +3,15 @@ import os
 import socket
 from datetime import datetime
 import logging
-from time import sleep
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 
 from sqlalchemy.orm import relationship
 
 from jobmon.config import config
-from jobmon.exceptions import ReturnCodes, SGENotAvailable
+from jobmon.exceptions import ReturnCodes
+from jobmon.models import JobInstance
 from jobmon.requester import Requester
-try:
-    from jobmon.sge import qdel, qstat
-except SGENotAvailable:
-    pass
 from jobmon.sql_base import Base
 from jobmon.utils import kill_remote_process
 
@@ -48,6 +44,7 @@ class WorkflowRunDAO(Base):
     project = Column(String(150))
     working_dir = Column(String(1000), default=None)
     slack_channel = Column(String(150))
+    executor_class = Column(String(150))
     created_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
     status = Column(String(1),
@@ -56,6 +53,37 @@ class WorkflowRunDAO(Base):
                     default=WorkflowRunStatus.RUNNING)
 
     workflow = relationship("WorkflowDAO", back_populates="workflow_runs")
+
+    @classmethod
+    def from_wire(cls, dct):
+        return cls(
+            workflow_id=dct['workflow_id'],
+            user=dct['user'],
+            hostname=dct['hostname'],
+            pid=dct['pid'],
+            stderr=dct['stderr'],
+            stdout=dct['stdout'],
+            project=dct['project'],
+            working_dir=dct['working_dir'],
+            slack_channel=dct['slack_channel'],
+            executor_class=dct['executor_class'],
+            status=dct['status'],
+        )
+
+    def to_wire(self):
+        return {
+           'workflow_id': self.workflow_id,
+           'user': self.user,
+           'hostname': self.hostname,
+           'pid': self.pid,
+           'stderr': self.stderr,
+           'stdout': self.stdout,
+           'project': self.project,
+           'working_dir': self.working_dir,
+           'slack_channel': self.slack_channel,
+           'executor_class': self.executor_class,
+           'status': self.status,
+        }
 
 
 class WorkflowRun(object):
@@ -99,13 +127,12 @@ class WorkflowRun(object):
         self.id = wfr_id
 
     def check_if_workflow_is_running(self):
-        rc, status, wf_run_id, hostname, pid, user = \
-            self.jsm_req.send_request({
+        rc, is_running, wf_run = self.jsm_req.send_request({
                 'action': 'is_workflow_running',
                 'kwargs': {'workflow_id': self.workflow_id}})
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse to is_workflow_running")
-        return status, wf_run_id, hostname, pid, user
+        return is_running, wf_run
 
     def kill_previous_workflow_runs(self, reset_running_jobs):
         """First check the database for last WorkflowRun... where we store a
@@ -117,53 +144,50 @@ class WorkflowRun(object):
             A) If so, kill those pids and any still running jobs
             B) Then flip the database of the previous WorkflowRun to STOPPED
         """
-        status, wf_run_id, hostname, pid, user = \
-            self.check_if_workflow_is_running()
+        status, wf_run = self.check_if_workflow_is_running()
         if not status:
             return
-        if user != getpass.getuser():
+        if wf_run.user != getpass.getuser():
             msg = ("Workflow_run_id {} for this workflow_id is still in "
                    "running mode by user {}. Please ask this user to kill "
-                   "their processes and qdel their jobs. Be aware that if you "
+                   "their processes. If they are using the SGE executor, "
+                   "please ask them to qdel their jobs. Be aware that if you "
                    "restart this workflow prior to the other user killing "
                    "theirs, this error will not re-raise but you may be "
                    "creating orphaned processes and hard-to-find bugs"
-                   .format(wf_run_id, user))
+                   .format(wf_run.id, wf_run.user))
             logger.error(msg)
             _, _ = self.jsm_req.send_request({
                 'action': 'update_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run_id,
+                'kwargs': {'workflow_run_id': wf_run.id,
                            'status': WorkflowRunStatus.STOPPED}})
             raise RuntimeError(msg)
         else:
-            kill_remote_process(hostname, pid)
+            kill_remote_process(wf_run.hostname, wf_run.pid)
             if reset_running_jobs:
-                _, sge_ids = self.jsm_req.send_request({
-                    'action': 'get_sge_ids_of_previous_workflow_run',
-                    'kwargs': {'workflow_run_id': wf_run_id}})
-                if sge_ids:
-                    qdel(sge_ids)
-                self.poll_for_lagging_jobs(sge_ids)
+                if wf_run.executor_class == "SequentialExecutor":
+                    from jobmon.executors.sequential import SequentialExecutor
+                    previous_executor = SequentialExecutor()
+                elif wf_run.executor_class == "SGEExecutor":
+                    from jobmon.executors.sequential import SGEExecutor
+                    previous_executor = SGEExecutor()
+                elif wf_run.executor_class == "DummyExecutor":
+                    from jobmon.executors.sequential import DummyExecutor
+                    previous_executor = DummyExecutor()
+                else:
+                    raise ValueError("{} is not supported by this version of "
+                                     "jobmon".format(wf_run.executor_class))
+                _, job_instances = self.jsm_req.send_request({
+                    'action': 'get_job_instances_of_workflow_run',
+                    'kwargs': {'workflow_run_id': wf_run.id}})
+                job_instances = [JobInstance.from_wire(ji)
+                                 for ji in job_instances]
+                if job_instances:
+                    previous_executor.terminate_job_instances(job_instances)
             _, _ = self.jsm_req.send_request({
                 'action': 'update_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run_id,
+                'kwargs': {'workflow_run_id': wf_run.id,
                            'status': WorkflowRunStatus.STOPPED}})
-
-    def poll_for_lagging_jobs(self, sge_ids):
-        lagging_jobs = qstat(jids=sge_ids)
-        logger.info("Qdelling sge_ids {} from a previous workflow run, and "
-                    "polling to ensure they disappear from qstat"
-                    .format(sge_ids))
-        seconds = 0
-        while seconds <= 60 and lagging_jobs:
-            seconds += 5
-            sleep(5)
-            lagging_jobs = qstat(jids=sge_ids)
-            if seconds == 60 and lagging_jobs:
-                raise RuntimeError("Polled for 60 seconds waiting for qdel-ed "
-                                   "sge_ids {} to disappear from qstat but "
-                                   "they still exist. Timing out."
-                                   .format(lagging_jobs.job_id.unique()))
 
     def update_done(self):
         self._update_status(WorkflowRunStatus.DONE)
