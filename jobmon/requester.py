@@ -56,10 +56,6 @@ class Requester(object):
         else:
             r = requests.get(route, params=message,
                              headers={'Content-Type': 'application/json'})
-        if r.status_code != 200:
-            if verbose is True:
-                logger.debug(r.content)
-            return r
         content = self.get_content(r)
         if content:
             if verbose is True:

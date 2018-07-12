@@ -150,13 +150,9 @@ def unwrap():
     parser.add_argument("--process_timeout", required=False,
                         type=intnone_parser)
 
-    import requests
-    r = requests.get("http://cn496.ihme.washington.edu:5056/",
-                     headers={'Content-Type': 'application/json'})
     # makes a dict
     args = vars(parser.parse_args())
-    with open('/homes/cpinho/forked_jobmon/cc.txt', 'w') as f:
-        f.write("in command context, request return is {}".format(r.content))
+
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)

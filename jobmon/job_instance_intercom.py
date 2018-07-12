@@ -19,8 +19,6 @@ class JobInstanceIntercom(object):
         self.process_group_id = process_group_id
         self.hostname = hostname
         self.requester = Requester(config.jsm_port, host=hostname)
-        with open('/homes/cpinho/forked_jobmon/jii.txt', 'w') as f:
-            f.write("in jii, requester made")
         logger.debug("Instantiated JobInstanceIntercom")
 
     def log_done(self):

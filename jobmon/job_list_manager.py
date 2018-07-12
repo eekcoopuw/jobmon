@@ -103,9 +103,9 @@ class JobListManager(object):
                     task=None, job=job, job_list_manager=self)
             self.hash_job_map[job.job_hash] = job
             self.job_hash_map[job] = job.job_hash
-        self.all_done = set([job.job_id for job in jobs
+        self.all_done = set([job for job in jobs
                              if job.status == JobStatus.DONE])
-        self.all_error = set([job.job_id for job in jobs if job.status ==
+        self.all_error = set([job for job in jobs if job.status ==
                               JobStatus.ERROR_FATAL])
         return jobs
 
@@ -122,12 +122,10 @@ class JobListManager(object):
                 failed += [task]
                 failed_ids += [task.job_id]
             else:
-                raise ValueError("Job returned that is neither done nor "
-                                 "error_fatal: jid: {}, status {}"
-                                 .format(task.job_id, task.status))
-        self.all_done.update(set(completed_ids))
-        self.all_error -= set(completed_ids)
-        self.all_error.update(set(failed_ids))
+                continue
+        self.all_done.update(set(completed))
+        self.all_error -= set(completed)
+        self.all_error.update(set(failed))
         return list(self.all_done), list(self.all_error)
 
     def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
@@ -150,7 +148,7 @@ class JobListManager(object):
         while True:
             if time_since_last_update > timeout:
                 return None
-            jobs = self.get_job_statuses
+            jobs = self.get_job_statuses()
             self.parse_done_and_errors(jobs)
 
             if len(self.active_jobs) == 0:
@@ -165,7 +163,7 @@ class JobListManager(object):
             time.sleep(poll_interval)
             time_since_last_update += poll_interval
 
-        return self.all_done, self.all_errors
+        return list(self.all_done), list(self.all_error)
 
     def _create_job(self, *args, **kwargs):
         job = self.job_factory.create_job(*args, **kwargs)

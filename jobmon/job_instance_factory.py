@@ -16,10 +16,6 @@ logger = logging.getLogger(__name__)
 def execute_sequentially(job, job_instance_id):
     import subprocess
     import requests
-    r = requests.get("http://cn496.ihme.washington.edu:5056/",
-                     headers={'Content-Type': 'application/json'})
-    with open('/homes/cpinho/forked_jobmon/jif.txt', 'w') as f:
-        f.write("in command context, request return is {}".format(r.content))
     try:
         cmd = build_wrapped_command(job, job_instance_id)
         logger.debug(cmd)

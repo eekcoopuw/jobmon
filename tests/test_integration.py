@@ -116,9 +116,6 @@ def test_blocking_updates(job_list_manager_d):
     assert done[0].status == models.JobStatus.DONE
 
     # Test multiple jobs
-
-    job_list_manager_d.get_new_done()  # clear the done queue for this test
-    job_list_manager_d.get_new_errors()  # clear the error queue too
     job1 = job_list_manager_d.bind_task(Task(command="sleep 2",
                                              name="foobarbaz1"))
     job2 = job_list_manager_d.bind_task(Task(command="sleep 3",
@@ -132,18 +129,21 @@ def test_blocking_updates(job_list_manager_d):
     timeout_and_skip(3, 30, 1, partial(
         blocking_updates_check,
         job_list_manager_d=job_list_manager_d,
-        job_id1=job1.job_id,
-        job_id2=job2.job_id,
-        job_id3=job3.job_id)
+        prev_job=job,
+        job_id1=job1,
+        job_id2=job2,
+        job_id3=job3)
     )
 
 
-def blocking_updates_check(job_list_manager_d, job_id1, job_id2, job_id3):
+def blocking_updates_check(job_list_manager_d, prev_job, job_id1, job_id2,
+                           job_id3):
+    import pdb; pdb.set_trace()
     done, errors = job_list_manager_d.block_until_no_instances(
         raise_on_any_error=False)
-    if len(done) == 2:
+    if len(done) == 3:
         assert len(errors) == 1
-        assert set(done) == set([job_id1, job_id2])
+        assert set(done) == set([prev_job, job_id1, job_id2])
         assert set(errors) == set([job_id3])
         return True
     else:

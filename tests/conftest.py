@@ -184,7 +184,8 @@ def no_requests_jsm(monkeypatch_session, jsm_jqs):
     import requests
     jsm_client, _ = jsm_jqs
     # WILL ALSO NEED TO PATCH RESPONSE OBJECT DATA ATTRIBUTE.
-    # EXISTS IN TEST_CLIENT, NOT REQUESTS
+    # EXISTS IN TEST_CLIENT, NOT REQUESTS.
+    # request.json is also a function in requests
     # monkeypatch_session.setattr(requests, 'post', jsm_client.post)
 
 
