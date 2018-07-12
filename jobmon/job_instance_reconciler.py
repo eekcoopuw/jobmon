@@ -46,9 +46,6 @@ class JobInstanceReconciler(object):
                 to be the JobInstances executor_id, and will be registered
                 with the JobStateManager as such.
         """
-        # TODO: Add some validation that the passed object is callable and
-        # and follows the args/returns requirements of an executor. Potentially
-        # resuscitate the Executor abstract base class.
         self.executor = executor
 
     def reconcile_periodically(self, poll_interval=10):

@@ -12,6 +12,7 @@ from jobmon.executors import Executor
 
 
 logger = logging.getLogger(__name__)
+ERROR_SGE_JID = -99999
 
 
 class SGEExecutor(Executor):
@@ -28,9 +29,9 @@ class SGEExecutor(Executor):
     def _execute_sge(self, job, job_instance_id):
         try:
             qsub_cmd = self.build_wrapped_command(job, job_instance_id,
-                                                   self.stderr, self.stdout,
-                                                   self.project,
-                                                   self.working_dir)
+                                                  self.stderr, self.stdout,
+                                                  self.project,
+                                                  self.working_dir)
             resp = subprocess.check_output(qsub_cmd, shell=True)
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
@@ -43,7 +44,7 @@ class SGEExecutor(Executor):
             return sge_jid
         except Exception as e:
             logger.error(e)
-            return -99999
+            return ERROR_SGE_JID
 
     def execute(self, job_instance):
         return self._execute_sge(job_instance.job,
@@ -55,11 +56,6 @@ class SGEExecutor(Executor):
         return usage
 
     def get_actual_submitted_or_running(self):
-        # TODO: If we formalize the "Executor" concept as more than a
-        # command-runner, this should probably be an option method
-        # provided by any given Executor
-        # ...
-        # For now, just qstat
         qstat_out = sge.qstat()
         executor_ids = list(qstat_out.job_id)
         executor_ids = [int(eid) for eid in executor_ids]
