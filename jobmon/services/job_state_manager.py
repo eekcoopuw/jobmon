@@ -1,14 +1,13 @@
 import logging
 import os
 from datetime import datetime
-
 from flask import jsonify, Flask, request
 from http import HTTPStatus
 
 from jobmon import models
+from jobmon.config import config
 from jobmon.database import session_scope
 from jobmon.pubsub_helpers import mogrify
-from jobmon.config import config
 from jobmon.meta_models import task_dag
 from jobmon.workflow.workflow import WorkflowDAO
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus

@@ -10,13 +10,18 @@ from sqlalchemy.exc import OperationalError
 from datetime import datetime
 
 from jobmon.database import session_scope
+from jobmon.config import config
+from jobmon import requester
 from jobmon.models import InvalidStateTransition, Job, JobInstanceErrorLog, \
     JobInstanceStatus, JobStatus, JobInstance
 from jobmon.workflow.executable_task import ExecutableTask
+from jobmon.workflow.workflow import WorkflowDAO
+from jobmon.workflow.workflow_run import WorkflowRunDAO
 
 
 HASH = 12345
 SECOND_HASH = 12346
+
 
 @pytest.fixture(scope='function')
 def commit_hooked_jsm(jsm_jqs):
@@ -51,18 +56,47 @@ def commit_hooked_jsm(jsm_jqs):
 
 
 def test_get_workflow_run_id(jsm_jqs, dag_id):
-    jsm, _ = jsm_jqs
-    user = getpass.getuser()
-    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
-    job = Job.from_wire(job_dct)
-    wf = jsm.add_workflow(
-        dag_id, "args_{}".format(random.randint(1, 1e7)),
-        hashlib.sha1('hash_{}'.format(random.randint(1, 1e7))
-                     .encode('utf-8')).hexdigest(), "test", user)
-    wf_run_id = jsm.add_workflow_run(wf[1]['id'], user, socket.gethostname(),
-                                     000, None, None, 'proj_jenkins', '', ''
-                                     )[1]
-    print(dag_id)
+    user = getpass.get_user()jsm, _ = jsm_jqs
+    req = requester.Requester(config.jsm_port)
+    # add job
+    _, response = req.send_request(
+        app_route='/add_job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': dag_id},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+
+    # add workflow
+    _, response = req.send_request(
+        app_route='/add_workflow',
+        message={'dag_id': dag_id,
+                 'workflow_args': "args_{}".format(random.randint(1, 1e7)),
+                 'workflow_hash': hashlib.sha1('hash_{}'
+                                               .format(random.randint(1, 1e7))
+                                               .encode('utf-8')).hexdigest(),
+                 'name': 'test',
+                 'user': user},
+        request_type='post')
+    wf = WorkflowDAO.from_wire(response['workflow_dct'])
+
+    # add workflow_run_id
+    _, response = req.send_request(
+        app_route='/add_workflow_run',
+        message={'workflow_id': wf[1]['id'],
+                 'user': user,
+                 'hostname': socket.gethostname(),
+                 'pid': 000,
+                 'stderr': None,
+                 'stdout': None,
+                 'project': 'proj_jenkins',
+                 'slack_channel': ""slack_channel"",
+                 'working_dir': ""},
+        request_type='post')
+    wfr_id = response['workflow_run_id']
+    # make sure that the wf run that was just created matches the one that
+    # jsm._get_workflow_run_id gets
     assert wf_run_id == jsm._get_workflow_run_id(job.job_id)
 
 
