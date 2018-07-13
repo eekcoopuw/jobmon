@@ -8,6 +8,7 @@ import socket
 import uuid
 import time
 from datetime import datetime
+from time import sleep
 
 from argparse import Namespace
 from sqlalchemy.exc import IntegrityError
@@ -142,17 +143,18 @@ def db_cfg(session_edb):
 
 
 @pytest.fixture(scope='session')
-def real_jsm_jqs(session_edb):
-    from jobmon.services import job_state_manager as jsm
-    from jobmon.services import job_query_server as jqs
-    from multiprocessing import Process
-    p1 = Process(target=jsm.flask_thread)
+def real_jsm_jqs(rcfile, session_edb):
+    import multiprocessing as mp
+    from tests.run_services import run_jsm, run_jqs
+
+    ctx = mp.get_context('spawn')
+    p1 = ctx.Process(target=run_jsm, args=(rcfile, config.conn_str))
     p1.start()
 
-    p2 = Process(target=jqs.flask_thread)
+    p2 = ctx.Process(target=run_jqs, args=(rcfile, config.conn_str))
     p2.start()
 
-    time.sleep(45)
+    sleep(30)
     yield
 
     p1.terminate()
