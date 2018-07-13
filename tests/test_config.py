@@ -24,7 +24,6 @@ def test_command_line(rcfile):
                 "host": "bar",
                 "jsm_port": "1",
                 "jqs_port": "3"}
-    import pdb; pdb.set_trace()
     gc = GlobalConfig.from_file(rcfile)
     gc.apply_opts_dct(opts_dct)
     assert gc.conn_str == 'foo'
