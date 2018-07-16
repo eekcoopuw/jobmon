@@ -94,7 +94,6 @@ class Job(Base):
     submitted_date = Column(DateTime, default=datetime.utcnow)
     status_date = Column(DateTime, default=datetime.utcnow)
 
-
     last_nodename = None
     last_process_group_id = None
 

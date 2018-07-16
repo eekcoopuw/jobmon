@@ -4,6 +4,7 @@ from datetime import datetime
 from flask import jsonify, Flask, request
 from http import HTTPStatus
 
+from jobmon.config import config
 from jobmon import models
 from jobmon.database import ScopedSession
 from jobmon.pubsub_helpers import mogrify
@@ -21,7 +22,7 @@ app = Flask(__name__)
 
 
 def flask_thread():
-    app.run(host="0.0.0.0", port=5056, debug=True,
+    app.run(host="0.0.0.0", port=config.jsm_port, debug=True,
             use_reloader=False, threaded=False)
 
 
@@ -107,6 +108,7 @@ def add_job_instance():
     # TODO: Would prefer putting this in the model, but can't find the
     # right post-create hook. Investigate.
     job_instance.job.transition(models.JobStatus.INSTANTIATED)
+    ScopedSession.commit()
     resp = jsonify(job_instance_id=ji_id)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -276,6 +278,7 @@ def queue_job():
     job = ScopedSession.query(models.Job)\
         .filter_by(job_id=data['job_id']).first()
     job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
+    ScopedSession.commit()
     return "", 200
 
 

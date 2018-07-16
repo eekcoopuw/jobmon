@@ -45,7 +45,6 @@ class Requester(object):
         Returns:
             Server reply message
         """
-        # route = self.build_full_url(app_route)
         route = self.build_full_url(app_route)
         if request_type not in ['get', 'post']:
             raise ValueError("request_type must be one of 'get' or 'post'. "

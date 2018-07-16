@@ -152,6 +152,8 @@ def unwrap():
 
     # makes a dict
     args = vars(parser.parse_args())
+    with open('/homes/cpinho/forked_jobmon/cc.txt', 'w') as f:
+        f.write("in command_context. args are {}".format(args))
 
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
@@ -182,6 +184,9 @@ def unwrap():
                                      traceback.format_exc())
         returncode = None
 
+    with open('/homes/cpinho/forked_jobmon/cc.txt', 'a') as f:
+        f.write("rc is {} and stdout is {} and stderr is {}"
+                .format(stdout, stderr, returncode))
     print(stdout)
     eprint(stderr)
 

@@ -1,7 +1,6 @@
 from builtins import str
 import pytest
 import sys
-from queue import Empty
 
 from jobmon import models
 from jobmon.job_instance_factory import execute_sge
@@ -154,8 +153,7 @@ def test_blocking_update_timeout(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="sleep 3",
                                             name="foobarbaz"))
     job_list_manager_d.queue_job(job)
-    with pytest.raises(Empty):
-        job_list_manager_d.block_until_any_done_or_error(timeout=2)
+    assert job_list_manager_d.block_until_any_done_or_error(timeout=2) is None
 
 
 def test_sge_valid_command(job_list_manager_sge):
@@ -165,5 +163,6 @@ def test_sge_valid_command(job_list_manager_sge):
                                               mem_free=6))
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
+    job_list_manager_sge.get_job_statuses()
     assert (job_list_manager_sge.bound_tasks[job.job_id].status ==
-            models.JobStatus.INSTANTIATED)
+            models.JobStatus.DONE)
