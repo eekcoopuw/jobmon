@@ -13,6 +13,7 @@ from jobmon.reply_server import ReplyServer
 from jobmon.meta_models import task_dag
 from jobmon.workflow.workflow import WorkflowDAO
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
+from jobmon.attributes import attribute_models
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -49,6 +50,9 @@ class JobStateManager(ReplyServer):
         self.register_action("reset_job", self.reset_job)
         self.register_action("reset_incomplete_jobs",
                              self.reset_incomplete_jobs)
+
+        self.register_action("add_workflow_attribute", self.add_workflow_attribute)
+
 
         ctx = zmq.Context.instance()
         self.publisher = ctx.socket(zmq.PUB)
@@ -367,3 +371,13 @@ class JobStateManager(ReplyServer):
         for k, v in kwargs.items():
             setattr(job_instance, k, v)
         return (ReturnCodes.OK,)
+
+    def add_workflow_attribute(self, workflow_id, attribute_type, value):
+        workflow_attribute = attribute_models.WorkflowAttributes(workflow_id=workflow_id,
+                                                                 attribute_type=attribute_type,
+                                                                 value=value)
+        with session_scope() as session:
+            session.add(workflow_attribute)
+            session.commit()
+            workflow_attribute_id = workflow_attribute.id
+        return (ReturnCodes.OK, workflow_attribute_id)
