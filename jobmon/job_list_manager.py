@@ -4,7 +4,6 @@ from threading import Event, Thread
 from datetime import datetime
 
 from jobmon.config import config
-from jobmon.database import session_scope
 from jobmon.models import Job, JobStatus
 from jobmon.job_factory import JobFactory
 from jobmon.job_instance_factory import JobInstanceFactory

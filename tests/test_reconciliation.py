@@ -22,7 +22,6 @@ def job_list_manager_dummy(dag_id):
     # tests. Start this thread manually.
     jlm = JobListManager(dag_id, executor=execute_batch_dummy,
                          start_daemons=False, interrupt_on_error=False)
-    jlm._start_job_status_listener()
     return jlm
 
 
@@ -81,7 +80,7 @@ def reconciler_dummy_check(job_list_manager_dummy, job_id):
 
 def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
-    errors = job_list_manager_sge.get_new_errors()
+    job_list_manager_sge.all_error = set()
 
     # Queue a job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
@@ -96,17 +95,22 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
     jir = job_list_manager_sge.job_inst_reconciler
     jir.reconcile()
 
-    errors = job_list_manager_sge.get_new_errors()
-    assert len(errors) == 0
+    job_list_manager_sge.get_job_statuses()
+    assert len(job_list_manager_sge.all_error) == 0
 
     # Artificially advance job to DONE so it doesn't impact downstream tests
     jsm, _ = jsm_jqs
     for job_instance in jir._get_presumed_submitted_or_running():
+        req = jir.jsm_req
         try:
             # In case the job never actually got out of qw due to a busy
             # cluster
-            jsm.log_running(job_instance.job_instance_id,
-                            nodename='not_a_node', process_group_id=1234)
+            req.send_request(
+                app_route='/log_running',
+                message={'job_instance_id': job_instance.job_instance_id,
+                         'nodename': "not_a_node",
+                         'process_group_id': str(1234)},
+                request_type='post')
         except Exception as e:
             print(e)
         jsm.log_done(job_instance.job_instance_id)
@@ -114,7 +118,7 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
 
 def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
-    job_list_manager_sge.get_new_errors()
+    job_list_manager_sge.all_error = set()
 
     # Queue a test job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
@@ -138,9 +142,9 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
 
 def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
                                  job_id):
-    errors = job_list_manager_sge.get_new_errors()
-    if len(errors) == 1:
-        assert job_id in errors
+    job_list_manager_sge.get_job_statuses()
+    if len(job_list_manager_sge.all_error) == 1:
+        assert job_id in job_list_manager_sge.all_error
 
         # The job should have been tried 3 times...
         _, jqs = jsm_jqs
@@ -154,7 +158,7 @@ def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
 
 def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
-    job_list_manager_sge.get_new_errors()
+    job_list_manager_sge.get_job_statuses()
 
     # Qsub a long running job -> queue another job that waits on it,
     # to simulate a hqw -> set the timeout for that hqw job to something
@@ -179,9 +183,9 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
 
 
 def ignore_qw_in_timeouts_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):
-    errors = job_list_manager_sge.get_new_errors()
-    if len(errors) == 1:
-        assert job_id in errors
+    job_list_manager_sge.get_job_statuses()
+    if len(job_list_manager_sge.all_error) == 1:
+        assert job_id in job_list_manager_sge.all_error
 
         # The job should have been tried 3 times...
         _, jqs = jsm_jqs
