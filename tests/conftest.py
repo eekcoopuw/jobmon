@@ -163,10 +163,6 @@ def real_jsm_jqs(rcfile, session_edb):
 
 @pytest.fixture(scope='session')
 def jsm_jqs(rcfile, session_edb):
-    os.environ['JOBMON_CONFIG'] = sqlite_rcfile
-    from jobmon.config import config
-    config.conn_str = session_edb.conn_str
-
     from jobmon.services.job_state_manager import app as jsm_app
     from jobmon.services.job_query_server import app as jqs_app
 

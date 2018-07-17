@@ -42,7 +42,8 @@ def session_scope():
 
 
 def recreate_engine():
-    global engine, Session
+    global engine, Session, ScopedSession
     engine = sql.create_engine(config.conn_str, pool_recycle=300,
                                pool_size=3, max_overflow=100, pool_timeout=120)
     Session = sessionmaker(bind=engine)
+    ScopedSession = scoped_session(Session)
