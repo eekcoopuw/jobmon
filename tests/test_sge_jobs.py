@@ -28,8 +28,8 @@ def test_valid_command(dag_id, job_list_manager_sge):
 
 
 def valid_command_check(job_list_manager_sge):
-    done = job_list_manager_sge.get_new_done()
-    if len(done) == 1:
+    job_list_manager_sge.get_job_statuses()
+    if len(job_list_manager_sge.all_done) == 1:
         # Success
         return True
     else:
