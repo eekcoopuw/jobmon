@@ -4,7 +4,6 @@ from datetime import datetime
 from flask import jsonify, Flask, request
 from http import HTTPStatus
 
-from jobmon.config import config
 from jobmon import models
 from jobmon.database import ScopedSession
 from jobmon.pubsub_helpers import mogrify
@@ -19,11 +18,6 @@ from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-
-
-def flask_thread():
-    app.run(host="0.0.0.0", port=config.jsm_port, debug=True,
-            use_reloader=False, threaded=False)
 
 
 @app.teardown_appcontext
@@ -67,6 +61,9 @@ def add_job():
 
 @app.route('/add_task_dag', methods=['POST'])
 def add_task_dag():
+    from jobmon.config import config
+    with open('/homes/cpinho/forked_jobmon/jsm.txt', 'w') as f:
+        f.write("current conn_str is {}".format(config.conn_str))
     data = request.get_json(force=True)
     dag = task_dag.TaskDagMeta(
         name=data['name'],
@@ -369,6 +366,3 @@ def _update_job_instance(job_instance, **kwargs):
         setattr(job_instance, k, v)
     return
 
-
-if __name__ == '__main__':
-    flask_thread()

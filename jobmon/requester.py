@@ -55,7 +55,7 @@ class Requester(object):
         else:
             r = requests.get(route, params=message,
                              headers={'Content-Type': 'application/json'})
-        content = self.get_content(r)
+        content = get_content(r)
         if content:
             if verbose is True:
                 logger.debug(content)
@@ -63,12 +63,13 @@ class Requester(object):
         else:
             return r.status_code
 
-    def get_content(self, response):
-        if 'application/json' in response.headers.get('Content-Type'):
-            content = response.json()
-        else:
-            content = response.content
-        return content
-
     def build_full_url(self, app_route):
         return self.url + app_route
+
+
+def get_content(response):
+    if 'application/json' in response.headers.get('Content-Type'):
+        content = response.json()
+    else:
+        content = response.content
+    return content

@@ -162,11 +162,14 @@ def real_jsm_jqs(rcfile, session_edb):
 
 
 @pytest.fixture(scope='session')
-def jsm_jqs(session_edb):
-    from jobmon.services import job_state_manager as jsm
-    from jobmon.services import job_query_server as jqs
-    jsm_app = jsm.app
-    jqs_app = jqs.app
+def jsm_jqs(rcfile, session_edb):
+    os.environ['JOBMON_CONFIG'] = sqlite_rcfile
+    from jobmon.config import config
+    config.conn_str = session_edb.conn_str
+
+    from jobmon.services.job_state_manager import app as jsm_app
+    from jobmon.services.job_query_server import app as jqs_app
+
     jsm_app.config['TESTING'] = True
     jqs_app.config['TESTING'] = True
     jsm_client = jsm_app.test_client()
@@ -182,30 +185,41 @@ def monkeypatch_session():
     m.undo()
 
 
-@pytest.fixture(scope='session', autouse=True)
-def no_requests_jsm(monkeypatch_session, jsm_jqs):
+def get_flask_content(response):
+        if 'application/json' in response.headers.get('Content-Type'):
+            content = response.json
+        elif 'text/html' in response.headers.get('Content-Type'):
+            content = response.data
+        else:
+            content = response.content
+        return content
+
+
+@pytest.fixture(scope='function', autouse=True)
+def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
     import requests
-    jsm_client, _ = jsm_jqs
-    # monkeypatch_session.setattr(requests, 'post', jsm_client.post)
+    from jobmon import requester
+    jsm_client, jqs_client = jsm_jqs
 
+    def get_jqs(url, params, headers):
+        url = "/" + url.split('/')[-1]
+        return jqs_client.get(path=url, query_string=params, headers=headers)
+    monkeypatch.setattr(requests, 'get', get_jqs)
+    monkeypatch.setattr(requester, 'get_content', get_flask_content)
 
-@pytest.fixture(scope='session', autouse=True)
-def no_requests_jqs(monkeypatch_session, jsm_jqs):
-    import requests
-    _, jqs_client = jsm_jqs
-
-    # def get_jqs(url, params, headers):
-    #     url = "/" + url.split('/')[-1]
-    #     return jqs_client.get(path=url, query_string=params, headers=headers)
-    # monkeypatch_session.setattr(requests, 'get', get_jqs)
-    # monkeypatch_session.setattr(requests, 'post', jqs_client.post)
+    def post_jsm(url, json, headers):
+        url = "/" + url.split('/')[-1]
+        return jsm_client.post(url, json=json, headers=headers)
+    monkeypatch.setattr(requests, 'post', post_jsm)
+    monkeypatch.setattr(requester, 'get_content', get_flask_content)
 
 
 @pytest.fixture(scope='function')
-def dag_id(no_requests_jsm, no_requests_jqs, db_cfg):
+def dag_id(no_requests_jsm_jqs, db_cfg):
     import random
     from jobmon.requester import Requester
 
+    import pdb; pdb.set_trace()
     req = Requester(config.jsm_port, host=get_node_name())
     rc, response = req.send_request(
         app_route='/add_task_dag',
@@ -262,7 +276,7 @@ def job_list_manager_sge(dag_id, tmpdir_factory):
 
 
 @pytest.fixture(scope='function')
-def dag(db_cfg, jsm_jqs, request):
+def dag(db_cfg, no_requests_jsm_jqs, request):
     """Use a fixture for dag creation so that the dags' JobInstanceFactories
     and JobInstanceReconcilers get cleaned up after each test"""
     dag = TaskDag(name=request.node.name, interrupt_on_error=False)

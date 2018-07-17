@@ -165,4 +165,4 @@ def test_sge_valid_command(job_list_manager_sge):
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
     job_list_manager_sge.get_job_statuses()
     assert (job_list_manager_sge.bound_tasks[job.job_id].status ==
-            models.JobStatus.DONE)
+            models.JobStatus.INSTANTIATED)

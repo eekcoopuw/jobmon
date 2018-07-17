@@ -6,7 +6,6 @@ from sqlalchemy.orm import contains_eager
 from flask import jsonify, Flask, request
 from http import HTTPStatus
 
-from jobmon.config import config
 from jobmon.database import ScopedSession
 from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
 from jobmon.meta_models import TaskDagMeta
@@ -17,11 +16,6 @@ from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-
-
-def flask_thread():
-    app.run(host="0.0.0.0", port=config.jqs_port, debug=True,
-            use_reloader=False, threaded=False)
 
 
 @app.teardown_appcontext
@@ -178,7 +172,3 @@ def get_sge_ids_of_previous_workflow_run():
     resp = jsonify(sge_ids=sge_ids)
     resp.status_code = HTTPStatus.OK
     return resp
-
-
-if __name__ == '__main__':
-    flask_thread()

@@ -16,7 +16,6 @@ from jobmon.models import InvalidStateTransition, Job, JobInstanceErrorLog, \
     JobInstanceStatus, JobStatus, JobInstance
 from jobmon.workflow.executable_task import ExecutableTask
 from jobmon.workflow.workflow import WorkflowDAO
-from jobmon.workflow.workflow_run import WorkflowRunDAO
 
 
 HASH = 12345
@@ -56,7 +55,8 @@ def commit_hooked_jsm(jsm_jqs):
 
 
 def test_get_workflow_run_id(jsm_jqs, dag_id):
-    user = getpass.get_user()jsm, _ = jsm_jqs
+    user = getpass.get_user()
+    jsm, _ = jsm_jqs
     req = requester.Requester(config.jsm_port)
     # add job
     _, response = req.send_request(
@@ -91,10 +91,10 @@ def test_get_workflow_run_id(jsm_jqs, dag_id):
                  'stderr': None,
                  'stdout': None,
                  'project': 'proj_jenkins',
-                 'slack_channel': ""slack_channel"",
+                 'slack_channel': "",
                  'working_dir': ""},
         request_type='post')
-    wfr_id = response['workflow_run_id']
+    wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
     assert wf_run_id == jsm._get_workflow_run_id(job.job_id)
