@@ -191,7 +191,7 @@ def get_flask_content(response):
         return content
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope='function', autouse=True)
 def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
     import requests
     from jobmon import requester
@@ -215,7 +215,6 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
     import random
     from jobmon.requester import Requester
 
-    import pdb; pdb.set_trace()
     req = Requester(config.jsm_port, host=get_node_name())
     rc, response = req.send_request(
         app_route='/add_task_dag',

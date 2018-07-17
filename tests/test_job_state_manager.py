@@ -55,7 +55,7 @@ def commit_hooked_jsm(jsm_jqs):
 
 
 def test_get_workflow_run_id(jsm_jqs, dag_id):
-    user = getpass.get_user()
+    user = getpass.getuser()
     jsm, _ = jsm_jqs
     req = requester.Requester(config.jsm_port)
     # add job
@@ -64,14 +64,14 @@ def test_get_workflow_run_id(jsm_jqs, dag_id):
         message={'name': 'bar',
                  'job_hash': HASH,
                  'command': 'baz',
-                 'dag_id': dag_id},
+                 'dag_id': str(dag_id)},
         request_type='post')
     job = Job.from_wire(response['job_dct'])
 
     # add workflow
     _, response = req.send_request(
         app_route='/add_workflow',
-        message={'dag_id': dag_id,
+        message={'dag_id': str(dag_id),
                  'workflow_args': "args_{}".format(random.randint(1, 1e7)),
                  'workflow_hash': hashlib.sha1('hash_{}'
                                                .format(random.randint(1, 1e7))
@@ -84,12 +84,12 @@ def test_get_workflow_run_id(jsm_jqs, dag_id):
     # add workflow_run_id
     _, response = req.send_request(
         app_route='/add_workflow_run',
-        message={'workflow_id': wf[1]['id'],
+        message={'workflow_id': str(wf.id),
                  'user': user,
                  'hostname': socket.gethostname(),
-                 'pid': 000,
-                 'stderr': None,
-                 'stdout': None,
+                 'pid': '000',
+                 'stderr': "",
+                 'stdout': "",
                  'project': 'proj_jenkins',
                  'slack_channel': "",
                  'working_dir': ""},
@@ -97,32 +97,86 @@ def test_get_workflow_run_id(jsm_jqs, dag_id):
     wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
-    assert wf_run_id == jsm._get_workflow_run_id(job.job_id)
+    from jobmon.services.job_state_manager import _get_workflow_run_id
+    assert wf_run_id == _get_workflow_run_id(job.job_id)
 
 
 def test_get_workflow_run_id_no_workflow(jsm_jqs):
     jsm, _ = jsm_jqs
-    _, dag_id = jsm.add_task_dag("testing", "pytest user", "new_dag_hash",
-                                 datetime.utcnow())
-    _, job_dct = jsm.add_job("foobar", SECOND_HASH, "baz", dag_id)
-    job = Job.from_wire(job_dct)
-    assert not jsm._get_workflow_run_id(job.job_id)
+    req = requester.Requester(config.jsm_port)
+    rc, response = req.send_request(
+        app_route='/add_task_dag',
+        message={'name': 'testing dag', 'user': 'pytest_user',
+                 'dag_hash': 'new_dag_hash',
+                 'created_date': str(datetime.utcnow())},
+        request_type='post')
+    dag_id = response['dag_id']
+
+    _, response = req.send_request(
+        app_route='/add_job',
+        message={'name': 'foobar',
+                 'job_hash': str(SECOND_HASH),
+                 'command': 'baz',
+                 'dag_id': str(dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+    from jobmon.services.job_state_manager import _get_workflow_run_id
+    assert not _get_workflow_run_id(job.job_id)
 
 
 def test_jsm_valid_done(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
-    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
-    job = Job.from_wire(job_dct)
-    jsm.queue_job(job.job_id)
+    req = requester.Requester(config.jsm_port)
+    # add job
+    _, response = req.send_request(
+        app_route='/add_job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
 
+    # queue job
+    _, response = req.send_request(
+        app_route='/queue_job',
+        message={'job_id': str(job.job_id)},
+        request_type='post')
 
-    _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
-    jsm.log_executor_id(job_instance_id, 12345)
-    jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
-    jsm.log_usage(job_instance_id, usage_str='used resources',
-                  wallclock='0', maxvmem='1g', cpu='00:00:00', io='1')
-    jsm.log_done(job_instance_id)
+    # add job instance
+    _, response = req.send_request(
+        app_route='/add_job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = response['job_instance_id']
+
+    # do job logging
+    req.send_request(
+        app_route='log_executor_id',
+        message={'job_instance_id': str(job_instance_id),
+                 'executor_id': str(12345)},
+        request_type='post')
+    req.send_request(
+        app_route='log_running',
+        message={'job_instance_id': str(job_instance_id),
+                 'nodename': socket.gethostname(),
+                 'process_group_id': str(os.getpid())},
+        request_type='post')
+    req.send_request(
+        app_route='log_usage',
+        message={'job_instance_id': str(job_instance_id),
+                 'usage_str': 'used resources',
+                 'wallclock': '0',
+                 'maxvmem': '1g',
+                 'cpu': '00:00:00',
+                 'io': '1'},
+        request_type='post')
+    req.send_request(
+        app_route='log_done',
+        message={'job_instance_id': str(job_instance_id)},
+        request_type='post')
 
 
 def test_jsm_valid_error(jsm_jqs):
