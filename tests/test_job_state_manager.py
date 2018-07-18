@@ -4,7 +4,6 @@ import os
 import pytest
 import random
 import socket
-from queue import Empty
 
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
@@ -414,8 +413,7 @@ def test_single_publish_on_done(dag_id, job_list_manager_sub,
         message={'job_instance_id': str(job_instance_id)},
         request_type='post')
 
-    # Nonetype is not iterable because there aren't any jobs that are done
-    # or errored
+    import pdb; pdb.set_trace()
     done, _ = job_list_manager_sub.block_until_any_done_or_error(5)
     assert done[0].job_id == job.job_id
     assert done[0].status == JobStatus.DONE

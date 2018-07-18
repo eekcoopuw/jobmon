@@ -208,3 +208,6 @@ class JobListManager(object):
             args=(self.reconciliation_interval,))
         self.jir_proc.daemon = True
         self.jir_proc.start()
+
+    def disconnect(self):
+        self._stop_event.set()

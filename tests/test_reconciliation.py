@@ -3,6 +3,8 @@ import sys
 from time import sleep
 
 from jobmon import sge
+from jobmon.models import Job
+from jobmon.requester import Requester
 from jobmon.job_instance_factory import execute_batch_dummy, execute_sge
 from jobmon.job_list_manager import JobListManager
 from jobmon.workflow.executable_task import ExecutableTask as Task
@@ -44,7 +46,7 @@ def job_list_manager_dummy_nod(dag_id):
 
 def test_reconciler_dummy(job_list_manager_dummy):
     # Flush the error queue to avoid false positives from other tests
-    job_list_manager_dummy.get_new_errors()
+    job_list_manager_dummy.all_error = set()
 
     # Queue a job
     task = Task(command="ls", name="dummyfbb")
@@ -70,9 +72,9 @@ def test_reconciler_dummy(job_list_manager_dummy):
 
 
 def reconciler_dummy_check(job_list_manager_dummy, job_id):
-    errors = job_list_manager_dummy.get_new_errors()
-    if len(errors) == 1:
-        assert errors == [job_id]
+    job_list_manager_dummy.all_error = set()
+    if len(job_list_manager_dummy.all_error) == 1:
+        assert job_list_manager_dummy.all_error == [job_id]
         return True
     else:
         return False
@@ -113,7 +115,10 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
                 request_type='post')
         except Exception as e:
             print(e)
-        jsm.log_done(job_instance.job_instance_id)
+        req.send_request(
+            app_route='log_done',
+            message={'job_instance_id': job_instance.job_instance_id},
+            request_type='post')
 
 
 def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
@@ -142,15 +147,22 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
 
 def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
                                  job_id):
+    from jobmon.config import config
     job_list_manager_sge.get_job_statuses()
     if len(job_list_manager_sge.all_error) == 1:
-        assert job_id in job_list_manager_sge.all_error
+        assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
+
+        req = Requester(config.jqs_port)
 
         # The job should have been tried 3 times...
         _, jqs = jsm_jqs
-        rc, jobs = jqs.get_jobs(dag_id)
-        this_job = [j for j in jobs if j['job_id'] == job_id][0]
-        assert this_job['num_attempts'] == 3
+        _, response = req.send_request(
+            app_route='/get_jobs',
+            message={'dag_id': str(dag_id)},
+            request_type='get')
+        jobs = [Job.from_wire(j) for j in response['job_dcts']]
+        this_job = [j for j in jobs if j.job_id == job_id][0]
+        assert this_job.num_attempts == 3
         return True
     else:
         return False
@@ -158,7 +170,7 @@ def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
 
 def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
-    job_list_manager_sge.get_job_statuses()
+    job_list_manager_sge.all_error = set()
 
     # Qsub a long running job -> queue another job that waits on it,
     # to simulate a hqw -> set the timeout for that hqw job to something
@@ -183,15 +195,22 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
 
 
 def ignore_qw_in_timeouts_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):
+    from jobmon.config import config
     job_list_manager_sge.get_job_statuses()
     if len(job_list_manager_sge.all_error) == 1:
-        assert job_id in job_list_manager_sge.all_error
+        assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
+
+        req = Requester(config.jqs_port)
 
         # The job should have been tried 3 times...
         _, jqs = jsm_jqs
-        rc, jobs = jqs.get_jobs(dag_id)
-        this_job = [j for j in jobs if j['job_id'] == job_id][0]
-        assert this_job['num_attempts'] == 3
+        _, response = req.send_request(
+            app_route='/get_jobs',
+            message={'dag_id': str(dag_id)},
+            request_type='get')
+        jobs = [Job.from_wire(j) for j in response['job_dcts']]
+        this_job = [j for j in jobs if j.job_id == job_id][0]
+        assert this_job.num_attempts == 3
         return True
     else:
         return False
