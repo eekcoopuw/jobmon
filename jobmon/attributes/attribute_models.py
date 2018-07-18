@@ -2,16 +2,16 @@ from sqlalchemy import Column, ForeignKey, Integer, String
 from jobmon.sql_base import Base
 
 
-class WorkflowAttributeTypes(Base):
-    __tablename__ = 'workflow_attribute_types'
+class WorkflowAttributeType(Base):
+    __tablename__ = 'workflow_attribute_type'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255))
     type = Column(String(255))
 
 
-class WorkflowAttributes(Base):
-    __tablename__ = 'workflow_attributes'
+class WorkflowAttribute(Base):
+    __tablename__ = 'workflow_attribute'
 
     id = Column(Integer, primary_key=True)
     workflow_id = Column(Integer, ForeignKey('workflow.id'))
@@ -19,16 +19,16 @@ class WorkflowAttributes(Base):
     value = Column(String(255))
 
 
-class WorkflowRunAttributeTypes(Base):
-    __tablename__ = 'workflow_run_attribute_types'
+class WorkflowRunAttributeType(Base):
+    __tablename__ = 'workflow_run_attribute_type'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255))
     type = Column(String(255))
 
 
-class WorkflowRunAttributes(Base):
-    __tablename__ = 'workflow_run_attributes'
+class WorkflowRunAttribute(Base):
+    __tablename__ = 'workflow_run_attribute'
 
     id = Column(Integer, primary_key=True)
     workflow_run_id = Column(Integer, ForeignKey('workflow_run.id'))
@@ -36,16 +36,16 @@ class WorkflowRunAttributes(Base):
     value = Column(String(255))
 
 
-class JobAttributeTypes(Base):
-    __tablename__ = 'job_attribute_types'
+class JobAttributeType(Base):
+    __tablename__ = 'job_attribute_type'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255))
     type = Column(String(255))
 
 
-class JobAttributes(Base):
-    __tablename__ = 'job_attributes'
+class JobAttribute(Base):
+    __tablename__ = 'job_attribute'
 
     id = Column(Integer, primary_key=True)
     job_id = Column(Integer, ForeignKey('job.job_id'))

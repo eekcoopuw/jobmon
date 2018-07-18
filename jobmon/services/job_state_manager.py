@@ -373,9 +373,9 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def add_workflow_attribute(self, workflow_id, attribute_type, value):
-        workflow_attribute = attribute_models.WorkflowAttributes(workflow_id=workflow_id,
-                                                                 attribute_type=attribute_type,
-                                                                 value=value)
+        workflow_attribute = attribute_models.WorkflowAttribute(workflow_id=workflow_id,
+                                                                attribute_type=attribute_type,
+                                                                value=value)
         with session_scope() as session:
             session.add(workflow_attribute)
             session.commit()
