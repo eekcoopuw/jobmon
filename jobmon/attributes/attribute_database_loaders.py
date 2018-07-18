@@ -14,4 +14,3 @@ def load_attribute_types(session):
 
     session.add_all(attribute_types)
     session.commit()
-    print("populated table")

@@ -234,10 +234,3 @@ def dag_factory(db_cfg, jsm_jqs, request):
     for dag in dags:
         if dag.job_list_manager:
             dag.job_list_manager.disconnect()
-
-
-@pytest.fixture(scope='function')
-def load_attribute_types_tables(session_edb):
-    with database.session_scope() as session:
-        attribute_database_loaders.load_attribute_types(session)
-    yield config

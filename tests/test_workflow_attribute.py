@@ -5,7 +5,7 @@ from jobmon.database import session_scope
 from jobmon.attributes.constants import workflow_attribute_types
 
 
-def test_workflow_attribute(load_attribute_types_tables, dag):
+def test_workflow_attribute(dag):
     t1 = BashTask("sleep 1")
     dag.add_tasks([t1])
 
@@ -21,5 +21,5 @@ def test_workflow_attribute(load_attribute_types_tables, dag):
         workflow_attribute_type = workflow_attribute.attribute_type
         workflow_attribute_value = workflow_attribute.value
 
-        assert workflow_attribute_type == 4
+        assert workflow_attribute_type == workflow_attribute_types.NUM_YEARS.ID
         assert workflow_attribute_value == "100"

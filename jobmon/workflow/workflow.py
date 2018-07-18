@@ -327,3 +327,15 @@ class Workflow(object):
     def run(self):
         """Alias for self.execute"""
         return self.execute()
+
+    def add_workflow_attribute(self, attribute_type, value):
+        """Create workflow attribute entry in workflow_attributes table"""
+        if not self.is_bound:
+            self._bind()
+        rc, workflow_attribute_id = self.jsm_req.send_request({
+            'action': 'add_workflow_attribute',
+            'kwargs': {'workflow_id': self.id,
+                       'attribute_type': attribute_type,
+                       'value': value}
+        })
+        return workflow_attribute_id
