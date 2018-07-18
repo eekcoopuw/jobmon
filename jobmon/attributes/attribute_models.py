@@ -2,8 +2,8 @@ from sqlalchemy import Column, ForeignKey, Integer, String
 from jobmon.sql_base import Base
 
 
-class WorkflowAttributeType(Base):
-    __tablename__ = 'workflow_attribute_type'
+class WorkflowAttributeTypes(Base):
+    __tablename__ = 'workflow_attribute_types'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255))
@@ -19,8 +19,8 @@ class WorkflowAttributes(Base):
     value = Column(String(255))
 
 
-class WorkflowRunAttributeType(Base):
-    __tablename__ = 'workflow_run_attribute_type'
+class WorkflowRunAttributeTypes(Base):
+    __tablename__ = 'workflow_run_attribute_types'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255))
@@ -36,8 +36,8 @@ class WorkflowRunAttributes(Base):
     value = Column(String(255))
 
 
-class JobAttributeType(Base):
-    __tablename__ = 'job_attribute_type'
+class JobAttributeTypes(Base):
+    __tablename__ = 'job_attribute_types'
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255))
