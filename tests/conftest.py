@@ -79,6 +79,7 @@ from jobmon.job_list_manager import JobListManager
 from jobmon.services.job_query_server import JobQueryServer
 from jobmon.services.job_state_manager import JobStateManager
 from jobmon.workflow.task_dag import TaskDag
+from jobmon.attributes import attribute_database_loaders
 
 from cluster_utils.ephemerdb import create_ephemerdb
 
@@ -115,6 +116,7 @@ def session_edb(rcfile):
     try:
         with database.session_scope() as session:
             database_loaders.load_default_statuses(session)
+            attribute_database_loaders.load_attribute_types(session)
     except IntegrityError:
         pass
 
@@ -133,6 +135,7 @@ def db_cfg(session_edb):
     try:
         with database.session_scope() as session:
             database_loaders.load_default_statuses(session)
+            attribute_database_loaders.load_attribute_types(session)
     except IntegrityError:
         pass
 
@@ -216,6 +219,7 @@ def dag(db_cfg, jsm_jqs, request):
     if dag.job_list_manager:
         dag.job_list_manager.disconnect()
 
+
 @pytest.fixture(scope='function')
 def dag_factory(db_cfg, jsm_jqs, request):
 
@@ -230,3 +234,10 @@ def dag_factory(db_cfg, jsm_jqs, request):
     for dag in dags:
         if dag.job_list_manager:
             dag.job_list_manager.disconnect()
+
+
+@pytest.fixture(scope='function')
+def load_attribute_types_tables(session_edb):
+    with database.session_scope() as session:
+        attribute_database_loaders.load_attribute_types(session)
+    yield config
