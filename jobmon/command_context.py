@@ -163,6 +163,8 @@ def unwrap():
                                       hostname=args['jsm_host'])
     ji_intercom.log_running()
 
+    with open('/homes/cpinho/forked_jobmon/cc.txt', 'a') as f:
+        f.write("finished log_running")
     try:
         if 'last_nodename' in args and 'last_pgid' in args:
             kill_remote_process_group(args['last_nodename'], args['last_pgid'])

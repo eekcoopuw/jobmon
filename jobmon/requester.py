@@ -45,23 +45,35 @@ class Requester(object):
         Returns:
             Server reply message
         """
-        route = self.build_full_url(app_route)
-        if request_type not in ['get', 'post']:
-            raise ValueError("request_type must be one of 'get' or 'post'. "
-                             "Got {}".format(request_type))
-        if request_type == 'post':
-            r = requests.post(route, json=message,
-                              headers={'Content-Type': 'application/json'})
-        else:
-            r = requests.get(route, params=message,
-                             headers={'Content-Type': 'application/json'})
-        content = get_content(r)
-        if content:
-            if verbose is True:
-                logger.debug(content)
-            return r.status_code, content
-        else:
-            return r.status_code
+        try:
+            route = self.build_full_url(app_route)
+            if '/log_running' in app_route:
+                with open('/homes/cpinho/forked_jobmon/req.txt', 'w') as f:
+                    f.write("in req; {} request_type is {}"
+                            .format(app_route, request_type))
+            if request_type not in ['get', 'post']:
+                raise ValueError("request_type must be one of 'get' or 'post'. "
+                                 "Got {}".format(request_type))
+            if request_type == 'post':
+                r = requests.post(route, json=message,
+                                  headers={'Content-Type': 'application/json'})
+                if '/log_running' in app_route:
+                    with open('/homes/cpinho/forked_jobmon/req.txt', 'a') as f:
+                        f.write("in req; {} r is {}"
+                                .format(app_route, r))
+            else:
+                r = requests.get(route, params=message,
+                                 headers={'Content-Type': 'application/json'})
+            content = get_content(r)
+            if content:
+                if verbose is True:
+                    logger.debug(content)
+                return r.status_code, content
+            else:
+                return r.status_code
+        except Exception as e:
+            with open('/homes/cpinho/forked_jobmon/req.txt', 'a') as f:
+                    f.write("in req; exception is {}".format(e))
 
     def build_full_url(self, app_route):
         return self.url + app_route

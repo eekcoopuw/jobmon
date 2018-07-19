@@ -102,30 +102,27 @@ class JobListManager(object):
                     task=None, job=job, job_list_manager=self)
             self.hash_job_map[job.job_hash] = job
             self.job_hash_map[job] = job.job_hash
-        self.all_done = set([job for job in jobs
-                             if job.status == JobStatus.DONE])
-        self.all_error = set([job for job in jobs if job.status ==
-                              JobStatus.ERROR_FATAL])
         return jobs
 
     def parse_done_and_errors(self, jobs):
-        completed = []
-        completed_ids = []
-        failed = []
-        failed_ids = []
-        for task in jobs:
-            if task.status == JobStatus.DONE:
-                completed += [task]
-                completed_ids += [task.job_id]
-            elif task.status == JobStatus.ERROR_FATAL:
-                failed += [task]
-                failed_ids += [task.job_id]
+        completed_tasks = []
+        completed_jobs = []
+        failed_tasks = []
+        failed_jobs = []
+        for job in jobs:
+            task = self.bound_tasks[job.job_id]
+            if task.status == JobStatus.DONE and job not in self.all_done:
+                completed_tasks += [task]
+                completed_jobs += [job]
+            elif task.status == JobStatus.ERROR_FATAL and job not in self.all_error:
+                failed_tasks += [task]
+                failed_jobs += [job]
             else:
                 continue
-        self.all_done.update(set(completed))
-        self.all_error -= set(completed)
-        self.all_error.update(set(failed))
-        return list(self.all_done), list(self.all_error)
+        self.all_done.update(set(completed_jobs))
+        self.all_error -= set(completed_jobs)
+        self.all_error.update(set(failed_jobs))
+        return completed_tasks, failed_tasks
 
     def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
         time_since_last_update = 0
@@ -133,9 +130,9 @@ class JobListManager(object):
             if time_since_last_update > timeout:
                 return None
             jobs = self.get_job_statuses()
-            done, error = self.parse_done_and_errors(jobs)
-            if done or error:
-                return done, error
+            completed, failed = self.parse_done_and_errors(jobs)
+            if completed or failed:
+                return completed, failed
             time.sleep(poll_interval)
             time_since_last_update += poll_interval
 

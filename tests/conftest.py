@@ -276,3 +276,13 @@ def dag(db_cfg, no_requests_jsm_jqs, request):
     and JobInstanceReconcilers get cleaned up after each test"""
     dag = TaskDag(name=request.node.name, interrupt_on_error=False)
     yield dag
+
+
+@pytest.fixture(scope='function')
+def real_dag(db_cfg, real_jsm_jqs, request):
+    """Use a fixture for dag creation so that the dags' JobInstanceFactories
+    and JobInstanceReconcilers get cleaned up after each test"""
+    dag = TaskDag(name=request.node.name, interrupt_on_error=False)
+    yield dag
+    if dag.job_list_manager:
+        dag.job_list_manager.disconnect()

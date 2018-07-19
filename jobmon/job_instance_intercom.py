@@ -20,6 +20,8 @@ class JobInstanceIntercom(object):
         self.hostname = hostname
         self.requester = Requester(config.jsm_port, host=hostname)
         logger.debug("Instantiated JobInstanceIntercom")
+        with open('/homes/cpinho/forked_jobmon/jii.txt', 'w') as f:
+            f.write("in jii; Instantiated JobInstanceIntercom")
 
     def log_done(self):
         return self.requester.send_request(
@@ -57,11 +59,13 @@ class JobInstanceIntercom(object):
             return False
 
     def log_running(self):
-        rc = self.requester.send_request(
+        with open('/homes/cpinho/forked_jobmon/jii.txt', 'a') as f:
+            f.write("in jii; in log_running")
+        rc, response = self.requester.send_request(
             app_route='/log_running',
             message={'job_instance_id': str(self.job_instance_id),
                      'nodename': socket.gethostname(),
                      'process_group_id': str(self.process_group_id)},
             request_type='post')
-        with open('/homes/cpinho/forked_jobmon/jii.txt', 'w') as f:
+        with open('/homes/cpinho/forked_jobmon/jii.txt', 'a') as f:
             f.write("in jii; log_running rc is {}".format(rc))

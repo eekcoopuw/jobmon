@@ -187,7 +187,9 @@ def log_done():
     msg = _update_job_instance_state(
         ji, models.JobInstanceStatus.DONE)
     ScopedSession.commit()
-    return msg, 200
+    resp = jsonify(message=msg)
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 @app.route('/log_error', methods=['POST'])
@@ -203,7 +205,9 @@ def log_error():
         description=data['error_message'])
     ScopedSession.add(error)
     ScopedSession.commit()
-    return msg, 200
+    resp = jsonify(message=msg)
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 @app.route('/log_executor_id', methods=['POST'])
@@ -216,7 +220,9 @@ def log_executor_id():
         ji, models.JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     _update_job_instance(ji, executor_id=data['executor_id'])
     ScopedSession.commit()
-    return msg, 200
+    resp = jsonify(message=msg)
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 @app.route('/log_heartbeat', methods=['POST'])
@@ -227,7 +233,9 @@ def log_heartbeat():
     if dag:
         dag.heartbeat_date = datetime.utcnow()
         ScopedSession.commit()
-    return "", 200
+    resp = jsonify()
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 @app.route('/log_running', methods=['POST'])
@@ -240,7 +248,9 @@ def log_running():
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
     ScopedSession.commit()
-    return msg, 200
+    resp = jsonify(message=msg)
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 @app.route('/log_nodename', methods=['POST'])
@@ -248,9 +258,11 @@ def log_nodename():
     data = request.get_json()
     logger.debug("Log USAGE for JI {}".format(data['job_instance_id']))
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
-    _update_job_instance(ji, nodename=data['nodename'])
+    msg = _update_job_instance(ji, nodename=data['nodename'])
     ScopedSession.commit()
-    return "", 200
+    resp = jsonify(message=msg)
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 @app.route('/log_usage', methods=['POST'])
@@ -258,14 +270,16 @@ def log_usage():
     data = request.get_json()
     logger.debug("Log USAGE for JI {}".format(data['job_instance_id']))
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
-    _update_job_instance(ji,
-                         usage_str=data.get('usage_str', None),
-                         wallclock=data.get('wallclock', None),
-                         maxvmem=data.get('maxvmem', None),
-                         cpu=data.get('cpu', None),
-                         io=data.get('io', None))
+    msg = _update_job_instance(ji,
+                               usage_str=data.get('usage_str', None),
+                               wallclock=data.get('wallclock', None),
+                               maxvmem=data.get('maxvmem', None),
+                               cpu=data.get('cpu', None),
+                               io=data.get('io', None))
     ScopedSession.commit()
-    return "", 200
+    resp = jsonify(message=msg)
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 @app.route('/queue_job', methods=['POST'])
@@ -276,7 +290,9 @@ def queue_job():
         .filter_by(job_id=data['job_id']).first()
     job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
     ScopedSession.commit()
-    return "", 200
+    resp = jsonify()
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 @app.route('/reset_job', methods=['POST'])
@@ -286,7 +302,9 @@ def reset_job():
         .filter_by(job_id=data['job_id']).first()
     job.reset()
     ScopedSession.commit()
-    return "", 200
+    resp = jsonify()
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 @app.route('/reset_incomplete_jobs', methods=['POST'])
@@ -329,7 +347,9 @@ def reset_incomplete_jobs():
         {"dag_id": data['dag_id'],
          "done_status": models.JobStatus.DONE})
     ScopedSession.commit()
-    return "", 200
+    resp = jsonify()
+    resp.status_code = HTTPStatus.OK
+    return resp
 
 
 def _get_job_instance(session, job_instance_id):

@@ -109,6 +109,7 @@ def test_blocking_updates(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="sleep 1",
                                             name="foobarbaz"))
     job_list_manager_d.queue_job(job)
+    import pdb; pdb.set_trace()
     done, _ = job_list_manager_d.block_until_any_done_or_error()
     assert len(done) == 1
     assert done[0].job_id == job.job_id
