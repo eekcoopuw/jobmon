@@ -329,7 +329,7 @@ class Workflow(object):
         return self.execute()
 
     def add_workflow_attribute(self, attribute_type, value):
-        """Create workflow attribute entry in workflow_attributes table"""
+        """Create workflow attribute entry in workflow_attribute table"""
         if self.is_bound:
             rc, workflow_attribute_id = self.jsm_req.send_request({
                 'action': 'add_workflow_attribute',

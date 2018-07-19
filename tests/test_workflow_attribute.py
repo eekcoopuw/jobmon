@@ -16,7 +16,7 @@ def test_workflow_attribute(dag):
     workflow.add_workflow_attribute(workflow_attribute_type.NUM_YEARS.ID, "100")
 
     with session_scope() as session:
-        # query from workflow_attributes table
+        # query from workflow_attribute table
         workflow_attribute_query = session.execute("""
                                         SELECT wf_att.id, wf_att.workflow_id,
                                                wf_att.attribute_type, wf_att.value

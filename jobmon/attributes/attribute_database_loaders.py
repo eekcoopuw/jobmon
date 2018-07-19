@@ -6,7 +6,7 @@ def load_attribute_types(session):
     """adds list of attributes to a specific attribute_type table"""
     attribute_types = []
 
-    # load attributes for workflow_attribute_types table
+    # load attributes for workflow_attribute_type table
     for attribute_type in workflow_attribute_type:
         wf_attribute_types = WorkflowAttributeType(name=attribute_type,
                                                     type=getattr(workflow_attribute_type, attribute_type).TYPE)
