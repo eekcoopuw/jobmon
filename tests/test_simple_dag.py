@@ -233,9 +233,10 @@ def test_fork_and_join_tasks(tmp_out_dir, real_dag):
 
     logger.info("real_dag: {}".format(real_dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = real_dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
-    assert rc == real_dagExecutionStatus.SUCCEEDED
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0
@@ -308,9 +309,10 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, real_dag):
 
     logger.info("real_dag: {}".format(real_dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = real_dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
-    assert rc == real_dagExecutionStatus.FAILED
+    assert rc == DagExecutionStatus.FAILED
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
     assert num_completed == 1 + 2 + 2
     assert num_previously_complete == 0
@@ -387,9 +389,10 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, real_dag):
 
     logger.info("real_dag: {}".format(real_dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = real_dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
-    assert rc == real_dagExecutionStatus.SUCCEEDED
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0
@@ -490,7 +493,8 @@ def test_bushy_real_dag(tmp_out_dir, real_dag):
 
     logger.info("real_dag: {}".format(real_dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = real_dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
     # TODO: How to check that nothing was started before its upstream were
     # done?
@@ -498,7 +502,7 @@ def test_bushy_real_dag(tmp_out_dir, real_dag):
     # creation, not qsub status_date is date of last change.
     # Could we listen to job-instance state transitions?
 
-    assert rc == real_dagExecutionStatus.SUCCEEDED
+    assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0

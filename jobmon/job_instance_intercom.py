@@ -20,8 +20,6 @@ class JobInstanceIntercom(object):
         self.hostname = hostname
         self.requester = Requester(config.jsm_port, host=hostname)
         logger.debug("Instantiated JobInstanceIntercom")
-        with open('/homes/cpinho/forked_jobmon/jii.txt', 'w') as f:
-            f.write("in jii; Instantiated JobInstanceIntercom")
 
     def log_done(self):
         return self.requester.send_request(
@@ -35,8 +33,6 @@ class JobInstanceIntercom(object):
             message={'job_instance_id': str(self.job_instance_id),
                      'error_message': error_message},
             request_type='post')
-        with open('/homes/cpinho/forked_jobmon/jii.txt', 'a') as f:
-            f.write("log_error rc is {}".format(rc))
         return rc
 
     def log_job_stats(self, job_id):
@@ -51,21 +47,15 @@ class JobInstanceIntercom(object):
             rc = self.requester.send_request(app_route='/log_usage',
                                              message=msg,
                                              request_type='post')
-            with open('/homes/cpinho/forked_jobmon/jii.txt', 'a') as f:
-                f.write("rc is {}".format(rc))
             return rc
         else:
             logger.debug("In log_job_stats: job_id is None")
             return False
 
     def log_running(self):
-        with open('/homes/cpinho/forked_jobmon/jii.txt', 'a') as f:
-            f.write("in jii; in log_running")
         rc, response = self.requester.send_request(
             app_route='/log_running',
             message={'job_instance_id': str(self.job_instance_id),
                      'nodename': socket.gethostname(),
                      'process_group_id': str(self.process_group_id)},
             request_type='post')
-        with open('/homes/cpinho/forked_jobmon/jii.txt', 'a') as f:
-            f.write("in jii; log_running rc is {}".format(rc))

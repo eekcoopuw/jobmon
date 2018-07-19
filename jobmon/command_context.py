@@ -152,8 +152,6 @@ def unwrap():
 
     # makes a dict
     args = vars(parser.parse_args())
-    with open('/homes/cpinho/forked_jobmon/cc.txt', 'w') as f:
-        f.write("in command_context. args are {}".format(args))
 
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
@@ -163,8 +161,6 @@ def unwrap():
                                       hostname=args['jsm_host'])
     ji_intercom.log_running()
 
-    with open('/homes/cpinho/forked_jobmon/cc.txt', 'a') as f:
-        f.write("finished log_running")
     try:
         if 'last_nodename' in args and 'last_pgid' in args:
             kill_remote_process_group(args['last_nodename'], args['last_pgid'])
@@ -186,9 +182,6 @@ def unwrap():
                                      traceback.format_exc())
         returncode = None
 
-    with open('/homes/cpinho/forked_jobmon/cc.txt', 'a') as f:
-        f.write("rc is {} and stdout is {} and stderr is {}"
-                .format(stdout, stderr, returncode))
     print(stdout)
     eprint(stderr)
 
