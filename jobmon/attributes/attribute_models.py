@@ -15,7 +15,7 @@ class WorkflowAttribute(Base):
 
     id = Column(Integer, primary_key=True)
     workflow_id = Column(Integer, ForeignKey('workflow.id'))
-    attribute_type = Column(Integer)
+    attribute_type = Column(Integer, ForeignKey('workflow_attribute_type.id'))
     value = Column(String(255))
 
 
@@ -32,7 +32,7 @@ class WorkflowRunAttribute(Base):
 
     id = Column(Integer, primary_key=True)
     workflow_run_id = Column(Integer, ForeignKey('workflow_run.id'))
-    attribute_type = Column(Integer)
+    attribute_type = Column(Integer, ForeignKey('workflow_run_attribute_type.id'))
     value = Column(String(255))
 
 
@@ -49,6 +49,6 @@ class JobAttribute(Base):
 
     id = Column(Integer, primary_key=True)
     job_id = Column(Integer, ForeignKey('job.job_id'))
-    attribute_type = Column(Integer)
+    attribute_type = Column(Integer, ForeignKey('job_attribute_type.id'))
     value = Column(String(255))
 

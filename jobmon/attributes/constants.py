@@ -1,11 +1,11 @@
 from jobmon.attributes.attribute_dictionary import AttributeDictionary
 
-workflow_attribute_type = AttributeDictionary({
-    'NUM_LOCATIONS':AttributeDictionary({'ID':1,'TYPE':'int'}),
-    'NUM_DRAWS':AttributeDictionary({'ID':2,'TYPE':'int'}),
-    'NUM_AGE_GROUPS':AttributeDictionary({'ID':3,'TYPE':'int'}),
-    'NUM_YEARS':AttributeDictionary({'ID':4,'TYPE':'int'}),
-    'NUM_RISKS':AttributeDictionary({'ID':5,'TYPE':'int'}),
-    'NUM_CAUSES':AttributeDictionary({'ID':6,'TYPE':'int'}),
-    'NUM_SEXES': AttributeDictionary({'ID': 7, 'TYPE': 'int'}),
-    'TAG': AttributeDictionary({'ID':8, 'TYPE':'string'})})
+workflow_attribute = AttributeDictionary({
+    'NUM_LOCATIONS': 1,
+    'NUM_DRAWS': 2,
+    'NUM_AGE_GROUPS': 3,
+    'NUM_YEARS': 4,
+    'NUM_RISKS': 5,
+    'NUM_CAUSES': 6,
+    'NUM_SEXES': 7,
+    'TAG': 8})

@@ -331,13 +331,16 @@ class Workflow(object):
     def add_workflow_attribute(self, attribute_type, value):
         """Create workflow attribute entry in workflow_attribute table"""
         if self.is_bound:
-            rc, workflow_attribute_id = self.jsm_req.send_request({
-                'action': 'add_workflow_attribute',
-                'kwargs': {'workflow_id': self.id,
-                           'attribute_type': attribute_type,
-                           'value': value}
-            })
-            return workflow_attribute_id
+            if isinstance(attribute_type, int) and isinstance(value, str):
+                rc, workflow_attribute_id = self.jsm_req.send_request({
+                    'action': 'add_workflow_attribute',
+                    'kwargs': {'workflow_id': self.id,
+                               'attribute_type': attribute_type,
+                               'value': value}
+                })
+                return workflow_attribute_id
+            else:
+                raise ValueError("Invalid attribute input.")
         else:
             raise AttributeError("Workflow is not yet bound")
 
