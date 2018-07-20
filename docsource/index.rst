@@ -26,6 +26,7 @@ Table of Contents
     advanced_dependencies
     dag_visualization
     services
+    azure
     glossary
     design_notes
     API Reference <modules>
