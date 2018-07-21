@@ -387,9 +387,8 @@ def test_force_new_workflow_instead_of_resume(simple_workflow):
     pass
 
 
-def test_dag_reset(real_jsm_jqs, simple_workflow_w_errors):
+def test_dag_reset(simple_workflow_w_errors):
     # Alias to shorter names...
-    jsm, _ = real_jsm_jqs
     err_wf  = simple_workflow_w_errors
 
     dag_id = err_wf.task_dag.dag_id
@@ -405,7 +404,13 @@ def test_dag_reset(real_jsm_jqs, simple_workflow_w_errors):
 
     # Now RESET and make sure all the jobs that aren't "DONE" flip back to
     # REGISTERED
-    jsm.reset_incomplete_jobs(dag_id)
+    from jobmon.requester import Requester
+    from jobmon.config import config
+    req = Requester(config.jsm_port)
+    rc, _ = req.send_request(
+        app_route='/reset_incomplete_jobs',
+        message={'dag_id': dag_id},
+        request_type='post')
     with session_scope() as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id).all()
         assert len(jobs) == 4
