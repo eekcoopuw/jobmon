@@ -38,6 +38,7 @@ class JobListManager(object):
 
         self.all_done = set()
         self.all_error = set()
+        self._sync()
 
         self.reconciliation_interval = reconciliation_interval
         self.job_instantiation_interval = job_instantiation_interval
@@ -123,6 +124,10 @@ class JobListManager(object):
         self.all_error -= set(completed_jobs)
         self.all_error.update(set(failed_jobs))
         return completed_tasks, failed_tasks
+
+    def _sync(self):
+        jobs = self.get_job_statuses()
+        self.parse_done_and_errors(jobs)
 
     def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
         time_since_last_update = 0

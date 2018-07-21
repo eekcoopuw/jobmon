@@ -34,15 +34,6 @@ def _is_alive():
     return resp
 
 
-@app.errorhandler(404)
-def no_results(error=None):
-    message = {'message': 'Results not found {}'.format(error)}
-    resp = jsonify(message)
-    resp.status_code = 404
-
-    return resp
-
-
 @app.route('/get_queued', methods=['GET'])
 def get_queued_for_instantiation():
     jobs = ScopedSession.query(Job).filter_by(
@@ -136,15 +127,21 @@ def get_workflows_by_inputs():
         filter(WorkflowDAO.dag_id == request.args['dag_id']).\
         filter(WorkflowDAO.workflow_args == request.args['workflow_args'])\
         .first()
+    with open('/homes/cpinho/forked_jobmon/jqs.txt', 'w') as f:
+        f.write("in get_workflows_by_inputs. workflow is {}".format(workflow))
     if workflow:
+        with open('/homes/cpinho/forked_jobmon/jqs.txt', 'a') as f:
+            f.write("if workflow=True.")
         resp = jsonify(workflow_dct=workflow.to_wire())
         resp.status_code = HTTPStatus.OK
+        return resp
     else:
-        resp = no_results()
-    return resp
+        with open('/homes/cpinho/forked_jobmon/jqs.txt', 'a') as f:
+            f.write("if workflow=False.")
+        return '', HTTPStatus.NO_CONTENT
 
 
-@app.route('/workflow_running', methods=['GET'])
+@app.route('/is_workflow_running', methods=['GET'])
 def is_workflow_running():
     """Check if a previous workflow run for your user is still running """
     wf_run = (ScopedSession.query(WorkflowRunDAO).filter_by(
@@ -164,7 +161,7 @@ def is_workflow_running():
     return resp
 
 
-@app.route('/sge_ids_of_previous_workflow_run', methods=['GET'])
+@app.route('/get_sge_ids_of_previous_workflow_run', methods=['GET'])
 def get_sge_ids_of_previous_workflow_run():
     jis = ScopedSession.query(JobInstance).filter_by(
         workflow_run_id=request.args['workflow_run_id']).all()

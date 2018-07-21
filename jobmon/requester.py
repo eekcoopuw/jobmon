@@ -59,9 +59,7 @@ class Requester(object):
         if content:
             if verbose is True:
                 logger.debug(content)
-            return r.status_code, content
-        else:
-            return r.status_code
+        return r.status_code, content
 
     def build_full_url(self, app_route):
         return self.url + app_route

@@ -39,25 +39,25 @@ def match_name_to_sge_name(jid):
     return sge_jobname
 
 
-def get_task_status(dag, task):
-    job_list_manager = dag.job_list_manager
+def get_task_status(real_dag, task):
+    job_list_manager = real_dag.job_list_manager
     return job_list_manager.status_from_task(task)
 
 
-def test_bash_task(dag):
+def test_bash_task(real_dag):
     """
     Create a dag with one very simple BashTask and execute it
     """
     name = 'bash_task'
     task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
                     max_runtime=60)
-    dag.add_task(task)
+    real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
-        dag._execute(executor_args={'project': 'proj_jenkins'}))
+        real_dag._execute(executor_args={'project': 'proj_jenkins'}))
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
-    assert get_task_status(dag, task) == JobStatus.DONE
+    assert get_task_status(real_dag, task) == JobStatus.DONE
 
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
@@ -70,7 +70,7 @@ def test_bash_task(dag):
     assert sge_jobname == name
 
 
-def test_python_task(dag, tmp_out_dir):
+def test_python_task(real_dag, tmp_out_dir):
     """
     Execute a PythonTask
     """
@@ -85,13 +85,13 @@ def test_python_task(dag, tmp_out_dir):
                             "--output_file_path", output_file_name,
                             "--name", name],
                       name=name, mem_free=1, max_attempts=2, max_runtime=60)
-    dag.add_task(task)
+    real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
-        dag._execute(executor_args={'project': 'proj_jenkins'}))
+        real_dag._execute(executor_args={'project': 'proj_jenkins'}))
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
-    assert get_task_status(dag, task) == JobStatus.DONE
+    assert get_task_status(real_dag, task) == JobStatus.DONE
 
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
@@ -104,7 +104,7 @@ def test_python_task(dag, tmp_out_dir):
     assert sge_jobname == name
 
 
-def test_R_task(dag, tmp_out_dir):
+def test_R_task(real_dag, tmp_out_dir):
     """
     Execute an RTask
     """
@@ -115,13 +115,13 @@ def test_R_task(dag, tmp_out_dir):
 
     task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name,
                  mem_free=1, max_attempts=2, max_runtime=60)
-    dag.add_task(task)
+    real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
-        dag._execute(executor_args={'project': 'proj_jenkins'}))
+        real_dag._execute(executor_args={'project': 'proj_jenkins'}))
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
-    assert get_task_status(dag, task) == JobStatus.DONE
+    assert get_task_status(real_dag, task) == JobStatus.DONE
 
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
@@ -134,7 +134,7 @@ def test_R_task(dag, tmp_out_dir):
     assert sge_jobname == name
 
 
-def test_stata_task(dag, tmp_out_dir):
+def test_stata_task(real_dag, tmp_out_dir):
     """
     Execute a simple stata Task
     """
@@ -144,13 +144,13 @@ def test_stata_task(dag, tmp_out_dir):
 
     task = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
                      name=name, mem_free=1, max_attempts=2, max_runtime=60)
-    dag.add_task(task)
+    real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
-        dag._execute(executor_args={'project': 'proj_jenkins'}))
+        real_dag._execute(executor_args={'project': 'proj_jenkins'}))
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
-    assert get_task_status(dag, task) == JobStatus.DONE
+    assert get_task_status(real_dag, task) == JobStatus.DONE
 
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()

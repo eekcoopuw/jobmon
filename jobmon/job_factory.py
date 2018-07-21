@@ -59,7 +59,7 @@ class JobFactory(object):
         return Job.from_wire(response['job_dct'])
 
     def queue_job(self, job_id):
-        rc = self.requester.send_request(
+        rc, _ = self.requester.send_request(
             app_route='/queue_job',
             message={'job_id': job_id},
             request_type='post')
@@ -68,7 +68,7 @@ class JobFactory(object):
         return rc
 
     def reset_jobs(self):
-        rc = self.requester.send_request(
+        rc, _ = self.requester.send_request(
             app_route='/reset_incomplete_jobs',
             message={'dag_id': self.dag_id},
             request_type='post')

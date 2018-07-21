@@ -107,7 +107,7 @@ class Workflow(object):
         self.project = project
         self.working_dir = working_dir
 
-        self.jsm_req = Requester(config.jm_port)
+        self.jsm_req = Requester(config.jsm_port)
         self.jqs_req = Requester(config.jqs_port)
 
         self.reset_running_jobs = reset_running_jobs
@@ -203,7 +203,7 @@ class Workflow(object):
             # Create new workflow in Database
             rc, response = self.jsm_req.send_request(
                 app_route='/add_workflow',
-                message={'dag_id': self.task_dag.dag_id,
+                message={'dag_id': str(self.task_dag.dag_id),
                          'workflow_args': self.workflow_args,
                          'workflow_hash': self._compute_hash(),
                          'name': self.name,
@@ -260,18 +260,18 @@ class Workflow(object):
         for dag_id in dag_ids:
             rc, response = self.jqs_req.send_request(
                 app_route='/get_workflows_by_inputs',
-                message={'dag_id': dag_id,
-                         'workflow_args': self.workflow_args},
+                message={'dag_id': str(dag_id),
+                         'workflow_args': str(self.workflow_args)},
                 request_type='get')
-            wf = response['workflow_dct']
             if rc == HTTPStatus.OK:
+                wf = response['workflow_dct']
                 workflows.append(wf)
         return [WorkflowDAO.from_wire(w) for w in workflows]
 
     def _update_status(self, status):
         rc, response = self.jsm_req.send_request(
             app_route='/update_workflow',
-            message={'wf_id': self.id, 'status': status},
+            message={'wf_id': str(self.id), 'status': status},
             request_type='post')
         wf_dct = response['workflow_dct']
         self.wf_dao = WorkflowDAO.from_wire(wf_dct)

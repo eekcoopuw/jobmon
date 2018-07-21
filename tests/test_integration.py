@@ -53,7 +53,7 @@ def test_invalid_command(job_list_manager):
     assert len(job_list_manager.all_error) == 0
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    job_list_manager.get_job_statuses()
+    job_list_manager._sync()
     assert len(job_list_manager.all_error) > 0
 
 
@@ -68,7 +68,7 @@ def test_valid_command(job_list_manager):
     assert len(njobs1) == 1
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    job_list_manager.get_job_statuses()
+    job_list_manager._sync()
     assert len(job_list_manager.all_done) > 0
 
 
@@ -84,7 +84,7 @@ def test_daemon_invalid_command(job_list_manager_d):
 
 
 def daemon_invalid_command_check(job_list_manager_d):
-    job_list_manager_d.get_job_statuses()
+    job_list_manager._sync()
     return len(job_list_manager_d.all_error) == 1
 
 
@@ -99,7 +99,7 @@ def test_daemon_valid_command(job_list_manager_d):
 
 
 def daemon_valid_command_check(job_list_manager_d):
-    job_list_manager_d.get_job_statuses()
+    job_list_manager._sync()
     return len(job_list_manager_d.all_done) == 1
 
 
@@ -109,7 +109,6 @@ def test_blocking_updates(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="sleep 1",
                                             name="foobarbaz"))
     job_list_manager_d.queue_job(job)
-    import pdb; pdb.set_trace()
     done, _ = job_list_manager_d.block_until_any_done_or_error()
     assert len(done) == 1
     assert done[0].job_id == job.job_id
@@ -164,6 +163,6 @@ def test_sge_valid_command(job_list_manager_sge):
                                               mem_free=6))
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
-    job_list_manager_sge.get_job_statuses()
+    job_list_manager._sync()
     assert (job_list_manager_sge.bound_tasks[job.job_id].status ==
             models.JobStatus.INSTANTIATED)

@@ -16,7 +16,7 @@ else:
     from functools import partial
 
 
-def test_valid_command(dag_id, job_list_manager_sge):
+def test_valid_command(real_dag_id, job_list_manager_sge):
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="sge_foobar", slots=2, mem_free=4, max_attempts=3))
@@ -36,7 +36,7 @@ def valid_command_check(job_list_manager_sge):
         return False
 
 
-def test_context_args(jsm_jqs, job_list_manager_sge):
+def test_context_args(real_jsm_jqs, job_list_manager_sge):
     delay_to = (datetime.now() + timedelta(minutes=5)).strftime("%m%d%H%M")
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),

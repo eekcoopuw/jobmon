@@ -76,7 +76,8 @@ class WorkflowRun(object):
                  slack_channel='jobmon-alerts', working_dir=None,
                  reset_running_jobs=True):
         self.workflow_id = workflow_id
-        self.jsm_req = Requester(config.jm_port)
+        self.jsm_req = Requester(config.jsm_port)
+        self.jqs_req = Requester(config.jqs_port)
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
@@ -101,7 +102,7 @@ class WorkflowRun(object):
 
     def check_if_workflow_is_running(self):
         rc, response = \
-            self.jsm_req.send_request(
+            self.jqs_req.send_request(
                 app_route='/is_workflow_running',
                 message={'workflow_id': str(self.workflow_id)},
                 request_type='get')
@@ -142,7 +143,7 @@ class WorkflowRun(object):
         else:
             kill_remote_process(hostname, pid)
             if reset_running_jobs:
-                _, response = self.jsm_req.send_request(
+                _, response = self.jqs_req.send_request(
                     app_route='/get_sge_ids_of_previous_workflow_run',
                     message={'workflow_run_id': wf_run_id},
                     request_type='get')
