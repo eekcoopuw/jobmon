@@ -4,6 +4,7 @@ from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.workflow import Workflow
 from jobmon.database import session_scope
 from jobmon.attributes.constants import workflow_attribute
+from jobmon.attributes.attribute_models import WorkflowAttribute
 
 
 def test_workflow_attribute(dag):
@@ -39,11 +40,32 @@ def test_workflow_attribute_input_error(dag):
     t1 = BashTask("sleep 1")
     dag.add_tasks([t1])
 
-    wfa = "workflow_with_attribute"
+    wfa = "workflow_with_wrong_arg_attribute"
     workflow = Workflow(dag, wfa)
     workflow.execute()
 
     # add an attribute with wrong types to the workflow
-    with pytest.raises(ValueError) as excinfo:
-        workflow.add_workflow_attribute("num_location", 5)
-    assert str(excinfo.value) == "Invalid attribute input."
+    with pytest.raises(ValueError) as exc:
+        workflow.add_workflow_attribute(7.8, "dog")
+    assert "Invalid attribute" in str(exc.value)
+
+
+def test_workflow_attribute_tag(dag):
+    t1 = BashTask("sleep 1")
+    dag.add_tasks([t1])
+
+    wfa = "workflow_with_tag_attribute"
+    workflow = Workflow(dag, wfa)
+    workflow.execute()
+
+    # add a tag attribute to the workflow
+    workflow.add_workflow_attribute(workflow_attribute.TAG, "dog")
+
+    with session_scope() as session:
+        workflow_attribute_query = session.query(WorkflowAttribute).first()
+
+        workflow_attribute_entry_type = workflow_attribute_query.attribute_type
+        workflow_attribute_entry_value = workflow_attribute_query.value
+
+        assert workflow_attribute_entry_type == workflow_attribute.TAG
+        assert workflow_attribute_entry_value == "dog"

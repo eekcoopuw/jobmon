@@ -13,6 +13,7 @@ from jobmon.requester import Requester
 from jobmon.sql_base import Base
 from jobmon.workflow.workflow_run import WorkflowRun
 from jobmon.workflow.task_dag import DagExecutionStatus, TaskDag
+from jobmon.attributes.constants import workflow_attribute
 
 logger = logging.getLogger(__name__)
 
@@ -328,19 +329,40 @@ class Workflow(object):
         """Alias for self.execute"""
         return self.execute()
 
+    def is_valid_attribute(self, attribute_type, value):
+        """
+        - attribute_type has to be an int
+        - for now, value can only be str or int
+        - value has to be int or convertible to int except when the attribute_type is a tag
+        - value can be any string when attribute_type is a tag
+
+        Args:
+            attribute_type
+            value
+        Returns:
+            True (or raises)
+        Raises:
+            ValueError: if the args for add_attribute is not valid.
+        """
+        if not isinstance(attribute_type, int):
+            raise ValueError("Invalid attribute_type: {}, {}"
+                             .format(attribute_type, type(attribute_type).__name__))
+        elif not attribute_type == workflow_attribute.TAG and not int(value):
+            raise ValueError("Invalid value type: {}, {}"
+                             .format(value, type(value).__name__))
+        return True
+
     def add_workflow_attribute(self, attribute_type, value):
         """Create workflow attribute entry in workflow_attribute table"""
+        self.is_valid_attribute(attribute_type, value)
         if self.is_bound:
-            if isinstance(attribute_type, int) and isinstance(value, str):
-                rc, workflow_attribute_id = self.jsm_req.send_request({
-                    'action': 'add_workflow_attribute',
-                    'kwargs': {'workflow_id': self.id,
-                               'attribute_type': attribute_type,
-                               'value': value}
-                })
-                return workflow_attribute_id
-            else:
-                raise ValueError("Invalid attribute input.")
+            rc, workflow_attribute_id = self.jsm_req.send_request({
+                'action': 'add_workflow_attribute',
+                'kwargs': {'workflow_id': self.id,
+                           'attribute_type': attribute_type,
+                           'value': value}
+            })
+            return workflow_attribute_id
         else:
             raise AttributeError("Workflow is not yet bound")
 
