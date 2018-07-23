@@ -203,3 +203,13 @@ class WorkflowRun(object):
             'action': 'update_workflow_run',
             'kwargs': {'wfr_id': self.id, 'status': status}
         })
+
+    def add_workflow_run_attribute(self, attribute_type, value):
+        """Create workflow_run attribute entry in workflow_run_attribute table"""
+        rc, workflow_run_attribute_id = self.jsm_req.send_request({
+            'action': 'add_workflow_run_attribute',
+            'kwargs': {'workflow_run_id': self.id,
+                       'attribute_type': attribute_type,
+                       'value': value}
+        })
+        return workflow_run_attribute_id
