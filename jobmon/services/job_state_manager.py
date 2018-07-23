@@ -52,7 +52,7 @@ class JobStateManager(ReplyServer):
                              self.reset_incomplete_jobs)
 
         self.register_action("add_workflow_attribute", self.add_workflow_attribute)
-
+        self.register_action("add_workflow_run_attribute", self.add_workflow_run_attribute)
 
         ctx = zmq.Context.instance()
         self.publisher = ctx.socket(zmq.PUB)
@@ -381,3 +381,14 @@ class JobStateManager(ReplyServer):
             session.commit()
             workflow_attribute_id = workflow_attribute.id
         return (ReturnCodes.OK, workflow_attribute_id)
+
+    def add_workflow_run_attribute(self, workflow_run_id, attribute_type, value):
+        workflow_run_attribute = attribute_models.WorkflowRunAttribute(workflow_run_id=workflow_run_id,
+                                                                       attribute_type=attribute_type,
+                                                                       value=value)
+        with session_scope() as session:
+            session.add(workflow_run_attribute)
+            session.commit()
+            workflow_run_attribute_id = workflow_run_attribute.id
+        return (ReturnCodes.OK, workflow_run_attribute_id)
+
