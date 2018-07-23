@@ -162,7 +162,7 @@ def real_jsm_jqs(rcfile, session_edb):
 
 
 @pytest.fixture(scope='session')
-def jsm_jqs(rcfile, session_edb):
+def jsm_jqs(session_edb):
     from jobmon.services.job_state_manager import app as jsm_app
     from jobmon.services.job_query_server import app as jqs_app
 
@@ -171,14 +171,6 @@ def jsm_jqs(rcfile, session_edb):
     jsm_client = jsm_app.test_client()
     jqs_client = jqs_app.test_client()
     yield jsm_client, jqs_client
-
-
-@pytest.fixture(scope='session')
-def monkeypatch_session():
-    from _pytest.monkeypatch import MonkeyPatch
-    m = MonkeyPatch()
-    yield m
-    m.undo()
 
 
 def get_flask_content(response):
