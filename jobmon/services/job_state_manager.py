@@ -61,9 +61,6 @@ def add_job():
 
 @app.route('/add_task_dag', methods=['POST'])
 def add_task_dag():
-    with open('/homes/cpinho/forked_jobmon/jsm.txt', 'w') as f:
-        f.write("current conn_str is {}"
-                .format(ScopedSession.session_factory.kw['bind']))
     data = request.get_json(force=True)
     dag = task_dag.TaskDagMeta(
         name=data['name'],

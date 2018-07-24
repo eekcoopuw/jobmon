@@ -101,6 +101,13 @@ def test_get_workflow_run_id(dag_id):
 
 def test_get_workflow_run_id_no_workflow(dag_id):
     req = requester.Requester(config.jsm_port)
+    rc, response = req.send_request(
+        app_route='/add_task_dag',
+        message={'name': 'testing dag', 'user': 'pytest_user',
+                 'dag_hash': 'new_dag_hash',
+                 'created_date': str(datetime.utcnow())},
+        request_type='post')
+    dag_id = response['dag_id']
 
     _, response = req.send_request(
         app_route='/add_job',
