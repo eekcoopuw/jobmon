@@ -205,11 +205,32 @@ class WorkflowRun(object):
         })
 
     def add_workflow_run_attribute(self, attribute_type, value):
-        """Create workflow_run attribute entry in workflow_run_attribute table"""
-        rc, workflow_run_attribute_id = self.jsm_req.send_request({
-            'action': 'add_workflow_run_attribute',
-            'kwargs': {'workflow_run_id': self.id,
-                       'attribute_type': attribute_type,
-                       'value': value}
-        })
-        return workflow_run_attribute_id
+        """
+        Create a workflow_run attribute entry in the database.
+
+        Args:
+            attribute_type (int): attribute_type id from
+                                  workflow_run_attribute_type table
+            value (int): value associated with attribute
+
+        Raises:
+            ValueError: If the args are not valid.
+                        attribute_type should be int and
+                        value should be convertible to int (for now)
+        """
+        if not isinstance(attribute_type, int) or not int(value):
+            raise ValueError("Invalid arg types, "
+                             "attribute_type: {} ({}), "
+                             "value: {} ({})"
+                             .format(attribute_type,
+                                     type(attribute_type).__name__,
+                                     value,
+                                     type(value).__name__))
+        else:
+            rc, workflow_run_attribute_id = self.jsm_req.send_request({
+                'action': 'add_workflow_run_attribute',
+                'kwargs': {'workflow_run_id': self.id,
+                           'attribute_type': attribute_type,
+                           'value': value}
+            })
+            return workflow_run_attribute_id

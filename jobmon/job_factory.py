@@ -75,3 +75,35 @@ class JobFactory(object):
         if rc[0] != ReturnCodes.OK:
             raise InvalidResponse("{rc}: Could not reset jobs".format(rc=rc))
         return rc
+
+    def add_job_attribute(self, job_id, attribute_type, value):
+        """
+        Create a job attribute entry in the database.
+
+        Args:
+            job_id (int): id of job to attach attribute to
+            attribute_type (int): attribute_type id from
+                                  job_attribute_type table
+            value (int): value associated with attribute
+
+        Raises:
+            ValueError: If the args are not valid.
+                        attribute_type should be int and
+                        value should be convertible to int (for now)
+        """
+        if not isinstance(attribute_type, int) or not int(value):
+            raise ValueError("Invalid arg types, "
+                             "attribute_type: {} ({}), "
+                             "value: {} ({})"
+                             .format(attribute_type,
+                                     type(attribute_type).__name__,
+                                     value,
+                                     type(value).__name__))
+        else:
+            rc, job_attribute_id = self.requester.send_request({
+                'action': 'add_job_attribute',
+                'kwargs': {'job_id': job_id,
+                           'attribute_type': attribute_type,
+                           'value': value}
+            })
+            return job_attribute_id
