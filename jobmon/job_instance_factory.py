@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 
 def execute_sequentially(job, job_instance_id):
     import subprocess
-    import requests
     try:
         cmd = build_wrapped_command(job, job_instance_id)
         logger.debug(cmd)

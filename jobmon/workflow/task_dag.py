@@ -282,7 +282,6 @@ class TaskDag(object):
         new_fringe = []
 
         logger.debug("Propagate {}".format(task))
-        task.validate_task()
         for downstream in task.downstream_tasks:
             logger.debug("  downstream {}".format(downstream))
             downstream_done = (downstream.status == JobStatus.DONE)

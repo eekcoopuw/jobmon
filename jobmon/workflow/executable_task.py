@@ -176,7 +176,6 @@ class BoundTask(object):
             self.hash = task.hash
         else:
             self.hash = None
-        self.validate_task()
 
     @property
     def all_upstreams_done(self):
@@ -195,6 +194,3 @@ class BoundTask(object):
     def upstream_tasks(self):
         return [self._jlm.bound_task_from_task(task)
                 for task in self._task.upstream_tasks]
-
-    def validate_task(self):
-        pass

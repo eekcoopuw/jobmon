@@ -120,7 +120,6 @@ def build_wrapped_command(job, job_instance_id, process_timeout=None):
 
 def unwrap():
 
-    print("in unwrap")
     import argparse
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
