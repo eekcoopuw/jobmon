@@ -183,7 +183,7 @@ def get_flask_content(response):
         return content
 
 
-@pytest.fixture(scope='function', autouse=True)
+@pytest.fixture(scope='function')
 def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
     import requests
     from jobmon import requester

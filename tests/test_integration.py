@@ -84,7 +84,7 @@ def test_daemon_invalid_command(job_list_manager_d):
 
 
 def daemon_invalid_command_check(job_list_manager_d):
-    job_list_manager._sync()
+    job_list_manager_d._sync()
     return len(job_list_manager_d.all_error) == 1
 
 
@@ -99,7 +99,7 @@ def test_daemon_valid_command(job_list_manager_d):
 
 
 def daemon_valid_command_check(job_list_manager_d):
-    job_list_manager._sync()
+    job_list_manager_d._sync()
     return len(job_list_manager_d.all_done) == 1
 
 
@@ -163,6 +163,6 @@ def test_sge_valid_command(job_list_manager_sge):
                                               mem_free=6))
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
-    job_list_manager._sync()
+    job_list_manager_sge._sync()
     assert (job_list_manager_sge.bound_tasks[job.job_id].status ==
             models.JobStatus.INSTANTIATED)
