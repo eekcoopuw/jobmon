@@ -2,8 +2,6 @@ import pytest
 import sys
 from sqlalchemy.exc import OperationalError
 
-from jobmon.cli import apply_args_to_config, parse_args
-
 
 if sys.version_info < (3, 0):
     from exceptions import SystemExit as Py2Py3Exit
@@ -12,6 +10,7 @@ else:
 
 
 def test_invalid_sub_command():
+    from jobmon.cli import parse_args
     with pytest.raises(Py2Py3Exit):
         # Should complain that jobmon requires a sub-command
         parse_args("--conn_str mysql://user:pass@host")
@@ -28,6 +27,7 @@ def test_invalid_sub_command():
 
 def test_start_subcommand():
     # A service name should be required...
+    from jobmon.cli import parse_args
     with pytest.raises(SystemExit):
         parse_args("start")
 
@@ -45,6 +45,11 @@ def test_start_subcommand():
 
 
 def test_initdb_subcommand():
+    from jobmon.cli import apply_args_to_config, parse_args
+    from jobmon import config
+    conn_str = config.config.conn_str
+    print(conn_str)
+
     args = parse_args("--conn_str mysql://not:a@real/database initdb")
     apply_args_to_config(args)
 
@@ -53,3 +58,8 @@ def test_initdb_subcommand():
     # should raise an operational error
     with pytest.raises(OperationalError):
         args.func(args)
+
+    # reset
+    config.config.apply_opts_dct({'conn_str': conn_str})
+    from jobmon import database
+    database.recreate_engine()

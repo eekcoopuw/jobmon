@@ -105,7 +105,7 @@ def rcfile(rcfile_dir):
         os.remove(os.path.expanduser(sqlite_rcfile))
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='session', autouse=True)
 def session_edb(rcfile):
 
     edb = create_ephemerdb()
@@ -174,13 +174,13 @@ def jsm_jqs(session_edb):
 
 
 def get_flask_content(response):
-        if 'application/json' in response.headers.get('Content-Type'):
-            content = response.json
-        elif 'text/html' in response.headers.get('Content-Type'):
-            content = response.data
-        else:
-            content = response.content
-        return content
+    if 'application/json' in response.headers.get('Content-Type'):
+        content = response.json
+    elif 'text/html' in response.headers.get('Content-Type'):
+        content = response.data
+    else:
+        content = response.content
+    return content
 
 
 @pytest.fixture(scope='function')

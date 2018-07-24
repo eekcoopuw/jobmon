@@ -52,9 +52,8 @@ def commit_hooked_jsm(jsm_jqs):
     event.remove(Session, 'before_commit', inspect_on_done_or_error)
 
 
-def test_get_workflow_run_id(jsm_jqs, dag_id):
+def test_get_workflow_run_id(dag_id):
     user = getpass.getuser()
-    jsm, _ = jsm_jqs
     req = requester.Requester(config.jsm_port)
     # add job
     _, response = req.send_request(
@@ -96,19 +95,12 @@ def test_get_workflow_run_id(jsm_jqs, dag_id):
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
     from jobmon.services.job_state_manager import _get_workflow_run_id
+    import pdb; pdb.set_trace()
     assert wf_run_id == _get_workflow_run_id(job.job_id)
 
 
-def test_get_workflow_run_id_no_workflow(jsm_jqs):
-    jsm, _ = jsm_jqs
+def test_get_workflow_run_id_no_workflow(dag_id):
     req = requester.Requester(config.jsm_port)
-    rc, response = req.send_request(
-        app_route='/add_task_dag',
-        message={'name': 'testing dag', 'user': 'pytest_user',
-                 'dag_hash': 'new_dag_hash',
-                 'created_date': str(datetime.utcnow())},
-        request_type='post')
-    dag_id = response['dag_id']
 
     _, response = req.send_request(
         app_route='/add_job',
