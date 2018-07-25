@@ -9,10 +9,10 @@ from sqlalchemy.exc import OperationalError
 from datetime import datetime
 
 from jobmon.config import config
+from jobmon.database import session_scope
 from jobmon import requester
 from jobmon.models import InvalidStateTransition, Job, JobInstanceErrorLog, \
     JobInstanceStatus, JobStatus, JobInstance
-from jobmon.workflow.executable_task import ExecutableTask
 from jobmon.workflow.workflow import WorkflowDAO
 
 
@@ -95,7 +95,6 @@ def test_get_workflow_run_id(dag_id):
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
     from jobmon.services.job_state_manager import _get_workflow_run_id
-    import pdb; pdb.set_trace()
     assert wf_run_id == _get_workflow_run_id(job.job_id)
 
 
@@ -176,8 +175,7 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
         request_type='post')
 
 
-def test_jsm_valid_error(jsm_jqs):
-    jsm, jqs = jsm_jqs
+def test_jsm_valid_error(no_requests_jsm_jqs, db_cfg):
     req = requester.Requester(config.jsm_port)
 
     # add dag
@@ -232,8 +230,7 @@ def test_jsm_valid_error(jsm_jqs):
         request_type='post')
 
 
-def test_invalid_transition(jsm_jqs):
-    jsm, jqs = jsm_jqs
+def test_invalid_transition(no_requests_jsm_jqs, db_cfg):
 
     req = requester.Requester(config.jsm_port)
 
@@ -264,8 +261,7 @@ def test_invalid_transition(jsm_jqs):
             request_type='post')
 
 
-def test_jsm_log_usage(jsm_jqs, dag_id):
-    jsm, jqs = jsm_jqs
+def test_jsm_log_usage(dag_id):
     req = requester.Requester(config.jsm_port)
 
     _, response = req.send_request(
@@ -324,8 +320,7 @@ def test_jsm_log_usage(jsm_jqs, dag_id):
         request_type='post')
 
 
-def test_job_reset(jsm_jqs, dag_id):
-    jsm, jqs = jsm_jqs
+def test_job_reset(dag_id):
 
     req = requester.Requester(config.jsm_port)
 

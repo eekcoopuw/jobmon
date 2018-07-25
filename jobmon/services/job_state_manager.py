@@ -386,7 +386,7 @@ def _update_job_instance(job_instance, **kwargs):
 
 
 @app.route('/add_workflow_attribute', methods=['POST'])
-def add_workflow_attribute(self, workflow_id, attribute_type, value):
+def add_workflow_attribute():
     data = request.get_json()
     workflow_attribute = attribute_models.WorkflowAttribute(
         workflow_id=data['workflow_id'],

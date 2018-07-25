@@ -53,9 +53,10 @@ def test_bash_task(dag_factory):
     task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
                     max_runtime=60)
     executor = SGEExecutor(project='proj_jenkins')
-    dag = dag_factory(executor)
-    dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
@@ -89,9 +90,10 @@ def test_python_task(dag_factory, tmp_out_dir):
                       name=name, mem_free=1, max_attempts=2, max_runtime=60)
 
     executor = SGEExecutor(project='proj_jenkins')
-    dag = dag_factory(executor)
-    dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
@@ -120,9 +122,10 @@ def test_R_task(dag_factory, tmp_out_dir):
     task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name,
                  mem_free=1, max_attempts=2, max_runtime=60)
     executor = SGEExecutor(project='proj_jenkins')
-    dag = dag_factory(executor)
-    dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
@@ -150,9 +153,10 @@ def test_stata_task(dag_factory, tmp_out_dir):
     task = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
                      name=name, mem_free=1, max_attempts=2, max_runtime=60)
     executor = SGEExecutor(project='proj_jenkins')
-    dag = dag_factory(executor)
-    dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1

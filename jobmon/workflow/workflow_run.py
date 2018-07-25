@@ -73,17 +73,17 @@ class WorkflowRunDAO(Base):
 
     def to_wire(self):
         return {
-           'workflow_id': self.workflow_id,
-           'user': self.user,
-           'hostname': self.hostname,
-           'pid': self.pid,
-           'stderr': self.stderr,
-           'stdout': self.stdout,
-           'project': self.project,
-           'working_dir': self.working_dir,
-           'slack_channel': self.slack_channel,
-           'executor_class': self.executor_class,
-           'status': self.status,
+            'workflow_id': self.workflow_id,
+            'user': self.user,
+            'hostname': self.hostname,
+            'pid': self.pid,
+            'stderr': self.stderr,
+            'stdout': self.stdout,
+            'project': self.project,
+            'working_dir': self.working_dir,
+            'slack_channel': self.slack_channel,
+            'executor_class': self.executor_class,
+            'status': self.status,
         }
 
 
@@ -161,37 +161,15 @@ class WorkflowRun(object):
                    "creating orphaned processes and hard-to-find bugs"
                    .format(wf_run.id, wf_run.user))
             logger.error(msg)
-<<<<<<< HEAD
             _, _ = self.jsm_req.send_request(
                 app_route='/update_workflow_run',
-                message={'workflow_run_id': wf_run_id,
+                message={'workflow_run_id': wf_run.id,
                          'status': WorkflowRunStatus.STOPPED},
                 request_type='post')
-=======
-            _, _ = self.jsm_req.send_request({
-                'action': 'update_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run.id,
-                           'status': WorkflowRunStatus.STOPPED}})
->>>>>>> upstream/master
             raise RuntimeError(msg)
         else:
             kill_remote_process(wf_run.hostname, wf_run.pid)
             if reset_running_jobs:
-<<<<<<< HEAD
-                _, response = self.jqs_req.send_request(
-                    app_route='/get_sge_ids_of_previous_workflow_run',
-                    message={'workflow_run_id': wf_run_id},
-                    request_type='get')
-                sge_ids = response['sge_ids']
-                if sge_ids:
-                    qdel(sge_ids)
-                self.poll_for_lagging_jobs(sge_ids)
-            _, _ = self.jsm_req.send_request(
-                app_route='/update_workflow_run',
-                message={'workflow_run_id': wf_run_id,
-                         'status': WorkflowRunStatus.STOPPED},
-                request_type='post')
-=======
                 if wf_run.executor_class == "SequentialExecutor":
                     from jobmon.executors.sequential import SequentialExecutor
                     previous_executor = SequentialExecutor()
@@ -204,18 +182,19 @@ class WorkflowRun(object):
                 else:
                     raise ValueError("{} is not supported by this version of "
                                      "jobmon".format(wf_run.executor_class))
-                _, job_instances = self.jsm_req.send_request({
-                    'action': 'get_job_instances_of_workflow_run',
-                    'kwargs': {'workflow_run_id': wf_run.id}})
+                _, response = self.jqs_req.send_request(
+                    app_route='/get_job_instances_of_workflow_run',
+                    message={'workflow_run_id': wf_run.id},
+                    request_type='get')
                 job_instances = [JobInstance.from_wire(ji)
-                                 for ji in job_instances]
+                                 for ji in response['job_instances']]
                 if job_instances:
                     previous_executor.terminate_job_instances(job_instances)
-            _, _ = self.jsm_req.send_request({
-                'action': 'update_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run.id,
-                           'status': WorkflowRunStatus.STOPPED}})
->>>>>>> upstream/master
+            _, _ = self.jsm_req.send_request(
+                app_route='/update_workflow_run',
+                message={'workflow_run_id': wf_run.id,
+                         'status': WorkflowRunStatus.STOPPED},
+                request_type='post')
 
     def update_done(self):
         self._update_status(WorkflowRunStatus.DONE)

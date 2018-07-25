@@ -350,7 +350,8 @@ class Workflow(object):
         """
         if not isinstance(attribute_type, int):
             raise ValueError("Invalid attribute_type: {}, {}"
-                             .format(attribute_type, type(attribute_type).__name__))
+                             .format(attribute_type,
+                                     type(attribute_type).__name__))
         elif not attribute_type == workflow_attribute.TAG and not int(value):
             raise ValueError("Invalid value type: {}, {}"
                              .format(value, type(value).__name__))
@@ -362,9 +363,9 @@ class Workflow(object):
         if self.is_bound:
             rc, response = self.jsm_req.send_request(
                 app_route='/add_workflow_attribute',
-                message={'workflow_id': self.id,
-                        'attribute_type': attribute_type,
-                        'value': value},
+                message={'workflow_id': str(self.id),
+                         'attribute_type': str(attribute_type),
+                         'value': str(value)},
                 request_type='post')
             return response['workflow_attribute_id']
         else:

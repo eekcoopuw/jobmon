@@ -39,12 +39,13 @@ class JobInstanceIntercom(object):
         try:
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
-            kwargs = {k: usage[k] for k in dbukeys if k in usage.keys()}
-            msg = {
-                'action': 'log_usage',
-                'args': [self.job_instance_id],
-                'kwargs': kwargs}
-            return self.requester.send_request(msg)
+            msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
+            msg.update({
+                'job_instance_id': [self.job_instance_id]})
+            rc, _ = self.requester.send_request(app_route='/log_usage',
+                                                message=msg,
+                                                request_type='post')
+            return rc
         except NotImplementedError:
             logger.warning("Usage stats not available for {} "
                            "executors".format(self.executor_class))

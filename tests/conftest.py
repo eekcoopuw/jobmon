@@ -1,12 +1,11 @@
 from builtins import str
-import functools
+
 import os
 import pytest
 import pwd
 import shutil
 import socket
 import uuid
-import time
 from datetime import datetime
 from time import sleep
 
@@ -252,16 +251,17 @@ def job_list_manager_sub(dag_id):
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_sge(dag_id, tmpdir_factory):
+def job_list_manager_sge(real_dag_id, tmpdir_factory):
 
     elogdir = str(tmpdir_factory.mktemp("elogs"))
     ologdir = str(tmpdir_factory.mktemp("ologs"))
 
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
                            project='proj_jenkins')
-    jlm = JobListManager(dag_id, executor=executor, start_daemons=True,
+    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
                          interrupt_on_error=False)
     yield jlm
+    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -285,7 +285,7 @@ def real_dag(db_cfg, real_jsm_jqs, request):
 
 
 @pytest.fixture(scope='function')
-def dag_factory(db_cfg, jsm_jqs, request):
+def dag_factory(db_cfg, real_jsm_jqs, request):
 
     dags = []
     def factory(executor):

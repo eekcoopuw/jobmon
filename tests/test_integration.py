@@ -3,9 +3,7 @@ import pytest
 import sys
 
 from jobmon import models
-from jobmon.database import session_scope
 from jobmon.executors.sge import SGEExecutor
-from jobmon.config import config
 from jobmon.job_list_manager import JobListManager
 from jobmon.workflow.executable_task import ExecutableTask
 
@@ -38,7 +36,7 @@ def job_list_manager_d(real_dag_id):
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_sge(real_dag_id):
+def job_list_manager_sge_no_daemons(real_dag_id):
     executor = SGEExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
                          interrupt_on_error=False)
@@ -159,7 +157,8 @@ def test_blocking_update_timeout(job_list_manager_d):
     assert job_list_manager_d.block_until_any_done_or_error(timeout=2) is None
 
 
-def test_sge_valid_command(job_list_manager_sge):
+def test_sge_valid_command(job_list_manager_sge_no_daemons):
+    job_list_manager_sge = job_list_manager_sge_no_daemons
     job = job_list_manager_sge.bind_task(Task(command="ls",
                                               name="sgefbb",
                                               slots=3,

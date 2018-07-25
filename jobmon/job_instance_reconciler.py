@@ -3,11 +3,9 @@ import threading
 import _thread
 from time import sleep
 
-import pandas as pd
 from http import HTTPStatus
 
 from jobmon.config import config
-from jobmon.exceptions import ReturnCodes
 from jobmon.executors.sequential import SequentialExecutor
 from jobmon.models import JobInstance
 from jobmon.requester import Requester

@@ -3,7 +3,6 @@ import sys
 from datetime import datetime, timedelta
 
 from jobmon import sge
-from jobmon.database import session_scope
 from jobmon.models import JobInstance, JobInstanceStatus
 from jobmon.workflow.executable_task import ExecutableTask as Task
 
@@ -28,7 +27,7 @@ def test_valid_command(real_dag_id, job_list_manager_sge):
 
 
 def valid_command_check(job_list_manager_sge):
-    job_list_manager_sge.get_job_statuses()
+    job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_done) == 1:
         # Success
         return True
@@ -50,11 +49,11 @@ def test_context_args(real_jsm_jqs, job_list_manager_sge):
 
 
 def context_args_check(job_id):
-    with session_scope() as session:
-        jis = session.query(JobInstance).filter_by(job_id=job_id).all()
-        njis = len(jis)
-        status = jis[0].status
-        sge_jid = jis[0].executor_id
+    from jobmon.database import ScopedSession
+    jis = ScopedSession.query(JobInstance).filter_by(job_id=job_id).all()
+    njis = len(jis)
+    status = jis[0].status
+    sge_jid = jis[0].executor_id
     # Make sure the job actually got to SGE
     if njis == 1:
         # Make sure it hasn't advanced to running (i.e. the -a argument worked)

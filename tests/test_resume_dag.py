@@ -72,7 +72,6 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
                  .format(real_dag.fail_after_n_executions))
 
     # ensure real_dag officially "fell over"
-    import pdb; pdb.set_trace()
     with pytest.raises(ValueError):
         real_dag._execute()
 

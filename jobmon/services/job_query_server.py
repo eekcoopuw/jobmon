@@ -149,11 +149,11 @@ def is_workflow_running():
     return resp
 
 
-@app.route('/get_sge_ids_of_previous_workflow_run', methods=['GET'])
-def get_sge_ids_of_previous_workflow_run():
+@app.route('/get_job_instances_of_workflow_run', methods=['GET'])
+def get_job_instances_of_workflow_run():
     jis = ScopedSession.query(JobInstance).filter_by(
         workflow_run_id=request.args['workflow_run_id']).all()
-    sge_ids = [ji.executor_id for ji in jis]
-    resp = jsonify(sge_ids=sge_ids)
+    jis = [ji.to_wire() for ji in jis]
+    resp = jsonify(job_instances=jis)
     resp.status_code = HTTPStatus.OK
     return resp

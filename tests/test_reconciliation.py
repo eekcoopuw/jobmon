@@ -42,7 +42,7 @@ def job_list_manager_sge(dag_id):
 @pytest.fixture(scope='function')
 def job_list_manager_dummy_nod(dag_id):
     executor = DummyExecutor()
-    jlm = JobListManager(dag_id, executor=dummy_executor,
+    jlm = JobListManager(dag_id, executor=executor,
                          start_daemons=False, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
@@ -101,7 +101,7 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
     jir = job_list_manager_sge.job_inst_reconciler
     jir.reconcile()
 
-    job_list_manager_sge.get_job_statuses()
+    job_list_manager_sge._sync()
     assert len(job_list_manager_sge.all_error) == 0
 
     # Artificially advance job to DONE so it doesn't impact downstream tests
@@ -152,7 +152,7 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
 def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
                                  job_id):
     from jobmon.config import config
-    job_list_manager_sge.get_job_statuses()
+    job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_error) == 1:
         assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
 
@@ -200,7 +200,7 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
 
 def ignore_qw_in_timeouts_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):
     from jobmon.config import config
-    job_list_manager_sge.get_job_statuses()
+    job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_error) == 1:
         assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
 

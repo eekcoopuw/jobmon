@@ -1,7 +1,6 @@
 import logging
 import time
 from threading import Event, Thread
-from datetime import datetime
 
 from jobmon.config import config
 from jobmon.models import Job, JobStatus
@@ -131,8 +130,7 @@ class JobListManager(object):
         while True:
             if time_since_last_update > timeout:
                 return None
-            jobs = self.get_job_statuses()
-            self.parse_done_and_errors(jobs)
+            self._sync()
 
             if len(self.active_jobs) == 0:
                 break
