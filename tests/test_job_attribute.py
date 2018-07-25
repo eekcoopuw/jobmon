@@ -42,4 +42,4 @@ def test_job_attribute_input_error(job_list_manager_sub):
     # add an attribute with wrong types to the workflow
     with pytest.raises(ValueError) as exc:
         job_list_manager_sub.add_job_attribute(job, "num_locations", "fifty")
-    assert "Invalid arg" in str(exc.value)
+    assert "Invalid" in str(exc.value)

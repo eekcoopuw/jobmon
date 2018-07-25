@@ -5,6 +5,7 @@ from jobmon import requester
 from jobmon.exceptions import InvalidResponse, ReturnCodes
 from jobmon.config import config
 from jobmon.models import Job
+from jobmon.attributes.constants import job_attribute
 
 logger = logging.getLogger(__name__)
 
@@ -89,15 +90,18 @@ class JobFactory(object):
         Raises:
             ValueError: If the args are not valid.
                         attribute_type should be int and
-                        value should be convertible to int (for now)
+                        value should be convertible to int
+                        or be string for TAG attribute
         """
-        if not isinstance(attribute_type, int) or not int(value):
-            raise ValueError("Invalid arg types, "
-                             "attribute_type: {} ({}), "
-                             "value: {} ({})"
+        if not isinstance(attribute_type, int):
+            raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
-                                     type(attribute_type).__name__,
-                                     value,
+                                     type(attribute_type).__name__))
+        elif (not attribute_type == job_attribute.TAG and not int(value))\
+                or (attribute_type == job_attribute.TAG
+                    and not isinstance(value, str)):
+            raise ValueError("Invalid value type: {}, {}"
+                             .format(value,
                                      type(value).__name__))
         else:
             rc, job_attribute_id = self.requester.send_request({

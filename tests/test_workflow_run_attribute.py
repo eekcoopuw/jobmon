@@ -59,4 +59,4 @@ def test_workflow_run_attribute_input_error(dag):
     # add an attribute with wrong types to the workflow_run
     with pytest.raises(ValueError) as exc:
         workflow_run.add_workflow_run_attribute("num_draws", "ten")
-    assert "Invalid arg" in str(exc.value)
+    assert "Invalid" in str(exc.value)

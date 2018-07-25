@@ -14,6 +14,7 @@ from jobmon.models import JobInstance
 from jobmon.requester import Requester
 from jobmon.sql_base import Base
 from jobmon.utils import kill_remote_process
+from jobmon.attributes.constants import workflow_run_attribute
 
 logger = logging.getLogger(__name__)
 
@@ -216,15 +217,19 @@ class WorkflowRun(object):
         Raises:
             ValueError: If the args are not valid.
                         attribute_type should be int and
-                        value should be convertible to int (for now)
+                        value should be convertible to int
+                        or be string for TAG attribute
         """
-        if not isinstance(attribute_type, int) or not int(value):
-            raise ValueError("Invalid arg types, "
-                             "attribute_type: {} ({}), "
-                             "value: {} ({})"
+        if not isinstance(attribute_type, int):
+            raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
-                                     type(attribute_type).__name__,
-                                     value,
+                                     type(attribute_type).__name__))
+        elif (not attribute_type == workflow_run_attribute.TAG
+              and not int(value))\
+                or (attribute_type == workflow_run_attribute.TAG
+                    and not isinstance(value, str)):
+            raise ValueError("Invalid value type: {}, {}"
+                             .format(value,
                                      type(value).__name__))
         else:
             rc, workflow_run_attribute_id = self.jsm_req.send_request({

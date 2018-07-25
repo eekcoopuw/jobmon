@@ -29,7 +29,8 @@ def load_attribute_types(session):
                                'NUM_YEARS': 'int',
                                'NUM_RISKS': 'int',
                                'NUM_CAUSES': 'int',
-                               'NUM_SEXES': 'int'}
+                               'NUM_SEXES': 'int',
+                               'TAG': 'string'}
     for attribute in workflow_run_attributes:
         workflow_run_attribute_types = WorkflowRunAttributeType(
                                         name=attribute,
@@ -43,7 +44,10 @@ def load_attribute_types(session):
                       'NUM_YEARS': 'int',
                       'NUM_RISKS': 'int',
                       'NUM_CAUSES': 'int',
-                      'NUM_SEXES': 'int'}
+                      'NUM_SEXES': 'int',
+                      'TAG': 'string',
+                      'NUM_MEASURES': 'int',
+                      'NUM_METRICS': 'int'}
     for attribute in job_attributes:
         job_attribute_types = JobAttributeType(
                                 name=attribute,
