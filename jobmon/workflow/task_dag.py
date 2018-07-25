@@ -1,11 +1,9 @@
-import functools
 import getpass
 import hashlib
 import logging
 import copy
 from collections import OrderedDict
 
-from jobmon.job_instance_factory import execute_sge
 from jobmon.job_list_manager import JobListManager
 from jobmon.models import JobStatus
 from jobmon.workflow.task_dag_factory import TaskDagMetaFactory
@@ -25,14 +23,15 @@ class TaskDag(object):
     A DAG of Tasks.
     """
 
-    def __init__(self, name="", interrupt_on_error=True):
+    def __init__(self, name="", interrupt_on_error=True, executor=None):
 
         self.dag_id = None
         self.job_list_manager = None
 
         # TODO: Scale test to 1M jobs
         self.name = name
-        self.tasks = OrderedDict()  # {job_hash: Task} .. dict for scalability to 1,000,000+ jobs
+
+        self.tasks = OrderedDict()  # {job_hash: Task}
         self.bound_tasks = None
         self.top_fringe = []
         self.fail_after_n_executions = None
@@ -42,6 +41,8 @@ class TaskDag(object):
         # Control whether the JIF/JIR daemons should interrupt on errors...
         # this should primarily be set to True, except for test purposes
         self.interrupt_on_error = interrupt_on_error
+
+        self.executor = executor
 
     def _set_fail_after_n_executions(self, n):
         """
@@ -60,8 +61,7 @@ class TaskDag(object):
         else:
             return False
 
-    def bind_to_db(self, dag_id=None, executor_args={},
-                   reset_running_jobs=True):
+    def bind_to_db(self, dag_id=None, reset_running_jobs=True):
         """Binds the dag to the database and starts Job Management services.
 
         Args:
@@ -69,15 +69,9 @@ class TaskDag(object):
                 created
         """
 
-        # TODO: executor is expected to be a callable... so just pass the
-        # executor args as a partial. in future, we may want to formalize
-        # Executor as a class of its own
-        executor = functools.partial(execute_sge, **executor_args)
-        executor.__name__ = execute_sge.__name__
-
         if dag_id:
             self.job_list_manager = JobListManager(
-                dag_id, executor=executor, start_daemons=True,
+                dag_id, executor=self.executor, start_daemons=True,
                 interrupt_on_error=self.interrupt_on_error)
 
             # Bind all the tasks to the job_list_manager... This has to be done
@@ -103,7 +97,7 @@ class TaskDag(object):
             self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
                                             user=getpass.getuser())
             self.job_list_manager = JobListManager(
-                self.meta.dag_id, executor=executor, start_daemons=True,
+                self.meta.dag_id, executor=self.executor, start_daemons=True,
                 interrupt_on_error=self.interrupt_on_error)
             self.dag_id = self.meta.dag_id
 
@@ -155,7 +149,7 @@ class TaskDag(object):
         if self.job_list_manager:
             self.job_list_manager.disconnect()
 
-    def _execute(self, executor_args={}):
+    def _execute(self):
         """
         Take a concrete DAG and queue all the Tasks that are not DONE.
 
@@ -180,7 +174,7 @@ class TaskDag(object):
         """
 
         if not self.is_bound:
-            self.bind_to_db(executor_args=executor_args)
+            self.bind_to_db()
 
         previously_completed = copy.copy(self.job_list_manager.all_done)
         self._set_top_fringe()
@@ -253,11 +247,11 @@ class TaskDag(object):
             return (DagExecutionStatus.SUCCEEDED, num_new_completed,
                     len(previously_completed), len(all_failed))
 
-    def _execute_interruptible(self, executor_args={}):
+    def _execute_interruptible(self):
         keep_running = True
         while keep_running:
             try:
-                return self._execute(executor_args)
+                return self._execute()
             except KeyboardInterrupt:
                 confirm = input("Are you sure you want to exit (y/n): ")
                 confirm = confirm.lower().strip()

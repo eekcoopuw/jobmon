@@ -20,9 +20,10 @@ class ExecutableTask(object):
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
 
     @staticmethod
-    def is_valid_sge_job_name(name):
+    def is_valid_job_name(name):
         """
-        If the name is invalid it will raises an exception. The list of illegal
+        If the name is invalid it will raises an exception. Primarily based on
+        the restrictions SGE places on job names. The list of illegal
         characters might not be complete, I could not find an official list.
 
         TBD This should probably be moved to the cluster_utils package
@@ -76,14 +77,14 @@ class ExecutableTask(object):
         max_attempts (int): number of attempts to allow the cluster to try
             before giving up. Default is 1
         max_runtime (int, seconds): how long the job should be allowed to
-            run before having sge kill it. Default is None, for indefinite.
+            run before the executor kills it. Default is None, for indefinite.
         tag (str): a group identifier. Currently just used for visualization.
             All tasks with the same tag will be colored the same in a
             TaskDagViz instance. Default is None.
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
-           see is_valid_sge_job_name
+           see is_valid_job_name
         """
         if env_variables:
             env_variables = ' '.join('{}={}'.format(key, val) for key, val
@@ -100,7 +101,7 @@ class ExecutableTask(object):
         self.max_runtime = max_runtime
         self.context_args = context_args
 
-        # Names of sge jobs can't start with a numeric.
+        # Names of jobs can't start with a numeric.
         if name is None:
             self.name = "task_{}".format(self.hash)
         else:
@@ -108,7 +109,7 @@ class ExecutableTask(object):
         self.hash_name = self.name  # for backwards compatibility
         self.tag = tag
 
-        ExecutableTask.is_valid_sge_job_name(self.name)
+        ExecutableTask.is_valid_job_name(self.name)
 
         self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
         self.downstream_tasks = set()

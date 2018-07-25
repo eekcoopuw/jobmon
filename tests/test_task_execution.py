@@ -5,6 +5,7 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
 from jobmon.database import session_scope
+from jobmon.executors.sge import SGEExecutor
 from jobmon.models import Job, JobStatus
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
@@ -44,16 +45,17 @@ def get_task_status(real_dag, task):
     return job_list_manager.status_from_task(task)
 
 
-def test_bash_task(real_dag):
+def test_bash_task(dag_factory):
     """
     Create a dag with one very simple BashTask and execute it
     """
     name = 'bash_task'
     task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
                     max_runtime=60)
-    real_dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (
-        real_dag._execute(executor_args={'project': 'proj_jenkins'}))
+    executor = SGEExecutor(project='proj_jenkins')
+    dag = dag_factory(executor)
+    dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
@@ -70,7 +72,7 @@ def test_bash_task(real_dag):
     assert sge_jobname == name
 
 
-def test_python_task(real_dag, tmp_out_dir):
+def test_python_task(dag_factory, tmp_out_dir):
     """
     Execute a PythonTask
     """
@@ -85,9 +87,11 @@ def test_python_task(real_dag, tmp_out_dir):
                             "--output_file_path", output_file_name,
                             "--name", name],
                       name=name, mem_free=1, max_attempts=2, max_runtime=60)
-    real_dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (
-        real_dag._execute(executor_args={'project': 'proj_jenkins'}))
+
+    executor = SGEExecutor(project='proj_jenkins')
+    dag = dag_factory(executor)
+    dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
@@ -104,7 +108,7 @@ def test_python_task(real_dag, tmp_out_dir):
     assert sge_jobname == name
 
 
-def test_R_task(real_dag, tmp_out_dir):
+def test_R_task(dag_factory, tmp_out_dir):
     """
     Execute an RTask
     """
@@ -115,9 +119,10 @@ def test_R_task(real_dag, tmp_out_dir):
 
     task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name,
                  mem_free=1, max_attempts=2, max_runtime=60)
-    real_dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (
-        real_dag._execute(executor_args={'project': 'proj_jenkins'}))
+    executor = SGEExecutor(project='proj_jenkins')
+    dag = dag_factory(executor)
+    dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
@@ -134,7 +139,7 @@ def test_R_task(real_dag, tmp_out_dir):
     assert sge_jobname == name
 
 
-def test_stata_task(real_dag, tmp_out_dir):
+def test_stata_task(dag_factory, tmp_out_dir):
     """
     Execute a simple stata Task
     """
@@ -144,9 +149,10 @@ def test_stata_task(real_dag, tmp_out_dir):
 
     task = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
                      name=name, mem_free=1, max_attempts=2, max_runtime=60)
-    real_dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (
-        real_dag._execute(executor_args={'project': 'proj_jenkins'}))
+    executor = SGEExecutor(project='proj_jenkins')
+    dag = dag_factory(executor)
+    dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1

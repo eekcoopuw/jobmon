@@ -28,7 +28,7 @@ class JobListManager(object):
         self.job_inst_factory = JobInstanceFactory(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
-            dag_id, interrupt_on_error, stop_event=self._stop_event)
+            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
 
         self.jqs_req = Requester(config.jqs_port)
 
@@ -44,24 +44,6 @@ class JobListManager(object):
         self.job_instantiation_interval = job_instantiation_interval
         if start_daemons:
             self._start_job_instance_manager()
-
-    @classmethod
-    def from_new_dag(cls, executor=None, start_daemons=False):
-
-        # TODO: This should really be the work of the DAG manager itself,
-        # but for the sake of expediting early development work, allow the
-        # JobListManager to obtain it's own dag_id
-        from jobmon.config import config
-        from jobmon.requester import Requester
-
-        req = Requester(config.jsm_port)
-        rc, response = req.send_request(
-            app_route='/add_task_dag',
-            message={'name': 'test dag', 'user': 'test user',
-                     'dag_hash': 'hash', 'created_date': datetime.utcnow()},
-            request_type='post')
-        return cls(response['dag_id'], executor=executor,
-                   start_daemons=start_daemons)
 
     @property
     def active_jobs(self):

@@ -5,7 +5,8 @@ from time import sleep
 from jobmon import sge
 from jobmon.models import Job
 from jobmon.requester import Requester
-from jobmon.job_instance_factory import execute_batch_dummy, execute_sge
+from jobmon.executors.dummy import DummyExecutor
+from jobmon.executors.sge import SGEExecutor
 from jobmon.job_list_manager import JobListManager
 from jobmon.workflow.executable_task import ExecutableTask as Task
 
@@ -22,14 +23,16 @@ def job_list_manager_dummy(dag_id):
     # We don't want this queueing jobs in conflict with the SGE daemons...
     # but we do need it to subscribe to status updates for reconciliation
     # tests. Start this thread manually.
-    jlm = JobListManager(dag_id, executor=execute_batch_dummy,
+    executor = DummyExecutor()
+    jlm = JobListManager(dag_id, executor=executor,
                          start_daemons=False, interrupt_on_error=False)
     return jlm
 
 
 @pytest.fixture(scope='function')
 def job_list_manager_sge(dag_id):
-    jlm = JobListManager(dag_id, executor=execute_sge,
+    executor = SGEExecutor()
+    jlm = JobListManager(dag_id, executor=executor,
                          start_daemons=True, reconciliation_interval=2,
                          interrupt_on_error=False)
     yield jlm
@@ -38,7 +41,8 @@ def job_list_manager_sge(dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager_dummy_nod(dag_id):
-    jlm = JobListManager(dag_id, executor=execute_batch_dummy,
+    executor = DummyExecutor()
+    jlm = JobListManager(dag_id, executor=dummy_executor,
                          start_daemons=False, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
@@ -86,7 +90,7 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
 
     # Queue a job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
-                name="sleepyjob")
+                name="sleepyjob_pass")
     job = job_list_manager_sge.bind_task(task)
     job_list_manager_sge.queue_job(job)
 
@@ -127,7 +131,7 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
 
     # Queue a test job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
-                name="sleepyjob", max_attempts=3, max_runtime=3)
+                name="sleepyjob_fail", max_attempts=3, max_runtime=3)
     job = job_list_manager_sge.bind_task(task)
     job_list_manager_sge.queue_job(job)
 

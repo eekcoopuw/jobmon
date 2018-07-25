@@ -2,6 +2,7 @@ import versioneer
 from setuptools import setup
 import os
 import sys
+
 try:
     from autowrap.build import get_WrapperInstall
     HAS_AUTOWRAP = True
@@ -64,8 +65,8 @@ setup(
     author_email='tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu',
     include_package_data=True,
     install_requires=install_requires,
-    packages=['jobmon', 'jobmon.services', 'jobmon.workflow',
-              'jobmon.meta_models'],
+    packages=['jobmon', 'jobmon.executors', 'jobmon.services',
+              'jobmon.workflow', 'jobmon.meta_models'],
     entry_points={
         'console_scripts': ["jobmon=jobmon.cli:main",
-                            "jobmon_command=jobmon.command_context:unwrap"]})
+                            "jobmon_command=jobmon.executors.cli:unwrap"]})

@@ -626,18 +626,18 @@ def test_workflow_status_dates(simple_workflow):
             assert wfr.created_date != wfr.status_date
 
 
-def test_workflow_sge_args(real_dag):
+def test_workflow_sge_args(db_cfg, jsm_jqs):
     t1 = PythonTask(script='{}/executor_args_check.py'.format(
         os.path.dirname(os.path.realpath(__file__))))
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
-    real_dag.add_tasks([t1, t2, t3])
 
     wfa = "my_simple_dag"
-    workflow = Workflow(real_dag, wfa, project='proj_jenkins',
+    workflow = Workflow(workflow_args=wfa, project='proj_jenkins',
                         working_dir='/ihme/centralcomp/auto_test_data',
                         stderr='/ihme/centralcomp/auto_test_data',
                         stdout='/ihme/centralcomp/auto_test_data')
+    workflow.add_tasks([t1, t2, t3])
     wf_status = workflow.execute()
     assert wf_status == DagExecutionStatus.SUCCEEDED
 

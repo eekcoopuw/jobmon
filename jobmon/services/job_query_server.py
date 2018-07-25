@@ -127,17 +127,11 @@ def get_workflows_by_inputs():
         filter(WorkflowDAO.dag_id == request.args['dag_id']).\
         filter(WorkflowDAO.workflow_args == request.args['workflow_args'])\
         .first()
-    with open('/homes/cpinho/forked_jobmon/jqs.txt', 'w') as f:
-        f.write("in get_workflows_by_inputs. workflow is {}".format(workflow))
     if workflow:
-        with open('/homes/cpinho/forked_jobmon/jqs.txt', 'a') as f:
-            f.write("if workflow=True.")
         resp = jsonify(workflow_dct=workflow.to_wire())
         resp.status_code = HTTPStatus.OK
         return resp
     else:
-        with open('/homes/cpinho/forked_jobmon/jqs.txt', 'a') as f:
-            f.write("if workflow=False.")
         return '', HTTPStatus.NO_CONTENT
 
 
@@ -149,14 +143,8 @@ def is_workflow_running():
         status=WorkflowRunStatus.RUNNING,
     ).order_by(WorkflowRunDAO.id.desc()).first())
     if not wf_run:
-        return jsonify(status=False, workflow_run_id=None,
-                       hostname=None, pid=None, user=None)
-    wf_run_id = wf_run.id
-    hostname = wf_run.hostname
-    pid = wf_run.pid
-    user = wf_run.user
-    resp = jsonify(status=True, workflow_run_id=wf_run_id,
-                   hostname=hostname, pid=pid, user=user)
+        return jsonify(is_running=False, workflow_run_dct={})
+    resp = jsonify(is_running=True, workflow_run_dct=wf_run.to_wire())
     resp.status_code = HTTPStatus.OK
     return resp
 

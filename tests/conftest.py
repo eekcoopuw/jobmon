@@ -79,9 +79,10 @@ bootstrap_tests()
 from jobmon.config import config
 from jobmon import database
 from jobmon import database_loaders
+from jobmon.executors.sge import SGEExecutor
 from jobmon.job_list_manager import JobListManager
-from jobmon.job_instance_factory import execute_sge
 from jobmon.workflow.task_dag import TaskDag
+from jobmon.attributes import attribute_database_loaders
 
 from cluster_utils.ephemerdb import create_ephemerdb
 
@@ -118,6 +119,7 @@ def session_edb(rcfile):
     try:
         with database.session_scope() as session:
             database_loaders.load_default_statuses(session)
+            attribute_database_loaders.load_attribute_types(session)
     except IntegrityError:
         pass
 
@@ -136,6 +138,7 @@ def db_cfg(session_edb):
     try:
         with database.session_scope() as session:
             database_loaders.load_default_statuses(session)
+            attribute_database_loaders.load_attribute_types(session)
     except IntegrityError:
         pass
 
@@ -254,9 +257,8 @@ def job_list_manager_sge(dag_id, tmpdir_factory):
     elogdir = str(tmpdir_factory.mktemp("elogs"))
     ologdir = str(tmpdir_factory.mktemp("ologs"))
 
-    executor = functools.partial(execute_sge, stderr=elogdir, stdout=ologdir,
-                                 project='proj_jenkins')
-    executor.__name__ = execute_sge.__name__
+    executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
+                           project='proj_jenkins')
     jlm = JobListManager(dag_id, executor=executor, start_daemons=True,
                          interrupt_on_error=False)
     yield jlm
@@ -274,7 +276,25 @@ def dag(db_cfg, no_requests_jsm_jqs, request):
 def real_dag(db_cfg, real_jsm_jqs, request):
     """Use a fixture for dag creation so that the dags' JobInstanceFactories
     and JobInstanceReconcilers get cleaned up after each test"""
-    dag = TaskDag(name=request.node.name, interrupt_on_error=False)
+    executor = SGEExecutor()
+    dag = TaskDag(name=request.node.name, executor=executor,
+                  interrupt_on_error=False)
     yield dag
     if dag.job_list_manager:
         dag.job_list_manager.disconnect()
+
+
+@pytest.fixture(scope='function')
+def dag_factory(db_cfg, jsm_jqs, request):
+
+    dags = []
+    def factory(executor):
+        dag = TaskDag(name=request.node.name, executor=executor,
+                      interrupt_on_error=False)
+        dags.append(dag)
+        return dag
+    yield factory
+
+    for dag in dags:
+        if dag.job_list_manager:
+            dag.job_list_manager.disconnect()

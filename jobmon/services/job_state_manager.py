@@ -10,6 +10,7 @@ from jobmon.pubsub_helpers import mogrify
 from jobmon.meta_models import task_dag
 from jobmon.workflow.workflow import WorkflowDAO
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
+from jobmon.attributes import attribute_models
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -383,3 +384,16 @@ def _update_job_instance(job_instance, **kwargs):
         setattr(job_instance, k, v)
     return
 
+
+@app.route('/add_workflow_attribute', methods=['POST'])
+def add_workflow_attribute(self, workflow_id, attribute_type, value):
+    data = request.get_json()
+    workflow_attribute = attribute_models.WorkflowAttribute(
+        workflow_id=data['workflow_id'],
+        attribute_type=data['attribute_type'],
+        value=data['value'])
+    ScopedSession.add(workflow_attribute)
+    ScopedSession.commit()
+    resp = jsonify({'workflow_attribute_id': workflow_attribute.id})
+    resp.status_code = HTTPStatus.OK
+    return resp

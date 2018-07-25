@@ -167,16 +167,17 @@ class JobInstance(Base):
 
     def to_wire(self):
         time_since_status = (datetime.utcnow() - self.status_date).seconds
-        return {'job_instance_id': self.job_instance_id,
-                'workflow_run_id': self.workflow_run_id,
-                'executor_id': self.executor_id,
-                'job_id': self.job_id,
-                'status': self.status,
-                'nodename': self.nodename,
-                'process_group_id': self.process_group_id,
-                'status_date': self.status_date.strftime("%Y-%m-%dT%H:%M:%S"),
-                'time_since_status_update': time_since_status,
-                'max_runtime': self.job.max_runtime}
+        return {
+            'job_instance_id': self.job_instance_id,
+            'workflow_run_id': self.workflow_run_id,
+            'executor_id': self.executor_id,
+            'job_id': self.job_id,
+            'status': self.status,
+            'nodename': self.nodename,
+            'process_group_id': self.process_group_id,
+            'status_date': self.status_date.strftime("%Y-%m-%dT%H:%M:%S"),
+            'time_since_status_update': time_since_status,
+        }
 
     job_instance_id = Column(Integer, primary_key=True)
     workflow_run_id = Column(Integer)
@@ -219,6 +220,22 @@ class JobInstance(Base):
         (JobInstanceStatus.RUNNING, JobInstanceStatus.ERROR),
 
         (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
+
+    def register(self, requester, executor_type):
+        rc, job_instance_id = requester.send_request({
+            'action': 'add_job_instance',
+            'kwargs': {'job_id': self.job.job_id,
+                       'executor_type': executor_type}
+        })
+        self.job_instance_id = job_instance_id
+        return self.job_instance_id
+
+    def assign_executor_id(self, requester, executor_id):
+        requester.send_request({
+            'action': 'log_executor_id',
+            'kwargs': {'job_instance_id': self.job_instance_id,
+                       'executor_id': executor_id}
+        })
 
     def transition(self, new_state):
         self._validate_transition(new_state)

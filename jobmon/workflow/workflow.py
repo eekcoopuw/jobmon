@@ -13,6 +13,7 @@ from jobmon.requester import Requester
 from jobmon.sql_base import Base
 from jobmon.workflow.workflow_run import WorkflowRun
 from jobmon.workflow.task_dag import DagExecutionStatus, TaskDag
+from jobmon.attributes.constants import workflow_attribute
 
 logger = logging.getLogger(__name__)
 
@@ -96,16 +97,25 @@ class Workflow(object):
 
     def __init__(self, task_dag=None, workflow_args=None, name="",
                  description="", stderr=None, stdout=None, project=None,
-                 reset_running_jobs=True,
-                 working_dir=None):
+                 reset_running_jobs=True, working_dir=None,
+                 executor_class='SGEExecutor'):
         self.wf_dao = None
         self.name = name
         self.description = description
 
+        # TODO: These parameters are only applicable to the SGE Executor
+        # case. Consider moving them to config instead of the param list.
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
         self.working_dir = working_dir
+        self.executor_args = {
+            'stderr': self.stderr,
+            'stdout': self.stdout,
+            'working_dir': self.working_dir,
+            'project': self.project,
+        }
+        self.set_executor(executor_class)
 
         self.jsm_req = Requester(config.jsm_port)
         self.jqs_req = Requester(config.jqs_port)
@@ -115,7 +125,7 @@ class Workflow(object):
         if task_dag:
             self.task_dag = task_dag
         else:
-            self.task_dag = TaskDag()
+            self.task_dag = TaskDag(executor=self.executor)
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -128,6 +138,24 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
+
+    def set_executor(self, executor_class):
+        self.executor_class = executor_class
+        if self.executor_class == 'SGEExecutor':
+            from jobmon.executors.sge import SGEExecutor
+            self.executor = SGEExecutor(**self.executor_args)
+        elif self.executor_class == "SequentialExecutor":
+            from jobmon.executors.sequential import SequentialExecutor
+            self.executor = SequentialExecutor()
+        elif self.executor_class == "DummyExecutor":
+            from jobmon.executors.dummy import DummyExecutor
+            self.executor = DummyExecutor()
+        else:
+            raise ValueError("{} is not a valid "
+                             "executor_class".format(executor_class))
+
+        if not hasattr(self.executor, "execute"):
+            raise AttributeError("Executor must have an execute() method")
 
     @property
     def dag_id(self):
@@ -182,21 +210,11 @@ class Workflow(object):
                 raise WorkflowAlreadyComplete
             self.task_dag.bind_to_db(
                 self.dag_id,
-                executor_args={'stderr': self.stderr,
-                               'stdout': self.stdout,
-                               'working_dir': self.working_dir,
-                               'project': self.project,
-                              },
                 reset_running_jobs=self.reset_running_jobs,
             )
         elif len(potential_wfs) == 0:
             # Bind the dag ...
             self.task_dag.bind_to_db(
-                executor_args={'stderr': self.stderr,
-                               'stdout': self.stdout,
-                               'working_dir': self.working_dir,
-                               'project': self.project,
-                              },
                 reset_running_jobs=self.reset_running_jobs,
             )
 
@@ -313,3 +331,42 @@ class Workflow(object):
     def run(self):
         """Alias for self.execute"""
         return self.execute()
+
+    def is_valid_attribute(self, attribute_type, value):
+        """
+        - attribute_type has to be an int
+        - for now, value can only be str or int
+        - value has to be int or convertible to int except when the
+            attribute_type is a tag
+        - value can be any string when attribute_type is a tag
+
+        Args:
+            attribute_type
+            value
+        Returns:
+            True (or raises)
+        Raises:
+            ValueError: if the args for add_attribute is not valid.
+        """
+        if not isinstance(attribute_type, int):
+            raise ValueError("Invalid attribute_type: {}, {}"
+                             .format(attribute_type, type(attribute_type).__name__))
+        elif not attribute_type == workflow_attribute.TAG and not int(value):
+            raise ValueError("Invalid value type: {}, {}"
+                             .format(value, type(value).__name__))
+        return True
+
+    def add_workflow_attribute(self, attribute_type, value):
+        """Create workflow attribute entry in workflow_attribute table"""
+        self.is_valid_attribute(attribute_type, value)
+        if self.is_bound:
+            rc, response = self.jsm_req.send_request(
+                app_route='/add_workflow_attribute',
+                message={'workflow_id': self.id,
+                        'attribute_type': attribute_type,
+                        'value': value},
+                request_type='post')
+            return response['workflow_attribute_id']
+        else:
+            raise AttributeError("Workflow is not yet bound")
+

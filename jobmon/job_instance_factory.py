@@ -5,51 +5,12 @@ import _thread
 from time import sleep
 
 from jobmon.config import config
-from jobmon.command_context import build_qsub, build_wrapped_command
-from jobmon.models import Job
+from jobmon.executors.sequential import SequentialExecutor
+from jobmon.models import Job, JobInstance
 from jobmon.requester import Requester
 
 
 logger = logging.getLogger(__name__)
-
-
-def execute_sequentially(job, job_instance_id):
-    import subprocess
-    try:
-        cmd = build_wrapped_command(job, job_instance_id)
-        logger.debug(cmd)
-        subprocess.check_output(cmd, shell=True)
-    except Exception as e:
-        logger.error(e)
-    return None
-
-
-def execute_sge(job, job_instance_id, stderr=None, stdout=None, project=None,
-                working_dir=None):
-    try:
-        import subprocess
-        qsub_cmd = build_qsub(job, job_instance_id, stderr, stdout, project,
-                              working_dir)
-        resp = subprocess.check_output(qsub_cmd, shell=True)
-        idx = resp.split().index(b'job')
-        sge_jid = int(resp.split()[idx + 1])
-
-        # TODO: FIX THIS ... DRMAA QSUB METHOD IS FAILING FOR SOME REASON,
-        # NEED TO INVESTIGATE THE JOBTYPE ASSUMPTIONS. RESORTING TO
-        # BASIC COMMAND-LINE QSUB FOR NOW
-        # sge_jid = sge.qsub(cmd, jobname=job.name, jobtype='plain')
-
-        return sge_jid
-    except Exception as e:
-        logger.error(e)
-        return -99999
-
-
-def execute_batch_dummy(job, job_instance_id):
-    import random
-    # qsub
-    job_instance_id = random.randint(1, 1e7)
-    return job_instance_id
 
 
 class JobInstanceFactory(object):
@@ -61,10 +22,15 @@ class JobInstanceFactory(object):
         self.jqs_req = Requester(config.jqs_port)
         self.interrupt_on_error = interrupt_on_error
 
+        # At this level, default to using a Sequential Executor if None is
+        # provided. End-users shouldn't be interacting at this level (they
+        # should be using Workflows or TaskDags), so this state will typically
+        # only be invoked in testing.
         if executor:
             self.set_executor(executor)
         else:
-            self.set_executor(execute_sequentially)
+            se = SequentialExecutor()
+            self.set_executor(se)
 
         if not stop_event:
             self._stop_event = threading.Event()
@@ -120,16 +86,16 @@ class JobInstanceFactory(object):
             job (Job): A Job that we want to execute
         """
         try:
-            job_instance_id = self._register_job_instance(
-                job, self.executor.__name__)
+            job_instance = JobInstance(job=job)
+            executor_class = self.executor.__class__
+            job_instance.register(self.jsm_req, executor_class.__name__)
         except Exception as e:
             logger.error(e)
         logger.debug("Executing {}".format(job.command))
-        executor_id = self.executor(job, job_instance_id)
+        executor_id = self.executor.execute(job_instance)
         if executor_id:
-            self._register_submission_to_batch_executor(job_instance_id,
-                                                        executor_id)
-        return job_instance_id, executor_id
+            job_instance.assign_executor_id(self.jsm_req, executor_id)
+        return job_instance, executor_id
 
     def _get_jobs_queued_for_instantiation(self):
         try:
