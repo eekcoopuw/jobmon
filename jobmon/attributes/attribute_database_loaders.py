@@ -15,7 +15,11 @@ def load_attribute_types(session):
                            'NUM_RISKS': 'int',
                            'NUM_CAUSES': 'int',
                            'NUM_SEXES': 'int',
-                           'TAG': 'string'}
+                           'TAG': 'string',
+                           'NUM_MEASURES': 'int',
+                           'NUM_METRICS': 'int',
+                           'NUM_MOST_DETAILED_LOCATIONS': 'int',
+                           'NUM_AGGREGATE_LOCATIONS': 'int'}
     for attribute in workflow_attributes:
         workflow_attribute_types = WorkflowAttributeType(
                                     name=attribute,
@@ -30,7 +34,11 @@ def load_attribute_types(session):
                                'NUM_RISKS': 'int',
                                'NUM_CAUSES': 'int',
                                'NUM_SEXES': 'int',
-                               'TAG': 'string'}
+                               'TAG': 'string',
+                               'NUM_MEASURES': 'int',
+                               'NUM_METRICS': 'int',
+                               'NUM_MOST_DETAILED_LOCATIONS': 'int',
+                               'NUM_AGGREGATE_LOCATIONS': 'int'}
     for attribute in workflow_run_attributes:
         workflow_run_attribute_types = WorkflowRunAttributeType(
                                         name=attribute,
@@ -47,7 +55,9 @@ def load_attribute_types(session):
                       'NUM_SEXES': 'int',
                       'TAG': 'string',
                       'NUM_MEASURES': 'int',
-                      'NUM_METRICS': 'int'}
+                      'NUM_METRICS': 'int',
+                      'NUM_MOST_DETAILED_LOCATIONS': 'int',
+                      'NUM_AGGREGATE_LOCATIONS': 'int'}
     for attribute in job_attributes:
         job_attribute_types = JobAttributeType(
                                 name=attribute,
