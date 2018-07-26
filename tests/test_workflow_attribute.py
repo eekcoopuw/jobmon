@@ -21,12 +21,15 @@ def test_workflow_attribute(dag):
     with session_scope() as session:
         # query from workflow_attribute table
         workflow_attribute_query = session.execute("""
-                                        SELECT wf_att.id, wf_att.workflow_id,
-                                               wf_att.attribute_type, wf_att.value
+                                        SELECT wf_att.id, 
+                                               wf_att.workflow_id,
+                                               wf_att.attribute_type, 
+                                               wf_att.value
                                         FROM workflow_attribute as wf_att
                                         JOIN workflow
                                         ON wf_att.workflow_id = workflow.id 
-                                        WHERE wf_att.workflow_id = {id}""".format(id=workflow.id))
+                                        WHERE wf_att.workflow_id = {id}
+                                        """.format(id=workflow.id))
 
         workflow_attribute_entry = workflow_attribute_query.fetchone()
         workflow_attribute_entry_type = workflow_attribute_entry.attribute_type

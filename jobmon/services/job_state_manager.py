@@ -51,8 +51,12 @@ class JobStateManager(ReplyServer):
         self.register_action("reset_incomplete_jobs",
                              self.reset_incomplete_jobs)
 
-        self.register_action("add_workflow_attribute", self.add_workflow_attribute)
-
+        self.register_action("add_workflow_attribute",
+                             self.add_workflow_attribute)
+        self.register_action("add_workflow_run_attribute",
+                             self.add_workflow_run_attribute)
+        self.register_action("add_job_attribute",
+                             self.add_job_attribute)
 
         ctx = zmq.Context.instance()
         self.publisher = ctx.socket(zmq.PUB)
@@ -373,11 +377,35 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def add_workflow_attribute(self, workflow_id, attribute_type, value):
-        workflow_attribute = attribute_models.WorkflowAttribute(workflow_id=workflow_id,
-                                                                attribute_type=attribute_type,
-                                                                value=value)
+        workflow_attribute = attribute_models.\
+            WorkflowAttribute(workflow_id=workflow_id,
+                              attribute_type=attribute_type,
+                              value=value)
         with session_scope() as session:
             session.add(workflow_attribute)
             session.commit()
             workflow_attribute_id = workflow_attribute.id
         return (ReturnCodes.OK, workflow_attribute_id)
+
+    def add_workflow_run_attribute(self, workflow_run_id,
+                                   attribute_type, value):
+        workflow_run_attribute = attribute_models.\
+            WorkflowRunAttribute(workflow_run_id=workflow_run_id,
+                                 attribute_type=attribute_type,
+                                 value=value)
+        with session_scope() as session:
+            session.add(workflow_run_attribute)
+            session.commit()
+            workflow_run_attribute_id = workflow_run_attribute.id
+        return (ReturnCodes.OK, workflow_run_attribute_id)
+
+    def add_job_attribute(self, job_id, attribute_type, value):
+        job_attribute = attribute_models.\
+            JobAttribute(job_id=job_id,
+                         attribute_type=attribute_type,
+                         value=value)
+        with session_scope() as session:
+            session.add(job_attribute)
+            session.commit()
+            job_attribute_id = job_attribute.id
+        return (ReturnCodes.OK, job_attribute_id)
