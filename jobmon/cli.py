@@ -12,8 +12,7 @@ from jobmon.database import session_scope
 from jobmon.requester import Requester
 from jobmon.notifiers import SlackNotifier
 from jobmon.services.health_monitor import HealthMonitor
-from jobmon.services.job_query_server import JobQueryServer
-from jobmon.services.job_state_manager import JobStateManager
+from jobmon.services import job_state_manager, job_query_server
 
 try:
     FileExistsError
@@ -88,9 +87,9 @@ def parse_args(argstr=None):
 
     start_parser = subparsers.add_parser("start")
     start_parser.set_defaults(func=start)
-    start_parser.add_argument("service", choices=['job_state_manager',
-                                                  'job_query_server',
-                                                  'health_monitor'])
+    start_parser.add_argument("service", choices=['health_monitor',
+                                                  'job_state_manager',
+                                                  'job_query_server'])
 
     test_parser = subparsers.add_parser("test")
     test_parser.set_defaults(func=test_connection)
@@ -107,7 +106,7 @@ def parse_args(argstr=None):
 
 
 def start(args):
-    """Start the JobStateManager or JobQueryServer process listening"""
+    """Start the services"""
     if config.config.verbose:
         logging.basicConfig(level=logging.DEBUG)
     if args.service == "job_state_manager":
@@ -116,6 +115,20 @@ def start(args):
         start_job_query_server()
     elif args.service == "health_monitor":
         start_health_monitor()
+    else:
+        raise ValueError("Only health_monitor, job_query_server, and "
+                         "job_state_manager server can be 'started'. Got {}"
+                         .format(args.service))
+
+
+def start_job_state_manager():
+    """Start the JobStateManager process"""
+    job_state_manager.start()
+
+
+def start_job_query_server():
+    """Start the JobQueryServer process"""
+    job_query_server.start()
 
 
 def start_health_monitor():
@@ -138,26 +151,11 @@ def start_health_monitor():
     hm.monitor_forever()
 
 
-def start_job_state_manager():
-    """Start the JobStateManager process listening"""
-    jsm = JobStateManager(config.config.jm_rep_conn.port,
-                          config.config.jm_pub_conn.port)
-    jsm.open_socket()
-    jsm.listen()
-
-
-def start_job_query_server():
-    """Start the JobQueryServer process listening"""
-    jqs = JobQueryServer(config.config.jqs_rep_conn.port)
-    jqs.open_socket()
-    jqs.listen()
-
-
 def test_connection(args):
-    jsm_req = Requester(config.jm_rep_conn)
-    jsm_req.send_request({'action': 'alive'})
-    jqs_req = Requester(config.jqs_rep_conn)
-    jqs_req.send_request({'action': 'alive'})
+    jsm_req = Requester(config.jm_port)
+    jsm_req.send_request(app_route='/', request_type='get')  # is alive?
+    jqs_req = Requester(config.jqs_port)
+    jqs_req.send_request(app_route='/', request_type='get')  # is alive?
 
 
 if __name__ == "__main__":

@@ -3,7 +3,6 @@ import sys
 from datetime import datetime, timedelta
 
 from jobmon import sge
-from jobmon.database import session_scope
 from jobmon.models import JobInstance, JobInstanceStatus
 from jobmon.workflow.executable_task import ExecutableTask as Task
 
@@ -16,7 +15,7 @@ else:
     from functools import partial
 
 
-def test_valid_command(dag_id, job_list_manager_sge):
+def test_valid_command(real_dag_id, job_list_manager_sge):
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="sge_foobar", slots=2, mem_free=4, max_attempts=3))
@@ -28,15 +27,15 @@ def test_valid_command(dag_id, job_list_manager_sge):
 
 
 def valid_command_check(job_list_manager_sge):
-    done = job_list_manager_sge.get_new_done()
-    if len(done) == 1:
+    job_list_manager_sge._sync()
+    if len(job_list_manager_sge.all_done) == 1:
         # Success
         return True
     else:
         return False
 
 
-def test_context_args(jsm_jqs, job_list_manager_sge):
+def test_context_args(real_jsm_jqs, job_list_manager_sge):
     delay_to = (datetime.now() + timedelta(minutes=5)).strftime("%m%d%H%M")
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
@@ -50,11 +49,11 @@ def test_context_args(jsm_jqs, job_list_manager_sge):
 
 
 def context_args_check(job_id):
-    with session_scope() as session:
-        jis = session.query(JobInstance).filter_by(job_id=job_id).all()
-        njis = len(jis)
-        status = jis[0].status
-        sge_jid = jis[0].executor_id
+    from jobmon.database import ScopedSession
+    jis = ScopedSession.query(JobInstance).filter_by(job_id=job_id).all()
+    njis = len(jis)
+    status = jis[0].status
+    sge_jid = jis[0].executor_id
     # Make sure the job actually got to SGE
     if njis == 1:
         # Make sure it hasn't advanced to running (i.e. the -a argument worked)

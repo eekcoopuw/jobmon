@@ -74,7 +74,7 @@ def unwrap():
     ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
                                       executor_class=ExecutorClass,
                                       process_group_id=os.getpid(),
-                                      jm_rep_cc=cc)
+                                      hostname=args['jsm_host'])
     ji_intercom.log_running()
 
     try:

@@ -37,7 +37,7 @@ class HealthMonitor(object):
                                  pi=poll_interval,
                                  lt=loss_threshold))
 
-        self._requester = Requester(config.jm_rep_conn)
+        self._requester = Requester(config.jsm_port)
         self._loss_threshold = timedelta(minutes=loss_threshold)
         self._poll_interval = poll_interval
         self._wf_notification_sink = wf_notification_sink
@@ -135,11 +135,11 @@ class HealthMonitor(object):
 
     def _register_lost_workflow_runs(self, lost_workflow_runs):
         for wfr in lost_workflow_runs:
-            self._requester.send_request({
-                'action': 'update_workflow_run',
-                'kwargs': {'wfr_id': wfr.id,
-                           'status': WorkflowRunStatus.ERROR}
-            })
+            self._requester.send_request(
+                app_route='/update_workflow_run',
+                message={'wfr_id': wfr.id,
+                         'status': WorkflowRunStatus.ERROR},
+                request_type='post')
             wf = wfr.workflow
             dag = wf.task_dag
             msg = ("Lost contact with Workflow Run #{wfr_id}:\n"

@@ -45,7 +45,8 @@ def test_job_submit_times(db_cfg):
         session.commit()
 
         # Create a job
-        job1 = Job(dag_id=dag_id, name='test1', job_hash=1, status=JobStatus.REGISTERED)
+        job1 = Job(dag_id=dag_id, name='test1', job_hash=1,
+                   status=JobStatus.REGISTERED)
         session.add(job1)
         session.commit()
 

@@ -51,19 +51,20 @@ def sge_submit_cmd_contains(jid, text):
     return text in cmd
 
 
-def task_status(dag, task):
-    return dag.job_list_manager.status_from_task(task)
+def task_status(real_dag, task):
+    return real_dag.job_list_manager.status_from_task(task)
 
 
-def test_empty_dag(dag):
+def test_empty_real_dag(real_dag):
     """
-    Create a dag with no Tasks. Call all the creation methods and check that it
-    raises no Exceptions.
+    Create a real_dag with no Tasks. Call all the creation methods and check
+    that it raises no Exceptions.
     """
-    assert dag.name == "test_empty_dag"
-    dag._execute()
+    assert real_dag.name == "test_empty_real_dag"
+    real_dag._execute()
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_previously_complete == 0
@@ -71,9 +72,9 @@ def test_empty_dag(dag):
     assert num_failed == 0
 
 
-def test_one_task(tmp_out_dir, dag):
+def test_one_task(tmp_out_dir, real_dag):
     """
-    Create a dag with one Task and execute it
+    Create a real_dag with one Task and execute it
     """
     root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
@@ -84,22 +85,23 @@ def test_one_task(tmp_out_dir, dag):
         command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
                  "--name {n}" .format(cs=command_script, ofn=output_file_name,
                                       n=output_file_name)))
-    dag.add_task(task)
+    real_dag.add_task(task)
     os.makedirs("{}/test_one_task".format(tmp_out_dir))
-    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) =\
+        real_dag._execute()
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
     assert num_previously_complete == 0
     assert num_failed == 0
-    assert dag.job_list_manager.status_from_task(task) == JobStatus.DONE
+    assert real_dag.job_list_manager.status_from_task(task) == JobStatus.DONE
 
 
-def test_two_tasks_same_name_errors(tmp_out_dir, dag):
+def test_two_tasks_same_name_errors(tmp_out_dir, real_dag):
     """
-    Create a dag with two Tasks, with the second task having the same hash_name
-    as the first. Make sure that, upon adding the second task to the dag,
-    TaskDag raises a ValueError
+    Create a TaskDag with two Tasks, with the second task having the same
+    hash_name as the first. Make sure that, upon adding the second task to the
+    dag, TaskDag raises a ValueError
     """
     root_out_dir = "{}/mocks/test_two_tasks_same_name".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
@@ -110,7 +112,7 @@ def test_two_tasks_same_name_errors(tmp_out_dir, dag):
         command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
                  "--name {n}".format(cs=command_script, ofn=output_file_name,
                                      n=output_file_name)))
-    dag.add_task(task_a)
+    real_dag.add_task(task_a)
 
     task_a_again = SleepAndWriteFileMockTask(
         command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
@@ -118,12 +120,12 @@ def test_two_tasks_same_name_errors(tmp_out_dir, dag):
                                      n=output_file_name)))
 
     with pytest.raises(ValueError):
-        dag.add_task(task_a_again)
+        real_dag.add_task(task_a_again)
 
 
-def test_three_linear_tasks(tmp_out_dir, dag):
+def test_three_linear_tasks(tmp_out_dir, real_dag):
     """
-    Create and execute a dag with three Tasks, one after another: a->b->c
+    Create and execute a real_dag with three Tasks, one after another: a->b->c
     """
     root_out_dir = "{}/mocks/test_three_linear_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
@@ -136,7 +138,7 @@ def test_three_linear_tasks(tmp_out_dir, dag):
                                      n=a_output_file_name)),
         upstream_tasks=[]  # To be clear
     )
-    dag.add_task(task_a)
+    real_dag.add_task(task_a)
 
     b_output_file_name = "{}/b.out".format(root_out_dir)
     task_b = SleepAndWriteFileMockTask(
@@ -145,7 +147,7 @@ def test_three_linear_tasks(tmp_out_dir, dag):
                                      n=b_output_file_name)),
         upstream_tasks=[task_a]
     )
-    dag.add_task(task_b)
+    real_dag.add_task(task_b)
 
     c_output_file_name = "{}/c.out".format(root_out_dir)
     task_c = SleepAndWriteFileMockTask(
@@ -153,25 +155,26 @@ def test_three_linear_tasks(tmp_out_dir, dag):
                  "--name {n}".format(cs=command_script, ofn=c_output_file_name,
                                      n=c_output_file_name)),
     )
-    dag.add_task(task_c)
+    real_dag.add_task(task_c)
     task_c.add_upstream(task_b)  # Exercise add_upstream post-instantiation
 
-    logger.debug("DAG: {}".format(dag))
-    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
+    logger.debug("real_dag: {}".format(real_dag))
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 3
     assert num_previously_complete == 0
     assert num_failed == 0
-    assert dag.top_fringe == [task_a]
+    assert real_dag.top_fringe == [task_a]
 
     all([task_a, task_b, task_c])
 
     # TBD validation
 
 
-def test_fork_and_join_tasks(tmp_out_dir, dag):
+def test_fork_and_join_tasks(tmp_out_dir, real_dag):
     """
-    Create a small fork and join dag with four phases:
+    Create a small fork and join real_dag with four phases:
      a->b[0..2]->c[0..2]->d
      and execute it
     """
@@ -185,7 +188,7 @@ def test_fork_and_join_tasks(tmp_out_dir, dag):
                  "--name {n}".format(cs=command_script, ofn=output_file_name,
                                      n=output_file_name))
     )
-    dag.add_task(task_a)
+    real_dag.add_task(task_a)
 
     # The B's all have varying runtimes,
     task_b = {}
@@ -199,7 +202,7 @@ def test_fork_and_join_tasks(tmp_out_dir, dag):
                                          n=output_file_name)),
             upstream_tasks=[task_a]
         )
-        dag.add_task(task_b[i])
+        real_dag.add_task(task_b[i])
 
     # Each c[i] depends exactly and only on b[i]
     # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race
@@ -215,7 +218,7 @@ def test_fork_and_join_tasks(tmp_out_dir, dag):
                                          n=output_file_name)),
             upstream_tasks=[task_b[i]]
         )
-        dag.add_task(task_c[i])
+        real_dag.add_task(task_c[i])
 
     sleep_secs = 3
     output_file_name = "{}/d.out".format(root_out_dir)
@@ -226,33 +229,34 @@ def test_fork_and_join_tasks(tmp_out_dir, dag):
                                      n=output_file_name)),
         upstream_tasks=[task_c[i] for i in range(3)]
     )
-    dag.add_task(task_d)
+    real_dag.add_task(task_d)
 
-    logger.info("DAG: {}".format(dag))
+    logger.info("real_dag: {}".format(real_dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0
 
-    assert task_status(dag, task_a) == JobStatus.DONE
+    assert task_status(real_dag, task_a) == JobStatus.DONE
 
-    assert task_status(dag, task_b[0]) == JobStatus.DONE
-    assert task_status(dag, task_b[1]) == JobStatus.DONE
-    assert task_status(dag, task_b[2]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[0]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[1]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[2]) == JobStatus.DONE
 
-    assert task_status(dag, task_c[0]) == JobStatus.DONE
-    assert task_status(dag, task_c[1]) == JobStatus.DONE
-    assert task_status(dag, task_c[2]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[0]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[1]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[2]) == JobStatus.DONE
 
-    assert task_status(dag, task_d) == JobStatus.DONE
+    assert task_status(real_dag, task_d) == JobStatus.DONE
 
 
-def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
+def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, real_dag):
     """
-    Create the same small fork and join dag.
+    Create the same small fork and join real_dag.
     One of the b-tasks (#1) fails consistently, so c[1] will never be ready.
     """
     root_out_dir = ("{}/mocks/test_fork_and_join_tasks_with_fatal_error"
@@ -266,7 +270,7 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
                  "--name {n}".format(cs=command_script, ofn=output_file_name,
                                      n=output_file_name))
     )
-    dag.add_task(task_a)
+    real_dag.add_task(task_a)
 
     task_b = {}
     for i in range(3):
@@ -280,7 +284,7 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
             upstream_tasks=[task_a],
             fail_always=(i == 1)
         )
-        dag.add_task(task_b[i])
+        real_dag.add_task(task_b[i])
 
     task_c = {}
     for i in range(3):
@@ -292,7 +296,7 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
                                          n=output_file_name)),
             upstream_tasks=[task_b[i]]
         )
-        dag.add_task(task_c[i])
+        real_dag.add_task(task_c[i])
 
     output_file_name = "{}/d.out".format(root_out_dir)
     task_d = SleepAndWriteFileMockTask(
@@ -301,11 +305,12 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
                                      n=output_file_name)),
         upstream_tasks=[task_c[i] for i in range(3)]
     )
-    dag.add_task(task_d)
+    real_dag.add_task(task_d)
 
-    logger.info("DAG: {}".format(dag))
+    logger.info("real_dag: {}".format(real_dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
     assert rc == DagExecutionStatus.FAILED
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
@@ -313,25 +318,25 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, dag):
     assert num_previously_complete == 0
     assert num_failed == 1  # b[1]
 
-    assert task_status(dag, task_a) == JobStatus.DONE
+    assert task_status(real_dag, task_a) == JobStatus.DONE
 
-    assert task_status(dag, task_b[0]) == JobStatus.DONE
-    assert task_status(dag, task_b[1]) == JobStatus.ERROR_FATAL
-    assert task_status(dag, task_b[2]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[0]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[1]) == JobStatus.ERROR_FATAL
+    assert task_status(real_dag, task_b[2]) == JobStatus.DONE
 
-    assert task_status(dag, task_c[0]) == JobStatus.DONE
-    assert task_status(dag, task_c[1]) == JobStatus.REGISTERED
-    assert task_status(dag, task_c[2]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[0]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[1]) == JobStatus.REGISTERED
+    assert task_status(real_dag, task_c[2]) == JobStatus.DONE
 
-    assert task_status(dag, task_d) == JobStatus.REGISTERED
+    assert task_status(real_dag, task_d) == JobStatus.REGISTERED
 
 
-def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
+def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, real_dag):
     """
-    Create the same fork and join dag with three Tasks a->b[0..3]->c and
+    Create the same fork and join real_dag with three Tasks a->b[0..3]->c and
     execute it.
     One of the b-tasks fails once, so the retry handler should cover that, and
-    the whole DAG should complete
+    the whole real_dag should complete
     """
     root_out_dir = ("{}/mocks/test_fork_and_join_tasks_with_retryable_error"
                     .format(tmp_out_dir))
@@ -344,7 +349,7 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
                  "--name {n}".format(cs=command_script, ofn=output_file_name,
                                      n=output_file_name))
     )
-    dag.add_task(task_a)
+    real_dag.add_task(task_a)
 
     task_b = {}
     for i in range(3):
@@ -358,7 +363,7 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
             upstream_tasks=[task_a],
             fail_count=1 if (i == 1) else 0
         )
-        dag.add_task(task_b[i])
+        real_dag.add_task(task_b[i])
 
     task_c = {}
     for i in range(3):
@@ -370,7 +375,7 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
                                          n=output_file_name)),
             upstream_tasks=[task_b[i]]
         )
-        dag.add_task(task_c[i])
+        real_dag.add_task(task_c[i])
 
     output_file_name = "{}/d.out".format(root_out_dir)
     task_d = SleepAndWriteFileMockTask(
@@ -380,33 +385,34 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
         upstream_tasks=[task_c[i] for i in range(3)],
         fail_count=2
     )
-    dag.add_task(task_d)
+    real_dag.add_task(task_d)
 
-    logger.info("DAG: {}".format(dag))
+    logger.info("real_dag: {}".format(real_dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
     assert num_failed == 0
 
-    assert task_status(dag, task_a) == JobStatus.DONE
+    assert task_status(real_dag, task_a) == JobStatus.DONE
 
-    assert task_status(dag, task_b[0]) == JobStatus.DONE
-    assert task_status(dag, task_b[1]) == JobStatus.DONE
-    assert task_status(dag, task_b[2]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[0]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[1]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[2]) == JobStatus.DONE
 
-    assert task_status(dag, task_c[0]) == JobStatus.DONE
-    assert task_status(dag, task_c[1]) == JobStatus.DONE
-    assert task_status(dag, task_c[2]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[0]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[1]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[2]) == JobStatus.DONE
 
-    assert task_status(dag, task_d) == JobStatus.DONE
+    assert task_status(real_dag, task_d) == JobStatus.DONE
 
     # Check that the failed task's nodename + pgid got propagated to
     # its retry instance
     with session_scope() as session:
-        bound_task = dag.job_list_manager.bound_task_from_task(task_b[1])
+        bound_task = real_dag.job_list_manager.bound_task_from_task(task_b[1])
         job = session.query(Job).filter_by(job_id=bound_task.job_id).first()
         done_ji = [ji for ji in job.job_instances
                    if ji.status == JobInstanceStatus.DONE][0]
@@ -422,9 +428,9 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
     assert sge_submit_cmd_contains(done_sge_id, kill_pgid_text)
 
 
-def test_bushy_dag(tmp_out_dir, dag):
+def test_bushy_real_dag(tmp_out_dir, real_dag):
     """
-    Similar to the a small fork and join dag but with connections between early
+    Similar to the a small fork and join real_dag but with connections between early
     and late phases:
        a->b[0..2]->c[0..2]->d
     And also:
@@ -440,7 +446,7 @@ def test_bushy_dag(tmp_out_dir, dag):
         command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
                  "--name {n}".format(cs=command_script, ofn=output_file_name,
                                      n=output_file_name)))
-    dag.add_task(task_a)
+    real_dag.add_task(task_a)
 
     # The B's all have varying runtimes,
     task_b = {}
@@ -454,7 +460,7 @@ def test_bushy_dag(tmp_out_dir, dag):
                                          n=output_file_name)),
             upstream_tasks=[task_a]
         )
-        dag.add_task(task_b[i])
+        real_dag.add_task(task_b[i])
 
     # Each c[i] depends exactly and only on b[i]
     # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race
@@ -470,7 +476,7 @@ def test_bushy_dag(tmp_out_dir, dag):
                                          n=output_file_name)),
             upstream_tasks=[task_b[i], task_a]
         )
-        dag.add_task(task_c[i])
+        real_dag.add_task(task_c[i])
 
     b_and_c = [task_b[i] for i in range(3)]
     b_and_c += [task_c[i] for i in range(3)]
@@ -483,11 +489,12 @@ def test_bushy_dag(tmp_out_dir, dag):
                                      n=output_file_name)),
         upstream_tasks=b_and_c
     )
-    dag.add_task(task_d)
+    real_dag.add_task(task_d)
 
-    logger.info("DAG: {}".format(dag))
+    logger.info("real_dag: {}".format(real_dag))
 
-    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
     # TODO: How to check that nothing was started before its upstream were
     # done?
@@ -500,40 +507,41 @@ def test_bushy_dag(tmp_out_dir, dag):
     assert num_previously_complete == 0
     assert num_failed == 0
 
-    assert task_status(dag, task_a) == JobStatus.DONE
+    assert task_status(real_dag, task_a) == JobStatus.DONE
 
-    assert task_status(dag, task_b[0]) == JobStatus.DONE
-    assert task_status(dag, task_b[1]) == JobStatus.DONE
-    assert task_status(dag, task_b[2]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[0]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[1]) == JobStatus.DONE
+    assert task_status(real_dag, task_b[2]) == JobStatus.DONE
 
-    assert task_status(dag, task_c[0]) == JobStatus.DONE
-    assert task_status(dag, task_c[1]) == JobStatus.DONE
-    assert task_status(dag, task_c[2]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[0]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[1]) == JobStatus.DONE
+    assert task_status(real_dag, task_c[2]) == JobStatus.DONE
 
-    assert task_status(dag, task_d) == JobStatus.DONE
+    assert task_status(real_dag, task_d) == JobStatus.DONE
 
 
-def test_dag_logging(tmp_out_dir, dag):
+def test_real_dag_logging(tmp_out_dir, real_dag):
     """
-    Create a dag with one Task and execute it, and make sure logs show up in db
+    Create a real_dag with one Task and execute it, and make sure logs show up in db
 
     This is in a separate test from the jsm-specifc logging test, as this test
     runs the jobmon pipeline as it would be run from the client perspective,
     and makes sure the qstat usage details are automatically updated in the db,
-    as well as the created_date for the dag
+    as well as the created_date for the real_dag
     """
-    root_out_dir = "{}/mocks/test_dag_logging".format(tmp_out_dir)
+    root_out_dir = "{}/mocks/test_real_dag_logging".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     command_script = sge.true_path("tests/remote_sleep_and_write.py")
 
-    output_file_name = "{}/test_dag_logging/mock.out".format(tmp_out_dir)
+    output_file_name = "{}/test_real_dag_logging/mock.out".format(tmp_out_dir)
     task = SleepAndWriteFileMockTask(
         command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
                  "--name {n}" .format(cs=command_script, ofn=output_file_name,
                                       n=output_file_name)))
-    dag.add_task(task)
-    os.makedirs("{}/test_dag_logging".format(tmp_out_dir))
-    (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
+    real_dag.add_task(task)
+    os.makedirs("{}/test_real_dag_logging".format(tmp_out_dir))
+    (rc, num_completed, num_previously_complete, num_failed) = \
+        real_dag._execute()
 
     with session_scope() as session:
         ji = session.query(JobInstance).first()

@@ -59,10 +59,8 @@ class GlobalConfig(object):
     default_opts = {
         "conn_str": ("mysql://docker:docker@"
                      "jobmon-p01.ihme.washington.edu:3312/docker"),
-        "jsm_host": "jobmon-p01.ihme.washington.edu",
-        "jqs_host": "jobmon-p01.ihme.washington.edu",
-        "jsm_rep_port": 5056,
-        "jsm_pub_port": 5057,
+        "host": "jobmon-p01.ihme.washington.edu",
+        "jsm_port": 5056,
         "jqs_port": 5058,
         "verbose": False,
         "slack_token": None,
@@ -71,28 +69,22 @@ class GlobalConfig(object):
         "jobmon_command": derive_jobmon_command_from_env()
     }
 
-    def __init__(self, conn_str, jsm_host, jqs_host, jsm_rep_port,
-                 jsm_pub_port, jqs_port, verbose, slack_token,
-                 default_wf_slack_channel, default_node_slack_channel,
-                 jobmon_command):
+    def __init__(self, conn_str, host, jsm_port, jqs_port, verbose,
+                 slack_token, default_wf_slack_channel,
+                 default_node_slack_channel, jobmon_command):
 
         self.conn_str = conn_str
         self.verbose = False
 
-        self._jsm_host = jsm_host
-        self._jqs_host = jqs_host
-        self._jsm_pub_port = jsm_pub_port
-        self._jsm_rep_port = jsm_rep_port
+        self._host = host
+        self._jsm_port = jsm_port
         self._jqs_port = jqs_port
 
-        self.jm_rep_conn = ConnectionConfig(
-            host=jsm_host,
-            port=str(jsm_rep_port))
-        self.jm_pub_conn = ConnectionConfig(
-            host=jsm_host,
-            port=str(jsm_pub_port))
-        self.jqs_rep_conn = ConnectionConfig(
-            host=jqs_host,
+        self.jsm_conn = ConnectionConfig(
+            host=host,
+            port=str(jsm_port))
+        self.jqs_conn = ConnectionConfig(
+            host=host,
             port=str(jqs_port))
 
         self.slack_token = slack_token
@@ -101,41 +93,23 @@ class GlobalConfig(object):
         self.jobmon_command = jobmon_command
 
     @property
-    def jsm_host(self):
-        return self._jsm_host
+    def host(self):
+        return self._host
 
-    @jsm_host.setter
-    def jsm_host(self, value):
-        self._jsm_host = value
-        self.jm_rep_conn.host = self._jsm_host
-        self.jm_pub_conn.host = self._jsm_host
-
-    @property
-    def jqs_host(self):
-        return self._jqs_host
-
-    @jqs_host.setter
-    def jqs_host(self, value):
-        self._jqs_host = value
-        self.jqs_rep_conn.host = self._jqs_host
+    @host.setter
+    def host(self, value):
+        self._host = value
+        self.jsm_conn.host = self._host
+        self.jqs_conn.host = self._host
 
     @property
-    def jsm_pub_port(self):
-        return self._jsm_pub_port
+    def jsm_port(self):
+        return self._jsm_port
 
-    @jsm_pub_port.setter
-    def jsm_pub_port(self, value):
-        self._jsm_pub_port = value
-        self.jm_pub_conn.port = self._jsm_pub_port
-
-    @property
-    def jsm_rep_port(self):
-        return self._jsm_rep_port
-
-    @jsm_rep_port.setter
-    def jsm_rep_port(self, value):
-        self._jsm_rep_port = value
-        self.jm_rep_conn.port = self._jsm_rep_port
+    @jsm_port.setter
+    def jsm_port(self, value):
+        self._jsm_port = value
+        self.jsm_conn.port = self._jsm_port
 
     @property
     def jqs_port(self):
@@ -144,7 +118,7 @@ class GlobalConfig(object):
     @jqs_port.setter
     def jqs_port(self, value):
         self._jqs_port = value
-        self.jqs_rep_conn.port = self._jqs_port
+        self.jqs_conn.port = self._jqs_port
 
     def apply_opts_dct(self, opts_dct):
         for opt, opt_val in opts_dct.items():
