@@ -105,7 +105,7 @@ class JobFactory(object):
                                      type(value).__name__))
         else:
             rc, job_attribute_id = self.requester.send_request(
-                route='/add_job_attribute',
+                app_route='/add_job_attribute',
                 message={'job_id': str(job_id),
                          'attribute_type': str(attribute_type),
                          'value': str(value)},

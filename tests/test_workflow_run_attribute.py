@@ -39,6 +39,7 @@ def test_workflow_run_attribute(dag):
     attribute_entry = attribute_query.fetchone()
     entry_type = attribute_entry.attribute_type
     entry_value = attribute_entry.value
+    ScopedSession.commit()
 
     assert entry_type == workflow_run_attribute.NUM_DRAWS
     assert entry_value == "1000"

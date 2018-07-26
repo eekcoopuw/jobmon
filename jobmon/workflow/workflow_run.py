@@ -10,7 +10,6 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from jobmon.config import config
-from jobmon.exceptions import SGENotAvailable
 from jobmon.models import JobInstance
 from jobmon.requester import Requester
 from jobmon.sql_base import Base
@@ -240,7 +239,7 @@ class WorkflowRun(object):
                                      type(value).__name__))
         else:
             rc, workflow_run_attribute_id = self.jsm_req.send_request(
-                route='/add_workflow_run_attribute',
+                app_route='/add_workflow_run_attribute',
                 message={'workflow_run_id': str(self.id),
                          'attribute_type': str(attribute_type),
                          'value': str(value)},
