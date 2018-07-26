@@ -18,7 +18,6 @@ from jobmon.attributes import attribute_models
 # Therefore see tests/conf_test.py
 logger = logging.getLogger(__name__)
 
-<<<<<<< HEAD
 app = Flask(__name__)
 
 
