@@ -164,6 +164,9 @@ class JobListManager(object):
     def reset_jobs(self):
         self.job_factory.reset_jobs()
 
+    def add_job_attribute(self, job, attribute_type, value):
+        self.job_factory.add_job_attribute(job.job_id, attribute_type, value)
+
     def status_from_hash(self, job_hash):
         job = self.hash_job_map[job_hash]
         return self.status_from_job(job)

@@ -18,6 +18,7 @@ from jobmon.attributes import attribute_models
 # Therefore see tests/conf_test.py
 logger = logging.getLogger(__name__)
 
+<<<<<<< HEAD
 app = Flask(__name__)
 
 
@@ -395,5 +396,33 @@ def add_workflow_attribute():
     ScopedSession.add(workflow_attribute)
     ScopedSession.commit()
     resp = jsonify({'workflow_attribute_id': workflow_attribute.id})
+    resp.status_code = HTTPStatus.OK
+    return resp
+
+
+@app.route('/add_workflow_run_attribute', methods=['POST'])
+def add_workflow_run_attribute():
+    data = request.get_json()
+    workflow_run_attribute = attribute_models.\
+        WorkflowRunAttribute(workflow_run_id=data['workflow_run_id'],
+                             attribute_type=data['attribute_type'],
+                             value=data['value'])
+    ScopedSession.add(workflow_run_attribute)
+    ScopedSession.commit()
+    resp = jsonify({'workflow_run_attribute_id': workflow_run_attribute.id})
+    resp.status_code = HTTPStatus.OK
+    return resp
+
+
+@app.route('/add_job_attribute', methods=['POST'])
+def add_job_attribute():
+    data = request.get_json()
+    job_attribute = attribute_models.\
+        JobAttribute(job_id=data['job_id'],
+                     attribute_type=data['attribute_type'],
+                     value=data['value'])
+    ScopedSession.add(job_attribute)
+    ScopedSession.commit()
+    resp = jsonify({'job_attribute_id': job_attribute.id})
     resp.status_code = HTTPStatus.OK
     return resp

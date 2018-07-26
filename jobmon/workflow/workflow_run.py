@@ -15,6 +15,7 @@ from jobmon.models import JobInstance
 from jobmon.requester import Requester
 from jobmon.sql_base import Base
 from jobmon.utils import kill_remote_process
+from jobmon.attributes.constants import workflow_run_attribute
 
 logger = logging.getLogger(__name__)
 
@@ -210,3 +211,38 @@ class WorkflowRun(object):
             app_route='/update_workflow_run',
             message={'wfr_id': self.id, 'status': status},
             request_type='post')
+
+    def add_workflow_run_attribute(self, attribute_type, value):
+        """
+        Create a workflow_run attribute entry in the database.
+
+        Args:
+            attribute_type (int): attribute_type id from
+                                  workflow_run_attribute_type table
+            value (int): value associated with attribute
+
+        Raises:
+            ValueError: If the args are not valid.
+                        attribute_type should be int and
+                        value should be convertible to int
+                        or be string for TAG attribute
+        """
+        if not isinstance(attribute_type, int):
+            raise ValueError("Invalid attribute_type: {}, {}"
+                             .format(attribute_type,
+                                     type(attribute_type).__name__))
+        elif (not attribute_type == workflow_run_attribute.TAG and
+              not int(value)
+              ) or (attribute_type == workflow_run_attribute.TAG and
+                    not isinstance(value, str)):
+            raise ValueError("Invalid value type: {}, {}"
+                             .format(value,
+                                     type(value).__name__))
+        else:
+            rc, workflow_run_attribute_id = self.jsm_req.send_request(
+                route='/add_workflow_run_attribute',
+                message={'workflow_run_id': str(self.id),
+                         'attribute_type': str(attribute_type),
+                         'value': str(value)},
+                request_type='post')
+            return workflow_run_attribute_id

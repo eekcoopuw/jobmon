@@ -6,6 +6,7 @@ from jobmon import requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.config import config
 from jobmon.models import Job
+from jobmon.attributes.constants import job_attribute
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +76,38 @@ class JobFactory(object):
         if rc != HTTPStatus.OK:
             raise InvalidResponse("{rc}: Could not reset jobs".format(rc))
         return rc
+
+    def add_job_attribute(self, job_id, attribute_type, value):
+        """
+        Create a job attribute entry in the database.
+
+        Args:
+            job_id (int): id of job to attach attribute to
+            attribute_type (int): attribute_type id from
+                                  job_attribute_type table
+            value (int): value associated with attribute
+
+        Raises:
+            ValueError: If the args are not valid.
+                        attribute_type should be int and
+                        value should be convertible to int
+                        or be string for TAG attribute
+        """
+        if not isinstance(attribute_type, int):
+            raise ValueError("Invalid attribute_type: {}, {}"
+                             .format(attribute_type,
+                                     type(attribute_type).__name__))
+        elif (not attribute_type == job_attribute.TAG and not int(value))\
+                or (attribute_type == job_attribute.TAG and
+                    not isinstance(value, str)):
+            raise ValueError("Invalid value type: {}, {}"
+                             .format(value,
+                                     type(value).__name__))
+        else:
+            rc, job_attribute_id = self.requester.send_request(
+                route='/add_job_attribute',
+                message={'job_id': str(job_id),
+                         'attribute_type': str(attribute_type),
+                         'value': str(value)},
+                request_type='post')
+            return job_attribute_id

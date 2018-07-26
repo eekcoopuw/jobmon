@@ -336,13 +336,19 @@ class Workflow(object):
         """
         - attribute_type has to be an int
         - for now, value can only be str or int
+<<<<<<< HEAD
         - value has to be int or convertible to int except when the
             attribute_type is a tag
+=======
+        - value has to be int or convertible to int,
+          except when the attribute_type is a tag
+>>>>>>> upstream/master
         - value can be any string when attribute_type is a tag
 
-        Args:
-            attribute_type
-            value
+         Args:
+            attribute_type (int): attribute_type id from
+                                   workflow_run_attribute_type table
+            value (int): value associated with attribute
         Returns:
             True (or raises)
         Raises:
@@ -354,7 +360,8 @@ class Workflow(object):
                                      type(attribute_type).__name__))
         elif not attribute_type == workflow_attribute.TAG and not int(value):
             raise ValueError("Invalid value type: {}, {}"
-                             .format(value, type(value).__name__))
+                             .format(value,
+                                     type(value).__name__))
         return True
 
     def add_workflow_attribute(self, attribute_type, value):
@@ -370,4 +377,3 @@ class Workflow(object):
             return response['workflow_attribute_id']
         else:
             raise AttributeError("Workflow is not yet bound")
-
