@@ -147,31 +147,28 @@ class JobInstanceReconciler(object):
 
     def _log_timeout_hostname(self, job_instance_id, hostname):
         return self.jsm_req.send_request(
-            app_route='/log_nodename',
-            message={'job_instance_id': [job_instance_id],
-                     'nodename': hostname},
-            request_type='post')
+            app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
+            message={'nodename': hostname},
+            request_type='put')
 
     def _log_mysterious_error(self, job_instance_id, executor_id):
         return self.jsm_req.send_request(
-            app_route='/log_error',
-            message={'job_instance_id': job_instance_id,
-                     'error_message': ("Job no longer visible in qstat, "
+            app_route='/job_instance_id/{}/log_error'.format(job_instance_id),
+            message={'error_message': ("Job no longer visible in qstat, "
                                        "check qacct or jobmon database for "
                                        "executor_id {} and job_instance_id {}"
                                        .format(executor_id, job_instance_id))},
-            request_type='post')
+            request_type='put')
 
     def _log_timeout_error(self, job_instance_id):
         return self.jsm_req.send_request(
-            app_route='/log_error',
-            message={'job_instance_id': job_instance_id,
-                     'error_message': "Timed out"},
-            request_type='post')
+            app_route='/job_instance_id/{}/log_error'.format(job_instance_id),
+            message={'error_message': "Timed out"},
+            request_type='put')
 
     def _request_permission_to_reconcile(self):
-        # sync
+        # sync; log_heartbeat
         return self.jsm_req.send_request(
-            app_route='/log_heartbeat',
-            message={'dag_id': self.dag_id},
+            app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
+            message={},
             request_type='post')

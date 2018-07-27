@@ -136,10 +136,11 @@ class HealthMonitor(object):
     def _register_lost_workflow_runs(self, lost_workflow_runs):
         for wfr in lost_workflow_runs:
             self._requester.send_request(
-                app_route='/update_workflow_run',
+                app_route='/workflow_run',
                 message={'wfr_id': wfr.id,
-                         'status': WorkflowRunStatus.ERROR},
-                request_type='post')
+                         'status': WorkflowRunStatus.ERROR,
+                         'status_date': datetime.utcnow()},
+                request_type='put')
             wf = wfr.workflow
             dag = wf.task_dag
             msg = ("Lost contact with Workflow Run #{wfr_id}:\n"

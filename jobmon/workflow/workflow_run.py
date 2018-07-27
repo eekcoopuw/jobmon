@@ -112,7 +112,7 @@ class WorkflowRun(object):
         self.working_dir = working_dir
         self.kill_previous_workflow_runs(reset_running_jobs)
         rc, response = self.jsm_req.send_request(
-            app_route='/add_workflow_run',
+            app_route='/workflow_run',
             message={'workflow_id': workflow_id,
                      'user': getpass.getuser(),
                      'hostname': socket.gethostname(),
@@ -209,9 +209,10 @@ class WorkflowRun(object):
 
     def _update_status(self, status):
         rc, _ = self.jsm_req.send_request(
-            app_route='/update_workflow_run',
-            message={'wfr_id': self.id, 'status': status},
-            request_type='post')
+            app_route='/workflow_run',
+            message={'wfr_id': self.id, 'status': status,
+                     'status_date': datetime.utcnow()},
+            request_type='put')
 
     def add_workflow_run_attribute(self, attribute_type, value):
         """
@@ -241,7 +242,7 @@ class WorkflowRun(object):
                                      type(value).__name__))
         else:
             rc, workflow_run_attribute_id = self.jsm_req.send_request(
-                app_route='/add_workflow_run_attribute',
+                app_route='/workflow_run_attribute',
                 message={'workflow_run_id': str(self.id),
                          'attribute_type': str(attribute_type),
                          'value': str(value)},

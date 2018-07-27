@@ -223,7 +223,7 @@ class JobInstance(Base):
 
     def register(self, requester, executor_type):
         rc, response = requester.send_request(
-            app_route='/add_job_instance',
+            app_route='/job_instance',
             message={'job_id': str(self.job.job_id),
                      'executor_type': executor_type},
             request_type='post')
@@ -232,9 +232,9 @@ class JobInstance(Base):
 
     def assign_executor_id(self, requester, executor_id):
         requester.send_request(
-            app_route='/log_executor_id',
-            message={'job_instance_id': str(self.job_instance_id),
-                     'executor_id': str(executor_id)},
+            app_route=('/job_instance/{}/log_executor_id'
+                       .format(self.job_instance_id)),
+            message={'executor_id': str(executor_id)},
             request_type='post')
 
     def transition(self, new_state):

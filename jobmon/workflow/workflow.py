@@ -220,7 +220,7 @@ class Workflow(object):
 
             # Create new workflow in Database
             rc, response = self.jsm_req.send_request(
-                app_route='/add_workflow',
+                app_route='/workflow',
                 message={'dag_id': str(self.task_dag.dag_id),
                          'workflow_args': self.workflow_args,
                          'workflow_hash': self._compute_hash(),
@@ -287,9 +287,10 @@ class Workflow(object):
 
     def _update_status(self, status):
         rc, response = self.jsm_req.send_request(
-            app_route='/update_workflow',
-            message={'wf_id': str(self.id), 'status': status},
-            request_type='post')
+            app_route='/workflow',
+            message={'wf_id': str(self.id), 'status': status,
+                     'status_date': datetime.utcnow()},
+            request_type='put')
         wf_dct = response['workflow_dct']
         self.wf_dao = WorkflowDAO.from_wire(wf_dct)
 
@@ -335,13 +336,8 @@ class Workflow(object):
         """
         - attribute_type has to be an int
         - for now, value can only be str or int
-<<<<<<< HEAD
-        - value has to be int or convertible to int except when the
-            attribute_type is a tag
-=======
         - value has to be int or convertible to int,
           except when the attribute_type is a tag
->>>>>>> upstream/master
         - value can be any string when attribute_type is a tag
 
          Args:
@@ -368,7 +364,7 @@ class Workflow(object):
         self.is_valid_attribute(attribute_type, value)
         if self.is_bound:
             rc, response = self.jsm_req.send_request(
-                app_route='/add_workflow_attribute',
+                app_route='/workflow_attribute',
                 message={'workflow_id': str(self.id),
                          'attribute_type': str(attribute_type),
                          'value': str(value)},
