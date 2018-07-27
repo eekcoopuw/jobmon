@@ -72,8 +72,8 @@ class JobListManager(object):
 
     def get_job_statuses(self):
         rc, response = self.jqs_req.send_request(
-            app_route='/get_jobs',
-            message={'dag_id': self.dag_id},
+            app_route='/dag/{}/job'.format(self.dag_id),
+            message={'status': ''},
             request_type='get')
         jobs = [Job.from_wire(j) for j in response['job_dcts']]
         for job in jobs:

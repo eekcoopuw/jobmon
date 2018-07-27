@@ -131,11 +131,11 @@ class WorkflowRun(object):
     def check_if_workflow_is_running(self):
         rc, response = \
             self.jqs_req.send_request(
-                app_route='/is_workflow_running',
-                message={'workflow_id': str(self.workflow_id)},
+                app_route='/workflow/{}/workflow_run'.format(self.workflow_id),
+                message={},
                 request_type='get')
         if rc != HTTPStatus.OK:
-            raise ValueError("Invalid Reponse to is_workflow_running")
+            raise ValueError("Invalid Response to is_workflow_running")
         return response['is_running'], response['workflow_run_dct']
 
     def kill_previous_workflow_runs(self, reset_running_jobs):
@@ -182,9 +182,11 @@ class WorkflowRun(object):
                 else:
                     raise ValueError("{} is not supported by this version of "
                                      "jobmon".format(wf_run.executor_class))
+                # get job instances of workflow run
                 _, response = self.jqs_req.send_request(
-                    app_route='/get_job_instances_of_workflow_run',
-                    message={'workflow_run_id': wf_run.id},
+                    app_route=('/workflow_run/<workflow_run_id>/job_instance'
+                               .format(wf_run.id)),
+                    message={},
                     request_type='get')
                 job_instances = [JobInstance.from_wire(ji)
                                  for ji in response['job_instances']]

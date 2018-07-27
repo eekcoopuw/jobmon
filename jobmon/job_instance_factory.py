@@ -6,7 +6,7 @@ from time import sleep
 
 from jobmon.config import config
 from jobmon.executors.sequential import SequentialExecutor
-from jobmon.models import Job, JobInstance
+from jobmon.models import Job, JobInstance, JobStatus
 from jobmon.requester import Requester
 
 
@@ -100,8 +100,8 @@ class JobInstanceFactory(object):
     def _get_jobs_queued_for_instantiation(self):
         try:
             rc, response = self.jqs_req.send_request(
-                app_route='/get_queued',
-                message={'dag_id': str(self.dag_id)},
+                app_route='/dag/{}/job'.format(self.dag_id),
+                message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
                 request_type='get')
             jobs = [Job.from_wire(j) for j in response['job_dcts']]
         except TypeError:

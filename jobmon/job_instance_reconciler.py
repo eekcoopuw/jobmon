@@ -7,7 +7,7 @@ from http import HTTPStatus
 
 from jobmon.config import config
 from jobmon.executors.sequential import SequentialExecutor
-from jobmon.models import JobInstance
+from jobmon.models import JobInstance, JobInstanceStatus
 from jobmon.requester import Requester
 
 
@@ -111,8 +111,10 @@ class JobInstanceReconciler(object):
     def _get_presumed_submitted_or_running(self):
         try:
             rc, response = self.jqs_req.send_request(
-                app_route='/get_submitted_or_running',
-                message={'dag_id': self.dag_id},
+                app_route='/dag/{}/job_instance'.format(self.dag_id),
+                message={'status': [
+                    JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                    JobInstanceStatus.RUNNING]},
                 request_type='get')
             job_instances = response['ji_dcts']
             job_instances = [JobInstance.from_wire(j) for j in job_instances]
@@ -129,10 +131,13 @@ class JobInstanceReconciler(object):
         """
         try:
             rc, response = self.jqs_req.send_request(
-                app_route='/get_timed_out',
-                message={'dag_id': self.dag_id},
+                app_route='/dag/{}/job_instance'.format(self.dag_id),
+                message={'status': [
+                         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                         JobInstanceStatus.RUNNING],
+                         'runtime': 'timed_out'},
                 request_type='get')
-            job_instances = response['timed_out']
+            job_instances = response['ji_dcts']
             if rc != HTTPStatus.OK:
                 job_instances = []
         except TypeError:

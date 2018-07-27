@@ -266,7 +266,7 @@ class Workflow(object):
 
     def _matching_dag_ids(self):
         rc, response = self.jqs_req.send_request(
-            app_route='/get_dag_ids_by_hash',
+            app_route='/dag',
             message={'dag_hash': self.task_dag.hash},
             request_type='get')
         dag_ids = response['dag_ids']
@@ -277,9 +277,8 @@ class Workflow(object):
         workflows = []
         for dag_id in dag_ids:
             rc, response = self.jqs_req.send_request(
-                app_route='/get_workflows_by_inputs',
-                message={'dag_id': str(dag_id),
-                         'workflow_args': str(self.workflow_args)},
+                app_route='/dag/{}/workflow'.format(dag_id),
+                message={},
                 request_type='get')
             if rc == HTTPStatus.OK:
                 wf = response['workflow_dct']
