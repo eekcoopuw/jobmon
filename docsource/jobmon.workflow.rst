@@ -60,6 +60,14 @@ jobmon.workflow.task\_dag\_factory module
     :undoc-members:
     :show-inheritance:
 
+jobmon.workflow.task\_dag\_viz module
+-------------------------------------
+
+.. automodule:: jobmon.workflow.task_dag_viz
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 jobmon.workflow.workflow module
 -------------------------------
 

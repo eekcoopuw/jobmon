@@ -6,6 +6,7 @@ Subpackages
 
 .. toctree::
 
+    jobmon.executors
     jobmon.meta_models
     jobmon.services
     jobmon.workflow
@@ -13,18 +14,18 @@ Subpackages
 Submodules
 ----------
 
-jobmon.cli module
------------------
+jobmon.bootstrap module
+-----------------------
 
-.. automodule:: jobmon.cli
+.. automodule:: jobmon.bootstrap
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.command\_context module
-------------------------------
+jobmon.cli module
+-----------------
 
-.. automodule:: jobmon.command_context
+.. automodule:: jobmon.cli
     :members:
     :undoc-members:
     :show-inheritance:
@@ -57,6 +58,14 @@ jobmon.database module
 ----------------------
 
 .. automodule:: jobmon.database
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+jobmon.database\_loaders module
+-------------------------------
+
+.. automodule:: jobmon.database_loaders
     :members:
     :undoc-members:
     :show-inheritance:

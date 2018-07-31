@@ -45,11 +45,15 @@ def unwrap():
     parser.add_argument("--jsm_host", required=True)
     parser.add_argument("--jsm_port", required=True)
     parser.add_argument("--executor_class", required=True)
+    parser.add_argument("--temp_dir", required=False)
     parser.add_argument("--last_nodename", required=False)
     parser.add_argument("--last_pgid", required=False)
 
     # makes a dict
     args = vars(parser.parse_args())
+
+    # set ENV variables in case tasks need to access them
+    os.environ["JOBMON_JOB_INSTANCE_ID"] = str(args["job_instance_id"])
 
     # configure connection to jobmon server
     cc = ConnectionConfig(args["jsm_host"], args["jsm_port"])
@@ -81,9 +85,14 @@ def unwrap():
         if 'last_nodename' in args and 'last_pgid' in args:
             kill_remote_process_group(args['last_nodename'], args['last_pgid'])
 
+        if 'temp_dir' not in args:
+            args['temp_idr'] = None
+
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(
             args["command"],
+            cwd=args["temp_dir"],
+            env=os.environ.copy(),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             shell=True)
