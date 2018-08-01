@@ -1,6 +1,7 @@
 import getpass
 import hashlib
 import logging
+import os
 from datetime import datetime
 import uuid
 
@@ -8,6 +9,8 @@ from http import HTTPStatus
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
+import jobmon
+from cluster_utils.io import makedirs_safely
 from jobmon.config import config
 from jobmon.requester import Requester
 from jobmon.sql_base import Base
@@ -95,7 +98,7 @@ class Workflow(object):
         tasks must be added with the same dependencies between tasks.
     """
 
-    def __init__(self, task_dag=None, workflow_args=None, name="",
+    def __init__(self, workflow_args=None, name="",
                  description="", stderr=None, stdout=None, project=None,
                  reset_running_jobs=True, working_dir=None,
                  executor_class='SGEExecutor'):
@@ -122,10 +125,7 @@ class Workflow(object):
 
         self.reset_running_jobs = reset_running_jobs
 
-        if task_dag:
-            self.task_dag = task_dag
-        else:
-            self.task_dag = TaskDag(executor=self.executor)
+        self.task_dag = TaskDag(executor=self.executor)
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -294,6 +294,26 @@ class Workflow(object):
         wf_dct = response['workflow_dct']
         self.wf_dao = WorkflowDAO.from_wire(wf_dct)
 
+    def _set_executor_temp_dir(self):
+        scratch_tmp_dir = "/ihme/scratch/tmp"
+        local_tmp_dir = "/tmp"
+        if os.path.exists(os.path.realpath(scratch_tmp_dir)):
+            tmp_root = scratch_tmp_dir
+        elif os.path.exists(os.path.realpath(local_tmp_dir)):
+            tmp_root = local_tmp_dir
+        else:
+            raise FileNotFoundError("Could not locate a valid root temporary "
+                                    "directory. Neither {} nor {} is "
+                                    "available".format(scratch_tmp_dir,
+                                                       local_tmp_dir))
+        tmp_dir = os.path.join(tmp_root,
+                               jobmon.__version__,
+                               self.wf_dao.id,
+                               self.workflow_run.id)
+        logger.info("Creating temp directory at {}".format(tmp_dir))
+        makedirs_safely(tmp_dir)
+        self.executor.set_temp_dir(tmp_dir)
+
     def execute(self):
         if not self.is_bound:
             self._bind()
@@ -336,13 +356,8 @@ class Workflow(object):
         """
         - attribute_type has to be an int
         - for now, value can only be str or int
-<<<<<<< HEAD
-        - value has to be int or convertible to int except when the
-            attribute_type is a tag
-=======
         - value has to be int or convertible to int,
           except when the attribute_type is a tag
->>>>>>> upstream/master
         - value can be any string when attribute_type is a tag
 
          Args:

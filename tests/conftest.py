@@ -14,6 +14,14 @@ from sqlalchemy.exc import IntegrityError
 
 from jobmon.bootstrap import install_rcfile
 
+# NOTE: there are two types of tests that conftest sets up. 1. Using the real
+# flask dev server, to allow us to do real testing of connections to the server
+# --see real_jqs_jsm, real_dag_id, etc. 2. Using the fake server, called
+# TestClient() which allows us to test certain parts of the code without
+# spinning up a webserver--see no_requests_jsm_jqs. Any test that
+# requires connection to more than one service (i.e JQS and JSM) requires that
+# we use the real dev server.
+
 
 def create_rcfile_dir():
     u = uuid.uuid4()

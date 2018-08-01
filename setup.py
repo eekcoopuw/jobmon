@@ -66,7 +66,7 @@ setup(
     include_package_data=True,
     install_requires=install_requires,
     packages=['jobmon', 'jobmon.executors', 'jobmon.services',
-              'jobmon.workflow', 'jobmon.meta_models'],
+              'jobmon.workflow', 'jobmon.meta_models', 'jobmon.attributes'],
     entry_points={
         'console_scripts': ["jobmon=jobmon.cli:main",
                             "jobmon_command=jobmon.executors.cli:unwrap"]})
