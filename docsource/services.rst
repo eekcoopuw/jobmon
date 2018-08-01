@@ -63,22 +63,33 @@ To deploy a centralized JobStateManager and JobQueryServer:
 
     git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git jobmon_emu
 
-3. From the root directory of the repo, run::
+3. As per the "Version Control" section below, update the port numbers in, unless this has already been done:
+  a. docker-compse.yaml
+  b. this documentation
+  c. the default .jobmonrc file
+4. Submit the new version number files back to git
+5. From the root directory of the repo, run::
 
     ./runserver.py
 
-You'll be prompted for your slack bot token, which should be available from
-your Slack app management page (https://api.slack.com/apps) (if you have one).
-If not, you can leave this blank.
+You'll be prompted for a slack bot token.
+Use the 'BotUserOathToken' from::
+
+  https://api.slack.com/apps/AA4BZNQH1/install-on-team
+
+Press the Copy button on the 'Bot User OAuth Access Token' text box.
+The runserver.py script will not echo that Token when you paste it into the window because the python code is using the gepass input function.
+The runserver.py script will also ask for two slack channels. There is a bug - you have to re-enter the default slack channel names, surrounded by single quotes.
+The script will run docker-compose up build
 
 That should do it. Now you'll just need to make sure your users have the proper
 host and port settings in their ~/.jobmonrc::
 
     {
       "host": "jobmon-p01.ihme.washington.edu",
-      "jsm_rep_port": 4956,
-      "jsm_pub_port": 4957,
-      "jqs_port": 4958
+      "jsm_rep_port": 5156,
+      "jsm_pub_port": 5157,
+      "jqs_port": 5158
     }
 
 
@@ -89,7 +100,7 @@ For testing purposes, you can then access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3312
+    port: 3313
     user: docker
     pass: docker
 
@@ -105,7 +116,12 @@ emu.2    4758 4756  4757  3309
 emu.3    4858 4856  4857  3310
 emu.3    4958 4956  4957  3311
 emu.4    5058 5056  5057  3312
+emu.5    5158 5156  5157  3313
 ======== ==== ===== ===== ====
+
+The port numbers come in paris, e.g. "3313:3306".
+The number on the right of the colon is the port-number inside the container, and never changes.
+The port number on the left of the colon is the external port number and must be changed on each release.
 
 .. todo::
 
