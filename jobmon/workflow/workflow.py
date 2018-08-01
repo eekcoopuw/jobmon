@@ -336,13 +336,8 @@ class Workflow(object):
         """
         - attribute_type has to be an int
         - for now, value can only be str or int
-<<<<<<< HEAD
-        - value has to be int or convertible to int except when the
-            attribute_type is a tag
-=======
         - value has to be int or convertible to int,
           except when the attribute_type is a tag
->>>>>>> upstream/master
         - value can be any string when attribute_type is a tag
 
          Args:
