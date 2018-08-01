@@ -1,4 +1,5 @@
 import logging
+import os
 import subprocess
 
 from jobmon.config import config
@@ -24,6 +25,7 @@ class Executor(object):
     """
 
     def __init__(self, *args, **kwargs):
+        self.temp_dir = None
         logger.info("Initializing {}".format(self.__class__.__name__))
 
     def execute(self, job_instance):
@@ -78,6 +80,8 @@ class Executor(object):
             "--jsm_port", config.jsm_conn.port,
             "--executor_class", self.__class__.__name__,
         ]
+        if self.temp_dir:
+            wrapped_cmd.extend(["--temp_dir", self.temp_dir])
         if job.last_nodename:
             wrapped_cmd.extend(["--last_nodename", job.last_nodename])
         if job.last_process_group_id:
@@ -85,3 +89,7 @@ class Executor(object):
         wrapped_cmd = " ".join([str(i) for i in wrapped_cmd])
         logger.debug(wrapped_cmd)
         return wrapped_cmd
+
+    def set_temp_dir(self, temp_dir):
+        self.temp_dir = temp_dir
+        os.environ["JOBMON_TEMP_DIR"] = self.temp_dir

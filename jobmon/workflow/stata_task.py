@@ -1,4 +1,5 @@
 import logging
+import os
 
 from jobmon.workflow.executable_task import ExecutableTask
 
@@ -53,7 +54,13 @@ class StataTask(ExecutableTask):
 
     @staticmethod
     def make_cmd(path_to_stata_binary, script, args):
-        cmd = [path_to_stata_binary, '-q', '-b', script]
+        script_fn = os.path.basename(script)
+        symlink_dst = ("\$JOBMON_TEMP_DIR/\$JOBMON_JOB_INSTANCE_ID-"
+                       "{script}".format(script=script_fn))
+        cmd = [
+            "cd", "\$JOBMON_TEMP_DIR", "&&",
+            "ln", "-s", script, symlink_dst, "&&",
+            path_to_stata_binary, '-q', '-b', symlink_dst]
         if args:
             cmd.append(' '.join([str(x) for x in args]))
         return ' '.join(cmd)
