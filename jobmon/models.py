@@ -222,20 +222,20 @@ class JobInstance(Base):
         (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
 
     def register(self, requester, executor_type):
-        rc, job_instance_id = requester.send_request({
-            'action': 'add_job_instance',
-            'kwargs': {'job_id': self.job.job_id,
-                       'executor_type': executor_type}
-        })
-        self.job_instance_id = job_instance_id
+        rc, response = requester.send_request(
+            app_route='/add_job_instance',
+            message={'job_id': str(self.job.job_id),
+                     'executor_type': executor_type},
+            request_type='post')
+        self.job_instance_id = response['job_instance_id']
         return self.job_instance_id
 
     def assign_executor_id(self, requester, executor_id):
-        requester.send_request({
-            'action': 'log_executor_id',
-            'kwargs': {'job_instance_id': self.job_instance_id,
-                       'executor_id': executor_id}
-        })
+        requester.send_request(
+            app_route='/log_executor_id',
+            message={'job_instance_id': str(self.job_instance_id),
+                     'executor_id': str(executor_id)},
+            request_type='post')
 
     def transition(self, new_state):
         self._validate_transition(new_state)

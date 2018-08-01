@@ -209,7 +209,7 @@ class TaskDag(object):
             completed_tasks, failed_tasks = (
                 self.job_list_manager.block_until_any_done_or_error())
             for task in completed_tasks:
-                    n_executions += 1
+                n_executions += 1
             logger.debug(
                 "Return from blocking call, completed: {}, failed: {}".format(
                     [t.job_id for t in completed_tasks],

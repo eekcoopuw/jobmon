@@ -3,10 +3,9 @@ import threading
 import _thread
 from time import sleep
 
-from zmq.error import ZMQError
+from http import HTTPStatus
 
 from jobmon.config import config
-from jobmon.exceptions import ReturnCodes
 from jobmon.executors.sequential import SequentialExecutor
 from jobmon.models import JobInstance
 from jobmon.requester import Requester
@@ -20,8 +19,8 @@ class JobInstanceReconciler(object):
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
                  stop_event=None):
         self.dag_id = dag_id
-        self.jsm_req = Requester(config.jm_rep_conn)
-        self.jqs_req = Requester(config.jqs_rep_conn)
+        self.jsm_req = Requester(config.jsm_port)
+        self.jqs_req = Requester(config.jqs_port)
         self.interrupt_on_error = interrupt_on_error
 
         if executor:
@@ -58,14 +57,6 @@ class JobInstanceReconciler(object):
                 self.reconcile()
                 self.terminate_timed_out_jobs()
                 sleep(poll_interval)
-            except ZMQError as e:
-                # Tests rely on some funky usage of various REQ/REP pairs
-                # across threads, so interrupting here can be problematic...
-
-                # ... since this interrupt is primarily in reponse to potential
-                # SGE failures anyways, I'm just going to warn for now on ZMQ
-                # errors and save the interrupts for everything else
-                logger.warning(e)
             except Exception as e:
                 logger.error(e)
                 if self.interrupt_on_error:
@@ -119,10 +110,11 @@ class JobInstanceReconciler(object):
 
     def _get_presumed_submitted_or_running(self):
         try:
-            rc, job_instances = self.jqs_req.send_request({
-                'action': 'get_submitted_or_running',
-                'kwargs': {'dag_id': self.dag_id}
-            })
+            rc, response = self.jqs_req.send_request(
+                app_route='/get_submitted_or_running',
+                message={'dag_id': self.dag_id},
+                request_type='get')
+            job_instances = response['ji_dcts']
             job_instances = [JobInstance.from_wire(j) for j in job_instances]
         except TypeError:
             job_instances = []
@@ -136,11 +128,12 @@ class JobInstanceReconciler(object):
         current "from_wire" utility.
         """
         try:
-            rc, job_instances = self.jqs_req.send_request({
-                'action': 'get_timed_out',
-                'kwargs': {'dag_id': self.dag_id}
-            })
-            if rc != ReturnCodes.OK:
+            rc, response = self.jqs_req.send_request(
+                app_route='/get_timed_out',
+                message={'dag_id': self.dag_id},
+                request_type='get')
+            job_instances = response['timed_out']
+            if rc != HTTPStatus.OK:
                 job_instances = []
         except TypeError:
             job_instances = []
@@ -148,35 +141,32 @@ class JobInstanceReconciler(object):
         return job_instances
 
     def _log_timeout_hostname(self, job_instance_id, hostname):
-        msg = {
-            'action': 'log_nodename',
-            'args': [job_instance_id],
-            'kwargs': {'nodename': hostname}
-        }
-        return self.jsm_req.send_request(msg)
+        return self.jsm_req.send_request(
+            app_route='/log_nodename',
+            message={'job_instance_id': [job_instance_id],
+                     'nodename': hostname},
+            request_type='post')
 
     def _log_mysterious_error(self, job_instance_id, executor_id):
-        return self.jsm_req.send_request({
-            'action': 'log_error',
-            'kwargs': {'job_instance_id': job_instance_id,
-                       'error_message': ("Job no longer visible in qstat, "
-                                         "check qacct or jobmon database for "
-                                         "executor_id {} and "
-                                         "job_instance_id {}"
-                                         .format(executor_id, job_instance_id))
-                       }
-        })
+        return self.jsm_req.send_request(
+            app_route='/log_error',
+            message={'job_instance_id': job_instance_id,
+                     'error_message': ("Job no longer visible in qstat, "
+                                       "check qacct or jobmon database for "
+                                       "executor_id {} and job_instance_id {}"
+                                       .format(executor_id, job_instance_id))},
+            request_type='post')
 
     def _log_timeout_error(self, job_instance_id):
-        return self.jsm_req.send_request({
-            'action': 'log_error',
-            'kwargs': {'job_instance_id': job_instance_id,
-                       'error_message': "Timed out"}
-        })
+        return self.jsm_req.send_request(
+            app_route='/log_error',
+            message={'job_instance_id': job_instance_id,
+                     'error_message': "Timed out"},
+            request_type='post')
 
     def _request_permission_to_reconcile(self):
         # sync
-        return self.jsm_req.send_request({
-            'action': 'log_heartbeat',
-            'kwargs': {'dag_id': self.dag_id}
-        })
+        return self.jsm_req.send_request(
+            app_route='/log_heartbeat',
+            message={'dag_id': self.dag_id},
+            request_type='post')

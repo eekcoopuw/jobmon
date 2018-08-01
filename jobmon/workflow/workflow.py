@@ -5,13 +5,13 @@ import os
 from datetime import datetime
 import uuid
 
+from http import HTTPStatus
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 import jobmon
 from cluster_utils.io import makedirs_safely
 from jobmon.config import config
-from jobmon.exceptions import ReturnCodes
 from jobmon.requester import Requester
 from jobmon.sql_base import Base
 from jobmon.workflow.workflow_run import WorkflowRun
@@ -120,8 +120,8 @@ class Workflow(object):
         }
         self.set_executor(executor_class)
 
-        self.jsm_req = Requester(config.jm_rep_conn)
-        self.jqs_req = Requester(config.jqs_rep_conn)
+        self.jsm_req = Requester(config.jsm_port)
+        self.jqs_req = Requester(config.jqs_port)
 
         self.reset_running_jobs = reset_running_jobs
 
@@ -219,16 +219,16 @@ class Workflow(object):
             )
 
             # Create new workflow in Database
-            rc, wf_dct = self.jsm_req.send_request({
-                'action': 'add_workflow',
-                'kwargs': {'dag_id': self.task_dag.dag_id,
-                           'workflow_args': self.workflow_args,
-                           'workflow_hash': self._compute_hash(),
-                           'name': self.name,
-                           'description': self.description,
-                           'user': getpass.getuser()}
-            })
-            self.wf_dao = WorkflowDAO.from_wire(wf_dct)
+            rc, response = self.jsm_req.send_request(
+                app_route='/add_workflow',
+                message={'dag_id': str(self.task_dag.dag_id),
+                         'workflow_args': self.workflow_args,
+                         'workflow_hash': self._compute_hash(),
+                         'name': self.name,
+                         'description': self.description,
+                         'user': getpass.getuser()},
+                request_type='post')
+            self.wf_dao = WorkflowDAO.from_wire(response['workflow_dct'])
         else:
             # This case should never happen... we have application side
             # protection against this, but we should probably force the
@@ -265,30 +265,33 @@ class Workflow(object):
         self._update_status(WorkflowStatus.STOPPED)
 
     def _matching_dag_ids(self):
-        rc, dag_ids = self.jqs_req.send_request({
-            'action': 'get_dag_ids_by_hash',
-            'kwargs': {'dag_hash': self.task_dag.hash}
-        })
+        rc, response = self.jqs_req.send_request(
+            app_route='/get_dag_ids_by_hash',
+            message={'dag_hash': self.task_dag.hash},
+            request_type='get')
+        dag_ids = response['dag_ids']
         return dag_ids
 
     def _matching_workflows(self):
         dag_ids = self._matching_dag_ids()
         workflows = []
         for dag_id in dag_ids:
-            rc, wf = self.jqs_req.send_request({
-                'action': 'get_workflows_by_inputs',
-                'kwargs': {'dag_id': dag_id,
-                           'workflow_args': self.workflow_args}
-            })
-            if rc == ReturnCodes.OK:
+            rc, response = self.jqs_req.send_request(
+                app_route='/get_workflows_by_inputs',
+                message={'dag_id': str(dag_id),
+                         'workflow_args': str(self.workflow_args)},
+                request_type='get')
+            if rc == HTTPStatus.OK:
+                wf = response['workflow_dct']
                 workflows.append(wf)
         return [WorkflowDAO.from_wire(w) for w in workflows]
 
     def _update_status(self, status):
-        rc, wf_dct = self.jsm_req.send_request({
-            'action': 'update_workflow',
-            'kwargs': {'wf_id': self.id, 'status': status}
-        })
+        rc, response = self.jsm_req.send_request(
+            app_route='/update_workflow',
+            message={'wf_id': str(self.id), 'status': status},
+            request_type='post')
+        wf_dct = response['workflow_dct']
         self.wf_dao = WorkflowDAO.from_wire(wf_dct)
 
     def _set_executor_temp_dir(self):
@@ -380,12 +383,12 @@ class Workflow(object):
         """Create workflow attribute entry in workflow_attribute table"""
         self.is_valid_attribute(attribute_type, value)
         if self.is_bound:
-            rc, workflow_attribute_id = self.jsm_req.send_request({
-                'action': 'add_workflow_attribute',
-                'kwargs': {'workflow_id': self.id,
-                           'attribute_type': attribute_type,
-                           'value': value}
-            })
-            return workflow_attribute_id
+            rc, response = self.jsm_req.send_request(
+                app_route='/add_workflow_attribute',
+                message={'workflow_id': str(self.id),
+                         'attribute_type': str(attribute_type),
+                         'value': str(value)},
+                request_type='post')
+            return response['workflow_attribute_id']
         else:
             raise AttributeError("Workflow is not yet bound")

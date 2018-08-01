@@ -1,9 +1,8 @@
+from builtins import str
 import logging
 import threading
 import _thread
 from time import sleep
-
-from zmq.error import ZMQError
 
 from jobmon.config import config
 from jobmon.executors.sequential import SequentialExecutor
@@ -19,8 +18,8 @@ class JobInstanceFactory(object):
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
                  stop_event=None):
         self.dag_id = dag_id
-        self.jsm_req = Requester(config.jm_rep_conn)
-        self.jqs_req = Requester(config.jqs_rep_conn)
+        self.jsm_req = Requester(config.jsm_port)
+        self.jqs_req = Requester(config.jqs_port)
         self.interrupt_on_error = interrupt_on_error
 
         # At this level, default to using a Sequential Executor if None is
@@ -46,14 +45,6 @@ class JobInstanceFactory(object):
                 logger.debug("Queuing at interval {}s".format(poll_interval))
                 self.instantiate_queued_jobs()
                 sleep(poll_interval)
-            except ZMQError as e:
-                # Tests rely on some funky usage of various REQ/REP pairs
-                # across threads, so interrupting here can be problematic...
-
-                # ... since this interrupt is primarily in reponse to potential
-                # SGE failures anyways, I'm just going to warn for now on ZMQ
-                # errors and save the interrupts for everything else
-                logger.warning(e)
             except Exception as e:
                 logger.error(e)
                 if self.interrupt_on_error:
@@ -108,12 +99,29 @@ class JobInstanceFactory(object):
 
     def _get_jobs_queued_for_instantiation(self):
         try:
-            rc, jobs = self.jqs_req.send_request({
-                'action': 'get_queued_for_instantiation',
-                'kwargs': {'dag_id': self.dag_id}
-            })
-            jobs = [Job.from_wire(j) for j in jobs]
+            rc, response = self.jqs_req.send_request(
+                app_route='/get_queued',
+                message={'dag_id': str(self.dag_id)},
+                request_type='get')
+            jobs = [Job.from_wire(j) for j in response['job_dcts']]
         except TypeError:
             # Ignore if there are no jobs queued
             jobs = []
         return jobs
+
+    def _register_job_instance(self, job, executor_type):
+        rc, response = self.jsm_req.send_request(
+            app_route='/add_job_instance',
+            message={'job_id': str(job.job_id),
+                     'executor_type': executor_type},
+            request_type='post')
+        job_instance_id = response['job_instance_id']
+        return job_instance_id
+
+    def _register_submission_to_batch_executor(self, job_instance_id,
+                                               executor_id):
+        self.jsm_req.send_request(
+            app_route='/log_executor_id',
+            message={'job_instance_id': str(job_instance_id),
+                     'executor_id': str(executor_id)},
+            request_type='post')

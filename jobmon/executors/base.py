@@ -76,8 +76,8 @@ class Executor(object):
             jobmon_command,
             "--command", "'{}'".format(job.command),
             "--job_instance_id", job_instance_id,
-            "--jsm_host", config.jm_rep_conn.host,
-            "--jsm_port", config.jm_rep_conn.port,
+            "--jsm_host", config.jsm_conn.host,
+            "--jsm_port", config.jsm_conn.port,
             "--executor_class", self.__class__.__name__,
         ]
         if self.temp_dir:

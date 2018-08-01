@@ -14,8 +14,7 @@ from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
 
-@pytest.fixture
-def simple_workflow(jsm_jqs, db_cfg):
+def simple_workflow(real_jsm_jqs, db_cfg):
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
@@ -28,7 +27,7 @@ def simple_workflow(jsm_jqs, db_cfg):
 
 
 @pytest.fixture
-def simple_workflow_w_errors(jsm_jqs, db_cfg):
+def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
     t1 = BashTask("sleep 1")
     t2 = BashTask("not_a_command 1", upstream_tasks=[t1])
     t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime=1)
@@ -44,7 +43,7 @@ def mock_slack(msg, channel):
     print("{} to be posted to channel: {}".format(msg, channel))
 
 
-def test_wfargs_update(jsm_jqs, db_cfg):
+def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Create identical dags
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
@@ -64,8 +63,7 @@ def test_wfargs_update(jsm_jqs, db_cfg):
     wf2.add_tasks([t4, t5, t6])
     wf2.execute()
 
-    # Make sure the second Workflow has a distinct Workflow ID and WorkflowRun
-    # ID
+    # Make sure the second Workflow has a distinct Workflow ID & WorkflowRun ID
     assert wf1.id != wf2.id
 
     # Make sure the second Workflow has a distinct hash
@@ -76,7 +74,7 @@ def test_wfargs_update(jsm_jqs, db_cfg):
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
 
-def test_dag_update(jsm_jqs, db_cfg):
+def test_dag_update(real_jsm_jqs, db_cfg):
     # Create different dags
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
@@ -108,7 +106,7 @@ def test_dag_update(jsm_jqs, db_cfg):
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
 
-def test_wfagrs_dag_update(jsm_jqs, db_cfg):
+def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
     # Create different dags
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
@@ -176,6 +174,7 @@ def test_stop_resume(simple_workflow, tmpdir):
     wfa = "my_simple_dag"
     elogdir = str(tmpdir.mkdir("wf_elogs"))
     ologdir = str(tmpdir.mkdir("wf_ologs"))
+
     workflow = Workflow(wfa, stderr=elogdir, stdout=ologdir,
                         project='proj_jenkins')
     workflow.add_tasks([t1, t2, t3])
@@ -260,6 +259,8 @@ def test_reset_attempts_on_resume(simple_workflow):
     # Before actually executing the DAG, validate that the database has
     # reset the attempt counters to 0 and the ERROR states to INSTANTIATED
     workflow._bind()
+
+    workflow.task_dag.job_list_manager._sync()
     bt2 = workflow.task_dag.job_list_manager.bound_task_from_task(t2)
     assert bt2.job_id == mod_jid  # Should be bound to stopped-run ID values
 
@@ -331,9 +332,8 @@ def test_force_new_workflow_instead_of_resume(simple_workflow):
     pass
 
 
-def test_dag_reset(jsm_jqs, simple_workflow_w_errors):
+def test_dag_reset(simple_workflow_w_errors):
     # Alias to shorter names...
-    jsm, _ = jsm_jqs
     err_wf  = simple_workflow_w_errors
 
     dag_id = err_wf.task_dag.dag_id
@@ -349,7 +349,13 @@ def test_dag_reset(jsm_jqs, simple_workflow_w_errors):
 
     # Now RESET and make sure all the jobs that aren't "DONE" flip back to
     # REGISTERED
-    jsm.reset_incomplete_jobs(dag_id)
+    from jobmon.requester import Requester
+    from jobmon.config import config
+    req = Requester(config.jsm_port)
+    rc, _ = req.send_request(
+        app_route='/reset_incomplete_jobs',
+        message={'dag_id': dag_id},
+        request_type='post')
     with session_scope() as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id).all()
         assert len(jobs) == 4
@@ -378,7 +384,7 @@ def test_nodename_on_fail(simple_workflow_w_errors):
         assert nodenames and all(nodenames)
 
 
-def test_heartbeat(jsm_jqs, db_cfg):
+def test_heartbeat(real_jsm_jqs, db_cfg):
 
     # TODO: Fix this awful hack... I believe the DAG fixtures above create
     # reconcilers that will run for the duration of this module (since they
@@ -434,7 +440,7 @@ def test_heartbeat(jsm_jqs, db_cfg):
         assert wfr.id not in [w.id for w in active]
 
 
-def test_failing_nodes(jsm_jqs, db_cfg):
+def test_failing_nodes(real_jsm_jqs, db_cfg):
 
     # these dummy dags will increment the ID of our dag-of-interest to
     # avoid the timing collisions
@@ -449,6 +455,7 @@ def test_failing_nodes(jsm_jqs, db_cfg):
     t4 = BashTask("echo 'beautiful'", upstream_tasks=[t3])
     t5 = BashTask("echo 'world'", upstream_tasks=[t4])
     t6 = BashTask("sleep 1", upstream_tasks=[t5])
+
     workflow = Workflow("test_failing_nodes")
     workflow.add_tasks([t1, t2, t3, t4, t5, t6])
     workflow.run()
@@ -496,7 +503,7 @@ def test_failing_nodes(jsm_jqs, db_cfg):
         assert 'new_fake_node.ihme.washington.edu' not in failing_nodes
 
 
-def test_add_tasks_to_workflow(jsm_jqs, db_cfg):
+def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
     """Make sure adding tasks to a workflow (and not just a task dag) works"""
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
@@ -514,7 +521,7 @@ def test_add_tasks_to_workflow(jsm_jqs, db_cfg):
         assert all(t.status == 'D' for t in j)
 
 
-def test_anonymous_workflow(jsm_jqs, db_cfg):
+def test_anonymous_workflow(real_jsm_jqs, db_cfg):
     # Make sure uuid is created for an anonymous workflow
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])

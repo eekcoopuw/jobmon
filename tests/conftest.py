@@ -1,4 +1,5 @@
-import functools
+from builtins import str
+
 import os
 import pytest
 import pwd
@@ -6,12 +7,20 @@ import shutil
 import socket
 import uuid
 from datetime import datetime
+from time import sleep
 
 from argparse import Namespace
 from sqlalchemy.exc import IntegrityError
-from threading import Thread
 
 from jobmon.bootstrap import install_rcfile
+
+# NOTE: there are two types of tests that conftest sets up. 1. Using the real
+# flask dev server, to allow us to do real testing of connections to the server
+# --see real_jqs_jsm, real_dag_id, etc. 2. Using the fake server, called
+# TestClient() which allows us to test certain parts of the code without
+# spinning up a webserver--see no_requests_jsm_jqs. Any test that
+# requires connection to more than one service (i.e JQS and JSM) requires that
+# we use the real dev server.
 
 
 def create_rcfile_dir():
@@ -34,6 +43,11 @@ def get_random_port():
     return port
 
 
+def get_node_name():
+    """name of node that server is running on"""
+    return socket.gethostname()
+
+
 def create_sqlite_rcfile(rcdir):
     args = Namespace()
     args.force = False
@@ -41,11 +55,9 @@ def create_sqlite_rcfile(rcdir):
     try:
         install_rcfile(args,
                        cfg_dct={"conn_str": "sqlite://",
-                                "jsm_host": socket.gethostname(),
-                                "jqs_host": socket.gethostname(),
-                                "jsm_rep_port": get_random_port(),
-                                "jsm_pub_port": get_random_port(),
-                                "jqs_port": get_random_port()})
+                                "host": socket.gethostname(),
+                                "jsm_port": 5056,
+                                "jqs_port": 5058})
 
         cleanup_rcfile = True
     except FileExistsError:
@@ -76,8 +88,6 @@ from jobmon import database
 from jobmon import database_loaders
 from jobmon.executors.sge import SGEExecutor
 from jobmon.job_list_manager import JobListManager
-from jobmon.services.job_query_server import JobQueryServer
-from jobmon.services.job_state_manager import JobStateManager
 from jobmon.workflow.task_dag import TaskDag
 from jobmon.attributes import attribute_database_loaders
 
@@ -103,7 +113,7 @@ def rcfile(rcfile_dir):
         os.remove(os.path.expanduser(sqlite_rcfile))
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='session', autouse=True)
 def session_edb(rcfile):
 
     edb = create_ephemerdb()
@@ -142,38 +152,94 @@ def db_cfg(session_edb):
     yield config
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope='session')
+def real_jsm_jqs(rcfile, session_edb):
+    import multiprocessing as mp
+    from tests.run_services import run_jsm, run_jqs
+
+    ctx = mp.get_context('spawn')
+    p1 = ctx.Process(target=run_jsm, args=(rcfile, config.conn_str))
+    p1.start()
+
+    p2 = ctx.Process(target=run_jqs, args=(rcfile, config.conn_str))
+    p2.start()
+
+    sleep(30)
+    yield
+
+    p1.terminate()
+    p2.terminate()
+
+
+@pytest.fixture(scope='session')
 def jsm_jqs(session_edb):
-    # logging does not work well with Threads in python < 2.7,
-    # see https://docs.python.org/2/library/logging.html
-    # Logging has to be set up BEFORE the Thread.
-    # Therefore we set up the job_state_manager's console logger here, before
-    # we put it in a Thread.
-    jsm = JobStateManager(session_edb.jm_rep_conn.port,
-                          session_edb.jm_pub_conn.port)
+    from jobmon.services.job_state_manager import app as jsm_app
+    from jobmon.services.job_query_server import app as jqs_app
 
-    jqs = JobQueryServer(session_edb.jqs_rep_conn.port)
+    jsm_app.config['TESTING'] = True
+    jqs_app.config['TESTING'] = True
+    jsm_client = jsm_app.test_client()
+    jqs_client = jqs_app.test_client()
+    yield jsm_client, jqs_client
 
-    t1 = Thread(target=jsm.listen)
-    t1.daemon = True
-    t1.start()
-    t2 = Thread(target=jqs.listen)
-    t2.daemon = True
-    t2.start()
 
-    yield jsm, jqs
-    jsm.stop_listening()
-    jqs.stop_listening()
+def get_flask_content(response):
+    if 'application/json' in response.headers.get('Content-Type'):
+        content = response.json
+    elif 'text/html' in response.headers.get('Content-Type'):
+        content = response.data
+    else:
+        content = response.content
+    return content
 
 
 @pytest.fixture(scope='function')
-def dag_id(jsm_jqs, db_cfg):
+def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
+    import requests
+    from jobmon import requester
+    jsm_client, jqs_client = jsm_jqs
+
+    def get_jqs(url, params, headers):
+        url = "/" + url.split('/')[-1]
+        return jqs_client.get(path=url, query_string=params, headers=headers)
+    monkeypatch.setattr(requests, 'get', get_jqs)
+    monkeypatch.setattr(requester, 'get_content', get_flask_content)
+
+    def post_jsm(url, json, headers):
+        url = "/" + url.split('/')[-1]
+        return jsm_client.post(url, json=json, headers=headers)
+    monkeypatch.setattr(requests, 'post', post_jsm)
+    monkeypatch.setattr(requester, 'get_content', get_flask_content)
+
+
+@pytest.fixture(scope='function')
+def dag_id(no_requests_jsm_jqs, db_cfg):
     import random
-    jsm, jqs = jsm_jqs
-    rc, dag_id = jsm.add_task_dag('test_dag', 'test_user',
-                                  'test_{}'.format(random.randint(1, 1000)),
-                                  datetime.utcnow())
-    yield dag_id
+    from jobmon.requester import Requester
+
+    req = Requester(config.jsm_port, host=get_node_name())
+    rc, response = req.send_request(
+        app_route='/add_task_dag',
+        message={'name': 'test dag', 'user': 'test user',
+                 'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
+                 'created_date': str(datetime.utcnow())},
+        request_type='post')
+    yield response['dag_id']
+
+
+@pytest.fixture(scope='function')
+def real_dag_id(real_jsm_jqs, db_cfg):
+    import random
+    from jobmon.requester import Requester
+
+    req = Requester(config.jsm_port, host=get_node_name())
+    rc, response = req.send_request(
+        app_route='/add_task_dag',
+        message={'name': 'test dag', 'user': 'test user',
+                 'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
+                 'created_date': str(datetime.utcnow())},
+        request_type='post')
+    yield response['dag_id']
 
 
 @pytest.fixture(scope='module')
@@ -189,27 +255,33 @@ def tmp_out_dir():
 @pytest.fixture(scope='function')
 def job_list_manager_sub(dag_id):
     jlm = JobListManager(dag_id, interrupt_on_error=False)
-    jlm._start_job_status_listener()
     yield jlm
-    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_sge(dag_id, tmpdir_factory):
+def job_list_manager_sge(real_dag_id, tmpdir_factory):
 
     elogdir = str(tmpdir_factory.mktemp("elogs"))
     ologdir = str(tmpdir_factory.mktemp("ologs"))
 
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
                            project='proj_jenkins')
-    jlm = JobListManager(dag_id, executor=executor, start_daemons=True,
+    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
                          interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
-def dag(db_cfg, jsm_jqs, request):
+def dag(db_cfg, no_requests_jsm_jqs, request):
+    """Use a fixture for dag creation so that the dags' JobInstanceFactories
+    and JobInstanceReconcilers get cleaned up after each test"""
+    dag = TaskDag(name=request.node.name, interrupt_on_error=False)
+    yield dag
+
+
+@pytest.fixture(scope='function')
+def real_dag(db_cfg, real_jsm_jqs, request):
     """Use a fixture for dag creation so that the dags' JobInstanceFactories
     and JobInstanceReconcilers get cleaned up after each test"""
     executor = SGEExecutor()
@@ -221,7 +293,7 @@ def dag(db_cfg, jsm_jqs, request):
 
 
 @pytest.fixture(scope='function')
-def dag_factory(db_cfg, jsm_jqs, request):
+def dag_factory(db_cfg, real_jsm_jqs, request):
 
     dags = []
     def factory(executor):

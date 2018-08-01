@@ -1,1 +1,0 @@
-{"conn_str": "mysql://docker:docker@db:3312/docker", "jsm_host": "jsm", "jqs_host": "localhost", "jsm_rep_port": 3456, "jsm_pub_port": 3457, "jqs_port": 3458}
