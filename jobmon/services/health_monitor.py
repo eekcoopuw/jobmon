@@ -139,7 +139,7 @@ class HealthMonitor(object):
                 app_route='/workflow_run',
                 message={'wfr_id': wfr.id,
                          'status': WorkflowRunStatus.ERROR,
-                         'status_date': datetime.utcnow()},
+                         'status_date': str(datetime.utcnow())},
                 request_type='put')
             wf = wfr.workflow
             dag = wf.task_dag

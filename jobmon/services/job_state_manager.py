@@ -163,7 +163,7 @@ def add_update_workflow_run():
     return resp
 
 
-@app.route('/job_instance/<job_instance_id>/log_done', methods=['PUT'])
+@app.route('/job_instance/<job_instance_id>/log_done', methods=['POST'])
 def log_done(job_instance_id):
     logger.debug("Log DONE for JI {}".format(job_instance_id))
     ji = _get_job_instance(ScopedSession, job_instance_id)
@@ -175,7 +175,7 @@ def log_done(job_instance_id):
     return resp
 
 
-@app.route('/job_instance/<job_instance_id>/log_error', methods=['PUT'])
+@app.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
 def log_error(job_instance_id):
     data = request.get_json()
     logger.debug("Log ERROR for JI {}, message={}".format(
@@ -193,7 +193,7 @@ def log_error(job_instance_id):
     return resp
 
 
-@app.route('/job_instance/<job_instance_id>/log_executor_id', methods=['PUT'])
+@app.route('/job_instance/<job_instance_id>/log_executor_id', methods=['POST'])
 def log_executor_id(job_instance_id):
     data = request.get_json()
     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
@@ -207,7 +207,7 @@ def log_executor_id(job_instance_id):
     return resp
 
 
-@app.route('/task_dag/<dag_id>/log_heartbeat', methods=['PUT'])
+@app.route('/task_dag/<dag_id>/log_heartbeat', methods=['POST'])
 def log_heartbeat(dag_id):
     dag = ScopedSession.query(task_dag.TaskDagMeta).filter_by(
         dag_id=dag_id).first()
@@ -219,7 +219,7 @@ def log_heartbeat(dag_id):
     return resp
 
 
-@app.route('/job_instance/<job_instance_id>/log_running', methods=['PUT'])
+@app.route('/job_instance/<job_instance_id>/log_running', methods=['POST'])
 def log_running(job_instance_id):
     data = request.get_json()
     logger.debug("Log RUNNING for JI {}".format(job_instance_id))
@@ -233,7 +233,7 @@ def log_running(job_instance_id):
     return resp
 
 
-@app.route('/job_instance/<job_instance_id>/log_nodename', methods=['PUT'])
+@app.route('/job_instance/<job_instance_id>/log_nodename', methods=['POST'])
 def log_nodename(job_instance_id):
     data = request.get_json()
     logger.debug("Log USAGE for JI {}".format(job_instance_id))
@@ -245,7 +245,7 @@ def log_nodename(job_instance_id):
     return resp
 
 
-@app.route('/job_instance/<job_instance_id>/log_usage', methods=['PUT'])
+@app.route('/job_instance/<job_instance_id>/log_usage', methods=['POST'])
 def log_usage(job_instance_id):
     data = request.get_json()
     logger.debug("Log USAGE for JI {}".format(job_instance_id))
@@ -285,7 +285,7 @@ def reset_job(job_id):
     return resp
 
 
-@app.route('/dag/<dag_id/reset_incomplete_jobs', methods=['POST'])
+@app.route('/dag/<dag_id>/reset_incomplete_jobs', methods=['POST'])
 def reset_incomplete_jobs(dag_id):
     up_job = """
         UPDATE job

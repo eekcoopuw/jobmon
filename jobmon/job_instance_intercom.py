@@ -24,15 +24,15 @@ class JobInstanceIntercom(object):
         rc, _ = self.requester.send_request(
             app_route='/job_instance/{}/log_done'.format(self.job_instance_id),
             message={},
-            request_type='put')
+            request_type='post')
         return rc
 
     def log_error(self, error_message):
         rc, _ = self.requester.send_request(
-            app_route=('/job_instance_id/{}/log_error'
+            app_route=('/job_instance/{}/log_error'
                        .format(self.job_instance_id)),
             message={'error_message': error_message},
-            request_type='put')
+            request_type='post')
         return rc
 
     def log_job_stats(self):
@@ -44,7 +44,7 @@ class JobInstanceIntercom(object):
                 app_route=('/job_instance/{}/log_usage'
                            .format(self.job_instance_id)),
                 message=msg,
-                request_type='put')
+                request_type='post')
             return rc
         except NotImplementedError:
             logger.warning("Usage stats not available for {} "
@@ -56,5 +56,5 @@ class JobInstanceIntercom(object):
                        .format(self.job_instance_id)),
             message={'nodename': socket.gethostname(),
                      'process_group_id': str(self.process_group_id)},
-            request_type='put')
+            request_type='post')
         return rc

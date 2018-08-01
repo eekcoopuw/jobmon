@@ -278,7 +278,7 @@ class Workflow(object):
         for dag_id in dag_ids:
             rc, response = self.jqs_req.send_request(
                 app_route='/dag/{}/workflow'.format(dag_id),
-                message={},
+                message={'workflow_args': str(self.workflow_args)},
                 request_type='get')
             if rc == HTTPStatus.OK:
                 wf = response['workflow_dct']
@@ -289,7 +289,7 @@ class Workflow(object):
         rc, response = self.jsm_req.send_request(
             app_route='/workflow',
             message={'wf_id': str(self.id), 'status': status,
-                     'status_date': datetime.utcnow()},
+                     'status_date': str(datetime.utcnow())},
             request_type='put')
         wf_dct = response['workflow_dct']
         self.wf_dao = WorkflowDAO.from_wire(wf_dct)

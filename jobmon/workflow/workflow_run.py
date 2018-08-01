@@ -162,10 +162,10 @@ class WorkflowRun(object):
                    .format(wf_run.id, wf_run.user))
             logger.error(msg)
             _, _ = self.jsm_req.send_request(
-                app_route='/update_workflow_run',
-                message={'workflow_run_id': wf_run.id,
+                app_route='/workflow_run',
+                message={'wfr_id': wf_run.id,
                          'status': WorkflowRunStatus.STOPPED},
-                request_type='post')
+                request_type='put')
             raise RuntimeError(msg)
         else:
             kill_remote_process(wf_run.hostname, wf_run.pid)
@@ -193,10 +193,10 @@ class WorkflowRun(object):
                 if job_instances:
                     previous_executor.terminate_job_instances(job_instances)
             _, _ = self.jsm_req.send_request(
-                app_route='/update_workflow_run',
+                app_route='/workflow_run',
                 message={'workflow_run_id': wf_run.id,
                          'status': WorkflowRunStatus.STOPPED},
-                request_type='post')
+                request_type='put')
 
     def update_done(self):
         self._update_status(WorkflowRunStatus.DONE)
@@ -211,7 +211,7 @@ class WorkflowRun(object):
         rc, _ = self.jsm_req.send_request(
             app_route='/workflow_run',
             message={'wfr_id': self.id, 'status': status,
-                     'status_date': datetime.utcnow()},
+                     'status_date': str(datetime.utcnow())},
             request_type='put')
 
     def add_workflow_run_attribute(self, attribute_type, value):

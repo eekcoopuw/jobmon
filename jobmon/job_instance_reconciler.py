@@ -149,22 +149,22 @@ class JobInstanceReconciler(object):
         return self.jsm_req.send_request(
             app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
             message={'nodename': hostname},
-            request_type='put')
+            request_type='post')
 
     def _log_mysterious_error(self, job_instance_id, executor_id):
         return self.jsm_req.send_request(
-            app_route='/job_instance_id/{}/log_error'.format(job_instance_id),
+            app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message={'error_message': ("Job no longer visible in qstat, "
                                        "check qacct or jobmon database for "
                                        "executor_id {} and job_instance_id {}"
                                        .format(executor_id, job_instance_id))},
-            request_type='put')
+            request_type='post')
 
     def _log_timeout_error(self, job_instance_id):
         return self.jsm_req.send_request(
-            app_route='/job_instance_id/{}/log_error'.format(job_instance_id),
+            app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message={'error_message': "Timed out"},
-            request_type='put')
+            request_type='post')
 
     def _request_permission_to_reconcile(self):
         # sync; log_heartbeat

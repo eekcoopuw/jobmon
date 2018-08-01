@@ -36,9 +36,12 @@ def _is_alive():
 
 @app.route('/dag/<dag_id>/job', methods=['GET'])
 def get_jobs_by_status(dag_id):
-    jobs = ScopedSession.query(Job).filter_by(
-        status=request.args['status'],
-        dag_id=dag_id).all()
+    if request.args.get('status', None) is not None:
+        jobs = ScopedSession.query(Job).filter_by(
+            status=request.args['status'],
+            dag_id=dag_id).all()
+    else:
+        jobs = ScopedSession.query(Job).filter_by(dag_id=dag_id).all()
     job_dcts = [j.to_wire() for j in jobs]
     resp = jsonify(job_dcts=job_dcts)
     resp.status_code = HTTPStatus.OK
@@ -47,17 +50,24 @@ def get_jobs_by_status(dag_id):
 
 @app.route('/dag/<dag_id>/job_instance', methods=['GET'])
 def get_job_instances_by_filter(dag_id):
-    instances = ScopedSession.query(JobInstance).\
-        filter(
-            JobInstance.status.in_(request.args.getlist('status'))).\
-        join(Job).\
-        options(contains_eager(JobInstance.job)).\
-        filter_by(dag_id=dag_id).all()
     if request.args.get('runtime', None) is not None:
+        instances = ScopedSession.query(JobInstance).\
+            filter(
+                JobInstance.status.in_(request.args.getlist('status'))).\
+            join(Job).\
+            options(contains_eager(JobInstance.job)).\
+            filter(Job.dag_id == dag_id,
+                   Job.max_runtime != None).all()  # noqa: E711
         now = datetime.utcnow()
         instances = [r.to_wire() for r in instances
                      if (now - r.status_date).seconds > r.job.max_runtime]
     else:
+        instances = ScopedSession.query(JobInstance).\
+            filter(
+                JobInstance.status.in_(request.args.getlist('status'))).\
+            join(Job).\
+            options(contains_eager(JobInstance.job)).\
+            filter_by(dag_id=dag_id).all()
         instances = [i.to_wire() for i in instances]
     resp = jsonify(ji_dcts=instances)
     resp.status_code = HTTPStatus.OK
@@ -94,7 +104,9 @@ def get_workflows_by_inputs(dag_id):
         dag_id:
     """
     workflow = ScopedSession.query(WorkflowDAO).\
-        filter(WorkflowDAO.dag_id == dag_id).first()
+        filter(WorkflowDAO.dag_id == dag_id).\
+        filter(WorkflowDAO.workflow_args == request.args['workflow_args']
+               ).first()
     if workflow:
         resp = jsonify(workflow_dct=workflow.to_wire())
         resp.status_code = HTTPStatus.OK
