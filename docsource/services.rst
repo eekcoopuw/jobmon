@@ -71,9 +71,7 @@ To deploy a centralized JobStateManager and JobQueryServer:
   d. jobmon/config.py
   e. jobmon/bootstrap.py
   f. k8s/db-service.yaml
-  g. wait-for-db.sh
-  h. wait-for-tables.sh
-  i. And do a recurive grep to be sure!   e.g.   ``grep -r 3312 *``
+  g. And do a recurive grep to be sure!   e.g.   ``grep -r 3312 *``
 5. Submit the new version number files back to git
 6. From the root directory of the repo, run::
 
