@@ -10,11 +10,11 @@ metadata:
   name: jsm
 spec:
   ports:
-  - name: "5056"
-    port: 5056
+  - name: "5156"
+    port: 5156
     targetPort: 3456
-  - name: "5057"
-    port: 5057
+  - name: "5157"
+    port: 5157
     targetPort: 3457
   selector:
     io.kompose.service: jsm

@@ -10,8 +10,8 @@ metadata:
   name: jqs
 spec:
   ports:
-  - name: "5058"
-    port: 5058
+  - name: "5158"
+    port: 5158
     targetPort: 3458
   selector:
     io.kompose.service: jqs

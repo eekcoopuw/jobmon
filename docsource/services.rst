@@ -64,9 +64,15 @@ To deploy a centralized JobStateManager and JobQueryServer:
     git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git jobmon_emu
 
 3. As per the "Version Control" section below, update the port numbers in, unless this has already been done:
-  a. docker-compse.yaml
+  a. docker-compose.yaml
   b. this documentation
   c. the default .jobmonrc file
+  d. jobmon/config.py
+  e. jobmon/bootstrap.py
+  f. k8s/db-service.yaml
+  g. wait-for-db.sh
+  h. wait-for-tables.sh
+  i. And do a recurive grep to be sure!   e.g.   ``grep -r 3312 *``
 4. Submit the new version number files back to git
 5. From the root directory of the repo, run::
 
@@ -122,6 +128,9 @@ emu.5    5158 5156  5157  3313
 The port numbers come in paris, e.g. "3313:3306".
 The number on the right of the colon is the port-number inside the container, and never changes.
 The port number on the left of the colon is the external port number and must be changed on each release.
+See also::
+https://docs.docker.com/compose/networking/
+
 
 .. todo::
 
