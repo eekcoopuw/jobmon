@@ -58,10 +58,11 @@ Deploying JobStateManager and JobQueryServer
 
 To deploy a centralized JobStateManager and JobQueryServer:
 
-1. Login to jobmon-p01
-2. Clone this repo into a folder called "jobmon_emu"::
+1. Ssh into jobmon.p01.ihme.washington.edu
+2. Cd into ~/tmp
+3. Clone the jobmon repo into a new folder within ~/tmp, with a descriptive folder name::
 
-    git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git jobmon_emu
+    git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git new_name
 
 3. From the root directory of the repo, run::
 
@@ -71,16 +72,6 @@ You'll be prompted for your slack bot token, which should be available from
 your Slack app management page (https://api.slack.com/apps) (if you have one).
 If not, you can leave this blank.
 
-That should do it. Now you'll just need to make sure your users have the proper
-host and port settings in their ~/.jobmonrc::
-
-    {
-      "host": "jobmon-p01.ihme.washington.edu",
-      "jsm_rep_port": 4956,
-      "jsm_pub_port": 4957,
-      "jqs_port": 4958
-    }
-
 
 Version Control
 ***************
@@ -89,7 +80,7 @@ For testing purposes, you can then access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3312
+    port: 3313
     user: docker
     pass: docker
 
@@ -105,13 +96,8 @@ emu.2    4758 4756  4757  3309
 emu.3    4858 4856  4857  3310
 emu.3    4958 4956  4957  3311
 emu.4    5058 5056  5057  3312
+emu.5    5158 5156  5157  3313
 ======== ==== ===== ===== ====
-
-.. todo::
-
-    Make these settings the default upon installing the package (or
-    alternatively source jobmonrc from a shared location, then from the user's
-    home directory).
 
 
 Deployment architecture
