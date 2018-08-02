@@ -8,12 +8,13 @@ from jobmon.models import Job, JobInstanceStatus, JobInstance, JobStatus
 from jobmon.services.health_monitor import HealthMonitor
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
-from jobmon.workflow.task_dag import DagExecutionStatus, TaskDag
+from jobmon.workflow.task_dag import DagExecutionStatus
 from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
     WorkflowAlreadyComplete
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 
 
+@pytest.fixture
 def simple_workflow(real_jsm_jqs, db_cfg):
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
