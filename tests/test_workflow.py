@@ -625,7 +625,7 @@ def test_workflow_status_dates(simple_workflow):
             assert wfr.created_date != wfr.status_date
 
 
-def test_workflow_sge_args(db_cfg, real_jsm_jqs):
+def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     t1 = PythonTask(script='{}/executor_args_check.py'.format(
         os.path.dirname(os.path.realpath(__file__))))
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
