@@ -40,7 +40,6 @@ install_requires = [
     'sqlalchemy',
     'numpy',
     'pymysql',
-    'mysqlclient',
     'pyyaml',
     'pyzmq',
     'drmaa',
