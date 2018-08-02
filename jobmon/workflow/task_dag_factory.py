@@ -29,7 +29,7 @@ class TaskDagMetaFactory(object):
         logger.debug("DagFactory creating new DAG {}".format(name))
         req = Requester(config.jsm_port)
         rc, response = req.send_request(
-            app_route='/add_task_dag',
+            app_route='/task_dag',
             message={'name': name, 'user': getuser(), 'dag_hash': dag_hash,
                      'created_date': str(datetime.utcnow())},
             request_type='post')

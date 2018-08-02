@@ -338,7 +338,6 @@ def test_dag_reset(simple_workflow_w_errors):
     err_wf  = simple_workflow_w_errors
 
     dag_id = err_wf.task_dag.dag_id
-
     with session_scope() as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id).all()
         assert len(jobs) == 4
@@ -354,8 +353,8 @@ def test_dag_reset(simple_workflow_w_errors):
     from jobmon.config import config
     req = Requester(config.jsm_port)
     rc, _ = req.send_request(
-        app_route='/reset_incomplete_jobs',
-        message={'dag_id': dag_id},
+        app_route='/dag/{}/reset_incomplete_jobs'.format(dag_id),
+        message={},
         request_type='post')
     with session_scope() as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id).all()

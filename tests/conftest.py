@@ -219,7 +219,7 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
 
     req = Requester(config.jsm_port, host=get_node_name())
     rc, response = req.send_request(
-        app_route='/add_task_dag',
+        app_route='/task_dag',
         message={'name': 'test dag', 'user': 'test user',
                  'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
                  'created_date': str(datetime.utcnow())},
@@ -234,7 +234,7 @@ def real_dag_id(real_jsm_jqs, db_cfg):
 
     req = Requester(config.jsm_port, host=get_node_name())
     rc, response = req.send_request(
-        app_route='/add_task_dag',
+        app_route='/task_dag',
         message={'name': 'test dag', 'user': 'test user',
                  'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
                  'created_date': str(datetime.utcnow())},
