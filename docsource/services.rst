@@ -58,23 +58,22 @@ Deploying JobStateManager and JobQueryServer
 
 To deploy a centralized JobStateManager and JobQueryServer:
 
-1. Login to jobmon-p01
-2. Clone this repo into a folder called "jobmon_emu"::
+1. Ssh into jobmon.p01.ihme.washington.edu
+2. cd into ~/tmp
+3. Clone the jobmon repo into a new folder within ~/tmp, with a descriptive folder name::
 
-    git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git jobmon_emu
+    git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git new_name
 
-3. As per the "Version Control" section below, update the port numbers in, unless this has already been done:
+4. As per the "Version Control" section below, update the port numbers in, unless this has already been done:
   a. docker-compose.yaml
   b. this documentation
   c. the default .jobmonrc file
   d. jobmon/config.py
   e. jobmon/bootstrap.py
   f. k8s/db-service.yaml
-  g. wait-for-db.sh
-  h. wait-for-tables.sh
-  i. And do a recurive grep to be sure!   e.g.   ``grep -r 3312 *``
-4. Submit the new version number files back to git
-5. From the root directory of the repo, run::
+  g. And do a recurive grep to be sure!   e.g.   ``grep -r 3312 *``
+5. Submit the new version number files back to git
+6. From the root directory of the repo, run::
 
     ./runserver.py
 
@@ -87,16 +86,6 @@ Press the Copy button on the 'Bot User OAuth Access Token' text box.
 The runserver.py script will not echo that Token when you paste it into the window because the python code is using the gepass input function.
 The runserver.py script will also ask for two slack channels. There is a bug - you have to re-enter the default slack channel names, surrounded by single quotes.
 The script will run docker-compose up build
-
-That should do it. Now you'll just need to make sure your users have the proper
-host and port settings in their ~/.jobmonrc::
-
-    {
-      "host": "jobmon-p01.ihme.washington.edu",
-      "jsm_rep_port": 5156,
-      "jsm_pub_port": 5157,
-      "jqs_port": 5158
-    }
 
 
 Version Control
@@ -125,18 +114,11 @@ emu.4    5058 5056  5057  3312
 emu.5    5158 5156  5157  3313
 ======== ==== ===== ===== ====
 
-The port numbers come in paris, e.g. "3313:3306".
+The port numbers come in pairs, e.g. "3313:3306".
 The number on the right of the colon is the port-number inside the container, and never changes.
 The port number on the left of the colon is the external port number and must be changed on each release.
 See also::
 https://docs.docker.com/compose/networking/
-
-
-.. todo::
-
-    Make these settings the default upon installing the package (or
-    alternatively source jobmonrc from a shared location, then from the user's
-    home directory).
 
 
 Deployment architecture

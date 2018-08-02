@@ -14,6 +14,7 @@ from jobmon.notifiers import SlackNotifier
 from jobmon.services.health_monitor import HealthMonitor
 from jobmon.services.job_query_server import JobQueryServer
 from jobmon.services.job_state_manager import JobStateManager
+from jobmon.attributes import attribute_database_loaders
 
 try:
     FileExistsError
@@ -61,6 +62,7 @@ def initdb(args):
     try:
         with session_scope() as session:
             database_loaders.load_default_statuses(session)
+            attribute_database_loaders.load_attribute_types(session)
     except IntegrityError as e:
         raise Exception("Database is not empty, "
                         "could not create tables {}").format(str(e))
