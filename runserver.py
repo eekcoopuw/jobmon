@@ -38,7 +38,7 @@ if __name__ == "__main__":
             with open("jobmonrc-docker-wsecrets", "w") as f:
                 json.dump(rcdct, f)
         else:
-            sys.exit()
+            exit()
     else:
         shutil.copy("jobmonrc-docker", "jobmonrc-docker-wsecrets")
 
