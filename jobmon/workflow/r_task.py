@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class RTask(ExecutableTask):
 
-    # R and Rscript are reliably installed on the cluster
+    # R and Rscript need to be conda-installed in the operating environment.
     default_R_script = "Rscript"
 
     def __init__(self, path_to_R_binary=default_R_script, script=None,
