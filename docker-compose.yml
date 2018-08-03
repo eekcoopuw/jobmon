@@ -23,6 +23,8 @@ services:
             max-file: "10"
   jqs:
     image: jobmon
+    depends_on:
+        - jsm
     ports:
         - "5158:3458"
     entrypoint:
@@ -40,6 +42,8 @@ services:
             max-file: "10"
   monitor:
     image: jobmon
+    depends_on:
+        - jsm
     entrypoint:
         - ./wait-for-tables.sh
         - db
@@ -56,6 +60,8 @@ services:
             max-file: "10"
   initdb:
     image: jobmon
+    depends_on:
+        - jsm
     entrypoint:
         - ./wait-for-db.sh
         - db
