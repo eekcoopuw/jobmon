@@ -54,7 +54,7 @@ This cloud shell window times out rapidly, so keep it will fed with carriage ret
 You can also run these commands locally in a bash shell, because the ``az`` commands have the azure portal address
 backed-in.
 
-On MacOS you will need to sintall it via homebrew, see
+On MacOS you will need to install it via homebrew, see
 https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-macos?view=azure-cli-latest
 
 See the gotchas section.
@@ -266,7 +266,7 @@ Cleaning Up
 Stopping a service
 Find all service names:  ``kubectl get services``
 
-``kubectl stop service azure-vote-front`` and ``kubectl stop service azure-vote-back``
+``kubectl delete service azure-vote-front`` and ``kubectl delete azure-vote-back``
 
 Deleting a cluster:
 ``az aks delete --resource-group myResourceGroup --name myAKSCluster``
