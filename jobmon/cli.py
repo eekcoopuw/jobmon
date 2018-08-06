@@ -4,15 +4,16 @@ import shlex
 
 from sqlalchemy.exc import IntegrityError
 
-from jobmon import database
-from jobmon import database_loaders
-from jobmon import config
+from jobmon.server import database
+from jobmon.server import database_loaders
+from jobmon.server import config
 from jobmon.bootstrap import install_rcfile
-from jobmon.database import session_scope
-from jobmon.requester import Requester
-from jobmon.notifiers import SlackNotifier
-from jobmon.services.health_monitor import HealthMonitor
-from jobmon.services import job_state_manager, job_query_server
+from jobmon.server.database import session_scope
+from jobmon.client.requester import Requester
+from jobmon.server.services.health_monitor.notifiers import SlackNotifier
+from jobmon.server.services.health_monitor import HealthMonitor
+from jobmon.server.services.job_state_manager import job_state_manager
+from jobmon.server.services.job_query_server import job_query_server
 
 try:
     FileExistsError
