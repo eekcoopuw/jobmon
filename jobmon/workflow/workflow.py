@@ -305,8 +305,8 @@ class Workflow(object):
                                                        local_tmp_dir))
         tmp_dir = os.path.join(tmp_root,
                                jobmon.__version__,
-                               self.wf_dao.id,
-                               self.workflow_run.id)
+                               str(self.wf_dao.id),
+                               str(self.workflow_run.id))
         logger.info("Creating temp directory at {}".format(tmp_dir))
         makedirs_safely(tmp_dir)
         self.executor.set_temp_dir(tmp_dir)
