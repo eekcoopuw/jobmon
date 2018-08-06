@@ -315,6 +315,7 @@ class Workflow(object):
         if not self.is_bound:
             self._bind()
         self._create_workflow_run()
+        self._set_executor_temp_dir()
         dag_status, n_new_done, n_prev_done, n_failed = (
             self.task_dag._execute_interruptible())
 
