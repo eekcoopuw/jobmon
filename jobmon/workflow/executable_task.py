@@ -2,6 +2,7 @@ import logging
 import hashlib
 
 from jobmon.models import JobStatus
+from jobmon.attributes.constants import job_attribute
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,19 @@ class ExecutableTask(object):
         """
         Add an attribute and value (key, value pair) to keep track of for the task
         """
-        self.job_attributes[attribute_type] = value
+        if not isinstance(attribute_type, int):
+            raise ValueError("Invalid attribute_type: {}, {}"
+                             .format(attribute_type,
+                                     type(attribute_type).__name__))
+        elif (not attribute_type == job_attribute.TAG and not int(value))\
+                or (attribute_type == job_attribute.TAG
+                    and not isinstance(value, str)):
+            raise ValueError("Invalid value type: {}, {}"
+                             .format(value,
+                                     type(value).__name__))
+
+        else:
+            self.job_attributes[attribute_type] = value
         #self.job_factory.add_job_attribute(self, job.job_id, attribute_type, value)
 
     def __eq__(self, other):
