@@ -38,11 +38,15 @@ def test_job_attribute(job_list_manager_sub):
 
 
 def test_job_attribute_input_error(job_list_manager_sub):
-    # create a job
+# create a job
     task = BashTask("sleep 1")
-    job = job_list_manager_sub.bind_task(task)
+    task.add_job_attribute("num_locations","fifty")
+    with pytest.raises(ValueError) as exc:
+        job = job_list_manager_sub.bind_task(task)
+    assert "Invalid" in str(exc.value)
+    
 
     # add an attribute with wrong types to the workflow
-    with pytest.raises(ValueError) as exc:
-        job_list_manager_sub.add_job_attribute(job, "num_locations", "fifty")
-    assert "Invalid" in str(exc.value)
+    # with pytest.raises(ValueError) as exc:
+        # job_list_manager_sub.add_job_attribute(job, "num_locations", "fifty")
+    # assert "Invalid" in str(exc.value)

@@ -102,8 +102,8 @@ class JobListManager(object):
             )
 
         #adding the attributes to the job now that there is a job_id
-        for attribute in task.attributes:
-            self.job_factory.add_job_attribute(job.job_id, attribute, task.attributes[attribute])
+        for attribute in task.job_attributes:
+            self.job_factory.add_job_attribute(job.job_id, attribute, task.job_attributes[attribute])
 
         bound_task = BoundTask(task=task, job=job, job_list_manager=self)
         self.bound_tasks[job.job_id] = bound_task

@@ -59,7 +59,7 @@ class ExecutableTask(object):
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
                  name=None, slots=1, mem_free=2, max_attempts=3,
-                 max_runtime=None, tag=None, context_args=None, job_attributes{}):
+                 max_runtime=None, tag=None, context_args=None, job_attributes={}):
         """
         Create a task
 
