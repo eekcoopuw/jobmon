@@ -9,7 +9,7 @@ from jobmon.services.health_monitor import HealthMonitor
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
 from jobmon.workflow.stata_task import StataTask
-from jobmon.workflow.task_dag import DagExecutionStatus, TaskDag
+from jobmon.workflow.task_dag import DagExecutionStatus
 from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
     WorkflowAlreadyComplete
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
