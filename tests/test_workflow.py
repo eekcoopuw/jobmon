@@ -8,6 +8,7 @@ from jobmon.models import Job, JobInstanceStatus, JobInstance, JobStatus
 from jobmon.services.health_monitor import HealthMonitor
 from jobmon.workflow.bash_task import BashTask
 from jobmon.workflow.python_task import PythonTask
+from jobmon.workflow.stata_task import StataTask
 from jobmon.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
     WorkflowAlreadyComplete
@@ -42,6 +43,16 @@ def simple_workflow_w_errors(jsm_jqs, db_cfg):
 
 def mock_slack(msg, channel):
     print("{} to be posted to channel: {}".format(msg, channel))
+
+
+def test_wf_with_stata_temp_dir(jsm_jqs, db_cfg):
+    t1 = StataTask(script='di "hello"')
+    t2 = StataTask(script='di "world"', upstream_tasks=[t1])
+
+    wf = Workflow("stata_temp_dir_test")
+    wf.add_tasks([t1, t2])
+    success = wf.run()
+    assert success
 
 
 def test_wfargs_update(jsm_jqs, db_cfg):
