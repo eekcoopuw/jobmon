@@ -8,10 +8,13 @@ from jobmon.attributes.constants import job_attribute
 def test_job_attribute(job_list_manager_sub):
     # create a job
     task = BashTask("sleep 1")
+    #add an attribute to the task
+    task.add_job_attribute(job_attribute.NUM_DRAWS, "10")
+
     job = job_list_manager_sub.bind_task(task)
 
     # add an attribute to the job
-    job_list_manager_sub.add_job_attribute(job, job_attribute.NUM_DRAWS, "10")
+    #job_list_manager_sub.add_job_attribute(job, job_attribute.NUM_DRAWS, "10")
 
     with session_scope() as session:
         # query from job_attribute table
@@ -21,8 +24,8 @@ def test_job_attribute(job_list_manager_sub):
                                        job_attribute.attribute_type,
                                        job_attribute.value
                                 FROM job_attribute
-                                JOIN job 
-                                ON job_attribute.job_id=job.job_id 
+                                JOIN job
+                                ON job_attribute.job_id=job.job_id
                                 WHERE job_attribute.job_id={id}
                                 """.format(id=job.job_id))
 

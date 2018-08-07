@@ -35,6 +35,7 @@ class ExecutableTask(object):
 
         Args:
             name:
+            attributes:
 
         Returns:
             True (or raises)
@@ -58,7 +59,7 @@ class ExecutableTask(object):
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
                  name=None, slots=1, mem_free=2, max_attempts=3,
-                 max_runtime=None, tag=None, context_args=None):
+                 max_runtime=None, tag=None, context_args=None, job_attributes{}):
         """
         Create a task
 
@@ -116,6 +117,9 @@ class ExecutableTask(object):
         for up in self.upstream_tasks:
             up.add_downstream(self)
 
+        self.job_attributes = job_attributes
+
+
     def add_upstream(self, ancestor):
         """
         Add an upstream (ancestor) Task. This has Set semantics, an upstream
@@ -135,6 +139,13 @@ class ExecutableTask(object):
         self.downstream_tasks.add(descendent)
         # avoid endless recursion, set directly
         descendent.upstream_tasks.add(self)
+
+    def add_job_attribute(self, attribute_type, value):
+        """
+        Add an attribute and value (key, value pair) to keep track of for the task
+        """
+        self.job_attributes[attribute_type] = value
+        #self.job_factory.add_job_attribute(self, job.job_id, attribute_type, value)
 
     def __eq__(self, other):
         """

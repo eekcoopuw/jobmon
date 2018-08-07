@@ -51,7 +51,8 @@ class JobFactory(object):
                        'mem_free': mem_free,
                        'max_attempts': max_attempts,
                        'max_runtime': max_runtime,
-                       'tag': tag}
+                       'tag': tag
+                       }
         })
         if rc != ReturnCodes.OK:
             raise InvalidResponse(

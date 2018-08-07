@@ -100,6 +100,11 @@ class JobListManager(object):
                 max_runtime=task.max_runtime,
                 context_args=task.context_args,
             )
+
+        #adding the attributes to the job now that there is a job_id
+        for attribute in task.attributes:
+            self.job_factory.add_job_attribute(job.job_id, attribute, task.attributes[attribute])
+
         bound_task = BoundTask(task=task, job=job, job_list_manager=self)
         self.bound_tasks[job.job_id] = bound_task
         return bound_task
@@ -291,5 +296,5 @@ class JobListManager(object):
         self.jir_proc.daemon = True
         self.jir_proc.start()
 
-    def add_job_attribute(self, job, attribute_type, value):
+    def add_job_attributes(self, job, attribute_type, value):
         self.job_factory.add_job_attribute(job.job_id, attribute_type, value)
