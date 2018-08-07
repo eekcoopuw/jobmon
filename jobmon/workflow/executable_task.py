@@ -160,6 +160,10 @@ class ExecutableTask(object):
         else:
             self.job_attributes[attribute_type] = value
 
+    def add_job_attributes(self, dict_of_attributes):
+        for attribute_type in dict_of_attributes:
+            self.job_attributes[attribute_type] = dict_of_attributes[attribute_type]
+
     def __eq__(self, other):
         """
         Two tasks are equal if they have the same hash.
