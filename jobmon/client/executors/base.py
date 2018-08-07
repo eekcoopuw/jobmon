@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 
-from jobmon.config import config
+from jobmon.client.config import config
 
 
 logger = logging.getLogger(__name__)

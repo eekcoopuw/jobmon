@@ -5,14 +5,15 @@ from time import sleep
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
-from jobmon.database import session_scope
+from jobmon.server.database import session_scope
 from jobmon.executors.sge import SGEExecutor
-from jobmon.models import Job, JobStatus
-from jobmon.workflow.bash_task import BashTask
-from jobmon.workflow.python_task import PythonTask
-from jobmon.workflow.r_task import RTask
-from jobmon.workflow.stata_task import StataTask
-from jobmon.workflow.task_dag import DagExecutionStatus
+from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
+from jobmon.client.workflow.bash_task import BashTask
+from jobmon.client.workflow.python_task import PythonTask
+from jobmon.client.workflow.r_task import RTask
+from jobmon.client.workflow.stata_task import StataTask
+from jobmon.client.workflow.task_dag import DagExecutionStatus
 
 
 def match_name_to_sge_name(jid):

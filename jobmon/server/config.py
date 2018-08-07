@@ -2,7 +2,7 @@ import logging
 import json
 import os
 
-from jobmon.connection_config import ConnectionConfig
+import jobmon
 
 
 logger = logging.getLogger(__file__)
@@ -11,15 +11,6 @@ try:
     from json import JSONDecodeError
 except ImportError:
     JSONDecodeError = ValueError
-
-
-def derive_jobmon_command_from_env():
-    singularity_img_path = os.environ.get('IMGPATH', None)
-    if singularity_img_path:
-        return (
-            'singularity run --app jobmon_command {}'
-            .format(singularity_img_path).encode())
-    return None
 
 
 class InvalidConfig(Exception):
@@ -57,68 +48,31 @@ class GlobalConfig(object):
     """
 
     default_opts = {
+        "jobmon_version": str(jobmon.__version),
         "conn_str": ("mysql://docker:docker@"
-                     "jobmon-p01.ihme.washington.edu:3312/docker"),
-        "host": "jobmon-p01.ihme.washington.edu",
-        "jsm_port": 5056,
-        "jqs_port": 5058,
-        "verbose": False,
+                     "jobmon-p01.ihme.washington.edu:3313/docker"),
         "slack_token": None,
         "default_wf_slack_channel": None,
         "default_node_slack_channel": None,
-        "jobmon_command": derive_jobmon_command_from_env()
     }
 
-    def __init__(self, conn_str, host, jsm_port, jqs_port, verbose,
-                 slack_token, default_wf_slack_channel,
-                 default_node_slack_channel, jobmon_command):
+    def __init__(self, jobmon_version, conn_str, slack_token,
+                 default_wf_slack_channel, default_node_slack_channel):
 
-        self.conn_str = conn_str
-        self.verbose = False
-
-        self._host = host
-        self._jsm_port = jsm_port
-        self._jqs_port = jqs_port
-
-        self.jsm_conn = ConnectionConfig(
-            host=host,
-            port=str(jsm_port))
-        self.jqs_conn = ConnectionConfig(
-            host=host,
-            port=str(jqs_port))
+        self.jobmon_version = jobmon_version
+        self._conn_str = conn_str
 
         self.slack_token = slack_token
         self.default_wf_slack_channel = default_wf_slack_channel
         self.default_node_slack_channel = default_node_slack_channel
-        self.jobmon_command = jobmon_command
 
     @property
-    def host(self):
-        return self._host
+    def conn_str(self):
+        return self._conn_str
 
-    @host.setter
-    def host(self, value):
-        self._host = value
-        self.jsm_conn.host = self._host
-        self.jqs_conn.host = self._host
-
-    @property
-    def jsm_port(self):
-        return self._jsm_port
-
-    @jsm_port.setter
-    def jsm_port(self, value):
-        self._jsm_port = value
-        self.jsm_conn.port = self._jsm_port
-
-    @property
-    def jqs_port(self):
-        return self._jqs_port
-
-    @jqs_port.setter
-    def jqs_port(self, value):
-        self._jqs_port = value
-        self.jqs_conn.port = self._jqs_port
+    @conn_str.setter
+    def conn_str(self, value):
+        self._conn_str = value
 
     def apply_opts_dct(self, opts_dct):
         for opt, opt_val in opts_dct.items():
@@ -159,12 +113,12 @@ class GlobalConfig(object):
         return gc_opts
 
 
-# The config singleton... if you need to update it, modify the object directly
-# via the setter or apply_opts_dct methods. Don't create a new one.
-if os.getenv("JOBMON_CONFIG"):
-    CONFIG_FILE = os.getenv("JOBMON_CONFIG")
+# The client config singleton... if you need to update it, modify the object
+# directly via the setter or apply_opts_dct methods. Don't create a new one.
+if os.getenv("JOBMON_SERVER_CONFIG"):
+    CONFIG_FILE = os.getenv("JOBMON_SERVER_CONFIG")
 else:
-    CONFIG_FILE = "~/.jobmonrc"
+    CONFIG_FILE = "~/.jobmon_server_rc"
 if os.path.isfile(os.path.expanduser(CONFIG_FILE)):
     config = GlobalConfig.from_file(CONFIG_FILE)
     logger.warn("Found a local config file {}. Therefore we cannot configure "
@@ -173,3 +127,4 @@ if os.path.isfile(os.path.expanduser(CONFIG_FILE)):
                 "relaunching".format(CONFIG_FILE))
 else:
     config = GlobalConfig.from_defaults()
+

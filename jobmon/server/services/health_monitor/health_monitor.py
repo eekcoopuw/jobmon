@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from time import sleep
 
-from jobmon.config import config
+from jobmon.client.config import config
 from jobmon.server import database
 from jobmon.client.requester import Requester
 from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \

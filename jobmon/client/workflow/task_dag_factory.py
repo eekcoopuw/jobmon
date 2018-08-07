@@ -2,7 +2,7 @@ from datetime import datetime
 import logging
 from getpass import getuser
 
-from jobmon.config import config
+from jobmon.client.config import config
 from jobmon.client.requester import Requester
 from jobmon.models.task_dag import TaskDagMeta
 

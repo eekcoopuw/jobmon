@@ -9,7 +9,7 @@ from http import HTTPStatus
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
-from jobmon.config import config
+from jobmon.client.config import config
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.requester import Requester
 from jobmon.server.sql_base import Base

@@ -1,7 +1,7 @@
 import logging
 import requests
 
-from jobmon.config import config
+from jobmon.client.config import config
 
 
 logger = logging.getLogger(__name__)
@@ -13,9 +13,6 @@ class Requester(object):
     responds to. A common use case is where the swarm of application jobs send
     status messages to a Responder in the CentralJobStateMonitor
 
-    Args
-        connection_config (ConnectionConfig): host and port info for a remote
-            jobmon instance
     """
 
     def __init__(self, port, host=None):

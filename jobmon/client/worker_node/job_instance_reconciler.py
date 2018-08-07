@@ -5,7 +5,7 @@ from time import sleep
 
 from http import HTTPStatus
 
-from jobmon.config import config
+from jobmon.client.config import config
 from jobmon.client.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.requester import Requester

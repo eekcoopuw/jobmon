@@ -1,7 +1,7 @@
 import pytest
 
-from jobmon.workflow.bash_task import BashTask
-from jobmon.workflow.workflow import Workflow
+from jobmon.client.workflow.bash_task import BashTask
+from jobmon.client.workflow.workflow import Workflow
 from jobmon.attributes.constants import workflow_run_attribute
 
 

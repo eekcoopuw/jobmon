@@ -2,7 +2,7 @@ import logging
 import socket
 
 from jobmon.client.requester import Requester
-from jobmon.config import config
+from jobmon.client.config import config
 
 
 logger = logging.getLogger(__name__)

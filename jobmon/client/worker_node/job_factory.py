@@ -4,7 +4,7 @@ from http import HTTPStatus
 
 from jobmon import requester
 from jobmon.exceptions import InvalidResponse
-from jobmon.config import config
+from jobmon.client.config import config
 from jobmon.models.job import Job
 from jobmon.attributes.constants import job_attribute
 

@@ -3,12 +3,12 @@ import sys
 from time import sleep
 
 from jobmon import sge
-from jobmon.models import Job
-from jobmon.requester import Requester
-from jobmon.executors.dummy import DummyExecutor
-from jobmon.executors.sge import SGEExecutor
-from jobmon.job_list_manager import JobListManager
-from jobmon.workflow.executable_task import ExecutableTask as Task
+from jobmon.models.job import Job
+from jobmon.client.requester import Requester
+from jobmon.client.executors.dummy import DummyExecutor
+from jobmon.client.executors.sge import SGEExecutor
+from jobmon.client.worker_node.job_list_manager import JobListManager
+from jobmon.client.workflow.executable_task import ExecutableTask as Task
 
 from tests.timeout_and_skip import timeout_and_skip
 

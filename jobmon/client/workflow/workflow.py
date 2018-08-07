@@ -11,7 +11,7 @@ from sqlalchemy.orm import relationship
 
 import jobmon
 from cluster_utils.io import makedirs_safely
-from jobmon.config import config
+from jobmon.client.config import config
 from jobmon.client.requester import Requester
 from jobmon.models.sql_base import Base
 from jobmon.client.workflow.workflow_run import WorkflowRun

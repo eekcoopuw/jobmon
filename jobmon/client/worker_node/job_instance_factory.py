@@ -4,7 +4,7 @@ import threading
 import _thread
 from time import sleep
 
-from jobmon.config import config
+from jobmon.client.config import config
 from jobmon.client.executors.sequential import SequentialExecutor
 from jobmon.models.job import Job
 from jobmon.models.job_instance import JobInstance

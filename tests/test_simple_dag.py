@@ -7,10 +7,13 @@ from time import sleep
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
-from jobmon.database import session_scope
-from jobmon.models import Job, JobStatus, JobInstance, JobInstanceStatus
-from jobmon.meta_models.task_dag import TaskDagMeta
-from jobmon.workflow.task_dag import DagExecutionStatus
+from jobmon.server.database import session_scope
+from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.models.task_dag import TaskDagMeta
+from jobmon.client.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)

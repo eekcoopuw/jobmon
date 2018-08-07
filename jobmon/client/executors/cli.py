@@ -7,7 +7,6 @@ import traceback
 
 import jsonpickle
 
-from jobmon.connection_config import ConnectionConfig
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.worker_node.job_instance_intercom import JobInstanceIntercom
 from jobmon.workflow.utils import kill_remote_process_group
@@ -54,9 +53,6 @@ def unwrap():
 
     # set ENV variables in case tasks need to access them
     os.environ["JOBMON_JOB_INSTANCE_ID"] = str(args["job_instance_id"])
-
-    # configure connection to jobmon server
-    cc = ConnectionConfig(args["jsm_host"], args["jsm_port"])
 
     # identify executor class
     if args["executor_class"] == "SequentialExecutor":

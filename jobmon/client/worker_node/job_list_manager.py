@@ -2,7 +2,7 @@ import logging
 import time
 from threading import Event, Thread
 
-from jobmon.config import config
+from jobmon.client.config import config
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.client.worker_node.job_factory import JobFactory

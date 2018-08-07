@@ -2,16 +2,20 @@ import pytest
 from time import sleep
 import os
 
-from jobmon.database import session_scope
-from jobmon.meta_models.task_dag import TaskDagMeta
-from jobmon.models import Job, JobInstanceStatus, JobInstance, JobStatus
-from jobmon.services.health_monitor import HealthMonitor
-from jobmon.workflow.bash_task import BashTask
-from jobmon.workflow.python_task import PythonTask
-from jobmon.workflow.task_dag import DagExecutionStatus
-from jobmon.workflow.workflow import Workflow, WorkflowDAO, WorkflowStatus, \
-    WorkflowAlreadyComplete
-from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
+from jobmon.server.database import session_scope
+from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.job import Job
+from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_status import JobStatus
+from jobmon.server.services.health_monitor import HealthMonitor
+from jobmon.client.workflow.bash_task import BashTask
+from jobmon.client.workflow.python_task import PythonTask
+from jobmon.client.workflow.task_dag import DagExecutionStatus
+from jobmon.client.workflow.workflow import Workflow, WorkflowDAO, \
+    WorkflowStatus, WorkflowAlreadyComplete
+from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \
+    WorkflowRunStatus
 
 
 @pytest.fixture
