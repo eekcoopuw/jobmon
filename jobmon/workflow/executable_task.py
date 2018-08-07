@@ -143,7 +143,8 @@ class ExecutableTask(object):
 
     def add_job_attribute(self, attribute_type, value):
         """
-        Add an attribute and value (key, value pair) to keep track of for the task
+        Add an attribute and value (key, value pair) to track in the task,
+        throw an error if the attribute or value isn't the right type
         """
         if not isinstance(attribute_type, int):
             raise ValueError("Invalid attribute_type: {}, {}"
@@ -158,7 +159,6 @@ class ExecutableTask(object):
 
         else:
             self.job_attributes[attribute_type] = value
-        #self.job_factory.add_job_attribute(self, job.job_id, attribute_type, value)
 
     def __eq__(self, other):
         """

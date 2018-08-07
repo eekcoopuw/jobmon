@@ -101,7 +101,7 @@ class JobListManager(object):
                 context_args=task.context_args,
             )
 
-        #adding the attributes to the job now that there is a job_id
+        # adding the attributes to the job now that there is a job_id
         for attribute in task.job_attributes:
             self.job_factory.add_job_attribute(job.job_id, attribute, task.job_attributes[attribute])
 

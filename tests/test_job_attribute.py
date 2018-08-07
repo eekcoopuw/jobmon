@@ -13,9 +13,6 @@ def test_job_attribute(job_list_manager_sub):
 
     job = job_list_manager_sub.bind_task(task)
 
-    # add an attribute to the job
-    #job_list_manager_sub.add_job_attribute(job, job_attribute.NUM_DRAWS, "10")
-
     with session_scope() as session:
         # query from job_attribute table
         job_attribute_query = session.execute("""
@@ -44,10 +41,3 @@ def test_job_attribute_input_error(job_list_manager_sub):
         task.add_job_attribute("num_locations","fifty")
     assert "Invalid" in str(exc.value)
     job = job_list_manager_sub.bind_task(task)
-
-
-
-    # add an attribute with wrong types to the workflow
-    # with pytest.raises(ValueError) as exc:
-        # job_list_manager_sub.add_job_attribute(job, "num_locations", "fifty")
-    # assert "Invalid" in str(exc.value)
