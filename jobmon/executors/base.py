@@ -80,7 +80,7 @@ class Executor(object):
             "--jsm_port", config.jm_rep_conn.port,
             "--executor_class", self.__class__.__name__,
         ]
-        if self.temp_dir:
+        if self.temp_dir and 'stata' in job.command:
             wrapped_cmd.extend(["--temp_dir", self.temp_dir])
         if job.last_nodename:
             wrapped_cmd.extend(["--last_nodename", job.last_nodename])
