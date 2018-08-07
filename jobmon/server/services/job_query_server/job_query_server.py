@@ -6,11 +6,15 @@ from sqlalchemy.orm import contains_eager
 from flask import jsonify, request
 from http import HTTPStatus
 
-from jobmon.database import ScopedSession
-from jobmon.models import Job, JobInstance, JobStatus, JobInstanceStatus
-from jobmon.meta_models import TaskDagMeta
-from jobmon.workflow.workflow import WorkflowDAO
-from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
+from jobmon.server.database import ScopedSession
+from jobmon.models.job import Job
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_status import JobStatus
+from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.models.task_dag import TaskDagMeta
+from jobmon.client.workflow.workflow import WorkflowDAO
+from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \
+    WorkflowRunStatus
 from jobmon.server.services.job_query_server import app
 
 logger = logging.getLogger(__name__)

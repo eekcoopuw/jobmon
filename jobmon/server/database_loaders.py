@@ -1,7 +1,9 @@
-from jobmon.models import Base, JobStatus, JobInstanceStatus
-from jobmon.workflow.workflow import WorkflowStatus
-from jobmon.workflow.workflow_run import WorkflowRunStatus
-from jobmon import database
+from jobmon.models.sql_base import Base
+from jobmon.models.job_status import JobStatus
+from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client.workflow.workflow import WorkflowStatus
+from jobmon.client.workflow.workflow_run import WorkflowRunStatus
+from jobmon.server import database
 
 
 def create_job_db():

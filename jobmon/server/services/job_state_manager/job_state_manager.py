@@ -5,11 +5,16 @@ from datetime import datetime
 from flask import jsonify, request
 from http import HTTPStatus
 
-from jobmon import models
-from jobmon.database import ScopedSession
-from jobmon.meta_models import task_dag
-from jobmon.workflow.workflow import WorkflowDAO
-from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
+from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
+from jobmon.models.task_dag import task_dag
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.models.job_instance_error_log import JobInstanceErrorLog
+from jobmon.server.database import ScopedSession
+from jobmon.client.workflow.workflow import WorkflowDAO
+from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \
+    WorkflowRunStatus
 from jobmon.attributes import attribute_models
 from jobmon.server.services.job_state_manager import app
 
@@ -48,7 +53,7 @@ def _is_alive():
 @app.route('/add_job', methods=['POST'])
 def add_job():
     data = request.get_json()
-    job = models.Job(
+    job = Job(
         name=data['name'],
         job_hash=data['job_hash'],
         command=data['command'],
@@ -59,7 +64,7 @@ def add_job():
         max_runtime=data.get('max_runtime', None),
         context_args=data.get('context_args', "{}"),
         tag=data.get('tag', None),
-        status=models.JobStatus.REGISTERED)
+        status=JobStatus.REGISTERED)
     ScopedSession.add(job)
     ScopedSession.commit()
     job_dct = job.to_wire()
@@ -84,7 +89,7 @@ def add_task_dag():
 
 
 def _get_workflow_run_id(job_id):
-    job = ScopedSession.query(models.Job).filter_by(job_id=job_id).first()
+    job = ScopedSession.query(Job).filter_by(job_id=job_id).first()
     wf = ScopedSession.query(WorkflowDAO).filter_by(dag_id=job.dag_id).first()
     if not wf:
         return None  # no workflow has started, so no workflow run
@@ -100,7 +105,7 @@ def add_job_instance():
     data = request.get_json()
     logger.debug("Add JI for job {}".format(data['job_id']))
     workflow_run_id = _get_workflow_run_id(data['job_id'])
-    job_instance = models.JobInstance(
+    job_instance = JobInstance(
         executor_type=data['executor_type'],
         job_id=data['job_id'],
         workflow_run_id=workflow_run_id)
@@ -110,7 +115,7 @@ def add_job_instance():
 
     # TODO: Would prefer putting this in the model, but can't find the
     # right post-create hook. Investigate.
-    job_instance.job.transition(models.JobStatus.INSTANTIATED)
+    job_instance.job.transition(JobStatus.INSTANTIATED)
     ScopedSession.commit()
     resp = jsonify(job_instance_id=ji_id)
     resp.status_code = HTTPStatus.OK
@@ -191,7 +196,7 @@ def log_done():
     logger.debug("Log DONE for JI {}".format(data['job_instance_id']))
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
     msg = _update_job_instance_state(
-        ji, models.JobInstanceStatus.DONE)
+        ji, JobInstanceStatus.DONE)
     ScopedSession.commit()
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
@@ -205,8 +210,8 @@ def log_error():
         data['job_instance_id'], data['error_message']))
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
     msg = _update_job_instance_state(
-        ji, models.JobInstanceStatus.ERROR)
-    error = models.JobInstanceErrorLog(
+        ji, JobInstanceStatus.ERROR)
+    error = JobInstanceErrorLog(
         job_instance_id=data['job_instance_id'],
         description=data['error_message'])
     ScopedSession.add(error)
@@ -223,7 +228,7 @@ def log_executor_id():
                  .format(data['job_instance_id']))
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
     msg = _update_job_instance_state(
-        ji, models.JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
+        ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     _update_job_instance(ji, executor_id=data['executor_id'])
     ScopedSession.commit()
     resp = jsonify(message=msg)
@@ -250,7 +255,7 @@ def log_running():
     logger.debug("Log RUNNING for JI {}"
                  .format(data['job_instance_id']))
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
-    msg = _update_job_instance_state(ji, models.JobInstanceStatus.RUNNING)
+    msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
     ScopedSession.commit()
@@ -292,9 +297,9 @@ def log_usage():
 def queue_job():
     data = request.get_json()
     logger.debug("Queue Job {}".format(data['job_id']))
-    job = ScopedSession.query(models.Job)\
+    job = ScopedSession.query(Job)\
         .filter_by(job_id=data['job_id']).first()
-    job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
+    job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
@@ -304,8 +309,7 @@ def queue_job():
 @app.route('/reset_job', methods=['POST'])
 def reset_job():
     data = request.get_json()
-    job = ScopedSession.query(models.Job)\
-        .filter_by(job_id=data['job_id']).first()
+    job = ScopedSession.query(Job).filter_by(job_id=data['job_id']).first()
     job.reset()
     ScopedSession.commit()
     resp = jsonify()
@@ -341,17 +345,17 @@ def reset_incomplete_jobs():
     ScopedSession.execute(
         up_job,
         {"dag_id": data['dag_id'],
-         "registered_status": models.JobStatus.REGISTERED,
-         "done_status": models.JobStatus.DONE})
+         "registered_status": JobStatus.REGISTERED,
+         "done_status": JobStatus.DONE})
     ScopedSession.execute(
         up_job_instance,
         {"dag_id": data['dag_id'],
-         "error_status": models.JobInstanceStatus.ERROR,
-         "done_status": models.JobStatus.DONE})
+         "error_status": JobInstanceStatus.ERROR,
+         "done_status": JobStatus.DONE})
     ScopedSession.execute(
         log_errors,
         {"dag_id": data['dag_id'],
-         "done_status": models.JobStatus.DONE})
+         "done_status": JobStatus.DONE})
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
@@ -359,7 +363,7 @@ def reset_incomplete_jobs():
 
 
 def _get_job_instance(session, job_instance_id):
-    job_instance = session.query(models.JobInstance).filter_by(
+    job_instance = session.query(JobInstance).filter_by(
         job_instance_id=job_instance_id).first()
     return job_instance
 
@@ -379,7 +383,7 @@ def _update_job_instance_state(job_instance, status_id):
     # the JobStateManager should be the responsible party on this one.
     #
     # ... see tests/tests_job_state_manager.py for Event example
-    if job.status in [models.JobStatus.DONE, models.JobStatus.ERROR_FATAL]:
+    if job.status in [JobStatus.DONE, JobStatus.ERROR_FATAL]:
         to_publish = mogrify(job.dag_id, (job.job_id, job.status))
         return to_publish
     else:

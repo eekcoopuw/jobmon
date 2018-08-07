@@ -1,7 +1,7 @@
 import pytest
 
-from jobmon.workflow.bash_task import BashTask
-from jobmon.database import session_scope
+from jobmon.client.workflow.bash_task import BashTask
+from jobmon.server.database import session_scope
 from jobmon.attributes.constants import job_attribute
 
 
@@ -21,8 +21,8 @@ def test_job_attribute(job_list_manager_sub):
                                        job_attribute.attribute_type,
                                        job_attribute.value
                                 FROM job_attribute
-                                JOIN job 
-                                ON job_attribute.job_id=job.job_id 
+                                JOIN job
+                                ON job_attribute.job_id=job.job_id
                                 WHERE job_attribute.job_id={id}
                                 """.format(id=job.job_id))
 

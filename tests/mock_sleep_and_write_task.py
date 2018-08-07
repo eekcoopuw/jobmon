@@ -1,6 +1,6 @@
 import logging
 
-import jobmon.workflow.executable_task as etk
+import jobmon.client.workflow.executable_task as etk
 
 logger = logging.getLogger(__name__)
 

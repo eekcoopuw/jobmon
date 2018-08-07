@@ -2,10 +2,10 @@ from builtins import str
 import pytest
 import sys
 
-from jobmon import models
+from jobmon.models.job_status import JobStatus
 from jobmon.executors.sge import SGEExecutor
-from jobmon.job_list_manager import JobListManager
-from jobmon.workflow.executable_task import ExecutableTask
+from jobmon.client.worker_nodes.job_list_manager import JobListManager
+from jobmon.client.workflow.executable_task import ExecutableTask
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -113,7 +113,7 @@ def test_blocking_updates(job_list_manager_d):
     done, _ = job_list_manager_d.block_until_any_done_or_error()
     assert len(done) == 1
     assert done[0].job_id == job.job_id
-    assert done[0].status == models.JobStatus.DONE
+    assert done[0].status == JobStatus.DONE
 
     # Test multiple jobs
     job1 = job_list_manager_d.bind_task(Task(command="sleep 2",
@@ -167,4 +167,4 @@ def test_sge_valid_command(job_list_manager_sge_no_daemons):
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
     job_list_manager_sge._sync()
     assert (job_list_manager_sge.bound_tasks[job.job_id].status ==
-            models.JobStatus.INSTANTIATED)
+            JobStatus.INSTANTIATED)
