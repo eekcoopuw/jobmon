@@ -67,5 +67,4 @@ def test_job_attributes(job_list_manager_sub):
         for entry in attribute_entries:
             attribute_entry_type = entry.attribute_type
             attribute_entry_value = entry.value
-            assert dict_of_attributes[entry] == attribute_entry_value
             assert dict_of_attributes[attribute_entry_type] == attribute_entry_value
