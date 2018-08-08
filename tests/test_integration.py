@@ -3,8 +3,8 @@ import pytest
 import sys
 
 from jobmon.models.job_status import JobStatus
-from jobmon.executors.sge import SGEExecutor
-from jobmon.client.worker_nodes.job_list_manager import JobListManager
+from jobmon.client.executors.sge import SGEExecutor
+from jobmon.client.worker_node.job_list_manager import JobListManager
 from jobmon.client.workflow.executable_task import ExecutableTask
 
 from tests.timeout_and_skip import timeout_and_skip

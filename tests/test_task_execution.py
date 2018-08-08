@@ -6,7 +6,7 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
 from jobmon.server.database import session_scope
-from jobmon.executors.sge import SGEExecutor
+from jobmon.client.executors.sge import SGEExecutor
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.client.workflow.bash_task import BashTask

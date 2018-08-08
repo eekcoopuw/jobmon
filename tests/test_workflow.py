@@ -8,7 +8,7 @@ from jobmon.models.job import Job
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_status import JobStatus
-from jobmon.server.services.health_monitor import HealthMonitor
+from jobmon.server.services.health_monitor.health_monitor import HealthMonitor
 from jobmon.client.workflow.bash_task import BashTask
 from jobmon.client.workflow.python_task import PythonTask
 from jobmon.client.workflow.task_dag import DagExecutionStatus

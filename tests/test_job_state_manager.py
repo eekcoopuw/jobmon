@@ -8,15 +8,14 @@ import socket
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
 
-from jobmon.config import config
-from jobmon.server.database import session_scope
+from jobmon.server.database import config, session_scope
 from jobmon.client import requester
 from jobmon.models.job import InvalidStateTransition, Job
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
-from jobmon.clientworkflow.workflow import WorkflowDAO
+from jobmon.client.workflow.workflow import WorkflowDAO
 
 
 HASH = 12345

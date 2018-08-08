@@ -84,8 +84,8 @@ def real_jsm_jqs():
 
 @pytest.fixture(scope='session')
 def jsm_jqs():
-    from jobmon.services.job_state_manager import app as jsm_app
-    from jobmon.services.job_query_server import app as jqs_app
+    from jobmon.server.services.job_state_manager import app as jsm_app
+    from jobmon.server.services.job_query_server import app as jqs_app
 
     jsm_app.config['TESTING'] = True
     jqs_app.config['TESTING'] = True
@@ -107,7 +107,7 @@ def get_flask_content(response):
 @pytest.fixture(scope='function')
 def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
     import requests
-    from jobmon import requester
+    from jobmon.client import requester
     jsm_client, jqs_client = jsm_jqs
 
     def get_jqs(url, params, headers):
@@ -126,7 +126,7 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
 @pytest.fixture(scope='function')
 def dag_id(no_requests_jsm_jqs, db_cfg):
     import random
-    from jobmon.requester import Requester
+    from jobmon.client.requester import Requester
 
     req = Requester(config.jsm_port, host=socket.gethostname())
     rc, response = req.send_request(
@@ -141,7 +141,7 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
 @pytest.fixture(scope='function')
 def real_dag_id(real_jsm_jqs, db_cfg):
     import random
-    from jobmon.requester import Requester
+    from jobmon.client.requester import Requester
 
     req = Requester(config.jsm_port, host=socket.gethostname())
     rc, response = req.send_request(
