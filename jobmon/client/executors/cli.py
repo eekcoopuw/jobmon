@@ -9,7 +9,7 @@ import jsonpickle
 
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.worker_node.job_instance_intercom import JobInstanceIntercom
-from jobmon.workflow.utils import kill_remote_process_group
+from jobmon.client.utils import kill_remote_process_group
 
 if sys.version_info > (3, 0):
     import subprocess
@@ -56,13 +56,13 @@ def unwrap():
 
     # identify executor class
     if args["executor_class"] == "SequentialExecutor":
-        from jobmon.executors.sequential import SequentialExecutor \
+        from jobmon.client.executors.sequential import SequentialExecutor \
             as ExecutorClass
     elif args["executor_class"] == "SGEExecutor":
-        from jobmon.executors.sge import SGEExecutor \
+        from jobmon.client.executors.sge import SGEExecutor \
             as ExecutorClass
     elif args["executor_class"] == "DummyExecutor":
-        from jobmon.executors.dummy import DummyExecutor \
+        from jobmon.client.executors.dummy import DummyExecutor \
             as ExecutorClass
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(

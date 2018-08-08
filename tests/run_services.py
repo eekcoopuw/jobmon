@@ -6,12 +6,12 @@ import os
 
 
 def run_jsm(port):
-    from jobmon.services.job_state_manager import app
+    from jobmon.server.services.job_state_manager.job_state_manager import app
     app.run(host="0.0.0.0", port=port, debug=True,
             use_reloader=False, use_evalex=False, threaded=False)
 
 
 def run_jqs(port):
-    from jobmon.services.job_query_server import app
+    from jobmon.server.services.job_query_server.job_query_server import app
     app.run(host="0.0.0.0", port=port, debug=True,
             use_reloader=False, use_evalex=False, threaded=False)

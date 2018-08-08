@@ -11,6 +11,7 @@ from time import sleep
 from sqlalchemy.exc import IntegrityError
 
 from .server_test_config import config
+from .client_test_config import config as client_config
 from jobmon.server import database
 from jobmon.server import database_loaders
 from jobmon.client.executors.sge import SGEExecutor
@@ -38,7 +39,7 @@ def teardown_edb(request):
 
 
 @pytest.fixture(scope='function', autouse=True)
-def monkeypatch_config(monkeypatch):
+def monkeypatch_server_config(monkeypatch):
     from jobmon.server import database
 
     def config_patch():
@@ -46,6 +47,32 @@ def monkeypatch_config(monkeypatch):
         return config
     cfg = config_patch()
     monkeypatch.setattr(database, 'config', cfg)
+
+
+@pytest.fixture(scope='function', autouse=True)
+def monkeypatch_client_config(monkeypatch):
+    from jobmon.client import requester
+    from jobmon.client.worker_node import job_factory, job_instance_factory, \
+        job_instance_intercom, job_instance_reconciler, job_list_manager
+    from jobmon.client.executors import base
+    from jobmon.client.workflow import workflow, workflow_run, task_dag_factory
+    from jobmon.server.services.health_monitor import health_monitor
+
+    def config_patch():
+        from .client_test_config import config
+        return config
+    cfg = config_patch()
+    monkeypatch.setattr(requester, 'config', cfg)
+    monkeypatch.setattr(job_factory, 'config', cfg)
+    monkeypatch.setattr(job_instance_factory, 'config', cfg)
+    monkeypatch.setattr(job_instance_intercom, 'config', cfg)
+    monkeypatch.setattr(job_instance_reconciler, 'config', cfg)
+    monkeypatch.setattr(job_list_manager, 'config', cfg)
+    monkeypatch.setattr(base, 'config', cfg)
+    monkeypatch.setattr(workflow, 'config', cfg)
+    monkeypatch.setattr(workflow_run, 'config', cfg)
+    monkeypatch.setattr(task_dag_factory, 'config', cfg)
+    monkeypatch.setattr(health_monitor, 'config', cfg)
 
 
 @pytest.fixture(scope='function')
@@ -69,10 +96,10 @@ def real_jsm_jqs():
     from tests.run_services import run_jsm, run_jqs
 
     ctx = mp.get_context('spawn')
-    p1 = ctx.Process(target=run_jsm, args=(config.jsm_port))
+    p1 = ctx.Process(target=run_jsm, args=(client_config.jsm_port,))
     p1.start()
 
-    p2 = ctx.Process(target=run_jqs, args=(config.jqs_port))
+    p2 = ctx.Process(target=run_jqs, args=(client_config.jqs_port,))
     p2.start()
 
     sleep(30)
@@ -84,8 +111,10 @@ def real_jsm_jqs():
 
 @pytest.fixture(scope='session')
 def jsm_jqs():
-    from jobmon.server.services.job_state_manager import app as jsm_app
-    from jobmon.server.services.job_query_server import app as jqs_app
+    from jobmon.server.services.job_state_manager.job_state_manager import \
+        app as jsm_app
+    from jobmon.server.services.job_query_server.job_query_server import app \
+        as jqs_app
 
     jsm_app.config['TESTING'] = True
     jqs_app.config['TESTING'] = True
@@ -128,7 +157,7 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
     import random
     from jobmon.client.requester import Requester
 
-    req = Requester(config.jsm_port, host=socket.gethostname())
+    req = Requester(client_config.jsm_port, host=socket.gethostname())
     rc, response = req.send_request(
         app_route='/add_task_dag',
         message={'name': 'test dag', 'user': 'test user',
@@ -143,7 +172,7 @@ def real_dag_id(real_jsm_jqs, db_cfg):
     import random
     from jobmon.client.requester import Requester
 
-    req = Requester(config.jsm_port, host=socket.gethostname())
+    req = Requester(client_config.jsm_port, host=socket.gethostname())
     rc, response = req.send_request(
         app_route='/add_task_dag',
         message={'name': 'test dag', 'user': 'test user',

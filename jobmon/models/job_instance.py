@@ -7,6 +7,7 @@ from datetime import datetime
 
 from jobmon.models.sql_base import Base
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.models.job_status import JobStatus
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,9 @@ from jobmon.client.workflow.workflow import WorkflowDAO
 from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 from jobmon.attributes import attribute_models
-from jobmon.server.services.job_state_manager import app
+from flask import Flask
+
+app = Flask(__name__)
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -32,6 +34,11 @@ def mogrify(topic, msg):
          how-can-i-use-send-json-with-pyzmq-pub-sub
     """
     return str(topic) + ' ' + json.dumps(msg)
+
+
+@app.errorhandler(404)
+def page_not_found(error):
+    return 'This route does not exist {}'.format(request.url), 404
 
 
 @app.teardown_appcontext

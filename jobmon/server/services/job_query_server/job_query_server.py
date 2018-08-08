@@ -15,7 +15,9 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.client.workflow.workflow import WorkflowDAO
 from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
-from jobmon.server.services.job_query_server import app
+from flask import Flask
+
+app = Flask(__name__)
 
 logger = logging.getLogger(__name__)
 
