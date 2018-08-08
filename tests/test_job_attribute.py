@@ -8,7 +8,7 @@ from jobmon.attributes.constants import job_attribute
 def test_job_attribute(job_list_manager_sub):
     # create a job
     task = BashTask("sleep 1")
-    #add an attribute to the task
+    # add an attribute to the task
     task.add_job_attribute(job_attribute.NUM_DRAWS, "10")
 
     job = job_list_manager_sub.bind_task(task)
@@ -44,7 +44,7 @@ def test_job_attribute_input_error(job_list_manager_sub):
 
 def test_job_attributes(job_list_manager_sub):
     task = BashTask("sleep 1")
-    #add an attribute to the task
+    # add an attribute to the task
     dict_of_attributes = {job_attribute.NUM_DRAWS: "10", job_attribute.NUM_LOCATIONS: "50", job_attribute.NUM_CAUSES: "30"}
     task.add_job_attributes(dict_of_attributes)
 

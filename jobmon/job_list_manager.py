@@ -296,5 +296,5 @@ class JobListManager(object):
         self.jir_proc.daemon = True
         self.jir_proc.start()
 
-    def add_job_attributes(self, job, attribute_type, value):
+    def add_job_attribute(self, job, attribute_type, value):
         self.job_factory.add_job_attribute(job.job_id, attribute_type, value)

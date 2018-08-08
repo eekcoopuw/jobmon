@@ -36,7 +36,6 @@ class ExecutableTask(object):
 
         Args:
             name:
-            attributes:
 
         Returns:
             True (or raises)
@@ -83,6 +82,10 @@ class ExecutableTask(object):
         tag (str): a group identifier. Currently just used for visualization.
             All tasks with the same tag will be colored the same in a
             TaskDagViz instance. Default is None.
+        context_args
+        job_attributes (dict): any attributes that will be tracked. Once the
+            task becomes a job and receives a job_id, these attributes will be
+            used for the job_factory add_job_attribute function
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
