@@ -54,10 +54,12 @@ class GlobalConfig(object):
         "slack_token": None,
         "default_wf_slack_channel": None,
         "default_node_slack_channel": None,
+        "verbose": False
     }
 
     def __init__(self, jobmon_version, conn_str, slack_token,
-                 default_wf_slack_channel, default_node_slack_channel):
+                 default_wf_slack_channel, default_node_slack_channel,
+                 verbose):
 
         self.jobmon_version = jobmon_version
         self._conn_str = conn_str
@@ -118,7 +120,7 @@ class GlobalConfig(object):
 if os.getenv("JOBMON_SERVER_CONFIG"):
     CONFIG_FILE = os.getenv("JOBMON_SERVER_CONFIG")
 else:
-    CONFIG_FILE = "~/.jobmon_server_rc"
+    CONFIG_FILE = "~/.jobmonrc"
 if os.path.isfile(os.path.expanduser(CONFIG_FILE)):
     config = GlobalConfig.from_file(CONFIG_FILE)
     logger.warn("Found a local config file {}. Therefore we cannot configure "

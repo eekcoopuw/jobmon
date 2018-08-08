@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 
 from jobmon.server import database
 from jobmon.server import database_loaders
-from jobmon.server.config import config
+from jobmon.server import config
 from jobmon.bootstrap import install_rcfile
 from jobmon.server.database import session_scope
 from jobmon.client.requester import Requester
