@@ -46,8 +46,8 @@ def test_start_subcommand():
 
 def test_initdb_subcommand():
     from jobmon.cli import apply_args_to_config, parse_args
-    from jobmon import config
-    conn_str = config.config.conn_str
+    from .server_test_config import config
+    conn_str = config.conn_str
     print(conn_str)
 
     args = parse_args("--conn_str mysql://not:a@real/database initdb")
@@ -60,6 +60,6 @@ def test_initdb_subcommand():
         args.func(args)
 
     # reset
-    config.config.apply_opts_dct({'conn_str': conn_str})
-    from jobmon import database
+    config.apply_opts_dct({'conn_str': conn_str})
+    from jobmon.server import database
     database.recreate_engine()

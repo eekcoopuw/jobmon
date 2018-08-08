@@ -2,7 +2,7 @@ import json
 import logging
 from http import HTTPStatus
 
-from jobmon import requester
+from jobmon.client import requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.client.config import config
 from jobmon.models.job import Job

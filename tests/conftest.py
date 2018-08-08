@@ -5,19 +5,19 @@ import pytest
 import pwd
 import shutil
 import uuid
+import socket
 from datetime import datetime
 from time import sleep
 from sqlalchemy.exc import IntegrityError
 
-from .test_server_config import config
-from jobmon import database
-from jobmon import database_loaders
-from jobmon.executors.sge import SGEExecutor
-from jobmon.job_list_manager import JobListManager
-from jobmon.workflow.task_dag import TaskDag
+from .server_test_config import config
+from jobmon.server import database
+from jobmon.server import database_loaders
+from jobmon.client.executors.sge import SGEExecutor
+from jobmon.client.worker_node.job_list_manager import JobListManager
+from jobmon.client.workflow.task_dag import TaskDag
 from jobmon.attributes import attribute_database_loaders
 
-from cluster_utils.ephemerdb import create_ephemerdb
 
 # NOTE: there are two types of tests that conftest sets up. 1. Using the real
 # flask dev server, to allow us to do real testing of connections to the server
@@ -37,8 +37,19 @@ def teardown_edb(request):
     request.addfinalizer(teardown)
 
 
+@pytest.fixture(scope='function', autouse=True)
+def monkeypatch_config(monkeypatch):
+    from jobmon.server import database
+
+    def config_patch():
+        from .server_test_config import config
+        return config
+    cfg = config_patch()
+    monkeypatch.setattr(database, 'config', cfg)
+
+
 @pytest.fixture(scope='function')
-def db_cfg(session_edb):
+def db_cfg():
 
     database_loaders.delete_job_db()
     database_loaders.create_job_db()
@@ -53,15 +64,15 @@ def db_cfg(session_edb):
 
 
 @pytest.fixture(scope='session')
-def real_jsm_jqs(rcfile, session_edb):
+def real_jsm_jqs():
     import multiprocessing as mp
     from tests.run_services import run_jsm, run_jqs
 
     ctx = mp.get_context('spawn')
-    p1 = ctx.Process(target=run_jsm, args=(rcfile, config.conn_str))
+    p1 = ctx.Process(target=run_jsm, args=(config.jsm_port))
     p1.start()
 
-    p2 = ctx.Process(target=run_jqs, args=(rcfile, config.conn_str))
+    p2 = ctx.Process(target=run_jqs, args=(config.jqs_port))
     p2.start()
 
     sleep(30)
@@ -72,7 +83,7 @@ def real_jsm_jqs(rcfile, session_edb):
 
 
 @pytest.fixture(scope='session')
-def jsm_jqs(session_edb):
+def jsm_jqs():
     from jobmon.services.job_state_manager import app as jsm_app
     from jobmon.services.job_query_server import app as jqs_app
 
@@ -117,7 +128,7 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
     import random
     from jobmon.requester import Requester
 
-    req = Requester(config.jsm_port, host=get_node_name())
+    req = Requester(config.jsm_port, host=socket.gethostname())
     rc, response = req.send_request(
         app_route='/add_task_dag',
         message={'name': 'test dag', 'user': 'test user',
@@ -132,7 +143,7 @@ def real_dag_id(real_jsm_jqs, db_cfg):
     import random
     from jobmon.requester import Requester
 
-    req = Requester(config.jsm_port, host=get_node_name())
+    req = Requester(config.jsm_port, host=socket.gethostname())
     rc, response = req.send_request(
         app_route='/add_task_dag',
         message={'name': 'test dag', 'user': 'test user',
@@ -194,8 +205,8 @@ def real_dag(db_cfg, real_jsm_jqs, request):
 
 @pytest.fixture(scope='function')
 def dag_factory(db_cfg, real_jsm_jqs, request):
-
     dags = []
+
     def factory(executor):
         dag = TaskDag(name=request.node.name, executor=executor,
                       interrupt_on_error=False)

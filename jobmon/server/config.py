@@ -48,7 +48,7 @@ class GlobalConfig(object):
     """
 
     default_opts = {
-        "jobmon_version": str(jobmon.__version),
+        "jobmon_version": str(jobmon.__version__),
         "conn_str": ("mysql://docker:docker@"
                      "jobmon-p01.ihme.washington.edu:3313/docker"),
         "slack_token": None,

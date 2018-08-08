@@ -1,1 +1,1 @@
-from jobmon.executors.base import Executor
+from jobmon.client.executors.base import Executor

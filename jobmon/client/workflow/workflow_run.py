@@ -12,7 +12,7 @@ from sqlalchemy.orm import relationship
 from jobmon.client.config import config
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.requester import Requester
-from jobmon.server.sql_base import Base
+from jobmon.models.sql_base import Base
 from jobmon.client.utils import kill_remote_process
 from jobmon.attributes.constants import workflow_run_attribute
 

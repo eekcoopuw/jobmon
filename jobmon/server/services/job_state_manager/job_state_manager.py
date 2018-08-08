@@ -7,7 +7,7 @@ from http import HTTPStatus
 
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
-from jobmon.models.task_dag import task_dag
+from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
@@ -76,7 +76,7 @@ def add_job():
 @app.route('/add_task_dag', methods=['POST'])
 def add_task_dag():
     data = request.get_json(force=True)
-    dag = task_dag.TaskDagMeta(
+    dag = TaskDagMeta(
         name=data['name'],
         user=data['user'],
         dag_hash=data['dag_hash'])
@@ -239,7 +239,7 @@ def log_executor_id():
 @app.route('/log_heartbeat', methods=['POST'])
 def log_heartbeat():
     data = request.get_json()
-    dag = ScopedSession.query(task_dag.TaskDagMeta).filter_by(
+    dag = ScopedSession.query(TaskDagMeta).filter_by(
         dag_id=data['dag_id']).first()
     if dag:
         dag.heartbeat_date = datetime.utcnow()

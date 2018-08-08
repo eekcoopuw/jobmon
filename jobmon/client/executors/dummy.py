@@ -1,4 +1,4 @@
-from jobmon.executors import Executor
+from jobmon.client.executors import Executor
 
 
 class DummyExecutor(Executor):
