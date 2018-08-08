@@ -16,6 +16,8 @@ class ExecutableTask(object):
     the SGE cluster.
     External Tasks (fin release Frog) do not have Jobs, because they represent
     input tasks that are "givens" and cannot be executed.
+
+    Do not subclass!
     """
 
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
@@ -82,7 +84,6 @@ class ExecutableTask(object):
         tag (str): a group identifier. Currently just used for visualization.
             All tasks with the same tag will be colored the same in a
             TaskDagViz instance. Default is None.
-        context_args
         job_attributes (dict): any attributes that will be tracked. Once the
             task becomes a job and receives a job_id, these attributes will be
             used for the job_factory add_job_attribute function
