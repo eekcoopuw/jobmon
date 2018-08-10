@@ -8,14 +8,14 @@ import socket
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
 
-from jobmon.server.database import config, session_scope
-from jobmon.client import requester
+from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client.requester import Requester
 from jobmon.models.job import InvalidStateTransition, Job
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
-from jobmon.client.workflow.workflow import WorkflowDAO
+from jobmon.client.swarm.workflow.workflow import WorkflowDAO
 
 
 HASH = 12345
@@ -56,7 +56,7 @@ def commit_hooked_jsm(jsm_jqs):
 
 def test_get_workflow_run_id(dag_id):
     user = getpass.getuser()
-    req = requester.Requester(config.jsm_port)
+    req = Requester(get_the_client_config(), 'jsm')
     # add job
     _, response = req.send_request(
         app_route='/add_job',
@@ -101,7 +101,7 @@ def test_get_workflow_run_id(dag_id):
 
 
 def test_get_workflow_run_id_no_workflow(dag_id):
-    req = requester.Requester(config.jsm_port)
+    req = Requester(get_the_client_config(), 'jsm')
     rc, response = req.send_request(
         app_route='/add_task_dag',
         message={'name': 'testing dag', 'user': 'pytest_user',
@@ -125,7 +125,7 @@ def test_get_workflow_run_id_no_workflow(dag_id):
 def test_jsm_valid_done(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
 
-    req = requester.Requester(config.jsm_port)
+    req = Requester(get_the_client_config(), 'jsm')
     # add job
     _, response = req.send_request(
         app_route='/add_job',
@@ -178,7 +178,7 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
 
 
 def test_jsm_valid_error(no_requests_jsm_jqs, db_cfg):
-    req = requester.Requester(config.jsm_port)
+    req = Requester(get_the_client_config(), 'jsm')
 
     # add dag
     rc, response = req.send_request(
@@ -234,7 +234,7 @@ def test_jsm_valid_error(no_requests_jsm_jqs, db_cfg):
 
 def test_invalid_transition(no_requests_jsm_jqs, db_cfg):
 
-    req = requester.Requester(config.jsm_port)
+    req = Requester(get_the_client_config(), 'jsm')
 
     # add dag
     rc, response = req.send_request(
@@ -264,7 +264,7 @@ def test_invalid_transition(no_requests_jsm_jqs, db_cfg):
 
 
 def test_jsm_log_usage(dag_id):
-    req = requester.Requester(config.jsm_port)
+    req = Requester(get_the_client_config(), 'jsm')
 
     _, response = req.send_request(
         app_route='/add_job',
@@ -324,7 +324,7 @@ def test_jsm_log_usage(dag_id):
 
 def test_job_reset(dag_id):
 
-    req = requester.Requester(config.jsm_port)
+    req = Requester(get_the_client_config(), 'jsm')
 
     _, response = req.send_request(
         app_route='/add_job',
@@ -413,6 +413,7 @@ def test_job_reset(dag_id):
         message={'job_id': str(job.job_id)},
         request_type='post')
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id,
                                             job_id=job.job_id).all()

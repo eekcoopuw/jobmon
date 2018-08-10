@@ -1,8 +1,6 @@
 import logging
 import requests
 
-from jobmon.client.config import config
-
 
 logger = logging.getLogger(__name__)
 
@@ -15,12 +13,17 @@ class Requester(object):
 
     """
 
-    def __init__(self, port, host=None):
+    def __init__(self, config, service):
         """set class defaults. attempt to connect with server."""
 
-        if not host:
-            host = config.host
-        self.url = "http://" + host + ":{}".format(port)
+        if service == 'jsm':
+            port = config.jsm_port
+        elif service == 'jqs':
+            port = config.jqs_port
+        else:
+            raise ValueError("Service can only be jqs or jsm. Got {}"
+                             .format(service))
+        self.url = "http://" + config.host + ":{}".format(port)
 
     def send_request(self, app_route, message, request_type, verbose=True):
         """send request to server. Need to document what form this message

@@ -2,19 +2,18 @@ import pytest
 from time import sleep
 import os
 
-from jobmon.server.database import session_scope
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job import Job
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_status import JobStatus
-from jobmon.server.services.health_monitor.health_monitor import HealthMonitor
-from jobmon.client.workflow.bash_task import BashTask
-from jobmon.client.workflow.python_task import PythonTask
-from jobmon.client.workflow.task_dag import DagExecutionStatus
-from jobmon.client.workflow.workflow import Workflow, WorkflowDAO, \
+from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.client.swarm.workflow.python_task import PythonTask
+from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
+from jobmon.client.swarm.workflow.workflow import Workflow, WorkflowDAO, \
     WorkflowStatus, WorkflowAlreadyComplete
-from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \
+from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 
 
@@ -150,6 +149,7 @@ def test_stop_resume(simple_workflow, tmpdir):
     job_ids = [t.job_id for _, t in stopped_wf.task_dag.bound_tasks.items()]
 
     to_run_jid = job_ids[-1]
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         session.execute("""
             UPDATE job
@@ -230,6 +230,7 @@ def test_reset_attempts_on_resume(simple_workflow):
 
     mod_jid = job_ids[1]
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         session.execute("""
             UPDATE job
@@ -343,6 +344,7 @@ def test_dag_reset(simple_workflow_w_errors):
 
     dag_id = err_wf.task_dag.dag_id
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id).all()
         assert len(jobs) == 4
@@ -355,8 +357,7 @@ def test_dag_reset(simple_workflow_w_errors):
     # Now RESET and make sure all the jobs that aren't "DONE" flip back to
     # REGISTERED
     from jobmon.requester import Requester
-    from jobmon.config import config
-    req = Requester(config.jsm_port)
+    req = Requester(get_the_client_config(), 'jsm')
     rc, _ = req.send_request(
         app_route='/reset_incomplete_jobs',
         message={'dag_id': dag_id},
@@ -376,6 +377,7 @@ def test_nodename_on_fail(simple_workflow_w_errors):
     err_wf = simple_workflow_w_errors
     dag_id = err_wf.task_dag.dag_id
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
 
         # Get ERROR job instances
@@ -397,6 +399,7 @@ def test_heartbeat(real_jsm_jqs, db_cfg):
     # our fresh heartbeat dag we're testing in this function. To get around it,
     # these dummy dags will increment the ID of our dag-of-interest to
     # avoid the timing collisions
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         for _ in range(5):
             session.add(TaskDagMeta())
@@ -413,6 +416,8 @@ def test_heartbeat(real_jsm_jqs, db_cfg):
     # has actually started
     sleep(20)
 
+    from jobmon.server.services.health_monitor.health_monitor import \
+        HealthMonitor
     hm = HealthMonitor()
     with session_scope() as session:
 
@@ -449,6 +454,10 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
 
     # these dummy dags will increment the ID of our dag-of-interest to
     # avoid the timing collisions
+    from jobmon.server.database import session_scope
+    from jobmon.server.services.health_monitor.health_monitor import \
+        HealthMonitor
+
     with session_scope() as session:
         for _ in range(5):
             session.add(TaskDagMeta())
@@ -519,6 +528,7 @@ def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
     workflow.add_tasks([t1, t2, t3])
     workflow.run()
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         w = session.query(WorkflowDAO).filter_by(id=workflow.id).first()
         assert w.status == 'D'
@@ -541,6 +551,7 @@ def test_anonymous_workflow(real_jsm_jqs, db_cfg):
     assert workflow.workflow_args is not None
 
     # Manually flip one of the jobs to Failed
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         session.execute("""
             UPDATE workflow_run
@@ -568,6 +579,7 @@ def test_anonymous_workflow(real_jsm_jqs, db_cfg):
 def test_workflow_status_dates(simple_workflow):
     """Make sure the workflow status dates actually get updated"""
     wfid = simple_workflow.wf_dao.id
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         wf_dao = session.query(WorkflowDAO).filter_by(id=wfid).first()
         assert wf_dao.status_date != wf_dao.created_date

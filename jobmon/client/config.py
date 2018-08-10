@@ -147,18 +147,3 @@ class GlobalConfig(object):
                 gc_opts[opt] = GlobalConfig.default_opts[opt]
         return gc_opts
 
-
-# The client config singleton... if you need to update it, modify the object
-# directly via the setter or apply_opts_dct methods. Don't create a new one.
-if os.getenv("JOBMON_CLIENT_CONFIG"):
-    CONFIG_FILE = os.getenv("JOBMON_CLIENT_CONFIG")
-else:
-    CONFIG_FILE = "~/.jobmon_client_rc"
-if os.path.isfile(os.path.expanduser(CONFIG_FILE)):
-    config = GlobalConfig.from_file(CONFIG_FILE)
-    logger.warn("Found a local config file {}. Therefore we cannot configure "
-                "from defaults and you may be accessing an out-of-date "
-                "server/database. Consider deleting your .jobmonrc and "
-                "relaunching".format(CONFIG_FILE))
-else:
-    config = GlobalConfig.from_defaults()

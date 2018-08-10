@@ -12,8 +12,8 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.task_dag import TaskDagMeta
-from jobmon.client.workflow.workflow import WorkflowDAO
-from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \
+from jobmon.client.swarm.workflow.workflow import WorkflowDAO
+from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 from flask import Flask
 

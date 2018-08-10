@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from jobmon import sge
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.client.workflow.executable_task import ExecutableTask as Task
+from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 
 from tests.timeout_and_skip import timeout_and_skip
 

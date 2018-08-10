@@ -5,10 +5,11 @@ from time import sleep
 from jobmon import sge
 from jobmon.models.job import Job
 from jobmon.client.requester import Requester
-from jobmon.client.executors.dummy import DummyExecutor
-from jobmon.client.executors.sge import SGEExecutor
-from jobmon.client.worker_node.job_list_manager import JobListManager
-from jobmon.client.workflow.executable_task import ExecutableTask as Task
+from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client.swarm.executors.dummy import DummyExecutor
+from jobmon.client.swarm.executors.sge import SGEExecutor
+from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -151,12 +152,11 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
 
 def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
                                  job_id):
-    from jobmon.config import config
     job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_error) == 1:
         assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
 
-        req = Requester(config.jqs_port)
+        req = Requester(get_the_client_config(), 'jqs')
 
         # The job should have been tried 3 times...
         _, jqs = jsm_jqs
@@ -199,12 +199,11 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
 
 
 def ignore_qw_in_timeouts_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):
-    from jobmon.config import config
     job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_error) == 1:
         assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
 
-        req = Requester(config.jqs_port)
+        req = Requester(get_the_client_config(), 'jqs')
 
         # The job should have been tried 3 times...
         _, jqs = jsm_jqs

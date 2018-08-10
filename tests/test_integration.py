@@ -1,11 +1,12 @@
 from builtins import str
 import pytest
 import sys
+from time import sleep
 
 from jobmon.models.job_status import JobStatus
-from jobmon.client.executors.sge import SGEExecutor
-from jobmon.client.worker_node.job_list_manager import JobListManager
-from jobmon.client.workflow.executable_task import ExecutableTask
+from jobmon.client.swarm.executors.sge import SGEExecutor
+from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -54,6 +55,7 @@ def test_invalid_command(job_list_manager):
     assert len(job_list_manager.all_error) == 0
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
+    sleep(15)
     job_list_manager._sync()
     assert len(job_list_manager.all_error) > 0
 
@@ -69,6 +71,7 @@ def test_valid_command(job_list_manager):
     assert len(njobs1) == 1
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
+    sleep(15)
     job_list_manager._sync()
     assert len(job_list_manager.all_done) > 0
 

@@ -65,9 +65,11 @@ setup(
     author_email='tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu',
     include_package_data=True,
     install_requires=install_requires,
-    packages=['jobmon', 'jobmon.client', 'jobmon.client.executors',
-              'jobmon.client.workflow', 'jobmon.client.worker_node',
-              'jobmon.server', 'jobmon.server.services',
+    packages=['jobmon', 'jobmon.client', 'jobmon.client.swarm',
+              'jobmon.client.swarm.executors', 'jobmon.client.swarm.workflow',
+              'jobmon.client.swarm.job_management',
+              'jobmon.client.worker_node', 'jobmon.server',
+              'jobmon.server.services',
               'jobmon.server.services.health_monitor',
               'jobmon.server.services.job_state_manager',
               'jobmon.server.services.job_query_server',
@@ -75,4 +77,4 @@ setup(
     entry_points={
         'console_scripts': [
              "jobmon=jobmon.cli:main",
-             "jobmon_command=jobmon.client.executors.cli:unwrap"]})
+             "jobmon_command=jobmon.client.worker_node.cli:unwrap"]})

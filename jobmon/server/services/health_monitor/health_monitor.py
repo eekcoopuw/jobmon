@@ -2,10 +2,10 @@ import logging
 from datetime import datetime, timedelta
 from time import sleep
 
-from jobmon.client.config import config
+from jobmon.client.the_client_config import get_the_client_config
 from jobmon.server import database
 from jobmon.client.requester import Requester
-from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \
+from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 
 
@@ -38,7 +38,7 @@ class HealthMonitor(object):
                                  pi=poll_interval,
                                  lt=loss_threshold))
 
-        self._requester = Requester(config.jsm_port)
+        self._requester = Requester(get_the_client_config(), 'jsm')
         self._loss_threshold = timedelta(minutes=loss_threshold)
         self._poll_interval = poll_interval
         self._wf_notification_sink = wf_notification_sink

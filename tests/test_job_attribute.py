@@ -1,11 +1,12 @@
 import pytest
 
-from jobmon.client.workflow.bash_task import BashTask
-from jobmon.server.database import session_scope
+from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.attributes.constants import job_attribute
 
 
 def test_job_attribute(job_list_manager_sub):
+    from jobmon.server.database import session_scope
+
     # create a job
     task = BashTask("sleep 1")
     job = job_list_manager_sub.bind_task(task)

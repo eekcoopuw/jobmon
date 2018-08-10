@@ -12,8 +12,8 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.server.database import ScopedSession
-from jobmon.client.workflow.workflow import WorkflowDAO
-from jobmon.client.workflow.workflow_run import WorkflowRunDAO, \
+from jobmon.client.swarm.workflow.workflow import WorkflowDAO
+from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 from jobmon.attributes import attribute_models
 from flask import Flask
@@ -212,12 +212,19 @@ def log_done():
 
 @app.route('/log_error', methods=['POST'])
 def log_error():
+    with open("/homes/cpinho/forked_jobmon/jsm.txt", "w") as f:
+        f.write("made it to JSM.log_error")
     data = request.get_json()
     logger.debug("Log ERROR for JI {}, message={}".format(
         data['job_instance_id'], data['error_message']))
+    with open("/homes/cpinho/forked_jobmon/jsm.txt", "a") as f:
+        f.write("Log ERROR for JI {}, message={}".format(
+                data['job_instance_id'], data['error_message']))
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.ERROR)
+    with open("/homes/cpinho/forked_jobmon/jsm.txt", "a") as f:
+        f.write("update_job_instance_state msg={}".format(msg))
     error = JobInstanceErrorLog(
         job_instance_id=data['job_instance_id'],
         description=data['error_message'])

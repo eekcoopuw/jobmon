@@ -1,8 +1,8 @@
 from jobmon.models.sql_base import Base
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.client.workflow.workflow import WorkflowStatus
-from jobmon.client.workflow.workflow_run import WorkflowRunStatus
+from jobmon.client.swarm.workflow.workflow import WorkflowStatus
+from jobmon.client.swarm.workflow.workflow_run import WorkflowRunStatus
 from jobmon.server import database
 
 

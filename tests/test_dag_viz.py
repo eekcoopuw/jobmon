@@ -4,7 +4,7 @@ import subprocess
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
-from jobmon.client.workflow.task_dag_viz import TaskDagViz
+from jobmon.client.swarm.workflow.task_dag_viz import TaskDagViz
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 

@@ -49,7 +49,7 @@ class GlobalConfig(object):
 
     default_opts = {
         "jobmon_version": str(jobmon.__version__),
-        "conn_str": ("mysql://docker:docker@"
+        "conn_str": ("mysql://fake:password@"
                      "jobmon-p01.ihme.washington.edu:3313/docker"),
         "slack_token": None,
         "default_wf_slack_channel": None,
@@ -113,20 +113,4 @@ class GlobalConfig(object):
             else:
                 gc_opts[opt] = GlobalConfig.default_opts[opt]
         return gc_opts
-
-
-# The client config singleton... if you need to update it, modify the object
-# directly via the setter or apply_opts_dct methods. Don't create a new one.
-if os.getenv("JOBMON_SERVER_CONFIG"):
-    CONFIG_FILE = os.getenv("JOBMON_SERVER_CONFIG")
-else:
-    CONFIG_FILE = "~/.jobmonrc"
-if os.path.isfile(os.path.expanduser(CONFIG_FILE)):
-    config = GlobalConfig.from_file(CONFIG_FILE)
-    logger.warn("Found a local config file {}. Therefore we cannot configure "
-                "from defaults and you may be accessing an out-of-date "
-                "server/database. Consider deleting your .jobmonrc and "
-                "relaunching".format(CONFIG_FILE))
-else:
-    config = GlobalConfig.from_defaults()
 

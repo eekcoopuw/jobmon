@@ -6,7 +6,7 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
 from jobmon.models.job_status import JobStatus
-from jobmon.client.workflow.task_dag import DagExecutionStatus
+from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)

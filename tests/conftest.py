@@ -9,14 +9,12 @@ import socket
 from datetime import datetime
 from time import sleep
 from sqlalchemy.exc import IntegrityError
+from cluster_utils.ephemerdb import create_ephemerdb
 
-from .server_test_config import config
-from .client_test_config import config as client_config
-from jobmon.server import database
-from jobmon.server import database_loaders
-from jobmon.client.executors.sge import SGEExecutor
-from jobmon.client.worker_node.job_list_manager import JobListManager
-from jobmon.client.workflow.task_dag import TaskDag
+import jobmon
+from jobmon.client.swarm.executors.sge import SGEExecutor
+from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.client.swarm.workflow.task_dag import TaskDag
 from jobmon.attributes import attribute_database_loaders
 
 
@@ -29,55 +27,75 @@ from jobmon.attributes import attribute_database_loaders
 # we use the real dev server.
 
 
+def get_test_client_config():
+    from jobmon.client.config import GlobalConfig, \
+        derive_jobmon_command_from_env
+    if 'the_client_config' not in globals():
+        global the_client_config
+        the_client_config = GlobalConfig(
+            jobmon_version=str(jobmon.__version__),
+            host=socket.gethostname(),
+            jsm_port=5056,
+            jqs_port=5058,
+            jobmon_command=derive_jobmon_command_from_env())
+    return the_client_config
+
+
+@pytest.fixture(scope='function', autouse=True)
+def patch_client_config(monkeypatch):
+    from jobmon.client import the_client_config
+
+    monkeypatch.setattr(the_client_config, 'get_the_client_config',
+                        get_test_client_config)
+
+
+def assign_ephemera_conn_str():
+    edb = create_ephemerdb()
+    conn_str = edb.start()
+    return edb, conn_str
+
+
+def get_test_server_config():
+    from jobmon.server.config import GlobalConfig
+
+    if 'the_server_config' not in globals():
+        global the_server_config
+        edb, conn_str = assign_ephemera_conn_str()
+        the_server_config = GlobalConfig(
+            jobmon_version=str(jobmon.__version__),
+            conn_str=conn_str,
+            slack_token=None,
+            default_wf_slack_channel=None,
+            default_node_slack_channel=None,
+            verbose=False)
+        the_server_config.session_edb = edb
+    return the_server_config
+
+
+@pytest.fixture(scope='function', autouse=True)
+def patch_server_config(monkeypatch):
+    from jobmon.server import the_server_config
+
+    monkeypatch.setattr(the_server_config, 'get_the_server_config',
+                        get_test_server_config)
+
+
 @pytest.fixture(scope="session")
 def teardown_edb(request):
     def teardown():
+        from jobmon.server.the_server_config import get_the_server_config
+        from jobmon.server import database
         database.Session.close_all()
         database.engine.dispose()
-        config.session_edb.stop()
+        get_the_server_config().session_edb.stop()
     request.addfinalizer(teardown)
-
-
-@pytest.fixture(scope='function', autouse=True)
-def monkeypatch_server_config(monkeypatch):
-    from jobmon.server import database
-
-    def config_patch():
-        from .server_test_config import config
-        return config
-    cfg = config_patch()
-    monkeypatch.setattr(database, 'config', cfg)
-
-
-@pytest.fixture(scope='function', autouse=True)
-def monkeypatch_client_config(monkeypatch):
-    from jobmon.client import requester
-    from jobmon.client.worker_node import job_factory, job_instance_factory, \
-        job_instance_intercom, job_instance_reconciler, job_list_manager
-    from jobmon.client.executors import base
-    from jobmon.client.workflow import workflow, workflow_run, task_dag_factory
-    from jobmon.server.services.health_monitor import health_monitor
-
-    def config_patch():
-        from .client_test_config import config
-        return config
-    cfg = config_patch()
-    monkeypatch.setattr(requester, 'config', cfg)
-    monkeypatch.setattr(job_factory, 'config', cfg)
-    monkeypatch.setattr(job_instance_factory, 'config', cfg)
-    monkeypatch.setattr(job_instance_intercom, 'config', cfg)
-    monkeypatch.setattr(job_instance_reconciler, 'config', cfg)
-    monkeypatch.setattr(job_list_manager, 'config', cfg)
-    monkeypatch.setattr(base, 'config', cfg)
-    monkeypatch.setattr(workflow, 'config', cfg)
-    monkeypatch.setattr(workflow_run, 'config', cfg)
-    monkeypatch.setattr(task_dag_factory, 'config', cfg)
-    monkeypatch.setattr(health_monitor, 'config', cfg)
 
 
 @pytest.fixture(scope='function')
 def db_cfg():
 
+    from jobmon.server import database_loaders
+    from jobmon.server import database
     database_loaders.delete_job_db()
     database_loaders.create_job_db()
     try:
@@ -87,19 +105,21 @@ def db_cfg():
     except IntegrityError:
         pass
 
-    yield config
-
 
 @pytest.fixture(scope='session')
 def real_jsm_jqs():
     import multiprocessing as mp
     from tests.run_services import run_jsm, run_jqs
 
+    the_client_config = get_test_client_config()
+    the_server_config = get_test_server_config()
     ctx = mp.get_context('spawn')
-    p1 = ctx.Process(target=run_jsm, args=(client_config.jsm_port,))
+    p1 = ctx.Process(target=run_jsm, args=(the_client_config,
+                                           the_server_config,))
     p1.start()
 
-    p2 = ctx.Process(target=run_jqs, args=(client_config.jqs_port,))
+    p2 = ctx.Process(target=run_jqs, args=(the_client_config,
+                                           the_server_config,))
     p2.start()
 
     sleep(30)
@@ -156,8 +176,9 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
 def dag_id(no_requests_jsm_jqs, db_cfg):
     import random
     from jobmon.client.requester import Requester
+    from jobmon.client.the_client_config import get_the_client_config
 
-    req = Requester(client_config.jsm_port, host=socket.gethostname())
+    req = Requester(get_the_client_config(), 'jsm')
     rc, response = req.send_request(
         app_route='/add_task_dag',
         message={'name': 'test dag', 'user': 'test user',
@@ -170,9 +191,10 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
 @pytest.fixture(scope='function')
 def real_dag_id(real_jsm_jqs, db_cfg):
     import random
+    from jobmon.client.the_client_config import get_the_client_config
     from jobmon.client.requester import Requester
 
-    req = Requester(client_config.jsm_port, host=socket.gethostname())
+    req = Requester(get_the_client_config(), 'jsm')
     rc, response = req.send_request(
         app_route='/add_task_dag',
         message={'name': 'test dag', 'user': 'test user',
