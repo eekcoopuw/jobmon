@@ -80,6 +80,8 @@ class ServerConfig(object):
 
     def apply_opts_dct(self, opts_dct):
         for opt, opt_val in opts_dct.items():
+            if opt == 'conn_str':
+                os.environ[opt] = opt_val
             opts_dct[opt] = setattr(self, opt, opt_val)
         return self
 
@@ -112,7 +114,11 @@ class ServerConfig(object):
         for opt in ServerConfig.default_opts:
             if opt in opts_dict:
                 gc_opts[opt] = opts_dict[opt]
+                val = opts_dict[opt]
             else:
                 gc_opts[opt] = ServerConfig.default_opts[opt]
+                val = ServerConfig.default_opts[opt]
+            if opt == 'conn_str':
+                os.environ[opt] = val
         return gc_opts
 

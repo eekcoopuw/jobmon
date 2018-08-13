@@ -1,5 +1,6 @@
 import pytest
 import sys
+import os
 from sqlalchemy.exc import OperationalError
 
 
@@ -59,6 +60,7 @@ def test_initdb_subcommand():
     with pytest.raises(OperationalError):
         args.func(args)
 
+    os.environ['conn_str'] = conn_str
     get_the_server_config().apply_opts_dct({'conn_str': conn_str})
     from jobmon.server import database
     database.recreate_engine()

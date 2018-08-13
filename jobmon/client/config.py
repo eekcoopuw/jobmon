@@ -112,6 +112,8 @@ class ClientConfig(object):
 
     def apply_opts_dct(self, opts_dct):
         for opt, opt_val in opts_dct.items():
+            if opt == 'host':
+                os.environ[opt] = opt_val
             opts_dct[opt] = setattr(self, opt, opt_val)
         return self
 
@@ -144,7 +146,11 @@ class ClientConfig(object):
         for opt in ClientConfig.default_opts:
             if opt in opts_dict:
                 gc_opts[opt] = opts_dict[opt]
+                val = opts_dict[opt]
             else:
                 gc_opts[opt] = ClientConfig.default_opts[opt]
+                val = ClientConfig.default_opts[opt]
+            if opt == 'host':
+                os.environ[opt] = val
         return gc_opts
 

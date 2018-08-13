@@ -1,4 +1,5 @@
 import pytest
+import os
 
 
 try:
@@ -23,10 +24,14 @@ def test_invalid_rcfile():
 
 
 def test_server_config_command_line():
-    from jobmon.client.the_client_config import get_the_client_config
+    from jobmon.server.the_server_config import get_the_server_config
+    conn_str = get_the_server_config().conn_str
     opts_dct = {"conn_str": "foo"}
-    get_the_client_config().apply_opts_dct(opts_dct)
-    assert get_the_client_config().conn_str == 'foo'
+    get_the_server_config().apply_opts_dct(opts_dct)
+    assert get_the_server_config().conn_str == 'foo'
+
+    # reset
+    os.environ['conn_str'] = conn_str
 
 
 def test_client_config_command_line():
@@ -39,7 +44,8 @@ def test_client_config_command_line():
                 "jsm_port": "1",
                 "jqs_port": "3"}
     get_the_client_config().apply_opts_dct(opts_dct)
-    assert get_the_client_config().conn_str == 'foo'
+    assert get_the_client_config().host == 'bar'
 
     # reset
     get_the_client_config().apply_opts_dct(orig_opts)
+    os.environ['host'] = orig_cfg.host

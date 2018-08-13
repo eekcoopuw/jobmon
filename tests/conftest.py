@@ -56,11 +56,11 @@ def db_cfg():
 
 
 @pytest.fixture(scope='session')
-def real_jsm_jqs(ephemera_conn_str):
+def real_jsm_jqs():
     import multiprocessing as mp
     from tests.run_services import run_jsm, run_jqs
 
-    os.environ['hostname'] = socket.gethostname()
+    os.environ['host'] = socket.gethostname()
 
     ctx = mp.get_context('spawn')
     p1 = ctx.Process(target=run_jsm, args=())
