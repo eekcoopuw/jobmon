@@ -11,7 +11,20 @@ from time import sleep
 from sqlalchemy.exc import IntegrityError
 from cluster_utils.ephemerdb import create_ephemerdb
 
-import jobmon
+
+@pytest.fixture(scope='session', autouse=True)
+def ephemera_conn_str():
+    edb = create_ephemerdb()
+    conn_str = edb.start()
+
+    os.environ['conn_str'] = conn_str
+    yield conn_str
+
+    from jobmon.server import database
+    database.Session.close_all()
+    database.engine.dispose()
+    edb.stop()
+
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.task_dag import TaskDag
@@ -25,70 +38,6 @@ from jobmon.attributes import attribute_database_loaders
 # spinning up a webserver--see no_requests_jsm_jqs. Any test that
 # requires connection to more than one service (i.e JQS and JSM) requires that
 # we use the real dev server.
-
-
-def get_test_client_config():
-    from jobmon.client.config import ClientConfig, \
-        derive_jobmon_command_from_env
-    if 'the_client_config' not in globals():
-        global the_client_config
-        the_client_config = ClientConfig(
-            jobmon_version=str(jobmon.__version__),
-            host=socket.gethostname(),
-            jsm_port=5056,
-            jqs_port=5058,
-            jobmon_command=derive_jobmon_command_from_env())
-    return the_client_config
-
-
-@pytest.fixture(scope='function', autouse=True)
-def patch_client_config(monkeypatch):
-    from jobmon.client import the_client_config
-
-    monkeypatch.setattr(the_client_config, 'get_the_client_config',
-                        get_test_client_config)
-
-
-def assign_ephemera_conn_str():
-    edb = create_ephemerdb()
-    conn_str = edb.start()
-    return edb, conn_str
-
-
-def get_test_server_config():
-    from jobmon.server.config import ServerConfig
-
-    if 'the_server_config' not in globals():
-        global the_server_config
-        edb, conn_str = assign_ephemera_conn_str()
-        the_server_config = ServerConfig(
-            jobmon_version=str(jobmon.__version__),
-            conn_str=conn_str,
-            slack_token=None,
-            default_wf_slack_channel=None,
-            default_node_slack_channel=None,
-            verbose=False)
-        the_server_config.session_edb = edb
-    return the_server_config
-
-
-@pytest.fixture(scope='function', autouse=True)
-def patch_server_config(monkeypatch):
-    from jobmon.server import the_server_config
-
-    monkeypatch.setattr(the_server_config, 'get_the_server_config',
-                        get_test_server_config)
-
-
-@pytest.fixture(scope="session")
-def teardown_edb(request):
-    def teardown():
-        from jobmon.server.the_server_config import get_the_server_config
-        from jobmon.server import database
-        database.Session.close_all()
-        database.engine.dispose()
-        get_the_server_config().session_edb.stop()
-    request.addfinalizer(teardown)
 
 
 @pytest.fixture(scope='function')
@@ -107,34 +56,17 @@ def db_cfg():
 
 
 @pytest.fixture(scope='session')
-def real_jsm_jqs():
+def real_jsm_jqs(ephemera_conn_str):
     import multiprocessing as mp
     from tests.run_services import run_jsm, run_jqs
 
-    the_client_config = get_test_client_config()
-    client_cfg_opts = {'host': the_client_config.host,
-                       'jsm_port': the_client_config.jsm_port,
-                       'jqs_port': the_client_config.jqs_port,
-                       'jobmon_version': the_client_config.jobmon_version,
-                       'jobmon_command': the_client_config.jobmon_command}
-
-    the_server_config = get_test_server_config()
-    server_cfg_opts = {
-        'jobmon_version': the_server_config.jobmon_version,
-        'conn_str': the_server_config.conn_str,
-        'slack_token': the_server_config.slack_token,
-        'default_wf_slack_channel': the_server_config.default_wf_slack_channel,
-        'default_node_slack_channel':
-        the_server_config.default_node_slack_channel,
-        'verbose': the_server_config.verbose}
+    os.environ['hostname'] = socket.gethostname()
 
     ctx = mp.get_context('spawn')
-    p1 = ctx.Process(target=run_jsm, args=(client_cfg_opts,
-                                           server_cfg_opts,))
+    p1 = ctx.Process(target=run_jsm, args=())
     p1.start()
 
-    p2 = ctx.Process(target=run_jqs, args=(client_cfg_opts,
-                                           server_cfg_opts,))
+    p2 = ctx.Process(target=run_jqs, args=())
     p2.start()
 
     sleep(30)

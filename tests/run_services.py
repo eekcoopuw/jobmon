@@ -5,35 +5,17 @@ from flask import g
 # related to a load order bug. These issues will be sorted out with GBDSCI-1089
 
 
-def run_jsm(client_cfg_opts, server_cfg_opts):
-    from jobmon.server.config import ServerConfig
-    from jobmon.client.config import ClientConfig
-    global the_client_config
-    the_client_config = ClientConfig(**client_cfg_opts)
-    global the_server_config
-    the_server_config = ServerConfig(**server_cfg_opts)
-
+def run_jsm():
+    from jobmon.client.the_client_config import get_the_client_config
     from jobmon.server.services.job_state_manager.job_state_manager import app
-    with app.app_context():
-        g.the_server_config = the_server_config
-        g.the_client_config = the_client_config
 
-    app.run(host="0.0.0.0", port=the_client_config.jsm_port, debug=True,
+    app.run(host="0.0.0.0", port=get_the_client_config().jsm_port, debug=True,
             use_reloader=False, use_evalex=False, threaded=False)
 
 
-def run_jqs(client_cfg_opts, server_cfg_opts):
-    from jobmon.server.config import ServerConfig
-    from jobmon.client.config import ClientConfig
-    global the_client_config
-    the_client_config = ClientConfig(**client_cfg_opts)
-    global the_server_config
-    the_server_config = ServerConfig(**server_cfg_opts)
-
+def run_jqs():
+    from jobmon.client.the_client_config import get_the_client_config
     from jobmon.server.services.job_query_server.job_query_server import app
-    with app.app_context():
-        g.the_server_config = the_server_config
-        g.the_client_config = the_client_config
 
-    app.run(host="0.0.0.0", port=the_client_config.jqs_port, debug=True,
+    app.run(host="0.0.0.0", port=get_the_client_config().jqs_port, debug=True,
             use_reloader=False, use_evalex=False, threaded=False)
