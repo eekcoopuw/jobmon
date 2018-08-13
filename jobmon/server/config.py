@@ -17,7 +17,7 @@ class InvalidConfig(Exception):
     pass
 
 
-class GlobalConfig(object):
+class ServerConfig(object):
     """
     This is intended to be a singleton and should only be instantiated inside
     this module. If at all possible, try to make modify configuration by
@@ -68,6 +68,8 @@ class GlobalConfig(object):
         self.default_wf_slack_channel = default_wf_slack_channel
         self.default_node_slack_channel = default_node_slack_channel
 
+        self.verbose = verbose
+
     @property
     def conn_str(self):
         return self._conn_str
@@ -101,16 +103,16 @@ class GlobalConfig(object):
                 raise InvalidConfig("Configuration error. {} is not "
                                     "valid JSON".format(rcfile))
         opts_dict = {k: v for k, v in config.items()
-                     if k in GlobalConfig.default_opts}
+                     if k in ServerConfig.default_opts}
         return opts_dict
 
     @staticmethod
     def apply_defaults(opts_dict):
         gc_opts = {}
-        for opt in GlobalConfig.default_opts:
+        for opt in ServerConfig.default_opts:
             if opt in opts_dict:
                 gc_opts[opt] = opts_dict[opt]
             else:
-                gc_opts[opt] = GlobalConfig.default_opts[opt]
+                gc_opts[opt] = ServerConfig.default_opts[opt]
         return gc_opts
 

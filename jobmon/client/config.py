@@ -27,7 +27,7 @@ class InvalidConfig(Exception):
     pass
 
 
-class GlobalConfig(object):
+class ClientConfig(object):
     """
     This is intended to be a singleton and should only be instantiated inside
     this module. If at all possible, try to make modify configuration by
@@ -79,6 +79,7 @@ class GlobalConfig(object):
             host=host,
             port=str(jqs_port))
 
+        self.jobmon_version = jobmon_version
         self.jobmon_command = jobmon_command
 
     @property
@@ -134,16 +135,16 @@ class GlobalConfig(object):
                 raise InvalidConfig("Configuration error. {} is not "
                                     "valid JSON".format(rcfile))
         opts_dict = {k: v for k, v in config.items()
-                     if k in GlobalConfig.default_opts}
+                     if k in ClientConfig.default_opts}
         return opts_dict
 
     @staticmethod
     def apply_defaults(opts_dict):
         gc_opts = {}
-        for opt in GlobalConfig.default_opts:
+        for opt in ClientConfig.default_opts:
             if opt in opts_dict:
                 gc_opts[opt] = opts_dict[opt]
             else:
-                gc_opts[opt] = GlobalConfig.default_opts[opt]
+                gc_opts[opt] = ClientConfig.default_opts[opt]
         return gc_opts
 

@@ -2,7 +2,7 @@ import logging
 import os
 import json
 from datetime import datetime
-from flask import jsonify, request
+from flask import jsonify, request, Flask, g
 from http import HTTPStatus
 
 from jobmon.models.job import Job
@@ -16,9 +16,20 @@ from jobmon.client.swarm.workflow.workflow import WorkflowDAO
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 from jobmon.attributes import attribute_models
-from flask import Flask
 
 app = Flask(__name__)
+
+with app.app_context():
+    the_client_cfg = g.the_client_config
+    the_server_cfg = g.the_server_config
+
+global the_client_config
+the_client_config = the_client_cfg
+global the_server_config
+the_server_config = the_server_cfg
+
+with open('/homes/cpinho/forked_jobmon/jsm.txt', 'w') as f:
+    f.write("globals are {}".format(globals()))
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html

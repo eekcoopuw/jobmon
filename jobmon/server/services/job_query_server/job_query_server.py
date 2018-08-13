@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from sqlalchemy.orm import contains_eager
 
-from flask import jsonify, request
+from flask import jsonify, request, Flask, g
 from http import HTTPStatus
 
 from jobmon.server.database import ScopedSession
@@ -15,9 +15,17 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.client.swarm.workflow.workflow import WorkflowDAO
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
-from flask import Flask
 
 app = Flask(__name__)
+
+with app.app_context():
+    the_client_cfg = g.the_client_config
+    the_server_cfg = g.the_server_config
+
+global the_client_config
+the_client_config = the_client_cfg
+global the_server_config
+the_server_config = the_server_cfg
 
 logger = logging.getLogger(__name__)
 

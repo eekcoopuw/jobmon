@@ -28,11 +28,11 @@ from jobmon.attributes import attribute_database_loaders
 
 
 def get_test_client_config():
-    from jobmon.client.config import GlobalConfig, \
+    from jobmon.client.config import ClientConfig, \
         derive_jobmon_command_from_env
     if 'the_client_config' not in globals():
         global the_client_config
-        the_client_config = GlobalConfig(
+        the_client_config = ClientConfig(
             jobmon_version=str(jobmon.__version__),
             host=socket.gethostname(),
             jsm_port=5056,
@@ -56,12 +56,12 @@ def assign_ephemera_conn_str():
 
 
 def get_test_server_config():
-    from jobmon.server.config import GlobalConfig
+    from jobmon.server.config import ServerConfig
 
     if 'the_server_config' not in globals():
         global the_server_config
         edb, conn_str = assign_ephemera_conn_str()
-        the_server_config = GlobalConfig(
+        the_server_config = ServerConfig(
             jobmon_version=str(jobmon.__version__),
             conn_str=conn_str,
             slack_token=None,
@@ -112,14 +112,29 @@ def real_jsm_jqs():
     from tests.run_services import run_jsm, run_jqs
 
     the_client_config = get_test_client_config()
+    client_cfg_opts = {'host': the_client_config.host,
+                       'jsm_port': the_client_config.jsm_port,
+                       'jqs_port': the_client_config.jqs_port,
+                       'jobmon_version': the_client_config.jobmon_version,
+                       'jobmon_command': the_client_config.jobmon_command}
+
     the_server_config = get_test_server_config()
+    server_cfg_opts = {
+        'jobmon_version': the_server_config.jobmon_version,
+        'conn_str': the_server_config.conn_str,
+        'slack_token': the_server_config.slack_token,
+        'default_wf_slack_channel': the_server_config.default_wf_slack_channel,
+        'default_node_slack_channel':
+        the_server_config.default_node_slack_channel,
+        'verbose': the_server_config.verbose}
+
     ctx = mp.get_context('spawn')
-    p1 = ctx.Process(target=run_jsm, args=(the_client_config,
-                                           the_server_config,))
+    p1 = ctx.Process(target=run_jsm, args=(client_cfg_opts,
+                                           server_cfg_opts,))
     p1.start()
 
-    p2 = ctx.Process(target=run_jqs, args=(the_client_config,
-                                           the_server_config,))
+    p2 = ctx.Process(target=run_jqs, args=(client_cfg_opts,
+                                           server_cfg_opts,))
     p2.start()
 
     sleep(30)
