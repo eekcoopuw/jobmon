@@ -77,6 +77,8 @@ def add_job():
 
 @jsm.route('/add_task_dag', methods=['POST'])
 def add_task_dag():
+    with open("/homes/cpinho/forked_jobmon/jsm.txt", 'w') as f:
+        f.write("scopedsession conn_str {}".format(ScopedSession.bind))
     data = request.get_json(force=True)
     dag = TaskDagMeta(
         name=data['name'],
@@ -304,11 +306,15 @@ def log_usage():
 
 @jsm.route('/queue_job', methods=['POST'])
 def queue_job():
+    with open("/homes/cpinho/forked_jobmon/jsm.txt", 'w') as f:
+        f.write("scopedsession conn_str {}".format(ScopedSession.bind))
     data = request.get_json()
     logger.debug("Queue Job {}".format(data['job_id']))
     job = ScopedSession.query(Job)\
         .filter_by(job_id=data['job_id']).first()
     job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
+    with open("/homes/cpinho/forked_jobmon/jsm.txt", 'a') as f:
+        f.write("after queue_job, job is {}".format(job))
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK

@@ -31,7 +31,7 @@ def commit_hooked_jsm(jsm_jqs):
     jsm, _ = jsm_jqs
 
     from sqlalchemy import event
-    from jobmon.database import Session
+    from jobmon.server.database import Session
 
     @event.listens_for(Session, 'before_commit')
     def inspect_on_done_or_error(session):
@@ -98,7 +98,6 @@ def test_get_workflow_run_id(dag_id):
     wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
-    import pdb; pdb.set_trace()
     assert wf_run_id == _get_workflow_run_id(job.job_id)
 
 
@@ -310,7 +309,7 @@ def test_jsm_log_usage(dag_id):
                  'io': '1'},
         request_type='post')
     # open new session on the db and ensure job stats are being loggged
-    from jobmon.database import session_scope
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         ji = session.query(JobInstance).filter(
             JobInstance.job_instance_id == job_instance_id).first()

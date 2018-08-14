@@ -5,9 +5,6 @@ import jobmon
 
 
 def get_the_server_config():
-    if not os.environ.get('conn_str', None) or 'singularity' not in os.environ['conn_str']:
-        raise ValueError("Conn_str is wrong. "
-                         "Got {}".format(os.environ.get('conn_str', None)))
     return ServerConfig(
         jobmon_version=str(jobmon.__version__),
         conn_str=os.environ['conn_str'],

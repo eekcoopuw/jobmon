@@ -174,7 +174,6 @@ def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
 
 def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
-    import pdb; pdb.set_trace()
     job_list_manager_sge.all_error = set()
 
     # Qsub a long running job -> queue another job that waits on it,

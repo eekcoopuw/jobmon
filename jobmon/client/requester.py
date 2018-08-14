@@ -67,7 +67,11 @@ class Requester(object):
 
 def get_content(response):
     if 'application/json' in response.headers.get('Content-Type'):
-        content = response.json()
+        try:
+            content = response.json()
+        except TypeError:  # for test_client, response.json is a dict not fn
+            content = response.json
+
     else:
         content = response.content
     return content

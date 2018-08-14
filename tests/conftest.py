@@ -40,6 +40,12 @@ from jobmon.attributes import attribute_database_loaders
 # we use the real dev server.
 
 
+@pytest.fixture(autouse=True)
+def env_var(monkeypatch, ephemera_conn_str):
+    monkeypatch.setenv("host", socket.gethostname())
+    monkeypatch.setenv("conn_str", ephemera_conn_str)
+
+
 @pytest.fixture(scope='function')
 def db_cfg():
 

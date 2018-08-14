@@ -34,10 +34,14 @@ def _is_alive():
 
 @jqs.route('/get_queued', methods=['GET'])
 def get_queued_for_instantiation():
+    with open("/homes/cpinho/forked_jobmon/jqs.txt", 'w') as f:
+        f.write("scopedsession conn_str {}".format(ScopedSession.bind))
     jobs = ScopedSession.query(Job).filter_by(
         status=JobStatus.QUEUED_FOR_INSTANTIATION,
         dag_id=request.args['dag_id']).all()
     job_dcts = [j.to_wire() for j in jobs]
+    with open("/homes/cpinho/forked_jobmon/jqs.txt", 'a') as f:
+        f.write("after get_queued, jobs are {}".format(job_dcts))
     resp = jsonify(job_dcts=job_dcts)
     resp.status_code = HTTPStatus.OK
     return resp

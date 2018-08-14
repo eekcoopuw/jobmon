@@ -5,9 +5,6 @@ import jobmon
 
 
 def get_the_client_config():
-    if not os.environ.get('host', None) or 'ihme' not in os.environ['host']:
-        raise ValueError("Host is wrong. "
-                         "Got {}".format(os.environ.get('host', None)))
     return ClientConfig(
         jobmon_version=str(jobmon.__version__),
         host=os.environ['host'],
