@@ -55,6 +55,8 @@ def commit_hooked_jsm(jsm_jqs):
 
 
 def test_get_workflow_run_id(dag_id):
+    from jobmon.server.services.job_state_manager.job_state_manager import \
+        _get_workflow_run_id
     user = getpass.getuser()
     req = Requester(get_the_client_config(), 'jsm')
     # add job
@@ -96,11 +98,14 @@ def test_get_workflow_run_id(dag_id):
     wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
-    from jobmon.services.job_state_manager import _get_workflow_run_id
+    import pdb; pdb.set_trace()
     assert wf_run_id == _get_workflow_run_id(job.job_id)
 
 
 def test_get_workflow_run_id_no_workflow(dag_id):
+    print("in 2nd test")
+    from jobmon.server.services.job_state_manager.job_state_manager import \
+        _get_workflow_run_id
     req = Requester(get_the_client_config(), 'jsm')
     rc, response = req.send_request(
         app_route='/add_task_dag',
@@ -118,7 +123,6 @@ def test_get_workflow_run_id_no_workflow(dag_id):
                  'dag_id': str(dag_id)},
         request_type='post')
     job = Job.from_wire(response['job_dct'])
-    from jobmon.services.job_state_manager import _get_workflow_run_id
     assert not _get_workflow_run_id(job.job_id)
 
 

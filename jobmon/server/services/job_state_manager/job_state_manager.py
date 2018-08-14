@@ -2,7 +2,7 @@ import logging
 import os
 import json
 from datetime import datetime
-from flask import jsonify, request, Flask
+from flask import jsonify, request, Blueprint
 from http import HTTPStatus
 
 from jobmon.models.job import Job
@@ -17,7 +17,7 @@ from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 from jobmon.attributes import attribute_models
 
-app = Flask(__name__)
+jsm = Blueprint("job_state_manager", __name__)
 
 
 # logging does not work well in python < 2.7 with Threads,
@@ -36,17 +36,12 @@ def mogrify(topic, msg):
     return str(topic) + ' ' + json.dumps(msg)
 
 
-@app.errorhandler(404)
+@jsm.errorhandler(404)
 def page_not_found(error):
     return 'This route does not exist {}'.format(request.url), 404
 
 
-@app.teardown_appcontext
-def shutdown_session(exception=None):
-    ScopedSession.remove()
-
-
-@app.route('/', methods=['GET'])
+@jsm.route('/', methods=['GET'])
 def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening"""
@@ -57,7 +52,7 @@ def _is_alive():
     return resp
 
 
-@app.route('/add_job', methods=['POST'])
+@jsm.route('/add_job', methods=['POST'])
 def add_job():
     data = request.get_json()
     job = Job(
@@ -80,7 +75,7 @@ def add_job():
     return resp
 
 
-@app.route('/add_task_dag', methods=['POST'])
+@jsm.route('/add_task_dag', methods=['POST'])
 def add_task_dag():
     data = request.get_json(force=True)
     dag = TaskDagMeta(
@@ -107,7 +102,7 @@ def _get_workflow_run_id(job_id):
     return wf_run_id
 
 
-@app.route('/add_job_instance', methods=['POST'])
+@jsm.route('/add_job_instance', methods=['POST'])
 def add_job_instance():
     data = request.get_json()
     logger.debug("Add JI for job {}".format(data['job_id']))
@@ -129,7 +124,7 @@ def add_job_instance():
     return resp
 
 
-@app.route('/add_workflow', methods=['POST'])
+@jsm.route('/add_workflow', methods=['POST'])
 def add_workflow():
     data = request.get_json()
     wf = WorkflowDAO(dag_id=data['dag_id'],
@@ -146,7 +141,7 @@ def add_workflow():
     return resp
 
 
-@app.route('/add_workflow_run', methods=['POST'])
+@jsm.route('/add_workflow_run', methods=['POST'])
 def add_workflow_run():
     data = request.get_json()
     wfr = WorkflowRunDAO(workflow_id=data['workflow_id'],
@@ -170,7 +165,7 @@ def add_workflow_run():
     return resp
 
 
-@app.route('/update_workflow', methods=['POST'])
+@jsm.route('/update_workflow', methods=['POST'])
 def update_workflow():
     data = request.get_json()
     wf = ScopedSession.query(WorkflowDAO).\
@@ -184,7 +179,7 @@ def update_workflow():
     return resp
 
 
-@app.route('/update_workflow_run', methods=['POST'])
+@jsm.route('/update_workflow_run', methods=['POST'])
 def update_workflow_run():
     data = request.get_json()
     wfr = ScopedSession.query(WorkflowRunDAO).\
@@ -197,7 +192,7 @@ def update_workflow_run():
     return resp
 
 
-@app.route('/log_done', methods=['POST'])
+@jsm.route('/log_done', methods=['POST'])
 def log_done():
     data = request.get_json()
     logger.debug("Log DONE for JI {}".format(data['job_instance_id']))
@@ -210,7 +205,7 @@ def log_done():
     return resp
 
 
-@app.route('/log_error', methods=['POST'])
+@jsm.route('/log_error', methods=['POST'])
 def log_error():
     with open("/homes/cpinho/forked_jobmon/jsm.txt", "w") as f:
         f.write("made it to JSM.log_error")
@@ -235,7 +230,7 @@ def log_error():
     return resp
 
 
-@app.route('/log_executor_id', methods=['POST'])
+@jsm.route('/log_executor_id', methods=['POST'])
 def log_executor_id():
     data = request.get_json()
     logger.debug("Log EXECUTOR_ID for JI {}"
@@ -250,7 +245,7 @@ def log_executor_id():
     return resp
 
 
-@app.route('/log_heartbeat', methods=['POST'])
+@jsm.route('/log_heartbeat', methods=['POST'])
 def log_heartbeat():
     data = request.get_json()
     dag = ScopedSession.query(TaskDagMeta).filter_by(
@@ -263,7 +258,7 @@ def log_heartbeat():
     return resp
 
 
-@app.route('/log_running', methods=['POST'])
+@jsm.route('/log_running', methods=['POST'])
 def log_running():
     data = request.get_json()
     logger.debug("Log RUNNING for JI {}"
@@ -278,7 +273,7 @@ def log_running():
     return resp
 
 
-@app.route('/log_nodename', methods=['POST'])
+@jsm.route('/log_nodename', methods=['POST'])
 def log_nodename():
     data = request.get_json()
     logger.debug("Log USAGE for JI {}".format(data['job_instance_id']))
@@ -290,7 +285,7 @@ def log_nodename():
     return resp
 
 
-@app.route('/log_usage', methods=['POST'])
+@jsm.route('/log_usage', methods=['POST'])
 def log_usage():
     data = request.get_json()
     logger.debug("Log USAGE for JI {}".format(data['job_instance_id']))
@@ -307,7 +302,7 @@ def log_usage():
     return resp
 
 
-@app.route('/queue_job', methods=['POST'])
+@jsm.route('/queue_job', methods=['POST'])
 def queue_job():
     data = request.get_json()
     logger.debug("Queue Job {}".format(data['job_id']))
@@ -320,7 +315,7 @@ def queue_job():
     return resp
 
 
-@app.route('/reset_job', methods=['POST'])
+@jsm.route('/reset_job', methods=['POST'])
 def reset_job():
     data = request.get_json()
     job = ScopedSession.query(Job).filter_by(job_id=data['job_id']).first()
@@ -331,7 +326,7 @@ def reset_job():
     return resp
 
 
-@app.route('/reset_incomplete_jobs', methods=['POST'])
+@jsm.route('/reset_incomplete_jobs', methods=['POST'])
 def reset_incomplete_jobs():
     data = request.get_json()
     up_job = """
@@ -411,7 +406,7 @@ def _update_job_instance(job_instance, **kwargs):
     return
 
 
-@app.route('/add_workflow_attribute', methods=['POST'])
+@jsm.route('/add_workflow_attribute', methods=['POST'])
 def add_workflow_attribute():
     data = request.get_json()
     workflow_attribute = attribute_models.WorkflowAttribute(
@@ -425,7 +420,7 @@ def add_workflow_attribute():
     return resp
 
 
-@app.route('/add_workflow_run_attribute', methods=['POST'])
+@jsm.route('/add_workflow_run_attribute', methods=['POST'])
 def add_workflow_run_attribute():
     data = request.get_json()
     workflow_run_attribute = attribute_models.\
@@ -439,7 +434,7 @@ def add_workflow_run_attribute():
     return resp
 
 
-@app.route('/add_job_attribute', methods=['POST'])
+@jsm.route('/add_job_attribute', methods=['POST'])
 def add_job_attribute():
     data = request.get_json()
     job_attribute = attribute_models.\

@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from sqlalchemy.orm import contains_eager
 
-from flask import jsonify, request, Flask
+from flask import jsonify, request, Blueprint
 from http import HTTPStatus
 
 from jobmon.server.database import ScopedSession
@@ -16,17 +16,12 @@ from jobmon.client.swarm.workflow.workflow import WorkflowDAO
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 
-app = Flask(__name__)
+jqs = Blueprint("job_query_server", __name__)
 
 logger = logging.getLogger(__name__)
 
 
-@app.teardown_appcontext
-def shutdown_session(exception=None):
-    ScopedSession.remove()
-
-
-@app.route('/', methods=['GET'])
+@jqs.route('/', methods=['GET'])
 def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening"""
@@ -37,7 +32,7 @@ def _is_alive():
     return resp
 
 
-@app.route('/get_queued', methods=['GET'])
+@jqs.route('/get_queued', methods=['GET'])
 def get_queued_for_instantiation():
     jobs = ScopedSession.query(Job).filter_by(
         status=JobStatus.QUEUED_FOR_INSTANTIATION,
@@ -48,7 +43,7 @@ def get_queued_for_instantiation():
     return resp
 
 
-@app.route('/get_submitted_or_running', methods=['GET'])
+@jqs.route('/get_submitted_or_running', methods=['GET'])
 def get_submitted_or_running():
     instances = ScopedSession.query(JobInstance).\
         filter(
@@ -64,7 +59,7 @@ def get_submitted_or_running():
     return resp
 
 
-@app.route('/get_jobs', methods=['GET'])
+@jqs.route('/get_jobs', methods=['GET'])
 def get_jobs():
     """
     Return a dictionary mapping job_id to a dict of the job's instance
@@ -81,7 +76,7 @@ def get_jobs():
     return resp
 
 
-@app.route('/get_timed_out', methods=['GET'])
+@jqs.route('/get_timed_out', methods=['GET'])
 def get_timed_out():
     running = ScopedSession.query(JobInstance).\
         filter(
@@ -100,7 +95,7 @@ def get_timed_out():
     return resp
 
 
-@app.route('/get_dag_ids_by_hash', methods=['GET'])
+@jqs.route('/get_dag_ids_by_hash', methods=['GET'])
 def get_dag_ids_by_hash():
     """
     Return a dictionary mapping job_id to a dict of the job's instance
@@ -117,7 +112,7 @@ def get_dag_ids_by_hash():
     return resp
 
 
-@app.route('/get_workflows_by_inputs', methods=['GET'])
+@jqs.route('/get_workflows_by_inputs', methods=['GET'])
 def get_workflows_by_inputs():
     """
     Return a dictionary mapping job_id to a dict of the job's instance
@@ -138,7 +133,7 @@ def get_workflows_by_inputs():
         return '', HTTPStatus.NO_CONTENT
 
 
-@app.route('/is_workflow_running', methods=['GET'])
+@jqs.route('/is_workflow_running', methods=['GET'])
 def is_workflow_running():
     """Check if a previous workflow run for your user is still running """
     wf_run = (ScopedSession.query(WorkflowRunDAO).filter_by(
@@ -152,7 +147,7 @@ def is_workflow_running():
     return resp
 
 
-@app.route('/get_job_instances_of_workflow_run', methods=['GET'])
+@jqs.route('/get_job_instances_of_workflow_run', methods=['GET'])
 def get_job_instances_of_workflow_run():
     jis = ScopedSession.query(JobInstance).filter_by(
         workflow_run_id=request.args['workflow_run_id']).all()

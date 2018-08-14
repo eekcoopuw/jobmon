@@ -78,11 +78,17 @@ def real_jsm_jqs():
 
 @pytest.fixture(scope='session')
 def jsm_jqs():
-    from jobmon.server.services.job_state_manager.job_state_manager import \
-        app as jsm_app
-    from jobmon.server.services.job_query_server.job_query_server import app \
-        as jqs_app
+    from jobmon.server.services.job_state_manager.app \
+        import create_app as jsm_get_app
+    from jobmon.server.services.job_query_server.app import \
+        create_app as jqs_get_app
 
+    os.environ['host'] = socket.gethostname()
+
+    jsm_app = jsm_get_app(host=os.environ['host'],
+                          conn_str=os.environ['conn_str'])
+    jqs_app = jqs_get_app(host=os.environ['host'],
+                          conn_str=os.environ['conn_str'])
     jsm_app.config['TESTING'] = True
     jqs_app.config['TESTING'] = True
     jsm_client = jsm_app.test_client()
