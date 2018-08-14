@@ -27,6 +27,7 @@ class Task(ExecutableTask):
 def job_list_manager(real_dag_id):
     jlm = JobListManager(real_dag_id, interrupt_on_error=False)
     yield jlm
+    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -34,6 +35,7 @@ def job_list_manager_d(real_dag_id):
     jlm = JobListManager(real_dag_id, start_daemons=True,
                          interrupt_on_error=False)
     yield jlm
+    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -42,6 +44,7 @@ def job_list_manager_sge_no_daemons(real_dag_id):
     jlm = JobListManager(real_dag_id, executor=executor,
                          interrupt_on_error=False)
     yield jlm
+    jlm.disconnect()
 
 
 def test_invalid_command(job_list_manager):

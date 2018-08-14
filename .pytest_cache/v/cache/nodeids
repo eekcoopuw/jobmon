@@ -1,9 +1,4 @@
 [
-  "tests/test_integration.py::test_invalid_command",
-  "tests/test_integration.py::test_valid_command",
-  "tests/test_integration.py::test_daemon_invalid_command",
-  "tests/test_integration.py::test_daemon_valid_command",
-  "tests/test_integration.py::test_blocking_updates",
-  "tests/test_integration.py::test_blocking_update_timeout",
-  "tests/test_integration.py::test_sge_valid_command"
+  "tests/test_job_attribute.py::test_job_attribute",
+  "tests/test_job_attribute.py::test_job_attribute_input_error"
 ]

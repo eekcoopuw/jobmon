@@ -177,6 +177,7 @@ def tmp_out_dir():
 def job_list_manager_sub(dag_id):
     jlm = JobListManager(dag_id, interrupt_on_error=False)
     yield jlm
+    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
