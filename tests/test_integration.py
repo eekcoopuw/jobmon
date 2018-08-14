@@ -171,3 +171,4 @@ def test_sge_valid_command(job_list_manager_sge_no_daemons):
     job_list_manager_sge._sync()
     assert (job_list_manager_sge.bound_tasks[job.job_id].status ==
             JobStatus.INSTANTIATED)
+    print("finishing test_sge_valid_command")

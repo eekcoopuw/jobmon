@@ -5,6 +5,7 @@ from jobmon.attributes.constants import job_attribute
 
 
 def test_job_attribute(job_list_manager_sub):
+    print("in test_job_attribute")
     from jobmon.server.database import session_scope
 
     # create a job

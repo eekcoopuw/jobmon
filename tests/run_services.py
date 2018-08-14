@@ -12,6 +12,10 @@ def run_jsm():
     app.run(host="0.0.0.0", port=get_the_client_config().jsm_port, debug=True,
             use_reloader=False, use_evalex=False, threaded=False)
 
+    with app.app_context():
+        from jobmon.server.database import ScopedSession
+        ScopedSession.remove()
+
 
 def run_jqs():
     from jobmon.client.the_client_config import get_the_client_config
@@ -20,3 +24,7 @@ def run_jqs():
     app = create_app(os.environ['host'], os.environ['conn_str'])
     app.run(host="0.0.0.0", port=get_the_client_config().jqs_port, debug=True,
             use_reloader=False, use_evalex=False, threaded=False)
+
+    with app.app_context():
+        from jobmon.server.database import ScopedSession
+        ScopedSession.remove()

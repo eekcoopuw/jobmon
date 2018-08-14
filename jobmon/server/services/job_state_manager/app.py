@@ -13,4 +13,9 @@ def create_app(host, conn_str):
 
     app.register_blueprint(jsm)
 
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        from jobmon.server.database import ScopedSession
+        ScopedSession.remove()
+
     return app
