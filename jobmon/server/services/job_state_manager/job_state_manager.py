@@ -96,11 +96,13 @@ def _get_workflow_run_id(job_id):
     job = ScopedSession.query(Job).filter_by(job_id=job_id).first()
     wf = ScopedSession.query(WorkflowDAO).filter_by(dag_id=job.dag_id).first()
     if not wf:
+        ScopedSession.commit()
         return None  # no workflow has started, so no workflow run
     wf_run = (ScopedSession.query(WorkflowRunDAO).
               filter_by(workflow_id=wf.id).
               order_by(WorkflowRunDAO.id.desc()).first())
     wf_run_id = wf_run.id
+    ScopedSession.commit()
     return wf_run_id
 
 
@@ -254,7 +256,7 @@ def log_heartbeat():
         dag_id=data['dag_id']).first()
     if dag:
         dag.heartbeat_date = datetime.utcnow()
-        ScopedSession.commit()
+    ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
     return resp

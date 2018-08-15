@@ -3,6 +3,7 @@ import hashlib
 import os
 import pytest
 import random
+import logging
 import socket
 
 from sqlalchemy.exc import OperationalError
@@ -20,6 +21,9 @@ from jobmon.client.swarm.workflow.workflow import WorkflowDAO
 
 HASH = 12345
 SECOND_HASH = 12346
+
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='function')
@@ -54,7 +58,7 @@ def commit_hooked_jsm(jsm_jqs):
     event.remove(Session, 'before_commit', inspect_on_done_or_error)
 
 
-def test_get_workflow_run_id(dag_id):
+def test_get_workflow_run_id(real_dag_id):
     from jobmon.server.services.job_state_manager.job_state_manager import \
         _get_workflow_run_id
     user = getpass.getuser()
@@ -65,14 +69,14 @@ def test_get_workflow_run_id(dag_id):
         message={'name': 'bar',
                  'job_hash': HASH,
                  'command': 'baz',
-                 'dag_id': str(dag_id)},
+                 'dag_id': str(real_dag_id)},
         request_type='post')
     job = Job.from_wire(response['job_dct'])
 
     # add workflow
     _, response = req.send_request(
         app_route='/add_workflow',
-        message={'dag_id': str(dag_id),
+        message={'dag_id': str(real_dag_id),
                  'workflow_args': "args_{}".format(random.randint(1, 1e7)),
                  'workflow_hash': hashlib.sha1('hash_{}'
                                                .format(random.randint(1, 1e7))
@@ -99,10 +103,11 @@ def test_get_workflow_run_id(dag_id):
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
     assert wf_run_id == _get_workflow_run_id(job.job_id)
+    logger.info("finsihed 1st test")
 
 
-def test_get_workflow_run_id_no_workflow(dag_id):
-    print("in 2nd test")
+def test_get_workflow_run_id_no_workflow(real_dag_id):
+    logger.info("in 2nd test")
     from jobmon.server.services.job_state_manager.job_state_manager import \
         _get_workflow_run_id
     req = Requester(get_the_client_config(), 'jsm')
@@ -125,8 +130,7 @@ def test_get_workflow_run_id_no_workflow(dag_id):
     assert not _get_workflow_run_id(job.job_id)
 
 
-def test_jsm_valid_done(jsm_jqs, dag_id):
-    jsm, jqs = jsm_jqs
+def test_jsm_valid_done(real_jsm_jqs, real_dag_id):
 
     req = Requester(get_the_client_config(), 'jsm')
     # add job
@@ -135,7 +139,7 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
         message={'name': 'bar',
                  'job_hash': HASH,
                  'command': 'baz',
-                 'dag_id': str(dag_id)},
+                 'dag_id': str(real_dag_id)},
         request_type='post')
     job = Job.from_wire(response['job_dct'])
 
@@ -155,18 +159,18 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
 
     # do job logging
     req.send_request(
-        app_route='log_executor_id',
+        app_route='/log_executor_id',
         message={'job_instance_id': str(job_instance_id),
                  'executor_id': str(12345)},
         request_type='post')
     req.send_request(
-        app_route='log_running',
+        app_route='/log_running',
         message={'job_instance_id': str(job_instance_id),
                  'nodename': socket.gethostname(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
-        app_route='log_usage',
+        app_route='/log_usage',
         message={'job_instance_id': str(job_instance_id),
                  'usage_str': 'used resources',
                  'wallclock': '0',
@@ -175,7 +179,7 @@ def test_jsm_valid_done(jsm_jqs, dag_id):
                  'io': '1'},
         request_type='post')
     req.send_request(
-        app_route='log_done',
+        app_route='/log_done',
         message={'job_instance_id': str(job_instance_id)},
         request_type='post')
 

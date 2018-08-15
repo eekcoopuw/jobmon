@@ -39,6 +39,7 @@ def get_queued_for_instantiation():
     jobs = ScopedSession.query(Job).filter_by(
         status=JobStatus.QUEUED_FOR_INSTANTIATION,
         dag_id=request.args['dag_id']).all()
+    ScopedSession.commit()
     job_dcts = [j.to_wire() for j in jobs]
     with open("/homes/cpinho/forked_jobmon/jqs.txt", 'a') as f:
         f.write("after get_queued, jobs are {}".format(job_dcts))
@@ -57,6 +58,7 @@ def get_submitted_or_running():
         join(Job).\
         options(contains_eager(JobInstance.job)).\
         filter_by(dag_id=request.args['dag_id']).all()
+    ScopedSession.commit()
     instances = [i.to_wire() for i in instances]
     resp = jsonify(ji_dcts=instances)
     resp.status_code = HTTPStatus.OK
@@ -74,6 +76,7 @@ def get_jobs():
     """
     jobs = ScopedSession.query(Job).filter(
         Job.dag_id == request.args['dag_id']).all()
+    ScopedSession.commit()
     job_dcts = [j.to_wire() for j in jobs]
     resp = jsonify(job_dcts=job_dcts)
     resp.status_code = HTTPStatus.OK
@@ -91,6 +94,7 @@ def get_timed_out():
         options(contains_eager(JobInstance.job)).\
         filter(Job.dag_id == request.args['dag_id'],
                Job.max_runtime != None).all()  # noqa: E711
+    ScopedSession.commit()
     now = datetime.utcnow()
     timed_out = [r.to_wire() for r in running
                  if (now - r.status_date).seconds > r.job.max_runtime]
@@ -110,6 +114,7 @@ def get_dag_ids_by_hash():
     """
     dags = ScopedSession.query(TaskDagMeta).filter(
         TaskDagMeta.dag_hash == request.args['dag_hash']).all()
+    ScopedSession.commit()
     dag_ids = [dag.dag_id for dag in dags]
     resp = jsonify(dag_ids=dag_ids)
     resp.status_code = HTTPStatus.OK
@@ -129,6 +134,7 @@ def get_workflows_by_inputs():
         filter(WorkflowDAO.dag_id == request.args['dag_id']).\
         filter(WorkflowDAO.workflow_args == request.args['workflow_args'])\
         .first()
+    ScopedSession.commit()
     if workflow:
         resp = jsonify(workflow_dct=workflow.to_wire())
         resp.status_code = HTTPStatus.OK
@@ -144,6 +150,7 @@ def is_workflow_running():
         workflow_id=request.args['workflow_id'],
         status=WorkflowRunStatus.RUNNING,
     ).order_by(WorkflowRunDAO.id.desc()).first())
+    ScopedSession.commit()
     if not wf_run:
         return jsonify(is_running=False, workflow_run_dct={})
     resp = jsonify(is_running=True, workflow_run_dct=wf_run.to_wire())
@@ -156,6 +163,7 @@ def get_job_instances_of_workflow_run():
     jis = ScopedSession.query(JobInstance).filter_by(
         workflow_run_id=request.args['workflow_run_id']).all()
     jis = [ji.to_wire() for ji in jis]
+    ScopedSession.commit()
     resp = jsonify(job_instances=jis)
     resp.status_code = HTTPStatus.OK
     return resp

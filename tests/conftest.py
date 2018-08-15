@@ -6,10 +6,14 @@ import pwd
 import shutil
 import uuid
 import socket
+import logging
 from datetime import datetime
 from time import sleep
 from sqlalchemy.exc import IntegrityError
 from cluster_utils.ephemerdb import create_ephemerdb
+
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='session', autouse=True)
@@ -49,20 +53,28 @@ def env_var(monkeypatch, ephemera_conn_str):
 @pytest.fixture(scope='function')
 def db_cfg():
 
+    logger.info("in db_cfg. env var conn_str is {}"
+                .format(os.environ['conn_str']))
     from jobmon.server import database_loaders
     from jobmon.server import database
+    logger.info("got thorugh imports")
     database_loaders.delete_job_db()
+    logger.info("got through db delete")
     database_loaders.create_job_db()
+    logger.info("got thorugh db create")
     try:
         with database.session_scope() as session:
             database_loaders.load_default_statuses(session)
             attribute_database_loaders.load_attribute_types(session)
+        logger.info("closed session_scope")
     except IntegrityError:
+        logger.info("got integrity error")
         pass
 
 
 @pytest.fixture(scope='session')
 def real_jsm_jqs():
+    logger.info("in real_jsm_jqs")
     import multiprocessing as mp
     from tests.run_services import run_jsm, run_jqs
 
@@ -149,6 +161,7 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
 
 @pytest.fixture(scope='function')
 def real_dag_id(real_jsm_jqs, db_cfg):
+    logger.info("in real_dag_id")
     import random
     from jobmon.client.the_client_config import get_the_client_config
     from jobmon.client.requester import Requester
@@ -200,6 +213,8 @@ def dag(db_cfg, no_requests_jsm_jqs, request):
     and JobInstanceReconcilers get cleaned up after each test"""
     dag = TaskDag(name=request.node.name, interrupt_on_error=False)
     yield dag
+    if dag.job_list_manager:
+        dag.job_list_manager.disconnect()
 
 
 @pytest.fixture(scope='function')

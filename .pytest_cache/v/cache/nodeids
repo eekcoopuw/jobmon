@@ -1,4 +1,9 @@
 [
-  "tests/test_job_attribute.py::test_job_attribute",
-  "tests/test_job_attribute.py::test_job_attribute_input_error"
+  "tests/test_job_state_manager.py::test_get_workflow_run_id",
+  "tests/test_job_state_manager.py::test_get_workflow_run_id_no_workflow",
+  "tests/test_job_state_manager.py::test_jsm_valid_done",
+  "tests/test_job_state_manager.py::test_jsm_valid_error",
+  "tests/test_job_state_manager.py::test_invalid_transition",
+  "tests/test_job_state_manager.py::test_jsm_log_usage",
+  "tests/test_job_state_manager.py::test_job_reset"
 ]
