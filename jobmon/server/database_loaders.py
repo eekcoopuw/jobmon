@@ -14,6 +14,9 @@ def create_job_db():
 
 def delete_job_db():
     """delete sqlite database from models schema"""
+    database.ScopedSession.commit()
+    database.Session.close_all()
+    database.engine.dispose()
     Base.metadata.drop_all(database.engine)
     return True
 

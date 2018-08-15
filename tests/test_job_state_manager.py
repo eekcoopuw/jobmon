@@ -130,7 +130,7 @@ def test_get_workflow_run_id_no_workflow(real_dag_id):
     assert not _get_workflow_run_id(job.job_id)
 
 
-def test_jsm_valid_done(real_jsm_jqs, real_dag_id):
+def test_jsm_valid_done(real_dag_id):
 
     req = Requester(get_the_client_config(), 'jsm')
     # add job
@@ -184,17 +184,8 @@ def test_jsm_valid_done(real_jsm_jqs, real_dag_id):
         request_type='post')
 
 
-def test_jsm_valid_error(no_requests_jsm_jqs, db_cfg):
+def test_jsm_valid_error(dag_id):
     req = Requester(get_the_client_config(), 'jsm')
-
-    # add dag
-    rc, response = req.send_request(
-        app_route='/add_task_dag',
-        message={'name': 'mock_dag', 'user': 'pytest_user',
-                 'dag_hash': 'dag_hash',
-                 'created_date': str(datetime.utcnow())},
-        request_type='post')
-    dag_id = response['dag_id']
 
     # add job
     _, response = req.send_request(
@@ -239,18 +230,9 @@ def test_jsm_valid_error(no_requests_jsm_jqs, db_cfg):
         request_type='post')
 
 
-def test_invalid_transition(no_requests_jsm_jqs, db_cfg):
+def test_invalid_transition(dag_id):
 
     req = Requester(get_the_client_config(), 'jsm')
-
-    # add dag
-    rc, response = req.send_request(
-        app_route='/add_task_dag',
-        message={'name': 'mocks', 'user': 'pytest_user',
-                 'dag_hash': 'dag_hash',
-                 'created_date': str(datetime.utcnow())},
-        request_type='post')
-    dag_id = response['dag_id']
 
     # add job
     _, response = req.send_request(

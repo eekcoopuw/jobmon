@@ -24,10 +24,11 @@ def ephemera_conn_str():
     os.environ['conn_str'] = conn_str
     yield conn_str
 
-    from jobmon.server import database
-    database.Session.close_all()
-    database.engine.dispose()
-    edb.stop()
+    # from jobmon.server import database
+    # database.Session.close_all()
+    # if database.engine:
+    #     database.engine.dispose()
+    # edb.stop()
 
 
 from jobmon.client.swarm.executors.sge import SGEExecutor

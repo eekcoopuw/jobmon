@@ -1,6 +1,7 @@
 import pytest
 import sys
 from time import sleep
+import logging
 
 from jobmon import sge
 from jobmon.models.job import Job
@@ -17,6 +18,8 @@ if sys.version_info < (3, 0):
     from functools32 import partial
 else:
     from functools import partial
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='function')
@@ -140,7 +143,6 @@ def test_reconciler_sge_timeout(job_list_manager_sge):
     # reconciliation daemon to kill the job.
     # The sleepy job tries to sleep for 60 seconds, but times out after 3
     # seconds (well, when the reconciler runs, typically every 10 seconds)
-
     # 60
     timeout_and_skip(10, 90, 1, partial(
         reconciler_sge_timeout_check,

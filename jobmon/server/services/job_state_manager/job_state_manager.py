@@ -215,24 +215,19 @@ def log_done():
 
 @jsm.route('/log_error', methods=['POST'])
 def log_error():
-    with open("/homes/cpinho/forked_jobmon/jsm.txt", "w") as f:
-        f.write("made it to JSM.log_error")
     data = request.get_json()
     logger.debug("Log ERROR for JI {}, message={}".format(
         data['job_instance_id'], data['error_message']))
-    with open("/homes/cpinho/forked_jobmon/jsm.txt", "a") as f:
-        f.write("Log ERROR for JI {}, message={}".format(
-                data['job_instance_id'], data['error_message']))
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.ERROR)
-    with open("/homes/cpinho/forked_jobmon/jsm.txt", "a") as f:
-        f.write("update_job_instance_state msg={}".format(msg))
+    ScopedSession.commit()
     error = JobInstanceErrorLog(
         job_instance_id=data['job_instance_id'],
         description=data['error_message'])
     ScopedSession.add(error)
     ScopedSession.commit()
+    logger.info("committed after log_error")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -248,6 +243,7 @@ def log_executor_id():
         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     _update_job_instance(ji, executor_id=data['executor_id'])
     ScopedSession.commit()
+    logger.info("committed after log_executor")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -261,6 +257,7 @@ def log_heartbeat():
     if dag:
         dag.heartbeat_date = datetime.utcnow()
     ScopedSession.commit()
+    logger.info("committed after log_heartbeat")
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
     return resp
@@ -276,6 +273,7 @@ def log_running():
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
     ScopedSession.commit()
+    logger.info("committed after log_running")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -284,10 +282,11 @@ def log_running():
 @jsm.route('/log_nodename', methods=['POST'])
 def log_nodename():
     data = request.get_json()
-    logger.debug("Log USAGE for JI {}".format(data['job_instance_id']))
+    logger.debug("Log nodename for JI {}".format(data['job_instance_id']))
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
     msg = _update_job_instance(ji, nodename=data['nodename'])
     ScopedSession.commit()
+    logger.info("committed after log_nodename")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -305,6 +304,7 @@ def log_usage():
                                cpu=data.get('cpu', None),
                                io=data.get('io', None))
     ScopedSession.commit()
+    logger.info("committed after log_usage")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
