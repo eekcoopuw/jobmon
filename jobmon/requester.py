@@ -56,6 +56,7 @@ class Requester(object):
         self.poller = zmq.Poller()  # poll
         self.poller.register(self.socket, zmq.POLLIN)
 
+    @property
     def is_connected(self):
         return self.poller is not None
 
@@ -124,7 +125,7 @@ class Requester(object):
                 break
             self.socket.send_json(message)  # send message to server
             expect_reply = True
-            while expect_reply:
+            while expect_reply and self.is_connected:
                 # ask for response from server. wait until REQUEST_TIMEOUT
                 socks = dict(self.poller.poll(self.conn_cfg.request_timeout))
                 if socks.get(self.socket) == zmq.POLLIN:
