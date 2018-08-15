@@ -59,6 +59,7 @@ def get_submitted_or_running():
         options(contains_eager(JobInstance.job)).\
         filter_by(dag_id=request.args['dag_id']).all()
     ScopedSession.commit()
+    logger.info("committed after get_jobs")
     instances = [i.to_wire() for i in instances]
     resp = jsonify(ji_dcts=instances)
     resp.status_code = HTTPStatus.OK
@@ -77,6 +78,9 @@ def get_jobs():
     jobs = ScopedSession.query(Job).filter(
         Job.dag_id == request.args['dag_id']).all()
     ScopedSession.commit()
+    import inspect
+    logger.info("committed after get_jobs. {}"
+                .format(inspect.currentframe().f_back.f_locals['self']))
     job_dcts = [j.to_wire() for j in jobs]
     resp = jsonify(job_dcts=job_dcts)
     resp.status_code = HTTPStatus.OK

@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import jsonify, request, Blueprint
 from http import HTTPStatus
 
-from jobmon.models.job import Job
+from jobmon.models.job import Job, InvalidStateTransition
 from jobmon.models.job_status import JobStatus
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job_instance import JobInstance
@@ -121,8 +121,12 @@ def add_job_instance():
 
     # TODO: Would prefer putting this in the model, but can't find the
     # right post-create hook. Investigate.
-    job_instance.job.transition(JobStatus.INSTANTIATED)
-    ScopedSession.commit()
+    try:
+        job_instance.job.transition(JobStatus.INSTANTIATED)
+    except InvalidStateTransition:
+        raise
+    finally:
+        ScopedSession.commit()
     resp = jsonify(job_instance_id=ji_id)
     resp.status_code = HTTPStatus.OK
     return resp

@@ -324,7 +324,7 @@ def test_jsm_log_usage(dag_id):
         assert ji.io == '1'
         assert ji.nodename == socket.gethostname()
     req.send_request(
-        app_route='log_done',
+        app_route='/log_done',
         message={'job_instance_id': str(job_instance_id)},
         request_type='post')
 

@@ -27,7 +27,8 @@ def job_list_manager_dummy(dag_id):
     executor = DummyExecutor()
     jlm = JobListManager(dag_id, executor=executor,
                          start_daemons=False, interrupt_on_error=False)
-    return jlm
+    yield jlm
+    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -85,7 +86,7 @@ def reconciler_dummy_check(job_list_manager_dummy, job_id):
         return False
 
 
-def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
+def test_reconciler_sge(job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_sge.all_error = set()
 
@@ -106,7 +107,6 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
     assert len(job_list_manager_sge.all_error) == 0
 
     # Artificially advance job to DONE so it doesn't impact downstream tests
-    jsm, _ = jsm_jqs
     for job_instance in jir._get_presumed_submitted_or_running():
         req = jir.jsm_req
         try:
@@ -121,12 +121,12 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
         except Exception as e:
             print(e)
         req.send_request(
-            app_route='log_done',
+            app_route='/log_done',
             message={'job_instance_id': job_instance.job_instance_id},
             request_type='post')
 
 
-def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
+def test_reconciler_sge_timeout(job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_sge.all_error = set()
 
@@ -145,12 +145,11 @@ def test_reconciler_sge_timeout(jsm_jqs, dag_id, job_list_manager_sge):
     timeout_and_skip(10, 90, 1, partial(
         reconciler_sge_timeout_check,
         job_list_manager_sge=job_list_manager_sge,
-        jsm_jqs=jsm_jqs,
-        dag_id=dag_id,
+        dag_id=job_list_manager_sge.dag_id,
         job_id=job.job_id))
 
 
-def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
+def reconciler_sge_timeout_check(job_list_manager_sge, dag_id,
                                  job_id):
     job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_error) == 1:
@@ -159,7 +158,6 @@ def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
         req = Requester(get_the_client_config(), 'jqs')
 
         # The job should have been tried 3 times...
-        _, jqs = jsm_jqs
         _, response = req.send_request(
             app_route='/get_jobs',
             message={'dag_id': str(dag_id)},
@@ -172,7 +170,7 @@ def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
         return False
 
 
-def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
+def test_ignore_qw_in_timeouts(job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_sge.all_error = set()
 
@@ -193,12 +191,11 @@ def test_ignore_qw_in_timeouts(jsm_jqs, dag_id, job_list_manager_sge):
     timeout_and_skip(10, 90, 1, partial(
         ignore_qw_in_timeouts_check,
         job_list_manager_sge=job_list_manager_sge,
-        jsm_jqs=jsm_jqs,
-        dag_id=dag_id,
+        dag_id=job_list_manager_sge.dag_id,
         job_id=job.job_id))
 
 
-def ignore_qw_in_timeouts_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):
+def ignore_qw_in_timeouts_check(job_list_manager_sge, dag_id, job_id):
     job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_error) == 1:
         assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
@@ -206,7 +203,6 @@ def ignore_qw_in_timeouts_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):
         req = Requester(get_the_client_config(), 'jqs')
 
         # The job should have been tried 3 times...
-        _, jqs = jsm_jqs
         _, response = req.send_request(
             app_route='/get_jobs',
             message={'dag_id': str(dag_id)},
