@@ -19,8 +19,6 @@ class JobInstanceIntercom(object):
         self.executor_class = executor_class
         self.executor = executor_class()
         logger.debug("Instantiated JobInstanceIntercom")
-        with open("/homes/cpinho/forked_jobmon/jii.txt", "w") as f:
-            f.write("made it to JII")
 
     def log_done(self):
         rc, _ = self.requester.send_request(
@@ -30,21 +28,14 @@ class JobInstanceIntercom(object):
         return rc
 
     def log_error(self, error_message):
-        with open("/homes/cpinho/forked_jobmon/jii.txt", "a") as f:
-            f.write("made it to log_error")
         rc, response = self.requester.send_request(
             app_route='/log_error',
             message={'job_instance_id': str(self.job_instance_id),
                      'error_message': error_message},
             request_type='post')
-        with open("/homes/cpinho/forked_jobmon/jii.txt", "a") as f:
-            f.write("log_error rc is {} and response is {}"
-                    .format(rc, response))
         return rc
 
     def log_job_stats(self):
-        with open("/homes/cpinho/forked_jobmon/jii.txt", "a") as f:
-            f.write("made it to log_job_stats")
         try:
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
@@ -58,18 +49,12 @@ class JobInstanceIntercom(object):
         except NotImplementedError:
             logger.warning("Usage stats not available for {} "
                            "executors".format(self.executor_class))
-            with open("/homes/cpinho/forked_jobmon/jii.txt", "a") as f:
-                f.write("caught NotImplemented on log_job_stats")
 
     def log_running(self):
-        with open("/homes/cpinho/forked_jobmon/jii.txt", "a") as f:
-            f.write("made it to log_running")
         rc, _ = self.requester.send_request(
             app_route='/log_running',
             message={'job_instance_id': str(self.job_instance_id),
                      'nodename': socket.gethostname(),
                      'process_group_id': str(self.process_group_id)},
             request_type='post')
-        with open("/homes/cpinho/forked_jobmon/jii.txt", "a") as f:
-            f.write("log_job_stats rc is {}".format(rc))
         return rc

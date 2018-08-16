@@ -103,11 +103,9 @@ def test_get_workflow_run_id(real_dag_id):
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
     assert wf_run_id == _get_workflow_run_id(job.job_id)
-    logger.info("finsihed 1st test")
 
 
 def test_get_workflow_run_id_no_workflow(real_dag_id):
-    logger.info("in 2nd test")
     from jobmon.server.services.job_state_manager.job_state_manager import \
         _get_workflow_run_id
     req = Requester(get_the_client_config(), 'jsm')

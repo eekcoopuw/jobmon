@@ -77,8 +77,6 @@ def add_job():
 
 @jsm.route('/add_task_dag', methods=['POST'])
 def add_task_dag():
-    with open("/homes/cpinho/forked_jobmon/jsm.txt", 'w') as f:
-        f.write("scopedsession conn_str {}".format(ScopedSession.bind))
     data = request.get_json(force=True)
     dag = TaskDagMeta(
         name=data['name'],
@@ -227,7 +225,6 @@ def log_error():
         description=data['error_message'])
     ScopedSession.add(error)
     ScopedSession.commit()
-    logger.info("committed after log_error")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -243,7 +240,6 @@ def log_executor_id():
         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     _update_job_instance(ji, executor_id=data['executor_id'])
     ScopedSession.commit()
-    logger.info("committed after log_executor")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -257,7 +253,6 @@ def log_heartbeat():
     if dag:
         dag.heartbeat_date = datetime.utcnow()
     ScopedSession.commit()
-    logger.info("committed after log_heartbeat")
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
     return resp
@@ -273,7 +268,6 @@ def log_running():
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
     ScopedSession.commit()
-    logger.info("committed after log_running")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -286,7 +280,6 @@ def log_nodename():
     ji = _get_job_instance(ScopedSession, data['job_instance_id'])
     msg = _update_job_instance(ji, nodename=data['nodename'])
     ScopedSession.commit()
-    logger.info("committed after log_nodename")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -304,7 +297,6 @@ def log_usage():
                                cpu=data.get('cpu', None),
                                io=data.get('io', None))
     ScopedSession.commit()
-    logger.info("committed after log_usage")
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK
     return resp
@@ -312,15 +304,11 @@ def log_usage():
 
 @jsm.route('/queue_job', methods=['POST'])
 def queue_job():
-    with open("/homes/cpinho/forked_jobmon/jsm.txt", 'w') as f:
-        f.write("scopedsession conn_str {}".format(ScopedSession.bind))
     data = request.get_json()
     logger.debug("Queue Job {}".format(data['job_id']))
     job = ScopedSession.query(Job)\
         .filter_by(job_id=data['job_id']).first()
     job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
-    with open("/homes/cpinho/forked_jobmon/jsm.txt", 'a') as f:
-        f.write("after queue_job, job is {}".format(job))
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK

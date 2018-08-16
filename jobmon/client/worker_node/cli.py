@@ -97,9 +97,6 @@ def unwrap():
         # communicate till done
         stdout, stderr = proc.communicate()
         returncode = proc.returncode
-        with open("/homes/cpinho/forked_jobmon/exec_cli.txt", "w") as f:
-            f.write("after Popen, rc is {}, stdout is {}, stderr is {}"
-                    .format(returncode, stdout, stderr))
 
     except Exception as exc:
         stdout = ""
@@ -113,11 +110,7 @@ def unwrap():
     # check return code
     if returncode != ReturnCodes.OK:
         ji_intercom.log_job_stats()
-        with open("/homes/cpinho/forked_jobmon/exec_cli.txt", "a") as f:
-            f.write("after log_job_stats")
         ji_intercom.log_error(str(stderr))
-        with open("/homes/cpinho/forked_jobmon/exec_cli.txt", "a") as f:
-            f.write("after log_error")
     else:
         ji_intercom.log_job_stats()
         ji_intercom.log_done()
