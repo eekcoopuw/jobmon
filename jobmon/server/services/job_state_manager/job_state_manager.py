@@ -203,9 +203,9 @@ def log_error(job_instance_id):
         job_instance_id, data['error_message']))
     ji = _get_job_instance(ScopedSession, job_instance_id)
     msg = _update_job_instance_state(
-        ji, models.JobInstanceStatus.ERROR)
+        ji, JobInstanceStatus.ERROR)
     ScopedSession.commit()
-    error = models.JobInstanceErrorLog(
+    error = JobInstanceErrorLog(
         job_instance_id=job_instance_id,
         description=data['error_message'])
     ScopedSession.add(error)
@@ -231,7 +231,7 @@ def log_executor_id(job_instance_id):
 
 @jsm.route('/task_dag/<dag_id>/log_heartbeat', methods=['POST'])
 def log_heartbeat(dag_id):
-    dag = ScopedSession.query(task_dag.TaskDagMeta).filter_by(
+    dag = ScopedSession.query(TaskDagMeta).filter_by(
         dag_id=dag_id).first()
     if dag:
         dag.heartbeat_date = datetime.utcnow()
@@ -246,7 +246,7 @@ def log_running(job_instance_id):
     data = request.get_json()
     logger.debug("Log RUNNING for JI {}".format(job_instance_id))
     ji = _get_job_instance(ScopedSession, job_instance_id)
-    msg = _update_job_instance_state(ji, models.JobInstanceStatus.RUNNING)
+    msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
     ScopedSession.commit()
@@ -287,9 +287,9 @@ def log_usage(job_instance_id):
 @jsm.route('/job/<job_id>/queue', methods=['POST'])
 def queue_job(job_id):
     logger.debug("Queue Job {}".format(job_id))
-    job = ScopedSession.query(models.Job)\
+    job = ScopedSession.query(Job)\
         .filter_by(job_id=job_id).first()
-    job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
+    job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
@@ -298,8 +298,7 @@ def queue_job(job_id):
 
 @jsm.route('/job/<job_id>/reset', methods=['POST'])
 def reset_job(job_id):
-    job = ScopedSession.query(models.Job)\
-        .filter_by(job_id=job_id).first()
+    job = ScopedSession.query(Job).filter_by(job_id=job_id).first()
     job.reset()
     ScopedSession.commit()
     resp = jsonify()
@@ -334,17 +333,17 @@ def reset_incomplete_jobs(dag_id):
     ScopedSession.execute(
         up_job,
         {"dag_id": dag_id,
-         "registered_status": models.JobStatus.REGISTERED,
-         "done_status": models.JobStatus.DONE})
+         "registered_status": JobStatus.REGISTERED,
+         "done_status": JobStatus.DONE})
     ScopedSession.execute(
         up_job_instance,
         {"dag_id": dag_id,
-         "error_status": models.JobInstanceStatus.ERROR,
-         "done_status": models.JobStatus.DONE})
+         "error_status": JobInstanceStatus.ERROR,
+         "done_status": JobStatus.DONE})
     ScopedSession.execute(
         log_errors,
         {"dag_id": dag_id,
-         "done_status": models.JobStatus.DONE})
+         "done_status": JobStatus.DONE})
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
