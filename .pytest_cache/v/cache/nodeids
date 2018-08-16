@@ -1,14 +1,5 @@
 [
-  "tests/test_job_state_manager.py::test_get_workflow_run_id",
-  "tests/test_job_state_manager.py::test_get_workflow_run_id_no_workflow",
-  "tests/test_job_state_manager.py::test_jsm_valid_done",
-  "tests/test_job_state_manager.py::test_jsm_valid_error",
-  "tests/test_job_state_manager.py::test_invalid_transition",
-  "tests/test_job_state_manager.py::test_jsm_log_usage",
-  "tests/test_job_state_manager.py::test_job_reset",
-  "tests/test_notifiers.py::test_raises_correctly",
-  "tests/test_reconciliation.py::test_reconciler_dummy",
-  "tests/test_reconciliation.py::test_reconciler_sge",
-  "tests/test_reconciliation.py::test_reconciler_sge_timeout",
-  "tests/test_reconciliation.py::test_ignore_qw_in_timeouts"
+  "tests/test_workflow_attribute.py::test_workflow_attribute",
+  "tests/test_workflow_attribute.py::test_workflow_attribute_input_error",
+  "tests/test_workflow_attribute.py::test_workflow_attribute_tag"
 ]

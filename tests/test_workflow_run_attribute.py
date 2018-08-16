@@ -5,14 +5,14 @@ from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.attributes.constants import workflow_run_attribute
 
 
-def test_workflow_run_attribute(dag):
-    from jobmon.database import ScopedSession
+def test_workflow_run_attribute(real_jsm_jqs, db_cfg):
+    from jobmon.server.database import ScopedSession
     # create a workflow_run
-    t1 = BashTask("sleep 1")
-    dag.add_tasks([t1])
-
     wfa = "test_workflow_run_attribute"
-    workflow = Workflow(dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
+
     workflow._bind()
     workflow._create_workflow_run()
     workflow_run = workflow.workflow_run
@@ -45,13 +45,13 @@ def test_workflow_run_attribute(dag):
     assert entry_value == "1000"
 
 
-def test_workflow_run_attribute_input_error(dag):
+def test_workflow_run_attribute_input_error(real_jsm_jqs, db_cfg):
     # create a workflow_run
-    t1 = BashTask("sleep 1")
-    dag.add_tasks([t1])
-
     wfa = "test_workflow_run_attribute_input_error"
-    workflow = Workflow(dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
+
     workflow._bind()
     workflow._create_workflow_run()
     workflow_run = workflow.workflow_run

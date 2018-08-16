@@ -50,7 +50,7 @@ def test_context_args(real_jsm_jqs, job_list_manager_sge):
 
 
 def context_args_check(job_id):
-    from jobmon.database import ScopedSession
+    from jobmon.server.database import ScopedSession
     jis = ScopedSession.query(JobInstance).filter_by(job_id=job_id).all()
     njis = len(jis)
     status = jis[0].status

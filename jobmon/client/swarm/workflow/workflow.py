@@ -142,13 +142,13 @@ class Workflow(object):
     def set_executor(self, executor_class):
         self.executor_class = executor_class
         if self.executor_class == 'SGEExecutor':
-            from jobmon.executors.sge import SGEExecutor
+            from jobmon.client.swarm.executors.sge import SGEExecutor
             self.executor = SGEExecutor(**self.executor_args)
         elif self.executor_class == "SequentialExecutor":
-            from jobmon.executors.sequential import SequentialExecutor
+            from jobmon.client.swarm.executors.sequential import SequentialExecutor
             self.executor = SequentialExecutor()
         elif self.executor_class == "DummyExecutor":
-            from jobmon.executors.dummy import DummyExecutor
+            from jobmon.client.swarm.executors.dummy import DummyExecutor
             self.executor = DummyExecutor()
         else:
             raise ValueError("{} is not a valid "
