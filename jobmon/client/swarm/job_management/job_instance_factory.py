@@ -7,6 +7,7 @@ from time import sleep
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.requester import Requester
 
@@ -101,8 +102,8 @@ class JobInstanceFactory(object):
     def _get_jobs_queued_for_instantiation(self):
         try:
             rc, response = self.jqs_req.send_request(
-                app_route='/get_queued',
-                message={'dag_id': str(self.dag_id)},
+                app_route='/dag/{}/job'.format(self.dag_id),
+                message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
                 request_type='get')
             jobs = [Job.from_wire(j) for j in response['job_dcts']]
         except TypeError:
@@ -112,7 +113,7 @@ class JobInstanceFactory(object):
 
     def _register_job_instance(self, job, executor_type):
         rc, response = self.jsm_req.send_request(
-            app_route='/add_job_instance',
+            app_route='/job_instance',
             message={'job_id': str(job.job_id),
                      'executor_type': executor_type},
             request_type='post')
@@ -122,7 +123,7 @@ class JobInstanceFactory(object):
     def _register_submission_to_batch_executor(self, job_instance_id,
                                                executor_id):
         self.jsm_req.send_request(
-            app_route='/log_executor_id',
-            message={'job_instance_id': str(job_instance_id),
-                     'executor_id': str(executor_id)},
-            request_type='post')
+            app_route=('/job_instance/{}/log_executor_id'
+                       .format(job_instance_id)),
+            message={'executor_id': str(executor_id)},
+            request_type='put')

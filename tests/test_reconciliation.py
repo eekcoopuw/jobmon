@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_dummy(dag_id):
+def job_list_manager_dummy(real_dag_id):
     # We don't want this queueing jobs in conflict with the SGE daemons...
     # but we do need it to subscribe to status updates for reconciliation
     # tests. Start this thread manually.
     executor = DummyExecutor()
-    jlm = JobListManager(dag_id, executor=executor,
+    jlm = JobListManager(real_dag_id, executor=executor,
                          start_daemons=False, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
@@ -45,9 +45,9 @@ def job_list_manager_sge(real_dag_id):
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_dummy_nod(dag_id):
+def job_list_manager_dummy_nod(real_dag_id):
     executor = DummyExecutor()
-    jlm = JobListManager(dag_id, executor=executor,
+    jlm = JobListManager(real_dag_id, executor=executor,
                          start_daemons=False, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
@@ -116,16 +116,18 @@ def test_reconciler_sge(job_list_manager_sge):
             # In case the job never actually got out of qw due to a busy
             # cluster
             req.send_request(
-                app_route='/log_running',
-                message={'job_instance_id': job_instance.job_instance_id,
+                app_route=('/job_instance/{}/log_running'
+                           .format(job_instance.job_instance_id)),
+                message={'job_instance_id': str(job_instance.job_instance_id),
                          'nodename': "not_a_node",
                          'process_group_id': str(1234)},
                 request_type='post')
         except Exception as e:
             print(e)
         req.send_request(
-            app_route='/log_done',
-            message={'job_instance_id': job_instance.job_instance_id},
+            app_route=('/job_instance/{}/log_done'
+                       .format(job_instance.job_instance_id)),
+            message={'job_instance_id': str(job_instance.job_instance_id)},
             request_type='post')
 
 
@@ -144,7 +146,7 @@ def test_reconciler_sge_timeout(job_list_manager_sge):
     # The sleepy job tries to sleep for 60 seconds, but times out after 3
     # seconds (well, when the reconciler runs, typically every 10 seconds)
     # 60
-    timeout_and_skip(10, 90, 1, partial(
+    timeout_and_skip(20, 100, 1, partial(
         reconciler_sge_timeout_check,
         job_list_manager_sge=job_list_manager_sge,
         dag_id=job_list_manager_sge.dag_id,
@@ -161,8 +163,8 @@ def reconciler_sge_timeout_check(job_list_manager_sge, dag_id,
 
         # The job should have been tried 3 times...
         _, response = req.send_request(
-            app_route='/get_jobs',
-            message={'dag_id': str(dag_id)},
+            app_route='/dag/{}/job'.format(dag_id),
+            message={},
             request_type='get')
         jobs = [Job.from_wire(j) for j in response['job_dcts']]
         this_job = [j for j in jobs if j.job_id == job_id][0]
@@ -206,8 +208,8 @@ def ignore_qw_in_timeouts_check(job_list_manager_sge, dag_id, job_id):
 
         # The job should have been tried 3 times...
         _, response = req.send_request(
-            app_route='/get_jobs',
-            message={'dag_id': str(dag_id)},
+            app_route='/dag/{}/job'.format(dag_id),
+            message={},
             request_type='get')
         jobs = [Job.from_wire(j) for j in response['job_dcts']]
         this_job = [j for j in jobs if j.job_id == job_id][0]

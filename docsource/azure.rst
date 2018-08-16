@@ -181,7 +181,6 @@ https://docs.microsoft.com/en-us/azure/role-based-access-control/built-in-roles
 You can use the portal to look at various objects. For example, navigate to ``Active Directory->App Registrations``
 to see  application registrations.
 
-
 For **Step 4 "Run Application"** I had to follow the advice given in "allow access via a Kubernetes secret," i.e.
 https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-aks
 
@@ -198,7 +197,8 @@ I think the application creation was a side-effect of the scope that was used.
 Be warned that names are not consistent in Azure,
 an object that is an application in one command can be a client in another command.
 
-This is the output from their script, which I saved locally as one.sh. I modified the script to also print out the found client-id and acr-id::
+This is the output from their script, which I saved locally as one.sh.
+I modified the script to also print out the found client-id and acr-id::
 
     gphipps@D-10-19-204-251.dhcp4.washington.edu /Users/gphipps/hack/aks/mine: ./one.sh
     client-id ce3d4cfa-1d4e-42bd-b3ac-89ffedab744a
@@ -249,7 +249,7 @@ Adding an application automatically creates one service principal.
 Other Gotchas
 ~~~~~~~~~~~~~
 
-If ``az aks list`` causes  a traceback on a mac that refers to ``_cffi_backend`` then you need to follow instructions
+If ``az aks list`` causes a traceback on a mac that refers to ``_cffi_backend`` then you need to follow instructions
 on
 
 https://github.com/Azure/azure-cli/issues/5034
@@ -283,4 +283,156 @@ Removing an image from a registry:
 Deploying the Entire Jobmon Ecosystem on AKS
 --------------------------------------------
 
-To be done, a placeholder.
+This is an unscaled deployment of jobmon, i.e. with one deployment of each service.
+In actual production we will scale to two (perhaps three) copies
+of each service behind a load balancer so that we can do hot deploys.
+
+The instructions are a merge of the instructions in k8s/readme.md (not yet merged into the master branch)
+
+Log in to the cluster you created on AKS, in my case:
+
+``az acr login --name mySecondRegistry``
+
+Build the docker image for jobmon:
+
+``cp jobmonrc-docker jobmonrc-docker-wsecrets
+docker build -t jobmon .``
+
+Now tag that image for your AKS repository.
+``export ALS=$(az acr list --resource-group myResourceGroup --query "[].{acrLoginServer:loginServer}" --output tsv)``
+
+and
+
+``docker tag jobmon $ALS/jobmon``
+
+In my case ALS is ``mysecondregistry.azurecr.io``
+
+Now push (upload) the image to the AKS registry:
+
+``docker push $ALS/jobmon``
+
+We also need an image for mysql. AKS does not appear to be able to reach out and donwload a copy, so download one here,
+tag it for AKS:
+
+``docker pull mysql:5.6
+docker tag mysql:5.6  $ALS/mysql:5.6
+docker push $ALS/mysql:5.6``
+
+Now update the kubernetes deployment yaml files to refer to images in the correct registries. The ``image`` tag needs
+to be prepended by the registry name, e.g.::
+
+  image: mysql:5.6
+  image: jobmon
+
+becomes::
+
+  image: mysecondregistry.azurecr.io/mysql:5.6
+  image: mysecondregistry.azurecr.io/jobmon
+
+respectively.
+
+Now start the jobmon cluster:
+
+``kubectl apply -f k8s/
+kubectl get services``
+
+For example::
+
+    gphipps@D-10-19-204-251.dhcp4.washington.edu /Users/gphipps/hack/jobmon: kubectl get services
+    NAME         TYPE           CLUSTER-IP     EXTERNAL-IP      PORT(S)                         AGE
+    db           LoadBalancer   10.0.139.157   40.117.117.128   3312:31873/TCP                  18h
+    jqs          LoadBalancer   10.0.75.86     40.117.112.109   5058:30869/TCP                  18h
+    jsm          LoadBalancer   10.0.84.33     40.117.131.241   5056:32575/TCP,5057:31183/TCP   18h
+    kubernetes   ClusterIP      10.0.0.1       <none>           443/TCP                         6d
+
+If you need to debug then use kubectl to get logs. You need to know the pod names:
+
+``kubectl get pods``
+
+For example::
+
+    bash: kubectl get pods
+    NAME                       READY     STATUS      RESTARTS   AGE
+    db-7b5b79768f-vs4cl        1/1       Running     0          1d
+    initdb-5g4vk               0/1       Completed   0          1d
+    jqs-6fc9bd58d5-hx6x5       1/1       Running     0          1d
+    jsm-7cc69bfd97-lmthq       1/1       Running     0          1d
+    monitor-7f97f697dc-gwkt9   1/1       Running     0          1d
+
+
+And then
+
+``kubectl logs jqs-6fc9bd58d5-hx6x5``
+
+Shows the problem::
+
+    bash: kubectl logs jqs-6fc9bd58d5-hx6x5
+    ERROR 2003 (HY000): Can't connect to MySQL server on 'db' (110 "Connection timed out")
+     tables. DB is unavailable - sleeping
+    ERROR 2003 (HY000): Can't connect to MySQL server on 'db' (110 "Connection timed out")
+     tables. DB is unavailable - sleeping
+    ERROR 2003 (HY000): Can't connect to MySQL server on 'db' (110 "Connection timed out")
+     tables. DB is unavailable - sleeping
+    ERROR 2003 (HY000): Can't connect to MySQL server on 'db' (110 "Connection timed out")
+     tables. DB is unavailable - sleeping
+    ERROR 2003 (HY000): Can't connect to MySQL server on 'db' (110 "Connection timed out")
+     tables. DB is unavailable - sleeping
+    ERROR 2003 (HY000): Can't connect to MySQL server on 'db' (110 "Connection timed out")
+     tables. DB is unavailable - sleeping
+    ERROR 2003 (HY000): Can't connect to MySQL server on 'db' (110 "Connection timed out")
+     tables. DB is unavailable - sleeping
+
+Scaling
+-------
+
+To be written. I tried it with hello world and it worked. The challenge with jobmon will be how to have one database
+and multiple copies of jqs and jms. The services can all scale independently because they refer to each other by the
+address of their front-ing load balancer, not by the IP addresses of the individual deployments.
+
+Referring to the AKS tutorial here:
+
+https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-scale
+
+``az aks scale --resource-group=myResourceGroup --name=myFourthCluster --node-count 3``
+
+As above, check the number of pods:
+``kubectl get pods``
+
+Output::
+
+    bash: kubectl get pods
+    NAME                       READY     STATUS      RESTARTS   AGE
+    db-7b5b79768f-vs4cl        1/1       Running     0          1d
+    initdb-5g4vk               0/1       Completed   0          1d
+    jqs-6fc9bd58d5-hx6x5       1/1       Running     0          1d
+    jsm-7cc69bfd97-lmthq       1/1       Running     0          1d
+    monitor-7f97f697dc-gwkt9   1/1       Running     0          1d
+
+Now scale just JQS:
+
+``kubectl scale --replicas=3 deployment/jqs``
+
+And checking with ``kubectl get pods``::
+
+    bash: kubectl get pods
+    NAME                       READY     STATUS              RESTARTS   AGE
+    db-7b5b79768f-vs4cl        1/1       Running             0          1d
+    initdb-5g4vk               0/1       Completed           0          1d
+    jqs-6fc9bd58d5-5fp52       0/1       ContainerCreating   0          7s
+    jqs-6fc9bd58d5-dpmw2       0/1       ContainerCreating   0          7s
+    jqs-6fc9bd58d5-hx6x5       1/1       Running             0          1d
+    jsm-7cc69bfd97-lmthq       1/1       Running             0          1d
+    monitor-7f97f697dc-gwkt9   1/1       Running             0          1d
+
+
+Hot Deployments
+---------------
+
+This should just work, see:
+
+https://kubernetes.io/docs/concepts/workloads/controllers/deployment/#updating-a-deployment
+
+Monitoring
+----------
+
+To be written.

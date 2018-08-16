@@ -112,7 +112,7 @@ class WorkflowRun(object):
         self.working_dir = working_dir
         self.kill_previous_workflow_runs(reset_running_jobs)
         rc, response = self.jsm_req.send_request(
-            app_route='/add_workflow_run',
+            app_route='/workflow_run',
             message={'workflow_id': workflow_id,
                      'user': getpass.getuser(),
                      'hostname': socket.gethostname(),
@@ -131,11 +131,11 @@ class WorkflowRun(object):
     def check_if_workflow_is_running(self):
         rc, response = \
             self.jqs_req.send_request(
-                app_route='/is_workflow_running',
-                message={'workflow_id': str(self.workflow_id)},
+                app_route='/workflow/{}/workflow_run'.format(self.workflow_id),
+                message={},
                 request_type='get')
         if rc != HTTPStatus.OK:
-            raise ValueError("Invalid Reponse to is_workflow_running")
+            raise ValueError("Invalid Response to is_workflow_running")
         return response['is_running'], response['workflow_run_dct']
 
     def kill_previous_workflow_runs(self, reset_running_jobs):
@@ -162,10 +162,10 @@ class WorkflowRun(object):
                    .format(wf_run.id, wf_run.user))
             logger.error(msg)
             _, _ = self.jsm_req.send_request(
-                app_route='/update_workflow_run',
-                message={'workflow_run_id': wf_run.id,
+                app_route='/workflow_run',
+                message={'wfr_id': wf_run.id,
                          'status': WorkflowRunStatus.STOPPED},
-                request_type='post')
+                request_type='put')
             raise RuntimeError(msg)
         else:
             kill_remote_process(wf_run.hostname, wf_run.pid)
@@ -182,19 +182,21 @@ class WorkflowRun(object):
                 else:
                     raise ValueError("{} is not supported by this version of "
                                      "jobmon".format(wf_run.executor_class))
+                # get job instances of workflow run
                 _, response = self.jqs_req.send_request(
-                    app_route='/get_job_instances_of_workflow_run',
-                    message={'workflow_run_id': wf_run.id},
+                    app_route=('/workflow_run/<workflow_run_id>/job_instance'
+                               .format(wf_run.id)),
+                    message={},
                     request_type='get')
                 job_instances = [JobInstance.from_wire(ji)
                                  for ji in response['job_instances']]
                 if job_instances:
                     previous_executor.terminate_job_instances(job_instances)
             _, _ = self.jsm_req.send_request(
-                app_route='/update_workflow_run',
+                app_route='/workflow_run',
                 message={'workflow_run_id': wf_run.id,
                          'status': WorkflowRunStatus.STOPPED},
-                request_type='post')
+                request_type='put')
 
     def update_done(self):
         self._update_status(WorkflowRunStatus.DONE)
@@ -207,9 +209,10 @@ class WorkflowRun(object):
 
     def _update_status(self, status):
         rc, _ = self.jsm_req.send_request(
-            app_route='/update_workflow_run',
-            message={'wfr_id': self.id, 'status': status},
-            request_type='post')
+            app_route='/workflow_run',
+            message={'wfr_id': self.id, 'status': status,
+                     'status_date': str(datetime.utcnow())},
+            request_type='put')
 
     def add_workflow_run_attribute(self, attribute_type, value):
         """
@@ -239,7 +242,7 @@ class WorkflowRun(object):
                                      type(value).__name__))
         else:
             rc, workflow_run_attribute_id = self.jsm_req.send_request(
-                app_route='/add_workflow_run_attribute',
+                app_route='/workflow_run_attribute',
                 message={'workflow_run_id': str(self.id),
                          'attribute_type': str(attribute_type),
                          'value': str(value)},

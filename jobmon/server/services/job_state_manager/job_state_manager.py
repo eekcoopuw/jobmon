@@ -52,7 +52,7 @@ def _is_alive():
     return resp
 
 
-@jsm.route('/add_job', methods=['POST'])
+@jsm.route('/job', methods=['POST'])
 def add_job():
     data = request.get_json()
     job = Job(
@@ -75,7 +75,7 @@ def add_job():
     return resp
 
 
-@jsm.route('/add_task_dag', methods=['POST'])
+@jsm.route('/task_dag', methods=['POST'])
 def add_task_dag():
     data = request.get_json(force=True)
     dag = TaskDagMeta(
@@ -104,7 +104,7 @@ def _get_workflow_run_id(job_id):
     return wf_run_id
 
 
-@jsm.route('/add_job_instance', methods=['POST'])
+@jsm.route('/job_instance', methods=['POST'])
 def add_job_instance():
     data = request.get_json()
     logger.debug("Add JI for job {}".format(data['job_id']))
@@ -130,16 +130,23 @@ def add_job_instance():
     return resp
 
 
-@jsm.route('/add_workflow', methods=['POST'])
-def add_workflow():
+@jsm.route('/workflow', methods=['POST', 'PUT'])
+def add_update_workflow():
     data = request.get_json()
-    wf = WorkflowDAO(dag_id=data['dag_id'],
-                     workflow_args=data['workflow_args'],
-                     workflow_hash=data['workflow_hash'],
-                     name=data['name'],
-                     user=data['user'],
-                     description=data.get('description', ""))
-    ScopedSession.add(wf)
+    if request.method == 'POST':
+        wf = WorkflowDAO(dag_id=data['dag_id'],
+                         workflow_args=data['workflow_args'],
+                         workflow_hash=data['workflow_hash'],
+                         name=data['name'],
+                         user=data['user'],
+                         description=data.get('description', ""))
+        ScopedSession.add(wf)
+    else:
+        wf_id = data.pop('wf_id')
+        wf = ScopedSession.query(WorkflowDAO).\
+            filter(WorkflowDAO.id == wf_id).first()
+        for key, val in data.items():
+            setattr(wf, key, val)
     ScopedSession.commit()
     wf_dct = wf.to_wire()
     resp = jsonify(workflow_dct=wf_dct)
@@ -147,23 +154,29 @@ def add_workflow():
     return resp
 
 
-@jsm.route('/add_workflow_run', methods=['POST'])
-def add_workflow_run():
+@jsm.route('/workflow_run', methods=['POST', 'PUT'])
+def add_update_workflow_run():
     data = request.get_json()
-    wfr = WorkflowRunDAO(workflow_id=data['workflow_id'],
-                         user=data['user'],
-                         hostname=data['hostname'],
-                         pid=data['pid'],
-                         stderr=data['stderr'],
-                         stdout=data['stdout'],
-                         project=data['project'],
-                         slack_channel=data['slack_channel'])
-    workflow = ScopedSession.query(WorkflowDAO).\
-        filter(WorkflowDAO.id == data['workflow_id']).first()
-    # Set all previous runs to STOPPED
-    for run in workflow.workflow_runs:
-        run.status = WorkflowRunStatus.STOPPED
-    ScopedSession.add(wfr)
+    if request.method == 'POST':
+        wfr = WorkflowRunDAO(workflow_id=data['workflow_id'],
+                             user=data['user'],
+                             hostname=data['hostname'],
+                             pid=data['pid'],
+                             stderr=data['stderr'],
+                             stdout=data['stdout'],
+                             project=data['project'],
+                             slack_channel=data['slack_channel'])
+        workflow = ScopedSession.query(WorkflowDAO).\
+            filter(WorkflowDAO.id == data['workflow_id']).first()
+        # Set all previous runs to STOPPED
+        for run in workflow.workflow_runs:
+            run.status = WorkflowRunStatus.STOPPED
+        ScopedSession.add(wfr)
+    else:
+        wfr = ScopedSession.query(WorkflowRunDAO).\
+            filter(WorkflowRunDAO.id == data['wfr_id']).first()
+        for key, val in data.items():
+            setattr(wfr, key, val)
     ScopedSession.commit()
     wfr_id = wfr.id
     resp = jsonify(workflow_run_id=wfr_id)
@@ -171,38 +184,10 @@ def add_workflow_run():
     return resp
 
 
-@jsm.route('/update_workflow', methods=['POST'])
-def update_workflow():
-    data = request.get_json()
-    wf = ScopedSession.query(WorkflowDAO).\
-        filter(WorkflowDAO.id == data['wf_id']).first()
-    wf.status = data['status']
-    wf.status_date = datetime.utcnow()
-    ScopedSession.commit()
-    wf_dct = wf.to_wire()
-    resp = jsonify(workflow_dct=wf_dct)
-    resp.status_code = HTTPStatus.OK
-    return resp
-
-
-@jsm.route('/update_workflow_run', methods=['POST'])
-def update_workflow_run():
-    data = request.get_json()
-    wfr = ScopedSession.query(WorkflowRunDAO).\
-        filter(WorkflowRunDAO.id == data['wfr_id']).first()
-    wfr.status = data['status']
-    wfr.status_date = datetime.utcnow()
-    ScopedSession.commit()
-    resp = jsonify(status=data['status'])
-    resp.status_code = HTTPStatus.OK
-    return resp
-
-
-@jsm.route('/log_done', methods=['POST'])
-def log_done():
-    data = request.get_json()
-    logger.debug("Log DONE for JI {}".format(data['job_instance_id']))
-    ji = _get_job_instance(ScopedSession, data['job_instance_id'])
+@jsm.route('/job_instance/<job_instance_id>/log_done', methods=['POST'])
+def log_done(job_instance_id):
+    logger.debug("Log DONE for JI {}".format(job_instance_id))
+    ji = _get_job_instance(ScopedSession, job_instance_id)
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
     ScopedSession.commit()
@@ -211,17 +196,17 @@ def log_done():
     return resp
 
 
-@jsm.route('/log_error', methods=['POST'])
-def log_error():
+@jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
+def log_error(job_instance_id):
     data = request.get_json()
     logger.debug("Log ERROR for JI {}, message={}".format(
-        data['job_instance_id'], data['error_message']))
-    ji = _get_job_instance(ScopedSession, data['job_instance_id'])
+        job_instance_id, data['error_message']))
+    ji = _get_job_instance(ScopedSession, job_instance_id)
     msg = _update_job_instance_state(
-        ji, JobInstanceStatus.ERROR)
+        ji, models.JobInstanceStatus.ERROR)
     ScopedSession.commit()
-    error = JobInstanceErrorLog(
-        job_instance_id=data['job_instance_id'],
+    error = models.JobInstanceErrorLog(
+        job_instance_id=job_instance_id,
         description=data['error_message'])
     ScopedSession.add(error)
     ScopedSession.commit()
@@ -230,12 +215,11 @@ def log_error():
     return resp
 
 
-@jsm.route('/log_executor_id', methods=['POST'])
-def log_executor_id():
+@jsm.route('/job_instance/<job_instance_id>/log_executor_id', methods=['POST'])
+def log_executor_id(job_instance_id):
     data = request.get_json()
-    logger.debug("Log EXECUTOR_ID for JI {}"
-                 .format(data['job_instance_id']))
-    ji = _get_job_instance(ScopedSession, data['job_instance_id'])
+    logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
+    ji = _get_job_instance(ScopedSession, job_instance_id)
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     _update_job_instance(ji, executor_id=data['executor_id'])
@@ -245,11 +229,10 @@ def log_executor_id():
     return resp
 
 
-@jsm.route('/log_heartbeat', methods=['POST'])
-def log_heartbeat():
-    data = request.get_json()
-    dag = ScopedSession.query(TaskDagMeta).filter_by(
-        dag_id=data['dag_id']).first()
+@jsm.route('/task_dag/<dag_id>/log_heartbeat', methods=['POST'])
+def log_heartbeat(dag_id):
+    dag = ScopedSession.query(task_dag.TaskDagMeta).filter_by(
+        dag_id=dag_id).first()
     if dag:
         dag.heartbeat_date = datetime.utcnow()
     ScopedSession.commit()
@@ -258,13 +241,12 @@ def log_heartbeat():
     return resp
 
 
-@jsm.route('/log_running', methods=['POST'])
-def log_running():
+@jsm.route('/job_instance/<job_instance_id>/log_running', methods=['POST'])
+def log_running(job_instance_id):
     data = request.get_json()
-    logger.debug("Log RUNNING for JI {}"
-                 .format(data['job_instance_id']))
-    ji = _get_job_instance(ScopedSession, data['job_instance_id'])
-    msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
+    logger.debug("Log RUNNING for JI {}".format(job_instance_id))
+    ji = _get_job_instance(ScopedSession, job_instance_id)
+    msg = _update_job_instance_state(ji, models.JobInstanceStatus.RUNNING)
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
     ScopedSession.commit()
@@ -273,11 +255,11 @@ def log_running():
     return resp
 
 
-@jsm.route('/log_nodename', methods=['POST'])
-def log_nodename():
+@jsm.route('/job_instance/<job_instance_id>/log_nodename', methods=['POST'])
+def log_nodename(job_instance_id):
     data = request.get_json()
-    logger.debug("Log nodename for JI {}".format(data['job_instance_id']))
-    ji = _get_job_instance(ScopedSession, data['job_instance_id'])
+    logger.debug("Log USAGE for JI {}".format(job_instance_id))
+    ji = _get_job_instance(ScopedSession, job_instance_id)
     msg = _update_job_instance(ji, nodename=data['nodename'])
     ScopedSession.commit()
     resp = jsonify(message=msg)
@@ -285,11 +267,11 @@ def log_nodename():
     return resp
 
 
-@jsm.route('/log_usage', methods=['POST'])
-def log_usage():
+@jsm.route('/job_instance/<job_instance_id>/log_usage', methods=['POST'])
+def log_usage(job_instance_id):
     data = request.get_json()
-    logger.debug("Log USAGE for JI {}".format(data['job_instance_id']))
-    ji = _get_job_instance(ScopedSession, data['job_instance_id'])
+    logger.debug("Log USAGE for JI {}".format(job_instance_id))
+    ji = _get_job_instance(ScopedSession, job_instance_id)
     msg = _update_job_instance(ji,
                                usage_str=data.get('usage_str', None),
                                wallclock=data.get('wallclock', None),
@@ -302,23 +284,22 @@ def log_usage():
     return resp
 
 
-@jsm.route('/queue_job', methods=['POST'])
-def queue_job():
-    data = request.get_json()
-    logger.debug("Queue Job {}".format(data['job_id']))
-    job = ScopedSession.query(Job)\
-        .filter_by(job_id=data['job_id']).first()
-    job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
+@jsm.route('/job/<job_id>/queue', methods=['POST'])
+def queue_job(job_id):
+    logger.debug("Queue Job {}".format(job_id))
+    job = ScopedSession.query(models.Job)\
+        .filter_by(job_id=job_id).first()
+    job.transition(models.JobStatus.QUEUED_FOR_INSTANTIATION)
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
     return resp
 
 
-@jsm.route('/reset_job', methods=['POST'])
-def reset_job():
-    data = request.get_json()
-    job = ScopedSession.query(Job).filter_by(job_id=data['job_id']).first()
+@jsm.route('/job/<job_id>/reset', methods=['POST'])
+def reset_job(job_id):
+    job = ScopedSession.query(models.Job)\
+        .filter_by(job_id=job_id).first()
     job.reset()
     ScopedSession.commit()
     resp = jsonify()
@@ -326,9 +307,8 @@ def reset_job():
     return resp
 
 
-@jsm.route('/reset_incomplete_jobs', methods=['POST'])
-def reset_incomplete_jobs():
-    data = request.get_json()
+@jsm.route('/dag/<dag_id>/reset_incomplete_jobs', methods=['POST'])
+def reset_incomplete_jobs(dag_id):
     up_job = """
         UPDATE job
         SET status=:registered_status, num_attempts=0
@@ -353,18 +333,18 @@ def reset_incomplete_jobs():
     """
     ScopedSession.execute(
         up_job,
-        {"dag_id": data['dag_id'],
-         "registered_status": JobStatus.REGISTERED,
-         "done_status": JobStatus.DONE})
+        {"dag_id": dag_id,
+         "registered_status": models.JobStatus.REGISTERED,
+         "done_status": models.JobStatus.DONE})
     ScopedSession.execute(
         up_job_instance,
-        {"dag_id": data['dag_id'],
-         "error_status": JobInstanceStatus.ERROR,
-         "done_status": JobStatus.DONE})
+        {"dag_id": dag_id,
+         "error_status": models.JobInstanceStatus.ERROR,
+         "done_status": models.JobStatus.DONE})
     ScopedSession.execute(
         log_errors,
-        {"dag_id": data['dag_id'],
-         "done_status": JobStatus.DONE})
+        {"dag_id": dag_id,
+         "done_status": models.JobStatus.DONE})
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
@@ -406,7 +386,7 @@ def _update_job_instance(job_instance, **kwargs):
     return
 
 
-@jsm.route('/add_workflow_attribute', methods=['POST'])
+@jsm.route('/workflow_attribute', methods=['POST'])
 def add_workflow_attribute():
     data = request.get_json()
     workflow_attribute = attribute_models.WorkflowAttribute(
@@ -420,7 +400,7 @@ def add_workflow_attribute():
     return resp
 
 
-@jsm.route('/add_workflow_run_attribute', methods=['POST'])
+@jsm.route('/workflow_run_attribute', methods=['POST'])
 def add_workflow_run_attribute():
     data = request.get_json()
     workflow_run_attribute = attribute_models.\
@@ -434,7 +414,7 @@ def add_workflow_run_attribute():
     return resp
 
 
-@jsm.route('/add_job_attribute', methods=['POST'])
+@jsm.route('/job_attribute', methods=['POST'])
 def add_job_attribute():
     data = request.get_json()
     job_attribute = attribute_models.\

@@ -5,9 +5,7 @@ from jobmon.attributes.constants import job_attribute
 
 
 def test_job_attribute(job_list_manager_sge):
-    print("in test_job_attribute")
     from jobmon.server.database import session_scope
-
     # create a job
     task = BashTask("sleep 1")
     job = job_list_manager_sge.bind_task(task)

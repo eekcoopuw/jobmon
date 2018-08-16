@@ -109,8 +109,10 @@ def unwrap():
 
     # check return code
     if returncode != ReturnCodes.OK:
-        ji_intercom.log_job_stats()
+        if args["executor_class"] == "SGEExecutor":
+            ji_intercom.log_job_stats()
         ji_intercom.log_error(str(stderr))
     else:
-        ji_intercom.log_job_stats()
+        if args["executor_class"] == "SGEExecutor":
+            ji_intercom.log_job_stats()
         ji_intercom.log_done()

@@ -65,7 +65,7 @@ def test_get_workflow_run_id(real_dag_id):
     req = Requester(get_the_client_config(), 'jsm')
     # add job
     _, response = req.send_request(
-        app_route='/add_job',
+        app_route='/job',
         message={'name': 'bar',
                  'job_hash': HASH,
                  'command': 'baz',
@@ -75,7 +75,7 @@ def test_get_workflow_run_id(real_dag_id):
 
     # add workflow
     _, response = req.send_request(
-        app_route='/add_workflow',
+        app_route='/workflow',
         message={'dag_id': str(real_dag_id),
                  'workflow_args': "args_{}".format(random.randint(1, 1e7)),
                  'workflow_hash': hashlib.sha1('hash_{}'
@@ -88,7 +88,7 @@ def test_get_workflow_run_id(real_dag_id):
 
     # add workflow_run_id
     _, response = req.send_request(
-        app_route='/add_workflow_run',
+        app_route='/workflow_run',
         message={'workflow_id': str(wf.id),
                  'user': user,
                  'hostname': socket.gethostname(),
@@ -110,7 +110,7 @@ def test_get_workflow_run_id_no_workflow(real_dag_id):
         _get_workflow_run_id
     req = Requester(get_the_client_config(), 'jsm')
     rc, response = req.send_request(
-        app_route='/add_task_dag',
+        app_route='/task_dag',
         message={'name': 'testing dag', 'user': 'pytest_user',
                  'dag_hash': 'new_dag_hash',
                  'created_date': str(datetime.utcnow())},
@@ -118,7 +118,7 @@ def test_get_workflow_run_id_no_workflow(real_dag_id):
     dag_id = response['dag_id']
 
     _, response = req.send_request(
-        app_route='/add_job',
+        app_route='/job',
         message={'name': 'foobar',
                  'job_hash': str(SECOND_HASH),
                  'command': 'baz',
@@ -129,11 +129,10 @@ def test_get_workflow_run_id_no_workflow(real_dag_id):
 
 
 def test_jsm_valid_done(real_dag_id):
-
     req = Requester(get_the_client_config(), 'jsm')
     # add job
     _, response = req.send_request(
-        app_route='/add_job',
+        app_route='/job',
         message={'name': 'bar',
                  'job_hash': HASH,
                  'command': 'baz',
@@ -143,13 +142,13 @@ def test_jsm_valid_done(real_dag_id):
 
     # queue job
     req.send_request(
-        app_route='/queue_job',
-        message={'job_id': str(job.job_id)},
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
         request_type='post')
 
     # add job instance
     _, response = req.send_request(
-        app_route='/add_job_instance',
+        app_route='/job_instance',
         message={'job_id': str(job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
@@ -157,53 +156,50 @@ def test_jsm_valid_done(real_dag_id):
 
     # do job logging
     req.send_request(
-        app_route='/log_executor_id',
-        message={'job_instance_id': str(job_instance_id),
-                 'executor_id': str(12345)},
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345)},
         request_type='post')
     req.send_request(
-        app_route='/log_running',
-        message={'job_instance_id': str(job_instance_id),
-                 'nodename': socket.gethostname(),
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.gethostname(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
-        app_route='/log_usage',
-        message={'job_instance_id': str(job_instance_id),
-                 'usage_str': 'used resources',
+        app_route='/job_instance/{}/log_usage'.format(job_instance_id),
+        message={'usage_str': 'used resources',
                  'wallclock': '0',
                  'maxvmem': '1g',
                  'cpu': '00:00:00',
                  'io': '1'},
         request_type='post')
     req.send_request(
-        app_route='/log_done',
+        app_route='/job_instance/{}/log_done'.format(job_instance_id),
         message={'job_instance_id': str(job_instance_id)},
         request_type='post')
 
 
-def test_jsm_valid_error(dag_id):
-    req = Requester(get_the_client_config(), 'jsm')
+def test_jsm_valid_error(real_dag_id):
+    req = requester.Requester(config.jsm_port)
 
     # add job
     _, response = req.send_request(
-        app_route='/add_job',
+        app_route='/job',
         message={'name': 'bar',
                  'job_hash': HASH,
                  'command': 'baz',
-                 'dag_id': str(dag_id)},
+                 'dag_id': str(real_dag_id)},
         request_type='post')
     job = Job.from_wire(response['job_dct'])
 
     # queue job
     req.send_request(
-        app_route='/queue_job',
-        message={'job_id': str(job.job_id)},
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
         request_type='post')
 
     # add job instance
     _, response = req.send_request(
-        app_route='/add_job_instance',
+        app_route='/job_instance',
         message={'job_id': str(job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
@@ -211,20 +207,17 @@ def test_jsm_valid_error(dag_id):
 
     # do job logging
     req.send_request(
-        app_route='/log_executor_id',
-        message={'job_instance_id': str(job_instance_id),
-                 'executor_id': str(12345)},
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345)},
         request_type='post')
     req.send_request(
-        app_route='/log_running',
-        message={'job_instance_id': str(job_instance_id),
-                 'nodename': socket.gethostname(),
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.gethostname(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
-        app_route='/log_error',
-        message={'job_instance_id': str(job_instance_id),
-                 'error_message': "this is an error message"},
+        app_route='/job_instance/{}/log_error'.format(job_instance_id),
+        message={'error_message': "this is an error message"},
         request_type='post')
 
 
@@ -232,9 +225,18 @@ def test_invalid_transition(dag_id):
 
     req = Requester(get_the_client_config(), 'jsm')
 
+    # add dag
+    rc, response = req.send_request(
+        app_route='/task_dag',
+        message={'name': 'mocks', 'user': 'pytest_user',
+                 'dag_hash': 'dag_hash',
+                 'created_date': str(datetime.utcnow())},
+        request_type='post')
+    dag_id = response['dag_id']
+
     # add job
     _, response = req.send_request(
-        app_route='/add_job',
+        app_route='/job',
         message={'name': 'bar',
                  'job_hash': HASH,
                  'command': 'baz',
@@ -244,49 +246,46 @@ def test_invalid_transition(dag_id):
 
     with pytest.raises(InvalidStateTransition):
         rc, response = req.send_request(
-            app_route='/add_job_instance',
+            app_route='/job_instance',
             message={'job_id': str(job.job_id),
                      'executor_type': 'dummy_exec'},
             request_type='post')
 
 
-def test_jsm_log_usage(dag_id):
+def test_jsm_log_usage(real_dag_id):
     req = Requester(get_the_client_config(), 'jsm')
 
     _, response = req.send_request(
-        app_route='/add_job',
+        app_route='/job',
         message={'name': 'bar',
                  'job_hash': HASH,
                  'command': 'baz',
-                 'dag_id': str(dag_id)},
+                 'dag_id': str(real_dag_id)},
         request_type='post')
     job = Job.from_wire(response['job_dct'])
     req.send_request(
-        app_route='/queue_job',
-        message={'job_id': str(job.job_id)},
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
         request_type='post')
 
     rc, response = req.send_request(
-        app_route='/add_job_instance',
+        app_route='/job_instance',
         message={'job_id': str(job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']
     req.send_request(
-        app_route='/log_executor_id',
-        message={'job_instance_id': str(job_instance_id),
-                 'executor_id': str(12345)},
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345)},
         request_type='post')
     req.send_request(
-        app_route='/log_running',
-        message={'job_instance_id': str(job_instance_id),
-                 'nodename': socket.gethostname(),
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.gethostname(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
-        app_route='/log_usage',
-        message={'job_instance_id': str(job_instance_id),
-                 'usage_str': 'used resources',
+        app_route='/job_instance/{}/log_usage'.format(job_instance_id),
+        message={'usage_str': 'used resources',
                  'wallclock': '0',
                  'maxvmem': '1g',
                  'cpu': '00:00:00',
@@ -304,105 +303,97 @@ def test_jsm_log_usage(dag_id):
         assert ji.io == '1'
         assert ji.nodename == socket.gethostname()
     req.send_request(
-        app_route='/log_done',
-        message={'job_instance_id': str(job_instance_id)},
+        app_route='/job_instance/{}/log_done'.format(job_instance_id),
+        message={},
         request_type='post')
 
 
-def test_job_reset(dag_id):
+def test_job_reset(real_dag_id):
 
     req = Requester(get_the_client_config(), 'jsm')
 
     _, response = req.send_request(
-        app_route='/add_job',
+        app_route='/job',
         message={'name': 'bar',
                  'job_hash': HASH,
                  'command': 'baz',
-                 'dag_id': str(dag_id),
+                 'dag_id': str(real_dag_id),
                  'max_attempts': '3'},
         request_type='post')
     job = Job.from_wire(response['job_dct'])
     req.send_request(
-        app_route='/queue_job',
-        message={'job_id': str(job.job_id)},
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
         request_type='post')
 
     # Create a couple of job instances
     rc, response = req.send_request(
-        app_route='/add_job_instance',
+        app_route='/job_instance',
         message={'job_id': str(job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     ji1 = response['job_instance_id']
     req.send_request(
-        app_route='/log_executor_id',
-        message={'job_instance_id': str(ji1),
-                 'executor_id': str(12345)},
+        app_route='/job_instance/{}/log_executor_id'.format(ji1),
+        message={'executor_id': str(12345)},
         request_type='post')
     req.send_request(
-        app_route='/log_running',
-        message={'job_instance_id': str(ji1),
-                 'nodename': socket.gethostname(),
+        app_route='/job_instance/{}/log_running'.format(ji1),
+        message={'nodename': socket.gethostname(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
-        app_route='/log_error',
-        message={'job_instance_id': str(ji1),
-                 'error_message': "error 1"},
+        app_route='/job_instance/{}/log_error'.format(ji1),
+        message={'error_message': "error 1"},
         request_type='post')
 
     # second job instance
     rc, response = req.send_request(
-        app_route='/add_job_instance',
+        app_route='/job_instance',
         message={'job_id': str(job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     ji2 = response['job_instance_id']
     req.send_request(
-        app_route='/log_executor_id',
-        message={'job_instance_id': str(ji2),
-                 'executor_id': str(12346)},
+        app_route='/job_instance/{}/log_executor_id'.format(ji2),
+        message={'executor_id': str(12346)},
         request_type='post')
     req.send_request(
-        app_route='/log_running',
-        message={'job_instance_id': str(ji2),
-                 'nodename': socket.gethostname(),
+        app_route='/job_instance/{}/log_running'.format(ji2),
+        message={'nodename': socket.gethostname(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
-        app_route='/log_error',
-        message={'job_instance_id': str(ji2),
-                 'error_message': "error 1"},
+        app_route='/job_instance/{}/log_error'.format(ji2),
+        message={'error_message': "error 1"},
         request_type='post')
 
     # third job instance
     rc, response = req.send_request(
-        app_route='/add_job_instance',
+        app_route='/job_instance',
         message={'job_id': str(job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     ji3 = response['job_instance_id']
     req.send_request(
-        app_route='/log_executor_id',
-        message={'job_instance_id': str(ji3),
-                 'executor_id': str(12347)},
+        app_route='/job_instance/{}/log_executor_id'.format(ji3),
+        message={'executor_id': str(12347)},
         request_type='post')
     req.send_request(
-        app_route='/log_running',
-        message={'job_instance_id': str(ji3),
-                 'nodename': socket.gethostname(),
+        app_route='/job_instance/{}/log_running'.format(ji3),
+        message={'nodename': socket.gethostname(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
 
     # Reset the job to REGISTERED
     req.send_request(
-        app_route='/reset_job',
-        message={'job_id': str(job.job_id)},
+        app_route='/job/{}/reset'.format(job.job_id),
+        message={},
         request_type='post')
 
     from jobmon.server.database import session_scope
     with session_scope() as session:
-        jobs = session.query(Job).filter_by(dag_id=dag_id,
+        jobs = session.query(Job).filter_by(dag_id=real_dag_id,
                                             job_id=job.job_id).all()
         assert len(jobs) == 1
         job = jobs[0]

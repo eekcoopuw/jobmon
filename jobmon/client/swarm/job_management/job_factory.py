@@ -42,7 +42,7 @@ class JobFactory(object):
         else:
             context_args = json.dumps(context_args)
         rc, response = self.requester.send_request(
-            app_route='/add_job',
+            app_route='/job',
             message={'dag_id': self.dag_id,
                      'name': jobname,
                      'job_hash': job_hash,
@@ -61,8 +61,8 @@ class JobFactory(object):
 
     def queue_job(self, job_id):
         rc, _ = self.requester.send_request(
-            app_route='/queue_job',
-            message={'job_id': job_id},
+            app_route='/job/{}/queue'.format(job_id),
+            message={},
             request_type='post')
         if rc != HTTPStatus.OK:
             raise InvalidResponse("{rc}: Could not queue_job".format(rc))
@@ -70,8 +70,8 @@ class JobFactory(object):
 
     def reset_jobs(self):
         rc, _ = self.requester.send_request(
-            app_route='/reset_incomplete_jobs',
-            message={'dag_id': self.dag_id},
+            app_route='/dag/{}/reset_incomplete_jobs'.format(self.dag_id),
+            message={},
             request_type='post')
         if rc != HTTPStatus.OK:
             raise InvalidResponse("{rc}: Could not reset jobs".format(rc))
@@ -105,7 +105,7 @@ class JobFactory(object):
                                      type(value).__name__))
         else:
             rc, job_attribute_id = self.requester.send_request(
-                app_route='/add_job_attribute',
+                app_route='/job_attribute',
                 message={'job_id': str(job_id),
                          'attribute_type': str(attribute_type),
                          'value': str(value)},

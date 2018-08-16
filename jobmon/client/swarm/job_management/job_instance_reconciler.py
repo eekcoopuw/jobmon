@@ -8,6 +8,7 @@ from http import HTTPStatus
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.client.requester import Requester
 
 
@@ -111,8 +112,10 @@ class JobInstanceReconciler(object):
     def _get_presumed_submitted_or_running(self):
         try:
             rc, response = self.jqs_req.send_request(
-                app_route='/get_submitted_or_running',
-                message={'dag_id': self.dag_id},
+                app_route='/dag/{}/job_instance'.format(self.dag_id),
+                message={'status': [
+                    JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                    JobInstanceStatus.RUNNING]},
                 request_type='get')
             job_instances = response['ji_dcts']
             job_instances = [JobInstance.from_wire(j) for j in job_instances]
@@ -129,10 +132,13 @@ class JobInstanceReconciler(object):
         """
         try:
             rc, response = self.jqs_req.send_request(
-                app_route='/get_timed_out',
-                message={'dag_id': self.dag_id},
+                app_route='/dag/{}/job_instance'.format(self.dag_id),
+                message={'status': [
+                         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                         JobInstanceStatus.RUNNING],
+                         'runtime': 'timed_out'},
                 request_type='get')
-            job_instances = response['timed_out']
+            job_instances = response['ji_dcts']
             if rc != HTTPStatus.OK:
                 job_instances = []
         except TypeError:
@@ -142,16 +148,14 @@ class JobInstanceReconciler(object):
 
     def _log_timeout_hostname(self, job_instance_id, hostname):
         return self.jsm_req.send_request(
-            app_route='/log_nodename',
-            message={'job_instance_id': [job_instance_id],
-                     'nodename': hostname},
+            app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
+            message={'nodename': hostname},
             request_type='post')
 
     def _log_mysterious_error(self, job_instance_id, executor_id):
         return self.jsm_req.send_request(
-            app_route='/log_error',
-            message={'job_instance_id': job_instance_id,
-                     'error_message': ("Job no longer visible in qstat, "
+            app_route='/job_instance/{}/log_error'.format(job_instance_id),
+            message={'error_message': ("Job no longer visible in qstat, "
                                        "check qacct or jobmon database for "
                                        "executor_id {} and job_instance_id {}"
                                        .format(executor_id, job_instance_id))},
@@ -159,14 +163,13 @@ class JobInstanceReconciler(object):
 
     def _log_timeout_error(self, job_instance_id):
         return self.jsm_req.send_request(
-            app_route='/log_error',
-            message={'job_instance_id': job_instance_id,
-                     'error_message': "Timed out"},
+            app_route='/job_instance/{}/log_error'.format(job_instance_id),
+            message={'error_message': "Timed out"},
             request_type='post')
 
     def _request_permission_to_reconcile(self):
-        # sync
+        # sync; log_heartbeat
         return self.jsm_req.send_request(
-            app_route='/log_heartbeat',
-            message={'dag_id': self.dag_id},
+            app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
+            message={},
             request_type='post')

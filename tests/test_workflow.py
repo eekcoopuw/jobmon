@@ -359,8 +359,8 @@ def test_dag_reset(simple_workflow_w_errors):
     from jobmon.client.requester import Requester
     req = Requester(get_the_client_config(), 'jsm')
     rc, _ = req.send_request(
-        app_route='/reset_incomplete_jobs',
-        message={'dag_id': dag_id},
+        app_route='/dag/{}/reset_incomplete_jobs'.format(dag_id),
+        message={},
         request_type='post')
     with session_scope() as session:
         jobs = session.query(Job).filter_by(dag_id=dag_id).all()
