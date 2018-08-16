@@ -356,7 +356,7 @@ def test_dag_reset(simple_workflow_w_errors):
 
     # Now RESET and make sure all the jobs that aren't "DONE" flip back to
     # REGISTERED
-    from jobmon.requester import Requester
+    from jobmon.client.requester import Requester
     req = Requester(get_the_client_config(), 'jsm')
     rc, _ = req.send_request(
         app_route='/reset_incomplete_jobs',
