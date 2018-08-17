@@ -179,7 +179,7 @@ def test_jsm_valid_done(real_dag_id):
 
 
 def test_jsm_valid_error(real_dag_id):
-    req = requester.Requester(config.jsm_port)
+    req = Requester(get_the_client_config(), 'jsm')
 
     # add job
     _, response = req.send_request(

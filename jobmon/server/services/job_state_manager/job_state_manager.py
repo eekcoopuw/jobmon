@@ -220,6 +220,7 @@ def log_executor_id(job_instance_id):
     data = request.get_json()
     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
     ji = _get_job_instance(ScopedSession, job_instance_id)
+    logger.info("in log_executor_id, ji is {}".format(ji))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     _update_job_instance(ji, executor_id=data['executor_id'])
@@ -306,7 +307,7 @@ def reset_job(job_id):
     return resp
 
 
-@jsm.route('/dag/<dag_id>/reset_incomplete_jobs', methods=['POST'])
+@jsm.route('/task_dag/<dag_id>/reset_incomplete_jobs', methods=['POST'])
 def reset_incomplete_jobs(dag_id):
     up_job = """
         UPDATE job

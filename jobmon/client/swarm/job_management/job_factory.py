@@ -70,7 +70,7 @@ class JobFactory(object):
 
     def reset_jobs(self):
         rc, _ = self.requester.send_request(
-            app_route='/dag/{}/reset_incomplete_jobs'.format(self.dag_id),
+            app_route='/task_dag/{}/reset_incomplete_jobs'.format(self.dag_id),
             message={},
             request_type='post')
         if rc != HTTPStatus.OK:
