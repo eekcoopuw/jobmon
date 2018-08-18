@@ -1,5 +1,0 @@
-digraph {
-	a
-	b
-	a -> b
-}
