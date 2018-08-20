@@ -4,15 +4,38 @@ import os
 import pytest
 import pwd
 import shutil
-import socket
 import uuid
+import socket
+import logging
 from datetime import datetime
 from time import sleep
-
-from argparse import Namespace
 from sqlalchemy.exc import IntegrityError
+from cluster_utils.ephemerdb import create_ephemerdb
 
-from jobmon.bootstrap import install_rcfile
+
+logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope='session', autouse=True)
+def ephemera_conn_str():
+    edb = create_ephemerdb()
+    conn_str = edb.start()
+
+    os.environ['conn_str'] = conn_str
+    yield conn_str
+
+    # from jobmon.server import database
+    # database.Session.close_all()
+    # if database.engine:
+    #     database.engine.dispose()
+    # edb.stop()
+
+
+from jobmon.client.swarm.executors.sge import SGEExecutor
+from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.client.swarm.workflow.task_dag import TaskDag
+from jobmon.attributes import attribute_database_loaders
+
 
 # NOTE: there are two types of tests that conftest sets up. 1. Using the real
 # flask dev server, to allow us to do real testing of connections to the server
@@ -23,123 +46,17 @@ from jobmon.bootstrap import install_rcfile
 # we use the real dev server.
 
 
-def create_rcfile_dir():
-    u = uuid.uuid4()
-    user = pwd.getpwuid(os.getuid()).pw_name
-    rcdir = ('/ihme/scratch/users/{user}/tests/jobmon/'
-             '{uuid}'.format(user=user, uuid=u))
-    try:
-        os.makedirs(rcdir)
-    except:
-        pass
-    return rcdir
-
-
-def get_random_port():
-    sock = socket.socket()
-    sock.bind(('', 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
-
-
-def get_node_name():
-    """name of node that server is running on"""
-    return socket.gethostname()
-
-
-def create_sqlite_rcfile(rcdir):
-    args = Namespace()
-    args.force = False
-    args.file = "{}/jobmonrc".format(rcdir)
-    try:
-        install_rcfile(args,
-                       cfg_dct={"conn_str": "sqlite://",
-                                "host": socket.gethostname(),
-                                "jsm_port": 5056,
-                                "jqs_port": 5058})
-
-        cleanup_rcfile = True
-    except FileExistsError:
-        # It's OK for now if the rcfile already exists. May need to revisit
-        # this once we have a more sensible mechanism for versioning the
-        # RCFILEs
-        cleanup_rcfile = False
-    return args.file, cleanup_rcfile
-
-
-def bootstrap_tests():
-    """The ordering of this script is essential. Bootstrap_tests must be called
-       here to force the CONFIG changes to happen before any jobmon module
-       actually attempts to load the config"""
-    global rcdir
-    rcdir = create_rcfile_dir()
-    global sqlite_rcfile
-    global cleanup_sqlite_rcfile
-    sqlite_rcfile, cleanup_sqlite_rcfile = create_sqlite_rcfile(rcdir)
-    os.environ["JOBMON_CONFIG"] = sqlite_rcfile
-
-
-bootstrap_tests()
-
-
-from jobmon.config import config
-from jobmon import database
-from jobmon import database_loaders
-from jobmon.executors.sge import SGEExecutor
-from jobmon.job_list_manager import JobListManager
-from jobmon.workflow.task_dag import TaskDag
-from jobmon.attributes import attribute_database_loaders
-
-from cluster_utils.ephemerdb import create_ephemerdb
-
-
 @pytest.fixture(autouse=True)
-def env_var(monkeypatch, rcfile):
-    monkeypatch.setenv("JOBMON_CONFIG", rcfile)
-
-
-@pytest.fixture(scope='session')
-def rcfile_dir():
-    yield rcdir
-    shutil.rmtree(rcdir)
-
-
-@pytest.fixture(scope='session')
-def rcfile(rcfile_dir):
-    yield sqlite_rcfile
-
-    if cleanup_sqlite_rcfile:
-        os.remove(os.path.expanduser(sqlite_rcfile))
-
-
-@pytest.fixture(scope='session', autouse=True)
-def session_edb(rcfile):
-
-    edb = create_ephemerdb()
-    conn_str = edb.start()
-    config.conn_str = conn_str
-
-    # The config has to be reloaded to use the EphemerDB
-    database.recreate_engine()
-    database_loaders.create_job_db()
-    try:
-        with database.session_scope() as session:
-            database_loaders.load_default_statuses(session)
-            attribute_database_loaders.load_attribute_types(session)
-    except IntegrityError:
-        pass
-
-    yield config
-
-    database.Session.close_all()
-    database.engine.dispose()
-    edb.stop()
+def env_var(monkeypatch, ephemera_conn_str):
+    monkeypatch.setenv("host", socket.gethostname())
+    monkeypatch.setenv("conn_str", ephemera_conn_str)
 
 
 @pytest.fixture(scope='function')
-def db_cfg(session_edb):
+def db_cfg():
 
+    from jobmon.server import database_loaders
+    from jobmon.server import database
     database_loaders.delete_job_db()
     database_loaders.create_job_db()
     try:
@@ -147,21 +64,22 @@ def db_cfg(session_edb):
             database_loaders.load_default_statuses(session)
             attribute_database_loaders.load_attribute_types(session)
     except IntegrityError:
+        logger.info("got integrity error")
         pass
-
-    yield config
 
 
 @pytest.fixture(scope='session')
-def real_jsm_jqs(rcfile, session_edb):
+def real_jsm_jqs():
     import multiprocessing as mp
     from tests.run_services import run_jsm, run_jqs
 
+    os.environ['host'] = socket.gethostname()
+
     ctx = mp.get_context('spawn')
-    p1 = ctx.Process(target=run_jsm, args=(rcfile, config.conn_str))
+    p1 = ctx.Process(target=run_jsm, args=())
     p1.start()
 
-    p2 = ctx.Process(target=run_jqs, args=(rcfile, config.conn_str))
+    p2 = ctx.Process(target=run_jqs, args=())
     p2.start()
 
     sleep(30)
@@ -172,10 +90,18 @@ def real_jsm_jqs(rcfile, session_edb):
 
 
 @pytest.fixture(scope='session')
-def jsm_jqs(session_edb):
-    from jobmon.services.job_state_manager import app as jsm_app
-    from jobmon.services.job_query_server import app as jqs_app
+def jsm_jqs():
+    from jobmon.server.services.job_state_manager.app \
+        import create_app as jsm_get_app
+    from jobmon.server.services.job_query_server.app import \
+        create_app as jqs_get_app
 
+    os.environ['host'] = socket.gethostname()
+
+    jsm_app = jsm_get_app(host=os.environ['host'],
+                          conn_str=os.environ['conn_str'])
+    jqs_app = jqs_get_app(host=os.environ['host'],
+                          conn_str=os.environ['conn_str'])
     jsm_app.config['TESTING'] = True
     jqs_app.config['TESTING'] = True
     jsm_client = jsm_app.test_client()
@@ -196,7 +122,7 @@ def get_flask_content(response):
 @pytest.fixture(scope='function')
 def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
     import requests
-    from jobmon import requester
+    from jobmon.client import requester
     jsm_client, jqs_client = jsm_jqs
 
     def get_jqs(url, params, headers):
@@ -215,9 +141,10 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
 @pytest.fixture(scope='function')
 def dag_id(no_requests_jsm_jqs, db_cfg):
     import random
-    from jobmon.requester import Requester
+    from jobmon.client.requester import Requester
+    from jobmon.client.the_client_config import get_the_client_config
 
-    req = Requester(config.jsm_port, host=get_node_name())
+    req = Requester(get_the_client_config(), 'jsm')
     rc, response = req.send_request(
         app_route='/task_dag',
         message={'name': 'test dag', 'user': 'test user',
@@ -230,9 +157,10 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
 @pytest.fixture(scope='function')
 def real_dag_id(real_jsm_jqs, db_cfg):
     import random
-    from jobmon.requester import Requester
+    from jobmon.client.the_client_config import get_the_client_config
+    from jobmon.client.requester import Requester
 
-    req = Requester(config.jsm_port, host=get_node_name())
+    req = Requester(get_the_client_config(), 'jsm')
     rc, response = req.send_request(
         app_route='/task_dag',
         message={'name': 'test dag', 'user': 'test user',
@@ -256,6 +184,7 @@ def tmp_out_dir():
 def job_list_manager_sub(dag_id):
     jlm = JobListManager(dag_id, interrupt_on_error=False)
     yield jlm
+    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -278,6 +207,8 @@ def dag(db_cfg, no_requests_jsm_jqs, request):
     and JobInstanceReconcilers get cleaned up after each test"""
     dag = TaskDag(name=request.node.name, interrupt_on_error=False)
     yield dag
+    if dag.job_list_manager:
+        dag.job_list_manager.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -294,8 +225,8 @@ def real_dag(db_cfg, real_jsm_jqs, request):
 
 @pytest.fixture(scope='function')
 def dag_factory(db_cfg, real_jsm_jqs, request):
-
     dags = []
+
     def factory(executor):
         dag = TaskDag(name=request.node.name, executor=executor,
                       interrupt_on_error=False)

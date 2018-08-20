@@ -1,6 +1,6 @@
-from jobmon.attributes.attribute_models import WorkflowAttributeType, \
-                                               WorkflowRunAttributeType, \
-                                               JobAttributeType
+from jobmon.attributes.attribute_models import (WorkflowAttributeType,
+                                                WorkflowRunAttributeType,
+                                                JobAttributeType)
 
 
 def load_attribute_types(session):
@@ -22,8 +22,8 @@ def load_attribute_types(session):
                            'NUM_AGGREGATE_LOCATIONS': 'int'}
     for attribute in workflow_attributes:
         workflow_attribute_types = WorkflowAttributeType(
-                                    name=attribute,
-                                    type=workflow_attributes[attribute])
+            name=attribute,
+            type=workflow_attributes[attribute])
         attribute_types.append(workflow_attribute_types)
 
     # load attribute_type and their type for workflow_run_attribute_type table
@@ -41,8 +41,8 @@ def load_attribute_types(session):
                                'NUM_AGGREGATE_LOCATIONS': 'int'}
     for attribute in workflow_run_attributes:
         workflow_run_attribute_types = WorkflowRunAttributeType(
-                                        name=attribute,
-                                        type=workflow_run_attributes[attribute])
+            name=attribute,
+            type=workflow_run_attributes[attribute])
         attribute_types.append(workflow_run_attribute_types)
 
     # load attribute_type and their type for job_attribute_type table

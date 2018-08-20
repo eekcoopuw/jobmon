@@ -1,14 +1,16 @@
 from time import sleep
 
-from jobmon.database import session_scope
-from jobmon.meta_models.task_dag import TaskDagMeta
-from jobmon.models import Job, JobStatus
-from jobmon.workflow.workflow import WorkflowDAO, WorkflowStatus
-from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
+from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
+from jobmon.client.swarm.workflow.workflow import WorkflowDAO, WorkflowStatus
+from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
+    WorkflowRunStatus
 
 
 def test_job_submit_times(db_cfg):
     """Test that db datetimes aren't all the same..."""
+    from jobmon.server.database import session_scope
     with session_scope() as session:
 
         # Create dags

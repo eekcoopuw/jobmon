@@ -1,0 +1,10 @@
+from jobmon.client.swarm.executors import Executor
+
+
+class DummyExecutor(Executor):
+
+    def execute(self, job_instance):
+        import random
+        # qsub
+        executor_id = random.randint(1, 1e7)
+        return executor_id

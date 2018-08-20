@@ -3,8 +3,9 @@ import sys
 from datetime import datetime, timedelta
 
 from jobmon import sge
-from jobmon.models import JobInstance, JobInstanceStatus
-from jobmon.workflow.executable_task import ExecutableTask as Task
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -49,7 +50,7 @@ def test_context_args(real_jsm_jqs, job_list_manager_sge):
 
 
 def context_args_check(job_id):
-    from jobmon.database import ScopedSession
+    from jobmon.server.database import ScopedSession
     jis = ScopedSession.query(JobInstance).filter_by(job_id=job_id).all()
     njis = len(jis)
     status = jis[0].status

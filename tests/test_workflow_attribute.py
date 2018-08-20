@@ -1,18 +1,18 @@
 import pytest
 
-from jobmon.workflow.bash_task import BashTask
-from jobmon.workflow.workflow import Workflow
+from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.attributes.constants import workflow_attribute
 from jobmon.attributes.attribute_models import WorkflowAttribute
 
 
 def test_workflow_attribute(real_dag):
-    from jobmon.database import ScopedSession
-    t1 = BashTask("sleep 1")
-    real_dag.add_tasks([t1])
-
+    from jobmon.server.database import ScopedSession
     wfa = "workflow_with_attribute"
-    workflow = Workflow(real_dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
+
     workflow.execute()
 
     # add an attribute to the workflow
@@ -36,12 +36,12 @@ def test_workflow_attribute(real_dag):
     assert workflow_attribute_entry_value == "100"
 
 
-def test_workflow_attribute_input_error(real_dag):
-    t1 = BashTask("sleep 1")
-    real_dag.add_tasks([t1])
-
+def test_workflow_attribute_input_error(real_jsm_jqs, db_cfg):
     wfa = "workflow_with_wrong_arg_attribute"
-    workflow = Workflow(real_dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
+
     workflow.execute()
 
     # add an attribute with wrong types to the workflow
@@ -50,13 +50,13 @@ def test_workflow_attribute_input_error(real_dag):
     assert "Invalid attribute" in str(exc.value)
 
 
-def test_workflow_attribute_tag(real_dag):
-    from jobmon.database import ScopedSession
-    t1 = BashTask("sleep 1")
-    real_dag.add_tasks([t1])
-
+def test_workflow_attribute_tag(real_jsm_jqs, db_cfg):
+    from jobmon.server.database import ScopedSession
     wfa = "workflow_with_tag_attribute"
-    workflow = Workflow(real_dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
+
     workflow.execute()
 
     # add a tag attribute to the workflow

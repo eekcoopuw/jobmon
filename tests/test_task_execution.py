@@ -5,14 +5,14 @@ from time import sleep
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
-from jobmon.database import session_scope
-from jobmon.executors.sge import SGEExecutor
-from jobmon.models import Job, JobStatus
-from jobmon.workflow.bash_task import BashTask
-from jobmon.workflow.python_task import PythonTask
-from jobmon.workflow.r_task import RTask
-from jobmon.workflow.stata_task import StataTask
-from jobmon.workflow.task_dag import DagExecutionStatus
+from jobmon.client.swarm.executors.sge import SGEExecutor
+from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
+from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.client.swarm.workflow.python_task import PythonTask
+from jobmon.client.swarm.workflow.r_task import RTask
+from jobmon.client.swarm.workflow.stata_task import StataTask
+from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 
 
 def match_name_to_sge_name(jid):
@@ -63,6 +63,7 @@ def test_bash_task(dag_factory):
     assert num_completed == 1
     assert get_task_status(real_dag, task) == JobStatus.DONE
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
@@ -100,6 +101,7 @@ def test_python_task(dag_factory, tmp_out_dir):
     assert num_completed == 1
     assert get_task_status(real_dag, task) == JobStatus.DONE
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
@@ -132,6 +134,7 @@ def test_R_task(dag_factory, tmp_out_dir):
     assert num_completed == 1
     assert get_task_status(real_dag, task) == JobStatus.DONE
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
@@ -163,6 +166,7 @@ def test_stata_task(dag_factory, tmp_out_dir):
     assert num_completed == 1
     assert get_task_status(dag, task) == JobStatus.DONE
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         sge_id = [ji for ji in job.job_instances][0].executor_id

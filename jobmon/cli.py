@@ -1,18 +1,21 @@
 import argparse
 import logging
 import shlex
+import os
 
 from sqlalchemy.exc import IntegrityError
 
-from jobmon import database
-from jobmon import database_loaders
-from jobmon import config
+from jobmon.server import database
+from jobmon.server import database_loaders
 from jobmon.bootstrap import install_rcfile
-from jobmon.database import session_scope
-from jobmon.requester import Requester
-from jobmon.notifiers import SlackNotifier
-from jobmon.services.health_monitor import HealthMonitor
-from jobmon.services import job_state_manager, job_query_server
+from jobmon.server.database import session_scope
+from jobmon.client.requester import Requester
+from jobmon.client.the_client_config import get_the_client_config
+from jobmon.server.the_server_config import get_the_server_config
+from jobmon.server.services.health_monitor.notifiers import SlackNotifier
+from jobmon.server.services.health_monitor.health_monitor import HealthMonitor
+from jobmon.server.services.job_state_manager import job_state_manager
+from jobmon.server.services.job_query_server import job_query_server
 
 try:
     FileExistsError
@@ -31,7 +34,7 @@ def add_config_opts(parser):
     """Add the GlobalConfig options to the parser so they can
     override the .jobmonrc and default settings"""
     parser.add_argument("--config_file", type=str, default="~/.jobmonrc")
-    for opt, default in config.GlobalConfig.default_opts.items():
+    for opt, default in get_the_server_config().default_opts.items():
         if isinstance(default, bool):
             parser.add_argument("--{}".format(opt), action='store_true')
         else:
@@ -45,12 +48,16 @@ def apply_args_to_config(args):
     via the command line"""
     cli_opts = vars(args)
     cli_opts = {k: v for k, v in cli_opts.items() if v is not None}
-    config.config.apply_opts_dct(cli_opts)
+    if 'hostname' in cli_opts:
+        os.environ['hostname'] = cli_opts['hostname']
+    if 'conn_str' in cli_opts:
+        os.environ['conn_str'] = cli_opts['conn_str']
+    get_the_server_config().apply_opts_dct(cli_opts)
 
     # Don't forget to recreate the engine... in case the conn_str in the
     # config has changed
     database.recreate_engine()
-    return config.config
+    return get_the_server_config()
 
 
 def initdb(args):
@@ -62,7 +69,7 @@ def initdb(args):
             database_loaders.load_default_statuses(session)
     except IntegrityError as e:
         raise Exception("Database is not empty, "
-                        "could not create tables {}").format(str(e))
+                        "could not create tables {}".format(str(e)))
 
 
 def parse_args(argstr=None):
@@ -107,7 +114,7 @@ def parse_args(argstr=None):
 
 def start(args):
     """Start the services"""
-    if config.config.verbose:
+    if get_the_server_config().verbose:
         logging.basicConfig(level=logging.DEBUG)
     if args.service == "job_state_manager":
         start_job_state_manager()
@@ -134,14 +141,14 @@ def start_job_query_server():
 def start_health_monitor():
     """Start monitoring for lost workflow runs"""
 
-    if config.config.slack_token:
+    if get_the_server_config().slack_token:
         wf_notifier = SlackNotifier(
-            config.config.slack_token,
-            config.config.default_wf_slack_channel)
+            get_the_server_config().slack_token,
+            get_the_server_config().default_wf_slack_channel)
         wf_sink = wf_notifier.send
         node_notifier = SlackNotifier(
-            config.config.slack_token,
-            config.config.default_node_slack_channel)
+            get_the_server_config().slack_token,
+            get_the_server_config().default_node_slack_channel)
         node_sink = node_notifier.send
     else:
         wf_sink = None
@@ -152,9 +159,9 @@ def start_health_monitor():
 
 
 def test_connection(args):
-    jsm_req = Requester(config.jm_port)
+    jsm_req = Requester(get_the_client_config(), 'jsm')
     jsm_req.send_request(app_route='/', request_type='get')  # is alive?
-    jqs_req = Requester(config.jqs_port)
+    jqs_req = Requester(get_the_client_config(), 'jqs')
     jqs_req.send_request(app_route='/', request_type='get')  # is alive?
 
 

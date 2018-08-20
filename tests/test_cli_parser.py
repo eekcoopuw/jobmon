@@ -1,5 +1,6 @@
 import pytest
 import sys
+import os
 from sqlalchemy.exc import OperationalError
 
 
@@ -46,9 +47,9 @@ def test_start_subcommand():
 
 def test_initdb_subcommand():
     from jobmon.cli import apply_args_to_config, parse_args
-    from jobmon import config
-    conn_str = config.config.conn_str
-    print(conn_str)
+    from jobmon.server.the_server_config import get_the_server_config
+
+    conn_str = get_the_server_config().conn_str
 
     args = parse_args("--conn_str mysql://not:a@real/database initdb")
     apply_args_to_config(args)
@@ -59,7 +60,7 @@ def test_initdb_subcommand():
     with pytest.raises(OperationalError):
         args.func(args)
 
-    # reset
-    config.config.apply_opts_dct({'conn_str': conn_str})
-    from jobmon import database
+    os.environ['conn_str'] = conn_str
+    get_the_server_config().apply_opts_dct({'conn_str': conn_str})
+    from jobmon.server import database
     database.recreate_engine()

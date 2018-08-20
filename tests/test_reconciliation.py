@@ -1,14 +1,16 @@
 import pytest
 import sys
 from time import sleep
+import logging
 
 from jobmon import sge
-from jobmon.models import Job
-from jobmon.requester import Requester
-from jobmon.executors.dummy import DummyExecutor
-from jobmon.executors.sge import SGEExecutor
-from jobmon.job_list_manager import JobListManager
-from jobmon.workflow.executable_task import ExecutableTask as Task
+from jobmon.models.job import Job
+from jobmon.client.requester import Requester
+from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client.swarm.executors.dummy import DummyExecutor
+from jobmon.client.swarm.executors.sge import SGEExecutor
+from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -16,6 +18,8 @@ if sys.version_info < (3, 0):
     from functools32 import partial
 else:
     from functools import partial
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope='function')
@@ -26,7 +30,8 @@ def job_list_manager_dummy(real_dag_id):
     executor = DummyExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
                          start_daemons=False, interrupt_on_error=False)
-    return jlm
+    yield jlm
+    jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
@@ -84,7 +89,7 @@ def reconciler_dummy_check(job_list_manager_dummy, job_id):
         return False
 
 
-def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
+def test_reconciler_sge(job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_sge.all_error = set()
 
@@ -105,7 +110,6 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
     assert len(job_list_manager_sge.all_error) == 0
 
     # Artificially advance job to DONE so it doesn't impact downstream tests
-    jsm, _ = jsm_jqs
     for job_instance in jir._get_presumed_submitted_or_running():
         req = jir.jsm_req
         try:
@@ -127,8 +131,7 @@ def test_reconciler_sge(jsm_jqs, job_list_manager_sge):
             request_type='post')
 
 
-def test_reconciler_sge_timeout(real_jsm_jqs, real_dag_id,
-                                job_list_manager_sge):
+def test_reconciler_sge_timeout(job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_sge.all_error = set()
 
@@ -142,23 +145,21 @@ def test_reconciler_sge_timeout(real_jsm_jqs, real_dag_id,
     # reconciliation daemon to kill the job.
     # The sleepy job tries to sleep for 60 seconds, but times out after 3
     # seconds (well, when the reconciler runs, typically every 10 seconds)
-
+    # 60
     timeout_and_skip(20, 100, 1, partial(
         reconciler_sge_timeout_check,
         job_list_manager_sge=job_list_manager_sge,
-        jsm_jqs=real_jsm_jqs,
-        dag_id=real_dag_id,
+        dag_id=job_list_manager_sge.dag_id,
         job_id=job.job_id))
 
 
-def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
+def reconciler_sge_timeout_check(job_list_manager_sge, dag_id,
                                  job_id):
-    from jobmon.config import config
     job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_error) == 1:
         assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
 
-        req = Requester(config.jqs_port)
+        req = Requester(get_the_client_config(), 'jqs')
 
         # The job should have been tried 3 times...
         _, response = req.send_request(
@@ -173,8 +174,7 @@ def reconciler_sge_timeout_check(job_list_manager_sge, jsm_jqs, dag_id,
         return False
 
 
-def test_ignore_qw_in_timeouts(real_jsm_jqs, real_dag_id,
-                               job_list_manager_sge):
+def test_ignore_qw_in_timeouts(job_list_manager_sge):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_sge.all_error = set()
 
@@ -195,18 +195,16 @@ def test_ignore_qw_in_timeouts(real_jsm_jqs, real_dag_id,
     timeout_and_skip(10, 90, 1, partial(
         ignore_qw_in_timeouts_check,
         job_list_manager_sge=job_list_manager_sge,
-        jsm_jqs=real_jsm_jqs,
-        dag_id=real_dag_id,
+        dag_id=job_list_manager_sge.dag_id,
         job_id=job.job_id))
 
 
-def ignore_qw_in_timeouts_check(job_list_manager_sge, jsm_jqs, dag_id, job_id):
-    from jobmon.config import config
+def ignore_qw_in_timeouts_check(job_list_manager_sge, dag_id, job_id):
     job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_error) == 1:
         assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
 
-        req = Requester(config.jqs_port)
+        req = Requester(get_the_client_config(), 'jqs')
 
         # The job should have been tried 3 times...
         _, response = req.send_request(

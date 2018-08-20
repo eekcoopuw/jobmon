@@ -1,5 +1,5 @@
 from sqlalchemy import Column, ForeignKey, Integer, String
-from jobmon.sql_base import Base
+from jobmon.models.sql_base import Base
 
 
 class WorkflowAttributeType(Base):
