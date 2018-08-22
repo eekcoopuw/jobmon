@@ -56,8 +56,10 @@ class JobInstanceFactory(object):
                 # errors and save the interrupts for everything else
                 logger.warning(e)
             except Exception as e:
-                formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')handler.setFormatter(formatter)
-                logger.error(e)
+                formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                handler.setFormatter(formatter)
+                logger.error("About to throw Keyboard Intterupt {error}".format(error=e))
+                print("About to throw Keyboard Interrupt")
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
                     self._stop_event.set()
