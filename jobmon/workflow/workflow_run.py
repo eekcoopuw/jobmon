@@ -165,8 +165,7 @@ class WorkflowRun(object):
             raise RuntimeError(msg)
         else:
             kill_remote_process(wf_run.hostname, wf_run.pid)
-            logger.info("Kill previous workflow runs: {}"
-+                        .format(wf_run.id))
+            logger.info("Kill previous workflow runs: {}".format(wf_run.id))
             if reset_running_jobs:
                 if wf_run.executor_class == "SequentialExecutor":
                     from jobmon.executors.sequential import SequentialExecutor
