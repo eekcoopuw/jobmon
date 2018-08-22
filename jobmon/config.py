@@ -87,11 +87,11 @@ class GlobalConfig(object):
 
         self.jm_rep_conn = ConnectionConfig(
             host=jsm_host,
-            port=str(jsm_rep_port))
+            port=str(jsm_rep_port),
+            request_timeout=180000)
         self.jm_pub_conn = ConnectionConfig(
             host=jsm_host,
-            port=str(jsm_pub_port),
-            request_timeout=180000)
+            port=str(jsm_pub_port))
         self.jqs_rep_conn = ConnectionConfig(
             host=jqs_host,
             port=str(jqs_port),
