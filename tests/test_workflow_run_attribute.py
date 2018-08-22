@@ -8,11 +8,11 @@ from jobmon.attributes.constants import workflow_run_attribute
 
 def test_workflow_run_attribute(dag):
     # create a workflow_run
-    t1 = BashTask("sleep 1")
-    dag.add_tasks([t1])
 
     wfa = "test_workflow_run_attribute"
-    workflow = Workflow(dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
     workflow._bind()
     workflow._create_workflow_run()
     workflow_run = workflow.workflow_run
@@ -32,8 +32,8 @@ def test_workflow_run_attribute(dag):
                                      as wf_run_att
                                 JOIN workflow_run as wf_run
                                 ON wf_run_att.workflow_run_id
-                                   =wf_run.id 
-                                WHERE wf_run_att.workflow_run_id 
+                                   =wf_run.id
+                                WHERE wf_run_att.workflow_run_id
                                       ={id}
                                 """.format(id=workflow_run.id))
 
@@ -47,11 +47,11 @@ def test_workflow_run_attribute(dag):
 
 def test_workflow_run_attribute_input_error(dag):
     # create a workflow_run
-    t1 = BashTask("sleep 1")
-    dag.add_tasks([t1])
 
     wfa = "test_workflow_run_attribute_input_error"
-    workflow = Workflow(dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
     workflow._bind()
     workflow._create_workflow_run()
     workflow_run = workflow.workflow_run
