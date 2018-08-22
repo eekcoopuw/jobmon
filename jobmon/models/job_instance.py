@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class JobInstance(Base):
     """The table in the database that holds all info on JobInstances"""
+
     __tablename__ = 'job_instance'
 
     @classmethod

@@ -1,4 +1,3 @@
-from builtins import str
 import pytest
 import sys
 from time import sleep
@@ -17,6 +16,7 @@ else:
 
 
 class Task(ExecutableTask):
+    """Test version of the Task class for use in this module"""
 
     def __init__(self, command, name, *args, **kwargs):
         super(Task, self).__init__(command=command, name=name, max_attempts=1,
@@ -40,6 +40,8 @@ def job_list_manager_d(real_dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager_sge_no_daemons(real_dag_id):
+    """This fixture starts a JobListManager using the SGEExecutor, but without
+    running JobInstanceFactory or JobReconciler in daemonized threads"""
     executor = SGEExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
                          interrupt_on_error=False)

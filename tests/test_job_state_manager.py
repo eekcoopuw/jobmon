@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 def commit_hooked_jsm(jsm_jqs):
     """Add a commit hook to the JSM's database session, so we
     can intercept Error Logging and force transaction failures to test
-    downstream error handling"""
-
+    downstream error handling
+    """
     jsm, _ = jsm_jqs
 
     from sqlalchemy import event

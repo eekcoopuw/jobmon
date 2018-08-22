@@ -75,9 +75,7 @@ def test_empty_real_dag(real_dag):
 
 
 def test_one_task(tmp_out_dir, real_dag):
-    """
-    Create a real_dag with one Task and execute it
-    """
+    """Create a real_dag with one Task and execute it"""
     root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     command_script = sge.true_path("tests/remote_sleep_and_write.py")
@@ -127,7 +125,8 @@ def test_two_tasks_same_name_errors(tmp_out_dir, real_dag):
 
 def test_three_linear_tasks(tmp_out_dir, real_dag):
     """
-    Create and execute a real_dag with three Tasks, one after another: a->b->c
+    Create and execute a real_dag with three Tasks, one after another:
+    a->b->c
     """
     root_out_dir = "{}/mocks/test_three_linear_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
@@ -433,8 +432,8 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, real_dag):
 
 def test_bushy_real_dag(tmp_out_dir, real_dag):
     """
-    Similar to the a small fork and join real_dag but with connections between early
-    and late phases:
+    Similar to the a small fork and join real_dag but with connections between
+    early and late phases:
        a->b[0..2]->c[0..2]->d
     And also:
        c depends on a
@@ -525,7 +524,8 @@ def test_bushy_real_dag(tmp_out_dir, real_dag):
 
 def test_real_dag_logging(tmp_out_dir, real_dag):
     """
-    Create a real_dag with one Task and execute it, and make sure logs show up in db
+    Create a real_dag with one Task and execute it, and make sure logs show up
+    in db
 
     This is in a separate test from the jsm-specifc logging test, as this test
     runs the jobmon pipeline as it would be run from the client perspective,

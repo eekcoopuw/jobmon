@@ -13,11 +13,17 @@ class JobInstanceIntercom(object):
     def __init__(self, job_instance_id, executor_class, process_group_id,
                  hostname):
         """
-        The JobInstanceIntercom is a mechanism whereby a running job_isntance can communicate back to the JobStateManager to log its status, errors, usage details, etc.
+        The JobInstanceIntercom is a mechanism whereby a running job_isntance
+        can communicate back to the JobStateManager to log its status, errors,
+        usage details, etc.
+
         Args:
-            job_instance_id (int): the id of the job_instance_id that is reporting back
-            executor_class (str): string representing the type of executor that was used for this job instance
-            process_group_id (int): linux process_group_id that this job_instance is a part of
+            job_instance_id (int): the id of the job_instance_id that is
+            reporting back
+            executor_class (str): string representing the type of executor that
+            was used for this job instance
+            process_group_id (int): linux process_group_id that this
+            job_instance is a part of
             hostname (str): hostname where this job_instance is running
         """
         self.job_instance_id = job_instance_id
@@ -46,7 +52,9 @@ class JobInstanceIntercom(object):
         return rc
 
     def log_job_stats(self):
-        """Tell the JobStateManager all the applicable job_stats for this job_instance"""
+        """Tell the JobStateManager all the applicable job_stats for this
+        job_instance
+        """
         try:
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']

@@ -46,4 +46,3 @@ class TaskDagViz(object):
             # ring buffer the color array. Set312 is a 12 member color spectrum
             color_map[tag] = "/set312/" + str((i + 1) % 12)
         return color_map
-

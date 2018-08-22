@@ -92,7 +92,8 @@ def real_jsm_jqs():
 
 @pytest.fixture(scope='session')
 def jsm_jqs():
-    """This sets up the JSM/JQS using the test_client which is a fake server"""
+    """This sets up the JSM/JQS using the test_client which is a
+    fake server"""
     from jobmon.server.services.job_state_manager.app \
         import create_app as jsm_get_app
     from jobmon.server.services.job_query_server.app import \
@@ -112,8 +113,8 @@ def jsm_jqs():
 
 
 def get_flask_content(response):
-    """The function called by the no_request_jsm_jqs to query the fake test_client
-    for a response"""
+    """The function called by the no_request_jsm_jqs to query the fake
+    test_client for a response"""
     if 'application/json' in response.headers.get('Content-Type'):
         content = response.json
     elif 'text/html' in response.headers.get('Content-Type'):
@@ -125,7 +126,8 @@ def get_flask_content(response):
 
 @pytest.fixture(scope='function')
 def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
-    """This function monkeypatches the requests library to use the test_client"""
+    """This function monkeypatches the requests library to use the
+    test_client"""
     import requests
     from jobmon.client import requester
     jsm_client, jqs_client = jsm_jqs
@@ -145,7 +147,8 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
 
 @pytest.fixture(scope='function')
 def dag_id(no_requests_jsm_jqs, db_cfg):
-    """This uses the test_client to create a dag in the db and return the dag_id"""
+    """This uses the test_client to create a dag in the db and return the
+    dag_id"""
     import random
     from jobmon.client.requester import Requester
     from jobmon.client.the_client_config import get_the_client_config
@@ -200,7 +203,9 @@ def job_list_manager_sub(dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager_sge(real_dag_id, tmpdir_factory):
-
+    """This creates a job_list_manager that uses the SGEExecutor, does
+    start the JobInstanceFactory and JobReconciler threads, and does not
+    interrupt on error"""
     elogdir = str(tmpdir_factory.mktemp("elogs"))
     ologdir = str(tmpdir_factory.mktemp("ologs"))
 
@@ -214,8 +219,9 @@ def job_list_manager_sge(real_dag_id, tmpdir_factory):
 
 @pytest.fixture(scope='function')
 def dag(db_cfg, no_requests_jsm_jqs, request):
-    """Use a fixture for dag creation so that the dags' JobInstanceFactories
-    and JobInstanceReconcilers get cleaned up after each test"""
+    """This is a fixture for dag creation that uses the test_client,
+    so that the dags' JobInstanceFactory and JobInstanceReconcilers get
+    cleaned up after each test"""
     dag = TaskDag(name=request.node.name, interrupt_on_error=False)
     yield dag
     if dag.job_list_manager:
@@ -224,8 +230,9 @@ def dag(db_cfg, no_requests_jsm_jqs, request):
 
 @pytest.fixture(scope='function')
 def real_dag(db_cfg, real_jsm_jqs, request):
-    """Use a fixture for dag creation so that the dags' JobInstanceFactories
-    and JobInstanceReconcilers get cleaned up after each test"""
+    """"This is a fixture for dag creation that uses the real Flask dev server
+    so that the dags' JobInstanceFactory and JobInstanceReconcilers get
+    cleaned up after each test"""
     executor = SGEExecutor()
     dag = TaskDag(name=request.node.name, executor=executor,
                   interrupt_on_error=False)
@@ -236,6 +243,9 @@ def real_dag(db_cfg, real_jsm_jqs, request):
 
 @pytest.fixture(scope='function')
 def dag_factory(db_cfg, real_jsm_jqs, request):
+    """This is a fixture for creation of lots dag creation that uses the real
+    Flask dev server, so that the dags' JobInstanceFactory and
+    JobInstanceReconcilers get cleaned up after each test"""
     dags = []
 
     def factory(executor):

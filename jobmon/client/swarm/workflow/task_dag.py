@@ -13,15 +13,14 @@ logger = logging.getLogger(__name__)
 
 class DagExecutionStatus(object):
     """Enumerate possible exit statuses for TaskDag._execute()"""
+
     SUCCEEDED = 0
     FAILED = 1
     STOPPED_BY_USER = 2
 
 
 class TaskDag(object):
-    """
-    A DAG of Tasks.
-    """
+    """A DAG of Tasks."""
 
     def __init__(self, name="", interrupt_on_error=True, executor=None):
 
@@ -50,7 +49,8 @@ class TaskDag(object):
         executions, so that the resume case can be tested.
 
         In every non-test case, self.fail_after_n_executions will be None, and
-        so the 'fall over' will not be triggered in production. """
+        so the 'fall over' will not be triggered in production.
+        """
         self.fail_after_n_executions = n
 
     @property
@@ -68,7 +68,6 @@ class TaskDag(object):
             dag_id (int): Defaults to None, in which case a new dag_id is
                 created
         """
-
         if dag_id:
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
@@ -124,7 +123,6 @@ class TaskDag(object):
                 True if no problems. if raises is True, then it raises
                 ValueError on first problem, else False
         """
-
         # The empty graph cannot have errors
         if len(self.tasks):
             return True
@@ -172,7 +170,6 @@ class TaskDag(object):
         Returns:
             A triple: True, len(all_completed_tasks), len(all_failed_tasks)
         """
-
         if not self.is_bound:
             self.bind_to_db()
 

@@ -89,7 +89,8 @@ class HealthMonitor(object):
     def _calculate_node_failure_rate(self, session, working_wf_runs):
         """Collect all nodenames used in currently running,
         currently successful workflow runs, and report the ones that have at
-        least 5 job instances and at least 50% failure rate on that node"""
+        least 5 job instances and at least 50% failure rate on that node
+        """
         if not working_wf_runs:
             # no active/successful workflow runs have < 10% failure
             return []
@@ -130,7 +131,8 @@ class HealthMonitor(object):
 
     def _get_lost_workflow_runs(self, session):
         """Return all workflow_runs that are lost, i.e. not logged a
-        heartbeat in a while"""
+        heartbeat in a while
+        """
         wrs = self._get_active_workflow_runs(session)
         return [wr for wr in wrs if self._has_lost_workflow_run(wr)]
 

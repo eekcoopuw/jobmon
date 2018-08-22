@@ -31,6 +31,8 @@ def test_bad_names():
 
 
 class TheTestTask(ExecutableTask):
+    """Test version of a Task for use in this module"""
+
     def __init__(self, command, upstream_tasks=[]):
         ExecutableTask.__init__(self, command, upstream_tasks)
 

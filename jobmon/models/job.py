@@ -22,6 +22,7 @@ class InvalidStateTransition(Exception):
 
 class Job(Base):
     """The table in the database that holds all info on Jobs"""
+
     __tablename__ = 'job'
 
     @classmethod

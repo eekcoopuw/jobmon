@@ -29,7 +29,8 @@ class InvalidConfig(Exception):
 
 class ClientConfig(object):
     """
-    This is intended to be a singleton and should only accessed via the_client_config.
+    This is intended to be a singleton and should only accessed via
+    the_client_config.
 
     If you're a jobmon developer, and you want/need to modify global
     configuration from a different module, import the config singleton and only
@@ -140,4 +141,3 @@ class ClientConfig(object):
             if opt == 'host':
                 os.environ[opt] = val
         return gc_opts
-

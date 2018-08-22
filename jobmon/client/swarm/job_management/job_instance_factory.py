@@ -25,8 +25,10 @@ class JobInstanceFactory(object):
 
         Args:
             dag_id (int): the id for the dag to run
-            executor (obj, default SequentialExecutor): obj of type SequentialExecutor, DummyExecutor or SGEExecutor
-            interrupt_on_error (bool, default True): whether or not to interrupt the thread if there's an error
+            executor (obj, default SequentialExecutor): obj of type
+            SequentialExecutor, DummyExecutor or SGEExecutor
+            interrupt_on_error (bool, default True): whether or not to
+            interrupt the thread if there's an error
             stop_event (obj, default None): Object of type threading.Event
         """
         self.dag_id = dag_id
@@ -50,11 +52,13 @@ class JobInstanceFactory(object):
             self._stop_event = stop_event
 
     def instantiate_queued_jobs_periodically(self, poll_interval=1):
-        """Running in a thread, this function allows the JobInstanceFactory to periodically get all jobs taht are ready and queue them for instantation
+        """Running in a thread, this function allows the JobInstanceFactory to
+        periodically get all jobs taht are ready and queue them for
+        instantation
 
         Args:
-            poll_interval (int): how often you want this function to poll for newly
-            ready jobs
+            poll_interval (int): how often you want this function to poll for
+            newly ready jobs
         """
         logger.info("Polling for and instantiating queued jobs at {}s "
                     "intervals".format(poll_interval))
@@ -72,7 +76,9 @@ class JobInstanceFactory(object):
                     raise
 
     def instantiate_queued_jobs(self):
-        """Pull all jobs that are ready, create job instances for them, and thereby run them"""
+        """Pull all jobs that are ready, create job instances for them, and
+        thereby run them
+        """
         jobs = self._get_jobs_queued_for_instantiation()
         job_instance_ids = []
         for job in jobs:

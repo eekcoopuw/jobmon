@@ -9,6 +9,7 @@ from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 
 def test_dag_viz(tmp_out_dir, dag):
+
     """
     Create a small fork and join dag with four phases:
      a->b[0..2]->c[0..2]->d

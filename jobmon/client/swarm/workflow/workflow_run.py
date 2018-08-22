@@ -207,12 +207,14 @@ class WorkflowRun(object):
         """Update the status of the workflow_run as errored"""
         self._update_status(WorkflowRunStatus.ERROR)
 
-    def update_stopped(self):v
+    def update_stopped(self):
         """Update the status of the workflow_run as stopped"""
         self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
-        """Update the status of the workflow_run with whatever status is passed"""
+        """Update the status of the workflow_run with whatever status is
+        passed
+        """
         rc, _ = self.jsm_req.send_request(
             app_route='/workflow_run',
             message={'wfr_id': self.id, 'status': status,

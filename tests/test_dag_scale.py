@@ -21,7 +21,6 @@ def test_burdenator_scale(db_cfg, real_jsm_jqs, task_dag_manager, tmp_out_dir):
 
      N is big, e.g. 10,000
     """
-
     N = 10000
     root_out_dir = "{}/mocks/test_burdenator_scale".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
@@ -53,7 +52,6 @@ def test_burdenator_scale(db_cfg, real_jsm_jqs, task_dag_manager, tmp_out_dir):
         dag.add_task(task_b[i])
 
     # Each c[i] depends on three b's
-
     task_c = {}
     for i in range(N):
         sleep_secs = 5 + i % 5,

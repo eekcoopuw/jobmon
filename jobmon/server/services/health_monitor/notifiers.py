@@ -11,7 +11,8 @@ class SlackNotifier(object):
         """Container for connection with Slack
         Args:
             token (str): token gotten from your app in api.slack.com
-            default_channel (str): name of channel to which you want to post"""
+            default_channel (str): name of channel to which you want to post
+        """
         self._token = token
         self.default_channel = default_channel
         self.slack_api_url = 'https://slack.com/api/chat.postMessage'

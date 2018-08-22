@@ -28,10 +28,9 @@ logger = logging.getLogger(__name__)
 
 
 def mogrify(topic, msg):
-    """
-    json encode the message and prepend the topic.
-    see: https://stackoverflow.com/questions/25188792/ \
-         how-can-i-use-send-json-with-pyzmq-pub-sub
+    """json encode the message and prepend the topic.
+    see: https://stackoverflow.com/questions/25188792/
+    how-can-i-use-send-json-with-pyzmq-pub-sub
     """
     return str(topic) + ' ' + json.dumps(msg)
 
@@ -44,7 +43,8 @@ def page_not_found(error):
 @jsm.route('/', methods=['GET'])
 def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
-    that this responder is in fact listening"""
+    that this responder is in fact listening
+    """
     logmsg = "{}: Responder received is_alive?".format(os.getpid())
     logger.debug(logmsg)
     resp = jsonify(msg="Yes, I am alive")
@@ -205,7 +205,8 @@ def add_update_workflow_run():
         stderr (str): where stderr should be directed
         stdout (str): where stdout should be directedf
         project (str): sge project where this workflow_run should be run
-        slack_channel (str): channel where this workflow_run should send notifications
+        slack_channel (str): channel where this workflow_run should send
+        notifications
         any other Workflow attributes you want to set
     """
     data = request.get_json()
@@ -241,7 +242,8 @@ def log_done(job_instance_id):
     """Log a job_istnace as done
     Args:
 
-        job_instance_id: id of the job_instance to log done"""
+        job_instance_id: id of the job_instance to log done
+    """
     logger.debug("Log DONE for JI {}".format(job_instance_id))
     ji = _get_job_instance(ScopedSession, job_instance_id)
     msg = _update_job_instance_state(
@@ -282,7 +284,8 @@ def log_executor_id(job_instance_id):
     """Log a job_instance's executor id
     Args:
 
-        job_instance_id: id of the job_instance to log"""
+        job_instance_id: id of the job_instance to log
+    """
     data = request.get_json()
     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
     ji = _get_job_instance(ScopedSession, job_instance_id)
@@ -464,7 +467,8 @@ def _get_job_instance(session, job_instance_id):
     Args:
 
         session: ScopedSession or Session object to use to connect to the db
-        job_instance_id (int): job_instance_id with which to query the database"""
+        job_instance_id (int): job_instance_id with which to query the database"
+    """
     job_instance = session.query(JobInstance).filter_by(
         job_instance_id=job_instance_id).first()
     return job_instance
@@ -535,7 +539,8 @@ def add_workflow_run_attribute():
     """Set attributes on a workflow_run
 
     Args:
-        workflow_run)_id (int): id of the workflow_run on which to set attributres
+        workflow_run)_id (int): id of the workflow_run on which to set
+        attributres
         attribute_type (obj): object of type WorkflowRunAttribute
         value (str): value of the WorkflowRunAttribute to add
     """

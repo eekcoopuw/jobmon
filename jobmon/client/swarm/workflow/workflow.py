@@ -141,15 +141,18 @@ class Workflow(object):
 
     def set_executor(self, executor_class):
         """Set which executor to use to run the tasks.
+
         Args:
-            executor_class (str): string referring to one of the executor classes in jobmon.client.swarm.executors
+            executor_class (str): string referring to one of the executor
+            classes in jobmon.client.swarm.executors
         """
         self.executor_class = executor_class
         if self.executor_class == 'SGEExecutor':
             from jobmon.client.swarm.executors.sge import SGEExecutor
             self.executor = SGEExecutor(**self.executor_args)
         elif self.executor_class == "SequentialExecutor":
-            from jobmon.client.swarm.executors.sequential import SequentialExecutor
+            from jobmon.client.swarm.executors.sequential import \
+                SequentialExecutor
             self.executor = SequentialExecutor()
         elif self.executor_class == "DummyExecutor":
             from jobmon.client.swarm.executors.dummy import DummyExecutor
@@ -187,7 +190,9 @@ class Workflow(object):
 
     @property
     def is_bound(self):
-        """Return a bool, whether or not this workflow is already bound to the db"""
+        """Return a bool, whether or not this workflow is already bound to the
+        db
+        """
         if self.wf_dao:
             return True
         else:
@@ -314,7 +319,10 @@ class Workflow(object):
         self.wf_dao = WorkflowDAO.from_wire(wf_dct)
 
     def _set_executor_temp_dir(self):
-        """Create a temp_dir for the executor. This is primarily needed for StataTask, since it creates logs in the working dir by default, potentially overwhelming that directory"""
+        """Create a temp_dir for the executor. This is primarily needed for
+        StataTask, since it creates logs in the working dir by default,
+        potentially overwhelming that directory
+        """
         scratch_tmp_dir = "/ihme/scratch/tmp"
         local_tmp_dir = "/tmp"
         if os.path.exists(os.path.realpath(scratch_tmp_dir)):

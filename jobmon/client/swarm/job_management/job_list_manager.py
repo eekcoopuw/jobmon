@@ -25,11 +25,16 @@ class JobListManager(object):
         """Manages all the list of jobs that are running, done or errored
         Args:
             dag_id (int): the id for the dag to run
-            executor (obj, default SequentialExecutor): obj of type SequentialExecutor, DummyExecutor or SGEExecutor
-            start_daemons (bool, default False): whether or not to start the JobInstanceFactory and JobReconciler as daemonized threads
-            reconciliation_interval (int, default 10 ): number of seconds to wait between reconciliation attemps
-            job_instantiation_interval (int, default 1): number of seconds to wait between instantiating newly ready jobs
-            interrupt_on_error (bool, default True): whether or not to interrupt the thread if there's an error
+            executor (obj, default SequentialExecutor): obj of type
+            SequentialExecutor, DummyExecutor or SGEExecutor
+            start_daemons (bool, default False): whether or not to start the
+            JobInstanceFactory and JobReconciler as daemonized threads
+            reconciliation_interval (int, default 10 ): number of seconds to
+            wait between reconciliation attemps
+            job_instantiation_interval (int, default 1): number of seconds to
+            wait between instantiating newly ready jobs
+            interrupt_on_error (bool, default True): whether or not to
+            interrupt the thread if there's an error
         """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
@@ -117,7 +122,8 @@ class JobListManager(object):
             if task.status == JobStatus.DONE and job not in self.all_done:
                 completed_tasks += [task]
                 completed_jobs += [job]
-            elif task.status == JobStatus.ERROR_FATAL and job not in self.all_error:
+            elif (task.status == JobStatus.ERROR_FATAL and
+                  job not in self.all_error):
                 failed_tasks += [task]
                 failed_jobs += [job]
             else:
@@ -171,7 +177,9 @@ class JobListManager(object):
         return list(self.all_done), list(self.all_error)
 
     def _create_job(self, *args, **kwargs):
-        """Create a job by passing the job args/kwargs through to the JobFactory"""
+        """Create a job by passing the job args/kwargs through to the
+        JobFactory
+        """
         job = self.job_factory.create_job(*args, **kwargs)
         self.hash_job_map[job.job_hash] = job
         self.job_hash_map[job] = job.job_hash
@@ -215,7 +223,9 @@ class JobListManager(object):
         return self.bound_tasks[job.job_id]
 
     def _start_job_instance_manager(self):
-        """Start the JobInstanceFactory and JobReconciler in separate threads"""
+        """Start the JobInstanceFactory and JobReconciler in separate
+        threads
+        """
         self.jif_proc = Thread(
             target=self.job_inst_factory.instantiate_queued_jobs_periodically,
             args=(self.job_instantiation_interval,))

@@ -42,7 +42,6 @@ class ExecutableTask(object):
         Raises:
             ValueError: if the name is not valid.
         """
-
         if not name:
             raise ValueError("name cannot be None or empty")
         elif name[0].isdigit():
@@ -144,12 +143,11 @@ class ExecutableTask(object):
         return self.hash == other.hash
 
     def __hash__(self):
-        """
-        Logic must match __eq__
-        """
+        """Logic must match __eq__"""
         return self.hash
 
     def __lt__(self, other):
+        """Logic must match __eq__"""
         return self.hash < other.hash
 
     def __repr__(self):
@@ -163,8 +161,8 @@ class ExecutableTask(object):
 
 
 class BoundTask(object):
-
     """The class that bridges the gap between a task and it's bound Job"""
+
     def __init__(self, task, job, job_list_manager):
         """
         Link task and job

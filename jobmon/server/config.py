@@ -19,7 +19,8 @@ class InvalidConfig(Exception):
 
 class ServerConfig(object):
     """
-    This is intended to be a singleton and should only accessed via the_server_config.
+    This is intended to be a singleton and should only accessed via
+    the_server_config.
 
     If you're a jobmon developer, and you want/need to modify global
     configuration from a different module, import the config singleton and only
@@ -114,4 +115,3 @@ class ServerConfig(object):
             if opt == 'conn_str':
                 os.environ[opt] = val
         return gc_opts
-
