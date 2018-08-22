@@ -8,11 +8,11 @@ from jobmon.attributes.attribute_models import WorkflowAttribute
 
 
 def test_workflow_attribute(dag):
-    t1 = BashTask("sleep 1")
-    dag.add_tasks([t1])
 
     wfa = "workflow_with_attribute"
-    workflow = Workflow(dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
     workflow.execute()
 
     # add an attribute to the workflow
@@ -21,13 +21,13 @@ def test_workflow_attribute(dag):
     with session_scope() as session:
         # query from workflow_attribute table
         workflow_attribute_query = session.execute("""
-                                        SELECT wf_att.id, 
+                                        SELECT wf_att.id,
                                                wf_att.workflow_id,
-                                               wf_att.attribute_type, 
+                                               wf_att.attribute_type,
                                                wf_att.value
                                         FROM workflow_attribute as wf_att
                                         JOIN workflow
-                                        ON wf_att.workflow_id = workflow.id 
+                                        ON wf_att.workflow_id = workflow.id
                                         WHERE wf_att.workflow_id = {id}
                                         """.format(id=workflow.id))
 
@@ -40,11 +40,11 @@ def test_workflow_attribute(dag):
 
 
 def test_workflow_attribute_input_error(dag):
-    t1 = BashTask("sleep 1")
-    dag.add_tasks([t1])
 
     wfa = "workflow_with_wrong_arg_attribute"
-    workflow = Workflow(dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
     workflow.execute()
 
     # add an attribute with wrong types to the workflow
@@ -54,11 +54,11 @@ def test_workflow_attribute_input_error(dag):
 
 
 def test_workflow_attribute_tag(dag):
-    t1 = BashTask("sleep 1")
-    dag.add_tasks([t1])
 
     wfa = "workflow_with_tag_attribute"
-    workflow = Workflow(dag, wfa)
+    workflow = Workflow(wfa)
+    t1 = BashTask("sleep 1")
+    workflow.add_tasks([t1])
     workflow.execute()
 
     # add a tag attribute to the workflow

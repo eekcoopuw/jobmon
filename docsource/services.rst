@@ -74,7 +74,7 @@ To deploy a centralized JobStateManager and JobQueryServer:
   g. k8s/jsm-service.yaml
   h. k8s/jqs-service.yaml
   i. docsource/quickstart.rst
-  j. And do a recurive grep to be sure!   e.g.   ``grep -r 3312 *``
+  j. And do a recursive grep to be sure!   e.g.   ``grep -r 3312 *``
 5. Submit the new version number files back to git
 6. From the root directory of the repo, run::
 
@@ -114,8 +114,9 @@ emu.2    4758 4756  4757  3309
 emu.3    4858 4856  4857  3310
 emu.3    4958 4956  4957  3311
 emu.4    5058 5056  5057  3312
-emu.5    5158 5156  5157  3313
-emu.5    5258 5256  5257  3314
+emu.5    4458 4456  4457  3305  # gbd2017_production hotfixes
+emu.6    5158 5156  5157  3313
+emu.7    5258 5256  5257  3314
 ======== ==== ===== ===== ====
 
 The port numbers come in pairs, e.g. "3313:3306".
