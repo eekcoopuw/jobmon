@@ -71,7 +71,10 @@ To deploy a centralized JobStateManager and JobQueryServer:
   d. jobmon/config.py
   e. jobmon/bootstrap.py
   f. k8s/db-service.yaml
-  g. And do a recurive grep to be sure!   e.g.   ``grep -r 3312 *``
+  g. k8s/jsm-service.yaml
+  h. k8s/jqs-service.yaml
+  i. docsource/quickstart.rst
+  j. And do a recurive grep to be sure!   e.g.   ``grep -r 3312 *``
 5. Submit the new version number files back to git
 6. From the root directory of the repo, run::
 
@@ -95,7 +98,7 @@ For testing purposes, you can then access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3313
+    port: 3314
     user: docker
     pass: docker
 
@@ -112,6 +115,7 @@ emu.3    4858 4856  4857  3310
 emu.3    4958 4956  4957  3311
 emu.4    5058 5056  5057  3312
 emu.5    5158 5156  5157  3313
+emu.5    5258 5256  5257  3314
 ======== ==== ===== ===== ====
 
 The port numbers come in pairs, e.g. "3313:3306".

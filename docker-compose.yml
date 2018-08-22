@@ -5,8 +5,8 @@ services:
     build: .
     image: jobmon
     ports:
-        - "5156:3456"
-        - "5157:3457"
+        - "5256:3456"
+        - "5257:3457"
 
     entrypoint:
         - ./wait-for-tables.sh
@@ -26,7 +26,7 @@ services:
     depends_on:
         - jsm
     ports:
-        - "5158:3458"
+        - "5258:3458"
     entrypoint:
         - ./wait-for-tables.sh
         - db
@@ -71,7 +71,7 @@ services:
   db:
     image: mysql:5.7
     ports:
-        - "3313:3306"
+        - "3314:3306"
     environment:
         MYSQL_ROOT_PASSWORD: docker
         MYSQL_DATABASE: docker

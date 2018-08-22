@@ -193,7 +193,7 @@ class JobStateManager(ReplyServer):
                 return (ReturnCodes.OK, False, {})
         return (ReturnCodes.OK, True, wf_run.to_wire())
 
-    def get_job_instances_of_workflow_run(workflow_run_id):
+    def get_job_instances_of_workflow_run(self, workflow_run_id):
         with session_scope() as session:
             jis = session.query(models.JobInstance).filter_by(
                 workflow_run_id=workflow_run_id).all()
