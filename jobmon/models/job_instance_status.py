@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class JobInstanceStatus(Base):
-    __tablename__ = 'job_instance_status'
+   """The table in the database that holds on the possible statuses for JobInstance"""__tablename__ = 'job_instance_status'
 
     INSTANTIATED = 'I'
     SUBMITTED_TO_BATCH_EXECUTOR = 'B'

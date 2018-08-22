@@ -60,6 +60,10 @@ class JobFactory(object):
         return Job.from_wire(response['job_dct'])
 
     def queue_job(self, job_id):
+        """Transition a job to the Queued for Instantiation status in the db
+
+        Args:
+            job_id (int): the id of the job to be queued"""
         rc, _ = self.requester.send_request(
             app_route='/job/{}/queue'.format(job_id),
             message={},
@@ -69,6 +73,7 @@ class JobFactory(object):
         return rc
 
     def reset_jobs(self):
+        """ Reset all incomplete jobs of a dag_id, identified by self.dag_id """
         rc, _ = self.requester.send_request(
             app_route='/task_dag/{}/reset_incomplete_jobs'.format(self.dag_id),
             message={},

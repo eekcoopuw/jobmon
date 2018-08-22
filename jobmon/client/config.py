@@ -29,39 +29,26 @@ class InvalidConfig(Exception):
 
 class ClientConfig(object):
     """
-    This is intended to be a singleton and should only be instantiated inside
-    this module. If at all possible, try to make modify configuration by
-    updating your ~/.jobmonrc file.
+    This is intended to be a singleton and should only accessed via the_client_config.
 
     If you're a jobmon developer, and you want/need to modify global
     configuration from a different module, import the config singleton and only
-    use the setters or modifier methods exposed by GlobalConfig (e.g.
+    use the setters or modifier methods exposed by ClientConfig (e.g.
     apply_opts_dct).
 
-    For exmample:
+    For example:
 
-        from jobmon.config import config
+        from jobmon.the_client_config import get_the_client_config
 
-        config.jqs_port = 12345
-        config.apply_opts_dct({'conn_str': 'my://sql:conn@ection'})
-
-
-    Note that if you modify the conn_str... you'll also likely need to recreate
-    the database engine...
-
-        from jobmon.database import recreate_engine
-        recreate_engine()
-
-
-
-    TODO: Investigate if there's a more 'pythonic' way to handle this
+        config = get_the_client_config()
+        config.apply_opts_dct({'jqs_port': '12345'})
     """
 
     default_opts = {
         "jobmon_version": str(jobmon.__version__),
         "host": "jobmon-p01.ihme.washington.edu",
-        "jsm_port": 5056,
-        "jqs_port": 5058,
+        "jsm_port": 5256,
+        "jqs_port": 5258,
         "jobmon_command": derive_jobmon_command_from_env()
     }
 

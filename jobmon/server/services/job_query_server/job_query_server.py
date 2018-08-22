@@ -34,6 +34,11 @@ def _is_alive():
 
 @jqs.route('/dag/<dag_id>/job', methods=['GET'])
 def get_jobs_by_status(dag_id):
+    """Returns all jobs in the database that have the specified status
+
+    Args:
+        status (str): status to query for
+    """
     if request.args.get('status', None) is not None:
         jobs = ScopedSession.query(Job).filter_by(
             status=request.args['status'],
@@ -49,6 +54,13 @@ def get_jobs_by_status(dag_id):
 
 @jqs.route('/dag/<dag_id>/job_instance', methods=['GET'])
 def get_job_instances_by_filter(dag_id):
+    """Returns all job_instances in the database that have the specified filter
+
+    Args:
+        dag_id (int): dag_id to which the job_instances are attached
+        status (list): list of statuses to query for
+        runtime (str, optional, option: 'timed_out'): if specified, will only return jobs whose runtime is above max_runtime
+    """
     if request.args.get('runtime', None) is not None:
         instances = ScopedSession.query(JobInstance).\
             filter(
@@ -82,7 +94,7 @@ def get_dags_by_inputs():
     variables
 
     Args
-        dag_id:
+        dag_id: id of the dag to retrieve
     """
     if request.args.get('dag_hash', None) is not None:
         dags = ScopedSession.query(TaskDagMeta).filter(
@@ -103,7 +115,7 @@ def get_workflows_by_inputs(dag_id):
     variables
 
     Args
-        dag_id:
+        dag_id: id of the dag to retrieve
     """
     workflow = ScopedSession.query(WorkflowDAO).\
         filter(WorkflowDAO.dag_id == dag_id).\
@@ -120,7 +132,11 @@ def get_workflows_by_inputs(dag_id):
 
 @jqs.route('/workflow/<workflow_id>/workflow_run', methods=['GET'])
 def is_workflow_running(workflow_id):
-    """Check if a previous workflow run for your user is still running """
+    """Check if a previous workflow run for your user is still running
+
+    Args:
+        workflow_id: id of the workflow to check if its previous workflow_runs are running
+    """
     wf_run = (ScopedSession.query(WorkflowRunDAO).filter_by(
         workflow_id=workflow_id,
         status=WorkflowRunStatus.RUNNING,
@@ -135,6 +151,11 @@ def is_workflow_running(workflow_id):
 
 @jqs.route('/workflow_run/<workflow_run_id>/job_instance', methods=['GET'])
 def get_job_instances_of_workflow_run(workflow_run_id):
+    """Get all job_instances of a particular workflow run
+
+    Args:
+        workflow_run_id: id of the workflow_run to retrieve job_instances for
+    """
     jis = ScopedSession.query(JobInstance).filter_by(
         workflow_run_id=workflow_run_id).all()
     jis = [ji.to_wire() for ji in jis]

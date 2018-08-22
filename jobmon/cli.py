@@ -73,7 +73,7 @@ def initdb(args):
 
 
 def parse_args(argstr=None):
-    """Constructs a parser, parses either sys.argv (default) or the provided
+    """Construct a parser, parse either sys.argv (default) or the provided
     argstr, returns a Namespace. The Namespace should have a 'func'
     attribute which can be used to dispatch to the appropriate downstream
     function"""

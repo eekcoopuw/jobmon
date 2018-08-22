@@ -7,13 +7,13 @@ from jobmon.server import database
 
 
 def create_job_db():
-    """create sqlite database from models schema"""
+    """Create sqlite database from models schema"""
     Base.metadata.create_all(database.engine)  # doesn't create if exists
     return True
 
 
 def delete_job_db():
-    """delete sqlite database from models schema"""
+    """Delete sqlite database from models schema"""
     database.ScopedSession.commit()
     database.Session.close_all()
     database.engine.dispose()
@@ -22,6 +22,7 @@ def delete_job_db():
 
 
 def load_default_statuses(session):
+    """Load all default statuses into the database"""
     statuses = []
     for status in ['REGISTERED', 'QUEUED_FOR_INSTANTIATION', 'INSTANTIATED',
                    'RUNNING', 'ERROR_RECOVERABLE', 'ERROR_FATAL', 'DONE']:

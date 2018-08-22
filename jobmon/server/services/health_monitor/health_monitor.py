@@ -47,6 +47,7 @@ class HealthMonitor(object):
             'database']
 
     def monitor_forever(self):
+        """Run in a thread and monitor for failing jobs"""
         while True:
             with database.session_scope() as session:
                 # Identify and log lost workflow runs
@@ -114,6 +115,7 @@ class HealthMonitor(object):
         return []
 
     def _notify_of_failing_nodes(self, nodes):
+        """Ping slack of any failing nodes"""
         if not nodes:
             return
         msg = "Potentially failing nodes found: {}".format(nodes)
@@ -121,20 +123,25 @@ class HealthMonitor(object):
             self._node_notification_sink(msg)
 
     def _get_active_workflow_runs(self, session):
+        """Retrieve all workflow_runs that are actively running"""
         wrs = session.query(WorkflowRunDAO).filter_by(
             status=WorkflowRunStatus.RUNNING).all()
         return wrs
 
     def _get_lost_workflow_runs(self, session):
+        """Return all workflow_runs that are lost, i.e. not logged a
+        heartbeat in a while"""
         wrs = self._get_active_workflow_runs(session)
         return [wr for wr in wrs if self._has_lost_workflow_run(wr)]
 
     def _has_lost_workflow_run(self, workflow_run):
+        """Return bool if workflow has a lost workflow_run"""
         td = workflow_run.workflow.task_dag
         time_since_last_heartbeat = (datetime.utcnow() - td.heartbeat_date)
         return time_since_last_heartbeat > self._loss_threshold
 
     def _register_lost_workflow_runs(self, lost_workflow_runs):
+        """Register all lost workflow_runs with the database"""
         for wfr in lost_workflow_runs:
             self._requester.send_request(
                 app_route='/workflow_run',

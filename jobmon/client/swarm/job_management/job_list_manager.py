@@ -22,7 +22,15 @@ class JobListManager(object):
     def __init__(self, dag_id, executor=None, start_daemons=False,
                  reconciliation_interval=10,
                  job_instantiation_interval=1, interrupt_on_error=True):
-
+        """Manages all the list of jobs that are running, done or errored
+        Args:
+            dag_id (int): the id for the dag to run
+            executor (obj, default SequentialExecutor): obj of type SequentialExecutor, DummyExecutor or SGEExecutor
+            start_daemons (bool, default False): whether or not to start the JobInstanceFactory and JobReconciler as daemonized threads
+            reconciliation_interval (int, default 10 ): number of seconds to wait between reconciliation attemps
+            job_instantiation_interval (int, default 1): number of seconds to wait between instantiating newly ready jobs
+            interrupt_on_error (bool, default True): whether or not to interrupt the thread if there's an error
+        """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
 
@@ -49,12 +57,17 @@ class JobListManager(object):
 
     @property
     def active_jobs(self):
+        """List of tasks that are listed as Registered, Done or Error_Fatal"""
         return [task for job_id, task in self.bound_tasks.items()
                 if task.status not in [JobStatus.REGISTERED,
                                        JobStatus.DONE,
                                        JobStatus.ERROR_FATAL]]
 
     def bind_task(self, task):
+        """Bind a task to the database, making it a job
+        Args:
+            task (obj): obj of a type inherited from ExecutableTask
+        """
         if task.hash in self.hash_job_map:
             job = self.hash_job_map[task.hash]
         else:
@@ -74,6 +87,7 @@ class JobListManager(object):
         return bound_task
 
     def get_job_statuses(self):
+        """Query the database for the status of all jobs"""
         rc, response = self.jqs_req.send_request(
             app_route='/dag/{}/job'.format(self.dag_id),
             message={},
@@ -90,6 +104,10 @@ class JobListManager(object):
         return jobs
 
     def parse_done_and_errors(self, jobs):
+        """Separate out the done jobs from the errored ones
+        Args:
+            jobs(list): list of objects of type models.Job
+        """
         completed_tasks = []
         completed_jobs = []
         failed_tasks = []
@@ -110,10 +128,12 @@ class JobListManager(object):
         return completed_tasks, failed_tasks
 
     def _sync(self):
+        """Get all jobs from the database and parse the done and errored"""
         jobs = self.get_job_statuses()
         self.parse_done_and_errors(jobs)
 
     def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
+        """Block code execution until a job is done or errored"""
         time_since_last_update = 0
         while True:
             if time_since_last_update > timeout:
@@ -127,6 +147,7 @@ class JobListManager(object):
 
     def block_until_no_instances(self, timeout=36000, poll_interval=10,
                                  raise_on_any_error=True):
+        """Block code execution until there are no jobs left"""
         logger.info("Blocking, poll interval = {}".format(poll_interval))
 
         time_since_last_update = 0
@@ -150,41 +171,51 @@ class JobListManager(object):
         return list(self.all_done), list(self.all_error)
 
     def _create_job(self, *args, **kwargs):
+        """Create a job by passing the job args/kwargs through to the JobFactory"""
         job = self.job_factory.create_job(*args, **kwargs)
         self.hash_job_map[job.job_hash] = job
         self.job_hash_map[job] = job.job_hash
         return job
 
     def queue_job(self, job):
+        """Queue a job by passing the job's id to the JobFactory"""
         self.job_factory.queue_job(job.job_id)
         task = self.bound_tasks[job.job_id]
         task.status = JobStatus.QUEUED_FOR_INSTANTIATION
 
     def queue_task(self, task):
+        """Add a task's hash to the hash_job_map"""
         job = self.hash_job_map[task.hash]
         self.queue_job(job)
 
     def reset_jobs(self):
+        """Reset jobs by passing through to the JobFactory"""
         self.job_factory.reset_jobs()
 
     def add_job_attribute(self, job, attribute_type, value):
+        """Add a job_attribute to a job by passing thorugh to the JobFactory"""
         self.job_factory.add_job_attribute(job.job_id, attribute_type, value)
 
     def status_from_hash(self, job_hash):
+        """Get the status of a job from its hash"""
         job = self.hash_job_map[job_hash]
         return self.status_from_job(job)
 
     def status_from_job(self, job):
+        """Get the status of a job by its ID"""
         return self.bound_tasks[job.job_id].status
 
     def status_from_task(self, task):
+        """Get the status of a task from its hash"""
         return self.status_from_hash(task.hash)
 
     def bound_task_from_task(self, task):
+        """Get a BoundTask from a regular Task"""
         job = self.hash_job_map[task.hash]
         return self.bound_tasks[job.job_id]
 
     def _start_job_instance_manager(self):
+        """Start the JobInstanceFactory and JobReconciler in separate threads"""
         self.jif_proc = Thread(
             target=self.job_inst_factory.instantiate_queued_jobs_periodically,
             args=(self.job_instantiation_interval,))

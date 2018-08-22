@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class JobStatus(Base):
+    """The table in the database that holds on the possible statuses for Job"""
     __tablename__ = 'job_status'
 
     REGISTERED = 'G'

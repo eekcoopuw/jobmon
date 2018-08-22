@@ -31,6 +31,7 @@ class TaskDagViz(object):
         self.color_map = self.get_colors()
 
     def render(self):
+        """Produce a graph for the TaskDag"""
         for _, task in self.task_dag.tasks.items():
             color = self.color_map.get(task.tag, 'ghostwhite')
             self.graph.node(task.name, "", fillcolor=color, style='filled')

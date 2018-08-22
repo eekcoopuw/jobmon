@@ -19,10 +19,10 @@ def install_rcfile(args, cfg_dct=None):
     with open(rcfile, "w") as jf:
         if not cfg_dct:
             conn_str = ("mysql://docker:docker@"
-                        "jobmon-p01.ihme.washington.edu:3312/docker")
+                        "jobmon-p01.ihme.washington.edu:3314/docker")
             cfg_dct = {
                 "conn_str": conn_str,
                 "host": "jobmon-p01.ihme.washington.edu",
-                "jsm_port": 5056,
-                "jqs_port": 5058}
+                "jsm_port": 5256,
+                "jqs_port": 5258}
         json.dump(cfg_dct, jf)

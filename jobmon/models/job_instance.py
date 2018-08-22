@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class JobInstance(Base):
+    """The table in the database that holds all info on JobInstances"""
     __tablename__ = 'job_instance'
 
     @classmethod
@@ -85,6 +86,7 @@ class JobInstance(Base):
         (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
 
     def register(self, requester, executor_type):
+        """Register a new job_instance"""
         rc, response = requester.send_request(
             app_route='/job_instance',
             message={'job_id': str(self.job.job_id),
@@ -94,6 +96,7 @@ class JobInstance(Base):
         return self.job_instance_id
 
     def assign_executor_id(self, requester, executor_id):
+        """Assign the executor_id to this job_instance"""
         requester.send_request(
             app_route=('/job_instance/{}/log_executor_id'
                        .format(self.job_instance_id)),
@@ -101,6 +104,7 @@ class JobInstance(Base):
             request_type='post')
 
     def transition(self, new_state):
+        """Transition the JobInstance status"""
         self._validate_transition(new_state)
         self.status = new_state
         self.status_date = datetime.utcnow()
@@ -112,6 +116,7 @@ class JobInstance(Base):
             self.job.transition_to_error()
 
     def _validate_transition(self, new_state):
+        """Ensure the JobInstance status transition is valid"""
         if (self.status, new_state) not in self.__class__.valid_transitions:
             raise InvalidStateTransition('JobInstance', self.job_instance_id,
                                          self.status, new_state)
