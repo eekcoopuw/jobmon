@@ -90,10 +90,12 @@ class GlobalConfig(object):
             port=str(jsm_rep_port))
         self.jm_pub_conn = ConnectionConfig(
             host=jsm_host,
-            port=str(jsm_pub_port))
+            port=str(jsm_pub_port),
+            request_timeout=180000)
         self.jqs_rep_conn = ConnectionConfig(
             host=jqs_host,
-            port=str(jqs_port))
+            port=str(jqs_port),
+            request_timeout=180000)
 
         self.slack_token = slack_token
         self.default_wf_slack_channel = default_wf_slack_channel
