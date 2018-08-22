@@ -123,6 +123,8 @@ class Requester(object):
         while retries_left:
             if not self.socket:
                 break
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            handler.setFormatter(formatter)
             self.socket.send_json(message)  # send message to server
             expect_reply = True
             while expect_reply and self.is_connected:
