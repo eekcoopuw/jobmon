@@ -18,17 +18,14 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture(scope='session', autouse=True)
 def ephemera_conn_str():
+    """Note: this function must be placed before the other imports
+    because the ephemera db has to be started before any other code
+    imports the_server_config"""
     edb = create_ephemerdb()
     conn_str = edb.start()
 
     os.environ['conn_str'] = conn_str
     yield conn_str
-
-    # from jobmon.server import database
-    # database.Session.close_all()
-    # if database.engine:
-    #     database.engine.dispose()
-    # edb.stop()
 
 
 from jobmon.client.swarm.executors.sge import SGEExecutor
@@ -48,13 +45,16 @@ from jobmon.attributes import attribute_database_loaders
 
 @pytest.fixture(autouse=True)
 def env_var(monkeypatch, ephemera_conn_str):
+    """These two env variables are what tell theconfigs that we're running tests,
+    not production code"""
     monkeypatch.setenv("host", socket.gethostname())
     monkeypatch.setenv("conn_str", ephemera_conn_str)
 
 
 @pytest.fixture(scope='function')
 def db_cfg():
-
+    """This run at the beginning of every function to tear down the db
+    of the previous test and restart it fresh"""
     from jobmon.server import database_loaders
     from jobmon.server import database
     database_loaders.delete_job_db()
@@ -70,6 +70,7 @@ def db_cfg():
 
 @pytest.fixture(scope='session')
 def real_jsm_jqs():
+    """This starts the flask dev server in separate processes"""
     import multiprocessing as mp
     from tests.run_services import run_jsm, run_jqs
 
@@ -91,6 +92,7 @@ def real_jsm_jqs():
 
 @pytest.fixture(scope='session')
 def jsm_jqs():
+    """This sets up the JSM/JQS using the test_client which is a fake server"""
     from jobmon.server.services.job_state_manager.app \
         import create_app as jsm_get_app
     from jobmon.server.services.job_query_server.app import \
@@ -110,6 +112,8 @@ def jsm_jqs():
 
 
 def get_flask_content(response):
+    """The function called by the no_request_jsm_jqs to query the fake test_client
+    for a response"""
     if 'application/json' in response.headers.get('Content-Type'):
         content = response.json
     elif 'text/html' in response.headers.get('Content-Type'):
@@ -121,6 +125,7 @@ def get_flask_content(response):
 
 @pytest.fixture(scope='function')
 def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
+    """This function monkeypatches the requests library to use the test_client"""
     import requests
     from jobmon.client import requester
     jsm_client, jqs_client = jsm_jqs
@@ -140,6 +145,7 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
 
 @pytest.fixture(scope='function')
 def dag_id(no_requests_jsm_jqs, db_cfg):
+    """This uses the test_client to create a dag in the db and return the dag_id"""
     import random
     from jobmon.client.requester import Requester
     from jobmon.client.the_client_config import get_the_client_config
@@ -156,6 +162,8 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
 
 @pytest.fixture(scope='function')
 def real_dag_id(real_jsm_jqs, db_cfg):
+    """This uses the real Flask dev server to create a dag in the db and
+    return the dag_id"""
     import random
     from jobmon.client.the_client_config import get_the_client_config
     from jobmon.client.requester import Requester
@@ -172,6 +180,7 @@ def real_dag_id(real_jsm_jqs, db_cfg):
 
 @pytest.fixture(scope='module')
 def tmp_out_dir():
+    """This creates a new tmp_out_dir for every module"""
     u = uuid.uuid4()
     user = pwd.getpwuid(os.getuid()).pw_name
     output_root = ('/ihme/scratch/users/{user}/tests/jobmon/'
@@ -182,6 +191,8 @@ def tmp_out_dir():
 
 @pytest.fixture(scope='function')
 def job_list_manager_sub(dag_id):
+    """This creates a job_list_manager that uses the Sequential Executor, does
+    not start the JobInstanceFactory or JobReconciler threads, and does not interrupt on error"""
     jlm = JobListManager(dag_id, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
