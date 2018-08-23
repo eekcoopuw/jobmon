@@ -156,7 +156,7 @@ class TaskDag(object):
         Uses forward chaining from initial fringe, hence out-of-date is not
         applied transitively backwards through the graph. It could also use
         backward chaining from an identified goal node, the effect is
-        dentical.
+        identical.
 
         The internal data structures are lists, but might need to be changed to
         be better at scaling.
