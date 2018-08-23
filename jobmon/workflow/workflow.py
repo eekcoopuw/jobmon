@@ -17,6 +17,7 @@ from jobmon.sql_base import Base
 from jobmon.workflow.workflow_run import WorkflowRun
 from jobmon.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.attributes.constants import workflow_attribute
+from jobmon.swarm_logger import add_jobmon_file_logger
 
 logger = logging.getLogger(__name__)
 
@@ -312,6 +313,8 @@ class Workflow(object):
         self.executor.set_temp_dir(tmp_dir)
 
     def execute(self):
+        add_jobmon_file_logger('jobmon', logging.DEBUG,
+                               '{}/jobmon.log'.format(os.getcwd()))
         if not self.is_bound:
             self._bind()
         self._create_workflow_run()
