@@ -101,7 +101,7 @@ class Workflow(object):
     def __init__(self, workflow_args=None, name="",
                  description="", stderr=None, stdout=None, project=None,
                  reset_running_jobs=True, working_dir=None,
-                 executor_class='SGEExecutor'):
+                 executor_class='SGEExecutor', zmq_timeout_ms=None):
         self.wf_dao = None
         self.name = name
         self.description = description
@@ -119,6 +119,21 @@ class Workflow(object):
             'project': self.project,
         }
         self.set_executor(executor_class)
+        self.zmq_timeout_ms = zmq_timeout_ms
+
+        if self.zmq_timeout_ms not None:
+            new_jsm_conn = ConnectionConfig(
+                host=config._jsm_host,
+                port=str(config._jsm_rep_port),
+                request_timeout=self.zmq_timeout_ms)
+            new_jqs_conn = ConnectionConfig(
+                host=config._jqs_host,
+                port=str(config._jqs_port),
+                request_timeout=self.zmq_timeout_ms)
+
+        opts_dct = {"jm_rep_conn" : new_jsm_conn, "jqs_rep_conn" : new_jqs_conn}
+
+        config.apply_opts_dct(opts_dct)
 
         self.jsm_req = Requester(config.jm_rep_conn)
         self.jqs_req = Requester(config.jqs_rep_conn)
