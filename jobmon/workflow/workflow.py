@@ -121,7 +121,7 @@ class Workflow(object):
         self.set_executor(executor_class)
         self.zmq_timeout_ms = zmq_timeout_ms
 
-        if self.zmq_timeout_ms not None:
+        if self.zmq_timeout_ms:
             new_jsm_conn = ConnectionConfig(
                 host=config._jsm_host,
                 port=str(config._jsm_rep_port),
