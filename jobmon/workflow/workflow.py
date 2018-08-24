@@ -130,7 +130,7 @@ class Workflow(object):
                 host=config._jqs_host,
                 port=str(config._jqs_port),
                 request_timeout=self.zmq_timeout_ms)
-            opts_dct = {"jm_rep_conn" : new_jsm_conn, "jqs_rep_conn" : new_jqs_conn}
+            opts_dct = {"jm_rep_conn": new_jsm_conn, "jqs_rep_conn": new_jqs_conn}
             config.apply_opts_dct(opts_dct)
 
         self.jsm_req = Requester(config.jm_rep_conn)
