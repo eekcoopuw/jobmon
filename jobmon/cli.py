@@ -14,8 +14,8 @@ from jobmon.client.the_client_config import get_the_client_config
 from jobmon.server.the_server_config import get_the_server_config
 from jobmon.server.services.health_monitor.notifiers import SlackNotifier
 from jobmon.server.services.health_monitor.health_monitor import HealthMonitor
-from jobmon.server.services.job_state_manager import job_state_manager
-from jobmon.server.services.job_query_server import job_query_server
+from jobmon.server.services.job_state_manager import app as jsm_app
+from jobmon.server.services.job_query_server import app as jqs_app
 
 try:
     FileExistsError
@@ -134,12 +134,12 @@ def start(args):
 
 def start_job_state_manager():
     """Start the JobStateManager process"""
-    job_state_manager.start()
+    jsm_app.start()
 
 
 def start_job_query_server():
     """Start the JobQueryServer process"""
-    job_query_server.start()
+    jqs_app.start()
 
 
 def start_health_monitor():
