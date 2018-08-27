@@ -96,6 +96,8 @@ class Workflow(object):
     2. The tasks added to the workflow. A Workflow's TaskDag is built up by
         using Workflow.add_task(). In order to resume a Workflow, all the same
         tasks must be added with the same dependencies between tasks.
+
+    3. The User may change the timeout value to better suit their workflow by using the zmq_timeout_ms flag and assigning a timeout in milliseconds. If the timeout is being set by the user, the connection will be reconfigured accordingly.
     """
 
     def __init__(self, workflow_args=None, name="",
