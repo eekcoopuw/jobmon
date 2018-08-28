@@ -131,9 +131,9 @@ class WorkflowRun(object):
 
     def add_project_limit_attribute(self, timing):
         if timing == 'start':
-            atype = 13
+            atype = workflow_run_attribute.SLOT_LIMIT_AT_START
         else:
-            atype = 14
+            atype = workflow_run_attribute.SLOT_LIMIT_AT_END
         limits = get_project_limits(self.project)
         self.add_workflow_run_attribute(attribute_type=atype, value=limits)
 
