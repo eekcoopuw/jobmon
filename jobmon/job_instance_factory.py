@@ -1,6 +1,6 @@
+import _thread
 import logging
 import threading
-import _thread
 from time import sleep
 
 from zmq.error import ZMQError
@@ -9,7 +9,6 @@ from jobmon.config import config
 from jobmon.executors.sequential import SequentialExecutor
 from jobmon.models import Job, JobInstance
 from jobmon.requester import Requester
-
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +65,16 @@ class JobInstanceFactory(object):
                     raise
 
     def instantiate_queued_jobs(self):
+        logger.debug("JIF: Instantiating Queued Jobs")
         jobs = self._get_jobs_queued_for_instantiation()
+        logger.debug("JIF: Found {} Queued Jobs".format(len(jobs)))
         job_instance_ids = []
         for job in jobs:
             job_instance_id, _ = self._create_job_instance(job)
             job_instance_ids.append(job_instance_id)
+
+        logger.debug("JIF: Returning {} Instantiated Jobs".format(
+            len(job_instance_ids)))
         return job_instance_ids
 
     def set_executor(self, executor):
