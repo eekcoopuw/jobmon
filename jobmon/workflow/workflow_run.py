@@ -12,6 +12,7 @@ from jobmon.config import config
 from jobmon.exceptions import ReturnCodes
 from jobmon.models import JobInstance
 from jobmon.requester import Requester
+from jobmon.sge import get_project_limits
 from jobmon.sql_base import Base
 from jobmon.utils import kill_remote_process
 from jobmon.attributes.constants import workflow_run_attribute
@@ -126,6 +127,15 @@ class WorkflowRun(object):
         if rc != ReturnCodes.OK:
             raise ValueError("Invalid Reponse to add_workflow_run")
         self.id = wfr_id
+        self.add_project_limit_attribute('start')
+
+    def add_project_limit_attribute(self, timing):
+        if timing == 'start':
+            atype = 13
+        else:
+            atype = 14
+        limits = get_project_limits(self.project)
+        self.add_workflow_run_attribute(attribute_type=atype, value=limits)
 
     def check_if_workflow_is_running(self):
         rc, is_running, wf_run = self.jsm_req.send_request({
@@ -148,7 +158,7 @@ class WorkflowRun(object):
         status, wf_run = self.check_if_workflow_is_running()
         if not status:
             return
-        if wf_run.user != getpass.getuser():
+        if wf_run['user'] != getpass.getuser():
             msg = ("Workflow_run_id {} for this workflow_id is still in "
                    "running mode by user {}. Please ask this user to kill "
                    "their processes. If they are using the SGE executor, "
@@ -156,16 +166,16 @@ class WorkflowRun(object):
                    "restart this workflow prior to the other user killing "
                    "theirs, this error will not re-raise but you may be "
                    "creating orphaned processes and hard-to-find bugs"
-                   .format(wf_run.id, wf_run.user))
+                   .format(wf_run['id'], wf_run['user']))
             logger.error(msg)
             _, _ = self.jsm_req.send_request({
                 'action': 'update_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run.id,
+                'kwargs': {'workflow_run_id': wf_run['id'],
                            'status': WorkflowRunStatus.STOPPED}})
             raise RuntimeError(msg)
         else:
-            kill_remote_process(wf_run.hostname, wf_run.pid)
-            logger.info("Kill previous workflow runs: {}".format(wf_run.id))
+            kill_remote_process(wf_run['hostname'], wf_run['pid'])
+            logger.info("Kill previous workflow runs: {}".format(wf_run['id']))
             if reset_running_jobs:
                 if wf_run.executor_class == "SequentialExecutor":
                     from jobmon.executors.sequential import SequentialExecutor
@@ -178,26 +188,29 @@ class WorkflowRun(object):
                     previous_executor = DummyExecutor()
                 else:
                     raise ValueError("{} is not supported by this version of "
-                                     "jobmon".format(wf_run.executor_class))
+                                     "jobmon".format(wf_run['executor_class']))
                 _, job_instances = self.jsm_req.send_request({
                     'action': 'get_job_instances_of_workflow_run',
-                    'kwargs': {'workflow_run_id': wf_run.id}})
+                    'kwargs': {'workflow_run_id': wf_run['id']}})
                 job_instances = [JobInstance.from_wire(ji)
                                  for ji in job_instances]
                 if job_instances:
                     previous_executor.terminate_job_instances(job_instances)
             _, _ = self.jsm_req.send_request({
                 'action': 'update_workflow_run',
-                'kwargs': {'workflow_run_id': wf_run.id,
+                'kwargs': {'workflow_run_id': wf_run['id'],
                            'status': WorkflowRunStatus.STOPPED}})
 
     def update_done(self):
+        self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.DONE)
 
     def update_error(self):
+        self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.ERROR)
 
     def update_stopped(self):
+        self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
@@ -225,10 +238,9 @@ class WorkflowRun(object):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
                                      type(attribute_type).__name__))
-        elif (not attribute_type == workflow_run_attribute.TAG
-              and not int(value))\
-                or (attribute_type == workflow_run_attribute.TAG
-                    and not isinstance(value, str)):
+        elif (not attribute_type == workflow_run_attribute.TAG and not
+              int(value)) or (attribute_type == workflow_run_attribute.TAG and
+                              not isinstance(value, str)):
             raise ValueError("Invalid value type: {}, {}"
                              .format(value,
                                      type(value).__name__))

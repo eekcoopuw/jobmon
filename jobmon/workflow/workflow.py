@@ -1,5 +1,4 @@
 import getpass
-import subprocess
 import hashlib
 import logging
 import os
@@ -297,7 +296,6 @@ class Workflow(object):
 
     def _done(self):
         self.workflow_run.update_done()
-        self.add_project_limit_attribute(timing='after')
         self._update_status(
             WorkflowStatus.DONE)
 
@@ -316,34 +314,14 @@ class Workflow(object):
             self.id, self.stderr, self.stdout, self.project,
             reset_running_jobs=self.reset_running_jobs,
             working_dir=self.working_dir)
-        self.add_project_limit_attribute(timing='start')
-
-    def _get_project_limits(self):
-        call = """qconf -srqs | egrep -A 1 -i "TRUE" | grep -i limit |
-        grep {} | sort | sed -e "s/^.*limit//" -e "s/projects//g" -e
-        "s/users// -e "s/to slots//g" -e "s/ =/:/g"| tr -s " " | awk -F':'
-        '{printf "%8s", $2}' | sort -k 2 -n -r | pr -W 95 -T -t --columns 1
-        """.format(self.project)
-        return int(subprocess.check_output(call, shell=True))
-
-    def add_project_limit_attribute(self, timing):
-        if timing == 'start':
-            atype = 13
-        else:
-            atype = 14l
-        imits = self._get_project_limits()
-        self.workflow_run.add_workflow_run_attribute(attribute_type=atype,
-                                                     value=limits)
 
     def _error(self):
         self.workflow_run.update_error()
-        self.add_project_limit_attribute(timing='after')
         self._update_status(
             WorkflowStatus.ERROR)
 
     def _stopped(self):
         self.workflow_run.update_stopped()
-        self.add_project_limit_attribute(timing='after')
         self._update_status(WorkflowStatus.STOPPED)
 
     def _matching_dag_ids(self):

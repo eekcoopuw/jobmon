@@ -184,14 +184,15 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK, status)
 
     def is_workflow_running(self, workflow_id):
-        """Check if a previous workflow run for your user is still running """
+        """Check if a previous workflow run for your user is still running"""
         with session_scope() as session:
             wf_run = (session.query(WorkflowRunDAO).filter_by(
                 workflow_id=workflow_id, status=WorkflowRunStatus.RUNNING,
             ).order_by(WorkflowRunDAO.id.desc()).first())
             if not wf_run:
                 return (ReturnCodes.OK, False, {})
-        return (ReturnCodes.OK, True, wf_run.to_wire())
+            wf_run_dct = wf_run.to_wire()
+        return (ReturnCodes.OK, True, wf_run_dct)
 
     def get_job_instances_of_workflow_run(self, workflow_run_id):
         with session_scope() as session:
@@ -203,7 +204,8 @@ class JobStateManager(ReplyServer):
     def listen(self):
         """If the database is unavailable, don't allow the JobStateManager to
         start listening. This would defeat its purpose, as it wouldn't have
-        anywhere to persist Job state..."""
+        anywhere to persist Job state...
+        """
         with session_scope() as session:
             try:
                 session.connection()
