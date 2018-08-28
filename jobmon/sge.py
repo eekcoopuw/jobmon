@@ -98,12 +98,11 @@ def get_project_limits(project):
     call = ("""qconf -srqs | egrep -A 1 -i "TRUE" | grep -i limit | grep """ +
             project + """| sort | sed -e "s/^.*limit//" -e "s/projects//g" -e "s/users//" -e "s/to slots//g" -e "s/ =/:/g"| tr -s " " | awk -F':' '{printf "%5d", $2}' | sort -k 2 -n -r | pr -W 95 -T -t --columns 1""")
     res = subprocess.check_output(call, shell=True)
-    if res:
-        try:
-            return int(res)
-        except ValueError as e:  # can't convert to int. so res must be a error
-            logger.warning("Could not get project slot limits. Res is {}. "
-                           "Error is {}".format(res, e))
+    try:
+        return int(res)
+    except ValueError as e:
+        logger.warning("Could not get project slot limits. Res is {}. "
+                       "ValueError is {}".format(res, e))
     return -1
 
 
