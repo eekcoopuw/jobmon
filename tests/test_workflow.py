@@ -312,7 +312,6 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
     """Should not allow a resume, but should prompt user to create a new
     workflow by modifying the WorkflowArgs (e.g. new version #)
     """
-
     # Re-create the dag "from scratch" (copy simple_workflow fixture)
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
