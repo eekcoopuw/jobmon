@@ -294,7 +294,9 @@ class JobStateManager(ReplyServer):
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
             job_instance = self._get_job_instance(session, job_instance_id)
-            job_id = self._get_job_id(session, job_instance_id)
+            import pdb;
+            pdb.set_trace()
+            job_id = session.query(models.JobInstance).filter_by(job_id=job_instance.job_id).first()
             self._update_job_instance(session, job_instance, usage_str=usage_str,
                                       wallclock=wallclock,
                                       maxvmem=maxvmem, cpu=cpu, io=io)
@@ -367,10 +369,6 @@ class JobStateManager(ReplyServer):
         job_instance = session.query(models.JobInstance).filter_by(
             job_instance_id=job_instance_id).first()
         return job_instance
-
-    def _get_job_id(self, session, job_instance):
-        job_id = session.query(models.JobInstance).filter_by(job_id=job_instance.job_id).first()
-        return job_id
 
     def _update_job_instance_state(self, session, job_instance, status_id):
         """Advances the states of job_instance and it's associated Job,
