@@ -15,6 +15,7 @@ from jobmon.workflow.workflow import WorkflowDAO
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 from jobmon.attributes import attribute_models
 from jobmon.attributes.constants import job_attribute
+from jobmon import requester
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -294,8 +295,6 @@ class JobStateManager(ReplyServer):
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
             job_instance = self._get_job_instance(session, job_instance_id)
-            import pdb;
-            pdb.set_trace()
             job_id = job_instance.job_id
             self._update_job_instance(session, job_instance, usage_str=usage_str,
                                       wallclock=wallclock,
