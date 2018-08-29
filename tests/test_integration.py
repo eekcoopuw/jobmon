@@ -41,12 +41,32 @@ def job_list_manager_d(real_dag_id):
 @pytest.fixture(scope='function')
 def job_list_manager_sge_no_daemons(real_dag_id):
     """This fixture starts a JobListManager using the SGEExecutor, but without
-    running JobInstanceFactory or JobReconciler in daemonized threads"""
+    running JobInstanceFactory or JobReconciler in daemonized threads
+    """
     executor = SGEExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
                          interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
+
+
+def test_sync(job_list_manager_sge_no_daemons):
+    job_list_manager_sge = job_list_manager_sge_no_daemons
+    now = job_list_manager_sge.last_sync
+    assert now is not None
+
+    job = job_list_manager_sge.bind_task(Task(command='fizzbuzz',  name='bar'))
+    job_list_manager_sge.queue_job(job)
+    job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
+    sleep(15)
+
+    # with a new job failed, make sure that the sync has been updated and the
+    # call with the sync filter actually returns jobs
+    jobs = job_list_manager_sge.get_job_statuses()
+    completed, failed = job_list_manager_sge.parse_done_and_errors(jobs)
+    new_now = job_list_manager_sge.last_sync
+    assert new_now > now
+    assert len(failed) > 0
 
 
 def test_invalid_command(job_list_manager):

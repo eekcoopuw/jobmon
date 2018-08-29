@@ -3,7 +3,7 @@ import sys
 from time import sleep
 import logging
 
-from jobmon import sge
+from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.models.job import Job
 from jobmon.client.requester import Requester
 from jobmon.client.the_client_config import get_the_client_config

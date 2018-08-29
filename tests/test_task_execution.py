@@ -4,7 +4,7 @@ from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon import sge
+from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus

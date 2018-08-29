@@ -105,6 +105,7 @@ class JobListManager(object):
                 app_route='/dag/{}/job'.format(self.dag_id),
                 message={},
                 request_type='get')
+        logger.debug("rc is {} and response is {}".format(rc, response))
         jobs = [Job.from_wire(j) for j in response['job_dcts']]
         for job in jobs:
             if job.job_id in self.bound_tasks:
@@ -114,7 +115,7 @@ class JobListManager(object):
                     task=None, job=job, job_list_manager=self)
             self.hash_job_map[job.job_hash] = job
             self.job_hash_map[job] = job.job_hash
-        self.last_sync = datetime.utcnow()
+        self.last_sync = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         return jobs
 
     def parse_done_and_errors(self, jobs):
