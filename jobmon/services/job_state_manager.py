@@ -14,6 +14,7 @@ from jobmon.meta_models import task_dag
 from jobmon.workflow.workflow import WorkflowDAO
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 from jobmon.attributes import attribute_models
+from jobmon.attributes.constants import job_attribute
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -292,13 +293,12 @@ class JobStateManager(ReplyServer):
 
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
-            job_id = job_instance = session.query(models.JobInstance).filter_by(
-                job_id=job_id).first()
-            ji = self._get_job_instance(session, job_instance_id)
-            self._update_job_instance(session, ji, usage_str=usage_str,
+            job_instance = self._get_job_instance(session, job_instance_id)
+            job_id = self._get_job_id(session, job_instance_id)
+            self._update_job_instance(session, job_instance, usage_str=usage_str,
                                       wallclock=wallclock,
                                       maxvmem=maxvmem, cpu=cpu, io=io)
-            job_attr_id_to_rc= {}
+            job_attr_id_to_rc = {}
             for k in keys_to_attrs:
                 logger.debug('The value of k being set in the attribute table  is {k}'.format(k=k))
                 if k is not None:
@@ -309,7 +309,7 @@ class JobStateManager(ReplyServer):
                                    'value': k}
                     })
                     job_attr_id_to_rc[job_attribute_id] = rc
-        return (job_attr_id_to_rc)
+        return job_attr_id_to_rc
 
     def queue_job(self, job_id):
         logger.debug("Queue Job {}".format(job_id))
@@ -367,6 +367,10 @@ class JobStateManager(ReplyServer):
         job_instance = session.query(models.JobInstance).filter_by(
             job_instance_id=job_instance_id).first()
         return job_instance
+
+    def _get_job_id(self, session, job_instance):
+        job_id = session.query(models.JobInstance).filter_by(job_id=job_instance.job_id).first()
+        return job_id
 
     def _update_job_instance_state(self, session, job_instance, status_id):
         """Advances the states of job_instance and it's associated Job,
