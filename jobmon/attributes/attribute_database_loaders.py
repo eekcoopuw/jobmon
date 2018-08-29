@@ -57,7 +57,11 @@ def load_attribute_types(session):
                       'NUM_MEASURES': 'int',
                       'NUM_METRICS': 'int',
                       'NUM_MOST_DETAILED_LOCATIONS': 'int',
-                      'NUM_AGGREGATE_LOCATIONS': 'int'}
+                      'NUM_AGGREGATE_LOCATIONS': 'int',
+                      'WALLCLOCK': 'string',
+                      'CPU': 'string',
+                      'IO': 'string',
+                      'MAXRSS': 'string'}
     for attribute in job_attributes:
         job_attribute_types = JobAttributeType(
                                 name=attribute,

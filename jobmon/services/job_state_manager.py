@@ -14,6 +14,7 @@ from jobmon.meta_models import task_dag
 from jobmon.workflow.workflow import WorkflowDAO
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 from jobmon.attributes import attribute_models
+from jobmon.attributes.constants import job_attribute
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -283,13 +284,32 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def log_usage(self, job_instance_id, usage_str=None,
-                  wallclock=None, maxvmem=None, cpu=None, io=None):
+                  wallclock=None, maxrss=None, cpu=None, io=None):
+
+        keys_to_attrs = {wallclock: job_attribute.WALLCLOCK,
+                         cpu: job_attribute.CPU,
+                         io: job_attribute.IO,
+                         maxrss: job_attribute.MAXRSS}
+
+
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
+        if maxrss is None:
+            maxrss = '-1'
         with session_scope() as session:
-            ji = self._get_job_instance(session, job_instance_id)
-            self._update_job_instance(session, ji, usage_str=usage_str,
+            job_instance = self._get_job_instance(session, job_instance_id)
+            job_id = job_instance.job_id
+            self._update_job_instance(session, job_instance, usage_str=usage_str,
                                       wallclock=wallclock,
-                                      maxvmem=maxvmem, cpu=cpu, io=io)
+                                      maxrss=maxrss, cpu=cpu, io=io)
+        job_attr_id_to_rc = {}
+        for k in keys_to_attrs:
+            logger.debug(
+                'The value of {kval} being set in the attribute table  is {k}'.format(kval=keys_to_attrs[k], k=k))
+            if k is not None:
+                rc, job_attribute_id = self.add_job_attribute(job_id, keys_to_attrs[k], k)
+                job_attr_id_to_rc[job_attribute_id] = rc
+            else:
+                logger.debug('The value has not been set, there is nothing to upload')
         return (ReturnCodes.OK,)
 
     def queue_job(self, job_id):

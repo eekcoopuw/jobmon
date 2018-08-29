@@ -34,12 +34,14 @@ class JobInstanceIntercom(object):
     def log_job_stats(self):
         try:
             usage = self.executor.get_usage_stats()
-            dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
+            dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io']
             kwargs = {k: usage[k] for k in dbukeys if k in usage.keys()}
             msg = {
                 'action': 'log_usage',
                 'args': [self.job_instance_id],
                 'kwargs': kwargs}
+            with open("/homes/mm7148/jobmon/simple-dag-log.txt", 'w') as f:
+                f.write("args passed through {kwargs}".format(kwargs=kwargs))
             return self.requester.send_request(msg)
         except NotImplementedError:
             logger.warning("Usage stats not available for {} "
