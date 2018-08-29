@@ -25,7 +25,7 @@ The AKS tutorial is quite good, although there are two gotchas as explained belo
 and should not have underscores or hyphens,
 and be sure to upgrade the version of kubernetes).
 
-**INSERT: recommend to do this using az cli on your local computer.
+We recommend you run all your az commands using az cli on your local computer, rather than the Azure command line on the Azure portal.
 
 Tutorial Steps
 ~~~~~~~~~~~~~~
