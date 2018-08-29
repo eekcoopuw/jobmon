@@ -60,6 +60,8 @@ class JobStateManager(ReplyServer):
         self.register_action("add_job_attribute",
                              self.add_job_attribute)
 
+        self.requester = requester.Requester(config.jm_rep_conn)
+
         ctx = zmq.Context.instance()
         self.publisher = ctx.socket(zmq.PUB)
         self.publisher.setsockopt(zmq.LINGER, 0)
