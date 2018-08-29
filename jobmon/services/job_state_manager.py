@@ -296,7 +296,7 @@ class JobStateManager(ReplyServer):
             job_instance = self._get_job_instance(session, job_instance_id)
             import pdb;
             pdb.set_trace()
-            job_id = session.query(models.JobInstance).filter_by(job_id=job_instance.job_id).first()
+            job_id = job_instance.job_id
             self._update_job_instance(session, job_instance, usage_str=usage_str,
                                       wallclock=wallclock,
                                       maxvmem=maxvmem, cpu=cpu, io=io)
