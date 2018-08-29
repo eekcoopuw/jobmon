@@ -40,4 +40,8 @@ job_attribute = AttributeDictionary({
     'NUM_MEASURES': 9,
     'NUM_METRICS': 10,
     'NUM_MOST_DETAILED_LOCATIONS': 11,
-    'NUM_AGGREGATE_LOCATIONS': 12})
+    'NUM_AGGREGATE_LOCATIONS': 12,
+    'WALLCLOCK': 13,
+    'CPU': 14,
+    'IO': 15,
+    'MAXVMEM': 16})

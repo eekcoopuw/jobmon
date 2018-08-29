@@ -284,13 +284,32 @@ class JobStateManager(ReplyServer):
 
     def log_usage(self, job_instance_id, usage_str=None,
                   wallclock=None, maxvmem=None, cpu=None, io=None):
+
+        keys_to_attrs = {wallclock: job_attribute.WALLCLOCK,
+                         cpu: job_attribute.CPU,
+                         io: job_attribute.IO,
+                         maxvmem: job_attribute.MAXVMEM}
+
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
+            job_id = job_instance = session.query(models.JobInstance).filter_by(
+                job_id=job_id).first()
             ji = self._get_job_instance(session, job_instance_id)
             self._update_job_instance(session, ji, usage_str=usage_str,
                                       wallclock=wallclock,
                                       maxvmem=maxvmem, cpu=cpu, io=io)
-        return (ReturnCodes.OK,)
+            job_attr_id_to_rc= {}
+            for k in keys_to_attrs:
+                logger.debug('The value of k being set in the attribute table  is {k}'.format(k=k))
+                if k is not None:
+                    rc, job_attribute_id = self.requester.send_request({
+                        'action': 'add_job_attribute',
+                        'kwargs': {'job_id': job_id,
+                                   'attribute_type': keys_to_attrs[k],
+                                   'value': k}
+                    })
+                    job_attr_id_to_rc[job_attribute_id] = rc
+        return (job_attr_id_to_rc)
 
     def queue_job(self, job_id):
         logger.debug("Queue Job {}".format(job_id))
