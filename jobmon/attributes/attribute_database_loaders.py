@@ -38,7 +38,9 @@ def load_attribute_types(session):
                                'NUM_MEASURES': 'int',
                                'NUM_METRICS': 'int',
                                'NUM_MOST_DETAILED_LOCATIONS': 'int',
-                               'NUM_AGGREGATE_LOCATIONS': 'int'}
+                               'NUM_AGGREGATE_LOCATIONS': 'int',
+                               'SLOT_LIMIT_AT_START': 'int',
+                               'SLOT_LIMIT_AT_END': 'int'}
     for attribute in workflow_run_attributes:
         workflow_run_attribute_types = WorkflowRunAttributeType(
                                         name=attribute,

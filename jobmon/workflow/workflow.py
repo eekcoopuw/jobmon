@@ -112,7 +112,7 @@ class Workflow(object):
 
     3. The User may change the timeout value to better suit
         their workflow by using the zmq_timeout_ms flag and assigning a timeout
-        in milliseconds. If the timeout is being set by the user, the connection 
+        in milliseconds. If the timeout is being set by the user, the connection
         will be reconfigured accordingly.
     """
 
@@ -322,8 +322,7 @@ class Workflow(object):
 
     def _stopped(self):
         self.workflow_run.update_stopped()
-        self._update_status(
-            WorkflowStatus.STOPPED)
+        self._update_status(WorkflowStatus.STOPPED)
 
     def _matching_dag_ids(self):
         rc, dag_ids = self.jqs_req.send_request({

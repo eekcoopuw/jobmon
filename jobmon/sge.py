@@ -1,6 +1,4 @@
-"""
-Interface to the dynamic resource manager (DRM), aka the scheduler.
-"""
+"""Interface to the dynamic resource manager (DRM), aka the scheduler."""
 import atexit
 
 try:
@@ -88,6 +86,24 @@ def true_path(file_or_dir=None, executable=None):
         f = f.decode('utf-8')
     f = os.path.abspath(os.path.expanduser(f))
     return f.strip(' \t\r\n')
+
+
+def get_project_limits(project):
+    """This function uses the qconf call from the toolbox to get project_limits
+    from the cluster.
+    See /share/local/IT/scripts/cluster_projects_report_admin.sh
+    """
+    if not project:
+        project = 'ihme_general'
+    call = ("""qconf -srqs | egrep -A 1 -i "TRUE" | grep -i limit | grep """ +
+            project + """| sort | sed -e "s/^.*limit//" -e "s/projects//g" -e "s/users//" -e "s/to slots//g" -e "s/ =/:/g"| tr -s " " | awk -F':' '{printf "%5d", $2}' | sort -k 2 -n -r | pr -W 95 -T -t --columns 1""")
+    res = subprocess.check_output(call, shell=True)
+    try:
+        return int(res)
+    except ValueError as e:
+        logger.warning("Could not get project slot limits. Res is {}. "
+                       "ValueError is {}".format(res, e))
+    return -1
 
 
 def qstat(status=None, pattern=None, user=None, jids=None):
@@ -208,7 +224,6 @@ def qstat_details(jids):
     Returns:
         dictionary of detailed qstat values
     """
-
     # Explored parsing the xml output instead of the raw qstat stdout, but gave
     # up after developing a headache trying to make sense of the schema.
     # Anecdotally, also found qstat -xml itself to be slower than normal qstat.
