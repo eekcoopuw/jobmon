@@ -15,7 +15,6 @@ from jobmon.workflow.workflow import WorkflowDAO
 from jobmon.workflow.workflow_run import WorkflowRunDAO, WorkflowRunStatus
 from jobmon.attributes import attribute_models
 from jobmon.attributes.constants import job_attribute
-from jobmon import requester
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -59,8 +58,6 @@ class JobStateManager(ReplyServer):
                              self.add_workflow_run_attribute)
         self.register_action("add_job_attribute",
                              self.add_job_attribute)
-
-        self.requester = requester.Requester(config.jm_rep_conn)
 
         ctx = zmq.Context.instance()
         self.publisher = ctx.socket(zmq.PUB)
@@ -305,12 +302,7 @@ class JobStateManager(ReplyServer):
             for k in keys_to_attrs:
                 logger.debug('The value of k being set in the attribute table  is {k}'.format(k=k))
                 if k is not None:
-                    rc, job_attribute_id = self.requester.send_request({
-                        'action': 'add_job_attribute',
-                        'kwargs': {'job_id': job_id,
-                                   'attribute_type': keys_to_attrs[k],
-                                   'value': k}
-                    })
+                    rc, job_attribute_id = self.add_job_attribute(job_id, keys_to_attrs[k], k)
                     job_attr_id_to_rc[job_attribute_id] = rc
         return job_attr_id_to_rc
 
