@@ -23,7 +23,7 @@ spec:
         command:
         - ./wait-for-db.sh
         - db
-        image: jobmon
+        image: myjobmonregistry.azurecr.io/jobmon
         name: initdb
         imagePullPolicy: IfNotPresent
         resources: {}
