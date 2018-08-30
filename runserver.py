@@ -25,6 +25,7 @@ def git_current_commit():
 
 
 def git_tags():
+    """Finds any tags pointing at the current commit"""
     return subprocess.check_output(
         'git --no-pager tag --points-at HEAD',
         shell=True,
@@ -32,6 +33,11 @@ def git_tags():
 
 
 def find_release(tags):
+    """Assumes that the release # can be found in a git tag of the form
+    release-#... For example, if the current commit has a tag 'release-1.2.3,'
+    we asusme that this deployment corresponds to jobmon version 1.2.3 and the
+    function returns '1.2.3'. If no tag matching that form is found, returns
+    'no-release'"""
     candidate_tags = [t for t in tags if 'release-' in t]
     if len(candidate_tags) == 1:
         return candidate_tags[0].replace('release-', '')
@@ -68,9 +74,9 @@ class JobmonDeployment(object):
         self.deploy_date = datetime.now().strftime("%m%d%Y_%H%M%S")
         self.deploy_user = getpass.getuser()
         self.db_accounts = {}
-        # if self.deploy_user != 'svcscicompci':
-        #     raise ValueError("Deployment can only be run by the "
-        #                      "'svcscicompci' service user")
+        if self.deploy_user != 'svcscicompci':
+            raise ValueError("Deployment can only be run by the "
+                             "'svcscicompci' service user")
 
     @property
     def info_file(self):
