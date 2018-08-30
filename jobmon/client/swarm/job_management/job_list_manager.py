@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime
 from threading import Event, Thread
 
 from jobmon.client.the_client_config import get_the_client_config
@@ -53,6 +54,7 @@ class JobListManager(object):
 
         self.all_done = set()
         self.all_error = set()
+        self.last_sync = None
         self._sync()
 
         self.reconciliation_interval = reconciliation_interval
@@ -93,10 +95,17 @@ class JobListManager(object):
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""
-        rc, response = self.jqs_req.send_request(
-            app_route='/dag/{}/job'.format(self.dag_id),
-            message={},
-            request_type='get')
+        if self.last_sync:
+            rc, response = self.jqs_req.send_request(
+                app_route='/dag/{}/job'.format(self.dag_id),
+                message={'last_sync': str(self.last_sync)},
+                request_type='get')
+        else:
+            rc, response = self.jqs_req.send_request(
+                app_route='/dag/{}/job'.format(self.dag_id),
+                message={},
+                request_type='get')
+        logger.debug("rc is {} and response is {}".format(rc, response))
         jobs = [Job.from_wire(j) for j in response['job_dcts']]
         for job in jobs:
             if job.job_id in self.bound_tasks:
@@ -106,6 +115,7 @@ class JobListManager(object):
                     task=None, job=job, job_list_manager=self)
             self.hash_job_map[job.job_hash] = job
             self.job_hash_map[job] = job.job_hash
+        self.last_sync = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
         return jobs
 
     def parse_done_and_errors(self, jobs):
@@ -119,11 +129,10 @@ class JobListManager(object):
         failed_jobs = []
         for job in jobs:
             task = self.bound_tasks[job.job_id]
-            if task.status == JobStatus.DONE and job not in self.all_done:
+            if task.status == JobStatus.DONE:
                 completed_tasks += [task]
                 completed_jobs += [job]
-            elif (task.status == JobStatus.ERROR_FATAL and
-                  job not in self.all_error):
+            elif (task.status == JobStatus.ERROR_FATAL):
                 failed_tasks += [task]
                 failed_jobs += [job]
             else:

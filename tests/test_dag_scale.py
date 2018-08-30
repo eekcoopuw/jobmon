@@ -2,7 +2,7 @@ import pytest
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon import sge
+from jobmon.client.swarm.executors import sge_utils as sge
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 

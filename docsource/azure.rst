@@ -25,7 +25,7 @@ The AKS tutorial is quite good, although there are two gotchas as explained belo
 and should not have underscores or hyphens,
 and be sure to upgrade the version of kubernetes).
 
-**INSERT: recommend to do this using az cli on your local computer.
+We recommend you run all your az commands using az cli on your local computer, rather than the Azure command line on the Azure portal.
 
 Tutorial Steps
 ~~~~~~~~~~~~~~
@@ -110,10 +110,13 @@ For example, observe the switching between clusters ``myAKSCluster`` and ``mySec
 .. image:: images/azure_multiple_clusters.png
 
 
-Building and Deploying a service from our Source Code in our Stash Repository
+Building and Deploying Voting App
 -----------------------------------------------------------------------------
 
-Firstly, we need to (once only) create a registry in AKS. The tutorial is good, although it has a few gotchas.
+Note: This is just for deploying the Voting app. If you want to deploy jobmon, scroll down to the later applicable section.
+
+
+For **Step 1**, we need to (once only) create a registry in AKS. The tutorial is good, although it has a few gotchas.
 Most importantly, **run all the az commands run on your machine.**
 The docker daemon must be on your machine, you cannot run a docker daemon in the cloud shell.
 The ``az`` command set appears to be hard-wired internally to talk to azure.com, so it can run on any machine, it
@@ -123,9 +126,8 @@ Start with **step 1**:
 https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-prepare-app
 
 The ``ak acr`` series of commands operate on container registries.
-If working with their example voting app, change the animal names in the voting app so that you can be certain that it is your own code that is deployed:
+Change the animal names in the voting app so that you can be certain that it is your own code that is deployed:
 ``vim azure-vote/azure-vote/config_file.cfg``
-Otherwise, if deploying Jobmon,
 
 Now, **step 2,** which also runs smoothly:
 
@@ -289,11 +291,13 @@ of each service behind a load balancer so that we can do hot deploys.
 
 The instructions are a merge of the instructions in k8s/readme.md (not yet merged into the master branch)
 
-Log in to the cluster you created on AKS, in my case:
+If you haven't created a AKS registry, then follow step 2 of the Building and Deploying Voting App section above.
+
+Log in to the cluster you created on AKS from your local computer, in my case:
 
 ``az acr login --name mySecondRegistry``
 
-Build the docker image for jobmon:
+Build the docker image for jobmon also from your local computer:
 
 ``cp jobmonrc-docker jobmonrc-docker-wsecrets
 docker build -t jobmon .``

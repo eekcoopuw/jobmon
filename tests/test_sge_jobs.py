@@ -2,7 +2,7 @@ import sys
 
 from datetime import datetime, timedelta
 
-from jobmon import sge
+from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task

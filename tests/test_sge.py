@@ -5,7 +5,7 @@ import os.path as path
 import pytest
 
 try:
-    from jobmon import sge
+    from jobmon.client.swarm.executors import sge_utils as sge
 except KeyError:
     pass
 
