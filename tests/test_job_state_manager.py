@@ -211,23 +211,6 @@ def test_jsm_log_usage(jsm_jqs, dag_id):
         assert ji.io == '1'
         assert ji.nodename == socket.gethostname()
 
-        #checking that job attributes were also set with the usage data
-        # job_attribute_query = session.execute("""
-        #                                 SELECT job_attribute.id,
-        #                                        job_attribute.job_id,
-        #                                        job_attribute.attribute_type,
-        #                                        job_attribute.value
-        #                                 FROM job_attribute
-        #                                 JOIN job
-        #                                 ON job_attribute.job_id=job.job_id
-        #                                 WHERE job_attribute.job_id={id}
-        #                                 """.format(id=job.job_id))
-        # attribute_entries = job_attribute_query.fetchall()
-        # for entry in attribute_entries:
-        #     attribute_entry_type = entry.attribute_type
-        #     attribute_entry_value = entry.value
-        #     assert dict_of_attributes[attribute_entry_type] == attribute_entry_value
-
     jsm.log_done(job_instance_id)
 
     with session_scope() as session:
