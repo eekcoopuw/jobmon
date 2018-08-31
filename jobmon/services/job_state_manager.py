@@ -284,12 +284,12 @@ class JobStateManager(ReplyServer):
         return (ReturnCodes.OK,)
 
     def log_usage(self, job_instance_id, usage_str=None,
-                  wallclock=None, maxvmem=None, cpu=None, io=None):
+                  wallclock=None, maxrss=None, cpu=None, io=None):
 
         keys_to_attrs = {wallclock: job_attribute.WALLCLOCK,
                          cpu: job_attribute.CPU,
                          io: job_attribute.IO,
-                         maxvmem: job_attribute.MAXVMEM}
+                         maxrss: job_attribute.MAXRSS}
 
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
         with session_scope() as session:
@@ -297,7 +297,7 @@ class JobStateManager(ReplyServer):
             job_id = job_instance.job_id
             self._update_job_instance(session, job_instance, usage_str=usage_str,
                                       wallclock=wallclock,
-                                      maxvmem=maxvmem, cpu=cpu, io=io)
+                                      maxrss=maxrss, cpu=cpu, io=io)
             job_attr_id_to_rc = {}
             for k in keys_to_attrs:
                 logger.debug('The value of k being set in the attribute table  is {k}'.format(k=k))

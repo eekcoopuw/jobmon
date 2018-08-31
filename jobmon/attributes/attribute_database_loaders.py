@@ -61,7 +61,7 @@ def load_attribute_types(session):
                       'WALLCLOCK': 'string',
                       'CPU': 'string',
                       'IO': 'string',
-                      'MAXVMEM': 'string'}
+                      'MAXRSS': 'string'}
     for attribute in job_attributes:
         job_attribute_types = JobAttributeType(
                                 name=attribute,

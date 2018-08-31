@@ -44,4 +44,4 @@ job_attribute = AttributeDictionary({
     'WALLCLOCK': 13,
     'CPU': 14,
     'IO': 15,
-    'MAXVMEM': 16})
+    'MAXRSS': 16})
