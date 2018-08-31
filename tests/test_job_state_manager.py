@@ -13,6 +13,7 @@ from jobmon.database import session_scope
 from jobmon.models import InvalidStateTransition, Job, JobInstanceErrorLog, \
     JobInstanceStatus, JobStatus, JobInstance
 from jobmon.workflow.executable_task import ExecutableTask
+from jobmon.attributes.constants import job_attribute
 
 
 HASH = 12345
