@@ -40,7 +40,7 @@ class JobInstanceIntercom(object):
                 'action': 'log_usage',
                 'args': [self.job_instance_id],
                 'kwargs': kwargs}
-            with open("/homes/mm7148/forked_jobmon/log.txt", 'w') as f:
+            with open("/homes/mm7148/jobmon/simple-dag-log.txt", 'w') as f:
                 f.write("args passed through {kwargs}".format(kwargs=kwargs))
             return self.requester.send_request(msg)
         except NotImplementedError:
