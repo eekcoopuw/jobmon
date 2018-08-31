@@ -39,7 +39,7 @@ def get_jobs_by_status(dag_id):
         status (str): status to query for
         last_sync (datetime): time since when to get jobs
     """
-    last_sync = request.args.get('last_sync', '2010-01-21 00:00:00')
+    last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
     if request.args.get('status', None) is not None:
         jobs = ScopedSession.query(Job).filter(
             Job.status == request.args['status'],
