@@ -211,41 +211,41 @@ def test_jsm_log_usage(jsm_jqs, dag_id):
 
     jsm.log_done(job_instance_id)
 
-# def test_jsm_submit_job_attr(jsm_jqs, dag_id):
-#     jsm, jqs = jsm_jqs
-#
-#     _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
-#     job = Job.from_wire(job_dct)
-#     jsm.queue_job(job.job_id)
-#
-#     _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
-#     jsm.log_executor_id(job_instance_id, 12345)
-#     jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
-#     jsm.log_usage(job_instance_id, usage_str='used resources', wallclock='0',
-#                   maxrss='1g', cpu='00:00:00', io='1')
-#     # open new session on the db and ensure job stats are being loggged
-#     dict_of_attributes = {job_attribute.WALLCLOCK: '0', job_attribute.CPU: "00:00:00",
-#                           job_attribute.IO: "1", job_attribute.MAXRSS: "1g"}
-#
-#     jsm.log_done(job_instance_id)
-#
-#     with session_scope() as session:
-#         job_attribute_query = session.execute("""
-#                                                 SELECT job_attribute.id,
-#                                                        job_attribute.job_id,
-#                                                        job_attribute.attribute_type,
-#                                                        job_attribute.value
-#                                                 FROM job_attribute
-#                                                 JOIN job
-#                                                 ON job_attribute.job_id=job.job_id
-#                                                 WHERE job_attribute.job_id={id}
-#                                                 """.format(id=job.job_id))
-#         attribute_entries = job_attribute_query.fetchall()
-#         for entry in attribute_entries:
-#             attribute_entry_type = entry.attribute_type
-#             attribute_entry_value = entry.value
-#             assert dict_of_attributes[attribute_entry_type] == attribute_entry_value
-#
+def test_jsm_submit_job_attr(jsm_jqs, dag_id):
+    jsm, jqs = jsm_jqs
+
+    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
+    job = Job.from_wire(job_dct)
+    jsm.queue_job(job.job_id)
+
+    _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
+    jsm.log_executor_id(job_instance_id, 12345)
+    jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
+    jsm.log_usage(job_instance_id, usage_str='used resources', wallclock='0',
+                  maxrss='1g', cpu='00:00:00', io='1')
+    # open new session on the db and ensure job stats are being loggged
+    dict_of_attributes = {job_attribute.WALLCLOCK: '0', job_attribute.CPU: "00:00:00",
+                          job_attribute.IO: "1", job_attribute.MAXRSS: "1g"}
+
+    jsm.log_done(job_instance_id)
+
+    with session_scope() as session:
+        job_attribute_query = session.execute("""
+                                                SELECT job_attribute.id,
+                                                       job_attribute.job_id,
+                                                       job_attribute.attribute_type,
+                                                       job_attribute.value
+                                                FROM job_attribute
+                                                JOIN job
+                                                ON job_attribute.job_id=job.job_id
+                                                WHERE job_attribute.job_id={id}
+                                                """.format(id=job.job_id))
+        attribute_entries = job_attribute_query.fetchall()
+        for entry in attribute_entries:
+            attribute_entry_type = entry.attribute_type
+            attribute_entry_value = entry.value
+            assert dict_of_attributes[attribute_entry_type] == attribute_entry_value
+
 
 def test_job_reset(jsm_jqs, dag_id):
     jsm, jqs = jsm_jqs
