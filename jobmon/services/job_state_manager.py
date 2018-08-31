@@ -304,6 +304,8 @@ class JobStateManager(ReplyServer):
                 if k is not None:
                     rc, job_attribute_id = self.add_job_attribute(job_id, keys_to_attrs[k], k)
                     job_attr_id_to_rc[job_attribute_id] = rc
+                else:
+                    logger.error('The value has not been set, there is nothing to upload')
         return job_attr_id_to_rc
 
     def queue_job(self, job_id):
