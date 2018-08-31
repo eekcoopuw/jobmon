@@ -115,7 +115,12 @@ class JobListManager(object):
                     task=None, job=job, job_list_manager=self)
             self.hash_job_map[job.job_hash] = job
             self.job_hash_map[job] = job.job_hash
-        self.last_sync = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        rc, response = self.jqs_req.send_request(
+            app_route='/time',
+            message={},
+            request_type='get')
+        utcnow = response['time']
+        self.last_sync = utcnow
         return jobs
 
     def parse_done_and_errors(self, jobs):

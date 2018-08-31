@@ -31,6 +31,16 @@ def _is_alive():
     return resp
 
 
+@jqs.route("/time", methods=['GET'])
+def get_utc_now():
+    time = ScopedSession.execute("select UTC_TIMESTAMP as time").fetchone()
+    time = time['time']
+    ScopedSession.commit()
+    resp = jsonify(time=time)
+    resp.status_code = HTTPStatus.OK
+    return resp
+
+
 @jqs.route('/dag/<dag_id>/job', methods=['GET'])
 def get_jobs_by_status(dag_id):
     """Returns all jobs in the database that have the specified status
