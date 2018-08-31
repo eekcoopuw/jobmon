@@ -42,6 +42,7 @@ def test_job_attribute_input_error(job_list_manager_sub):
     assert "Invalid" in str(exc.value)
     job = job_list_manager_sub.bind_task(task)
 
+
 def test_job_attributes(job_list_manager_sub):
     task = BashTask("sleep 1")
     # add an attribute to the task
