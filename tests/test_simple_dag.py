@@ -538,7 +538,7 @@ def test_dag_logging(tmp_out_dir, dag):
     with session_scope() as session:
         ji = session.query(JobInstance).first()
         assert ji.usage_str  # all these should exist and not be empty
-        assert ji.maxvmem
+        assert ji.maxrss
         assert ji.cpu
         assert ji.io
         assert ji.nodename
