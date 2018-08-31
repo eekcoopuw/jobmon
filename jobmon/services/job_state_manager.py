@@ -298,14 +298,14 @@ class JobStateManager(ReplyServer):
             self._update_job_instance(session, job_instance, usage_str=usage_str,
                                       wallclock=wallclock,
                                       maxrss=maxrss, cpu=cpu, io=io)
-            job_attr_id_to_rc = {}
-            for k in keys_to_attrs:
-                logger.debug('The value of k being set in the attribute table  is {k}'.format(k=k))
-                if k is not None:
-                    rc, job_attribute_id = self.add_job_attribute(job_id, keys_to_attrs[k], k)
-                    job_attr_id_to_rc[job_attribute_id] = rc
-                else:
-                    logger.debug('The value has not been set, there is nothing to upload')
+        job_attr_id_to_rc = {}
+        for k in keys_to_attrs:
+            logger.debug('The value of k being set in the attribute table  is {k}'.format(k=k))
+            if k is not None:
+                rc, job_attribute_id = self.add_job_attribute(job_id, keys_to_attrs[k], k)
+                job_attr_id_to_rc[job_attribute_id] = rc
+            else:
+                logger.debug('The value has not been set, there is nothing to upload')
         return (ReturnCodes.OK,)
 
     def queue_job(self, job_id):
