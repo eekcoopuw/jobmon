@@ -35,6 +35,8 @@ class JobInstanceIntercom(object):
         try:
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io']
+            import pdb
+            pdb.set_trace()
             kwargs = {k: usage[k] for k in dbukeys if k in usage.keys()}
             msg = {
                 'action': 'log_usage',
