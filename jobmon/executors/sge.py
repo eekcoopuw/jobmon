@@ -52,8 +52,6 @@ class SGEExecutor(Executor):
 
     def get_usage_stats(self):
         sge_id = os.environ.get('JOB_ID')
-        import pdb
-        pdb.set_trace()
         usage = sge.qstat_usage([sge_id])[int(sge_id)]
         return usage
 
