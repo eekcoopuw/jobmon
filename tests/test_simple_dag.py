@@ -576,8 +576,6 @@ def test_dag_logging_using_mem(tmp_out_dir, dag):
 
     with session_scope() as session:
         ji = session.query(JobInstance).first()
-        import pdb
-        pdb.set_trace()
         assert ji.usage_str  # all these should exist and not be empty
         assert ji.maxrss
         assert ji.cpu
