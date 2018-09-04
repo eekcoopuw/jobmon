@@ -283,6 +283,10 @@ def qstat_usage(jids):
                   for u in usagestr.split(", ")}
         parsus['wallclock'] = convert_wallclock_to_seconds(parsus['wallclock'])
         usage[jid]['usage_str'] = usagestr
+        import pdb
+        pdb.set_trace()
+        if(usage[jid]['maxrss'] == 'None'):
+            usage[jid]['maxrss'] = '-1'
         usage[jid]['nodename'] = info['exec_host_list']
         usage[jid].update(parsus)
     return usage
