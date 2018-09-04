@@ -36,8 +36,6 @@ class JobInstanceIntercom(object):
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io']
             kwargs = {k: usage[k] for k in dbukeys if k in usage.keys()}
-            if kwargs['maxrss'] == 'None':
-                kwargs['maxrss'] = '-1'
             msg = {
                 'action': 'log_usage',
                 'args': [self.job_instance_id],

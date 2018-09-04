@@ -293,8 +293,8 @@ class JobStateManager(ReplyServer):
 
 
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
-        # import pdb
-        # pdb.set_trace()
+        if maxrss is None:
+            maxrss = '-1'
         with session_scope() as session:
             job_instance = self._get_job_instance(session, job_instance_id)
             job_id = job_instance.job_id
