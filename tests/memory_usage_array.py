@@ -14,7 +14,7 @@ Iterating through a large array to use memory and get legitimate usage statistic
 """
 def main():
     arr = []
-    for i in range(1000000):
+    for i in range(10000000000):
         arr.append(i)
 
     for j in arr:
