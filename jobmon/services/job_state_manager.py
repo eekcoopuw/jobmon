@@ -303,7 +303,8 @@ class JobStateManager(ReplyServer):
                                       maxrss=maxrss, cpu=cpu, io=io)
         job_attr_id_to_rc = {}
         for k in keys_to_attrs:
-            logger.debug('The value of k being set in the attribute table  is {k}'.format(k=k))
+            logger.debug(
+                'The value of {kval} being set in the attribute table  is {k}'.format(kval=keys_to_attrs[k], k=k))
             if k is not None:
                 rc, job_attribute_id = self.add_job_attribute(job_id, keys_to_attrs[k], k)
                 job_attr_id_to_rc[job_attribute_id] = rc
