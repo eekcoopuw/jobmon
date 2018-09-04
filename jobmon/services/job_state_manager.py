@@ -291,9 +291,10 @@ class JobStateManager(ReplyServer):
                          io: job_attribute.IO,
                          maxrss: job_attribute.MAXRSS}
 
+
         logger.debug("Log USAGE for JI {}".format(job_instance_id))
-        import pdb
-        pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
         with session_scope() as session:
             job_instance = self._get_job_instance(session, job_instance_id)
             job_id = job_instance.job_id
