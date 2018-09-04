@@ -546,7 +546,7 @@ def test_dag_logging(tmp_out_dir, dag):
 
         td = session.query(TaskDagMeta).first()
         print(td.created_date)
-        assert td.created_date  # this should not be emptp ji,y
+        assert td.created_date  # this should not be empty
 
 @pytest.mark.skip(reason="Too big to run by default, only run when "
                   "specifically requested")
