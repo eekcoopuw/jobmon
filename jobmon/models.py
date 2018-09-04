@@ -188,7 +188,7 @@ class JobInstance(Base):
         ForeignKey('job.job_id'),
         nullable=False)
     job = relationship("Job", back_populates="job_instances")
-    usage_str = Column(String(350))
+    usage_str = Column(String(250))
     nodename = Column(String(50))
     process_group_id = Column(Integer)
     wallclock = Column(String(50))
