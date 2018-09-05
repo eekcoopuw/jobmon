@@ -148,9 +148,15 @@ class ExecutableTask(object):
     def add_job_attribute(self, attribute_type, value):
         """
         Add an attribute and value (key, value pair) to track in the task,
-        throw an error if the attribute or value isn't the right type
+        throw an error if the attribute or value isn't the right type or
+        if it is for usage data, which is not configured on the user side
         """
-        if not isinstance(attribute_type, int):
+        user_cant_config = [job_attribute.WALLCLOCK, job_attribute.CPU, job_attribute.IO, job_attribute.MAXRSS]
+        if attribute_type in user_cant_config:
+            raise ValueError(
+                "Invalid attribute configuration for {} with name: {}, user input not used to configure attribute value"
+                    .format(attribute_type, type(attribute_type).__name__))
+        elif not isinstance(attribute_type, int):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
                                      type(attribute_type).__name__))
