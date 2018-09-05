@@ -386,8 +386,6 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, dag):
 
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    import pdb
-    pdb.set_trace()
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1 + 3 + 3 + 1
     assert num_previously_complete == 0
