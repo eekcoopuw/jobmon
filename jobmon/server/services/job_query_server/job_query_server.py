@@ -35,10 +35,17 @@ def _is_alive():
 def get_utc_now():
     time = ScopedSession.execute("select UTC_TIMESTAMP as time").fetchone()
     time = time['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
     ScopedSession.commit()
     resp = jsonify(time=time)
     resp.status_code = HTTPStatus.OK
     return resp
+
+
+def get_time(session):
+    time = session.execute("select UTC_TIMESTAMP as time").fetchone()['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    return time
 
 
 @jqs.route('/dag/<dag_id>/job', methods=['GET'])
@@ -54,14 +61,15 @@ def get_jobs_by_status(dag_id):
         jobs = ScopedSession.query(Job).filter(
             Job.status == request.args['status'],
             Job.dag_id == dag_id,
-            Job.status_date >= last_sync).all()
+            Job.status_date > last_sync).all()
     else:
         jobs = ScopedSession.query(Job).filter(
             Job.dag_id == dag_id,
-            Job.status_date >= last_sync).all()
+            Job.status_date > last_sync).all()
+    time = get_time(ScopedSession)
     ScopedSession.commit()
     job_dcts = [j.to_wire() for j in jobs]
-    resp = jsonify(job_dcts=job_dcts)
+    resp = jsonify(job_dcts=job_dcts, time=time)
     resp.status_code = HTTPStatus.OK
     return resp
 
