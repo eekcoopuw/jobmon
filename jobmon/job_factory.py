@@ -97,7 +97,8 @@ class JobFactory(object):
                         or be string for TAG attribute
         """
         user_cant_config = [job_attribute.WALLCLOCK, job_attribute.CPU, job_attribute.IO, job_attribute.MAXRSS]
-        logger.info("Attribute Type{} Attribute Name: {} ".format(attribute_type, type(attribute_type).__name__))
+        import pdb
+        pdb.set_trace()
         if type(attribute_type).__name__ in user_cant_config:
             raise ValueError(
                 "Invalid attribute configuration for {} with name: {}, user input not used to configure attribute value"
