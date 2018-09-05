@@ -99,8 +99,8 @@ class JobFactory(object):
         user_cant_config = [job_attribute.WALLCLOCK, job_attribute.CPU, job_attribute.IO, job_attribute.MAXRSS]
         if attribute_type in user_cant_config:
             raise ValueError(
-                "Invalid attribute configuration for {attr}, user input not used to configure attribute value".format(
-                    attr=attribute_type))
+                "Invalid attribute configuration for {} with name: {}, user input not used to configure attribute value"
+                    .format(attribute_type, type(attribute_type).__name__))
         elif not isinstance(attribute_type, int):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
