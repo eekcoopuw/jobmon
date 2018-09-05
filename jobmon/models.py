@@ -192,7 +192,7 @@ class JobInstance(Base):
     nodename = Column(String(50))
     process_group_id = Column(Integer)
     wallclock = Column(String(50))
-    maxvmem = Column(String(50))
+    maxrss = Column(String(50))
     cpu = Column(String(50))
     io = Column(String(50))
     status = Column(
