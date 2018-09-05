@@ -76,6 +76,6 @@ def test_usage_job_attribute_error(job_list_manager_sub):
     # Try to add a usage attribute, this should cause an error because this is configured with usage stats,
     # not with user assigned values
     with pytest.raises(ValueError) as exc:
-        task.add_job_attribute(job_attribute.WALLCLOCK, "00:00:10")
+        task.add_job_attribute(job_attribute.WALLCLOCK, "10")
     assert "Invalid attribute configuration" in str(exc.value)
     job = job_list_manager_sub.bind_task(task)
