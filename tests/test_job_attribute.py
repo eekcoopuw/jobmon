@@ -77,5 +77,7 @@ def test_usage_job_attribute_error(job_list_manager_sub):
     # not with user assigned values
     with pytest.raises(ValueError) as exc:
         task.add_job_attribute(job_attribute.WALLCLOCK, "10")
+        import pdb
+        pdb.set_trace()
     assert "Invalid attribute configuration" in str(exc.value)
     job = job_list_manager_sub.bind_task(task)
