@@ -20,7 +20,7 @@ class DagExecutionStatus(object):
 
 class TaskDag(object):
     """
-    A DAG of Tasks.
+    A DAG of ExecutableTasks.
     """
 
     def __init__(self, name="", interrupt_on_error=True, executor=None):
@@ -31,7 +31,7 @@ class TaskDag(object):
         # TODO: Scale test to 1M jobs
         self.name = name
 
-        self.tasks = OrderedDict()  # {job_hash: Task}
+        self.tasks = OrderedDict()  # {job_hash: ExecutableTask}
         self.bound_tasks = None
         self.top_fringe = []
         self.fail_after_n_executions = None

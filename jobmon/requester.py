@@ -127,7 +127,16 @@ class Requester(object):
             expect_reply = True
             while expect_reply and self.is_connected:
                 # ask for response from server. wait until REQUEST_TIMEOUT
-                socks = dict(self.poller.poll(self.conn_cfg.request_timeout))
+                try:
+                    socks = dict(self.poller.poll(
+                        self.conn_cfg.request_timeout))
+                except:
+                    logger.warning("Pirate.poll caught an exception, "
+                                   "retrying {}"
+                                   .format(retries_left))
+                    retries_left -= 1
+                    continue
+
                 if socks.get(self.socket) == zmq.POLLIN:
                     reply = self.socket.recv_json()
                     if not reply:
