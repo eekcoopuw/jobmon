@@ -2,6 +2,7 @@ import logging
 import threading
 import _thread
 from time import sleep
+import traceback
 
 from zmq.error import ZMQError
 
@@ -69,6 +70,8 @@ class JobInstanceReconciler(object):
             except Exception as e:
                 msg = "About to raise Keyboard Interrupt signal {}".format(e)
                 logger.error(msg)
+                stack = traceback.format_exc()
+                logger.error(stack)
                 # Also write to stdout because this is a serious problem
                 print(msg)
                 if self.interrupt_on_error:

@@ -50,8 +50,16 @@ The "jobmon server" is actually three separate docker containers, executing on j
 4. To start a specific service use the name, eg:  "docker start jobmonemup3_jqs_1"
 5. A container can be restarted by container id or name, eg "docker restart 4594e55149456" or "docker restart jobmonemup3_jqs_1"
 
-
 .. image:: images/docker_ps.png
+
+
+Using mysqldump to copy a database
+**********************************
+
+On the cluster, run a command like the following:
+
+  mysqldump -h jobmon-p01.ihme.washington.edu --port 3305 -u docker -p docker --database docker  > dbs_3305_dump.sql
+
 
 Deploying JobStateManager and JobQueryServer
 ********************************************
