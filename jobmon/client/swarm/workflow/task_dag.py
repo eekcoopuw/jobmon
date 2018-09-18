@@ -279,7 +279,7 @@ class TaskDag(object):
             if not downstream_done:
                 if downstream.all_upstreams_done:
                     logger.debug("  and add to fringe")
-                    new_fringe += [downstream]
+                    new_fringe += [downstream]  # make sure there's no dups
                     # else Nothing - that Task ain't ready yet
                 else:
                     logger.debug("  not ready yet")

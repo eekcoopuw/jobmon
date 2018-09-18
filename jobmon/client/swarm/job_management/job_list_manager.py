@@ -210,6 +210,7 @@ class JobListManager(object):
     def reset_jobs(self):
         """Reset jobs by passing through to the JobFactory"""
         self.job_factory.reset_jobs()
+        self._sync()
 
     def add_job_attribute(self, job, attribute_type, value):
         """Add a job_attribute to a job by passing thorugh to the JobFactory"""

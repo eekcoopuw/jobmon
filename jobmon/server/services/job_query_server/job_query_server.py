@@ -57,6 +57,7 @@ def get_jobs_by_status(dag_id):
         last_sync (datetime): time since when to get jobs
     """
     last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
+    time = get_time(ScopedSession)
     if request.args.get('status', None) is not None:
         jobs = ScopedSession.query(Job).filter(
             Job.status == request.args['status'],
@@ -66,7 +67,6 @@ def get_jobs_by_status(dag_id):
         jobs = ScopedSession.query(Job).filter(
             Job.dag_id == dag_id,
             Job.status_date > last_sync).all()
-    time = get_time(ScopedSession)
     ScopedSession.commit()
     job_dcts = [j.to_wire() for j in jobs]
     resp = jsonify(job_dcts=job_dcts, time=time)

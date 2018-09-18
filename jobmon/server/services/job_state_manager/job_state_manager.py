@@ -40,6 +40,12 @@ def page_not_found(error):
     return 'This route does not exist {}'.format(request.url), 404
 
 
+def get_time(session):
+    time = session.execute("select UTC_TIMESTAMP as time").fetchone()['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    return time
+
+
 @jsm.route('/', methods=['GET'])
 def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
@@ -419,12 +425,13 @@ def reset_incomplete_jobs(dag_id):
 
         dag_id: id of the dag to reset
     """
+    time = get_time(ScopedSession)
     up_job = """
         UPDATE job
-        SET status=:registered_status, num_attempts=0
+        SET status=:registered_status, num_attempts=0, status_date='{}'
         WHERE dag_id=:dag_id
         AND job.status!=:done_status
-    """
+    """.format(time)
     up_job_instance = """
         UPDATE job_instance
         JOIN job USING(job_id)
