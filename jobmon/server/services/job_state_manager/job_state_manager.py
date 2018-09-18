@@ -156,7 +156,9 @@ def add_job_instance():
     try:
         job_instance.job.transition(JobStatus.INSTANTIATED)
     except InvalidStateTransition:
-        raise
+        logger.debug("Caught InvalidStateTransition. Not transitioning job "
+                     "{}'s job_instance_id {} another time"
+                     .format(data['job_id'], ji_id))
     finally:
         ScopedSession.commit()
     resp = jsonify(job_instance_id=ji_id)
@@ -396,7 +398,11 @@ def queue_job(job_id):
     logger.debug("Queue Job {}".format(job_id))
     job = ScopedSession.query(Job)\
         .filter_by(job_id=job_id).first()
-    job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
+    try:
+        job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
+    except InvalidStateTransition:
+        logger.debug("Caught InvalidStateTransition. Not transitioning job "
+                     "{} to queued another time".format('job_id'))
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
@@ -492,7 +498,12 @@ def _update_job_instance_state(job_instance, status_id):
     """
     logger.debug("Update JI state {} for  {}".format(status_id,
                                                      job_instance))
-    job_instance.transition(status_id)
+    try:
+        job_instance.transition(status_id)
+    except InvalidStateTransition:
+        logger.debug("Caught InvalidStateTransition. Not transitioning job "
+                     "job_instance_id {} another time"
+                     .format(job_instance.job_instance_id))
     job = job_instance.job
 
     # TODO: Investigate moving this publish logic into some SQLAlchemy-
