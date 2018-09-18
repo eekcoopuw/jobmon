@@ -244,7 +244,8 @@ def test_invalid_transition(dag_id):
         request_type='post')
     job = Job.from_wire(response['job_dct'])
 
-    with pytest.raises(InvalidStateTransition):
+    # InvalidStateTransition gets raised as a warning
+    with pytest.warns(UserWarning):
         rc, response = req.send_request(
             app_route='/job_instance',
             message={'job_id': str(job.job_id),

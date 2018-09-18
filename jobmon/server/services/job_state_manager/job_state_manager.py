@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from flask import jsonify, request, Blueprint
 from http import HTTPStatus
+import warnings
 
 from jobmon.models.job import Job, InvalidStateTransition
 from jobmon.models.job_status import JobStatus
@@ -156,9 +157,11 @@ def add_job_instance():
     try:
         job_instance.job.transition(JobStatus.INSTANTIATED)
     except InvalidStateTransition:
-        logger.debug("Caught InvalidStateTransition. Not transitioning job "
-                     "{}'s job_instance_id {} another time"
-                     .format(data['job_id'], ji_id))
+        msg = ("Caught InvalidStateTransition. Not transitioning job "
+               "{}'s job_instance_id {} another time"
+               .format(data['job_id'], ji_id))
+        warnings.warn(msg)
+        logger.debug(msg)
     finally:
         ScopedSession.commit()
     resp = jsonify(job_instance_id=ji_id)
@@ -401,8 +404,10 @@ def queue_job(job_id):
     try:
         job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
     except InvalidStateTransition:
-        logger.debug("Caught InvalidStateTransition. Not transitioning job "
-                     "{} to queued another time".format('job_id'))
+        msg = ("Caught InvalidStateTransition. Not transitioning job "
+               "{} to queued another time".format('job_id'))
+        warnings.warn(msg)
+        logger.debug(msg)
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
@@ -501,9 +506,11 @@ def _update_job_instance_state(job_instance, status_id):
     try:
         job_instance.transition(status_id)
     except InvalidStateTransition:
-        logger.debug("Caught InvalidStateTransition. Not transitioning job "
-                     "job_instance_id {} another time"
-                     .format(job_instance.job_instance_id))
+        msg = ("Caught InvalidStateTransition. Not transitioning job "
+               "job_instance_id {} another time"
+               .format(job_instance.job_instance_id))
+        warnings.warn(msg)
+        logger.debug(msg)
     job = job_instance.job
 
     # TODO: Investigate moving this publish logic into some SQLAlchemy-
