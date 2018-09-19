@@ -26,7 +26,8 @@ def unwrap():
 
     def eprint(*args, **kwargs):
         """Utility function for displaying stderr captured from subprocess
-        in stderr stream of parent process"""
+        in stderr stream of parent process
+        """
         print(*args, file=sys.stderr, **kwargs)
 
     def jpickle_parser(s):

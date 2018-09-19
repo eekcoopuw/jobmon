@@ -1,6 +1,14 @@
 Deploying on Azure Kubernetes Service (AKS)
 ===========================================
 
+Intro
+----------------------
+
+This is a commentary on the following tutorials, that will walk you through the intricacies of those tutorials within our ecosystem: https://docs.microsoft.com/en-us/azure/aks/, https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-macos?view=azure-cli-latest, https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-prepare-app,
+https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-prepare-acr,
+https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-aks
+
+
 "Hello World" on AKS
 ----------------------
 
@@ -16,6 +24,8 @@ wy IHME should pay for what you are doing :-)
 The AKS tutorial is quite good, although there are two gotchas as explained below (names can only have 63 characters
 and should not have underscores or hyphens,
 and be sure to upgrade the version of kubernetes).
+
+We recommend you run all your az commands using az cli on your local computer, rather than the Azure command line on the Azure portal.
 
 Tutorial Steps
 ~~~~~~~~~~~~~~
@@ -39,29 +49,21 @@ Click on your account widget in top right to check that:
 
 .. image:: images/azure_permissions.png
 
-Search for "Kubernetes" in the search box, and select "Kubernetes Service."
-
 In a different browser window, open the AKS tutorial, https://docs.microsoft.com/en-us/azure/aks/
-Follow the Azure CLI instructions, not the Azure Portal instructions. The latter is a GUI that
+Follow the Azure CLI instructions and **execute all instructions on your local computer, using az commands**. We recommend not using the Azure Portal instructions. The latter is a GUI that
 only differs in the opening sequence,
 but I noticed some obvious typos in the Azure Portal instructions.
 
-As per the tutorial, open **cloud shell** in the header, bash variant (unless you like Powershell, but I suspect fewer
-customers use it and therefore it will be less reliable).
+On MacOS you will need to install Azure-Cli via homebrew; see
+https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-macos?view=azure-cli-latest
 If you haven’t set up a subscription you will be blocked at this step.
-The cloud shell is a full bash shell with command history that persists between sessions.
-This cloud shell window times out rapidly, so keep it will fed with carriage returns.
-You can also run these commands locally in a bash shell, because the ``az`` commands have the azure portal address
+All az commands in the tutorial should run perfectly fine locally in a bash shell, because the ``az`` commands have the azure portal address
 backed-in.
 
-On MacOS you will need to sintall it via homebrew, see
-https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-macos?view=azure-cli-latest
-
-See the gotchas section.
-
+Now follow the tutorial to create a resource group and an AKS cluster. There are a few issues, so see the gotchas section. Most importantly, however:
 **DO NOT use underscores or hyphens in any name, neither for resource group nor cluster.**
 These characters are disallowed in some circumstances, allowed in others. For sanity it is best to be consistent –
-ItsCamelCaseForUsNow.  Names are appear to be case insensitive, which you can see by running ``az aks list``.
+ItsCamelCaseForUsNow.  Names appear to be case insensitive, which you can see by running ``az aks list``.
 
 Create a resource group as per the tutorial. A resource group is essentially a namespace that owns all the other things you create.
 
@@ -73,11 +75,8 @@ and the resource group to which it belongs (via ``--resource-group/-g``).
 Your AKS account can have multiple clusters (more on this below).
 There is a useful summary of ``az aks`` commands here: https://docs.microsoft.com/en-us/cli/azure/aks?view=azure-cli-latest
 
-You should not need to install kubectl if you are on the cloud shell,  you will need to install it if you are on
-your own laptop.
-kubectl controls the cluster(s) that you create. **kubectl implicitly
-operates on the last cluster for which you downloaded credentials.**
-This state is stored in ``.kube/config` and your ``.ssh`` key directory.
+You will need to install kubectl on your laptop. kubectl controls the cluster(s) that you create. **kubectl implicitly operates on the last cluster for which you downloaded credentials.**
+This state is stored in ``.kube/config and your .ssh`` key directory.
 
 **IMPORTANT:** Upgrade the version of kubernetes immediately.
 Run the command ``az aks get-upgrades`` to discover if there is an upgrade version,
@@ -93,9 +92,9 @@ the credentials to the new cluster.
 You should receive a message similar to ``Merged "myAKSCluster" as current context in /home/geoffrey/.kube/config``
 
 **THE CRITICAL TEST:** As per the tutorial, run ``kubectl get nodes``.  I was blocked here by an "unknown error."
-I think the root cause were names-with-hyphens and mismatched kubernetes versions.
+I think the root cause were names-with-hyphens and mismatched kubernetes versions. It's okay if the node name output by ``kubectl get nodes`` does not exactly match your resource-group or cluster name.
 
-Continue with the tutorial to load the voting application. The final IP address is public and can be accessed by the whole world.
+If you want to deploy their example Flask voting app, continue with the tutorial to load the voting application. The final IP address is public and can be accessed by the whole world.
 Therefore delete the service when your are done, using ``kubectl delete service azure-front-end``, similarly for the back-end service.
 
 Creating Multiple Clusters
@@ -111,10 +110,13 @@ For example, observe the switching between clusters ``myAKSCluster`` and ``mySec
 .. image:: images/azure_multiple_clusters.png
 
 
-Building and Deploying a service from our Source Code in our Stash Repository
+Building and Deploying Voting App
 -----------------------------------------------------------------------------
 
-Firstly, we need to (once only) create a registry in AKS. The tutorial is good, although it has a few gotchas.
+Note: This is just for deploying the Voting app. If you want to deploy jobmon, scroll down to the later applicable section.
+
+
+For **Step 1**, we need to (once only) create a registry in AKS. The tutorial is good, although it has a few gotchas.
 Most importantly, **run all the az commands run on your machine.**
 The docker daemon must be on your machine, you cannot run a docker daemon in the cloud shell.
 The ``az`` command set appears to be hard-wired internally to talk to azure.com, so it can run on any machine, it
@@ -124,7 +126,7 @@ Start with **step 1**:
 https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-prepare-app
 
 The ``ak acr`` series of commands operate on container registries.
-Change the animal names n the voting app so that you can be certain that it is your own code that is deployed:
+Change the animal names in the voting app so that you can be certain that it is your own code that is deployed:
 ``vim azure-vote/azure-vote/config_file.cfg``
 
 Now, **step 2,** which also runs smoothly:
@@ -289,11 +291,13 @@ of each service behind a load balancer so that we can do hot deploys.
 
 The instructions are a merge of the instructions in k8s/readme.md (not yet merged into the master branch)
 
-Log in to the cluster you created on AKS, in my case:
+If you haven't created a AKS registry, then follow step 2 of the Building and Deploying Voting App section above.
+
+Log in to the cluster you created on AKS from your local computer, in my case:
 
 ``az acr login --name mySecondRegistry``
 
-Build the docker image for jobmon:
+Build the docker image for jobmon also from your local computer:
 
 ``cp jobmonrc-docker jobmonrc-docker-wsecrets
 docker build -t jobmon .``

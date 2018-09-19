@@ -1,4 +1,3 @@
-from builtins import str
 import pytest
 import sys
 from time import sleep
@@ -17,6 +16,7 @@ else:
 
 
 class Task(ExecutableTask):
+    """Test version of the Task class for use in this module"""
 
     def __init__(self, command, name, *args, **kwargs):
         super(Task, self).__init__(command=command, name=name, max_attempts=1,
@@ -40,11 +40,32 @@ def job_list_manager_d(real_dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager_sge_no_daemons(real_dag_id):
+    """This fixture starts a JobListManager using the SGEExecutor, but without
+    running JobInstanceFactory or JobReconciler in daemonized threads
+    """
     executor = SGEExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
                          interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
+
+
+def test_sync(job_list_manager_sge_no_daemons):
+    job_list_manager_sge = job_list_manager_sge_no_daemons
+    now = job_list_manager_sge.last_sync
+    assert now is not None
+
+    job = job_list_manager_sge.bind_task(Task(command='fizzbuzz',  name='bar'))
+    job_list_manager_sge.queue_job(job)
+    job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
+    sleep(35)
+
+    # with a new job failed, make sure that the sync has been updated and the
+    # call with the sync filter actually returns jobs
+    job_list_manager_sge._sync()
+    new_now = job_list_manager_sge.last_sync
+    assert new_now > now
+    assert len(job_list_manager_sge.all_error) > 0
 
 
 def test_invalid_command(job_list_manager):
@@ -58,7 +79,7 @@ def test_invalid_command(job_list_manager):
     assert len(job_list_manager.all_error) == 0
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    sleep(15)
+    sleep(35)
     job_list_manager._sync()
     assert len(job_list_manager.all_error) > 0
 
@@ -74,7 +95,7 @@ def test_valid_command(job_list_manager):
     assert len(njobs1) == 1
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    sleep(15)
+    sleep(35)
     job_list_manager._sync()
     assert len(job_list_manager.all_done) > 0
 

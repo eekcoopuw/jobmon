@@ -19,6 +19,18 @@ class JobInstanceReconciler(object):
 
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
                  stop_event=None):
+        """The JobInstanceReconciler is a mechanism by which the
+        JobStateManager and JobQueryServer make sure the database in sync with
+        jobs in qstat
+
+        Args:
+            dag_id (int): the id for the dag to run
+            executor (obj, default SequentialExecutor): obj of type
+            equentialExecutor, DummyExecutor or SGEExecutor
+            interrupt_on_error (bool, default True): whether or not to
+            interrupt the thread if there's an error
+            stop_event (obj, default None): Object of type threading.Event
+        """
         self.dag_id = dag_id
         self.jsm_req = Requester(get_the_client_config(), 'jsm')
         self.jqs_req = Requester(get_the_client_config(), 'jqs')
@@ -49,6 +61,13 @@ class JobInstanceReconciler(object):
         self.executor = executor
 
     def reconcile_periodically(self, poll_interval=10):
+        """Running in a thread, this function allows the JobInstanceReconciler
+        to periodically reconcile all jobs against 'qstat'
+
+        Args:
+            poll_interval (int): how often you want this function to poll for
+            newly ready jobs
+        """
         logger.info("Reconciling jobs against 'qstat' at {}s "
                     "intervals".format(poll_interval))
         while True and not self._stop_event.is_set():
@@ -70,7 +89,8 @@ class JobInstanceReconciler(object):
         """Identifies jobs that have disappeared from the batch execution
         system (e.g. SGE), and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
-        fatal errors"""
+        fatal errors
+        """
         presumed = self._get_presumed_submitted_or_running()
         self._request_permission_to_reconcile()
         try:
@@ -97,7 +117,8 @@ class JobInstanceReconciler(object):
         state for too long. From the SGE perspective, this might include
         jobs that got stuck in "r" state but never called back to the
         JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
-        SUBMITTED_TO_BATCH_EXECUTOR)"""
+        SUBMITTED_TO_BATCH_EXECUTOR)
+        """
         to_jobs = self._get_timed_out_jobs()
         try:
             terminated_job_instances = self.executor.terminate_job_instances(
@@ -110,6 +131,9 @@ class JobInstanceReconciler(object):
                 self.executor.__class__.__name__))
 
     def _get_presumed_submitted_or_running(self):
+        """Pulls all jobs from the database that are marked as submitted or
+        running
+        """
         try:
             rc, response = self.jqs_req.send_request(
                 app_route='/dag/{}/job_instance'.format(self.dag_id),
@@ -147,12 +171,25 @@ class JobInstanceReconciler(object):
         return job_instances
 
     def _log_timeout_hostname(self, job_instance_id, hostname):
+        """Logs the hostname for any job that has timed out
+        Args:
+            job_instance_id (int): id for the job_instance that has timed out
+            hostname (str): host where the job_instance was running
+        """
         return self.jsm_req.send_request(
             app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
             message={'nodename': hostname},
             request_type='post')
 
     def _log_mysterious_error(self, job_instance_id, executor_id):
+        """Logs if a job has fallen out of qstat but according to the
+        reconciler, should still be there.
+
+        Args:
+            job_instance_id (int): id for the job_instance that has timed out
+            executor_id (id): id for the executor where the job_instance was
+            running
+        """
         return self.jsm_req.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message={'error_message': ("Job no longer visible in qstat, "
@@ -162,13 +199,17 @@ class JobInstanceReconciler(object):
             request_type='post')
 
     def _log_timeout_error(self, job_instance_id):
+        """Logs if a job has timed out
+        Args:
+            job_instance_id (int): id for the job_instance that has timed out
+        """
         return self.jsm_req.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message={'error_message': "Timed out"},
             request_type='post')
 
     def _request_permission_to_reconcile(self):
-        # sync; log_heartbeat
+        """Syncs with the database and logs a heartbeat"""
         return self.jsm_req.send_request(
             app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
             message={},

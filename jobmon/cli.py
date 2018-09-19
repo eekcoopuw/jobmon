@@ -14,8 +14,8 @@ from jobmon.client.the_client_config import get_the_client_config
 from jobmon.server.the_server_config import get_the_server_config
 from jobmon.server.services.health_monitor.notifiers import SlackNotifier
 from jobmon.server.services.health_monitor.health_monitor import HealthMonitor
-from jobmon.server.services.job_state_manager import job_state_manager
-from jobmon.server.services.job_query_server import job_query_server
+from jobmon.server.services.job_state_manager import app as jsm_app
+from jobmon.server.services.job_query_server import app as jqs_app
 
 try:
     FileExistsError
@@ -32,7 +32,8 @@ def main():
 
 def add_config_opts(parser):
     """Add the GlobalConfig options to the parser so they can
-    override the .jobmonrc and default settings"""
+    override the .jobmonrc and default settings
+    """
     parser.add_argument("--config_file", type=str, default="~/.jobmonrc")
     for opt, default in get_the_server_config().default_opts.items():
         if isinstance(default, bool):
@@ -45,7 +46,8 @@ def add_config_opts(parser):
 
 def apply_args_to_config(args):
     """Override .jobmonrc and default settings with those passed
-    via the command line"""
+    via the command line
+    """
     cli_opts = vars(args)
     cli_opts = {k: v for k, v in cli_opts.items() if v is not None}
     if 'hostname' in cli_opts:
@@ -62,7 +64,8 @@ def apply_args_to_config(args):
 
 def initdb(args):
     """Create the database tables and load them with the requisite
-    Job and JobInstance statuses"""
+    Job and JobInstance statuses
+    """
     database_loaders.create_job_db()
     try:
         with session_scope() as session:
@@ -73,10 +76,11 @@ def initdb(args):
 
 
 def parse_args(argstr=None):
-    """Constructs a parser, parses either sys.argv (default) or the provided
+    """Construct a parser, parse either sys.argv (default) or the provided
     argstr, returns a Namespace. The Namespace should have a 'func'
     attribute which can be used to dispatch to the appropriate downstream
-    function"""
+    function
+    """
     parser = argparse.ArgumentParser(description="Jobmon")
     parser = add_config_opts(parser)
 
@@ -130,17 +134,16 @@ def start(args):
 
 def start_job_state_manager():
     """Start the JobStateManager process"""
-    job_state_manager.start()
+    jsm_app.start()
 
 
 def start_job_query_server():
     """Start the JobQueryServer process"""
-    job_query_server.start()
+    jqs_app.start()
 
 
 def start_health_monitor():
     """Start monitoring for lost workflow runs"""
-
     if get_the_server_config().slack_token:
         wf_notifier = SlackNotifier(
             get_the_server_config().slack_token,

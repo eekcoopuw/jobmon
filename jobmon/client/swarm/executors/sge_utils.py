@@ -1,6 +1,4 @@
-"""
-Interface to the dynamic resource manager (DRM), aka the scheduler.
-"""
+"""Interface to the dynamic resource manager (DRM), aka the scheduler."""
 import atexit
 
 try:
@@ -208,7 +206,6 @@ def qstat_details(jids):
     Returns:
         dictionary of detailed qstat values
     """
-
     # Explored parsing the xml output instead of the raw qstat stdout, but gave
     # up after developing a headache trying to make sense of the schema.
     # Anecdotally, also found qstat -xml itself to be slower than normal qstat.

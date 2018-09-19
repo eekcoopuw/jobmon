@@ -54,13 +54,15 @@ def test_job_submit_times(db_cfg):
 
     sleep(1)
     with session_scope() as session:
-        job2 = Job(dag_id=dag_id, name='test2', job_hash=2, status=JobStatus.REGISTERED)
+        job2 = Job(dag_id=dag_id, name='test2', job_hash=2,
+                   status=JobStatus.REGISTERED)
         session.add(job2)
         session.commit()
 
     sleep(1)
     with session_scope() as session:
-        job3 = Job(dag_id=dag_id, name='test3', job_hash=3, status=JobStatus.REGISTERED)
+        job3 = Job(dag_id=dag_id, name='test3', job_hash=3,
+                   status=JobStatus.REGISTERED)
         session.add(job3)
         session.commit()
 

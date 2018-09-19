@@ -1,7 +1,7 @@
 import os
 # NOTE: imports of config and the specific services are INTENTIONALLY put
-# inside these functions, because module level imports cause config issues
-# related to a load order bug. These issues will be sorted out with GBDSCI-1089
+# inside these functions, to comply to a application_factory Flask pattern
+# and encapsulate configs
 
 
 def run_jsm():
@@ -20,4 +20,3 @@ def run_jqs():
     app = create_app(os.environ['host'], os.environ['conn_str'])
     app.run(host="0.0.0.0", port=get_the_client_config().jqs_port, debug=True,
             use_reloader=False, use_evalex=False, threaded=False)
-

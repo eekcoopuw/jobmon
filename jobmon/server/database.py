@@ -30,6 +30,7 @@ def session_scope():
 
 
 def recreate_engine():
+    """Recreate the engine with any changes to the Session or ScopedSession"""
     global engine, Session, ScopedSession
     engine = sql.create_engine(get_the_server_config().conn_str,
                                pool_recycle=300, pool_size=3,

@@ -5,6 +5,7 @@ from jobmon.server.services.job_state_manager.job_state_manager import jsm
 
 
 def create_app(host, conn_str):
+    """Create a Flask app"""
     app = Flask(__name__)
     if host:
         os.environ['host'] = host
@@ -19,3 +20,8 @@ def create_app(host, conn_str):
         ScopedSession.remove()
 
     return app
+
+
+def start(host=None, conn_str=None):
+    app = create_app(host, conn_str)
+    app.run()

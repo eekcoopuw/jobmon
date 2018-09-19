@@ -7,10 +7,10 @@ from jobmon.models.sql_base import Base
 
 
 class TaskDagMeta(Base):
-    """
-    A DAG of Tasks.
-    """
+    """ A DAG of Tasks."""
+
     __tablename__ = 'task_dag'
+    """The table in the database that holds all info on TaskDags"""
 
     dag_id = Column(Integer, primary_key=True)
     dag_hash = Column(String(150))

@@ -52,7 +52,8 @@ class Executor(object):
 
     def terminate_job_instances(self, job_instance_list):
         """If implemented, return a list of (job_instance_id, hostname) tuples
-        for any job_instances that are terminated"""
+        for any job_instances that are terminated
+        """
         raise NotImplementedError
 
     def build_wrapped_command(self, job, job_instance_id):

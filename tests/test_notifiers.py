@@ -9,4 +9,3 @@ def test_raises_correctly():
     notifier.slack_api_url = 'https://slack.com/apis/chat.postMessage'
     with pytest.raises(RuntimeError):
         notifier.send(msg="This should fail because of fake link")
-

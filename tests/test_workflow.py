@@ -310,10 +310,8 @@ def test_reset_attempts_on_resume(simple_workflow):
 
 def test_attempt_resume_on_complete_workflow(simple_workflow):
     """Should not allow a resume, but should prompt user to create a new
-    workflow by modifying the WorkflowArgs (e.g. new version #)"""
-
-    stopped_wf = simple_workflow
-
+    workflow by modifying the WorkflowArgs (e.g. new version #)
+    """
     # Re-create the dag "from scratch" (copy simple_workflow fixture)
     t1 = BashTask("sleep 1")
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
@@ -340,7 +338,7 @@ def test_force_new_workflow_instead_of_resume(simple_workflow):
 
 def test_dag_reset(simple_workflow_w_errors):
     # Alias to shorter names...
-    err_wf  = simple_workflow_w_errors
+    err_wf = simple_workflow_w_errors
 
     dag_id = err_wf.task_dag.dag_id
 

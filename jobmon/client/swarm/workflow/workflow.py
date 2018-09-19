@@ -93,7 +93,7 @@ class Workflow(object):
         might be passed as Args to the Workflow. For now, the assumption is
         WorkflowArgs is a string.
 
-    2. The tasks added to the workflow. A Workflow's TaskDag is built up by
+    2. The tasks added to the workflow. A Workflow is built up by
         using Workflow.add_task(). In order to resume a Workflow, all the same
         tasks must be added with the same dependencies between tasks.
     """
@@ -140,12 +140,19 @@ class Workflow(object):
                         .format(self.workflow_args))
 
     def set_executor(self, executor_class):
+        """Set which executor to use to run the tasks.
+
+        Args:
+            executor_class (str): string referring to one of the executor
+            classes in jobmon.client.swarm.executors
+        """
         self.executor_class = executor_class
         if self.executor_class == 'SGEExecutor':
             from jobmon.client.swarm.executors.sge import SGEExecutor
             self.executor = SGEExecutor(**self.executor_args)
         elif self.executor_class == "SequentialExecutor":
-            from jobmon.client.swarm.executors.sequential import SequentialExecutor
+            from jobmon.client.swarm.executors.sequential import \
+                SequentialExecutor
             self.executor = SequentialExecutor()
         elif self.executor_class == "DummyExecutor":
             from jobmon.client.swarm.executors.dummy import DummyExecutor
@@ -159,6 +166,7 @@ class Workflow(object):
 
     @property
     def dag_id(self):
+        """Return the dag_id of this workflow"""
         if self.is_bound:
             return self.wf_dao.dag_id
         else:
@@ -166,6 +174,7 @@ class Workflow(object):
 
     @property
     def hash(self):
+        """Return the workflow hash of this workflow"""
         if self.is_bound:
             return self.wf_dao.workflow_hash
         else:
@@ -173,6 +182,7 @@ class Workflow(object):
 
     @property
     def id(self):
+        """Return the workflow_id of this workflow"""
         if self.is_bound:
             return self.wf_dao.id
         else:
@@ -180,6 +190,9 @@ class Workflow(object):
 
     @property
     def is_bound(self):
+        """Return a bool, whether or not this workflow is already bound to the
+        db
+        """
         if self.wf_dao:
             return True
         else:
@@ -187,18 +200,22 @@ class Workflow(object):
 
     @property
     def status(self):
+        """Return the status of this workflow"""
         if self.is_bound:
             return self.wf_dao.status
         else:
             raise AttributeError("Workflow is not yet bound")
 
     def add_task(self, task):
+        """Add a task to the workflow to be executed"""
         return self.task_dag.add_task(task)
 
     def add_tasks(self, tasks):
+        """Add a list of task to the workflow to be executed"""
         self.task_dag.add_tasks(tasks)
 
     def _bind(self):
+        """Bind the database and all of its tasks to the database"""
         potential_wfs = self._matching_workflows()
         if len(potential_wfs) == 1:
 
@@ -240,31 +257,36 @@ class Workflow(object):
                                "WorkflowArgs".format(potential_wfs))
 
     def _done(self):
+        """Update the workflow as done"""
         self.workflow_run.update_done()
         self._update_status(WorkflowStatus.DONE)
 
     def _compute_hash(self):
+        """Create a unique hash for this workflow"""
         hashval = hashlib.sha1()
         hashval.update(bytes(self.workflow_args.encode('utf-8')))
         hashval.update(bytes(self.task_dag.hash.encode('utf-8')))
         return hashval.hexdigest()
 
     def _create_workflow_run(self):
-        # Create new workflow in Database
+        """Create new workflow in the db"""
         self.workflow_run = WorkflowRun(
             self.id, self.stderr, self.stdout, self.project,
             reset_running_jobs=self.reset_running_jobs,
             working_dir=self.working_dir)
 
     def _error(self):
+        """Update the workflow as errored"""
         self.workflow_run.update_error()
         self._update_status(WorkflowStatus.ERROR)
 
     def _stopped(self):
+        """Update the workflow as stopped"""
         self.workflow_run.update_stopped()
         self._update_status(WorkflowStatus.STOPPED)
 
     def _matching_dag_ids(self):
+        """Find all matching dag_ids for this task_dag_hash"""
         rc, response = self.jqs_req.send_request(
             app_route='/dag',
             message={'dag_hash': self.task_dag.hash},
@@ -273,6 +295,7 @@ class Workflow(object):
         return dag_ids
 
     def _matching_workflows(self):
+        """Find all matching workflows that have the same task_dag_hash"""
         dag_ids = self._matching_dag_ids()
         workflows = []
         for dag_id in dag_ids:
@@ -286,6 +309,7 @@ class Workflow(object):
         return [WorkflowDAO.from_wire(w) for w in workflows]
 
     def _update_status(self, status):
+        """Update the workflow with the status passed in"""
         rc, response = self.jsm_req.send_request(
             app_route='/workflow',
             message={'wf_id': str(self.id), 'status': status,
@@ -295,6 +319,10 @@ class Workflow(object):
         self.wf_dao = WorkflowDAO.from_wire(wf_dct)
 
     def _set_executor_temp_dir(self):
+        """Create a temp_dir for the executor. This is primarily needed for
+        StataTask, since it creates logs in the working dir by default,
+        potentially overwhelming that directory
+        """
         scratch_tmp_dir = "/ihme/scratch/tmp"
         local_tmp_dir = "/tmp"
         if os.path.exists(os.path.realpath(scratch_tmp_dir)):
@@ -315,6 +343,7 @@ class Workflow(object):
         self.executor.set_temp_dir(tmp_dir)
 
     def execute(self):
+        """Run this workflow"""
         if not self.is_bound:
             self._bind()
         self._create_workflow_run()
@@ -335,6 +364,7 @@ class Workflow(object):
         return dag_status
 
     def report(self, dag_status, n_new_done, n_prev_done, n_failed):
+        """Return the status of this workflow"""
         if dag_status == DagExecutionStatus.SUCCEEDED:
             logger.info("Workflow finished successfully!")
             logger.info("# finished jobs: {}".format(n_new_done + n_prev_done))
