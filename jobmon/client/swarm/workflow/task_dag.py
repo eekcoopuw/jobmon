@@ -276,7 +276,8 @@ class TaskDag(object):
         for downstream in task.downstream_tasks:
             logger.debug("  downstream {}".format(downstream))
             downstream_done = (downstream.status == JobStatus.DONE)
-            if not downstream_done:
+            if (not downstream_done and downstream.status ==
+                JobStatus.REGISTERED):
                 if downstream.all_upstreams_done:
                     logger.debug("  and add to fringe")
                     new_fringe += [downstream]  # make sure there's no dups
@@ -284,7 +285,8 @@ class TaskDag(object):
                 else:
                     logger.debug("  not ready yet")
             else:
-                logger.debug("  not ready yet")
+                logger.debug("  not ready yet or already queued. Status is {}"
+                             .format(downstream.status))
         return new_fringe
 
     def _find_task(self, task_hash):
