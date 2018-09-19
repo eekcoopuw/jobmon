@@ -157,11 +157,14 @@ def add_job_instance():
     try:
         job_instance.job.transition(JobStatus.INSTANTIATED)
     except InvalidStateTransition:
-        msg = ("Caught InvalidStateTransition. Not transitioning job "
-               "{}'s job_instance_id {} another time"
-               .format(data['job_id'], ji_id))
-        warnings.warn(msg)
-        logger.debug(msg)
+        if job_instance.job.status == JobStatus.INSTANTIATED:
+            msg = ("Caught InvalidStateTransition. Not transitioning job "
+                   "{}'s job_instance_id {} from I to I"
+                   .format(data['job_id'], ji_id))
+            warnings.warn(msg)
+            logger.debug(msg)
+        else:
+            raise
     finally:
         ScopedSession.commit()
     resp = jsonify(job_instance_id=ji_id)
@@ -404,10 +407,13 @@ def queue_job(job_id):
     try:
         job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
     except InvalidStateTransition:
-        msg = ("Caught InvalidStateTransition. Not transitioning job "
-               "{} to queued another time".format('job_id'))
-        warnings.warn(msg)
-        logger.debug(msg)
+        if job.status == JobStatus.QUEUED_FOR_INSTANTIATION:
+            msg = ("Caught InvalidStateTransition. Not transitioning job "
+                   "{} from Q to Q".format(job_id))
+            warnings.warn(msg)
+            logger.debug(msg)
+        else:
+            raise
     ScopedSession.commit()
     resp = jsonify()
     resp.status_code = HTTPStatus.OK
@@ -506,11 +512,14 @@ def _update_job_instance_state(job_instance, status_id):
     try:
         job_instance.transition(status_id)
     except InvalidStateTransition:
-        msg = ("Caught InvalidStateTransition. Not transitioning job "
-               "job_instance_id {} another time"
-               .format(job_instance.job_instance_id))
-        warnings.warn(msg)
-        logger.debug(msg)
+        if job_instance.status == status_id:
+            msg = ("Caught InvalidStateTransition. Not transitioning job "
+                   "{} from {} to {}".format(job_instance.job_instance_id,
+                                             job_instance.status, status_id))
+            warnings.warn(msg)
+            logger.debug(msg)
+        else:
+            raise
     job = job_instance.job
 
     # TODO: Investigate moving this publish logic into some SQLAlchemy-
@@ -533,6 +542,14 @@ def _update_job_instance(job_instance, **kwargs):
         job_instance (obj): object of type models.JobInstance
     """
     logger.debug("Update JI  {}".format(job_instance))
+    status_requested = kwargs.get('status', None)
+    if status_requested is not None:
+        if status_requested == job_instance.status:
+            kwargs.pop(status_requested)
+            logger.debug("Caught InvalidStateTransition. Not transitioning "
+                         "job_instance {} from {} to {}."
+                         .format(job_instance.job_instance_id,
+                                 job_instance.status, status_requested))
     for k, v in kwargs.items():
         setattr(job_instance, k, v)
     return
