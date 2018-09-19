@@ -244,8 +244,9 @@ def test_invalid_transition(dag_id):
         request_type='post')
     job = Job.from_wire(response['job_dct'])
 
-    # InvalidStateTransition gets raised as a warning
-    with pytest.warns(UserWarning):
+    # InvalidStateTransition gets raised cuz the orig ji was Instantiated
+    # and then this command tries to transition it's state backwards to G
+    with pytest.raises(InvalidStateTransition):
         rc, response = req.send_request(
             app_route='/job_instance',
             message={'job_id': str(job.job_id),
