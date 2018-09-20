@@ -24,4 +24,4 @@ def create_app(host, conn_str):
 
 def start(host=None, conn_str=None):
     app = create_app(host, conn_str)
-    app.run()
+    app.run(port=80)
