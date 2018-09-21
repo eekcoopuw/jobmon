@@ -4,6 +4,7 @@ import shlex
 import os
 
 from sqlalchemy.exc import IntegrityError
+import subprocess
 
 from jobmon.server import database
 from jobmon.server import database_loaders
@@ -75,6 +76,10 @@ def initdb(args):
                         "could not create tables {}".format(str(e)))
 
 
+def start_nginx():
+    subprocess.run("/entrypoint.sh")
+    subprocess.run("/start.sh")
+
 def parse_args(argstr=None):
     """Construct a parser, parse either sys.argv (default) or the provided
     argstr, returns a Namespace. The Namespace should have a 'func'
@@ -134,11 +139,13 @@ def start(args):
 
 def start_job_state_manager():
     """Start the JobStateManager process"""
+    start_nginx()
     jsm_app.start()
 
 
 def start_job_query_server():
     """Start the JobQueryServer process"""
+    start_nginx()
     jqs_app.start()
 
 

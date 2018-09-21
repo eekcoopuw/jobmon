@@ -4,7 +4,7 @@ from flask import Flask
 from jobmon.server.services.job_state_manager.job_state_manager import jsm
 
 
-def create_app(host, conn_str):
+def create_app(host=None, conn_str=None):
     """Create a Flask app"""
     app = Flask(__name__)
     if host:
@@ -24,4 +24,10 @@ def create_app(host, conn_str):
 
 def start(host=None, conn_str=None):
     app = create_app(host, conn_str)
-    app.run(port=80)
+    app.run(host='0.0.0.0', port=80)
+
+
+app = create_app()
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=80)

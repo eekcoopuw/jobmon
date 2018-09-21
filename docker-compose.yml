@@ -4,6 +4,8 @@ services:
   jsm:
     build: .
     image: jobmon
+    volumes:
+        - ./jsm_uwsgi.ini:/app/uwsgi.ini
     ports:
         - "5256:80"
     entrypoint:
@@ -21,6 +23,8 @@ services:
             max-file: "10"
   jqs:
     image: jobmon
+    volumes:
+        - ./jqs_uwsgi.ini:/app/uwsgi.ini
     ports:
         - "5258:80"
     entrypoint:
