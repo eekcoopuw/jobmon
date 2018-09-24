@@ -96,8 +96,8 @@ class JobInstanceReconciler(object):
         try:
             actual = self.executor.get_actual_submitted_or_running()
         except NotImplementedError:
-            logger.warn("{} does not implement reconciliation methods".format(
-                self.executor.__class__.__name__))
+            logger.warning("{} does not implement reconciliation methods"
+                           .format(self.executor.__class__.__name__))
             return []
 
         # This is kludgy... Re-visit the data structure used for communicating
@@ -127,8 +127,8 @@ class JobInstanceReconciler(object):
                 self._log_timeout_error(int(ji_id))
                 self._log_timeout_hostname(int(ji_id), hostname)
         except NotImplementedError:
-            logger.warn("{} does not implement reconciliation methods".format(
-                self.executor.__class__.__name__))
+            logger.warning("{} does not implement reconciliation methods"
+                           .format(self.executor.__class__.__name__))
 
     def _get_presumed_submitted_or_running(self):
         """Pulls all jobs from the database that are marked as submitted or
