@@ -25,7 +25,7 @@ def ephemera_conn_str():
     edb = create_ephemerdb()
     conn_str = edb.start()
 
-    os.environ['conn_str'] = conn_str
+    os.environ['CONN_STR'] = conn_str
     yield conn_str
 
 
@@ -49,8 +49,8 @@ def env_var(monkeypatch, ephemera_conn_str):
     """These two env variables are what tell theconfigs that we're running tests,
     not production code
     """
-    monkeypatch.setenv("host", socket.gethostname())
-    monkeypatch.setenv("conn_str", ephemera_conn_str)
+    monkeypatch.setenv("HOST", socket.gethostname())
+    monkeypatch.setenv("CONN_STR", ephemera_conn_str)
 
 
 @pytest.fixture(scope='function')
@@ -77,7 +77,7 @@ def real_jsm_jqs():
     import multiprocessing as mp
     from tests.run_services import run_jsm, run_jqs
 
-    os.environ['host'] = socket.gethostname()
+    os.environ['HOST'] = socket.gethostname()
 
     ctx = mp.get_context('spawn')
     p1 = ctx.Process(target=run_jsm, args=())
@@ -103,12 +103,12 @@ def jsm_jqs():
     from jobmon.server.services.job_query_server.app import \
         create_app as jqs_get_app
 
-    os.environ['host'] = socket.gethostname()
+    os.environ['HOST'] = socket.gethostname()
 
-    jsm_app = jsm_get_app(host=os.environ['host'],
-                          conn_str=os.environ['conn_str'])
-    jqs_app = jqs_get_app(host=os.environ['host'],
-                          conn_str=os.environ['conn_str'])
+    jsm_app = jsm_get_app(host=os.environ['HOST'],
+                          conn_str=os.environ['CONN_STR'])
+    jqs_app = jqs_get_app(host=os.environ['HOST'],
+                          conn_str=os.environ['CONN_STR'])
     jsm_app.config['TESTING'] = True
     jqs_app.config['TESTING'] = True
     jsm_client = jsm_app.test_client()

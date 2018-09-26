@@ -4,6 +4,7 @@ import shlex
 import os
 
 from sqlalchemy.exc import IntegrityError
+import subprocess
 
 from jobmon.server import database
 from jobmon.server import database_loaders
@@ -51,9 +52,9 @@ def apply_args_to_config(args):
     cli_opts = vars(args)
     cli_opts = {k: v for k, v in cli_opts.items() if v is not None}
     if 'hostname' in cli_opts:
-        os.environ['hostname'] = cli_opts['hostname']
+        os.environ['HOST'] = cli_opts['hostname']
     if 'conn_str' in cli_opts:
-        os.environ['conn_str'] = cli_opts['conn_str']
+        os.environ['CONN_STR'] = cli_opts['conn_str']
     get_the_server_config().apply_opts_dct(cli_opts)
 
     # Don't forget to recreate the engine... in case the conn_str in the
@@ -73,6 +74,11 @@ def initdb(args):
     except IntegrityError as e:
         raise Exception("Database is not empty, "
                         "could not create tables {}".format(str(e)))
+
+
+def start_nginx():
+    subprocess.run("/entrypoint.sh")
+    subprocess.run("/start.sh")
 
 
 def parse_args(argstr=None):
@@ -134,11 +140,13 @@ def start(args):
 
 def start_job_state_manager():
     """Start the JobStateManager process"""
+    start_nginx()
     jsm_app.start()
 
 
 def start_job_query_server():
     """Start the JobQueryServer process"""
+    start_nginx()
     jqs_app.start()
 
 

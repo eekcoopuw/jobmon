@@ -131,10 +131,11 @@ class JobListManager(object):
         failed_jobs = []
         for job in jobs:
             task = self.bound_tasks[job.job_id]
-            if task.status == JobStatus.DONE:
+            if task.status == JobStatus.DONE and task not in self.all_done:
                 completed_tasks += [task]
                 completed_jobs += [job]
-            elif (task.status == JobStatus.ERROR_FATAL):
+            elif (task.status == JobStatus.ERROR_FATAL and
+                  task not in self.all_error):
                 failed_tasks += [task]
                 failed_jobs += [job]
             else:

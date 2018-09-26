@@ -75,7 +75,7 @@ class ServerConfig(object):
     def apply_opts_dct(self, opts_dct):
         for opt, opt_val in opts_dct.items():
             if opt == 'conn_str':
-                os.environ[opt] = opt_val
+                os.environ[opt.upper()] = opt_val
             opts_dct[opt] = setattr(self, opt, opt_val)
         return self
 
@@ -113,5 +113,5 @@ class ServerConfig(object):
                 gc_opts[opt] = ServerConfig.default_opts[opt]
                 val = ServerConfig.default_opts[opt]
             if opt == 'conn_str':
-                os.environ[opt] = val
+                os.environ[opt.upper()] = val
         return gc_opts
