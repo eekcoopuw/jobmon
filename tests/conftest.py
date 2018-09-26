@@ -49,8 +49,8 @@ def env_var(monkeypatch, ephemera_conn_str):
     """These two env variables are what tell theconfigs that we're running tests,
     not production code
     """
-    monkeypatch.setenv("host", socket.gethostname())
-    monkeypatch.setenv("conn_str", ephemera_conn_str)
+    monkeypatch.setenv("HOST", socket.gethostname())
+    monkeypatch.setenv("CONN_STR", ephemera_conn_str)
 
 
 @pytest.fixture(scope='function')
