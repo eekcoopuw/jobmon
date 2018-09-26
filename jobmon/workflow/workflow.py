@@ -119,7 +119,8 @@ class Workflow(object):
     def __init__(self, workflow_args=None, name="",
                  description="", stderr=None, stdout=None, project=None,
                  reset_running_jobs=True, working_dir=None,
-                 executor_class='SGEExecutor', zmq_timeout_ms=None):
+                 executor_class='SGEExecutor', zmq_timeout_ms=None,
+                 interrupt_on_error=False):
         self.wf_dao = None
         self.name = name
         self.description = description
@@ -166,7 +167,9 @@ class Workflow(object):
         self.reset_running_jobs = reset_running_jobs
 
         self.task_dag = TaskDag(
-            executor=self.executor)
+            executor=self.executor,
+            interrupt_on_error=interrupt_on_error,
+        )
 
         if workflow_args:
             self.workflow_args = workflow_args
