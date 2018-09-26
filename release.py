@@ -8,7 +8,6 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 
 
 def test_complete_workflow():
-    os.environ['HOST'] = '0.0.0.0'
     t1 = BashTask("""echo "ls()" > test_r.R""")
     t2 = BashTask("""echo "print(1)" > test_py.py""")
     t3 = RTask(script='test_r.R', upstream_tasks=[t1])

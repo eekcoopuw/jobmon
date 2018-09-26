@@ -52,7 +52,7 @@ def apply_args_to_config(args):
     cli_opts = vars(args)
     cli_opts = {k: v for k, v in cli_opts.items() if v is not None}
     if 'hostname' in cli_opts:
-        os.environ['HOST'] = cli_opts['hostname']
+        os.environ['RUN_HOST'] = cli_opts['hostname']
     if 'conn_str' in cli_opts:
         os.environ['CONN_STR'] = cli_opts['conn_str']
     get_the_server_config().apply_opts_dct(cli_opts)

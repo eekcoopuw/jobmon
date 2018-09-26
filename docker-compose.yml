@@ -7,7 +7,7 @@ services:
     volumes:
         - ./jsm_uwsgi.ini:/app/uwsgi.ini
     ports:
-        - "5256:80"
+        - "6256:80"
     entrypoint:
         - ./wait-for-tables.sh
         - db
@@ -26,7 +26,7 @@ services:
     volumes:
         - ./jqs_uwsgi.ini:/app/uwsgi.ini
     ports:
-        - "5258:80"
+        - "6258:80"
     entrypoint:
         - ./wait-for-tables.sh
         - db
@@ -67,7 +67,7 @@ services:
   db:
     image: mysql:5.7
     ports:
-        - "3314:3306"
+        - "3315:3306"
     environment:
         MYSQL_ROOT_PASSWORD: docker
         MYSQL_DATABASE: docker
