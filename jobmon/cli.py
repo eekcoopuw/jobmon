@@ -52,9 +52,9 @@ def apply_args_to_config(args):
     cli_opts = vars(args)
     cli_opts = {k: v for k, v in cli_opts.items() if v is not None}
     if 'hostname' in cli_opts:
-        os.environ['hostname'] = cli_opts['hostname']
+        os.environ['HOST'] = cli_opts['hostname']
     if 'conn_str' in cli_opts:
-        os.environ['conn_str'] = cli_opts['conn_str']
+        os.environ['CONN_STR'] = cli_opts['conn_str']
     get_the_server_config().apply_opts_dct(cli_opts)
 
     # Don't forget to recreate the engine... in case the conn_str in the
@@ -79,6 +79,7 @@ def initdb(args):
 def start_nginx():
     subprocess.run("/entrypoint.sh")
     subprocess.run("/start.sh")
+
 
 def parse_args(argstr=None):
     """Construct a parser, parse either sys.argv (default) or the provided
