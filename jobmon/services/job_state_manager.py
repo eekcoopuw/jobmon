@@ -71,7 +71,7 @@ class JobStateManager(ReplyServer):
 
     def add_job(self, name, job_hash, command, dag_id, slots=1,
                 mem_free=2, max_attempts=1, max_runtime=None,
-                context_args="{}", tag=None):
+                context_args="{}", tag=None, queue=None):
         job = models.Job(
             name=name,
             tag=tag,
@@ -83,6 +83,7 @@ class JobStateManager(ReplyServer):
             max_attempts=max_attempts,
             max_runtime=max_runtime,
             context_args=context_args,
+            queue=queue,
             status=models.JobStatus.REGISTERED)
         with session_scope() as session:
             session.add(job)

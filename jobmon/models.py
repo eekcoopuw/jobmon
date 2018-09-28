@@ -57,6 +57,7 @@ class Job(Base):
                    num_attempts=dct['num_attempts'],
                    max_attempts=dct['max_attempts'],
                    context_args=dct['context_args'],
+                   queue=dct['queue'],
                    last_nodename=dct['last_nodename'],
                    last_process_group_id=dct['last_process_group_id'])
 
@@ -69,6 +70,7 @@ class Job(Base):
                 'num_attempts': self.num_attempts,
                 'max_attempts': self.max_attempts,
                 'context_args': self.context_args,
+                'queue': self.queue,
                 'last_nodename': lnode,
                 'last_process_group_id': lpgid}
 
@@ -82,6 +84,7 @@ class Job(Base):
     tag = Column(String(255))
     command = Column(Text)
     context_args = Column(String(1000))
+    queue = Column(String(255))
     slots = Column(Integer, default=1)
     mem_free = Column(Integer, default=1)
     num_attempts = Column(Integer, default=0)

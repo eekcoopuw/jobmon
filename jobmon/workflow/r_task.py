@@ -13,7 +13,7 @@ class RTask(ExecutableTask):
     def __init__(self, path_to_R_binary=default_R_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
                  slots=1, mem_free=2, max_attempts=3, max_runtime=None,
-                 tag=None):
+                 tag=None, queue=None):
         """
         Args:
             path_to_R_binary (str): the R install that should be used
@@ -36,13 +36,15 @@ class RTask(ExecutableTask):
             tag (str): a group identifier. Currently just used for
                 visualization. All tasks with the same tag will be colored the
                 same in a TaskDagViz instance. Default is None.
+            queue (str): queue of cluster nodes to submit this task to. Must be
+                a valid queue, as defined by "qconf -sql"
         """
         self.command = RTask.make_cmd(path_to_R_binary, script, args)
         super(RTask, self).__init__(
             command=self.command, env_variables=env_variables,
             upstream_tasks=upstream_tasks, name=name, slots=slots,
             mem_free=mem_free, max_attempts=max_attempts,
-            max_runtime=max_runtime, tag=tag)
+            max_runtime=max_runtime, tag=tag, queue=queue)
 
     @staticmethod
     def make_cmd(path_to_R_binary, script, args):

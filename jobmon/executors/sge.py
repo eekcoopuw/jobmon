@@ -23,8 +23,21 @@ class SGEExecutor(Executor):
         self.stdout = stdout
         self.project = project
         self.working_dir = working_dir
+        self.valid_queues = self._get_valid_queues()
 
         super().__init__(*args, **kwargs)
+
+    def _get_valid_queues(self):
+        check_valid_queues = "qconf -sql"
+        valid_queues = subprocess.check_output(check_valid_queues,
+                                               shell=True).split()
+        return [q.decode("utf-8") for q in valid_queues]
+
+    def _validate_queue(self, queue):
+        valid = any([q in queue for q in self.valid_queues])
+        if not valid:
+            raise ValueError("Got invalid queue {}. Valid queues are {}"
+                             .format(queue, self.valid_queues))
 
     def _execute_sge(self, job, job_instance_id):
         try:
@@ -98,10 +111,10 @@ class SGEExecutor(Executor):
     def build_wrapped_command(self, job, job_instance_id, stderr=None,
                               stdout=None, project=None, working_dir=None):
         """Process the Job's context_args, which are assumed to be
-        a json-serialized dictionary"""
+        a json-serialized dictionary
+        """
         # TODO: Settle on a sensible way to pass and validate settings for the
         # command's context (i.e. context = Executor, SGE/Sequential/Multiproc)
-
         ctx_args = json.loads(job.context_args)
         if 'sge_add_args' in ctx_args:
             sge_add_args = ctx_args['sge_add_args']
@@ -125,6 +138,11 @@ class SGEExecutor(Executor):
             wd_cmd = "-wd {}".format(working_dir)
         else:
             wd_cmd = ""
+        if job.queue:
+            self._validate_queue(job.queue)
+            q_cmd = "'{}'".format(job.queue)
+        else:
+            q_cmd = ""
         base_cmd = super().build_wrapped_command(job, job_instance_id)
         thispath = os.path.dirname(os.path.abspath(__file__))
 
@@ -132,13 +150,14 @@ class SGEExecutor(Executor):
         # the JOBMON_CONFIG environment variable to downstream Jobs...
         # otherwise those Jobs could end up using a different config and not be
         # able to talk back to the appropriate server(s)
-        qsub_cmd = ('qsub {wd} -N {jn} '
+        qsub_cmd = ('qsub {wd} -N {jn} -q {qc} '
                     '-pe multi_slot {slots} -l mem_free={mem}g '
                     '{project} {stderr} {stdout} '
                     '{sge_add_args} '
                     '-V {path}/submit_master.sh '
                     '"{cmd}"'.format(
                         wd=wd_cmd,
+                        qc=q_cmd,
                         jn=job.name,
                         slots=job.slots,
                         mem=job.mem_free,
