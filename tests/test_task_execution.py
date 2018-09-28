@@ -1,10 +1,12 @@
 import os
+import pytest
 from subprocess import check_output
 from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
+from jobmon.job_list_manager import JobListManager
 from jobmon.database import session_scope
 from jobmon.executors.sge import SGEExecutor
 from jobmon.models import Job, JobStatus
@@ -47,9 +49,7 @@ def get_task_status(dag, task):
 
 
 def test_bash_task(dag_factory):
-    """
-    Create a dag with one very simple BashTask and execute it
-    """
+    """Create a dag with one very simple BashTask and execute it"""
     name = 'bash_task'
     task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
                     max_runtime=60)
@@ -202,5 +202,5 @@ def test_specific_queue(dag_factory, tmp_out_dir):
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         assert job.queue == 'all.q@@c2-nodes'
-        jids = jid = [ji for ji in job.job_instances]
-        assert all('c2' in ji.hostname for ji in jids)
+        jids = [ji.nodename for ji in job.job_instances]
+        assert all(['c2' in nodename for nodename in jids])
