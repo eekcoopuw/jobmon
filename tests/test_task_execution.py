@@ -177,6 +177,8 @@ def test_stata_task(dag_factory, tmp_out_dir):
         "{jid}-simple_stata_script.log".format(jid=job_instance_id)))
 
 
+@pytest.mark.skipif(os.environ['SGE_CLUSTER_NAME'] == 'dev',
+                    reason="no c2-nodes on cluster-dev")
 def test_specific_queue(dag_factory, tmp_out_dir):
     name = 'c2_nodes_only'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)

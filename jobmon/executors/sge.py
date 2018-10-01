@@ -140,7 +140,7 @@ class SGEExecutor(Executor):
             wd_cmd = ""
         if job.queue:
             self._validate_queue(job.queue)
-            q_cmd = "'{}'".format(job.queue)
+            q_cmd = "-q '{}'".format(job.queue)
         else:
             q_cmd = ""
         base_cmd = super().build_wrapped_command(job, job_instance_id)
@@ -150,7 +150,7 @@ class SGEExecutor(Executor):
         # the JOBMON_CONFIG environment variable to downstream Jobs...
         # otherwise those Jobs could end up using a different config and not be
         # able to talk back to the appropriate server(s)
-        qsub_cmd = ('qsub {wd} -N {jn} -q {qc} '
+        qsub_cmd = ('qsub {wd} -N {jn} {qc} '
                     '-pe multi_slot {slots} -l mem_free={mem}g '
                     '{project} {stderr} {stdout} '
                     '{sge_add_args} '
