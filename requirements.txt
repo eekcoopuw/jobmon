@@ -4,6 +4,7 @@ pytest
 cluster_utils
 graphviz
 flask
+flask_cors
 http
 functools32; python_version < '3.0'
 subprocess32; python_version < '3.0'
