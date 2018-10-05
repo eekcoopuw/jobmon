@@ -80,7 +80,7 @@ For testing purposes, you can then access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3313
+    port: 3315
     user: docker
     pass: docker
 
@@ -98,6 +98,7 @@ emu.3    4958 4956  4957  3311
 emu.4    5058 5056  5057  3312
 emu.5    5158 5156  5157  3313
 emu.6    5258 5256  5257  3314
+http     6258 6256  n/a   3315
 ======== ==== ===== ===== ====
 
 

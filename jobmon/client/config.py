@@ -48,8 +48,8 @@ class ClientConfig(object):
     default_opts = {
         "jobmon_version": str(jobmon.__version__),
         "host": "jobmon-p01.ihme.washington.edu",
-        "jsm_port": 5256,
-        "jqs_port": 5258,
+        "jsm_port": 6256,
+        "jqs_port": 6258,
         "jobmon_command": derive_jobmon_command_from_env()
     }
 
@@ -101,7 +101,7 @@ class ClientConfig(object):
     def apply_opts_dct(self, opts_dct):
         for opt, opt_val in opts_dct.items():
             if opt == 'host':
-                os.environ[opt.upper()] = opt_val
+                os.environ['RUN_HOST'] = opt_val
             opts_dct[opt] = setattr(self, opt, opt_val)
         return self
 
@@ -139,5 +139,5 @@ class ClientConfig(object):
                 gc_opts[opt] = ClientConfig.default_opts[opt]
                 val = ClientConfig.default_opts[opt]
             if opt == 'host':
-                os.environ[opt.upper()] = val
+                os.environ['RUN_HOST'] = val
         return gc_opts

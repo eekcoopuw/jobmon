@@ -49,7 +49,7 @@ def env_var(monkeypatch, ephemera_conn_str):
     """These two env variables are what tell theconfigs that we're running tests,
     not production code
     """
-    monkeypatch.setenv("HOST", socket.gethostname())
+    monkeypatch.setenv("RUN_HOST", socket.gethostname())
     monkeypatch.setenv("CONN_STR", ephemera_conn_str)
 
 
@@ -77,7 +77,7 @@ def real_jsm_jqs():
     import multiprocessing as mp
     from tests.run_services import run_jsm, run_jqs
 
-    os.environ['HOST'] = socket.gethostname()
+    os.environ['RUN_HOST'] = socket.gethostname()
 
     ctx = mp.get_context('spawn')
     p1 = ctx.Process(target=run_jsm, args=())
@@ -103,11 +103,11 @@ def jsm_jqs():
     from jobmon.server.services.job_query_server.app import \
         create_app as jqs_get_app
 
-    os.environ['HOST'] = socket.gethostname()
+    os.environ['RUN_HOST'] = socket.gethostname()
 
-    jsm_app = jsm_get_app(host=os.environ['HOST'],
+    jsm_app = jsm_get_app(host=os.environ['RUN_HOST'],
                           conn_str=os.environ['CONN_STR'])
-    jqs_app = jqs_get_app(host=os.environ['HOST'],
+    jqs_app = jqs_get_app(host=os.environ['RUN_HOST'],
                           conn_str=os.environ['CONN_STR'])
     jsm_app.config['TESTING'] = True
     jqs_app.config['TESTING'] = True

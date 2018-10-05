@@ -9,7 +9,7 @@ def create_app(host=None, conn_str=None):
     """Create a Flask app"""
     app = Flask(__name__)
     if host:
-        os.environ['HOST'] = host
+        os.environ['RUN_HOST'] = host
     if conn_str:
         os.environ['CONN_STR'] = conn_str
 
