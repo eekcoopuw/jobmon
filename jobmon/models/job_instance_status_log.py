@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class JobInstanceStatusLog(Base):
+    """The table in the database that logs the JobInstance statuses"""
+
     __tablename__ = 'job_instance_status_log'
 
     id = Column(Integer, primary_key=True)

@@ -4,7 +4,7 @@ from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon import sge
+from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
@@ -47,9 +47,7 @@ def get_task_status(real_dag, task):
 
 
 def test_bash_task(dag_factory):
-    """
-    Create a dag with one very simple BashTask and execute it
-    """
+    """Create a dag with one very simple BashTask and execute it"""
     name = 'bash_task'
     task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
                     max_runtime=60)
@@ -76,9 +74,7 @@ def test_bash_task(dag_factory):
 
 
 def test_python_task(dag_factory, tmp_out_dir):
-    """
-    Execute a PythonTask
-    """
+    """Execute a PythonTask"""
     name = 'python_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
@@ -114,9 +110,7 @@ def test_python_task(dag_factory, tmp_out_dir):
 
 
 def test_R_task(dag_factory, tmp_out_dir):
-    """
-    Execute an RTask
-    """
+    """Execute an RTask"""
     name = 'r_task'
 
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
@@ -147,9 +141,7 @@ def test_R_task(dag_factory, tmp_out_dir):
 
 
 def test_stata_task(dag_factory, tmp_out_dir):
-    """
-    Execute a simple stata Task
-    """
+    """Execute a simple stata Task"""
     name = 'stata_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)

@@ -1,6 +1,3 @@
-"""
-Tests of jobmon/sge.py
-"""
 import glob
 import getpass
 import os
@@ -8,7 +5,7 @@ import os.path as path
 import pytest
 
 try:
-    from jobmon import sge
+    from jobmon.client.swarm.executors import sge_utils as sge
 except KeyError:
     pass
 
@@ -230,4 +227,3 @@ def test_convert_wallclock_with_milleseconds():
     wallclock_str = '01:10:11:50.15'
     res = sge.convert_wallclock_to_seconds(wallclock_str)
     assert res == 123110.15
-

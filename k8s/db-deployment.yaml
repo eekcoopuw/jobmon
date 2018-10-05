@@ -28,7 +28,7 @@ spec:
           value: docker
         - name: MYSQL_USER
           value: docker
-        image: mysql:5.6
+        image: myjobmonregistry.azurecr.io/mysql:5.6
         name: db
         ports:
         - containerPort: 3306

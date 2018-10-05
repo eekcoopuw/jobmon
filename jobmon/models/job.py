@@ -21,6 +21,8 @@ class InvalidStateTransition(Exception):
 
 
 class Job(Base):
+    """The table in the database that holds all info on Jobs"""
+
     __tablename__ = 'job'
 
     @classmethod
@@ -83,6 +85,7 @@ class Job(Base):
         (JobStatus.ERROR_RECOVERABLE, JobStatus.QUEUED_FOR_INSTANTIATION)]
 
     def reset(self):
+        """Reset status and number of attempts on a Job"""
         self.status = JobStatus.REGISTERED
         self.num_attempts = 0
         for ji in self.job_instances:
@@ -91,6 +94,7 @@ class Job(Base):
             ji.errors.append(new_error)
 
     def transition_to_error(self):
+        """Transition the Job to an error state"""
         self.transition(JobStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
             logger.debug("ZZZ GIVING UP Job {}".format(self.job_id))
@@ -100,6 +104,7 @@ class Job(Base):
             self.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
 
     def transition(self, new_state):
+        """Transition the Job to a new state"""
         self._validate_transition(new_state)
         if new_state == JobStatus.INSTANTIATED:
             self.num_attempts = self.num_attempts + 1
@@ -107,6 +112,7 @@ class Job(Base):
         self.status_date = datetime.utcnow()
 
     def _last_instance_procinfo(self):
+        """Retrieve all process information on the last run of this Job"""
         if self.job_instances:
             last_ji = max(self.job_instances, key=lambda i: i.job_instance_id)
             return (last_ji.nodename, last_ji.process_group_id)
@@ -114,12 +120,15 @@ class Job(Base):
             return (None, None)
 
     def _validate_transition(self, new_state):
+        """Ensure the Job state transition is valid"""
         if (self.status, new_state) not in self.__class__.valid_transitions:
             raise InvalidStateTransition('Job', self.job_id, self.status,
                                          new_state)
 
     def __hash__(self):
+        """Return the unique id of this Job"""
         return self.job_id
 
     def __eq__(self, other):
+        """Jobs are equal if they have the same id"""
         return self.job_id == other.job_id

@@ -42,7 +42,6 @@ class ExecutableTask(object):
         Raises:
             ValueError: if the name is not valid.
         """
-
         if not name:
             raise ValueError("name cannot be None or empty")
         elif name[0].isdigit():
@@ -144,12 +143,11 @@ class ExecutableTask(object):
         return self.hash == other.hash
 
     def __hash__(self):
-        """
-        Logic must match __eq__
-        """
+        """Logic must match __eq__"""
         return self.hash
 
     def __lt__(self, other):
+        """Logic must match __eq__"""
         return self.hash < other.hash
 
     def __repr__(self):
@@ -163,9 +161,17 @@ class ExecutableTask(object):
 
 
 class BoundTask(object):
+    """The class that bridges the gap between a task and it's bound Job"""
 
     def __init__(self, task, job, job_list_manager):
+        """
+        Link task and job
 
+        Args
+            task (obj): obj of a class inherited from ExecutableTask
+            job (obj): obj of type models.Job
+            job_list_manager (obj): obj of type JobListManager
+        """
         self.job_id = job.job_id
         self.status = job.status
 
@@ -180,18 +186,22 @@ class BoundTask(object):
 
     @property
     def all_upstreams_done(self):
+        """Return a bool of if upstreams are done or not"""
         return all([u.is_done for u in self.upstream_tasks])
 
     @property
     def is_done(self):
+        """Return a book of if this job is done or now"""
         return self.status == JobStatus.DONE
 
     @property
     def downstream_tasks(self):
+        """Return list of downstream tasks"""
         return [self._jlm.bound_task_from_task(task)
                 for task in self._task.downstream_tasks]
 
     @property
     def upstream_tasks(self):
+        """Return a list of upstream tasks"""
         return [self._jlm.bound_task_from_task(task)
                 for task in self._task.upstream_tasks]

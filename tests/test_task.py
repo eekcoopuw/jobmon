@@ -1,7 +1,7 @@
 import pytest
 import sys
 
-from jobmon import sge
+from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.python_task import PythonTask
@@ -31,6 +31,8 @@ def test_bad_names():
 
 
 class TheTestTask(ExecutableTask):
+    """Test version of a Task for use in this module"""
+
     def __init__(self, command, upstream_tasks=[]):
         ExecutableTask.__init__(self, command, upstream_tasks)
 

@@ -2,10 +2,10 @@ import os
 import signal
 import subprocess
 
-from paramiko.client import AutoAddPolicy, SSHClient, WarningPolicy
+from paramiko.client import SSHClient, WarningPolicy
 
 
-SSH_KEYFILE_NAME="jobmonauto_id_rsa"
+SSH_KEYFILE_NAME = "jobmonauto_id_rsa"
 _ssh_dir = os.path.realpath(os.path.expanduser("~/.ssh"))
 _ssh_keyfile = os.path.join(_ssh_dir, SSH_KEYFILE_NAME)
 

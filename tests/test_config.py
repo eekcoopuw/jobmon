@@ -31,7 +31,7 @@ def test_server_config_command_line():
     assert get_the_server_config().conn_str == 'foo'
 
     # reset
-    os.environ['conn_str'] = conn_str
+    os.environ['CONN_STR'] = conn_str
 
 
 def test_client_config_command_line():
@@ -48,4 +48,4 @@ def test_client_config_command_line():
 
     # reset
     get_the_client_config().apply_opts_dct(orig_opts)
-    os.environ['host'] = orig_cfg.host
+    os.environ['RUN_HOST'] = orig_cfg.host

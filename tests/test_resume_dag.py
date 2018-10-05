@@ -4,7 +4,7 @@ import pytest
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon import sge
+from jobmon.client.swarm.executors import sge_utils
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
@@ -18,7 +18,7 @@ logger.addHandler(handler)
 def test_resume_real_dag(real_dag, tmp_out_dir):
     root_out_dir = "{}/mocks/test_resume_real_dag".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge_utils.true_path("tests/remote_sleep_and_write.py")
 
     a_output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
@@ -76,6 +76,7 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
         real_dag._execute()
 
     # ensure the real_dag that "fell over" has 2 out of the 5 jobs complete
+    logger.debug("All completed are {}".format(real_dag.job_list_manager.all_done))
     bound_tasks = list(real_dag.job_list_manager.bound_tasks.values())
     assert bound_tasks[0].status == JobStatus.DONE
     assert bound_tasks[1].status == JobStatus.DONE

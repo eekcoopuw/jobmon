@@ -31,6 +31,7 @@ class TaskDagViz(object):
         self.color_map = self.get_colors()
 
     def render(self):
+        """Produce a graph for the TaskDag"""
         for _, task in self.task_dag.tasks.items():
             color = self.color_map.get(task.tag, 'ghostwhite')
             self.graph.node(task.name, "", fillcolor=color, style='filled')
@@ -45,4 +46,3 @@ class TaskDagViz(object):
             # ring buffer the color array. Set312 is a 12 member color spectrum
             color_map[tag] = "/set312/" + str((i + 1) % 12)
         return color_map
-

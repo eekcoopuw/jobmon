@@ -40,8 +40,7 @@ For users
         this is not enforced via any database constraints.
 
     TaskDag
-        A set of Tasks. Upon the workflow calling "_execute()" on it, it is frozen (i.e.  becomes
-        immutable for the lifetime of the Workflow). It must be hashable in
+        A set of Tasks. Upon the workflow calling "_execute()" on it, it is frozen (i.e.  becomes immutable for the lifetime of the Workflow). It must be hashable in
         this frozen state.
 
     Task

@@ -1,7 +1,7 @@
 import pytest
 from time import sleep
 
-from jobmon import sge
+from jobmon.client.swarm.executors import sge_utils
 
 
 def timeout_and_skip(step_size, max_time, max_qw, partial_test_function):
@@ -34,7 +34,7 @@ def timeout_and_skip(step_size, max_time, max_qw, partial_test_function):
                     pytest.skip("Skipping test, saw too many ({}) qw states"
                                 .format(max_qw))
                 else:
-                    print(sge.qstat())
+                    print(sge_utils.qstat())
                     assert False, \
                         "timed out (qwait count {}), might be:" \
                         "   a real bug," \
@@ -44,7 +44,7 @@ def timeout_and_skip(step_size, max_time, max_qw, partial_test_function):
             else:
                 #  Probe qstat and count the number of qw states.
                 #  If we aren't making progress then dynamically skip the test.
-                qstat_out = sge.qstat()
+                qstat_out = sge_utils.qstat()
                 job_row = qstat_out.loc[qstat_out['name'] == 'sleepyjob']
                 if len(job_row) > 0:
                     # Make sure that job exists

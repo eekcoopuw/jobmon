@@ -19,6 +19,18 @@ class JobInstanceFactory(object):
 
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
                  stop_event=None):
+        """The JobInstanceFactory is in charge of queueing jobs and creating
+        job_instances, in order to get the jobs from merely Task objects to
+        runnign code.
+
+        Args:
+            dag_id (int): the id for the dag to run
+            executor (obj, default SequentialExecutor): obj of type
+            SequentialExecutor, DummyExecutor or SGEExecutor
+            interrupt_on_error (bool, default True): whether or not to
+            interrupt the thread if there's an error
+            stop_event (obj, default None): Object of type threading.Event
+        """
         self.dag_id = dag_id
         self.jsm_req = Requester(get_the_client_config(), 'jsm')
         self.jqs_req = Requester(get_the_client_config(), 'jqs')
@@ -26,7 +38,7 @@ class JobInstanceFactory(object):
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they
-        # should be using Workflows or TaskDags), so this state will typically
+        # should be using Workflows), so this state will typically
         # only be invoked in testing.
         if executor:
             self.set_executor(executor)
@@ -40,6 +52,14 @@ class JobInstanceFactory(object):
             self._stop_event = stop_event
 
     def instantiate_queued_jobs_periodically(self, poll_interval=1):
+        """Running in a thread, this function allows the JobInstanceFactory to
+        periodically get all jobs taht are ready and queue them for
+        instantation
+
+        Args:
+            poll_interval (int): how often you want this function to poll for
+            newly ready jobs
+        """
         logger.info("Polling for and instantiating queued jobs at {}s "
                     "intervals".format(poll_interval))
         while True and not self._stop_event.is_set():
@@ -56,6 +76,9 @@ class JobInstanceFactory(object):
                     raise
 
     def instantiate_queued_jobs(self):
+        """Pull all jobs that are ready, create job instances for them, and
+        thereby run them
+        """
         jobs = self._get_jobs_queued_for_instantiation()
         job_instance_ids = []
         for job in jobs:

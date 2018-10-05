@@ -26,7 +26,7 @@ spec:
         command:
         - ./wait-for-tables.sh
         - db
-        image: jobmon
+        image: myjobmonregistry.azurecr.io/jobmon
         name: jqs
         imagePullPolicy: IfNotPresent
         ports:
