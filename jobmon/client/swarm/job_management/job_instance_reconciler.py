@@ -2,6 +2,7 @@ import logging
 import threading
 import _thread
 from time import sleep
+import traceback
 
 from http import HTTPStatus
 
@@ -78,7 +79,12 @@ class JobInstanceReconciler(object):
                 self.terminate_timed_out_jobs()
                 sleep(poll_interval)
             except Exception as e:
-                logger.error(e)
+                msg = "About to raise Keyboard Interrupt signal {}".format(e)
+                logger.error(msg)
+                stack = traceback.format_exc()
+                logger.error(stack)
+                # Also write to stdout because this is a serious problem
+                print(msg)
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
                     self._stop_event.set()

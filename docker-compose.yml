@@ -11,6 +11,8 @@ services:
     entrypoint:
         - ./wait-for-tables.sh
         - db
+    environment:
+        - JOBMON_PASS_SERVICE_USER
     command: [
         "jobmon",
         "--verbose",
@@ -30,6 +32,8 @@ services:
     entrypoint:
         - ./wait-for-tables.sh
         - db
+    environment:
+        - JOBMON_PASS_SERVICE_USER
     command: [
         "jobmon",
         "--verbose",
@@ -42,9 +46,13 @@ services:
             max-file: "10"
   monitor:
     image: jobmon
+    depends_on:
+        - jsm
     entrypoint:
         - ./wait-for-tables.sh
         - db
+    environment:
+        - JOBMON_PASS_SERVICE_USER
     command: [
         "jobmon",
         "--verbose",
@@ -58,22 +66,33 @@ services:
             max-file: "10"
   initdb:
     image: jobmon
+    depends_on:
+        - jsm
     entrypoint:
         - ./wait-for-db.sh
         - db
+    environment:
+        - JOBMON_PASS_TABLE_CREATOR
     command: ["jobmon", "--verbose", "initdb"]
     links:
         - db
+    volumes:
+        - ./jobmonrc-docker-initdb:/root/.jobmonrc
   db:
     image: mysql:5.7
     ports:
         - "3315:3306"
     environment:
-        MYSQL_ROOT_PASSWORD: docker
-        MYSQL_DATABASE: docker
-        MYSQL_USER: docker
-        MYSQL_PASSWORD: docker
+        - MYSQL_ROOT_PASSWORD=${JOBMON_PASS_ROOT}
+        - MYSQL_DATABASE=docker
+        - JOBMON_PASS_ROOT
+        - JOBMON_PASS_TABLE_CREATOR
+        - JOBMON_PASS_SERVICE_USER
+        - JOBMON_PASS_READ_ONLY
+
     volumes:
         - mysql-jobmon-emu:/var/lib/mysql
+        - ./create_users.sh:/docker-entrypoint-initdb.d/create_users.sh
+
 volumes:
     mysql-jobmon-emu: {}

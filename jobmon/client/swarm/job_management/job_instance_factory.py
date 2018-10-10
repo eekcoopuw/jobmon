@@ -1,7 +1,7 @@
 from builtins import str
+import _thread
 import logging
 import threading
-import _thread
 from time import sleep
 
 from jobmon.client.the_client_config import get_the_client_config
@@ -10,7 +10,6 @@ from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.requester import Requester
-
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +67,10 @@ class JobInstanceFactory(object):
                 self.instantiate_queued_jobs()
                 sleep(poll_interval)
             except Exception as e:
-                logger.error(e)
+                msg = "About to raise Keyboard Interrupt signal {}".format(e)
+                logger.error(msg)
+                # Also write to stdout because this is a serious problem
+                print(msg)
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
                     self._stop_event.set()
@@ -79,11 +81,16 @@ class JobInstanceFactory(object):
         """Pull all jobs that are ready, create job instances for them, and
         thereby run them
         """
+        logger.debug("JIF: Instantiating Queued Jobs")
         jobs = self._get_jobs_queued_for_instantiation()
+        logger.debug("JIF: Found {} Queued Jobs".format(len(jobs)))
         job_instance_ids = []
         for job in jobs:
             job_instance_id, _ = self._create_job_instance(job)
             job_instance_ids.append(job_instance_id)
+
+        logger.debug("JIF: Returning {} Instantiated Jobs".format(
+            len(job_instance_ids)))
         return job_instance_ids
 
     def set_executor(self, executor):

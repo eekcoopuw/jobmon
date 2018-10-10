@@ -127,6 +127,15 @@ class WorkflowRun(object):
         if rc != HTTPStatus.OK:
             raise ValueError("Invalid Reponse to add_workflow_run")
         self.id = wfr_id
+        self.add_project_limit_attribute('start')
+
+    def add_project_limit_attribute(self, timing):
+        if timing == 'start':
+            atype = workflow_run_attribute.SLOT_LIMIT_AT_START
+        else:
+            atype = workflow_run_attribute.SLOT_LIMIT_AT_END
+        limits = get_project_limits(self.project)
+        self.add_workflow_run_attribute(attribute_type=atype, value=limits)
 
     def check_if_workflow_is_running(self):
         """Query the JQS to see if the workflow is currently running"""
@@ -152,7 +161,7 @@ class WorkflowRun(object):
         status, wf_run = self.check_if_workflow_is_running()
         if not status:
             return
-        if wf_run.user != getpass.getuser():
+        if wf_run['user'] != getpass.getuser():
             msg = ("Workflow_run_id {} for this workflow_id is still in "
                    "running mode by user {}. Please ask this user to kill "
                    "their processes. If they are using the SGE executor, "
@@ -160,7 +169,7 @@ class WorkflowRun(object):
                    "restart this workflow prior to the other user killing "
                    "theirs, this error will not re-raise but you may be "
                    "creating orphaned processes and hard-to-find bugs"
-                   .format(wf_run.id, wf_run.user))
+                   .format(wf_run['id'], wf_run['user']))
             logger.error(msg)
             _, _ = self.jsm_req.send_request(
                 app_route='/workflow_run',
@@ -169,7 +178,8 @@ class WorkflowRun(object):
                 request_type='put')
             raise RuntimeError(msg)
         else:
-            kill_remote_process(wf_run.hostname, wf_run.pid)
+            kill_remote_process(wf_run['hostname'], wf_run['pid'])
+            logger.info("Kill previous workflow runs: {}".format(wf_run['id']))
             if reset_running_jobs:
                 if wf_run.executor_class == "SequentialExecutor":
                     from jobmon.executors.sequential import SequentialExecutor
@@ -193,6 +203,7 @@ class WorkflowRun(object):
                                  for ji in response['job_instances']]
                 if job_instances:
                     previous_executor.terminate_job_instances(job_instances)
+<<<<<<< HEAD:jobmon/client/swarm/workflow/workflow_run.py
             _, _ = self.jsm_req.send_request(
                 app_route='/workflow_run',
                 message={'workflow_run_id': wf_run.id,
@@ -201,15 +212,18 @@ class WorkflowRun(object):
 
     def update_done(self):
         """Update the status of the workflow_run as done"""
+        self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.DONE)
 
     def update_error(self):
         """Update the status of the workflow_run as errored"""
+        self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.ERROR)
 
     def update_stopped(self):
         """Update the status of the workflow_run as stopped"""
-        self._update_status(WorkflowRunStatus.STOPPED)
+            self.add_project_limit_attribute('end')
+            self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
         """Update the status of the workflow_run with whatever status is
@@ -240,10 +254,9 @@ class WorkflowRun(object):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
                                      type(attribute_type).__name__))
-        elif (not attribute_type == workflow_run_attribute.TAG and
-              not int(value)
-              ) or (attribute_type == workflow_run_attribute.TAG and
-                    not isinstance(value, str)):
+        elif (not attribute_type == workflow_run_attribute.TAG and not
+              int(value)) or (attribute_type == workflow_run_attribute.TAG and
+                              not isinstance(value, str)):
             raise ValueError("Invalid value type: {}, {}"
                              .format(value,
                                      type(value).__name__))

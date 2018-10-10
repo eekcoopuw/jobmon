@@ -24,7 +24,7 @@ def simple_workflow(real_jsm_jqs, db_cfg):
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
 
     wfa = "my_simple_dag"
-    workflow = Workflow(wfa)
+    workflow = Workflow(wfa, interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3])
     workflow.execute()
     return workflow
@@ -37,7 +37,7 @@ def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
     t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime=1)
     t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3])
 
-    workflow = Workflow("my_failing_args")
+    workflow = Workflow("my_failing_args", interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3, t4])
     workflow.execute()
     return workflow
@@ -45,6 +45,16 @@ def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
 
 def mock_slack(msg, channel):
     print("{} to be posted to channel: {}".format(msg, channel))
+
+
+def test_wf_with_stata_temp_dir(jsm_jqs, db_cfg):
+    t1 = StataTask(script='di "hello"')
+    t2 = StataTask(script='di "world"', upstream_tasks=[t1])
+
+    wf = Workflow("stata_temp_dir_test", interrupt_on_error=False)
+    wf.add_tasks([t1, t2])
+    success = wf.run()
+    assert success
 
 
 def test_wfargs_update(real_jsm_jqs, db_cfg):
@@ -58,12 +68,12 @@ def test_wfargs_update(real_jsm_jqs, db_cfg):
     t6 = BashTask("sleep 3", upstream_tasks=[t5])
 
     wfa1 = "v1"
-    wf1 = Workflow(wfa1)
+    wf1 = Workflow(wfa1, interrupt_on_error=False)
     wf1.add_tasks([t1, t2, t3])
     wf1.execute()
 
     wfa2 = "v2"
-    wf2 = Workflow(wfa2)
+    wf2 = Workflow(wfa2, interrupt_on_error=False)
     wf2.add_tasks([t4, t5, t6])
     wf2.execute()
 
@@ -89,12 +99,12 @@ def test_dag_update(real_jsm_jqs, db_cfg):
     t6 = BashTask("sleep 1", upstream_tasks=[t5])
 
     wfa1 = "dag_update"
-    wf1 = Workflow(wfa1)
+    wf1 = Workflow(wfa1, interrupt_on_error=False)
     wf1.add_tasks([t1, t2, t3])
     wf1.execute()
 
     wfa2 = "dag_update"
-    wf2 = Workflow(wfa2)
+    wf2 = Workflow(wfa2, interrupt_on_error=False)
     wf2.add_tasks([t4, t5, t6])
     wf2.execute()
 
@@ -121,12 +131,12 @@ def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
     t6 = BashTask("sleep 1", upstream_tasks=[t5])
 
     wfa1 = "wfargs_dag_update"
-    wf1 = Workflow(wfa1)
+    wf1 = Workflow(wfa1, interrupt_on_error=False)
     wf1.add_tasks([t1, t2, t3])
     wf1.execute()
 
     wfa2 = "wfargs_dag_update"
-    wf2 = Workflow(wfa2)
+    wf2 = Workflow(wfa2, interrupt_on_error=False)
     wf2.add_tasks([t4, t5, t6])
     wf2.execute()
 
@@ -259,7 +269,7 @@ def test_reset_attempts_on_resume(simple_workflow):
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
 
     wfa = "my_simple_dag"
-    workflow = Workflow(wfa)
+    workflow = Workflow(wfa, interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3])
 
     # Before actually executing the DAG, validate that the database has
@@ -318,7 +328,7 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
 
     wfa = "my_simple_dag"
-    workflow = Workflow(wfa)
+    workflow = Workflow(wfa, interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3])
 
     with pytest.raises(WorkflowAlreadyComplete):
@@ -404,7 +414,7 @@ def test_heartbeat(real_jsm_jqs, db_cfg):
         session.commit()
 
     # ... now let's check out heartbeats
-    workflow = Workflow("test_heartbeat")
+    workflow = Workflow("test_heartbeat", interrupt_on_error=False)
     workflow._bind()
     workflow._create_workflow_run()
 
@@ -467,8 +477,7 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
     t4 = BashTask("echo 'beautiful'", upstream_tasks=[t3])
     t5 = BashTask("echo 'world'", upstream_tasks=[t4])
     t6 = BashTask("sleep 1", upstream_tasks=[t5])
-
-    workflow = Workflow("test_failing_nodes")
+    workflow = Workflow("test_failing_nodes", interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3, t4, t5, t6])
     workflow.run()
 
@@ -522,7 +531,7 @@ def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
 
     wfa = "add_tasks_to_workflow"
-    workflow = Workflow(workflow_args=wfa)
+    workflow = Workflow(workflow_args=wfa, interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3])
     workflow.run()
 
@@ -540,7 +549,7 @@ def test_anonymous_workflow(real_jsm_jqs, db_cfg):
     t2 = BashTask("sleep 2", upstream_tasks=[t1])
     t3 = BashTask("sleep 3", upstream_tasks=[t2])
 
-    workflow = Workflow()
+    workflow = Workflow(interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3])
     workflow.run()
 
@@ -566,7 +575,7 @@ def test_anonymous_workflow(real_jsm_jqs, db_cfg):
 
     # Restart it using the uuid.
     uu_id = workflow.workflow_args
-    new_workflow = Workflow(workflow_args=uu_id)
+    new_workflow = Workflow(workflow_args=uu_id, interrupt_on_error=False)
     new_workflow.add_tasks([t1, t2, t3])
     new_workflow.run()
 

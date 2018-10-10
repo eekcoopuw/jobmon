@@ -50,8 +50,16 @@ The "jobmon server" is actually three separate docker containers, executing on j
 4. To start a specific service use the name, eg:  "docker start jobmonemup3_jqs_1"
 5. A container can be restarted by container id or name, eg "docker restart 4594e55149456" or "docker restart jobmonemup3_jqs_1"
 
-
 .. image:: images/docker_ps.png
+
+
+Using mysqldump to copy a database
+**********************************
+
+On the cluster, run a command like the following:
+
+  mysqldump -h jobmon-p01.ihme.washington.edu --port 3305 -u docker -p docker --database docker  > dbs_3305_dump.sql
+
 
 Deploying JobStateManager and JobQueryServer
 ********************************************
@@ -59,18 +67,36 @@ Deploying JobStateManager and JobQueryServer
 To deploy a centralized JobStateManager and JobQueryServer:
 
 1. Ssh into jobmon.p01.ihme.washington.edu
-2. Cd into ~/tmp
+2. cd into ~/tmp
 3. Clone the jobmon repo into a new folder within ~/tmp, with a descriptive folder name::
 
     git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git new_name
 
-3. From the root directory of the repo, run::
+4. As per the "Version Control" section below, update the port numbers in, unless this has already been done:
+  a. docker-compose.yaml
+  b. this documentation
+  c. the default .jobmonrc file
+  d. jobmon/config.py
+  e. jobmon/bootstrap.py
+  f. k8s/db-service.yaml
+  g. k8s/jsm-service.yaml
+  h. k8s/jqs-service.yaml
+  i. docsource/quickstart.rst
+  j. And do a recursive grep to be sure!   e.g.   ``grep -r 3312 *``
+5. Submit the new version number files back to git
+6. From the root directory of the repo, run::
 
     ./runserver.py
 
-You'll be prompted for your slack bot token, which should be available from
-your Slack app management page (https://api.slack.com/apps) (if you have one).
-If not, you can leave this blank.
+You'll be prompted for a slack bot token.
+Use the 'BotUserOathToken' from::
+
+  https://api.slack.com/apps/AA4BZNQH1/install-on-team
+
+Press the Copy button on the 'Bot User OAuth Access Token' text box.
+The runserver.py script will not echo that Token when you paste it into the window because the python code is using the gepass input function.
+The runserver.py script will also ask for two slack channels. There is a bug - you have to re-enter the default slack channel names, surrounded by single quotes.
+The script will run docker-compose up build
 
 
 Version Control
@@ -96,10 +122,18 @@ emu.2    4758 4756  4757  3309
 emu.3    4858 4856  4857  3310
 emu.3    4958 4956  4957  3311
 emu.4    5058 5056  5057  3312
-emu.5    5158 5156  5157  3313
-emu.6    5258 5256  5257  3314
+emu.5    4458 4456  4457  3305  # gbd2017_production hotfixes
+emu.6    5158 5156  5157  3313
+emu.7    5258 5256  5257  3314
 http     6258 6256  n/a   3315
 ======== ==== ===== ===== ====
+
+
+The port numbers come in pairs, e.g. "3313:3306".
+The number on the right of the colon is the port-number inside the container, and never changes.
+The port number on the left of the colon is the external port number and must be changed on each release.
+See also::
+https://docs.docker.com/compose/networking/
 
 
 Deployment architecture

@@ -31,8 +31,8 @@ class JobFactory(object):
             mem_free (int): Number of GB of memory to request from SGE
             max_attempts (int): Maximum # of attempts before sending the job to
                 ERROR_FATAL state
-            max_runtime (int): Maximum runtime of a single job_instance before
-                killing and marking that instance as failed
+            max_runtime (int): Maximum runtime in seconds of a single
+                job_instance before killing and marking that instance as failed
             context_args (dict): Additional arguments to be sent to the command
                 builders
             tag (str, default None): a group identifier
@@ -94,12 +94,21 @@ class JobFactory(object):
             value (int): value associated with attribute
 
         Raises:
-            ValueError: If the args are not valid.
+            ValueError: If the args are not valid or if the
+                        attribute is used for usage data and
+                        cannot be configured on the user side.
                         attribute_type should be int and
                         value should be convertible to int
                         or be string for TAG attribute
         """
-        if not isinstance(attribute_type, int):
+        user_cant_config = [job_attribute.WALLCLOCK, job_attribute.CPU,
+                            job_attribute.IO, job_attribute.MAXRSS]
+        if attribute_type in user_cant_config:
+            raise ValueError(
+                "Invalid attribute configuration for {} with name: {}, user "
+                "input not used to configure attribute value".format(
+                attribute_type, type(attribute_type).__name__))
+        elif not isinstance(attribute_type, int):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
                                      type(attribute_type).__name__))

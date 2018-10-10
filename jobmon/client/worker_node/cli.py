@@ -84,7 +84,7 @@ def unwrap():
             kill_remote_process_group(args['last_nodename'], args['last_pgid'])
 
         if 'temp_dir' not in args:
-            args['temp_idr'] = None
+            args['temp_dir'] = None
 
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(

@@ -30,7 +30,7 @@ class TaskDag(object):
         # TODO: Scale test to 1M jobs
         self.name = name
 
-        self.tasks = OrderedDict()  # {job_hash: Task}
+        self.tasks = OrderedDict()  # {job_hash: ExecutableTask}
         self.bound_tasks = None
         self.top_fringe = []
         self.fail_after_n_executions = None
@@ -154,7 +154,7 @@ class TaskDag(object):
         Uses forward chaining from initial fringe, hence out-of-date is not
         applied transitively backwards through the graph. It could also use
         backward chaining from an identified goal node, the effect is
-        dentical.
+        identical.
 
         The internal data structures are lists, but might need to be changed to
         be better at scaling.
