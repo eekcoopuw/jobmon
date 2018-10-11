@@ -203,7 +203,6 @@ class WorkflowRun(object):
                                  for ji in response['job_instances']]
                 if job_instances:
                     previous_executor.terminate_job_instances(job_instances)
-<<<<<<< HEAD:jobmon/client/swarm/workflow/workflow_run.py
             _, _ = self.jsm_req.send_request(
                 app_route='/workflow_run',
                 message={'workflow_run_id': wf_run.id,
@@ -222,8 +221,8 @@ class WorkflowRun(object):
 
     def update_stopped(self):
         """Update the status of the workflow_run as stopped"""
-            self.add_project_limit_attribute('end')
-            self._update_status(WorkflowRunStatus.STOPPED)
+        self.add_project_limit_attribute('end')
+        self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
         """Update the status of the workflow_run with whatever status is

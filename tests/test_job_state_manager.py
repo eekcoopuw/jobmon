@@ -289,7 +289,7 @@ def test_jsm_log_usage(real_dag_id):
         app_route='/job_instance/{}/log_usage'.format(job_instance_id),
         message={'usage_str': 'used resources',
                  'wallclock': '0',
-                 'maxvmem': '1g',
+                 'maxrss': '1g',
                  'cpu': '00:00:00',
                  'io': '1'},
         request_type='post')

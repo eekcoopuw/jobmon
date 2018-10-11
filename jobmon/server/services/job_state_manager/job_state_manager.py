@@ -17,6 +17,7 @@ from jobmon.client.swarm.workflow.workflow import WorkflowDAO
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 from jobmon.attributes import attribute_models
+from jobmon.attributes.constants import job_attribute
 
 jsm = Blueprint("job_state_manager", __name__)
 
@@ -380,14 +381,30 @@ def log_usage(job_instance_id):
         io (str, optional): io used
     """
     data = request.get_json()
+    keys_to_attrs = {data.get('wallclock', None): job_attribute.WALLCLOCK,
+                     data.get('cpu', None): job_attribute.CPU,
+                     data.get('io', None): job_attribute.IO,
+                     data.get('maxrss', None): job_attribute.MAXRSS}
+
     logger.debug("Log USAGE for JI {}".format(job_instance_id))
-    ji = _get_job_instance(ScopedSession, job_instance_id)
-    msg = _update_job_instance(ji,
+    job_instance = _get_job_instance(ScopedSession, job_instance_id)
+    job_id = job_instance.job_id
+    msg = _update_job_instance(job_instance,
                                usage_str=data.get('usage_str', None),
                                wallclock=data.get('wallclock', None),
-                               maxvmem=data.get('maxvmem', None),
+                               maxrss=data.get('maxrss', None),
                                cpu=data.get('cpu', None),
                                io=data.get('io', None))
+    for k in keys_to_attrs:
+        logger.debug(
+            'The value of {kval} being set in the attribute table  is {k}'.
+            format(kval=keys_to_attrs[k], k=k))
+        if k is not None:
+            job_attribute = (
+                attribute_models.JobAttribute(job_id, keys_to_attrs[k], k))
+            ScopedSession.add(job_attribute)
+        else:
+            logger.debug('The value has not been set, nothing to upload')
     ScopedSession.commit()
     resp = jsonify(message=msg)
     resp.status_code = HTTPStatus.OK

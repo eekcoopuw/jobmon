@@ -2,8 +2,8 @@ import pytest
 
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
+from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.attributes.constants import workflow_run_attribute
-from jobmon.workflow.task_dag import DagExecutionStatus
 
 
 def test_workflow_run_attribute(real_jsm_jqs, db_cfg):
