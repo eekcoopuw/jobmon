@@ -10,6 +10,7 @@ from jobmon.models.job_status import JobStatus
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.python_task import PythonTask
+from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import Workflow, WorkflowDAO, \
     WorkflowStatus, WorkflowAlreadyComplete

@@ -17,6 +17,7 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.swarm.workflow.workflow import WorkflowDAO
+from jobmon.attributes.constants import job_attribute
 
 
 HASH = 12345
@@ -412,37 +413,72 @@ def test_job_reset(real_dag_id):
         assert len(errors) == 5
 
 
-def test_jsm_submit_job_attr(jsm_jqs, dag_id):
-    jsm, jqs = jsm_jqs
+def test_jsm_submit_job_attr(real_dag_id):
+    req = Requester(get_the_client_config(), 'jsm')
 
-    _, job_dct = jsm.add_job("bar", HASH, "baz", dag_id)
-    job = Job.from_wire(job_dct)
-    jsm.queue_job(job.job_id)
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
 
-    _, job_instance_id = jsm.add_job_instance(job.job_id, 'dummy_exec')
-    jsm.log_executor_id(job_instance_id, 12345)
-    jsm.log_running(job_instance_id, socket.gethostname(), os.getpid())
-    jsm.log_usage(job_instance_id, usage_str='used resources', wallclock='0',
-                  maxrss='1g', cpu='00:00:00', io='1')
+    # Create a job instance
+    rc, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    ji = response['job_instance_id']
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(ji),
+        message={'executor_id': str(12345)},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(ji),
+        message={'nodename': socket.gethostname(),
+                 'process_group_id': str(os.getpid())},
+        request_type='post')
+
+    req.send_request(
+        app_route='/job_instance/{}/log_usage'.format(ji),
+        message={'usage_str': 'used resources',
+                 'wallclock': '0',
+                 'maxrss': '1g',
+                 'cpu': '00:00:00',
+                 'io': '1'},
+        request_type='post')
+
     # open new session on the db and ensure job stats are being loggged
-    dict_of_attributes = {job_attribute.WALLCLOCK: '0', job_attribute.CPU: "00:00:00",
-                          job_attribute.IO: "1", job_attribute.MAXRSS: "1g"}
+    dict_of_attributes = {job_attribute.WALLCLOCK: '0',
+                          job_attribute.CPU: "00:00:00",
+                          job_attribute.IO: "1",
+                          job_attribute.MAXRSS: "1g"}
 
-    jsm.log_done(job_instance_id)
+    req.send_request(
+        app_route='/job_instance/{}/log_done'.format(ji),
+        message={},
+        request_type='post')
 
-    with session_scope() as session:
-        job_attribute_query = session.execute("""
-                                                SELECT job_attribute.id,
-                                                       job_attribute.job_id,
-                                                       job_attribute.attribute_type,
-                                                       job_attribute.value
-                                                FROM job_attribute
-                                                JOIN job
-                                                ON job_attribute.job_id=job.job_id
-                                                WHERE job_attribute.job_id={id}
-                                                """.format(id=job.job_id))
-        attribute_entries = job_attribute_query.fetchall()
-        for entry in attribute_entries:
-            attribute_entry_type = entry.attribute_type
-            attribute_entry_value = entry.value
-            assert dict_of_attributes[attribute_entry_type] == attribute_entry_value
+    from jobmon.server.database import ScopedSession
+    job_attribute_query = ScopedSession.execute("""
+                                            SELECT job_attribute.id,
+                                                   job_attribute.job_id,
+                                                   job_attribute.attribute_type,
+                                                   job_attribute.value
+                                            FROM job_attribute
+                                            JOIN job
+                                            ON job_attribute.job_id=job.job_id
+                                            WHERE job_attribute.job_id={id}
+                                            """.format(id=job.job_id))
+    attribute_entries = job_attribute_query.fetchall()
+    for entry in attribute_entries:
+        attribute_entry_type = entry.attribute_type
+        attribute_entry_value = entry.value
+        assert dict_of_attributes[attribute_entry_type] == attribute_entry_value

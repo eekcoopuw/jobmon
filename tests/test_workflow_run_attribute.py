@@ -34,7 +34,8 @@ def test_workflow_run_attribute(real_jsm_jqs, db_cfg):
            =wf_run.id
         WHERE wf_run_att.workflow_run_id
               ={id}
-        """.format(id=workflow_run.id))
+        AND wf_run_att.attribute_type = {ty}
+        """.format(id=workflow_run.id, ty=workflow_run_attribute.NUM_DRAWS))
 
     attribute_entry = attribute_query.fetchone()
     entry_type = attribute_entry.attribute_type
@@ -61,7 +62,8 @@ def test_workflow_run_attribute_input_error(real_jsm_jqs, db_cfg):
     assert "Invalid" in str(exc.value)
 
 
-def test_new_workflow_has_project_limit():
+def test_new_workflow_has_project_limit(real_jsm_jqs, db_cfg):
+    from jobmon.server.database import session_scope
     wfa = "test_new_workflow_has_project_limit"
     workflow = Workflow(wfa, project='proj_burdenator')
     t1 = BashTask("sleep 1")

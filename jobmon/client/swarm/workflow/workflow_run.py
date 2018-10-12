@@ -13,6 +13,7 @@ from jobmon.client.the_client_config import get_the_client_config
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.requester import Requester
 from jobmon.models.sql_base import Base
+from jobmon.client.swarm.executors.sge_utils import get_project_limits
 from jobmon.client.utils import kill_remote_process
 from jobmon.attributes.constants import workflow_run_attribute
 

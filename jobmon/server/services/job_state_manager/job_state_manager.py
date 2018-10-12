@@ -381,12 +381,21 @@ def log_usage(job_instance_id):
         io (str, optional): io used
     """
     data = request.get_json()
+    logger.debug("Log USAGE for JI {}".format(job_instance_id))
+    if data.get('maxrss', None) is None:
+        data['maxrss'] = '-1'
+
     keys_to_attrs = {data.get('wallclock', None): job_attribute.WALLCLOCK,
                      data.get('cpu', None): job_attribute.CPU,
                      data.get('io', None): job_attribute.IO,
                      data.get('maxrss', None): job_attribute.MAXRSS}
 
-    logger.debug("Log USAGE for JI {}".format(job_instance_id))
+    logger.debug("usage_str is {}, wallclock is {}, maxrss is {}, cpu is {}, "
+                 "io is {}".format(data.get('usage_str', None),
+                                   data.get('wallclock', None),
+                                   data.get('maxrss', None),
+                                   data.get('cpu', None),
+                                   data.get('io', None)))
     job_instance = _get_job_instance(ScopedSession, job_instance_id)
     job_id = job_instance.job_id
     msg = _update_job_instance(job_instance,
@@ -400,9 +409,9 @@ def log_usage(job_instance_id):
             'The value of {kval} being set in the attribute table  is {k}'.
             format(kval=keys_to_attrs[k], k=k))
         if k is not None:
-            job_attribute = (
-                attribute_models.JobAttribute(job_id, keys_to_attrs[k], k))
-            ScopedSession.add(job_attribute)
+            ja = (attribute_models.JobAttribute(
+                job_id=job_id, attribute_type=keys_to_attrs[k], value=k))
+            ScopedSession.add(ja)
         else:
             logger.debug('The value has not been set, nothing to upload')
     ScopedSession.commit()
