@@ -52,6 +52,8 @@ install_requires = [
 if sys.version_info < (3, 0):
     install_requires.append('subprocess32')
     install_requires.append('future')  # adds a queue module to python2
+    install_requires.append('httplib')
+
 
 setup(
     version=versioneer.get_version(),
@@ -61,7 +63,8 @@ setup(
                  'SGE jobs'),
     url='https://stash.ihme.washington.edu/projects/CC/repos/jobmon',
     author='CentralComp',
-    author_email='tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu',
+    author_email=('tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu, '
+                  'cpinho@uw.edu'),
     include_package_data=True,
     install_requires=install_requires,
     packages=['jobmon', 'jobmon.client', 'jobmon.client.swarm',

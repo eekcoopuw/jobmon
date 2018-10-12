@@ -5,7 +5,6 @@ import socket
 from datetime import datetime
 import logging
 
-from http import HTTPStatus
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
@@ -16,6 +15,14 @@ from jobmon.models.sql_base import Base
 from jobmon.client.swarm.executors.sge_utils import get_project_limits
 from jobmon.client.utils import kill_remote_process
 from jobmon.attributes.constants import workflow_run_attribute
+
+try:  # Python 3.5+
+    from http import HTTPStatus as StatusCodes
+except ImportError:
+    try:  # Python 3
+        from http import client as StatusCodes
+    except ImportError:  # Python 2
+        import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +132,7 @@ class WorkflowRun(object):
                      'working_dir': self.working_dir},
             request_type='post')
         wfr_id = response['workflow_run_id']
-        if rc != HTTPStatus.OK:
+        if rc != StatusCodes.OK:
             raise ValueError("Invalid Reponse to add_workflow_run")
         self.id = wfr_id
         self.add_project_limit_attribute('start')
@@ -145,7 +152,7 @@ class WorkflowRun(object):
                 app_route='/workflow/{}/workflow_run'.format(self.workflow_id),
                 message={},
                 request_type='get')
-        if rc != HTTPStatus.OK:
+        if rc != StatusCodes.OK:
             raise ValueError("Invalid Response to is_workflow_running")
         return response['is_running'], response['workflow_run_dct']
 

@@ -3,7 +3,6 @@ import os
 import json
 from datetime import datetime
 from flask import jsonify, request, Blueprint
-from http import HTTPStatus
 import warnings
 
 from jobmon.models.job import Job, InvalidStateTransition
@@ -18,6 +17,14 @@ from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
 from jobmon.attributes import attribute_models
 from jobmon.attributes.constants import job_attribute
+
+try:  # Python 3.5+
+    from http import HTTPStatus as StatusCodes
+except ImportError:
+    try:  # Python 3
+        from http import client as StatusCodes
+    except ImportError:  # Python 2
+        import httplib as StatusCodes
 
 jsm = Blueprint("job_state_manager", __name__)
 
@@ -56,7 +63,7 @@ def _is_alive():
     logmsg = "{}: Responder received is_alive?".format(os.getpid())
     logger.debug(logmsg)
     resp = jsonify(msg="Yes, I am alive")
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -93,7 +100,7 @@ def add_job():
     ScopedSession.commit()
     job_dct = job.to_wire()
     resp = jsonify(job_dct=job_dct)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -115,7 +122,7 @@ def add_task_dag():
     ScopedSession.commit()
     dag_id = dag.dag_id
     resp = jsonify(dag_id=dag_id)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -169,7 +176,7 @@ def add_job_instance():
     finally:
         ScopedSession.commit()
     resp = jsonify(job_instance_id=ji_id)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -204,7 +211,7 @@ def add_update_workflow():
     ScopedSession.commit()
     wf_dct = wf.to_wire()
     resp = jsonify(workflow_dct=wf_dct)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -248,7 +255,7 @@ def add_update_workflow_run():
     ScopedSession.commit()
     wfr_id = wfr.id
     resp = jsonify(workflow_run_id=wfr_id)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -265,7 +272,7 @@ def log_done(job_instance_id):
         ji, JobInstanceStatus.DONE)
     ScopedSession.commit()
     resp = jsonify(message=msg)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -290,7 +297,7 @@ def log_error(job_instance_id):
     ScopedSession.add(error)
     ScopedSession.commit()
     resp = jsonify(message=msg)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -310,7 +317,7 @@ def log_executor_id(job_instance_id):
     _update_job_instance(ji, executor_id=data['executor_id'])
     ScopedSession.commit()
     resp = jsonify(message=msg)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -327,7 +334,7 @@ def log_heartbeat(dag_id):
         dag.heartbeat_date = datetime.utcnow()
     ScopedSession.commit()
     resp = jsonify()
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -346,7 +353,7 @@ def log_running(job_instance_id):
     ji.process_group_id = data['process_group_id']
     ScopedSession.commit()
     resp = jsonify(message=msg)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -364,7 +371,7 @@ def log_nodename(job_instance_id):
     msg = _update_job_instance(ji, nodename=data['nodename'])
     ScopedSession.commit()
     resp = jsonify(message=msg)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -416,7 +423,7 @@ def log_usage(job_instance_id):
             logger.debug('The value has not been set, nothing to upload')
     ScopedSession.commit()
     resp = jsonify(message=msg)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -442,7 +449,7 @@ def queue_job(job_id):
             raise
     ScopedSession.commit()
     resp = jsonify()
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -457,7 +464,7 @@ def reset_job(job_id):
     job.reset()
     ScopedSession.commit()
     resp = jsonify()
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -507,7 +514,7 @@ def reset_incomplete_jobs(dag_id):
          "done_status": JobStatus.DONE})
     ScopedSession.commit()
     resp = jsonify()
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -598,7 +605,7 @@ def add_workflow_attribute():
     ScopedSession.add(workflow_attribute)
     ScopedSession.commit()
     resp = jsonify({'workflow_attribute_id': workflow_attribute.id})
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -620,7 +627,7 @@ def add_workflow_run_attribute():
     ScopedSession.add(workflow_run_attribute)
     ScopedSession.commit()
     resp = jsonify({'workflow_run_attribute_id': workflow_run_attribute.id})
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -641,5 +648,5 @@ def add_job_attribute():
     ScopedSession.add(job_attribute)
     ScopedSession.commit()
     resp = jsonify({'job_attribute_id': job_attribute.id})
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp

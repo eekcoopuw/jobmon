@@ -5,7 +5,6 @@ import os
 from datetime import datetime
 import uuid
 
-from http import HTTPStatus
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
@@ -18,6 +17,14 @@ from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.attributes.constants import workflow_attribute
 from jobmon.swarm_logger import add_jobmon_file_logger
+
+try:  # Python 3.5+
+    from http import HTTPStatus as StatusCodes
+except ImportError:
+    try:  # Python 3
+        from http import client as StatusCodes
+    except ImportError:  # Python 2
+        import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
 
@@ -342,7 +349,7 @@ class Workflow(object):
                 app_route='/dag/{}/workflow'.format(dag_id),
                 message={'workflow_args': str(self.workflow_args)},
                 request_type='get')
-            if rc == HTTPStatus.OK:
+            if rc == StatusCodes.OK:
                 wf = response['workflow_dct']
                 workflows.append(wf)
         return [WorkflowDAO.from_wire(w) for w in workflows]

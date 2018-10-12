@@ -1,12 +1,19 @@
 import json
 import logging
-from http import HTTPStatus
 
 from jobmon.client import requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.models.job import Job
 from jobmon.attributes.constants import job_attribute
+
+try:  # Python 3.5+
+    from http import HTTPStatus as StatusCodes
+except ImportError:
+    try:  # Python 3
+        from http import client as StatusCodes
+    except ImportError:  # Python 2
+        import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +61,7 @@ class JobFactory(object):
                      'max_runtime': max_runtime,
                      'tag': tag},
             request_type='post')
-        if rc != HTTPStatus.OK:
+        if rc != StatusCodes.OK:
             raise InvalidResponse(
                 "{rc}: Could not create_job {e}".format(rc=rc, e=jobname))
         return Job.from_wire(response['job_dct'])
@@ -69,7 +76,7 @@ class JobFactory(object):
             app_route='/job/{}/queue'.format(job_id),
             message={},
             request_type='post')
-        if rc != HTTPStatus.OK:
+        if rc != StatusCodes.OK:
             raise InvalidResponse("{rc}: Could not queue_job".format(rc))
         return rc
 
@@ -79,7 +86,7 @@ class JobFactory(object):
             app_route='/task_dag/{}/reset_incomplete_jobs'.format(self.dag_id),
             message={},
             request_type='post')
-        if rc != HTTPStatus.OK:
+        if rc != StatusCodes.OK:
             raise InvalidResponse("{rc}: Could not reset jobs".format(rc))
         return rc
 
