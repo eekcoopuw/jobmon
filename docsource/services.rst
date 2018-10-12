@@ -106,27 +106,28 @@ For testing purposes, you can then access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3315
+    port: 3316
     user: docker
     pass: docker
 
 
 Each new version of jobmon increments the ports, so for example:
 
-======== ==== ===== ===== ====
-Version  jqs  jsm-1 jsm-2 db
-======== ==== ===== ===== ====
-emu.0    na   4556  4557  3307
-emu.1    4658 4656  4657  3308
-emu.2    4758 4756  4757  3309
-emu.3    4858 4856  4857  3310
-emu.3    4958 4956  4957  3311
-emu.4    5058 5056  5057  3312
-emu.5    4458 4456  4457  3305  # gbd2017_production hotfixes
-emu.6    5158 5156  5157  3313
-emu.7    5258 5256  5257  3314
-http     6258 6256  n/a   3315
-======== ==== ===== ===== ====
+========  ==== ===== ===== ====
+Version   jqs  jsm-1 jsm-2 db
+========  ==== ===== ===== ====
+emu.0     na   4556  4557  3307
+emu.1     4658 4656  4657  3308
+emu.2     4758 4756  4757  3309
+emu.3     4858 4856  4857  3310
+emu.3     4958 4956  4957  3311
+emu.4     5058 5056  5057  3312
+emu.5     4458 4456  4457  3305  # gbd2017_production hotfixes
+emu.6     5158 5156  5157  3313
+emu.7     5258 5256  5257  3314
+http      6258 6256  n/a   3315
+http.2    6258 6256  n/a   3316
+========  ==== ===== ===== ====
 
 
 The port numbers come in pairs, e.g. "3313:3306".
