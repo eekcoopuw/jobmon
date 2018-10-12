@@ -60,7 +60,8 @@ class ExecutableTask(object):
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
                  name=None, slots=1, mem_free=2, max_attempts=3,
-                 max_runtime=None, tag=None, context_args=None, job_attributes={}):
+                 max_runtime=None, tag=None, queue=None, context_args=None,
+                 job_attributes={}):
         """
         Create a task
 
@@ -83,9 +84,12 @@ class ExecutableTask(object):
         tag (str): a group identifier. Currently just used for visualization.
             All tasks with the same tag will be colored the same in a
             TaskDagViz instance. Default is None.
-        job_attributes (dict): any attributes that will be tracked. Once the
-            task becomes a job and receives a job_id, these attributes will be
-            used for the job_factory add_job_attribute function
+        queue (str): queue of cluster nodes to submit this task to. Must be
+            a valid queue, as defined by "qconf -sql"
+        job_attributes (dict): any attributes that will be
+            tracked. Once the task becomes a job and receives a job_id,
+            these attributes will be used for the job_factory
+            add_job_attribute function
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
@@ -105,6 +109,7 @@ class ExecutableTask(object):
         self.max_attempts = max_attempts
         self.max_runtime = max_runtime
         self.context_args = context_args
+        self.queue = queue
 
         # Names of jobs can't start with a numeric.
         if name is None:
@@ -161,8 +166,8 @@ class ExecutableTask(object):
                              .format(attribute_type,
                                      type(attribute_type).__name__))
         elif (not attribute_type == job_attribute.TAG and not int(value))\
-                or (attribute_type == job_attribute.TAG
-                    and not isinstance(value, str)):
+                or (attribute_type == job_attribute.TAG and
+                    not isinstance(value, str)):
             raise ValueError("Invalid value type: {}, {}"
                              .format(value,
                                      type(value).__name__))
@@ -172,7 +177,8 @@ class ExecutableTask(object):
 
     def add_job_attributes(self, dict_of_attributes):
         for attribute_type in dict_of_attributes:
-            self.job_attributes[attribute_type] = dict_of_attributes[attribute_type]
+            self.job_attributes[attribute_type] = dict_of_attributes[
+                attribute_type]
 
     def __eq__(self, other):
         """

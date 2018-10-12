@@ -95,6 +95,7 @@ def add_job():
         max_runtime=data.get('max_runtime', None),
         context_args=data.get('context_args', "{}"),
         tag=data.get('tag', None),
+        queue=data.get('queue', None),
         status=JobStatus.REGISTERED)
     ScopedSession.add(job)
     ScopedSession.commit()

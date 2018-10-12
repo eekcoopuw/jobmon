@@ -20,7 +20,7 @@ class DagExecutionStatus(object):
 
 
 class TaskDag(object):
-    """A DAG of Tasks."""
+    """A DAG of ExecutableTasks."""
 
     def __init__(self, name="", interrupt_on_error=True, executor=None):
 
