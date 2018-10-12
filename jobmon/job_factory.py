@@ -18,7 +18,7 @@ class JobFactory(object):
 
     def create_job(self, command, jobname, job_hash, slots=1,
                    mem_free=2, max_attempts=1, max_runtime=None,
-                   context_args=None, tag=None):
+                   context_args=None, tag=None, queue=None):
         """
         Create a job entry in the database.
 
@@ -35,6 +35,8 @@ class JobFactory(object):
             context_args (dict): Additional arguments to be sent to the command
                 builders
             tag (str, default None): a group identifier
+            queue (str): queue of cluster nodes to submit this task to. Must be
+                a valid queue, as defined by "qconf -sql"
         """
         if not context_args:
             context_args = json.dumps({})
@@ -51,7 +53,8 @@ class JobFactory(object):
                        'mem_free': mem_free,
                        'max_attempts': max_attempts,
                        'max_runtime': max_runtime,
-                       'tag': tag
+                       'tag': tag,
+                       'queue': queue
                        }
         })
         if rc != ReturnCodes.OK:
@@ -96,18 +99,20 @@ class JobFactory(object):
                         value should be convertible to int
                         or be string for TAG attribute
         """
-        user_cant_config = [job_attribute.WALLCLOCK, job_attribute.CPU, job_attribute.IO, job_attribute.MAXRSS]
+        user_cant_config = [job_attribute.WALLCLOCK, job_attribute.CPU,
+                            job_attribute.IO, job_attribute.MAXRSS]
         if attribute_type in user_cant_config:
             raise ValueError(
-                "Invalid attribute configuration for {} with name: {}, user input not used to configure attribute value"
-                    .format(attribute_type, type(attribute_type).__name__))
+                "Invalid attribute configuration for {} with name: {}, user "
+                "input not used to configure attribute value"
+                .format(attribute_type, type(attribute_type).__name__))
         elif not isinstance(attribute_type, int):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
                                      type(attribute_type).__name__))
         elif (not attribute_type == job_attribute.TAG and not int(value))\
-                or (attribute_type == job_attribute.TAG
-                    and not isinstance(value, str)):
+                or (attribute_type == job_attribute.TAG and not
+                    isinstance(value, str)):
             raise ValueError("Invalid value type: {}, {}"
                              .format(value,
                                      type(value).__name__))

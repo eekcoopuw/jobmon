@@ -1,10 +1,12 @@
 import os
+import pytest
 from subprocess import check_output
 from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
 from jobmon import sge
+from jobmon.job_list_manager import JobListManager
 from jobmon.database import session_scope
 from jobmon.executors.sge import SGEExecutor
 from jobmon.models import Job, JobStatus
@@ -47,9 +49,7 @@ def get_task_status(dag, task):
 
 
 def test_bash_task(dag_factory):
-    """
-    Create a dag with one very simple BashTask and execute it
-    """
+    """Create a dag with one very simple BashTask and execute it"""
     name = 'bash_task'
     task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
                     max_runtime=60)
@@ -175,3 +175,34 @@ def test_stata_task(dag_factory, tmp_out_dir):
     assert os.path.exists(os.path.join(
         root_out_dir,
         "{jid}-simple_stata_script.log".format(jid=job_instance_id)))
+
+
+@pytest.mark.skipif(os.environ['SGE_CLUSTER_NAME'] == 'dev',
+                    reason="no c2-nodes on cluster-dev")
+def test_specific_queue(dag_factory, tmp_out_dir):
+    name = 'c2_nodes_only'
+    root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
+    makedirs_safely(root_out_dir)
+
+    output_file_name = "{t}/mocks/{n}/mock.out".format(t=tmp_out_dir, n=name)
+
+    task = PythonTask(script=sge.true_path("tests/remote_sleep_and_write.py"),
+                      args=["--sleep_secs", "1",
+                            "--output_file_path", output_file_name,
+                            "--name", name],
+                      name=name, mem_free=1, max_attempts=2, max_runtime=60,
+                      queue='all.q@@c2-nodes')
+    executor = SGEExecutor(project='proj_jenkins')
+    dag = dag_factory(executor)
+    dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
+
+    assert rc == DagExecutionStatus.SUCCEEDED
+    assert num_completed == 1
+    assert get_task_status(dag, task) == JobStatus.DONE
+
+    with session_scope() as session:
+        job = session.query(Job).filter_by(name=name).first()
+        assert job.queue == 'all.q@@c2-nodes'
+        jids = [ji.nodename for ji in job.job_instances]
+        assert all(['c2' in nodename for nodename in jids])

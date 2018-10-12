@@ -40,7 +40,7 @@ def job_list_manager_sge(dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager_dummy_nod(dag_id):
-    executor = DummyExecutor()
+    dummy_executor = DummyExecutor()
     jlm = JobListManager(dag_id, executor=dummy_executor,
                          start_daemons=False, interrupt_on_error=False)
     yield jlm
