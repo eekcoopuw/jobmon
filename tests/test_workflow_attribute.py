@@ -12,7 +12,6 @@ def test_workflow_attribute(real_dag):
     workflow = Workflow(wfa)
     t1 = BashTask("sleep 1")
     workflow.add_tasks([t1])
-
     workflow.execute()
 
     # add an attribute to the workflow
@@ -41,7 +40,6 @@ def test_workflow_attribute_input_error(real_jsm_jqs, db_cfg):
     workflow = Workflow(wfa)
     t1 = BashTask("sleep 1")
     workflow.add_tasks([t1])
-
     workflow.execute()
 
     # add an attribute with wrong types to the workflow
@@ -56,7 +54,6 @@ def test_workflow_attribute_tag(real_jsm_jqs, db_cfg):
     workflow = Workflow(wfa)
     t1 = BashTask("sleep 1")
     workflow.add_tasks([t1])
-
     workflow.execute()
 
     # add a tag attribute to the workflow

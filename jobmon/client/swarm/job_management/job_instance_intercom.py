@@ -57,7 +57,7 @@ class JobInstanceIntercom(object):
         """
         try:
             usage = self.executor.get_usage_stats()
-            dbukeys = ['usage_str', 'wallclock', 'maxvmem', 'cpu', 'io']
+            dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io']
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
             rc, _ = self.requester.send_request(
                 app_route=('/job_instance/{}/log_usage'

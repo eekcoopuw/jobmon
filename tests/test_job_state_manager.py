@@ -17,6 +17,7 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.swarm.workflow.workflow import WorkflowDAO
+from jobmon.attributes.constants import job_attribute
 
 
 HASH = 12345
@@ -289,7 +290,7 @@ def test_jsm_log_usage(real_dag_id):
         app_route='/job_instance/{}/log_usage'.format(job_instance_id),
         message={'usage_str': 'used resources',
                  'wallclock': '0',
-                 'maxvmem': '1g',
+                 'maxrss': '1g',
                  'cpu': '00:00:00',
                  'io': '1'},
         request_type='post')
@@ -300,7 +301,7 @@ def test_jsm_log_usage(real_dag_id):
             JobInstance.job_instance_id == job_instance_id).first()
         assert ji.usage_str == 'used resources'
         assert ji.wallclock == '0'
-        assert ji.maxvmem == '1g'
+        assert ji.maxrss == '1g'
         assert ji.cpu == '00:00:00'
         assert ji.io == '1'
         assert ji.nodename == socket.gethostname()
@@ -410,3 +411,74 @@ def test_job_reset(real_dag_id):
         # jis... It's a little aggressive, but it's the safe way to ensure
         # job_instances don't hang around in unknown states upon RESET
         assert len(errors) == 5
+
+
+def test_jsm_submit_job_attr(real_dag_id):
+    req = Requester(get_the_client_config(), 'jsm')
+
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
+
+    # Create a job instance
+    rc, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    ji = response['job_instance_id']
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(ji),
+        message={'executor_id': str(12345)},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(ji),
+        message={'nodename': socket.gethostname(),
+                 'process_group_id': str(os.getpid())},
+        request_type='post')
+
+    req.send_request(
+        app_route='/job_instance/{}/log_usage'.format(ji),
+        message={'usage_str': 'used resources',
+                 'wallclock': '0',
+                 'maxrss': '1g',
+                 'cpu': '00:00:00',
+                 'io': '1'},
+        request_type='post')
+
+    # open new session on the db and ensure job stats are being loggged
+    dict_of_attributes = {job_attribute.WALLCLOCK: '0',
+                          job_attribute.CPU: "00:00:00",
+                          job_attribute.IO: "1",
+                          job_attribute.MAXRSS: "1g"}
+
+    req.send_request(
+        app_route='/job_instance/{}/log_done'.format(ji),
+        message={},
+        request_type='post')
+
+    from jobmon.server.database import ScopedSession
+    job_attribute_query = ScopedSession.execute("""
+                                            SELECT job_attribute.id,
+                                                   job_attribute.job_id,
+                                                   job_attribute.attribute_type,
+                                                   job_attribute.value
+                                            FROM job_attribute
+                                            JOIN job
+                                            ON job_attribute.job_id=job.job_id
+                                            WHERE job_attribute.job_id={id}
+                                            """.format(id=job.job_id))
+    attribute_entries = job_attribute_query.fetchall()
+    for entry in attribute_entries:
+        attribute_entry_type = entry.attribute_type
+        attribute_entry_value = entry.value
+        assert dict_of_attributes[attribute_entry_type] == attribute_entry_value

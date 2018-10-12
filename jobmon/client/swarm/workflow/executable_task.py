@@ -2,6 +2,7 @@ import logging
 import hashlib
 
 from jobmon.models.job_status import JobStatus
+from jobmon.attributes.constants import job_attribute
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,8 @@ class ExecutableTask(object):
     the SGE cluster.
     External Tasks (fin release Frog) do not have Jobs, because they represent
     input tasks that are "givens" and cannot be executed.
+
+    Do not subclass!
     """
 
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
@@ -57,7 +60,7 @@ class ExecutableTask(object):
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
                  name=None, slots=1, mem_free=2, max_attempts=3,
-                 max_runtime=None, tag=None, context_args=None):
+                 max_runtime=None, tag=None, context_args=None, job_attributes={}):
         """
         Create a task
 
@@ -80,6 +83,9 @@ class ExecutableTask(object):
         tag (str): a group identifier. Currently just used for visualization.
             All tasks with the same tag will be colored the same in a
             TaskDagViz instance. Default is None.
+        job_attributes (dict): any attributes that will be tracked. Once the
+            task becomes a job and receives a job_id, these attributes will be
+            used for the job_factory add_job_attribute function
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
@@ -115,6 +121,8 @@ class ExecutableTask(object):
         for up in self.upstream_tasks:
             up.add_downstream(self)
 
+        self.job_attributes = job_attributes
+
     def add_upstream(self, ancestor):
         """
         Add an upstream (ancestor) Task. This has Set semantics, an upstream
@@ -134,6 +142,37 @@ class ExecutableTask(object):
         self.downstream_tasks.add(descendent)
         # avoid endless recursion, set directly
         descendent.upstream_tasks.add(self)
+
+    def add_job_attribute(self, attribute_type, value):
+        """
+        Add an attribute and value (key, value pair) to track in the task,
+        throw an error if the attribute or value isn't the right type or
+        if it is for usage data, which is not configured on the user side
+        """
+        user_cant_config = [job_attribute.WALLCLOCK, job_attribute.CPU,
+                            job_attribute.IO, job_attribute.MAXRSS]
+        if attribute_type in user_cant_config:
+            raise ValueError(
+                "Invalid attribute configuration for {} with name: {}, "
+                "user input not used to configure attribute value".format(
+                attribute_type, type(attribute_type).__name__))
+        elif not isinstance(attribute_type, int):
+            raise ValueError("Invalid attribute_type: {}, {}"
+                             .format(attribute_type,
+                                     type(attribute_type).__name__))
+        elif (not attribute_type == job_attribute.TAG and not int(value))\
+                or (attribute_type == job_attribute.TAG
+                    and not isinstance(value, str)):
+            raise ValueError("Invalid value type: {}, {}"
+                             .format(value,
+                                     type(value).__name__))
+
+        else:
+            self.job_attributes[attribute_type] = value
+
+    def add_job_attributes(self, dict_of_attributes):
+        for attribute_type in dict_of_attributes:
+            self.job_attributes[attribute_type] = dict_of_attributes[attribute_type]
 
     def __eq__(self, other):
         """

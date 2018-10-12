@@ -5,7 +5,6 @@ import os
 from datetime import datetime
 import uuid
 
-from http import HTTPStatus
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
@@ -17,6 +16,15 @@ from jobmon.models.sql_base import Base
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.attributes.constants import workflow_attribute
+from jobmon.swarm_logger import add_jobmon_file_logger
+
+try:  # Python 3.5+
+    from http import HTTPStatus as StatusCodes
+except ImportError:
+    try:  # Python 3
+        from http import client as StatusCodes
+    except ImportError:  # Python 2
+        import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +42,10 @@ class WorkflowStatus(Base):
     ERROR = 'E'
     DONE = 'D'
 
-    id = Column(String(1), primary_key=True)
-    label = Column(String(150), nullable=False)
+    id = Column(
+        String(1), primary_key=True)
+    label = Column(
+        String(150), nullable=False)
 
 
 class WorkflowDAO(Base):
@@ -45,9 +55,12 @@ class WorkflowDAO(Base):
     @classmethod
     def from_wire(cls, dct):
         return cls(id=dct['id'], dag_id=dct['dag_id'],
-                   workflow_args=dct['workflow_args'],
-                   workflow_hash=dct['workflow_hash'],
-                   description=dct['description'], name=dct['name'],
+                   workflow_args=dct[
+                       'workflow_args'],
+                   workflow_hash=dct[
+                       'workflow_hash'],
+                   description=dct[
+                       'description'], name=dct['name'],
                    user=dct['user'], status=dct['status'])
 
     def to_wire(self):
@@ -56,22 +69,29 @@ class WorkflowDAO(Base):
                 'description': self.description, 'name': self.name, 'user':
                 self.user, 'status': self.status}
 
-    id = Column(Integer, primary_key=True)
-    dag_id = Column(Integer, ForeignKey('task_dag.dag_id'))
+    id = Column(
+        Integer, primary_key=True)
+    dag_id = Column(
+        Integer, ForeignKey('task_dag.dag_id'))
     workflow_args = Column(Text)
     workflow_hash = Column(Text)
     description = Column(Text)
     name = Column(String(150))
     user = Column(String(150))
-    created_date = Column(DateTime, default=datetime.utcnow)
-    status_date = Column(DateTime, default=datetime.utcnow)
+    created_date = Column(
+        DateTime, default=datetime.utcnow)
+    status_date = Column(
+        DateTime, default=datetime.utcnow)
     status = Column(String(1),
-                    ForeignKey('workflow_status.id'),
+                    ForeignKey(
+                        'workflow_status.id'),
                     nullable=False,
                     default=WorkflowStatus.CREATED)
 
-    workflow_runs = relationship("WorkflowRunDAO", back_populates="workflow")
-    task_dag = relationship("TaskDagMeta", back_populates="workflow")
+    workflow_runs = relationship(
+        "WorkflowRunDAO", back_populates="workflow")
+    task_dag = relationship(
+        "TaskDagMeta", back_populates="workflow")
 
 
 class Workflow(object):
@@ -96,18 +116,26 @@ class Workflow(object):
     2. The tasks added to the workflow. A Workflow is built up by
         using Workflow.add_task(). In order to resume a Workflow, all the same
         tasks must be added with the same dependencies between tasks.
+
+    3. The User may change the timeout value to better suit
+        their workflow by using the zmq_timeout_ms flag and assigning a timeout
+        in milliseconds. If the timeout is being set by the user, the connection
+        will be reconfigured accordingly.
     """
 
     def __init__(self, workflow_args=None, name="",
                  description="", stderr=None, stdout=None, project=None,
                  reset_running_jobs=True, working_dir=None,
-                 executor_class='SGEExecutor'):
+                 executor_class='SGEExecutor', zmq_timeout_ms=None,
+                 interrupt_on_error=False):
         self.wf_dao = None
         self.name = name
         self.description = description
 
         # TODO: These parameters are only applicable to the SGE Executor
-        # case. Consider moving them to config instead of the param list.
+        # case. Consider moving them to
+        # config instead of the param
+        # list.
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
@@ -125,12 +153,16 @@ class Workflow(object):
 
         self.reset_running_jobs = reset_running_jobs
 
-        self.task_dag = TaskDag(executor=self.executor)
+        self.task_dag = TaskDag(
+            executor=self.executor,
+            interrupt_on_error=interrupt_on_error,
+        )
 
         if workflow_args:
             self.workflow_args = workflow_args
         else:
-            self.workflow_args = str(uuid.uuid4())
+            self.workflow_args = str(
+                uuid.uuid4())
             logger.info("Workflow_args defaulting to uuid {}. To resume this "
                         "workflow, you must re-instantiate Workflow and pass "
                         "this uuid in as the workflow_args. As a uuid is hard "
@@ -162,7 +194,8 @@ class Workflow(object):
                              "executor_class".format(executor_class))
 
         if not hasattr(self.executor, "execute"):
-            raise AttributeError("Executor must have an execute() method")
+            raise AttributeError(
+                "Executor must have an execute() method")
 
     @property
     def dag_id(self):
@@ -170,7 +203,8 @@ class Workflow(object):
         if self.is_bound:
             return self.wf_dao.dag_id
         else:
-            raise AttributeError("Workflow is not yet bound")
+            raise AttributeError(
+                "Workflow is not yet bound")
 
     @property
     def hash(self):
@@ -178,7 +212,8 @@ class Workflow(object):
         if self.is_bound:
             return self.wf_dao.workflow_hash
         else:
-            raise AttributeError("Workflow is not yet bound")
+            raise AttributeError(
+                "Workflow is not yet bound")
 
     @property
     def id(self):
@@ -186,7 +221,8 @@ class Workflow(object):
         if self.is_bound:
             return self.wf_dao.id
         else:
-            raise AttributeError("Workflow is not yet bound")
+            raise AttributeError(
+                "Workflow is not yet bound")
 
     @property
     def is_bound(self):
@@ -204,7 +240,8 @@ class Workflow(object):
         if self.is_bound:
             return self.wf_dao.status
         else:
-            raise AttributeError("Workflow is not yet bound")
+            raise AttributeError(
+                "Workflow is not yet bound")
 
     def add_task(self, task):
         """Add a task to the workflow to be executed"""
@@ -221,8 +258,10 @@ class Workflow(object):
 
             # TODO: Should prompt the user, asking whether they really want to
             # resume or whether they want to create a new Workflow... will need
-            # to sit outside this if/else block
-            self.wf_dao = potential_wfs[0]
+            # to sit outside this
+            # if/else block
+            self.wf_dao = potential_wfs[
+                0]
             if self.wf_dao.status == WorkflowStatus.DONE:
                 raise WorkflowAlreadyComplete
             self.task_dag.bind_to_db(
@@ -251,7 +290,10 @@ class Workflow(object):
             # protection against this, but we should probably force the
             # validation down into the DB layer as well (i.e. make the
             # dag_hash + workflow_args a unique tuple)
-            # TODO: Protect against duplicated dag+workflow_args at DB level
+            # TODO: Protect against
+            # duplicated
+            # dag+workflow_args at DB
+            # level
             raise RuntimeError("Multiple matching Workflows found {}. "
                                "Workflows should be unique on TaskDag and "
                                "WorkflowArgs".format(potential_wfs))
@@ -259,13 +301,16 @@ class Workflow(object):
     def _done(self):
         """Update the workflow as done"""
         self.workflow_run.update_done()
-        self._update_status(WorkflowStatus.DONE)
+        self._update_status(
+            WorkflowStatus.DONE)
 
     def _compute_hash(self):
         """Create a unique hash for this workflow"""
         hashval = hashlib.sha1()
-        hashval.update(bytes(self.workflow_args.encode('utf-8')))
-        hashval.update(bytes(self.task_dag.hash.encode('utf-8')))
+        hashval.update(
+            bytes(self.workflow_args.encode('utf-8')))
+        hashval.update(
+            bytes(self.task_dag.hash.encode('utf-8')))
         return hashval.hexdigest()
 
     def _create_workflow_run(self):
@@ -278,7 +323,8 @@ class Workflow(object):
     def _error(self):
         """Update the workflow as errored"""
         self.workflow_run.update_error()
-        self._update_status(WorkflowStatus.ERROR)
+        self._update_status(
+            WorkflowStatus.ERROR)
 
     def _stopped(self):
         """Update the workflow as stopped"""
@@ -303,7 +349,7 @@ class Workflow(object):
                 app_route='/dag/{}/workflow'.format(dag_id),
                 message={'workflow_args': str(self.workflow_args)},
                 request_type='get')
-            if rc == HTTPStatus.OK:
+            if rc == StatusCodes.OK:
                 wf = response['workflow_dct']
                 workflows.append(wf)
         return [WorkflowDAO.from_wire(w) for w in workflows]
@@ -336,17 +382,22 @@ class Workflow(object):
                                                        local_tmp_dir))
         tmp_dir = os.path.join(tmp_root,
                                jobmon.__version__,
-                               self.wf_dao.id,
-                               self.workflow_run.id)
-        logger.info("Creating temp directory at {}".format(tmp_dir))
+                               str(self.wf_dao.id),
+                               str(self.workflow_run.id))
+        logger.info(
+            "Creating temp directory at {}".format(tmp_dir))
         makedirs_safely(tmp_dir)
-        self.executor.set_temp_dir(tmp_dir)
+        self.executor.set_temp_dir(
+            tmp_dir)
 
     def execute(self):
         """Run this workflow"""
+        add_jobmon_file_logger('jobmon', logging.DEBUG,
+                               '{}/jobmon.log'.format(os.getcwd()))
         if not self.is_bound:
             self._bind()
         self._create_workflow_run()
+        self._set_executor_temp_dir()
         dag_status, n_new_done, n_prev_done, n_failed = (
             self.task_dag._execute_interruptible())
 
@@ -360,23 +411,31 @@ class Workflow(object):
             raise RuntimeError("Received unknown response from "
                                "TaskDag._execute()")
 
-        self.report(dag_status, n_new_done, n_prev_done, n_failed)
+        self.report(
+            dag_status, n_new_done, n_prev_done, n_failed)
         return dag_status
 
     def report(self, dag_status, n_new_done, n_prev_done, n_failed):
         """Return the status of this workflow"""
         if dag_status == DagExecutionStatus.SUCCEEDED:
-            logger.info("Workflow finished successfully!")
-            logger.info("# finished jobs: {}".format(n_new_done + n_prev_done))
+            logger.info(
+                "Workflow finished successfully!")
+            logger.info("# finished jobs: {}".format(
+                n_new_done + n_prev_done))
         elif dag_status == DagExecutionStatus.FAILED:
-            logger.info("Workflow FAILED")
-            logger.info("# finished jobs (this run): {}".format(n_new_done))
+            logger.info(
+                "Workflow FAILED")
+            logger.info(
+                "# finished jobs (this run): {}".format(n_new_done))
             logger.info("# finished jobs (previous runs): {}"
                         .format(n_prev_done))
-            logger.info("# failed jobs: {}".format(n_failed))
+            logger.info(
+                "# failed jobs: {}".format(n_failed))
         elif dag_status == DagExecutionStatus.STOPPED_BY_USER:
-            logger.info("Workflow STOPPED_BY_USER")
-            logger.info("# finished jobs: {}", n_new_done)
+            logger.info(
+                "Workflow STOPPED_BY_USER")
+            logger.info(
+                "# finished jobs: {}", n_new_done)
 
     def run(self):
         """Alias for self.execute"""
@@ -411,7 +470,8 @@ class Workflow(object):
 
     def add_workflow_attribute(self, attribute_type, value):
         """Create workflow attribute entry in workflow_attribute table"""
-        self.is_valid_attribute(attribute_type, value)
+        self.is_valid_attribute(
+            attribute_type, value)
         if self.is_bound:
             rc, response = self.jsm_req.send_request(
                 app_route='/workflow_attribute',
@@ -421,4 +481,5 @@ class Workflow(object):
                 request_type='post')
             return response['workflow_attribute_id']
         else:
-            raise AttributeError("Workflow is not yet bound")
+            raise AttributeError(
+                "Workflow is not yet bound")

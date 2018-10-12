@@ -61,6 +61,7 @@ All az commands in the tutorial should run perfectly fine locally in a bash shel
 backed-in.
 
 Now follow the tutorial to create a resource group and an AKS cluster. There are a few issues, so see the gotchas section. Most importantly, however:
+
 **DO NOT use underscores or hyphens in any name, neither for resource group nor cluster.**
 These characters are disallowed in some circumstances, allowed in others. For sanity it is best to be consistent –
 ItsCamelCaseForUsNow.  Names appear to be case insensitive, which you can see by running ``az aks list``.
@@ -268,7 +269,7 @@ Cleaning Up
 Stopping a service
 Find all service names:  ``kubectl get services``
 
-``kubectl stop service azure-vote-front`` and ``kubectl stop service azure-vote-back``
+``kubectl delete service azure-vote-front`` and ``kubectl delete azure-vote-back``
 
 Deleting a cluster:
 ``az aks delete --resource-group myResourceGroup --name myAKSCluster``

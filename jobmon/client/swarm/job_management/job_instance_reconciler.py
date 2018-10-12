@@ -2,14 +2,21 @@ import logging
 import threading
 import _thread
 from time import sleep
-
-from http import HTTPStatus
+import traceback
 
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.client.requester import Requester
+
+try:  # Python 3.5+
+    from http import HTTPStatus as StatusCodes
+except ImportError:
+    try:  # Python 3
+        from http import client as StatusCodes
+    except ImportError:  # Python 2
+        import httplib as StatusCodes
 
 
 logger = logging.getLogger(__name__)
@@ -78,7 +85,12 @@ class JobInstanceReconciler(object):
                 self.terminate_timed_out_jobs()
                 sleep(poll_interval)
             except Exception as e:
-                logger.error(e)
+                msg = "About to raise Keyboard Interrupt signal {}".format(e)
+                logger.error(msg)
+                stack = traceback.format_exc()
+                logger.error(stack)
+                # Also write to stdout because this is a serious problem
+                print(msg)
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
                     self._stop_event.set()
@@ -163,7 +175,7 @@ class JobInstanceReconciler(object):
                          'runtime': 'timed_out'},
                 request_type='get')
             job_instances = response['ji_dcts']
-            if rc != HTTPStatus.OK:
+            if rc != StatusCodes.OK:
                 job_instances = []
         except TypeError:
             job_instances = []

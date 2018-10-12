@@ -5,7 +5,6 @@ import socket
 from datetime import datetime
 import logging
 
-from http import HTTPStatus
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
@@ -13,8 +12,17 @@ from jobmon.client.the_client_config import get_the_client_config
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.requester import Requester
 from jobmon.models.sql_base import Base
+from jobmon.client.swarm.executors.sge_utils import get_project_limits
 from jobmon.client.utils import kill_remote_process
 from jobmon.attributes.constants import workflow_run_attribute
+
+try:  # Python 3.5+
+    from http import HTTPStatus as StatusCodes
+except ImportError:
+    try:  # Python 3
+        from http import client as StatusCodes
+    except ImportError:  # Python 2
+        import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +132,18 @@ class WorkflowRun(object):
                      'working_dir': self.working_dir},
             request_type='post')
         wfr_id = response['workflow_run_id']
-        if rc != HTTPStatus.OK:
+        if rc != StatusCodes.OK:
             raise ValueError("Invalid Reponse to add_workflow_run")
         self.id = wfr_id
+        self.add_project_limit_attribute('start')
+
+    def add_project_limit_attribute(self, timing):
+        if timing == 'start':
+            atype = workflow_run_attribute.SLOT_LIMIT_AT_START
+        else:
+            atype = workflow_run_attribute.SLOT_LIMIT_AT_END
+        limits = get_project_limits(self.project)
+        self.add_workflow_run_attribute(attribute_type=atype, value=limits)
 
     def check_if_workflow_is_running(self):
         """Query the JQS to see if the workflow is currently running"""
@@ -135,7 +152,7 @@ class WorkflowRun(object):
                 app_route='/workflow/{}/workflow_run'.format(self.workflow_id),
                 message={},
                 request_type='get')
-        if rc != HTTPStatus.OK:
+        if rc != StatusCodes.OK:
             raise ValueError("Invalid Response to is_workflow_running")
         return response['is_running'], response['workflow_run_dct']
 
@@ -152,7 +169,7 @@ class WorkflowRun(object):
         status, wf_run = self.check_if_workflow_is_running()
         if not status:
             return
-        if wf_run.user != getpass.getuser():
+        if wf_run['user'] != getpass.getuser():
             msg = ("Workflow_run_id {} for this workflow_id is still in "
                    "running mode by user {}. Please ask this user to kill "
                    "their processes. If they are using the SGE executor, "
@@ -160,7 +177,7 @@ class WorkflowRun(object):
                    "restart this workflow prior to the other user killing "
                    "theirs, this error will not re-raise but you may be "
                    "creating orphaned processes and hard-to-find bugs"
-                   .format(wf_run.id, wf_run.user))
+                   .format(wf_run['id'], wf_run['user']))
             logger.error(msg)
             _, _ = self.jsm_req.send_request(
                 app_route='/workflow_run',
@@ -169,7 +186,8 @@ class WorkflowRun(object):
                 request_type='put')
             raise RuntimeError(msg)
         else:
-            kill_remote_process(wf_run.hostname, wf_run.pid)
+            kill_remote_process(wf_run['hostname'], wf_run['pid'])
+            logger.info("Kill previous workflow runs: {}".format(wf_run['id']))
             if reset_running_jobs:
                 if wf_run.executor_class == "SequentialExecutor":
                     from jobmon.executors.sequential import SequentialExecutor
@@ -201,14 +219,17 @@ class WorkflowRun(object):
 
     def update_done(self):
         """Update the status of the workflow_run as done"""
+        self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.DONE)
 
     def update_error(self):
         """Update the status of the workflow_run as errored"""
+        self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.ERROR)
 
     def update_stopped(self):
         """Update the status of the workflow_run as stopped"""
+        self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
@@ -240,10 +261,9 @@ class WorkflowRun(object):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
                                      type(attribute_type).__name__))
-        elif (not attribute_type == workflow_run_attribute.TAG and
-              not int(value)
-              ) or (attribute_type == workflow_run_attribute.TAG and
-                    not isinstance(value, str)):
+        elif (not attribute_type == workflow_run_attribute.TAG and not
+              int(value)) or (attribute_type == workflow_run_attribute.TAG and
+                              not isinstance(value, str)):
             raise ValueError("Invalid value type: {}, {}"
                              .format(value,
                                      type(value).__name__))

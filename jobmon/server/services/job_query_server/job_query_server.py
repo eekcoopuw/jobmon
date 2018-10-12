@@ -4,7 +4,6 @@ from datetime import datetime
 from sqlalchemy.orm import contains_eager
 
 from flask import jsonify, request, Blueprint
-from http import HTTPStatus
 
 from jobmon.server.database import ScopedSession
 from jobmon.models.job import Job
@@ -13,6 +12,14 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.client.swarm.workflow.workflow import WorkflowDAO
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
     WorkflowRunStatus
+
+try:  # Python 3.5+
+    from http import HTTPStatus as StatusCodes
+except ImportError:
+    try:  # Python 3
+        from http import client as StatusCodes
+    except ImportError:  # Python 2
+        import httplib as StatusCodes
 
 jqs = Blueprint("job_query_server", __name__)
 
@@ -27,7 +34,7 @@ def _is_alive():
     logmsg = "{}: Responder received is_alive?".format(os.getpid())
     logger.debug(logmsg)
     resp = jsonify(msg="Yes, I am alive")
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -38,7 +45,7 @@ def get_utc_now():
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     ScopedSession.commit()
     resp = jsonify(time=time)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -70,7 +77,7 @@ def get_jobs_by_status(dag_id):
     ScopedSession.commit()
     job_dcts = [j.to_wire() for j in jobs]
     resp = jsonify(job_dcts=job_dcts, time=time)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -106,7 +113,7 @@ def get_job_instances_by_filter(dag_id):
         ScopedSession.commit()
         instances = [i.to_wire() for i in instances]
     resp = jsonify(ji_dcts=instances)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -127,7 +134,7 @@ def get_dags_by_inputs():
     ScopedSession.commit()
     dag_ids = [dag.dag_id for dag in dags]
     resp = jsonify(dag_ids=dag_ids)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -147,10 +154,10 @@ def get_workflows_by_inputs(dag_id):
     ScopedSession.commit()
     if workflow:
         resp = jsonify(workflow_dct=workflow.to_wire())
-        resp.status_code = HTTPStatus.OK
+        resp.status_code = StatusCodes.OK
         return resp
     else:
-        return '', HTTPStatus.NO_CONTENT
+        return '', StatusCodes.NO_CONTENT
 
 
 @jqs.route('/workflow/<workflow_id>/workflow_run', methods=['GET'])
@@ -169,7 +176,7 @@ def is_workflow_running(workflow_id):
     if not wf_run:
         return jsonify(is_running=False, workflow_run_dct={})
     resp = jsonify(is_running=True, workflow_run_dct=wf_run.to_wire())
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -185,5 +192,5 @@ def get_job_instances_of_workflow_run(workflow_run_id):
     jis = [ji.to_wire() for ji in jis]
     ScopedSession.commit()
     resp = jsonify(job_instances=jis)
-    resp.status_code = HTTPStatus.OK
+    resp.status_code = StatusCodes.OK
     return resp
