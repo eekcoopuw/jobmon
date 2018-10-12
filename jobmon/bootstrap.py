@@ -19,7 +19,7 @@ def install_rcfile(args, cfg_dct=None):
     with open(rcfile, "w") as jf:
         if not cfg_dct:
             conn_str = ("mysql://docker:docker@"
-                        "jobmon-p01.ihme.washington.edu:3315/docker")
+                        "jobmon-p01.ihme.washington.edu:3316/docker")
             cfg_dct = {
                 "conn_str": conn_str,
                 "host": "jobmon-p01.ihme.washington.edu",
