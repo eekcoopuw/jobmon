@@ -15,7 +15,7 @@ class StataTask(ExecutableTask):
     def __init__(self, path_to_stata_binary=default_stata_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
                  slots=1, mem_free=2, max_attempts=3, max_runtime=None,
-                 tag=None):
+                 tag=None, queue=None):
         """
         This runs a stata file using stata-mp command, using the flags -b
         (batch) and -q (quiet).
@@ -44,13 +44,15 @@ class StataTask(ExecutableTask):
             tag (str): a group identifier. Currently just used for
                 visualization. All tasks with the same tag will be colored the
                 same in a TaskDagViz instance. Default is None.
+            queue (str): queue of cluster nodes to submit this task to. Must be
+                a valid queue, as defined by "qconf -sql"
         """
         self.command = StataTask.make_cmd(path_to_stata_binary, script, args)
         super(StataTask, self).__init__(
             command=self.command, env_variables=env_variables,
             upstream_tasks=upstream_tasks, name=name, slots=slots,
             mem_free=mem_free, max_attempts=max_attempts,
-            max_runtime=max_runtime, tag=tag,)
+            max_runtime=max_runtime, tag=tag, queue=queue)
 
     @staticmethod
     def make_cmd(path_to_stata_binary, script, args):

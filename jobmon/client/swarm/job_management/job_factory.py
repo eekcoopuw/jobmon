@@ -26,7 +26,7 @@ class JobFactory(object):
 
     def create_job(self, command, jobname, job_hash, slots=1,
                    mem_free=2, max_attempts=1, max_runtime=None,
-                   context_args=None, tag=None):
+                   context_args=None, tag=None, queue=None):
         """
         Create a job entry in the database.
 
@@ -43,6 +43,8 @@ class JobFactory(object):
             context_args (dict): Additional arguments to be sent to the command
                 builders
             tag (str, default None): a group identifier
+            queue (str): queue of cluster nodes to submit this task to. Must be
+                a valid queue, as defined by "qconf -sql"
         """
         if not context_args:
             context_args = json.dumps({})
@@ -59,7 +61,9 @@ class JobFactory(object):
                      'mem_free': mem_free,
                      'max_attempts': max_attempts,
                      'max_runtime': max_runtime,
-                     'tag': tag},
+                     'tag': tag,
+                     'queue': queue
+                     },
             request_type='post')
         if rc != StatusCodes.OK:
             raise InvalidResponse(

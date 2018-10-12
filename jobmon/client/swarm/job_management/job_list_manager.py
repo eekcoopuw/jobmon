@@ -88,6 +88,7 @@ class JobListManager(object):
                 max_attempts=task.max_attempts,
                 max_runtime=task.max_runtime,
                 context_args=task.context_args,
+                queue=task.queue
             )
 
         # adding the attributes to the job now that there is a job_id

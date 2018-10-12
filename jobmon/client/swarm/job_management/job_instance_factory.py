@@ -124,7 +124,7 @@ class JobInstanceFactory(object):
         except Exception as e:
             logger.error(e)
         logger.debug("Executing {}".format(job.command))
-        executor_id = self.executor.execute(job_instance)
+        executor_id = self.executor.execute(job_instance=job_instance)
         if executor_id:
             job_instance.assign_executor_id(self.jsm_req, executor_id)
         return job_instance, executor_id
