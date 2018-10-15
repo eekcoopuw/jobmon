@@ -138,6 +138,7 @@ def test_blocking_updates(job_list_manager_d):
                                             name="foobarbaz"))
     job_list_manager_d.queue_job(job)
     done, _ = job_list_manager_d.block_until_any_done_or_error()
+    done = list(done)
     assert len(done) == 1
     assert done[0].job_id == job.job_id
     assert done[0].status == JobStatus.DONE
@@ -167,6 +168,7 @@ def blocking_updates_check(job_list_manager_d, prev_job, job_id1, job_id2,
                            job_id3):
     done, errors = job_list_manager_d.block_until_no_instances(
         raise_on_any_error=False)
+    done = list(done)
     if len(done) == 3:
         assert len(errors) == 1
         assert set([j.job_id for j in done]) == set([prev_job, job_id1,
