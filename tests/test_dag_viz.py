@@ -3,12 +3,13 @@ import subprocess
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon import sge
-from jobmon.workflow.task_dag_viz import TaskDagViz
+from jobmon.client.swarm.executors import sge_utils as sge
+from jobmon.client.swarm.workflow.task_dag_viz import TaskDagViz
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 
 def test_dag_viz(tmp_out_dir, dag):
+
     """
     Create a small fork and join dag with four phases:
      a->b[0..2]->c[0..2]->d

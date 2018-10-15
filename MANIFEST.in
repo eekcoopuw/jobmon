@@ -4,5 +4,5 @@ include build/*.ado
 include versioneer.py
 include autowrap.cfg
 include jobmon/_version.py
-include jobmon/executors/*.sh
+include jobmon/client/swarm/executors/*.sh
 include client_logging.yaml

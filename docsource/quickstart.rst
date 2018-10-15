@@ -8,10 +8,6 @@ To get started::
 
     pip install jobmon
 
-.. todo for the jobmon developers::
-    Add a 'test' subcommand to jobmon cli to ensure initial setup was run
-    properly
-
 .. note::
     If you get **Could not find a version that satisfies the requirement jobmon (from version: )** then create (or append) the following to ``~/.pip/pip.conf``::
 
@@ -169,7 +165,7 @@ By default, your Workflow talks to our centrally-hosted jobmon server
 favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3314
+    port: 3315
     user: docker
     pass: docker
     database: docker

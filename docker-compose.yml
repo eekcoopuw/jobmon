@@ -4,10 +4,10 @@ services:
   jsm:
     build: .
     image: jobmon
+    volumes:
+        - ./jsm_uwsgi.ini:/app/uwsgi.ini
     ports:
-        - "5256:3456"
-        - "5257:3457"
-
+        - "6256:80"
     entrypoint:
         - ./wait-for-tables.sh
         - db
@@ -25,10 +25,10 @@ services:
             max-file: "10"
   jqs:
     image: jobmon
-    depends_on:
-        - jsm
+    volumes:
+        - ./jqs_uwsgi.ini:/app/uwsgi.ini
     ports:
-        - "5258:3458"
+        - "6258:80"
     entrypoint:
         - ./wait-for-tables.sh
         - db
@@ -81,7 +81,7 @@ services:
   db:
     image: mysql:5.7
     ports:
-        - "3314:3306"
+        - "3315:3306"
     environment:
         - MYSQL_ROOT_PASSWORD=${JOBMON_PASS_ROOT}
         - MYSQL_DATABASE=docker

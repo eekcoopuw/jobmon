@@ -56,25 +56,3 @@ class NoDatabase(Exception):
 
 class SGENotAvailable(Exception):
     pass
-
-
-def log_exceptions(job):
-    def wrapper(func):
-        def catch_and_send(*args, **kwargs):
-            try:
-                func(*args, **kwargs)
-            except Exception as e:
-                job.log_error(str(e))
-                raise
-        return catch_and_send
-    return wrapper
-
-
-class ZmqHandler(Handler):
-
-    def __init__(self, job):
-        super().__init__()
-        self.job = job
-
-    def emit(self, record):
-        self.job.log_error(record.message)

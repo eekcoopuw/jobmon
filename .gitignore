@@ -32,3 +32,6 @@ htmlcov
 
 # Ignore secrets file
 jobmonrc-docker-wsecrets
+
+# Ignore pytest cache files
+.pytest_*

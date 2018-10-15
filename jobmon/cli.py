@@ -1,19 +1,22 @@
 import argparse
 import logging
 import shlex
+import os
 
 from sqlalchemy.exc import IntegrityError
+import subprocess
 
-from jobmon import database
-from jobmon import database_loaders
-from jobmon import config
+from jobmon.server import database
+from jobmon.server import database_loaders
 from jobmon.bootstrap import install_rcfile
-from jobmon.database import session_scope
-from jobmon.requester import Requester
-from jobmon.notifiers import SlackNotifier
-from jobmon.services.health_monitor import HealthMonitor
-from jobmon.services.job_query_server import JobQueryServer
-from jobmon.services.job_state_manager import JobStateManager
+from jobmon.server.database import session_scope
+from jobmon.client.requester import Requester
+from jobmon.client.the_client_config import get_the_client_config
+from jobmon.server.the_server_config import get_the_server_config
+from jobmon.server.services.health_monitor.notifiers import SlackNotifier
+from jobmon.server.services.health_monitor.health_monitor import HealthMonitor
+from jobmon.server.services.job_state_manager import app as jsm_app
+from jobmon.server.services.job_query_server import app as jqs_app
 from jobmon.attributes import attribute_database_loaders
 
 try:
@@ -31,9 +34,10 @@ def main():
 
 def add_config_opts(parser):
     """Add the GlobalConfig options to the parser so they can
-    override the .jobmonrc and default settings"""
+    override the .jobmonrc and default settings
+    """
     parser.add_argument("--config_file", type=str, default="~/.jobmonrc")
-    for opt, default in config.GlobalConfig.default_opts.items():
+    for opt, default in get_the_server_config().default_opts.items():
         if isinstance(default, bool):
             parser.add_argument("--{}".format(opt), action='store_true')
         else:
@@ -44,20 +48,26 @@ def add_config_opts(parser):
 
 def apply_args_to_config(args):
     """Override .jobmonrc and default settings with those passed
-    via the command line"""
+    via the command line
+    """
     cli_opts = vars(args)
     cli_opts = {k: v for k, v in cli_opts.items() if v is not None}
-    config.config.apply_opts_dct(cli_opts)
+    if 'hostname' in cli_opts:
+        os.environ['RUN_HOST'] = cli_opts['hostname']
+    if 'conn_str' in cli_opts:
+        os.environ['CONN_STR'] = cli_opts['conn_str']
+    get_the_server_config().apply_opts_dct(cli_opts)
 
     # Don't forget to recreate the engine... in case the conn_str in the
     # config has changed
     database.recreate_engine()
-    return config.config
+    return get_the_server_config()
 
 
 def initdb(args):
     """Create the database tables and load them with the requisite
-    Job and JobInstance statuses"""
+    Job and JobInstance statuses
+    """
     database_loaders.create_job_db()
     try:
         with session_scope() as session:
@@ -65,14 +75,20 @@ def initdb(args):
             attribute_database_loaders.load_attribute_types(session)
     except IntegrityError as e:
         raise Exception("Database is not empty, "
-                        "could not create tables {}").format(str(e))
+                        "could not create tables {}".format(str(e)))
+
+
+def start_nginx():
+    subprocess.run("/entrypoint.sh")
+    subprocess.run("/start.sh")
 
 
 def parse_args(argstr=None):
-    """Constructs a parser, parses either sys.argv (default) or the provided
+    """Construct a parser, parse either sys.argv (default) or the provided
     argstr, returns a Namespace. The Namespace should have a 'func'
     attribute which can be used to dispatch to the appropriate downstream
-    function"""
+    function
+    """
     parser = argparse.ArgumentParser(description="Jobmon")
     parser = add_config_opts(parser)
 
@@ -90,9 +106,9 @@ def parse_args(argstr=None):
 
     start_parser = subparsers.add_parser("start")
     start_parser.set_defaults(func=start)
-    start_parser.add_argument("service", choices=['job_state_manager',
-                                                  'job_query_server',
-                                                  'health_monitor'])
+    start_parser.add_argument("service", choices=['health_monitor',
+                                                  'job_state_manager',
+                                                  'job_query_server'])
 
     test_parser = subparsers.add_parser("test")
     test_parser.set_defaults(func=test_connection)
@@ -109,8 +125,8 @@ def parse_args(argstr=None):
 
 
 def start(args):
-    """Start the JobStateManager or JobQueryServer process listening"""
-    if config.config.verbose:
+    """Start the services"""
+    if get_the_server_config().verbose:
         logging.basicConfig(level=logging.DEBUG)
     if args.service == "job_state_manager":
         start_job_state_manager()
@@ -118,19 +134,34 @@ def start(args):
         start_job_query_server()
     elif args.service == "health_monitor":
         start_health_monitor()
+    else:
+        raise ValueError("Only health_monitor, job_query_server, and "
+                         "job_state_manager server can be 'started'. Got {}"
+                         .format(args.service))
+
+
+def start_job_state_manager():
+    """Start the JobStateManager process"""
+    start_nginx()
+    jsm_app.start()
+
+
+def start_job_query_server():
+    """Start the JobQueryServer process"""
+    start_nginx()
+    jqs_app.start()
 
 
 def start_health_monitor():
     """Start monitoring for lost workflow runs"""
-
-    if config.config.slack_token:
+    if get_the_server_config().slack_token:
         wf_notifier = SlackNotifier(
-            config.config.slack_token,
-            config.config.default_wf_slack_channel)
+            get_the_server_config().slack_token,
+            get_the_server_config().default_wf_slack_channel)
         wf_sink = wf_notifier.send
         node_notifier = SlackNotifier(
-            config.config.slack_token,
-            config.config.default_node_slack_channel)
+            get_the_server_config().slack_token,
+            get_the_server_config().default_node_slack_channel)
         node_sink = node_notifier.send
     else:
         wf_sink = None
@@ -140,26 +171,11 @@ def start_health_monitor():
     hm.monitor_forever()
 
 
-def start_job_state_manager():
-    """Start the JobStateManager process listening"""
-    jsm = JobStateManager(config.config.jm_rep_conn.port,
-                          config.config.jm_pub_conn.port)
-    jsm.open_socket()
-    jsm.listen()
-
-
-def start_job_query_server():
-    """Start the JobQueryServer process listening"""
-    jqs = JobQueryServer(config.config.jqs_rep_conn.port)
-    jqs.open_socket()
-    jqs.listen()
-
-
 def test_connection(args):
-    jsm_req = Requester(config.jm_rep_conn)
-    jsm_req.send_request({'action': 'alive'})
-    jqs_req = Requester(config.jqs_rep_conn)
-    jqs_req.send_request({'action': 'alive'})
+    jsm_req = Requester(get_the_client_config(), 'jsm')
+    jsm_req.send_request(app_route='/', request_type='get')  # is alive?
+    jqs_req = Requester(get_the_client_config(), 'jqs')
+    jqs_req.send_request(app_route='/', request_type='get')  # is alive?
 
 
 if __name__ == "__main__":

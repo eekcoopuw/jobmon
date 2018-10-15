@@ -1,14 +1,13 @@
 import pytest
 import sys
 
-from jobmon import sge
-from jobmon.workflow.executable_task import ExecutableTask
-from jobmon.workflow.bash_task import BashTask
-from jobmon.workflow.python_task import PythonTask
-from jobmon.workflow.r_task import RTask
-from jobmon.workflow.stata_task import StataTask
-from jobmon.database import session_scope
-from jobmon.models import Job
+from jobmon.client.swarm.executors import sge_utils as sge
+from jobmon.client.swarm.workflow.executable_task import ExecutableTask
+from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.client.swarm.workflow.python_task import PythonTask
+from jobmon.client.swarm.workflow.r_task import RTask
+from jobmon.client.swarm.workflow.stata_task import StataTask
+from jobmon.models.job import Job
 
 
 def test_good_names():
@@ -32,6 +31,8 @@ def test_bad_names():
 
 
 class TheTestTask(ExecutableTask):
+    """Test version of a Task for use in this module"""
+
     def __init__(self, command, upstream_tasks=[]):
         ExecutableTask.__init__(self, command, upstream_tasks)
 
@@ -67,16 +68,17 @@ def test_hashing_bash_characters():
 
 
 def test_bash_task_args(job_list_manager_sge):
+    from jobmon.server.database import ScopedSession
     a = BashTask(command="echo 'Hello Jobmon'", slots=1, mem_free=2,
                  max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
-    with session_scope() as session:
-        job = session.query(Job).filter_by(job_id=job_id).all()
-        slots = job[0].slots
-        mem_free = job[0].mem_free
-        max_attempts = job[0].max_attempts
-        max_runtime = job[0].max_runtime
+    job = ScopedSession.query(Job).filter_by(job_id=job_id).all()
+    slots = job[0].slots
+    mem_free = job[0].mem_free
+    max_attempts = job[0].max_attempts
+    max_runtime = job[0].max_runtime
+    ScopedSession.commit()
     # check all job args
     assert slots == 1
     assert mem_free == 2
@@ -95,17 +97,18 @@ def test_python_task_equality():
 
 
 def test_python_task_args(job_list_manager_sge):
+    from jobmon.server.database import ScopedSession
     a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
                    slots=1, mem_free=2, max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
-    with session_scope() as session:
-        job = session.query(Job).filter_by(job_id=job_id).all()
-        command = job[0].command
-        slots = job[0].slots
-        mem_free = job[0].mem_free
-        max_attempts = job[0].max_attempts
-        max_runtime = job[0].max_runtime
+    job = ScopedSession.query(Job).filter_by(job_id=job_id).all()
+    command = job[0].command
+    slots = job[0].slots
+    mem_free = job[0].mem_free
+    max_attempts = job[0].max_attempts
+    max_runtime = job[0].max_runtime
+    ScopedSession.commit()
     # check all job args
     assert command == 'OP_NUM_THREADS=1 {} ~/runme.py'.format(sys.executable)
     assert slots == 1
@@ -115,18 +118,19 @@ def test_python_task_args(job_list_manager_sge):
 
 
 def test_r_task_args(job_list_manager_sge):
+    from jobmon.server.database import ScopedSession
     a = RTask(script=sge.true_path("tests/simple_R_script.r"),
               env_variables={'OP_NUM_THREADS': 1},
               slots=1, mem_free=2, max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
-    with session_scope() as session:
-        job = session.query(Job).filter_by(job_id=job_id).all()
-        command = job[0].command
-        slots = job[0].slots
-        mem_free = job[0].mem_free
-        max_attempts = job[0].max_attempts
-        max_runtime = job[0].max_runtime
+    job = ScopedSession.query(Job).filter_by(job_id=job_id).all()
+    command = job[0].command
+    slots = job[0].slots
+    mem_free = job[0].mem_free
+    max_attempts = job[0].max_attempts
+    max_runtime = job[0].max_runtime
+    ScopedSession.commit()
     # check all job args
     assert command == ('OP_NUM_THREADS=1 Rscript {}'
                        .format(sge.true_path("tests/simple_R_script.r")))
@@ -137,18 +141,19 @@ def test_r_task_args(job_list_manager_sge):
 
 
 def test_stata_task_args(job_list_manager_sge):
+    from jobmon.server.database import ScopedSession
     a = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
                   env_variables={'OP_NUM_THREADS': 1},
                   slots=1, mem_free=2, max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
-    with session_scope() as session:
-        job = session.query(Job).filter_by(job_id=job_id).all()
-        command = job[0].command
-        slots = job[0].slots
-        mem_free = job[0].mem_free
-        max_attempts = job[0].max_attempts
-        max_runtime = job[0].max_runtime
+    job = ScopedSession.query(Job).filter_by(job_id=job_id).all()
+    command = job[0].command
+    slots = job[0].slots
+    mem_free = job[0].mem_free
+    max_attempts = job[0].max_attempts
+    max_runtime = job[0].max_runtime
+    ScopedSession.commit()
     # check all job args
     assert command.startswith('OP_NUM_THREADS=1 ')
     assert slots == 1

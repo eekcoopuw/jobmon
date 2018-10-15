@@ -52,6 +52,8 @@ install_requires = [
 if sys.version_info < (3, 0):
     install_requires.append('subprocess32')
     install_requires.append('future')  # adds a queue module to python2
+    install_requires.append('httplib')
+
 
 setup(
     version=versioneer.get_version(),
@@ -61,11 +63,20 @@ setup(
                  'SGE jobs'),
     url='https://stash.ihme.washington.edu/projects/CC/repos/jobmon',
     author='CentralComp',
-    author_email='tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu',
+    author_email=('tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu, '
+                  'cpinho@uw.edu'),
     include_package_data=True,
     install_requires=install_requires,
-    packages=['jobmon', 'jobmon.executors', 'jobmon.services',
-              'jobmon.workflow', 'jobmon.meta_models', 'jobmon.attributes'],
+    packages=['jobmon', 'jobmon.client', 'jobmon.client.swarm',
+              'jobmon.client.swarm.executors', 'jobmon.client.swarm.workflow',
+              'jobmon.client.swarm.job_management',
+              'jobmon.client.worker_node', 'jobmon.server',
+              'jobmon.server.services',
+              'jobmon.server.services.health_monitor',
+              'jobmon.server.services.job_state_manager',
+              'jobmon.server.services.job_query_server',
+              'jobmon.models', 'jobmon.attributes'],
     entry_points={
-        'console_scripts': ["jobmon=jobmon.cli:main",
-                            "jobmon_command=jobmon.executors.cli:unwrap"]})
+        'console_scripts': [
+             "jobmon=jobmon.cli:main",
+             "jobmon_command=jobmon.client.worker_node.cli:unwrap"]})

@@ -4,9 +4,9 @@ import pytest
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon import sge
-from jobmon.models import JobStatus
-from jobmon.workflow.task_dag import DagExecutionStatus
+from jobmon.client.swarm.executors import sge_utils
+from jobmon.models.job_status import JobStatus
+from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -15,10 +15,10 @@ handler.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 
-def test_resume_dag(dag, tmp_out_dir):
-    root_out_dir = "{}/mocks/test_resume_dag".format(tmp_out_dir)
+def test_resume_real_dag(real_dag, tmp_out_dir):
+    root_out_dir = "{}/mocks/test_resume_real_dag".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge_utils.true_path("tests/remote_sleep_and_write.py")
 
     a_output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
@@ -27,7 +27,7 @@ def test_resume_dag(dag, tmp_out_dir):
                                      n=a_output_file_name)),
         upstream_tasks=[]  # To be clear
     )
-    dag.add_task(task_a)
+    real_dag.add_task(task_a)
 
     b_output_file_name = "{}/b.out".format(root_out_dir)
     task_b = SleepAndWriteFileMockTask(
@@ -36,7 +36,7 @@ def test_resume_dag(dag, tmp_out_dir):
                                      n=b_output_file_name)),
         upstream_tasks=[task_a]
     )
-    dag.add_task(task_b)
+    real_dag.add_task(task_b)
 
     c_output_file_name = "{}/c.out".format(root_out_dir)
     task_c = SleepAndWriteFileMockTask(
@@ -45,7 +45,7 @@ def test_resume_dag(dag, tmp_out_dir):
                                      n=c_output_file_name)),
         upstream_tasks=[task_b]
     )
-    dag.add_task(task_c)
+    real_dag.add_task(task_c)
 
     d_output_file_name = "{}/d.out".format(root_out_dir)
     task_d = SleepAndWriteFileMockTask(
@@ -54,7 +54,7 @@ def test_resume_dag(dag, tmp_out_dir):
                                      n=d_output_file_name)),
         upstream_tasks=[task_c]
     )
-    dag.add_task(task_d)
+    real_dag.add_task(task_d)
 
     e_output_file_name = "{}/e.out".format(root_out_dir)
     task_e = SleepAndWriteFileMockTask(
@@ -63,31 +63,34 @@ def test_resume_dag(dag, tmp_out_dir):
                                      n=e_output_file_name)),
         upstream_tasks=[task_d]
     )
-    dag.add_task(task_e)
+    real_dag.add_task(task_e)
 
-    logger.debug("DAG: {}".format(dag))
-    dag._set_fail_after_n_executions(2)  # set the dag to fail after 2 tasks
+    logger.debug("real_dag: {}".format(real_dag))
+    # set the real_dag to fail after 2 tasks
+    real_dag._set_fail_after_n_executions(2)
     logger.debug("in launcher, self.fail_after_n_executions is {}"
-                 .format(dag.fail_after_n_executions))
+                 .format(real_dag.fail_after_n_executions))
 
-    # ensure dag officially "fell over"
+    # ensure real_dag officially "fell over"
     with pytest.raises(ValueError):
-        dag._execute()
+        real_dag._execute()
 
-    # ensure the dag that "fell over" has 2 out of the 5 jobs complete
-    bound_tasks = list(dag.job_list_manager.bound_tasks.values())
+    # ensure the real_dag that "fell over" has 2 out of the 5 jobs complete
+    logger.debug("All completed are {}".format(real_dag.job_list_manager.all_done))
+    bound_tasks = list(real_dag.job_list_manager.bound_tasks.values())
     assert bound_tasks[0].status == JobStatus.DONE
     assert bound_tasks[1].status == JobStatus.DONE
     assert bound_tasks[2].status != JobStatus.DONE
     assert bound_tasks[3].status != JobStatus.DONE
     assert bound_tasks[4].status != JobStatus.DONE
 
-    # relaunch dag, and ensure all tasks are marked complete now. the dag will
-    # keep track of all completed tasks from last run of the dag, and so the
-    # number of all_completed will be all 5
-    dag._set_fail_after_n_executions(None)
-    status, all_completed, all_previously_complete, all_failed = dag._execute()
-    assert status  == DagExecutionStatus.SUCCEEDED
+    # relaunch real_dag, and ensure all tasks are marked complete now.
+    # the real_dag will keep track of all completed tasks from last run of
+    # the real_dag, and so the number of all_completed will be all 5
+    real_dag._set_fail_after_n_executions(None)
+    status, all_completed, all_previously_complete, \
+        all_failed = real_dag._execute()
+    assert status == DagExecutionStatus.SUCCEEDED
     assert all_previously_complete == 2
     assert all_completed == 3
     assert all_failed == 0

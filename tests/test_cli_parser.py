@@ -1,8 +1,7 @@
 import pytest
 import sys
+import os
 from sqlalchemy.exc import OperationalError
-
-from jobmon.cli import apply_args_to_config, parse_args
 
 
 if sys.version_info < (3, 0):
@@ -12,6 +11,7 @@ else:
 
 
 def test_invalid_sub_command():
+    from jobmon.cli import parse_args
     with pytest.raises(Py2Py3Exit):
         # Should complain that jobmon requires a sub-command
         parse_args("--conn_str mysql://user:pass@host")
@@ -28,16 +28,17 @@ def test_invalid_sub_command():
 
 def test_start_subcommand():
     # A service name should be required...
+    from jobmon.cli import parse_args
     with pytest.raises(SystemExit):
         parse_args("start")
 
-    # Either job_query_server or job_state_manager
-    parse_args("start job_query_server")
+    # Must be health_monitor
+    parse_args("start health_monitor")
 
     # ... and the start function and service name should be attached
-    args = parse_args("start job_state_manager")
+    args = parse_args("start health_monitor")
     assert args.func.__name__ == "start"
-    assert args.service == "job_state_manager"
+    assert args.service == "health_monitor"
 
     # Not something else...
     with pytest.raises(SystemExit):
@@ -45,11 +46,21 @@ def test_start_subcommand():
 
 
 def test_initdb_subcommand():
+    from jobmon.cli import apply_args_to_config, parse_args
+    from jobmon.server.the_server_config import get_the_server_config
+
+    conn_str = get_the_server_config().conn_str
+
     args = parse_args("--conn_str mysql://not:a@real/database initdb")
     apply_args_to_config(args)
 
     # Since that conn_str should point to a certainly non-existent
     # database, the attempt to initialize a database there
-    # should raise and operational error
+    # should raise an operational error
     with pytest.raises(OperationalError):
         args.func(args)
+
+    os.environ['conn_str'] = conn_str
+    get_the_server_config().apply_opts_dct({'conn_str': conn_str})
+    from jobmon.server import database
+    database.recreate_engine()

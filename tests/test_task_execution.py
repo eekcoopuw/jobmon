@@ -5,16 +5,15 @@ from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon import sge
-from jobmon.job_list_manager import JobListManager
-from jobmon.database import session_scope
-from jobmon.executors.sge import SGEExecutor
-from jobmon.models import Job, JobStatus
-from jobmon.workflow.bash_task import BashTask
-from jobmon.workflow.python_task import PythonTask
-from jobmon.workflow.r_task import RTask
-from jobmon.workflow.stata_task import StataTask
-from jobmon.workflow.task_dag import DagExecutionStatus
+from jobmon.client.swarm.executors import sge_utils as sge
+from jobmon.client.swarm.executors.sge import SGEExecutor
+from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
+from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.client.swarm.workflow.python_task import PythonTask
+from jobmon.client.swarm.workflow.r_task import RTask
+from jobmon.client.swarm.workflow.stata_task import StataTask
+from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 
 
 def match_name_to_sge_name(jid):
@@ -43,8 +42,8 @@ def match_name_to_sge_name(jid):
     return sge_jobname
 
 
-def get_task_status(dag, task):
-    job_list_manager = dag.job_list_manager
+def get_task_status(real_dag, task):
+    job_list_manager = real_dag.job_list_manager
     return job_list_manager.status_from_task(task)
 
 
@@ -54,14 +53,16 @@ def test_bash_task(dag_factory):
     task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
                     max_runtime=60)
     executor = SGEExecutor(project='proj_jenkins')
-    dag = dag_factory(executor)
-    dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
-    assert get_task_status(dag, task) == JobStatus.DONE
+    assert get_task_status(real_dag, task) == JobStatus.DONE
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
@@ -74,9 +75,7 @@ def test_bash_task(dag_factory):
 
 
 def test_python_task(dag_factory, tmp_out_dir):
-    """
-    Execute a PythonTask
-    """
+    """Execute a PythonTask"""
     name = 'python_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
@@ -88,15 +87,18 @@ def test_python_task(dag_factory, tmp_out_dir):
                             "--output_file_path", output_file_name,
                             "--name", name],
                       name=name, mem_free=1, max_attempts=2, max_runtime=60)
+
     executor = SGEExecutor(project='proj_jenkins')
-    dag = dag_factory(executor)
-    dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
-    assert get_task_status(dag, task) == JobStatus.DONE
+    assert get_task_status(real_dag, task) == JobStatus.DONE
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
@@ -109,9 +111,7 @@ def test_python_task(dag_factory, tmp_out_dir):
 
 
 def test_R_task(dag_factory, tmp_out_dir):
-    """
-    Execute an RTask
-    """
+    """Execute an RTask"""
     name = 'r_task'
 
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
@@ -120,14 +120,16 @@ def test_R_task(dag_factory, tmp_out_dir):
     task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name,
                  mem_free=1, max_attempts=2, max_runtime=60)
     executor = SGEExecutor(project='proj_jenkins')
-    dag = dag_factory(executor)
-    dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
-    assert get_task_status(dag, task) == JobStatus.DONE
+    assert get_task_status(real_dag, task) == JobStatus.DONE
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
@@ -140,9 +142,7 @@ def test_R_task(dag_factory, tmp_out_dir):
 
 
 def test_stata_task(dag_factory, tmp_out_dir):
-    """
-    Execute a simple stata Task
-    """
+    """Execute a simple stata Task"""
     name = 'stata_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
@@ -153,12 +153,13 @@ def test_stata_task(dag_factory, tmp_out_dir):
     executor.set_temp_dir(root_out_dir)
     dag = dag_factory(executor)
     dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())
+    rc, num_completed, num_previously_complete, num_failed = dag._execute()
 
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
     assert get_task_status(dag, task) == JobStatus.DONE
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         sge_id = [ji for ji in job.job_instances][0].executor_id
@@ -201,6 +202,7 @@ def test_specific_queue(dag_factory, tmp_out_dir):
     assert num_completed == 1
     assert get_task_status(dag, task) == JobStatus.DONE
 
+    from jobmon.server.database import session_scope
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         assert job.queue == 'all.q@@c2-nodes'

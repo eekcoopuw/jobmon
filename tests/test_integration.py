@@ -1,15 +1,11 @@
-from builtins import str
 import pytest
 import sys
-import zmq
-from queue import Empty
+from time import sleep
 
-from jobmon import models
-from jobmon.database import session_scope
-from jobmon.executors.sge import SGEExecutor
-from jobmon.config import config
-from jobmon.job_list_manager import JobListManager
-from jobmon.workflow.executable_task import ExecutableTask
+from jobmon.models.job_status import JobStatus
+from jobmon.client.swarm.executors.sge import SGEExecutor
+from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -20,6 +16,7 @@ else:
 
 
 class Task(ExecutableTask):
+    """Test version of the Task class for use in this module"""
 
     def __init__(self, command, name, *args, **kwargs):
         super(Task, self).__init__(command=command, name=name, max_attempts=1,
@@ -27,77 +24,85 @@ class Task(ExecutableTask):
 
 
 @pytest.fixture(scope='function')
-def subscriber(dag_id):
-    ctx = zmq.Context.instance()
-    sub = ctx.socket(zmq.SUB)
-    sub.setsockopt_string(zmq.SUBSCRIBE, str(dag_id))
-    sub.connect("tcp://localhost:{}".format(config.jm_pub_conn.port))
-    return sub
-    sub.close()
-
-
-@pytest.fixture(scope='function')
-def job_list_manager(dag_id):
-    jlm = JobListManager(dag_id, interrupt_on_error=False)
+def job_list_manager(real_dag_id):
+    jlm = JobListManager(real_dag_id, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_d(dag_id):
-    jlm = JobListManager(dag_id, start_daemons=True, interrupt_on_error=False)
-    yield jlm
-    jlm.disconnect()
-
-
-@pytest.fixture(scope='function')
-def job_list_manager_sge(dag_id):
-    executor = SGEExecutor()
-    jlm = JobListManager(dag_id, executor=executor,
+def job_list_manager_d(real_dag_id):
+    jlm = JobListManager(real_dag_id, start_daemons=True,
                          interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
 
 
-def test_invalid_command(subscriber, job_list_manager):
+@pytest.fixture(scope='function')
+def job_list_manager_sge_no_daemons(real_dag_id):
+    """This fixture starts a JobListManager using the SGEExecutor, but without
+    running JobInstanceFactory or JobReconciler in daemonized threads
+    """
+    executor = SGEExecutor()
+    jlm = JobListManager(real_dag_id, executor=executor,
+                         interrupt_on_error=False)
+    yield jlm
+    jlm.disconnect()
+
+
+def test_sync(job_list_manager_sge_no_daemons):
+    job_list_manager_sge = job_list_manager_sge_no_daemons
+    now = job_list_manager_sge.last_sync
+    assert now is not None
+
+    job = job_list_manager_sge.bind_task(Task(command='fizzbuzz',  name='bar'))
+    job_list_manager_sge.queue_job(job)
+    job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
+    sleep(35)
+
+    # with a new job failed, make sure that the sync has been updated and the
+    # call with the sync filter actually returns jobs
+    job_list_manager_sge._sync()
+    new_now = job_list_manager_sge.last_sync
+    assert new_now > now
+    assert len(job_list_manager_sge.all_error) > 0
+
+
+def test_invalid_command(job_list_manager):
     job = job_list_manager.bind_task(Task(command='foo', name='bar'))
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
 
     job_list_manager.queue_job(job)
-    with session_scope() as session:
-        job_list_manager._sync(session)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
     assert len(job_list_manager.all_error) == 0
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    with session_scope() as session:
-        job_list_manager._sync(session)
+    sleep(35)
+    job_list_manager._sync()
     assert len(job_list_manager.all_error) > 0
 
 
-def test_valid_command(subscriber, job_list_manager):
+def test_valid_command(job_list_manager):
     job = job_list_manager.bind_task(Task(command='ls', name='baz'))
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
     assert len(job_list_manager.all_done) == 0
 
     job_list_manager.queue_job(job)
-    with session_scope() as session:
-        job_list_manager._sync(session)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
 
     job_list_manager.job_inst_factory.instantiate_queued_jobs()
-    with session_scope() as session:
-        job_list_manager._sync(session)
+    sleep(35)
+    job_list_manager._sync()
     assert len(job_list_manager.all_done) > 0
 
 
 def test_daemon_invalid_command(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="some new job",
-                                               name="foobar"))
+                                            name="foobar"))
     job_list_manager_d.queue_job(job)
 
     # Give some time for the job to get to the executor
@@ -107,13 +112,12 @@ def test_daemon_invalid_command(job_list_manager_d):
 
 
 def daemon_invalid_command_check(job_list_manager_d):
-    errors = job_list_manager_d.get_new_errors()
-    return len(errors) == 1
+    job_list_manager_d._sync()
+    return len(job_list_manager_d.all_error) == 1
 
 
 def test_daemon_valid_command(job_list_manager_d):
-    job = job_list_manager_d.bind_task(Task(command="ls",
-                                               name="foobarbaz"))
+    job = job_list_manager_d.bind_task(Task(command="ls", name="foobarbaz"))
     job_list_manager_d.queue_job(job)
 
     # Give some time for the job to get to the executor
@@ -123,31 +127,29 @@ def test_daemon_valid_command(job_list_manager_d):
 
 
 def daemon_valid_command_check(job_list_manager_d):
-    done = job_list_manager_d.get_new_done()
-    return len(done) == 1
+    job_list_manager_d._sync()
+    return len(job_list_manager_d.all_done) == 1
 
 
 def test_blocking_updates(job_list_manager_d):
 
     # Test 1 job
     job = job_list_manager_d.bind_task(Task(command="sleep 1",
-                                               name="foobarbaz"))
+                                            name="foobarbaz"))
     job_list_manager_d.queue_job(job)
     done, _ = job_list_manager_d.block_until_any_done_or_error()
+    done = list(done)
     assert len(done) == 1
     assert done[0].job_id == job.job_id
-    assert done[0].status == models.JobStatus.DONE
+    assert done[0].status == JobStatus.DONE
 
     # Test multiple jobs
-
-    job_list_manager_d.get_new_done()  # clear the done queue for this test
-    job_list_manager_d.get_new_errors()  # clear the error queue too
     job1 = job_list_manager_d.bind_task(Task(command="sleep 2",
-                                                name="foobarbaz1"))
+                                             name="foobarbaz1"))
     job2 = job_list_manager_d.bind_task(Task(command="sleep 3",
-                                                name="foobarbaz2"))
+                                             name="foobarbaz2"))
     job3 = job_list_manager_d.bind_task(Task(command="not a command",
-                                                name="foobarbaz2"))
+                                             name="foobarbaz2"))
     job_list_manager_d.queue_job(job1)
     job_list_manager_d.queue_job(job2)
     job_list_manager_d.queue_job(job3)
@@ -155,19 +157,23 @@ def test_blocking_updates(job_list_manager_d):
     timeout_and_skip(3, 30, 1, partial(
         blocking_updates_check,
         job_list_manager_d=job_list_manager_d,
+        prev_job=job.job_id,
         job_id1=job1.job_id,
         job_id2=job2.job_id,
         job_id3=job3.job_id)
     )
 
 
-def blocking_updates_check(job_list_manager_d, job_id1, job_id2, job_id3):
+def blocking_updates_check(job_list_manager_d, prev_job, job_id1, job_id2,
+                           job_id3):
     done, errors = job_list_manager_d.block_until_no_instances(
         raise_on_any_error=False)
-    if len(done) == 2:
+    done = list(done)
+    if len(done) == 3:
         assert len(errors) == 1
-        assert set(done) == set([job_id1, job_id2])
-        assert set(errors) == set([job_id3])
+        assert set([j.job_id for j in done]) == set([prev_job, job_id1,
+                                                    job_id2])
+        assert errors[0].job_id == job_id3
         return True
     else:
         return False
@@ -175,20 +181,20 @@ def blocking_updates_check(job_list_manager_d, job_id1, job_id2, job_id3):
 
 def test_blocking_update_timeout(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="sleep 3",
-                                               name="foobarbaz"))
+                                            name="foobarbaz"))
     job_list_manager_d.queue_job(job)
-    with pytest.raises(Empty):
-        job_list_manager_d.block_until_any_done_or_error(timeout=2)
+    assert job_list_manager_d.block_until_any_done_or_error(timeout=2) is None
 
 
-def test_sge_valid_command(job_list_manager_sge):
+def test_sge_valid_command(job_list_manager_sge_no_daemons):
+    job_list_manager_sge = job_list_manager_sge_no_daemons
     job = job_list_manager_sge.bind_task(Task(command="ls",
-                                                  name="sgefbb",
-                                                  slots=3,
-                                                  mem_free=6))
+                                              name="sgefbb",
+                                              slots=3,
+                                              mem_free=6))
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
-    with session_scope() as session:
-        job_list_manager_sge._sync(session)
+    job_list_manager_sge._sync()
     assert (job_list_manager_sge.bound_tasks[job.job_id].status ==
-            models.JobStatus.INSTANTIATED)
+            JobStatus.INSTANTIATED)
+    print("finishing test_sge_valid_command")
