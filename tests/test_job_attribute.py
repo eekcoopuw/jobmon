@@ -28,6 +28,7 @@ def test_job_attribute(job_list_manager_sge):
                             ON job_attribute.job_id=job.job_id
                             WHERE job_attribute.job_id={id}
                             """.format(id=job.job_id))
+    ScopedSession.commit()
     attribute_entry = job_attribute_query.fetchone()
     attribute_entry_type = attribute_entry.attribute_type
     attribute_entry_value = attribute_entry.value
@@ -67,6 +68,7 @@ def test_job_attributes(job_list_manager_sge):
                             ON job_attribute.job_id=job.job_id
                             WHERE job_attribute.job_id={id}
                             """.format(id=job.job_id))
+    ScopedSession.commit()
 
     attribute_entries = job_attribute_query.fetchall()
     for entry in attribute_entries:
