@@ -9,7 +9,6 @@ host="$1"
 shift
 cmd="$@"
 
-<<<<<<< HEAD
 until mysql -e 'SHOW TABLES;' --host=$host --user=table_creator --password=$JOBMON_PASS_TABLE_CREATOR docker; do
   >&2 echo "DB is unavailable - sleeping"
   sleep 3
