@@ -133,6 +133,16 @@ class JobmonDeployment(object):
             json.dump(info, f)
         return info
 
+    def _set_conn_strs(self):
+        os.environ['SERVICE_USER_CONN_STR'] = (
+            "mysql://{user}:{pw}@db:3306/docker".format(
+                user='service_user',
+                pw=os.environ['JOBMON_PASS_SERVICE_USER']))
+        os.environ['TABLE_CREATOR_CONN_STR'] = (
+            "mysql://{user}:{pw}@db:3306/docker".format(
+                user='table_creator',
+                pw=os.environ['JOBMON_PASS_TABLE_CREATOR']))
+
     def _run_docker(self):
         subprocess.call(["docker-compose", "up", "--build", "-d"])
 
@@ -154,6 +164,7 @@ class JobmonDeployment(object):
 
     def run(self):
         self._set_mysql_user_passwords()
+        self._set_conn_strs()
         self._create_jobmonrc_file()
         self._create_info_file()
         self._run_docker()

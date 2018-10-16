@@ -13,6 +13,7 @@ services:
         - db
     environment:
         - JOBMON_PASS_SERVICE_USER
+        - CONN_STR=${SERVICE_USER_CONN_STR}
     command: [
         "jobmon",
         "--verbose",
@@ -34,6 +35,7 @@ services:
         - db
     environment:
         - JOBMON_PASS_SERVICE_USER
+        - CONN_STR=${SERVICE_USER_CONN_STR}
     command: [
         "jobmon",
         "--verbose",
@@ -53,6 +55,7 @@ services:
         - db
     environment:
         - JOBMON_PASS_SERVICE_USER
+        - CONN_STR=${SERVICE_USER_CONN_STR}
     command: [
         "jobmon",
         "--verbose",
@@ -73,6 +76,7 @@ services:
         - db
     environment:
         - JOBMON_PASS_TABLE_CREATOR
+        - CONN_STR=${TABLE_CREATOR_CONN_STR}
     command: ["jobmon", "--verbose", "initdb"]
     links:
         - db
