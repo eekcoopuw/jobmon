@@ -9,9 +9,9 @@ from jobmon.server.database import ScopedSession
 from jobmon.models.job import Job
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.task_dag import TaskDagMeta
-from jobmon.client.swarm.workflow.workflow import WorkflowDAO
-from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
-    WorkflowRunStatus
+from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.workflow import WorkflowDAO
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes

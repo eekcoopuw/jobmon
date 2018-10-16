@@ -16,7 +16,7 @@ from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
-from jobmon.client.swarm.workflow.workflow import WorkflowDAO
+from jobmon.models.workflow import WorkflowDAO
 from jobmon.attributes.constants import job_attribute
 
 

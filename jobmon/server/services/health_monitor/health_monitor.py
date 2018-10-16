@@ -5,8 +5,8 @@ from time import sleep
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.server import database
 from jobmon.client.requester import Requester
-from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
-    WorkflowRunStatus
+from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.workflow_run import WorkflowRunDAO
 
 
 logger = logging.getLogger(__name__)
