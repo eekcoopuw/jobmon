@@ -139,7 +139,12 @@ class JobmonDeployment(object):
     def _set_mysql_user_passwords(self):
         users = ['root', 'table_creator', 'service_user', 'read_only']
         for user in users:
-            password = self._set_mysql_user_password_var(user)
+            env_password = os.environ.get('JOBMON_PASS_' + user.upper(),
+                                          None)
+            if env_password is not None:
+                password = env_password
+            else:
+                password = self._set_mysql_user_password_var(user)
             self.db_accounts[user] = password
 
     def _set_mysql_user_password_var(self, user):
