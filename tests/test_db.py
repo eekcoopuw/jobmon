@@ -3,9 +3,10 @@ from time import sleep
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
-from jobmon.client.swarm.workflow.workflow import WorkflowDAO, WorkflowStatus
-from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
-    WorkflowRunStatus
+from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.workflow import WorkflowDAO
+from jobmon.models.workflow_status import WorkflowStatus
 
 
 def test_job_submit_times(db_cfg):

@@ -11,10 +11,10 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
+from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.workflow import WorkflowDAO
 from jobmon.server.database import ScopedSession
-from jobmon.client.swarm.workflow.workflow import WorkflowDAO
-from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
-    WorkflowRunStatus
 from jobmon.attributes import attribute_models
 from jobmon.attributes.constants import job_attribute
 

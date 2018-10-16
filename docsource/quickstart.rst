@@ -166,7 +166,7 @@ favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
     port: 3316
-    user: docker
+    user: read_only
     pass: docker
     database: docker
 

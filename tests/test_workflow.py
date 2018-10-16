@@ -7,15 +7,17 @@ from jobmon.models.job import Job
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_status import JobStatus
+from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
-from jobmon.client.swarm.workflow.workflow import Workflow, WorkflowDAO, \
-    WorkflowStatus, WorkflowAlreadyComplete
-from jobmon.client.swarm.workflow.workflow_run import WorkflowRunDAO, \
-    WorkflowRunStatus
+from jobmon.client.swarm.workflow.workflow import Workflow, \
+    WorkflowAlreadyComplete
+from jobmon.models.workflow import WorkflowDAO
+from jobmon.models.workflow_status import WorkflowStatus
 
 
 @pytest.fixture

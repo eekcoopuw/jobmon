@@ -5,13 +5,10 @@ import socket
 from datetime import datetime
 import logging
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
-
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.models.job_instance import JobInstance
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.requester import Requester
-from jobmon.models.sql_base import Base
 from jobmon.client.swarm.executors.sge_utils import get_project_limits
 from jobmon.client.utils import kill_remote_process
 from jobmon.attributes.constants import workflow_run_attribute
@@ -25,74 +22,6 @@ except ImportError:
         import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
-
-
-class WorkflowRunStatus(Base):
-    __tablename__ = 'workflow_run_status'
-
-    RUNNING = 'R'
-    STOPPED = 'S'
-    ERROR = 'E'
-    DONE = 'D'
-
-    id = Column(String(1), primary_key=True)
-    label = Column(String(150), nullable=False)
-
-
-class WorkflowRunDAO(Base):
-
-    __tablename__ = 'workflow_run'
-
-    id = Column(Integer, primary_key=True)
-    workflow_id = Column(Integer, ForeignKey('workflow.id'))
-    user = Column(String(150))
-    hostname = Column(String(150))
-    pid = Column(Integer)
-    stderr = Column(String(1000))
-    stdout = Column(String(1000))
-    project = Column(String(150))
-    working_dir = Column(String(1000), default=None)
-    slack_channel = Column(String(150))
-    executor_class = Column(String(150))
-    created_date = Column(DateTime, default=datetime.utcnow)
-    status_date = Column(DateTime, default=datetime.utcnow)
-    status = Column(String(1),
-                    ForeignKey('workflow_run_status.id'),
-                    nullable=False,
-                    default=WorkflowRunStatus.RUNNING)
-
-    workflow = relationship("WorkflowDAO", back_populates="workflow_runs")
-
-    @classmethod
-    def from_wire(cls, dct):
-        return cls(
-            workflow_id=dct['workflow_id'],
-            user=dct['user'],
-            hostname=dct['hostname'],
-            pid=dct['pid'],
-            stderr=dct['stderr'],
-            stdout=dct['stdout'],
-            project=dct['project'],
-            working_dir=dct['working_dir'],
-            slack_channel=dct['slack_channel'],
-            executor_class=dct['executor_class'],
-            status=dct['status'],
-        )
-
-    def to_wire(self):
-        return {
-            'workflow_id': self.workflow_id,
-            'user': self.user,
-            'hostname': self.hostname,
-            'pid': self.pid,
-            'stderr': self.stderr,
-            'stdout': self.stdout,
-            'project': self.project,
-            'working_dir': self.working_dir,
-            'slack_channel': self.slack_channel,
-            'executor_class': self.executor_class,
-            'status': self.status,
-        }
 
 
 class WorkflowRun(object):
