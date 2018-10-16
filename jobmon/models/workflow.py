@@ -5,6 +5,8 @@ from sqlalchemy.orm import relationship
 
 from jobmon.models.sql_base import Base
 from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.task_dag import TaskDagMeta
 
 
 class WorkflowDAO(Base):
