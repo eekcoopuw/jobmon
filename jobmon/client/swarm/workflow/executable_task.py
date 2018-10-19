@@ -59,14 +59,14 @@ class ExecutableTask(object):
         return True
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
-                 name=None, slots=1, mem_free=2, max_attempts=3,
-                 max_runtime=None, tag=None, queue=None, context_args=None,
-                 job_attributes={}):
+                 name=None, slots=None, mem_free_gb=None, num_cores=None,
+                 max_runtime_secs=None, queue=None, max_attempts=3, tag=None,
+                 context_args=None, job_attributes={}):
         """
         Create a task
 
         Args
-         command: the unique command for this Task, also readable by humans.
+        command: the unique command for this Task, also readable by humans.
             Should include all parameters.
             Two Tasks are equal (__eq__) iff they have the same command
         upstream_tasks (list): Task objects that must be run prior to this
@@ -105,11 +105,12 @@ class ExecutableTask(object):
         self.hash = int(hashlib.sha1(command.encode('utf-8')).hexdigest(), 16)
 
         self.slots = slots
-        self.mem_free = mem_free
-        self.max_attempts = max_attempts
-        self.max_runtime = max_runtime
-        self.context_args = context_args
+        self.mem_free_gb = mem_free_gb
+        self.num_cores = num_cores
+        self.max_runtime_secs = max_runtime_secs
         self.queue = queue
+        self.max_attempts = max_attempts
+        self.context_args = context_args
 
         # Names of jobs can't start with a numeric.
         if name is None:

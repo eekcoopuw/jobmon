@@ -3,12 +3,14 @@ import logging
 import os
 import subprocess
 from time import sleep
+import datetime
 
 import pandas as pd
 
 from cluster_utils.io import makedirs_safely
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors import Executor
+from jobmon.client.swarm.executors.sge_resource import SGEResource
 
 
 logger = logging.getLogger(__name__)
@@ -26,18 +28,6 @@ class SGEExecutor(Executor):
         self.valid_queues = self._get_valid_queues()
 
         super().__init__(*args, **kwargs)
-
-    def _get_valid_queues(self):
-        check_valid_queues = "qconf -sql"
-        valid_queues = subprocess.check_output(check_valid_queues,
-                                               shell=True).split()
-        return [q.decode("utf-8") for q in valid_queues]
-
-    def _validate_queue(self, queue):
-        valid = any([q in queue for q in self.valid_queues])
-        if not valid:
-            raise ValueError("Got invalid queue {}. Valid queues are {}"
-                             .format(queue, self.valid_queues))
 
     def _execute_sge(self, job, job_instance_id):
         try:
@@ -108,6 +98,9 @@ class SGEExecutor(Executor):
                                    "but they still exist. Timing out."
                                    .format(lagging_jobs.job_id.unique()))
 
+    def transform_secs_to_hms(self, secs):
+        return str(datetime.timedelta(seconds=secs))
+
     def build_wrapped_command(self, job, job_instance_id, stderr=None,
                               stdout=None, project=None, working_dir=None):
         """Process the Job's context_args, which are assumed to be
@@ -115,6 +108,10 @@ class SGEExecutor(Executor):
         """
         # TODO: Settle on a sensible way to pass and validate settings for the
         # command's context (i.e. context = Executor, SGE/Sequential/Multiproc)
+        resources = SGEResource(job.slots, job.mem_free_gb, job.num_cores,
+                                job.queue, job.max_runtime_secs)
+        (slots, mem_free_gb, num_cores, queue,
+         max_runtime_secs) = resources.return_valid_resources()
         ctx_args = json.loads(job.context_args)
         if 'sge_add_args' in ctx_args:
             sge_add_args = ctx_args['sge_add_args']
@@ -138,11 +135,24 @@ class SGEExecutor(Executor):
             wd_cmd = "-wd {}".format(working_dir)
         else:
             wd_cmd = ""
-        if job.queue:
-            self._validate_queue(job.queue)
+        if mem_free_gb:
+            mem_cmd = "-l mem_free={}g".format(mem_free_gb)
+        else:
+            mem_cmd = ""
+        if num_cores:
+            cpu_cmd = "-l fthread={}".format(num_cores)
+        else:
+            cpu_cmd = "-pe multi_slot {}".format(slots)
+        if queue:
             q_cmd = "-q '{}'".format(job.queue)
         else:
             q_cmd = ""
+        if max_runtime_secs:
+            h_m_s = self.transform_secs_to_hms(max_runtime_secs)
+            time_cmd = "-l h_rt={}".format(h_m_s)
+        else:
+            time_cmd = ""
+
         base_cmd = super().build_wrapped_command(job, job_instance_id)
         thispath = os.path.dirname(os.path.abspath(__file__))
 
@@ -151,7 +161,7 @@ class SGEExecutor(Executor):
         # otherwise those Jobs could end up using a different config and not be
         # able to talk back to the appropriate server(s)
         qsub_cmd = ('qsub {wd} -N {jn} {qc} '
-                    '-pe multi_slot {slots} -l mem_free={mem}g '
+                    '{cpu} {mem} {time}'
                     '{project} {stderr} {stdout} '
                     '{sge_add_args} '
                     '-V {path}/submit_master.sh '
@@ -159,8 +169,9 @@ class SGEExecutor(Executor):
                         wd=wd_cmd,
                         qc=q_cmd,
                         jn=job.name,
-                        slots=job.slots,
-                        mem=job.mem_free,
+                        cpu=cpu_cmd,
+                        mem=mem_cmd,
+                        time=time_cmd,
                         sge_add_args=sge_add_args,
                         path=thispath,
                         cmd=base_cmd,
