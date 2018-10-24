@@ -110,7 +110,7 @@ class SGEExecutor(Executor):
             mem_free_gb = int(mem[:-1])
             mem_free_gb *= 1000
         elif mem[-1] != "G":
-            raise ValueError("Memory measure should be an int followed by M, G, or T, you gave {]".format(mem_free_gb))
+            raise ValueError("Memory measure should be an int followed by M, G, or T, you gave {]".format(mem))
         else:
             mem = int(mem[:-1])
         return mem
