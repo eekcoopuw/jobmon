@@ -101,6 +101,20 @@ class SGEExecutor(Executor):
     def transform_secs_to_hms(self, secs):
         return str(datetime.timedelta(seconds=secs))
 
+    def transform_mem_to_gb (self, mem):
+        # do we want upper and lowercase g, m, t options?
+        if mem[-1] == "M":
+            mem_free_gb = int(mem[:-1])
+            mem_free_gb /= 1000
+        elif mem[-1] == "T":
+            mem_free_gb = int(mem[:-1])
+            mem_free_gb *= 1000
+        elif mem[-1] != "G":
+            raise ValueError("Memory measure should be an int followed by M, G, or T, you gave {]".format(mem_free_gb))
+        else:
+            mem = int(mem[:-1])
+        return mem
+
     def build_wrapped_command(self, job, job_instance_id, stderr=None,
                               stdout=None, project=None, working_dir=None):
         """Process the Job's context_args, which are assumed to be
@@ -108,9 +122,9 @@ class SGEExecutor(Executor):
         """
         # TODO: Settle on a sensible way to pass and validate settings for the
         # command's context (i.e. context = Executor, SGE/Sequential/Multiproc)
-        resources = SGEResource(job.slots, job.mem_free_gb, job.num_cores,
+        resources = SGEResource(job.slots, job.mem_free_gb, job.num_cores, job.j_resource,
                                 job.queue, job.max_runtime_secs)
-        (slots, mem_free_gb, num_cores, queue,
+        (slots, mem_free_gb, num_cores, j_resource, queue,
          max_runtime_secs) = resources.return_valid_resources()
         ctx_args = json.loads(job.context_args)
         if 'sge_add_args' in ctx_args:
@@ -136,13 +150,18 @@ class SGEExecutor(Executor):
         else:
             wd_cmd = ""
         if mem_free_gb:
-            mem_cmd = "-l mem_free={}g".format(mem_free_gb)
+            mem = self.transform_mem_to_gb(mem_free_gb)
+            mem_cmd = "-l mem_free={}g".format(mem)
         else:
             mem_cmd = ""
         if num_cores:
             cpu_cmd = "-l fthread={}".format(num_cores)
         else:
             cpu_cmd = "-pe multi_slot {}".format(slots)
+        if j_resource:
+            j_cmd= "-l archive"
+        else:
+            j_cmd=""
         if queue:
             q_cmd = "-q '{}'".format(job.queue)
         else:
@@ -161,7 +180,7 @@ class SGEExecutor(Executor):
         # otherwise those Jobs could end up using a different config and not be
         # able to talk back to the appropriate server(s)
         qsub_cmd = ('qsub {wd} -N {jn} {qc} '
-                    '{cpu} {mem} {time}'
+                    '{cpu} {j} {mem} {time}'
                     '{project} {stderr} {stdout} '
                     '{sge_add_args} '
                     '-V {path}/submit_master.sh '
@@ -170,6 +189,7 @@ class SGEExecutor(Executor):
                         qc=q_cmd,
                         jn=job.name,
                         cpu=cpu_cmd,
+                        j=j_cmd,
                         mem=mem_cmd,
                         time=time_cmd,
                         sge_add_args=sge_add_args,

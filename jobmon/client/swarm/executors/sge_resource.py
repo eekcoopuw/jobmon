@@ -15,12 +15,12 @@ class SGEResource(object):
         slots (int): slots to request on the cluster
         mem_free_gb (int): amount of memory in gbs to request on the cluster
         num_cores (int): number of cores to request on the cluster.
+        j_resource (bool): whether or not to access the J drive. Default: False
         queue (str): queue of cluster nodes to submit this task to. Must be
             a valid queue, as defined by "qconf -sql"
         max_runtime_secs (int, seconds): how long the job should be allowed to
             run before the executor kills it. Not currently required by the
             new cluster, but will be. Default is None, for indefinite.
-        j_resource (bool): whether or not to access the J drive. Default: False
 
          Raises:
             ValueError:
@@ -37,9 +37,9 @@ class SGEResource(object):
         self.slots = slots
         self.mem_free_gb = mem_free_gb
         self.num_cores = num_cores
+        self.j_resource = j_resource
         self.queue = queue
         self.max_runtime_secs = max_runtime_secs
-        self.j_resource = j_resource
 
     def _get_valid_queues(self):
         check_valid_queues = "qconf -sql"
@@ -53,7 +53,7 @@ class SGEResource(object):
             valid = any([q in queue for q in valid_queues])
             if not valid:
                 raise ValueError("Got invalid queue {}. Valid queues are {}"
-                                 .format(queue, self.valid_queues))
+                                 .format(queue, valid_queues))
 
     def _validate_slots_and_cores(self):
         """Ensure slots or cores requested isn't more than available on that
@@ -77,14 +77,23 @@ class SGEResource(object):
     def _validate_memory(self):
         """Ensure memory requested isn't more than available on any node"""
         if self.mem_free_gb is not None:
-            if self.mem_free_gb not in range(1, 1001):
+            if self.mem_free_gb not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
-                                 "1 and 1000GB (aka 1 tb). Got {}"
+                                 "0 and 512GB (the limit on all.q and profile.q). Got {}"
                                  .format(self.mem_free_gb))
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
-        pass
+        if self.queue == "all.q":
+            if self.max_runtime_secs > 86400:
+                raise ValueError("Can only run for up to 1 day (86400 sec) on all.q, you requested {} seconds"
+                                 .format(self.max_runtime_secs))
+        elif self.queue == "long.q" or self.queue == "profile.q":
+            if self.max_runtime_secs > 604800:
+                raise ValueError("Can only run for up to 1 week (604800 sec) on {}, you requested {} seconds"
+                                 .format(self.queue, self.max_runtime_secs))
+        else:
+            raise ValueError("You did not request all.q, profile.q, or long.q to run your jobs")
 
     def _validate_j_resource(self):
         if self.j_resource not in [True, False]:
@@ -103,7 +112,7 @@ class SGEResource(object):
         """Ensure all essential arguments are present and not None"""
         cluster = os.env['SGE_CLUSTER_NAMEf']
         if cluster == 'test_cluster':
-            for arg in [self.queue, self.num_cores, self.mem_free_gbd,
+            for arg in [self.queue, self.num_cores, self.mem_free_gb,
                         self.max_runtime_secs]:
                 if arg is None:
                     raise ValueError("To use {}, arg {} can't be None"
@@ -119,6 +128,6 @@ class SGEResource(object):
         self._validate_slots_and_cores()
         self._validate_memory()
         self._validate_runtime()
-        self.validate_j_resource()
-        return (self.slots, self.mem_free_gb, self.num_cores, self.queue,
+        self._validate_j_resource()
+        return (self.slots, self.mem_free_gb, self.num_cores, self.j_resource, self.queue,
                 self.max_runtime_secs)
