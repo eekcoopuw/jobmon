@@ -8,7 +8,7 @@ class SGEResource(object):
     Validates inputs.
     """
 
-    def __init__(self, slots=None, mem_free_gb=None, num_cores=None,
+    def __init__(self, slots=None, mem_free=None, num_cores=None,
                  queue=None, max_runtime_secs=None, j_resource=False):
         """
         Args
@@ -35,7 +35,7 @@ class SGEResource(object):
             queue, slots, num_cores, mem_free_gb, max_runtime_secs
         """
         self.slots = slots
-        self.mem_free_gb = mem_free_gb
+        self.mem_free = mem_free
         self.num_cores = num_cores
         self.j_resource = j_resource
         self.queue = queue
@@ -62,7 +62,7 @@ class SGEResource(object):
         if 'c2' in self.queue:
             max_cores = 100
         else:
-            max_cores = 48
+            max_cores = 56
         if (self.slots is not None and
             self.slots not in range(1, max_cores + 1)):
             raise ValueError("Got an invalid number of slots. Received {} "
@@ -76,11 +76,11 @@ class SGEResource(object):
 
     def _validate_memory(self):
         """Ensure memory requested isn't more than available on any node"""
-        if self.mem_free_gb is not None:
-            if self.mem_free_gb not in range(0, 512):
+        if self.mem_free is not None:
+            if self.mem_free not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
                                  "0 and 512GB (the limit on all.q and profile.q). Got {}"
-                                 .format(self.mem_free_gb))
+                                 .format(self.mem_free))
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
@@ -112,7 +112,7 @@ class SGEResource(object):
         """Ensure all essential arguments are present and not None"""
         cluster = os.env['SGE_CLUSTER_NAMEf']
         if cluster == 'test_cluster':
-            for arg in [self.queue, self.num_cores, self.mem_free_gb,
+            for arg in [self.queue, self.num_cores, self.mem_free,
                         self.max_runtime_secs]:
                 if arg is None:
                     raise ValueError("To use {}, arg {} can't be None"
@@ -129,5 +129,5 @@ class SGEResource(object):
         self._validate_memory()
         self._validate_runtime()
         self._validate_j_resource()
-        return (self.slots, self.mem_free_gb, self.num_cores, self.j_resource, self.queue,
+        return (self.slots, self.mem_free, self.num_cores, self.j_resource, self.queue,
                 self.max_runtime_secs)

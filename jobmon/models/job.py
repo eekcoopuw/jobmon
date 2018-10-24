@@ -30,7 +30,8 @@ class Job(Base):
         return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
                    job_hash=int(dct['job_hash']), name=dct['name'],
                    tag=dct['tag'], command=dct['command'], slots=dct['slots'],
-                   mem_free=dct['mem_free'], status=dct['status'],
+                   mem_free=dct['mem_free'], cores=dct['cores'],
+                   status=dct['status'], max_runtime=dct['max_runtime'],
                    num_attempts=dct['num_attempts'],
                    max_attempts=dct['max_attempts'],
                    context_args=dct['context_args'],
@@ -44,6 +45,7 @@ class Job(Base):
                 'name': self.name, 'tag': self.tag, 'job_hash': self.job_hash,
                 'command': self.command, 'status': self.status,
                 'slots': self.slots, 'mem_free': self.mem_free,
+                'cores': self.cores, 'max_runtime': self.max_runtime,
                 'num_attempts': self.num_attempts,
                 'max_attempts': self.max_attempts,
                 'context_args': self.context_args,
@@ -64,9 +66,10 @@ class Job(Base):
     queue = Column(String(255))
     slots = Column(Integer, default=1)
     mem_free = Column(Integer, default=1)
+    cores = Column(Integer, default=1)
+    max_runtime = Column(String(255))
     num_attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=1)
-    max_runtime = Column(Integer)
     status = Column(
         String(1),
         ForeignKey('job_status.id'),
