@@ -3,9 +3,9 @@ from time import sleep
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
-from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.models.workflow import WorkflowDAO
+from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 
 
@@ -28,11 +28,11 @@ def test_job_submit_times(db_cfg):
         dag_id = dag.dag_id
 
         # Create workflows
-        wf1 = WorkflowDAO(dag_id=dag_id, status=WorkflowStatus.CREATED)
+        wf1 = Workflow(dag_id=dag_id, status=WorkflowStatus.CREATED)
         session.add(wf1)
         session.commit()
         sleep(1)
-        wf2 = WorkflowDAO(dag_id=dag_id, status=WorkflowStatus.CREATED)
+        wf2 = Workflow(dag_id=dag_id, status=WorkflowStatus.CREATED)
         session.add(wf2)
         session.commit()
 
@@ -70,7 +70,7 @@ def test_job_submit_times(db_cfg):
     with session_scope() as session:
 
         dags = session.query(TaskDagMeta).all()
-        wfs = session.query(WorkflowDAO).all()
+        wfs = session.query(Workflow).all()
         wfrs = session.query(WorkflowRunDAO).all()
         jobs = session.query(Job).all()
 

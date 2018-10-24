@@ -7,8 +7,10 @@ from jobmon.models.job import Job
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_status import JobStatus
-from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.workflow import Workflow as WorkflowDAO
+from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.python_task import PythonTask
@@ -16,8 +18,6 @@ from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import Workflow, \
     WorkflowAlreadyComplete
-from jobmon.models.workflow import WorkflowDAO
-from jobmon.models.workflow_status import WorkflowStatus
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def mock_slack(msg, channel):
     print("{} to be posted to channel: {}".format(msg, channel))
 
 
-def test_wf_with_stata_temp_dir(jsm_jqs, db_cfg):
+def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
     t1 = StataTask(script='di "hello"')
     t2 = StataTask(script='di "world"', upstream_tasks=[t1])
 

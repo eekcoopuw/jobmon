@@ -5,11 +5,11 @@ from sqlalchemy.orm import relationship
 
 from jobmon.models.sql_base import Base
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.task_dag import TaskDagMeta
 
 
-class WorkflowDAO(Base):
+class Workflow(Base):
 
     __tablename__ = 'workflow'
 
@@ -50,6 +50,6 @@ class WorkflowDAO(Base):
                     default=WorkflowStatus.CREATED)
 
     workflow_runs = relationship(
-        "WorkflowRunDAO", back_populates="workflow")
+        "WorkflowRun", back_populates="workflow")
     task_dag = relationship(
         "TaskDagMeta", back_populates="workflow")

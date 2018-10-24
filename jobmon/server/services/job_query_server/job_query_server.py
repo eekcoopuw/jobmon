@@ -9,9 +9,9 @@ from jobmon.server.database import ScopedSession
 from jobmon.models.job import Job
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.task_dag import TaskDagMeta
-from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.models.workflow import WorkflowDAO
+from jobmon.models.workflow import Workflow
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -53,6 +53,70 @@ def get_time(session):
     time = session.execute("select UTC_TIMESTAMP as time").fetchone()['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     return time
+
+
+@jqs.route('/workflow/<workflow_id>/workflow_attribute', methods=['GET'])
+def get_workflow_attribute(workflow_id):
+    """Get a partricular attribute of a particular workflow
+
+    Args:
+        workflow_id: id of the workflow to retrieve workflow_attributes for
+        workflow_attribute_type: num_age_groups, num_locations, etc.
+    """
+    workflow_attribute_type = request.args('workflow_attribute_type', None)
+    query = """SELECT *
+        FROM workflow_attribute
+        WHERE workflow_attribute.workflow_id={}
+        """.format(workflow_id)
+    if workflow_attribute_type:
+        query = (query + " AND workflow_attribute.attribute_type={}"
+                 .format(workflow_attribute_type))
+    workflow_attribute = ScopedSession.execute(query).fetchone()
+    return workflow_attribute
+
+
+@jqs.route('/workflow/<workflow_id>/job_attribute', methods=['GET'])
+def get_job_attribute_by_workflow(workflow_id):
+    """Get a partricular attribute of a particular type of job in the workflow
+
+    Args:
+        workflow_id: id of the workflow to retrieve workflow_attributes for
+        job_type: type of job getting attributes for
+        job_attribute_type: num_locations, wallclock, etc.
+    """
+    job_attribute_type = request.args('job_attribute_type', None)
+    query = """
+            SELECT * FROM job_attribute
+            JOIN job USING(job_id)
+            JOIN workflow USING(dag_id)
+            WHERE workflow_id={}
+            """.format(workflow_id)
+    if job_attribute_type:
+        query = (query + " AND job_attribute.attribute_type={}"
+                 .format(job_attribute_type))
+    job_attribute = ScopedSession.execute(query).fetchone()
+    return job_attribute
+
+
+@jqs.route('/job/<job_id>/job_attribute', methods=['GET'])
+def get_job_attribute(job_id):
+    """Get a partricular attribute of a particular type of job in the workflow
+
+    Args:
+        job_id: id of the job to retrieve job for
+        job_attribute_type: num_locations, wallclock, etc.
+    """
+    job_attribute_type = request.args('job_attribute_type', None)
+    query = """
+            SELECT * FROM job_attribute
+            JOIN job USING(job_id)
+            WHERE job_id={}
+            """.format(job_jd)
+    if job_attribute_type:
+        query = (query + " AND job_attribute.attribute_type={}"
+                 .format(job_attribute_type))
+    job_attribute = ScopedSession.execute(query).fetchone()
+    return job_attribute
 
 
 @jqs.route('/dag/<dag_id>/job', methods=['GET'])
@@ -147,9 +211,9 @@ def get_workflows_by_inputs(dag_id):
     Args
         dag_id: id of the dag to retrieve
     """
-    workflow = ScopedSession.query(WorkflowDAO).\
-        filter(WorkflowDAO.dag_id == dag_id).\
-        filter(WorkflowDAO.workflow_args == request.args['workflow_args']
+    workflow = ScopedSession.query(Workflow).\
+        filter(Workflow.dag_id == dag_id).\
+        filter(Workflow.workflow_args == request.args['workflow_args']
                ).first()
     ScopedSession.commit()
     if workflow:

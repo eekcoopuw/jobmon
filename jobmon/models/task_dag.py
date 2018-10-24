@@ -19,4 +19,4 @@ class TaskDagMeta(Base):
     heartbeat_date = Column(DateTime, default=datetime.utcnow)
     created_date = Column(DateTime, default=datetime.utcnow)
 
-    workflow = relationship("WorkflowDAO", back_populates="task_dag")
+    workflow = relationship("Workflow", back_populates="task_dag")

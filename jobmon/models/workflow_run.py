@@ -11,7 +11,7 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 logger = logging.getLogger(__name__)
 
 
-class WorkflowRunDAO(Base):
+class WorkflowRun(Base):
 
     __tablename__ = 'workflow_run'
 
@@ -33,7 +33,7 @@ class WorkflowRunDAO(Base):
                     nullable=False,
                     default=WorkflowRunStatus.RUNNING)
 
-    workflow = relationship("WorkflowDAO", back_populates="workflow_runs")
+    workflow = relationship("Workflow", back_populates="workflow_runs")
 
     @classmethod
     def from_wire(cls, dct):
