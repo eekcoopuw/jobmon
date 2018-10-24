@@ -6,6 +6,7 @@ from sqlalchemy.orm import contains_eager
 from flask import jsonify, request, Blueprint
 
 from jobmon.server.database import ScopedSession
+from jobmon.attributes.attribute_models import JobAttribute, WorkflowAttribute
 from jobmon.models.job import Job
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.task_dag import TaskDagMeta
@@ -63,16 +64,22 @@ def get_workflow_attribute(workflow_id):
         workflow_id: id of the workflow to retrieve workflow_attributes for
         workflow_attribute_type: num_age_groups, num_locations, etc.
     """
-    workflow_attribute_type = request.args('workflow_attribute_type', None)
-    query = """SELECT *
-        FROM workflow_attribute
-        WHERE workflow_attribute.workflow_id={}
-        """.format(workflow_id)
+    workflow_attribute_type = request.args.get('workflow_attribute_type', None)
     if workflow_attribute_type:
-        query = (query + " AND workflow_attribute.attribute_type={}"
-                 .format(workflow_attribute_type))
-    workflow_attribute = ScopedSession.execute(query).fetchone()
-    return workflow_attribute
+        attribute = (ScopedSession.query(WorkflowAttribute).join(Workflow)
+                     .filter(Workflow.id == workflow_id,
+                             WorkflowAttribute.attribute_type ==
+                             workflow_attribute_type)
+                     ).all()
+    else:
+        attribute = (ScopedSession.query(WorkflowAttribute).join(Workflow)
+                     .filter(Workflow.id == workflow_id)
+                     ).all()
+    ScopedSession.commit()
+    attr_dcts = [w.to_wire() for w in attribute]
+    resp = jsonify(workflow_attr_dct=attr_dcts)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jqs.route('/workflow/<workflow_id>/job_attribute', methods=['GET'])
@@ -84,18 +91,24 @@ def get_job_attribute_by_workflow(workflow_id):
         job_type: type of job getting attributes for
         job_attribute_type: num_locations, wallclock, etc.
     """
-    job_attribute_type = request.args('job_attribute_type', None)
-    query = """
-            SELECT * FROM job_attribute
-            JOIN job USING(job_id)
-            JOIN workflow USING(dag_id)
-            WHERE workflow_id={}
-            """.format(workflow_id)
+    job_attribute_type = request.args.get('job_attribute_type', None)
     if job_attribute_type:
-        query = (query + " AND job_attribute.attribute_type={}"
-                 .format(job_attribute_type))
-    job_attribute = ScopedSession.execute(query).fetchone()
-    return job_attribute
+        attribute = (ScopedSession.query(JobAttribute).join(Job)
+                     .join(TaskDagMeta)
+                     .join(Workflow)
+                     .filter(Workflow.id == workflow_id,
+                             JobAttribute.attribute_type == job_attribute_type)
+                     ).all()
+    else:
+        attribute = (ScopedSession.query(JobAttribute).join(Job)
+                     .join(TaskDagMeta)
+                     .join(Workflow)
+                     .filter(Workflow.id == workflow_id)).all()
+    ScopedSession.commit()
+    attr_dcts = [j.to_wire() for j in attribute]
+    resp = jsonify(job_attr_dct=attr_dcts)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jqs.route('/job/<job_id>/job_attribute', methods=['GET'])
@@ -106,17 +119,21 @@ def get_job_attribute(job_id):
         job_id: id of the job to retrieve job for
         job_attribute_type: num_locations, wallclock, etc.
     """
-    job_attribute_type = request.args('job_attribute_type', None)
-    query = """
-            SELECT * FROM job_attribute
-            JOIN job USING(job_id)
-            WHERE job_id={}
-            """.format(job_jd)
+    job_attribute_type = request.args.get('job_attribute_type', None)
     if job_attribute_type:
-        query = (query + " AND job_attribute.attribute_type={}"
-                 .format(job_attribute_type))
-    job_attribute = ScopedSession.execute(query).fetchone()
-    return job_attribute
+        attribute = (ScopedSession.query(JobAttribute).join(Job)
+                     .filter(Job.job_id == job_id,
+                             JobAttribute.attribute_type == job_attribute_type)
+                     ).all()
+    else:
+        attribute = (ScopedSession.query(JobAttribute).join(Job)
+                     .filter(Job.job_id == job_id)
+                     ).all()
+    ScopedSession.commit()
+    attr_dcts = [j.to_wire() for j in attribute]
+    resp = jsonify(job_attr_dct=attr_dcts)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jqs.route('/dag/<dag_id>/job', methods=['GET'])

@@ -21,19 +21,6 @@ from jobmon.client.swarm.workflow.workflow import Workflow, \
 
 
 @pytest.fixture
-def simple_workflow(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
-
-    wfa = "my_simple_dag"
-    workflow = Workflow(wfa, interrupt_on_error=False)
-    workflow.add_tasks([t1, t2, t3])
-    workflow.execute()
-    return workflow
-
-
-@pytest.fixture
 def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
     t1 = BashTask("sleep 1")
     t2 = BashTask("not_a_command 1", upstream_tasks=[t1])
@@ -619,3 +606,4 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
         '/ihme/centralcomp/auto_test_data')
     assert workflow.workflow_run.stderr == '/ihme/centralcomp/auto_test_data'
     assert workflow.workflow_run.stdout == '/ihme/centralcomp/auto_test_data'
+

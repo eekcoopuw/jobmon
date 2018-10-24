@@ -11,6 +11,21 @@ class WorkflowAttributeType(Base):
     name = Column(String(255))
     type = Column(String(255))
 
+    @classmethod
+    def from_wire(cls, dct):
+        return cls(
+            id=dct['workflow_attribute_type_id'],
+            name=dct['name'],
+            type=dct['type']
+        )
+
+    def to_wire(self):
+        return {
+            'workflow_attribute_type_id': self.id,
+            'name': self.name,
+            'type': self.type
+        }
+
 
 class WorkflowAttribute(Base):
     __tablename__ = 'workflow_attribute'
@@ -22,6 +37,23 @@ class WorkflowAttribute(Base):
                             ForeignKey('workflow_attribute_type.id'))
     value = Column(String(255))
 
+    @classmethod
+    def from_wire(cls, dct):
+        return cls(
+            id=dct['workflow_attribute_id'],
+            workflow_id=dct['workflow_id'],
+            attribute_type=dct['attribute_type'],
+            value=dct['value']
+        )
+
+    def to_wire(self):
+        return {
+            'workflow_attribute_id': self.id,
+            'workflow_id': self.workflow_id,
+            'attribute_type': self.attribute_type,
+            'value': self.value
+        }
+
 
 class WorkflowRunAttributeType(Base):
     __tablename__ = 'workflow_run_attribute_type'
@@ -29,6 +61,21 @@ class WorkflowRunAttributeType(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(255))
     type = Column(String(255))
+
+    @classmethod
+    def from_wire(cls, dct):
+        return cls(
+            id=dct['workflow_run_attribute_type_id'],
+            name=dct['name'],
+            type=dct['type']
+        )
+
+    def to_wire(self):
+        return {
+            'workflow_run_attribute_type_id': self.id,
+            'name': self.name,
+            'type': self.type
+        }
 
 
 class WorkflowRunAttribute(Base):
@@ -41,6 +88,23 @@ class WorkflowRunAttribute(Base):
                             ForeignKey('workflow_run_attribute_type.id'))
     value = Column(String(255))
 
+    @classmethod
+    def from_wire(cls, dct):
+        return cls(
+            id=dct['workflow_run_attribute_id'],
+            workflow_run_id=dct['workflow_run_id'],
+            attribute_type=dct['attribute_type'],
+            value=dct['value']
+        )
+
+    def to_wire(self):
+        return {
+            'workflow_run_attribute_id': self.id,
+            'workflow_run_id': self.workflow_id,
+            'attribute_type': self.attribute_type,
+            'value': self.value
+        }
+
 
 class JobAttributeType(Base):
     __tablename__ = 'job_attribute_type'
@@ -48,6 +112,21 @@ class JobAttributeType(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(255))
     type = Column(String(255))
+
+    @classmethod
+    def from_wire(cls, dct):
+        return cls(
+            id=dct['job_attribute_type_id'],
+            name=dct['name'],
+            type=dct['type']
+        )
+
+    def to_wire(self):
+        return {
+            'job_attribute_type_id': self.id,
+            'name': self.name,
+            'type': self.type
+        }
 
 
 class JobAttribute(Base):
@@ -59,3 +138,20 @@ class JobAttribute(Base):
     attribute_type = Column(Integer,
                             ForeignKey('job_attribute_type.id'))
     value = Column(String(255))
+
+    @classmethod
+    def from_wire(cls, dct):
+        return cls(
+            id=dct['job_attribute_id'],
+            job_id=dct['job_id'],
+            attribute_type=dct['attribute_type'],
+            value=dct['value']
+        )
+
+    def to_wire(self):
+        return {
+            'job_attribute_id': self.id,
+            'job_id': self.job_id,
+            'attribute_type': self.attribute_type,
+            'value': self.value
+        }
