@@ -19,7 +19,7 @@ else:
 def test_new_cluster_request(real_dag_id, job_list_manager_sge):
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="sge_foobar", mem_free_gb='6G', num_cores=8, queue='all.q',
+             name="sge_foobar", mem_free='6G', num_cores=8, queue='all.q',
              max_runtime_seconds=120))
     job_list_manager_sge.queue_job(job)
 
@@ -39,7 +39,7 @@ def valid_command_check(job_list_manager_sge):
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('archive', [True, False])
-@pytest.mark.parametrize('mem_free', ['6G', '10MB', '1T'])
+@pytest.mark.parametrize('mem_free', ['6G', '6GB', '10MB', '10M', '1T', '1TB'])
 @pytest.mark.parametrize('queue', ['all.q', 'long.q', 'profile.q'])
 def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
                                      archive, mem_free, queue):
@@ -74,18 +74,18 @@ def test_invalid_memory_caught(real_dag_id, job_list_manager_sge):
 
 
 @pytest.mark.cluster
-def test_exclusive_args(real_dag_id, job_list_manager_sge):
+def test_exclusive_args_enforced(real_dag_id, job_list_manager_sge):
     pass
 
 
 @pytest.mark.cluster
-def test_exhaustive_args(real_dag_id, job_list_manager_sge):
+def test_exhaustive_args_enforced(real_dag_id, job_list_manager_sge):
     # make sure all args are present by cluster. Make sure good error is raised
     pass
 
 
 @pytest.mark.cluster
-def test_invalid_runtime_by_queue(real_dag_id, job_list_manager_sge):
+def test_invalid_runtime_by_queue_caught(real_dag_id, job_list_manager_sge):
     pass
 
 
