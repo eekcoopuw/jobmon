@@ -13,7 +13,7 @@ class SGEResource(object):
         """
         Args
         slots (int): slots to request on the cluster
-        mem_free_gb (int): amount of memory in gbs to request on the cluster
+        mem_free_gb (str): amount of memory in gbs, tbs, or mbs to request on the cluster
         num_cores (int): number of cores to request on the cluster.
         j_resource (bool): whether or not to access the J drive. Default: False
         queue (str): queue of cluster nodes to submit this task to. Must be
@@ -77,7 +77,8 @@ class SGEResource(object):
     def _validate_memory(self):
         """Ensure memory requested isn't more than available on any node"""
         if self.mem_free is not None:
-            if self.mem_free not in range(0, 512):
+            mem = int(self.mem_free[:-1])
+            if mem not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
                                  "0 and 512GB (the limit on all.q and profile.q). Got {}"
                                  .format(self.mem_free))

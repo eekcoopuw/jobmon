@@ -102,7 +102,6 @@ class SGEExecutor(Executor):
         return str(datetime.timedelta(seconds=secs))
 
 
-    # might not need this function
     def transform_mem_to_gb (self, mem):
         # do we want upper and lowercase g, m, t options?
         if mem[-1] == "M":
