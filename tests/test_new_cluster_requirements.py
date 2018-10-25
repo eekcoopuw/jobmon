@@ -49,7 +49,8 @@ def valid_command_check(job_list_manager_sge):
 @pytest.mark.cluster
 @pytest.mark.parametrize('archive', [True, False])
 @pytest.mark.parametrize('mem_free', ['6G', '6GB', '10MB', '10M', '1T', '1TB'])
-@pytest.mark.parametrize('queue', ['all.q', 'long.q', 'profile.q'])
+@pytest.mark.parametrize('queue', ['all.q', 'long.q', 'profile.q',
+                                   'geospatial.q'])
 def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
                                      archive, mem_free, queue):
     job = job_list_manager_sge.bind_task(
@@ -122,15 +123,27 @@ def test_exclusive_args_enforced(jlm):
 
 
 @pytest.mark.cluster
-@pytest.mark.parametrize('runtime', {''})
 def test_exhaustive_args_enforced(rjlm):
     # make sure all args are present by cluster. Make sure good error is raised
     pass
 
 
 @pytest.mark.cluster
-def test_invalid_runtime_by_queue_caught(real_dag_id, job_list_manager_sge):
-    pass
+@pytest.mark.parametrize('runtime', {86500: 'all.q', 604900: 'long.q',
+                                     604900: 'profile.q', 604900, 'geospatial'})
+def test_invalid_runtime_by_queue_caught(jlm, runtime):
+    for time_running, queue in runtime.items():
+        job = jlm.bind_task(
+        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+             name="invalid_runtime_{}".format(queue), mem_free='2G',
+             multi_slot=8, num_cores=8, j_resource=True,
+             queue=queue, max_runtime_seconds=time_running))
+        jlm.queue_job(job)
+
+        jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
+    with pytest.raises(ValueError) as exc:
+        jlm.job_instance_factory._create_job_instance(jobs[0])
+    assert 'Cannot specify BOTH slots and num_cores' in exc
 
 
 @pytest.mark.cluster
@@ -143,10 +156,10 @@ def test_invalid_j_resource_caught(jlm)
     job = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="j_resource", mem_free='2G', multi_slot=8, num_cores=8,
-             archive='Nope', queue='all.q', max_runtime_seconds=120))
+             j_resource='Nope', queue='all.q', max_runtime_seconds=120))
     jlm.queue_job(job)
 
     jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
     with pytest.raises(ValueError) as exc:
         jlm.job_instance_factory._create_job_instance(jobs[0])
-    assert 'archive is a bool arg.' in exc
+    assert 'j_resource is a bool arg.' in exc
