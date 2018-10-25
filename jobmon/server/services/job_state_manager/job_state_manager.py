@@ -5,15 +5,16 @@ from datetime import datetime
 from flask import jsonify, request, Blueprint
 import warnings
 
-from jobmon.models.job import Job, InvalidStateTransition
+from jobmon.models.job import Job
+from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.job_status import JobStatus
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
-from jobmon.models.workflow_run import WorkflowRunDAO
+from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.models.workflow import WorkflowDAO
+from jobmon.models.workflow import Workflow
 from jobmon.server.database import ScopedSession
 from jobmon.attributes import attribute_models
 from jobmon.attributes.constants import job_attribute
@@ -130,7 +131,7 @@ def add_task_dag():
 def _get_workflow_run_id(job_id):
     """Return the workflow_run_id by job_id"""
     job = ScopedSession.query(Job).filter_by(job_id=job_id).first()
-    wf = ScopedSession.query(WorkflowDAO).filter_by(dag_id=job.dag_id).first()
+    wf = ScopedSession.query(Workflow).filter_by(dag_id=job.dag_id).first()
     if not wf:
         ScopedSession.commit()
         return None  # no workflow has started, so no workflow run
@@ -196,7 +197,7 @@ def add_update_workflow():
     """
     data = request.get_json()
     if request.method == 'POST':
-        wf = WorkflowDAO(dag_id=data['dag_id'],
+        wf = Workflow(dag_id=data['dag_id'],
                          workflow_args=data['workflow_args'],
                          workflow_hash=data['workflow_hash'],
                          name=data['name'],
@@ -205,8 +206,8 @@ def add_update_workflow():
         ScopedSession.add(wf)
     else:
         wf_id = data.pop('wf_id')
-        wf = ScopedSession.query(WorkflowDAO).\
-            filter(WorkflowDAO.id == wf_id).first()
+        wf = ScopedSession.query(Workflow).\
+            filter(Workflow.id == wf_id).first()
         for key, val in data.items():
             setattr(wf, key, val)
     ScopedSession.commit()
@@ -242,8 +243,8 @@ def add_update_workflow_run():
                              stdout=data['stdout'],
                              project=data['project'],
                              slack_channel=data['slack_channel'])
-        workflow = ScopedSession.query(WorkflowDAO).\
-            filter(WorkflowDAO.id == data['workflow_id']).first()
+        workflow = ScopedSession.query(Workflow).\
+            filter(Workflow.id == data['workflow_id']).first()
         # Set all previous runs to STOPPED
         for run in workflow.workflow_runs:
             run.status = WorkflowRunStatus.STOPPED

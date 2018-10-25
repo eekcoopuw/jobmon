@@ -11,12 +11,13 @@ from datetime import datetime
 
 from jobmon.client.the_client_config import get_the_client_config
 from jobmon.client.requester import Requester
-from jobmon.models.job import InvalidStateTransition, Job
+from jobmon.models.job import Job
+from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
-from jobmon.models.workflow import WorkflowDAO
+from jobmon.models.workflow import Workflow
 from jobmon.attributes.constants import job_attribute
 
 
@@ -85,7 +86,7 @@ def test_get_workflow_run_id(real_dag_id):
                  'name': 'test',
                  'user': user},
         request_type='post')
-    wf = WorkflowDAO.from_wire(response['workflow_dct'])
+    wf = Workflow.from_wire(response['workflow_dct'])
 
     # add workflow_run_id
     _, response = req.send_request(

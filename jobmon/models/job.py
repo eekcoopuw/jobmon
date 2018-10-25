@@ -9,15 +9,9 @@ from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.sql_base import Base
+from jobmon.models.exceptions import InvalidStateTransition
 
 logger = logging.getLogger(__name__)
-
-
-class InvalidStateTransition(Exception):
-    def __init__(self, model, id, old_state, new_state):
-        msg = "Cannot transition {} id: {} from {} to {}".format(
-            model, id, old_state, new_state)
-        super(InvalidStateTransition, self).__init__(self, msg)
 
 
 class Job(Base):
