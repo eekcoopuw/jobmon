@@ -3,7 +3,7 @@ import sys
 import os
 import os.path as path
 
-
+from jobmon.client.swarm.executors.sge_resource import SGEResource
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 
@@ -96,15 +96,21 @@ def test_invalid_memory_caught(jlm):
 
 
 @pytest.mark.cluster
-def test_memory_transformed_correctly(jlm):
-    pass
+@pytest.mark.parametrize('mem', ['1TB', '1B', '513GB', '10gigabytes'])
+def test_memory_transformed_correctly():
+    resource = SGEResource(mem_free='2G', num_cores=1, queue='all.q',
+                           max_runtime_seconds=86400)
+    hms = resource._transform_secs_to_hms()
+    h, m, s = hms.split(":")  # should turn into one day
+    assert int(h) == 24
+    assert int(m) == 0
 
 
 @pytest.mark.cluster
 def test_exclusive_args_enforced(jlm):
     job1 = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="exclusive_args_both", mem_free='2G', multi_slot=8,
+             name="exclusive_args_both", mem_free='2G', slots=8,
              num_cores=8, j_resource=True,
              queue='all.q', max_runtime_seconds=120))
     job2 = jlm.bind_task(
@@ -137,7 +143,7 @@ def test_invalid_runtime_by_queue_caught(jlm, runtime):
     job = jlm.bind_task(
     Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
          name="invalid_runtime_{}".format(runtime[1]), mem_free='2G',
-         multi_slot=8, num_cores=8, j_resource=True,
+         slots=8, num_cores=8, j_resource=True,
          queue=runtime[1], max_runtime_seconds=runtime[0]))
     jlm.queue_job(job)
 
@@ -148,15 +154,21 @@ def test_invalid_runtime_by_queue_caught(jlm, runtime):
 
 
 @pytest.mark.cluster
-def test_runtime_transformed_correctly(jlm):
-    pass
+def test_runtime_transformed_correctly():
+    resource = SGEResource(mem_free='2G', num_cores=1, queue='all.q',
+                           max_runtime_seconds=86400)
+    hms = resource._transform_secs_to_hms()
+    h, m, s = hms.split(":")  # should turn into one day
+    assert int(h) == 24
+    assert int(m) == 0
+    assert int(s) == 0
 
 
 @pytest.mark.cluster
 def test_invalid_j_resource_caught(jlm)
     job = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="j_resource", mem_free='2G', multi_slot=8, num_cores=8,
+             name="j_resource", mem_free='2G', slots=8, num_cores=8,
              j_resource='Nope', queue='all.q', max_runtime_seconds=120))
     jlm.queue_job(job)
 
