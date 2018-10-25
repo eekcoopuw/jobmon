@@ -39,7 +39,7 @@ class SGEResource(object):
             queue, slots, num_cores, mem_free_gb, max_runtime_secs
         """
         self.slots = slots
-        self.mem_free_gb = mem_free_gb
+        self.mem_free = mem_free
         self.num_cores = num_cores
         self.j_resource = j_resource
         self.queue = queue
@@ -65,6 +65,8 @@ class SGEResource(object):
         """
         if 'c2' in self.queue:
             max_cores = 100
+        elif self.queue == "geospatial.q":
+            max_cores = 64
         else:
             max_cores = 56
         if (self.slots is not None and
@@ -104,13 +106,13 @@ class SGEResource(object):
 
     def _validate_memory(self):
         """Ensure memory requested isn't more than available on any node"""
-        self.mem_free_gb = self._transform_mem_to_gb(self.mem_free_gb)
-        if self.mem_free_gb is not None:
-            if self.mem_free_gb not in range(0, 512):
+        self.mem_free = self._transform_mem_to_gb(self.mem_free)
+        if self.mem_free is not None:
+            if self.mem_free not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
                                  "0 and 512GB (the limit on all.q and "
                                  "profile.q). Got {}"
-                                 .format(self.mem_free_gb))
+                                 .format(self.mem_free))
 
     def _transform_secs_to_hms(self, secs):
         return str(datetime.timedelta(seconds=secs))
@@ -125,6 +127,11 @@ class SGEResource(object):
             else:
                 self.max_runtime_seconds = self._transform_secs_to_hms(
                     self.max_runtime_seconds)
+        elif self.queue == "geospatial.q":
+            if self.max_runtime_seconds > 1555200:
+                raise ValueError("Can only run for up to 18 days (1555200 sec) "
+                                 "on geospatial.q, you requested {} seconds"
+                                 .format(self.max_runtime_seconds))
         elif self.queue == "long.q" or self.queue == "profile.q":
             if self.max_runtime_seconds > 604800:
                 raise ValueError("Can only run for up to 1 week (604800 sec) "
@@ -155,7 +162,7 @@ class SGEResource(object):
         """Ensure all essential arguments are present and not None"""
         cluster = os.env['SGE_CLUSTER_NAMEf']
         if cluster == 'test_cluster':
-            for arg in [self.queue, self.num_cores, self.mem_free_gb,
+            for arg in [self.queue, self.num_cores, self.mem_free,
                         self.max_runtime_seconds]:
                 if arg is None:
                     raise ValueError("To use {}, arg {} can't be None"
@@ -172,5 +179,5 @@ class SGEResource(object):
         self._validate_memory()
         self._validate_runtime()
         self._validate_j_resource()
-        return (self.slots, self.mem_free_gb, self.num_cores, self.j_resource, self.queue,
+        return (self.slots, self.mem_free, self.num_cores, self.j_resource, self.queue,
                 self.max_runtime_seconds)

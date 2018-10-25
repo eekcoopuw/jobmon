@@ -59,7 +59,7 @@ class ExecutableTask(object):
         return True
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
-                 name=None, slots=None, mem_free_gb=None, num_cores=None,
+                 name=None, slots=None, mem_free=None, num_cores=None,
                  max_runtime_seconds=None, queue=None, max_attempts=3,
                  j_resource=False, tag=None, context_args=None,
                  job_attributes={}):
@@ -108,7 +108,7 @@ class ExecutableTask(object):
         self.hash = int(hashlib.sha1(command.encode('utf-8')).hexdigest(), 16)
 
         self.slots = slots
-        self.mem_free_gb = mem_free_gb
+        self.mem_free = mem_free
         self.num_cores = num_cores
         self.max_runtime_seconds = max_runtime_seconds
         self.queue = queue

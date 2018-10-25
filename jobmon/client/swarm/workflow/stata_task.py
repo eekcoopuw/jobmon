@@ -14,7 +14,7 @@ class StataTask(ExecutableTask):
 
     def __init__(self, path_to_stata_binary=default_stata_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=1, num_cores=None, mem_free_gb=2, max_attempts=3,
+                 slots=1, num_cores=None, mem_free=2, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None, j_resource=False):
         """
         This runs a stata file using stata-mp command, using the flags -b
@@ -52,7 +52,7 @@ class StataTask(ExecutableTask):
         super(StataTask, self).__init__(
             command=self.command, env_variables=env_variables,
             upstream_tasks=upstream_tasks, name=name, slots=slots,
-            num_cores=num_cores, mem_free_gb=mem_free_gb, max_attempts=max_attempts,
+            num_cores=num_cores, mem_free=mem_free, max_attempts=max_attempts,
             max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
             j_resource=j_resource)
 

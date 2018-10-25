@@ -86,7 +86,7 @@ def test_python_task(dag_factory, tmp_out_dir):
                       args=["--sleep_secs", "1",
                             "--output_file_path", output_file_name,
                             "--name", name],
-                      name=name, mem_free_gb=1, max_attempts=2, max_runtime_seconds=60)
+                      name=name, mem_free=1, max_attempts=2, max_runtime_seconds=60)
 
     executor = SGEExecutor(project='proj_jenkins')
     real_dag = dag_factory(executor)
@@ -191,7 +191,7 @@ def test_specific_queue(dag_factory, tmp_out_dir):
                       args=["--sleep_secs", "1",
                             "--output_file_path", output_file_name,
                             "--name", name],
-                      name=name, mem_free_gb=1, max_attempts=2, max_runtime_seconds=60,
+                      name=name, mem_free=1, max_attempts=2, max_runtime_seconds=60,
                       queue='all.q@@c2-nodes')
     executor = SGEExecutor(project='proj_jenkins')
     dag = dag_factory(executor)
