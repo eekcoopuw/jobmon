@@ -9,12 +9,12 @@ class SGEResource(object):
     Validates inputs.
     """
 
-    def __init__(self, slots=None, mem_free_gb=None, num_cores=None,
+    def __init__(self, slots=None, mem_free=None, num_cores=None,
                  queue=None, max_runtime_seconds=None, j_resource=False):
         """
         Args
         slots (int): slots to request on the cluster
-        mem_free_gb (str): amount of memory in gbs, tbs, or mbs to request on
+        mem_free (str): amount of memory in gbs, tbs, or mbs to request on
             the cluster
         num_cores (int): number of cores to request on the cluster.
         j_resource (bool): whether or not to access the J drive. Default: False
@@ -80,24 +80,25 @@ class SGEResource(object):
                              "but the max_cores is {}"
                              .format(self.num_cores, max_cores))
 
-    def _transform_mem_to_gb(self, mem):
+    def _transform_mem_to_gb(self):
         # do we want upper and lowercase g, m, t options?
-        if mem[-1] == "M" or "m":
-            mem = int(mem[:-1])
+        mem = self.mem_free
+        if mem[-1] == "M" or mem[-1] == "m":
+            mem = float(self.mem_free[:-1])
             mem /= 1000
-        elif mem[-2:] == "MB" or "mb":
-            mem = int(mem[:-2])
+        elif mem[-2:] == "MB" or mem[-2:] == "mb":
+            mem = float(mem[:-2])
             mem /= 1000
-        elif mem[-1] == "T" or "t":
-            mem = int(mem[:-1])
+        elif mem[-1] == "T" or mem[-1] == "t":
+            mem = float(mem[:-1])
             mem *= 1000
-        elif mem[-2:] == "TB" or "tb":
-            mem = int(mem[:-2])
+        elif mem[-2:] == "TB" or mem[-2:] == "tb":
+            mem = float(mem[:-2])
             mem *= 1000
-        elif mem[-1] == "G" or "g":
-            mem = int(mem[:-1])
-        elif mem[-2:] == "GB" or "gb":
-            mem = int(mem[:-2])
+        elif mem[-1] == "G" or mem[-1] == "g":
+            mem = float(mem[:-1])
+        elif mem[-2:] == "GB" or mem[-2:] == "gb":
+            mem = float(mem[:-2])
         else:
             raise ValueError("Memory measure should be an int followed by M, "
                              "MB, m, mb, G, GB, g, gb, T, TB, t, "
@@ -106,7 +107,7 @@ class SGEResource(object):
 
     def _validate_memory(self):
         """Ensure memory requested isn't more than available on any node"""
-        self.mem_free = self._transform_mem_to_gb(self.mem_free)
+        self.mem_free = self._transform_mem_to_gb()
         if self.mem_free is not None:
             if self.mem_free not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
@@ -114,8 +115,8 @@ class SGEResource(object):
                                  "profile.q). Got {}"
                                  .format(self.mem_free))
 
-    def _transform_secs_to_hms(self, secs):
-        return str(datetime.timedelta(seconds=secs))
+    def _transform_secs_to_hms(self):
+        return str(datetime.timedelta(seconds=self.max_runtime_seconds))
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
@@ -125,8 +126,7 @@ class SGEResource(object):
                                  "all.q, you requested {} seconds"
                                  .format(self.max_runtime_seconds))
             else:
-                self.max_runtime_seconds = self._transform_secs_to_hms(
-                    self.max_runtime_seconds)
+                self.max_runtime_seconds = self._transform_secs_to_hms()
         elif self.queue == "geospatial.q":
             if self.max_runtime_seconds > 1555200:
                 raise ValueError("Can only run for up to 18 days (1555200 sec) "
@@ -139,8 +139,7 @@ class SGEResource(object):
                                  .format(self.queue,
                                          self.max_runtime_seconds))
             else:
-                self.max_runtime_seconds = self._transform_secs_to_hms(
-                    self.max_runtime_seconds)
+                self.max_runtime_seconds = self._transform_secs_to_hms()
         else:
             raise ValueError("You did not request all.q, profile.q, or long.q "
                              "to run your jobs")
