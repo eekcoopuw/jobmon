@@ -68,7 +68,7 @@ def test_invalid_queues_caught(jlm):
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['1TB', '1B', '513GB', '10gigabytes'])
-def test_invalid_memory_caught(jlm):
+def test_invalid_memory_caught(jlm, mem):
     job = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="invalid_memory", mem_free=mem, num_cores=8, j_resource=True,
@@ -84,7 +84,7 @@ def test_invalid_memory_caught(jlm):
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['.5TB', '500GB', '500000MB'])
-def test_memory_transformed_correctly():
+def test_memory_transformed_correctly(mem):
     resource = SGEResource(mem_free=mem, num_cores=1, queue='all.q',
                            max_runtime_seconds=86400)
     mem_free_gb = resource._transform_mem_to_gb()
@@ -151,16 +151,16 @@ def test_invalid_runtime_by_queue_caught(jlm, runtime):
 @pytest.mark.cluster
 def test_runtime_transformed_correctly():
     resource = SGEResource(mem_free='2G', num_cores=1, queue='all.q',
-                           max_runtime_seconds=86400)
+                           max_runtime_seconds=86399)
     hms = resource._transform_secs_to_hms()
-    h, m, s = hms.split(":")  # should turn into one day
-    assert int(h) == 24
-    assert int(m) == 0
-    assert int(s) == 0
+    h, m, s = hms.split(":")  # turns into '23:59:59', if it is exactly 86400 it becomes 1 day 0:00:00
+    assert int(h) == 23
+    assert int(m) == 59
+    assert int(s) == 59
 
 
 @pytest.mark.cluster
-def test_invalid_j_resource_caught(jlm)
+def test_invalid_j_resource_caught(jlm):
     job = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="j_resource", mem_free='2G', slots=8, num_cores=8,
