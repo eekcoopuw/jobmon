@@ -8,8 +8,8 @@ class SGEResource(object):
     Validates inputs.
     """
 
-    def __init__(self, slots=None, mem_free=None, num_cores=None,
-                 queue=None, max_runtime_secs=None, j_resource=False):
+    def __init__(self, slots=None, mem_free_gb=None, num_cores=None,
+                 queue=None, max_runtime_seconds=None, j_resource=False):
         """
         Args
         slots (int): slots to request on the cluster
@@ -35,11 +35,11 @@ class SGEResource(object):
             queue, slots, num_cores, mem_free_gb, max_runtime_secs
         """
         self.slots = slots
-        self.mem_free = mem_free
+        self.mem_free_gb = mem_free_gb
         self.num_cores = num_cores
         self.j_resource = j_resource
         self.queue = queue
-        self.max_runtime_secs = max_runtime_secs
+        self.max_runtime_seconds = max_runtime_seconds
 
     def _get_valid_queues(self):
         check_valid_queues = "qconf -sql"
@@ -76,23 +76,23 @@ class SGEResource(object):
 
     def _validate_memory(self):
         """Ensure memory requested isn't more than available on any node"""
-        if self.mem_free is not None:
-            mem = int(self.mem_free[:-1])
+        if self.mem_free_gb is not None:
+            mem = int(self.mem_free_gb[:-1])
             if mem not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
                                  "0 and 512GB (the limit on all.q and profile.q). Got {}"
-                                 .format(self.mem_free))
+                                 .format(self.mem_free_gb))
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
         if self.queue == "all.q":
-            if self.max_runtime_secs > 86400:
+            if self.max_runtime_seconds > 86400:
                 raise ValueError("Can only run for up to 1 day (86400 sec) on all.q, you requested {} seconds"
-                                 .format(self.max_runtime_secs))
+                                 .format(self.max_runtime_seconds))
         elif self.queue == "long.q" or self.queue == "profile.q":
-            if self.max_runtime_secs > 604800:
+            if self.max_runtime_seconds > 604800:
                 raise ValueError("Can only run for up to 1 week (604800 sec) on {}, you requested {} seconds"
-                                 .format(self.queue, self.max_runtime_secs))
+                                 .format(self.queue, self.max_runtime_seconds))
         else:
             raise ValueError("You did not request all.q, profile.q, or long.q to run your jobs")
 
@@ -113,8 +113,8 @@ class SGEResource(object):
         """Ensure all essential arguments are present and not None"""
         cluster = os.env['SGE_CLUSTER_NAMEf']
         if cluster == 'test_cluster':
-            for arg in [self.queue, self.num_cores, self.mem_free,
-                        self.max_runtime_secs]:
+            for arg in [self.queue, self.num_cores, self.mem_free_gb,
+                        self.max_runtime_seconds]:
                 if arg is None:
                     raise ValueError("To use {}, arg {} can't be None"
                                      .format(cluster, arg))
@@ -130,5 +130,5 @@ class SGEResource(object):
         self._validate_memory()
         self._validate_runtime()
         self._validate_j_resource()
-        return (self.slots, self.mem_free, self.num_cores, self.j_resource, self.queue,
-                self.max_runtime_secs)
+        return (self.slots, self.mem_free_gb, self.num_cores, self.j_resource, self.queue,
+                self.max_runtime_seconds)

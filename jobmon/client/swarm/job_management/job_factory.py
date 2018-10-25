@@ -25,8 +25,8 @@ class JobFactory(object):
         self.requester = requester.Requester(get_the_client_config(), 'jsm')
 
     def create_job(self, command, jobname, job_hash, slots=1,
-                   mem_free=2, max_attempts=1, max_runtime=None,
-                   context_args=None, tag=None, queue=None):
+                   mem_free_gb=2, max_attempts=1, max_runtime_seconds=None,
+                   context_args=None, tag=None, queue=None, j_resource=False):
         """
         Create a job entry in the database.
 
@@ -35,16 +35,17 @@ class JobFactory(object):
             jobname (str): name of the job
             job_hash (str): hash of the job
             slots (int): Number of slots to request from SGE
-            mem_free (int): Number of GB of memory to request from SGE
+            mem_free_gb (int): Number of GB of memory to request from SGE
             max_attempts (int): Maximum # of attempts before sending the job to
                 ERROR_FATAL state
-            max_runtime (int): Maximum runtime in seconds of a single
+            max_runtime_seconds (int): Maximum runtime in seconds of a single
                 job_instance before killing and marking that instance as failed
             context_args (dict): Additional arguments to be sent to the command
                 builders
             tag (str, default None): a group identifier
             queue (str): queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
+            j_resource (bool): whether or not this job is using the j drive
         """
         if not context_args:
             context_args = json.dumps({})
@@ -58,11 +59,13 @@ class JobFactory(object):
                      'command': command,
                      'context_args': context_args,
                      'slots': slots,
-                     'mem_free': mem_free,
+                     'cores': cores,
+                     'mem_free_gb': mem_free_gb,
                      'max_attempts': max_attempts,
-                     'max_runtime': max_runtime,
+                     'max_runtime_seconds': max_runtime_seconds,
                      'tag': tag,
-                     'queue': queue
+                     'queue': queue,
+                     'j_resource': j_resource
                      },
             request_type='post')
         if rc != StatusCodes.OK:

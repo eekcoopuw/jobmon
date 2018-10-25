@@ -84,11 +84,13 @@ class JobListManager(object):
                 command=task.command,
                 tag=task.tag,
                 slots=task.slots,
-                mem_free=task.mem_free,
+                cores=task.cores,
+                mem_free_gb=task.mem_free_gb,
                 max_attempts=task.max_attempts,
-                max_runtime=task.max_runtime,
+                max_runtime_seconds=task.max_runtime_seconds,
                 context_args=task.context_args,
-                queue=task.queue
+                queue=task.queue,
+                j_resource=task.j_resource
             )
 
         # adding the attributes to the job now that there is a job_id
