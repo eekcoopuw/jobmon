@@ -160,7 +160,7 @@ class SGEResource(object):
 
     def _validate_args_based_on_cluster(self):
         """Ensure all essential arguments are present and not None"""
-        cluster = os.env['SGE_CLUSTER_NAMEf']
+        cluster = os.env['SGE_CLUSTER_NAME']
         if cluster == 'test_cluster':
             for arg in [self.queue, self.num_cores, self.mem_free,
                         self.max_runtime_seconds]:

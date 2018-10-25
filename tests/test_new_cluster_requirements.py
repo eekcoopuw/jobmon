@@ -115,9 +115,10 @@ def test_exclusive_args_enforced(jlm):
 
 
 @pytest.mark.cluster
-def test_exhaustive_args_enforced(jlm):
+@pytest.mark.parametrize('cluster_name', ['test_cluster', 'prod', 'dev'])
+def test_exhaustive_args_enforced(monkeypatch, cluster_name):
     # make sure all args are present by cluster. Make sure good error is raised
-    pass
+    monkeypatch.setenv("SGE_CLUSTER_NAME", cluster_name)
 
 
 @pytest.mark.cluster
