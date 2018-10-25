@@ -5,13 +5,10 @@ import os
 from datetime import datetime
 import uuid
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import relationship
-
 import jobmon
 from cluster_utils.io import makedirs_safely
 from jobmon.client.the_client_config import get_the_client_config
-from jobmon.models.workflow import WorkflowDAO
+from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
