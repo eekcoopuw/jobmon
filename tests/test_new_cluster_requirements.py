@@ -78,8 +78,8 @@ def test_invalid_memory_caught(jlm, mem):
     jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
     with pytest.raises(ValueError) as exc:
         jlm.job_instance_factory._create_job_instance(jobs[0])
-    assert ('only request mem_free_gb between 0 and 512GB' in exc
-            or 'measure should be an int' in exc)
+    assert ('only request mem_free_gb between 0 and 512GB' in exc or
+            'measure should be an int' in exc)
 
 
 @pytest.mark.cluster
@@ -119,16 +119,17 @@ def test_exhaustive_args_enforced(monkeypatch, jlm):
     # make sure all args are present by cluster. Make sure good error is raised
     monkeypatch.setenv("SGE_CLUSTER_NAME", 'test_cluster')
     job = jlm.bind_task(
-    Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-         name="exhaustive_args", mem_free=None,
-         slots=8, num_cores=None, j_resource=True,
-         queue=None, max_runtime_seconds=None))
-    jlm.queue_job(job)
+        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+             name="exhaustive_args", mem_free=None,
+             slots=8, num_cores=None, j_resource=True,
+             queue=None, max_runtime_seconds=None))
+        jlm.queue_job(job)
 
     jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
     with pytest.raises(ValueError) as exc:
         jlm.job_instance_factory._create_job_instance(jobs[0])
     assert " can't be None" in exc
+
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('runtime', [(86500, 'all.q'), (604900, 'long.q'),
@@ -136,10 +137,10 @@ def test_exhaustive_args_enforced(monkeypatch, jlm):
                                      (604900, 'geospatial')])
 def test_invalid_runtime_by_queue_caught(jlm, runtime):
     job = jlm.bind_task(
-    Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-         name="invalid_runtime_{}".format(runtime[1]), mem_free='2G',
-         slots=8, num_cores=8, j_resource=True,
-         queue=runtime[1], max_runtime_seconds=runtime[0]))
+        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+             name="invalid_runtime_{}".format(runtime[1]), mem_free='2G',
+             slots=8, num_cores=8, j_resource=True,
+             queue=runtime[1], max_runtime_seconds=runtime[0]))
     jlm.queue_job(job)
 
     jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
@@ -153,7 +154,8 @@ def test_runtime_transformed_correctly():
     resource = SGEResource(mem_free='2G', num_cores=1, queue='all.q',
                            max_runtime_seconds=86399)
     hms = resource._transform_secs_to_hms()
-    h, m, s = hms.split(":")  # turns into '23:59:59', if it is exactly 86400 it becomes 1 day 0:00:00
+    # turns into '23:59:59', if it is exactly 86400 it becomes 1 day 0:00:00
+    h, m, s = hms.split(":")
     assert int(h) == 23
     assert int(m) == 59
     assert int(s) == 59
