@@ -24,19 +24,6 @@ def jlm(real_dag_id):
     jlm.disconnect()
 
 
-@pytest.mark.cluster
-def test_new_cluster_request(real_dag_id, job_list_manager_sge):
-    job = job_list_manager_sge.bind_task(
-        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="sge_foobar", mem_free='6G', num_cores=8, queue='all.q',
-             max_runtime_seconds=120))
-    job_list_manager_sge.queue_job(job)
-
-    timeout_and_skip(10, 120, 1, partial(
-        valid_command_check,
-        job_list_manager_sge=job_list_manager_sge))
-
-
 def valid_command_check(job_list_manager_sge):
     job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_done) == 1:
@@ -96,14 +83,12 @@ def test_invalid_memory_caught(jlm):
 
 
 @pytest.mark.cluster
-@pytest.mark.parametrize('mem', ['1TB', '1B', '513GB', '10gigabytes'])
+@pytest.mark.parametrize('mem', ['.5TB', '500GB', '500000MB'])
 def test_memory_transformed_correctly():
-    resource = SGEResource(mem_free='2G', num_cores=1, queue='all.q',
+    resource = SGEResource(mem_free=mem, num_cores=1, queue='all.q',
                            max_runtime_seconds=86400)
-    hms = resource._transform_secs_to_hms()
-    h, m, s = hms.split(":")  # should turn into one day
-    assert int(h) == 24
-    assert int(m) == 0
+    mem_free_gb = resource._transform_mem_to_gb()
+    assert mem_free_gb == 500
 
 
 @pytest.mark.cluster
@@ -111,8 +96,8 @@ def test_exclusive_args_enforced(jlm):
     job1 = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="exclusive_args_both", mem_free='2G', slots=8,
-             num_cores=8, j_resource=True,
-             queue='all.q', max_runtime_seconds=120))
+             num_cores=8, j_resource=True, queue='all.q',
+             max_runtime_seconds=120))
     job2 = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="exclusive_args_none", mem_free='2G', j_resource=True,
@@ -136,8 +121,8 @@ def test_exhaustive_args_enforced(jlm):
 
 
 @pytest.mark.cluster
-@pytest.mark.parametrize('runtime', [(86500: 'all.q'), (604900: 'long.q'),
-                                     (604900: 'profile.q'),
+@pytest.mark.parametrize('runtime', [(86500, 'all.q'), (604900, 'long.q'),
+                                     (604900, 'profile.q'),
                                      (604900, 'geospatial')])
 def test_invalid_runtime_by_queue_caught(jlm, runtime):
     job = jlm.bind_task(
