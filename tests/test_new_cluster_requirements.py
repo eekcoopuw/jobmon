@@ -47,15 +47,16 @@ def valid_command_check(job_list_manager_sge):
 
 
 @pytest.mark.cluster
-@pytest.mark.parametrize('archive', [True, False])
+@pytest.mark.parametrize('j_resource', [True, False])
 @pytest.mark.parametrize('mem_free', ['6G', '6GB', '10MB', '10M', '1T', '1TB'])
 @pytest.mark.parametrize('queue', ['all.q', 'long.q', 'profile.q',
                                    'geospatial.q'])
 def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
-                                     archive, mem_free, queue):
+                                     j_resource, mem_free, queue):
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="sge_foobar", mem_free=mem_free, num_cores=8, archive=True,
+             name="sge_foobar", mem_free=mem_free, num_cores=8,
+             j_resource=j_resource,
              queue=queue, max_runtime_seconds=120))
     job_list_manager_sge.queue_job(job)
 
@@ -68,7 +69,7 @@ def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
 def test_invalid_queues_caught(jlm):
     job = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="invalid_queue", mem_free='2G', num_cores=8, archive=True,
+             name="invalid_queue", mem_free='2G', num_cores=8, j_resource=True,
              queue='not_a_real_queue.q', max_runtime_seconds=120))
     jlm.queue_job(job)
 
@@ -83,7 +84,7 @@ def test_invalid_queues_caught(jlm):
 def test_invalid_memory_caught(jlm):
     job = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="invalid_memory", mem_free=mem, num_cores=8, archive=True,
+             name="invalid_memory", mem_free=mem, num_cores=8, j_resource=True,
              queue='all.q', max_runtime_seconds=120))
     jlm.queue_job(job)
 
@@ -95,7 +96,7 @@ def test_invalid_memory_caught(jlm):
 
 
 @pytest.mark.cluster
-def test_memory_transformed_correctly(real_dag_id):
+def test_memory_transformed_correctly(jlm):
     pass
 
 
@@ -104,11 +105,11 @@ def test_exclusive_args_enforced(jlm):
     job1 = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="exclusive_args_both", mem_free='2G', multi_slot=8,
-             num_cores=8, archive=True,
+             num_cores=8, j_resource=True,
              queue='all.q', max_runtime_seconds=120))
     job2 = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="exclusive_args_none", mem_free='2G', archive=True,
+             name="exclusive_args_none", mem_free='2G', j_resource=True,
              queue='all.q', max_runtime_seconds=120))
     jlm.queue_job(job2)
 
@@ -123,31 +124,31 @@ def test_exclusive_args_enforced(jlm):
 
 
 @pytest.mark.cluster
-def test_exhaustive_args_enforced(rjlm):
+def test_exhaustive_args_enforced(jlm):
     # make sure all args are present by cluster. Make sure good error is raised
     pass
 
 
 @pytest.mark.cluster
-@pytest.mark.parametrize('runtime', {86500: 'all.q', 604900: 'long.q',
-                                     604900: 'profile.q', 604900, 'geospatial'})
+@pytest.mark.parametrize('runtime', [(86500: 'all.q'), (604900: 'long.q'),
+                                     (604900: 'profile.q'),
+                                     (604900, 'geospatial')])
 def test_invalid_runtime_by_queue_caught(jlm, runtime):
-    for time_running, queue in runtime.items():
-        job = jlm.bind_task(
-        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="invalid_runtime_{}".format(queue), mem_free='2G',
-             multi_slot=8, num_cores=8, j_resource=True,
-             queue=queue, max_runtime_seconds=time_running))
-        jlm.queue_job(job)
+    job = jlm.bind_task(
+    Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+         name="invalid_runtime_{}".format(runtime[1]), mem_free='2G',
+         multi_slot=8, num_cores=8, j_resource=True,
+         queue=runtime[1], max_runtime_seconds=runtime[0]))
+    jlm.queue_job(job)
 
-        jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
+    jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
     with pytest.raises(ValueError) as exc:
         jlm.job_instance_factory._create_job_instance(jobs[0])
-    assert 'Cannot specify BOTH slots and num_cores' in exc
+    assert 'Can only run for up to ' in exc
 
 
 @pytest.mark.cluster
-def test_runtime_transformed_correctly(real_dag_id, job_list_manager_sge):
+def test_runtime_transformed_correctly(jlm):
     pass
 
 
