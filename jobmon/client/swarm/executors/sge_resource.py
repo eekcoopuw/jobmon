@@ -10,11 +10,12 @@ class SGEResource(object):
     """
 
     def __init__(self, slots=None, mem_free_gb=None, num_cores=None,
-                 queue=None, max_runtime_seconds=None, j_resource=False):
+                 queue=None, max_runtime_seconds=None, archive=False):
         """
         Args
         slots (int): slots to request on the cluster
-        mem_free_gb (str): amount of memory in gbs, tbs, or mbs to request on the cluster
+        mem_free_gb (str): amount of memory in gbs, tbs, or mbs to request on
+            the cluster
         num_cores (int): number of cores to request on the cluster.
         j_resource (bool): whether or not to access the J drive. Default: False
         queue (str): queue of cluster nodes to submit this task to. Must be
@@ -22,6 +23,7 @@ class SGEResource(object):
         max_runtime_secs (int): how long the job should be allowed to
             run before the executor kills it. Not currently required by the
             new cluster, but will be. Default is None, for indefinite.
+        archive (bool): whether or not the job will need the J drive
 
          Raises:
             ValueError:
@@ -31,6 +33,7 @@ class SGEResource(object):
              If cores or slots aren't in a valid range: 1 to 48 or 100
              If mem_free_gb is not in a valid range: 1GB to 1TB
              If runtime isn't in the valid range for the associated queue
+             If archive isn't a bool
 
         Returns
             queue, slots, num_cores, mem_free_gb, max_runtime_secs
@@ -38,7 +41,7 @@ class SGEResource(object):
         self.slots = slots
         self.mem_free_gb = mem_free_gb
         self.num_cores = num_cores
-        self.j_resource = j_resource
+        self.archive = archive
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
 
@@ -94,7 +97,8 @@ class SGEResource(object):
         elif mem[-2:] == "GB" or "gb":
             mem = int(mem[:-2])
         else:
-            raise ValueError("Memory measure should be an int followed by M, MB, m, mb, G, GB, g, gb, T, TB, t, "
+            raise ValueError("Memory measure should be an int followed by M, "
+                             "MB, m, mb, G, GB, g, gb, T, TB, t, "
                              "or tb you gave {]".format(mem))
         return mem
 
@@ -104,7 +108,8 @@ class SGEResource(object):
         if self.mem_free_gb is not None:
             if self.mem_free_gb not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
-                                 "0 and 512GB (the limit on all.q and profile.q). Got {}"
+                                 "0 and 512GB (the limit on all.q and "
+                                 "profile.q). Got {}"
                                  .format(self.mem_free_gb))
 
     def _transform_secs_to_hms(self, secs):
@@ -114,23 +119,28 @@ class SGEResource(object):
         """Ensure that max_runtime passed in fits on the queue requested"""
         if self.queue == "all.q":
             if self.max_runtime_seconds > 86400:
-                raise ValueError("Can only run for up to 1 day (86400 sec) on all.q, you requested {} seconds"
+                raise ValueError("Can only run for up to 1 day (86400 sec) on "
+                                 "all.q, you requested {} seconds"
                                  .format(self.max_runtime_seconds))
             else:
                 self.max_runtime_seconds = self._transform_secs_to_hms(self.max_runtime_seconds)
         elif self.queue == "long.q" or self.queue == "profile.q":
             if self.max_runtime_seconds > 604800:
-                raise ValueError("Can only run for up to 1 week (604800 sec) on {}, you requested {} seconds"
-                                 .format(self.queue, self.max_runtime_seconds))
+                raise ValueError("Can only run for up to 1 week (604800 sec) "
+                                 "on {}, you requested {} seconds"
+                                 .format(self.queue,
+                                         self.max_runtime_seconds))
             else:
-                self.max_runtime_seconds = self._transform_secs_to_hms(self.max_runtime_seconds)
+                self.max_runtime_seconds = self._transform_secs_to_hms(
+                    self.max_runtime_seconds)
         else:
-            raise ValueError("You did not request all.q, profile.q, or long.q to run your jobs")
+            raise ValueError("You did not request all.q, profile.q, or long.q "
+                             "to run your jobs")
 
-    def _validate_j_resource(self):
-        if self.j_resource not in [True, False]:
-            raise ValueError("j_resource is a bool arg. Got {}"
-                             .format(self.j_resource))
+    def _validate_archive(self):
+        if self.archive not in [True, False]:
+            raise ValueError("archive is a bool arg. Got {}"
+                             .format(self.archive))
 
     def _validate_exclusivity(self):
         """Ensure there's no conflicting arguments"""
