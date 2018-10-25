@@ -100,21 +100,30 @@ def test_memory_transformed_correctly(real_dag_id):
 
 @pytest.mark.cluster
 def test_exclusive_args_enforced(jlm):
-    job = jlm.bind_task(
+    job1 = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="exclusive_args", mem_free='2G', multi_slot=8, num_cores=8,
-             archive=True,
+             name="exclusive_args_both", mem_free='2G', multi_slot=8,
+             num_cores=8, archive=True,
              queue='all.q', max_runtime_seconds=120))
-    jlm.queue_job(job)
+    job2 = jlm.bind_task(
+        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+             name="exclusive_args_none", mem_free='2G', archive=True,
+             queue='all.q', max_runtime_seconds=120))
+    jlm.queue_job(job2)
 
     jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
     with pytest.raises(ValueError) as exc:
         jlm.job_instance_factory._create_job_instance(jobs[0])
     assert 'Cannot specify BOTH slots and num_cores' in exc
 
+    with pytest.raises(ValueError) as exc:
+        jlm.job_instance_factory._create_job_instance(jobs[2])
+    assert 'Must pass one of [slots, num_cores]' in exc
+
 
 @pytest.mark.cluster
-def test_exhaustive_args_enforced(real_dag_id, job_list_manager_sge):
+@pytest.mark.parametrize('runtime', {''})
+def test_exhaustive_args_enforced(rjlm):
     # make sure all args are present by cluster. Make sure good error is raised
     pass
 
@@ -130,7 +139,7 @@ def test_runtime_transformed_correctly(real_dag_id, job_list_manager_sge):
 
 
 @pytest.mark.cluster
-def test_invalid_j_resource_caught(real_dag_id, job_list_manager_sge)
+def test_invalid_j_resource_caught(jlm)
     job = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="j_resource", mem_free='2G', multi_slot=8, num_cores=8,

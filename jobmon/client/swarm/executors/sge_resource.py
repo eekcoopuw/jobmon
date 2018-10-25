@@ -123,7 +123,8 @@ class SGEResource(object):
                                  "all.q, you requested {} seconds"
                                  .format(self.max_runtime_seconds))
             else:
-                self.max_runtime_seconds = self._transform_secs_to_hms(self.max_runtime_seconds)
+                self.max_runtime_seconds = self._transform_secs_to_hms(
+                    self.max_runtime_seconds)
         elif self.queue == "long.q" or self.queue == "profile.q":
             if self.max_runtime_seconds > 604800:
                 raise ValueError("Can only run for up to 1 week (604800 sec) "
