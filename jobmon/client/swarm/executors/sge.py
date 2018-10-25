@@ -3,7 +3,6 @@ import logging
 import os
 import subprocess
 from time import sleep
-import datetime
 
 import pandas as pd
 
@@ -25,7 +24,6 @@ class SGEExecutor(Executor):
         self.stdout = stdout
         self.project = project
         self.working_dir = working_dir
-        self.valid_queues = self._get_valid_queues()
 
         super().__init__(*args, **kwargs)
 
@@ -98,32 +96,6 @@ class SGEExecutor(Executor):
                                    "but they still exist. Timing out."
                                    .format(lagging_jobs.job_id.unique()))
 
-    def transform_secs_to_hms(self, secs):
-        return str(datetime.timedelta(seconds=secs))
-
-
-    def transform_mem_to_gb (self, mem):
-        # do we want upper and lowercase g, m, t options?
-        if mem[-1] == "M" or "m":
-            mem = int(mem[:-1])
-            mem /= 1000
-        elif mem[-2:] =="MB" or "mb":
-            mem = int(mem[:-2])
-            mem /= 1000
-        elif mem[-1] == "T" or "t":
-            mem = int(mem[:-1])
-            mem *= 1000
-        elif mem[-2:] == "TB" or "tb":
-            mem = int(mem[:-2])
-            mem *= 1000
-        elif mem[-1] == "G" or "g":
-            mem = int(mem[:-1])
-        elif mem[-2:] == "GB" or "gb":
-            mem = int(mem[:-2])
-        else:
-            raise ValueError("Memory measure should be an int followed by M, G, or T, you gave {]".format(mem))
-        return mem
-
     def build_wrapped_command(self, job, job_instance_id, stderr=None,
                               stdout=None, project=None, working_dir=None):
         """Process the Job's context_args, which are assumed to be
@@ -159,7 +131,6 @@ class SGEExecutor(Executor):
         else:
             wd_cmd = ""
         if mem_free_gb:
-            mem = self.transform_mem_to_gb(mem_free_gb)
             mem_cmd = "-l mem_free={}g".format(mem)
         else:
             mem_cmd = ""
@@ -176,7 +147,6 @@ class SGEExecutor(Executor):
         else:
             q_cmd = ""
         if max_runtime_seconds:
-            h_m_s = self.transform_secs_to_hms(max_runtime_seconds)
             time_cmd = "-l h_rt={}".format(h_m_s)
         else:
             time_cmd = ""
