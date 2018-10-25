@@ -115,11 +115,20 @@ def test_exclusive_args_enforced(jlm):
 
 
 @pytest.mark.cluster
-@pytest.mark.parametrize('cluster_name', ['test_cluster', 'prod', 'dev'])
-def test_exhaustive_args_enforced(monkeypatch, cluster_name):
+def test_exhaustive_args_enforced(monkeypatch, jlm):
     # make sure all args are present by cluster. Make sure good error is raised
-    monkeypatch.setenv("SGE_CLUSTER_NAME", cluster_name)
+    monkeypatch.setenv("SGE_CLUSTER_NAME", 'test_cluster')
+    job = jlm.bind_task(
+    Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+         name="exhaustive_args", mem_free=None,
+         slots=8, num_cores=None, j_resource=True,
+         queue=None, max_runtime_seconds=None))
+    jlm.queue_job(job)
 
+    jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
+    with pytest.raises(ValueError) as exc:
+        jlm.job_instance_factory._create_job_instance(jobs[0])
+    assert " can't be None" in exc
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('runtime', [(86500, 'all.q'), (604900, 'long.q'),
