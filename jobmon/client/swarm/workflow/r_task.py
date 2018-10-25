@@ -12,7 +12,7 @@ class RTask(ExecutableTask):
 
     def __init__(self, path_to_R_binary=default_R_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=1, num_cores=None, mem_free_gb=2, max_attempts=3,
+                 slots=1, num_cores=None, mem_free=2, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None, j_resource=False):
         """
         Args:
@@ -27,7 +27,7 @@ class RTask(ExecutableTask):
             name (str): name that will be visible in qstat for this job
             slots (int): slots to request on the cluster. Default is 1
             num_cores (int): the number of cores to request on the cluster
-            mem_free_gb (int): amount of memory in GBs to request on the cluster.
+            mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 2
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 1
@@ -45,7 +45,7 @@ class RTask(ExecutableTask):
         super(RTask, self).__init__(
             command=self.command, env_variables=env_variables,
             upstream_tasks=upstream_tasks, name=name, slots=slots,
-            num_cores=num_cores, mem_free_gb=mem_free_gb, max_attempts=max_attempts,
+            num_cores=num_cores, mem_free=mem_free, max_attempts=max_attempts,
             max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
             j_resource=j_resource)
 

@@ -85,7 +85,7 @@ class JobListManager(object):
                 tag=task.tag,
                 slots=task.slots,
                 cores=task.cores,
-                mem_free_gb=task.mem_free_gb,
+                mem_free=task.mem_free,
                 max_attempts=task.max_attempts,
                 max_runtime_seconds=task.max_runtime_seconds,
                 context_args=task.context_args,
