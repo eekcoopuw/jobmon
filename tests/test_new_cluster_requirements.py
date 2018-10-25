@@ -55,21 +55,41 @@ def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
 
 
 @pytest.mark.cluster
-def test_invalid_queues_caught(real_dag_id, job_list_manager_sge):
-    # how do we do a pytest.raises() when the raise will be from the
-    # SGEExecutor on the node?
-    pass
+def test_invalid_queues_caught(real_dag_id):
+    executor = SGEExecutor(project='proj_jenkins')
+    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False,
+                         interrupt_on_error=False)
+    job = jlm.bind_task(
+        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+             name="invalid_queue", mem_free='2G', num_cores=8, archive=True,
+             queue='not_a_real_queue.q', max_runtime_seconds=120))
+    jlm.queue_job(job)
+
+    jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
+    with pytest.raises(ValueError) as exc:
+        jlm.job_instance_factory._create_job_instance(jobs[0])
+    assert 'invalid queue' in exc
 
 
 @pytest.mark.cluster
-def test_invalid_queues_caught(real_dag_id, job_list_manager_sge):
-    # how do we do a pytest.raises() when the raise will be from the
-    # SGEExecutor on the node?
-    pass
+def test_invalid_memory_caught(real_dag_id):
+    executor = SGEExecutor(project='proj_jenkins')
+    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False,
+                         interrupt_on_error=False)
+    job = jlm.bind_task(
+        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+             name="sge_foobar", mem_free='2G', num_cores=8, archive=True,
+             queue='all.q', max_runtime_seconds=120))
+    jlm.queue_job(job)
+
+    jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
+    with pytest.raises(ValueError) as exc:
+        jlm.job_instance_factory._create_job_instance(jobs[0])
+    assert 'invalid queue' in exc
 
 
 @pytest.mark.cluster
-def test_invalid_memory_caught(real_dag_id, job_list_manager_sge):
+def test_memory_transformed_correctly(real_dag_id):
     pass
 
 
@@ -86,6 +106,11 @@ def test_exhaustive_args_enforced(real_dag_id, job_list_manager_sge):
 
 @pytest.mark.cluster
 def test_invalid_runtime_by_queue_caught(real_dag_id, job_list_manager_sge):
+    pass
+
+
+@pytest.mark.cluster
+def test_runtime_transformed_correctly(real_dag_id, job_list_manager_sge):
     pass
 
 
