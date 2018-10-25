@@ -99,7 +99,7 @@ def test_python_task_equality():
 def test_python_task_args(job_list_manager_sge):
     from jobmon.server.database import ScopedSession
     a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
-                   slots=1, mem_free=2, max_attempts=1)
+                   slots=1, mem_free_gb=2, max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
     job = ScopedSession.query(Job).filter_by(job_id=job_id).all()

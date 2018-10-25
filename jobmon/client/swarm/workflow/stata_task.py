@@ -14,8 +14,8 @@ class StataTask(ExecutableTask):
 
     def __init__(self, path_to_stata_binary=default_stata_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=1, mem_free=2, max_attempts=3, max_runtime=None,
-                 tag=None, queue=None):
+                 slots=1, num_cores=None, mem_free_gb=2, max_attempts=3,
+                 max_runtime_seconds=None, tag=None, queue=None, j_resource=False):
         """
         This runs a stata file using stata-mp command, using the flags -b
         (batch) and -q (quiet).
@@ -46,13 +46,15 @@ class StataTask(ExecutableTask):
                 same in a TaskDagViz instance. Default is None.
             queue (str): queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
+            j_resource (bool): whether or not this task uses the j_drive
         """
         self.command = StataTask.make_cmd(path_to_stata_binary, script, args)
         super(StataTask, self).__init__(
             command=self.command, env_variables=env_variables,
             upstream_tasks=upstream_tasks, name=name, slots=slots,
-            mem_free=mem_free, max_attempts=max_attempts,
-            max_runtime=max_runtime, tag=tag, queue=queue)
+            num_cores=num_cores, mem_free_gb=mem_free_gb, max_attempts=max_attempts,
+            max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
+            j_resource=j_resource)
 
     @staticmethod
     def make_cmd(path_to_stata_binary, script, args):

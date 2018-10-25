@@ -1,5 +1,6 @@
 import os
 import subprocess
+import datetime
 
 
 class SGEResource(object):
@@ -18,7 +19,7 @@ class SGEResource(object):
         j_resource (bool): whether or not to access the J drive. Default: False
         queue (str): queue of cluster nodes to submit this task to. Must be
             a valid queue, as defined by "qconf -sql"
-        max_runtime_secs (int, seconds): how long the job should be allowed to
+        max_runtime_secs (int): how long the job should be allowed to
             run before the executor kills it. Not currently required by the
             new cluster, but will be. Default is None, for indefinite.
 
@@ -74,14 +75,40 @@ class SGEResource(object):
                              "but the max_cores is {}"
                              .format(self.num_cores, max_cores))
 
+    def _transform_mem_to_gb(self, mem):
+        # do we want upper and lowercase g, m, t options?
+        if mem[-1] == "M" or "m":
+            mem = int(mem[:-1])
+            mem /= 1000
+        elif mem[-2:] == "MB" or "mb":
+            mem = int(mem[:-2])
+            mem /= 1000
+        elif mem[-1] == "T" or "t":
+            mem = int(mem[:-1])
+            mem *= 1000
+        elif mem[-2:] == "TB" or "tb":
+            mem = int(mem[:-2])
+            mem *= 1000
+        elif mem[-1] == "G" or "g":
+            mem = int(mem[:-1])
+        elif mem[-2:] == "GB" or "gb":
+            mem = int(mem[:-2])
+        else:
+            raise ValueError("Memory measure should be an int followed by M, MB, m, mb, G, GB, g, gb, T, TB, t, "
+                             "or tb you gave {]".format(mem))
+        return mem
+
     def _validate_memory(self):
         """Ensure memory requested isn't more than available on any node"""
+        self.mem_free_gb = self._transform_mem_to_gb(self.mem_free_gb)
         if self.mem_free_gb is not None:
-            mem = int(self.mem_free_gb[:-1])
-            if mem not in range(0, 512):
+            if self.mem_free_gb not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
                                  "0 and 512GB (the limit on all.q and profile.q). Got {}"
                                  .format(self.mem_free_gb))
+
+    def _transform_secs_to_hms(self, secs):
+        return str(datetime.timedelta(seconds=secs))
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
@@ -89,10 +116,14 @@ class SGEResource(object):
             if self.max_runtime_seconds > 86400:
                 raise ValueError("Can only run for up to 1 day (86400 sec) on all.q, you requested {} seconds"
                                  .format(self.max_runtime_seconds))
+            else:
+                self.max_runtime_seconds = self._transform_secs_to_hms(self.max_runtime_seconds)
         elif self.queue == "long.q" or self.queue == "profile.q":
             if self.max_runtime_seconds > 604800:
                 raise ValueError("Can only run for up to 1 week (604800 sec) on {}, you requested {} seconds"
                                  .format(self.queue, self.max_runtime_seconds))
+            else:
+                self.max_runtime_seconds = self._transform_secs_to_hms(self.max_runtime_seconds)
         else:
             raise ValueError("You did not request all.q, profile.q, or long.q to run your jobs")
 
