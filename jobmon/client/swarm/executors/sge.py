@@ -131,7 +131,7 @@ class SGEExecutor(Executor):
         else:
             wd_cmd = ""
         if mem_free:
-            mem_cmd = "-l mem_free={}g".format(mem)
+            mem_cmd = "-l mem_free={}g".format(mem_free)
         else:
             mem_cmd = ""
         if num_cores:

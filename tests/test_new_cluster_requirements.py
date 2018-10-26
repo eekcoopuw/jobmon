@@ -123,7 +123,7 @@ def test_exhaustive_args_enforced(monkeypatch, jlm):
              name="exhaustive_args", mem_free=None,
              slots=8, num_cores=None, j_resource=True,
              queue=None, max_runtime_seconds=None))
-        jlm.queue_job(job)
+    jlm.queue_job(job)
 
     jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
     with pytest.raises(ValueError) as exc:

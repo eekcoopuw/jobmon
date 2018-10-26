@@ -20,7 +20,7 @@ class SGEResource(object):
         j_resource (bool): whether or not to access the J drive. Default: False
         queue (str): queue of cluster nodes to submit this task to. Must be
             a valid queue, as defined by "qconf -sql"
-        max_runtime_secs (int): how long the job should be allowed to
+        max_runtime_seconds (int): how long the job should be allowed to
             run before the executor kills it. Not currently required by the
             new cluster, but will be. Default is None, for indefinite.
         j_resource (bool): whether or not the job will need the J drive
@@ -153,13 +153,14 @@ class SGEResource(object):
         """Ensure there's no conflicting arguments"""
         if self.slots and self.num_cores:
             raise ValueError("Cannot specify BOTH slots and num_cores. "
-                             "Specify one or the other")
+                             "Specify one or the other, your requested {} slots "
+                             "and {} cores".format(self.slots, self.num_cores))
         if not self.slots and not self.num_cores:
             raise ValueError("Must pass one of [slots, num_cores]")
 
     def _validate_args_based_on_cluster(self):
         """Ensure all essential arguments are present and not None"""
-        cluster = os.env['SGE_CLUSTER_NAME']
+        cluster = os.environ['SGE_CLUSTER_NAME']
         if cluster == 'test_cluster':
             for arg in [self.queue, self.num_cores, self.mem_free,
                         self.max_runtime_seconds]:

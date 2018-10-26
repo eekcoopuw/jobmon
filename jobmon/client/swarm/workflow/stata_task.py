@@ -14,7 +14,7 @@ class StataTask(ExecutableTask):
 
     def __init__(self, path_to_stata_binary=default_stata_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=1, num_cores=None, mem_free=2, max_attempts=3,
+                 slots=None, num_cores=None, mem_free=2, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None, j_resource=False):
         """
         This runs a stata file using stata-mp command, using the flags -b
@@ -38,7 +38,7 @@ class StataTask(ExecutableTask):
                 Generally 2x slots. Default is 2
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 1
-            max_runtime (int, seconds): how long the job should be allowed to
+            max_runtime_seconds (int, seconds): how long the job should be allowed to
                 run before the executor kills it. Default is None, for
                 indefinite.
             tag (str): a group identifier. Currently just used for

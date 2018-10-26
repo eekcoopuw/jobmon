@@ -77,7 +77,7 @@ class ExecutableTask(object):
         name (str): name that will be visible in qstat for this job
         slots (int): slots to request on the cluster. Default is 1
         num_cores (int): number of cores to request on the cluster
-        mem_free_gb (int): amount of memory to request on the cluster.
+        mem_free (int): amount of memory to request on the cluster.
             Generally 2x slots. Default is 2
         max_attempts (int): number of attempts to allow the cluster to try
             before giving up. Default is 1

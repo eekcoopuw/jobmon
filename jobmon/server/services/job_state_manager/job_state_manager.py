@@ -78,11 +78,14 @@ def add_job():
         command: job's command
         dag_id: dag_id to which this job is attached
         slots: number of slots requested
+        num_cores: number of cores requested
         mem_free: number of Gigs of memory requested
         max_attempts: how many times the job should be attempted
-        max_runtime: how long the job should be allowed to run
+        max_runtime_seconds: how long the job should be allowed to run
         context_args: any other args that should be passed to the executor
         tag: job attribute tag
+        queue: which queue is being used
+        j_resource: if the j_drive is being used
     """
     data = request.get_json()
     job = Job(
@@ -90,13 +93,15 @@ def add_job():
         job_hash=data['job_hash'],
         command=data['command'],
         dag_id=data['dag_id'],
-        slots=data.get('slots', 1),
+        slots=data.get('slots', None),
+        num_cores = data.get('num_cores', None),
         mem_free=data.get('mem_free', 2),
         max_attempts=data.get('max_attempts', 1),
-        max_runtime=data.get('max_runtime', None),
+        max_runtime_seconds=data.get('max_runtime_seconds', None),
         context_args=data.get('context_args', "{}"),
         tag=data.get('tag', None),
         queue=data.get('queue', None),
+        j_resource=data.get('j_resource', False),
         status=JobStatus.REGISTERED)
     ScopedSession.add(job)
     ScopedSession.commit()
@@ -198,11 +203,11 @@ def add_update_workflow():
     data = request.get_json()
     if request.method == 'POST':
         wf = Workflow(dag_id=data['dag_id'],
-                         workflow_args=data['workflow_args'],
-                         workflow_hash=data['workflow_hash'],
-                         name=data['name'],
-                         user=data['user'],
-                         description=data.get('description', ""))
+                      workflow_args=data['workflow_args'],
+                      workflow_hash=data['workflow_hash'],
+                      name=data['name'],
+                      user=data['user'],
+                      description=data.get('description', ""))
         ScopedSession.add(wf)
     else:
         wf_id = data.pop('wf_id')

@@ -12,7 +12,7 @@ class PythonTask(ExecutableTask):
 
     def __init__(self, path_to_python_binary=current_python, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=1, num_cores=None, mem_free=2, max_attempts=3,
+                 slots=None, num_cores=None, mem_free=2, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None, j_resource=False):
         """
         Args:
