@@ -108,6 +108,8 @@ class SGEExecutor(Executor):
         resources = SGEResource(job.slots, job.mem_free, job.num_cores,
                                 job.j_resource, job.queue,
                                 job.max_runtime_seconds)
+        import pdb
+        pdb.set_trace()
         (slots, mem_free, num_cores, j_resource, queue,
          max_runtime_seconds) = resources.return_valid_resources()
 
