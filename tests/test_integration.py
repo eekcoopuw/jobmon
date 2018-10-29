@@ -57,7 +57,7 @@ def test_sync(job_list_manager_sge_no_daemons):
 
     job = job_list_manager_sge.bind_task(Task(command='fizzbuzz',  name='bar'))
     job_list_manager_sge.queue_job(job)
-    job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
+    job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
     sleep(35)
 
     # with a new job failed, make sure that the sync has been updated and the
@@ -78,7 +78,7 @@ def test_invalid_command(job_list_manager):
     assert len(njobs1) == 1
     assert len(job_list_manager.all_error) == 0
 
-    job_list_manager.job_inst_factory.instantiate_queued_jobs()
+    job_list_manager.job_instance_factory.instantiate_queued_jobs()
     sleep(35)
     job_list_manager._sync()
     assert len(job_list_manager.all_error) > 0
@@ -94,7 +94,7 @@ def test_valid_command(job_list_manager):
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
 
-    job_list_manager.job_inst_factory.instantiate_queued_jobs()
+    job_list_manager.job_instance_factory.instantiate_queued_jobs()
     sleep(35)
     job_list_manager._sync()
     assert len(job_list_manager.all_done) > 0
@@ -193,7 +193,7 @@ def test_sge_valid_command(job_list_manager_sge_no_daemons):
                                               slots=3,
                                               mem_free=6))
     job_list_manager_sge.queue_job(job)
-    job_list_manager_sge.job_inst_factory.instantiate_queued_jobs()
+    job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
     job_list_manager_sge._sync()
     assert (job_list_manager_sge.bound_tasks[job.job_id].status ==
             JobStatus.INSTANTIATED)
