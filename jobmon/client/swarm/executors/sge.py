@@ -33,8 +33,6 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
-            import pdb
-            pdb.set_trace()
             resp = subprocess.check_output(qsub_cmd, shell=True)
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
@@ -111,7 +109,8 @@ class SGEExecutor(Executor):
         (slots, mem_free, num_cores, j_resource, queue,
          max_runtime_seconds) = resources.return_valid_resources()
 
-        # pdb here
+        import pdb
+        pdb.set_trace()
 
         ctx_args = json.loads(job.context_args)
         if 'sge_add_args' in ctx_args:
