@@ -9,7 +9,7 @@ class SGEResource(object):
     Validates inputs.
     """
 
-    def __init__(self, slots=None, mem_free=None, num_cores=None,
+    def __init__(self, slots=1, mem_free=None, num_cores=None,
                  queue=None, max_runtime_seconds=None, j_resource=False):
         """
         Args
