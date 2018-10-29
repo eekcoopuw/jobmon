@@ -33,6 +33,8 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
+            import pdb
+            pdb.set_trace()
             resp = subprocess.check_output(qsub_cmd, shell=True)
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
