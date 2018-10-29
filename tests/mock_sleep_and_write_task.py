@@ -22,8 +22,6 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
                  ):
         etk.ExecutableTask.__init__(self, command, slots=1,
                                     upstream_tasks=upstream_tasks)
-        import pdb
-        pdb.set_trace()
 
         # TBD validation using the types module.
         self.fail_always = fail_always
