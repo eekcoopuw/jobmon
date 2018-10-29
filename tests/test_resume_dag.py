@@ -16,6 +16,8 @@ logger.addHandler(handler)
 
 
 def test_resume_real_dag(real_dag, tmp_out_dir):
+    import pdb
+    pdb.set_trace()
     root_out_dir = "{}/mocks/test_resume_real_dag".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     command_script = sge_utils.true_path("tests/remote_sleep_and_write.py")
