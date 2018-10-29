@@ -5,7 +5,10 @@ import os.path as path
 
 from jobmon.client.swarm.executors.sge_resource import SGEResource
 from jobmon.client.swarm.executors import sge_utils as sge
+from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
+from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.exceptions import InvalidResponse
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -146,6 +149,8 @@ def test_invalid_runtime_by_queue_caught(jlm, runtime):
     jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
     with pytest.raises(ValueError) as exc:
         jlm.job_instance_factory._create_job_instance(jobs[0])
+    import pdb
+    pdb.set_trace()
     assert 'Can only run for up to ' in exc
 
 
@@ -163,13 +168,19 @@ def test_runtime_transformed_correctly():
 
 @pytest.mark.cluster
 def test_invalid_j_resource_caught(jlm):
+    # with pytest.raises(InvalidResponse) as exc:
+    import pdb
+    pdb.set_trace()
     job = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="j_resource", mem_free='2G', slots=8, num_cores=8,
+             name="j_resource", mem_free='2G', num_cores=8,
              j_resource='Nope', queue='all.q', max_runtime_seconds=120))
-    jlm.queue_job(job)
 
-    jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
-    with pytest.raises(ValueError) as exc:
-        jlm.job_instance_factory._create_job_instance(jobs[0])
-    assert 'j_resource is a bool arg.' in exc
+    # jlm.queue_job(job)
+    #
+    # jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
+    # with pytest.raises(ValueError) as exc:
+    #     import pdb
+    #     pdb.set_trace()
+    #     jlm.job_instance_factory._create_job_instance(jobs[0])
+    # assert 'j_resource is a bool arg.' in exc

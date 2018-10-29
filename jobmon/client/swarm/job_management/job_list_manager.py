@@ -41,7 +41,7 @@ class JobListManager(object):
         self.job_factory = JobFactory(dag_id)
 
         self._stop_event = Event()
-        self.job_inst_factory = JobInstanceFactory(
+        self.job_instance_factory = JobInstanceFactory(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
@@ -249,7 +249,7 @@ class JobListManager(object):
         threads
         """
         self.jif_proc = Thread(
-            target=self.job_inst_factory.instantiate_queued_jobs_periodically,
+            target=self.job_instance_factory.instantiate_queued_jobs_periodically,
             args=(self.job_instantiation_interval,))
         self.jif_proc.daemon = True
         self.jif_proc.start()

@@ -39,7 +39,8 @@ class Job(Base):
                 'name': self.name, 'tag': self.tag, 'job_hash': self.job_hash,
                 'command': self.command, 'status': self.status,
                 'slots': self.slots, 'mem_free': self.mem_free,
-                'num_cores': self.num_cores, 'max_runtime_seconds': self.max_runtime_seconds,
+                'num_cores': self.num_cores,
+                'max_runtime_seconds': self.max_runtime_seconds,
                 'num_attempts': self.num_attempts,
                 'max_attempts': self.max_attempts,
                 'context_args': self.context_args,
@@ -58,11 +59,11 @@ class Job(Base):
     command = Column(Text)
     context_args = Column(String(1000))
     queue = Column(String(255))
-    slots = Column(Integer, default=1)
+    slots = Column(Integer, default=None)
     mem_free = Column(String(255))
-    num_cores = Column(Integer, default=1)
+    num_cores = Column(Integer, default=None)
     j_resource = Column(Boolean, unique=False, default=False)
-    max_runtime_seconds = Column(String(255))
+    max_runtime_seconds = Column(Integer, default=None)
     num_attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=1)
     status = Column(

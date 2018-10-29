@@ -103,8 +103,9 @@ class SGEExecutor(Executor):
         """
         # TODO: Settle on a sensible way to pass and validate settings for the
         # command's context (i.e. context = Executor, SGE/Sequential/Multiproc)
-        resources = SGEResource(job.slots, job.mem_free, job.num_cores, job.j_resource,
-                                job.queue, job.max_runtime_seconds)
+        resources = SGEResource(job.slots, job.mem_free, job.num_cores,
+                                job.j_resource, job.queue,
+                                job.max_runtime_seconds)
         (slots, mem_free, num_cores, j_resource, queue,
          max_runtime_seconds) = resources.return_valid_resources()
         ctx_args = json.loads(job.context_args)

@@ -51,10 +51,10 @@ class SGEResource(object):
                                                shell=True).split()
         return [q.decode("utf-8") for q in valid_queues]
 
-    def _validate_queue(self, queue):
+    def _validate_queue(self):
         valid_queues = self._get_valid_queues()
-        if queue:
-            valid = any([q in queue for q in valid_queues])
+        if self.queue:
+            valid = any([q in self.queue for q in valid_queues])
             if not valid:
                 raise ValueError("Got invalid queue {}. Valid queues are {}"
                                  .format(queue, valid_queues))
@@ -145,7 +145,7 @@ class SGEResource(object):
                              "to run your jobs")
 
     def _validate_j_resource(self):
-        if self.j_resource not in [True, False]:
+        if not(self.j_resource is True or self.j_resource is False):
             raise ValueError("j_resource is a bool arg. Got {}"
                              .format(self.j_resource))
 

@@ -170,7 +170,7 @@ def get_job_instances_by_filter(dag_id):
         dag_id (int): dag_id to which the job_instances are attached
         status (list): list of statuses to query for
         runtime (str, optional, option: 'timed_out'): if specified, will only
-        return jobs whose runtime is above max_runtime
+        return jobs whose runtime is above max_runtime_seconds
     """
     if request.args.get('runtime', None) is not None:
         instances = ScopedSession.query(JobInstance).\
@@ -179,11 +179,11 @@ def get_job_instances_by_filter(dag_id):
             join(Job).\
             options(contains_eager(JobInstance.job)).\
             filter(Job.dag_id == dag_id,
-                   Job.max_runtime != None).all()  # noqa: E711
+                   Job.max_runtime_seconds != None).all()  # noqa: E711
         ScopedSession.commit()
         now = datetime.utcnow()
         instances = [r.to_wire() for r in instances
-                     if (now - r.status_date).seconds > r.job.max_runtime]
+                     if (now - r.status_date).seconds > r.job.max_runtime_seconds]
     else:
         instances = ScopedSession.query(JobInstance).\
             filter(
