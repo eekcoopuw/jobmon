@@ -28,6 +28,8 @@ class SGEExecutor(Executor):
         super().__init__(*args, **kwargs)
 
     def _execute_sge(self, job, job_instance_id):
+        import pdb
+        pdb.set_trace()
         try:
             qsub_cmd = self.build_wrapped_command(job, job_instance_id,
                                                   self.stderr, self.stdout,
