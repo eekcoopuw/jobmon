@@ -108,6 +108,9 @@ class SGEExecutor(Executor):
                                 job.max_runtime_seconds)
         (slots, mem_free, num_cores, j_resource, queue,
          max_runtime_seconds) = resources.return_valid_resources()
+
+        # pdb here
+
         ctx_args = json.loads(job.context_args)
         if 'sge_add_args' in ctx_args:
             sge_add_args = ctx_args['sge_add_args']
