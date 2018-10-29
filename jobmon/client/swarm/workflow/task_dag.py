@@ -232,8 +232,6 @@ class TaskDag(object):
         all_completed = self.job_list_manager.all_done
         num_new_completed = len(all_completed) - len(previously_completed)
         all_failed = self.job_list_manager.all_error
-        import pdb
-        pdb.set_trace()
         if all_failed:
             logger.info("DAG execute finished, failed {}".format(all_failed))
             self.job_list_manager.disconnect()

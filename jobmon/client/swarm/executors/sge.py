@@ -145,7 +145,7 @@ class SGEExecutor(Executor):
             cpu_cmd = "-l fthread={}".format(num_cores)
         else:
             cpu_cmd = "-pe multi_slot {}".format(slots)
-        if j_resource:
+        if j_resource is True:
             j_cmd= "-l archive"
         else:
             j_cmd=""
