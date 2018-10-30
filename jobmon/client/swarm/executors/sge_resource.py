@@ -10,7 +10,7 @@ class SGEResource(object):
     """
 
     def __init__(self, slots=None, mem_free=None, num_cores=None,
-                 queue=None, max_runtime_seconds=None, j_resource=False):
+                 queue="", max_runtime_seconds=None, j_resource=False):
         """
         Args
         slots (int): slots to request on the cluster
@@ -55,7 +55,7 @@ class SGEResource(object):
         import pdb
         pdb.set_trace()
         valid_queues = self._get_valid_queues()
-        if self.queue:
+        if self.queue != "":
             valid = any([q in self.queue for q in valid_queues])
             if not valid:
                 raise ValueError("Got invalid queue {}. Valid queues are {}"
