@@ -52,6 +52,8 @@ class SGEResource(object):
         return [q.decode("utf-8") for q in valid_queues]
 
     def _validate_queue(self):
+        import pdb
+        pdb.set_trace()
         valid_queues = self._get_valid_queues()
         if self.queue:
             valid = any([q in self.queue for q in valid_queues])
