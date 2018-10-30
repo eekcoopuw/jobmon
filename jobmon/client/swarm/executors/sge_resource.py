@@ -54,7 +54,8 @@ class SGEResource(object):
     def _validate_queue(self):
         valid_queues = self._get_valid_queues()
         if self.queue is not None:
-            valid = any([q in self.queue for q in valid_queues])
+            # valid = any([q in self.queue for q in valid_queues])
+            valid = self.queue in valid_queues
             if not valid:
                 raise ValueError("Got invalid queue {}. Valid queues are {}"
                                  .format(self.queue, valid_queues))
