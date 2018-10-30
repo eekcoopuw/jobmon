@@ -28,8 +28,6 @@ class SGEExecutor(Executor):
         super().__init__(*args, **kwargs)
 
     def _execute_sge(self, job, job_instance_id):
-        import pdb
-        pdb.set_trace()
         try:
             qsub_cmd = self.build_wrapped_command(job, job_instance_id,
                                                   self.stderr, self.stdout,
@@ -105,13 +103,13 @@ class SGEExecutor(Executor):
         """
         # TODO: Settle on a sensible way to pass and validate settings for the
         # command's context (i.e. context = Executor, SGE/Sequential/Multiproc)
-        resources = SGEResource(job.slots, job.mem_free, job.num_cores,
-                                job.j_resource, job.queue,
-                                job.max_runtime_seconds)
-        import pdb
-        pdb.set_trace()
-        (slots, mem_free, num_cores, j_resource, queue,
-         max_runtime_seconds) = resources.return_valid_resources()
+        resources = SGEResource(slots=job.slots, mem_free=job.mem_free,
+                                num_cores=job.num_cores, queue=job.queue,
+                                max_runtime_seconds = job.max_runtime_seconds,
+                                j_resource= job.j_resource)
+
+        (slots, mem_free, num_cores, queue, max_runtime_seconds,
+         j_resource) = resources.return_valid_resources()
 
         import pdb
         pdb.set_trace()
