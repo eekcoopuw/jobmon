@@ -62,7 +62,7 @@ class Job(Base):
     slots = Column(Integer, default=None)
     mem_free = Column(String(255))
     num_cores = Column(Integer, default=None)
-    j_resource = Column(Boolean, unique=False, default=False)
+    j_resource = Column(Boolean, default=False)
     max_runtime_seconds = Column(Integer, default=None)
     num_attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=1)
