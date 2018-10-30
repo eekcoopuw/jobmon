@@ -41,9 +41,9 @@ class SGEResource(object):
         self.slots = slots
         self.mem_free = mem_free
         self.num_cores = num_cores
-        self.j_resource = j_resource
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
+        self.j_resource = j_resource
 
     def _get_valid_queues(self):
         check_valid_queues = "qconf -sql"
@@ -53,7 +53,7 @@ class SGEResource(object):
 
     def _validate_queue(self):
         valid_queues = self._get_valid_queues()
-        if self.queue != "":
+        if self.queue is not None:
             valid = any([q in self.queue for q in valid_queues])
             if not valid:
                 raise ValueError("Got invalid queue {}. Valid queues are {}"
