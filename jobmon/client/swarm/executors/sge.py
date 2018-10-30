@@ -107,6 +107,8 @@ class SGEExecutor(Executor):
                                 num_cores=job.num_cores, queue=job.queue,
                                 max_runtime_seconds = job.max_runtime_seconds,
                                 j_resource= job.j_resource)
+        import pdb
+        pdb.set_trace()
 
         (slots, mem_free, num_cores, queue, max_runtime_seconds,
          j_resource) = resources.return_valid_resources()
