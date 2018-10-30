@@ -10,7 +10,7 @@ class SGEResource(object):
     """
 
     def __init__(self, slots=None, mem_free=None, num_cores=None,
-                 queue="", max_runtime_seconds=None, j_resource=False):
+                 queue=None, max_runtime_seconds=None, j_resource=False):
         """
         Args
         slots (int): slots to request on the cluster
@@ -52,14 +52,12 @@ class SGEResource(object):
         return [q.decode("utf-8") for q in valid_queues]
 
     def _validate_queue(self):
-        import pdb
-        pdb.set_trace()
         valid_queues = self._get_valid_queues()
         if self.queue != "":
             valid = any([q in self.queue for q in valid_queues])
             if not valid:
                 raise ValueError("Got invalid queue {}. Valid queues are {}"
-                                 .format(queue, valid_queues))
+                                 .format(self.queue, valid_queues))
 
     def _validate_slots_and_cores(self):
         """Ensure slots or cores requested isn't more than available on that
@@ -131,8 +129,8 @@ class SGEResource(object):
                 self.max_runtime_seconds = self._transform_secs_to_hms()
         elif self.queue == "geospatial.q":
             if self.max_runtime_seconds > 1555200:
-                raise ValueError("Can only run for up to 18 days (1555200 sec) "
-                                 "on geospatial.q, you requested {} seconds"
+                raise ValueError("Can only run for up to 18 days (1555200 sec)"
+                                 " on geospatial.q, you requested {} seconds"
                                  .format(self.max_runtime_seconds))
         elif self.queue == "long.q" or self.queue == "profile.q":
             if self.max_runtime_seconds > 604800:
@@ -155,7 +153,7 @@ class SGEResource(object):
         """Ensure there's no conflicting arguments"""
         if self.slots and self.num_cores:
             raise ValueError("Cannot specify BOTH slots and num_cores. "
-                             "Specify one or the other, your requested {} slots "
+                             "Specify one or the other, your requested {} slots"
                              "and {} cores".format(self.slots, self.num_cores))
         if not self.slots and not self.num_cores:
             raise ValueError("Must pass one of [slots, num_cores]")
@@ -181,5 +179,5 @@ class SGEResource(object):
         self._validate_memory()
         self._validate_runtime()
         self._validate_j_resource()
-        return (self.slots, self.mem_free, self.num_cores, self.j_resource, self.queue,
-                self.max_runtime_seconds)
+        return (self.slots, self.mem_free, self.num_cores, self.j_resource,
+                self.queue, self.max_runtime_seconds)
