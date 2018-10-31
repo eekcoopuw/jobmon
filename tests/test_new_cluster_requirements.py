@@ -43,8 +43,6 @@ def valid_command_check(job_list_manager_sge):
                                    'geospatial.q'])
 def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
                                      j_resource, mem_free, queue):
-    import pdb
-    pdb.set_trace()
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="sge_foobar", mem_free=mem_free, num_cores=8,
