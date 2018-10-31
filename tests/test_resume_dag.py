@@ -73,8 +73,6 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
 
     # ensure real_dag officially "fell over"
     with pytest.raises(ValueError):
-        import pdb
-        pdb.set_trace()
         real_dag._execute()
 
     # ensure the real_dag that "fell over" has 2 out of the 5 jobs complete
