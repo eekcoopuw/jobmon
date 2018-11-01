@@ -109,13 +109,15 @@ class SGEResource(object):
 
     def _validate_memory(self):
         """Ensure memory requested isn't more than available on any node"""
-        self.mem_free = self._transform_mem_to_gb()
         if self.mem_free is not None:
+            self.mem_free = self._transform_mem_to_gb()
             if self.mem_free not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
                                  "0 and 512GB (the limit on all.q and "
                                  "profile.q). Got {}"
                                  .format(self.mem_free))
+        else:
+            self.mem_free = 0
 
     def _transform_secs_to_hms(self):
         return str(datetime.timedelta(seconds=self.max_runtime_seconds))
