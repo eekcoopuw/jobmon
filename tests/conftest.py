@@ -22,6 +22,8 @@ def ephemera_conn_str():
     because the ephemera db has to be started before any other code
     imports the_server_config
     """
+    import pdb
+    pdb.set_trace()
     edb = create_ephemerdb()
     conn_str = edb.start()
 

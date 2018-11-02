@@ -36,18 +36,21 @@ def valid_command_check(job_list_manager_sge):
         return False
 
 
-@pytest.mark.cluster
-@pytest.mark.parametrize('j_resource', [True, False])
-@pytest.mark.parametrize('mem_free', ['6G', '6GB', '10MB', '10M', '1T', '1TB'])
-@pytest.mark.parametrize('queue', ['all.q', 'long.q', 'profile.q',
-                                   'geospatial.q'])
+# @pytest.mark.cluster
+# @pytest.mark.parametrize('j_resource', [True, False])
+# @pytest.mark.parametrize('mem_free', ['6G', '6GB', '10MB', '10M', '1T', '1TB'])
+# @pytest.mark.parametrize('queue', ['all.q', 'long.q', 'profile.q',
+#                                    'geospatial.q'])
 def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
-                                     j_resource, mem_free, queue):
+                                     j_resource=True, mem_free='6G',
+                                     queue='all.q'):
+    
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="sge_foobar", mem_free=mem_free, num_cores=8,
+             name="sge_foobar", mem_free=mem_free, num_cores=2,
              j_resource=j_resource,
              queue=queue, max_runtime_seconds=120))
+
     job_list_manager_sge.queue_job(job)
 
     timeout_and_skip(10, 120, 1, partial(

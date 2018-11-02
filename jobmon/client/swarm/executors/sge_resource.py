@@ -104,7 +104,7 @@ class SGEResource(object):
         else:
             raise ValueError("Memory measure should be an int followed by M, "
                              "MB, m, mb, G, GB, g, gb, T, TB, t, "
-                             "or tb you gave {]".format(mem))
+                             "or tb you gave {}".format(mem))
         return mem
 
     def _validate_memory(self):
@@ -124,29 +124,31 @@ class SGEResource(object):
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
-        if self.queue == "all.q":
-            if self.max_runtime_seconds > 86400:
-                raise ValueError("Can only run for up to 1 day (86400 sec) on "
-                                 "all.q, you requested {} seconds"
-                                 .format(self.max_runtime_seconds))
-            else:
-                self.max_runtime_seconds = self._transform_secs_to_hms()
-        elif self.queue == "geospatial.q":
-            if self.max_runtime_seconds > 1555200:
-                raise ValueError("Can only run for up to 18 days (1555200 sec)"
-                                 " on geospatial.q, you requested {} seconds"
-                                 .format(self.max_runtime_seconds))
-        elif self.queue == "long.q" or self.queue == "profile.q":
-            if self.max_runtime_seconds > 604800:
-                raise ValueError("Can only run for up to 1 week (604800 sec) "
-                                 "on {}, you requested {} seconds"
-                                 .format(self.queue,
-                                         self.max_runtime_seconds))
-            else:
-                self.max_runtime_seconds = self._transform_secs_to_hms()
-        else:
-            raise ValueError("You did not request all.q, profile.q, or long.q "
-                             "to run your jobs")
+        if self.max_runtime_seconds is not None:
+            if self.queue == "all.q":
+                if self.max_runtime_seconds > 86400:
+                    raise ValueError("Can only run for up to 1 day (86400 sec) on "
+                                     "all.q, you requested {} seconds"
+                                     .format(self.max_runtime_seconds))
+                else:
+                    self.max_runtime_seconds = self._transform_secs_to_hms()
+            elif self.queue == "geospatial.q":
+                if self.max_runtime_seconds > 1555200:
+                    raise ValueError("Can only run for up to 18 days (1555200 sec)"
+                                     " on geospatial.q, you requested {} seconds"
+                                     .format(self.max_runtime_seconds))
+            elif self.queue == "long.q" or self.queue == "profile.q":
+                if self.max_runtime_seconds > 604800:
+                    raise ValueError("Can only run for up to 1 week (604800 sec) "
+                                     "on {}, you requested {} seconds"
+                                     .format(self.queue,
+                                             self.max_runtime_seconds))
+                else:
+                    self.max_runtime_seconds = self._transform_secs_to_hms()
+            elif self.max_runtime_seconds > 86400:
+                raise ValueError("You did not request all.q, profile.q, "
+                                 "geospatial.q, or long.q to run your jobs so you "
+                                 "must limit your runtime to under 1 day")
 
     def _validate_j_resource(self):
         if not(self.j_resource is True or self.j_resource is False):

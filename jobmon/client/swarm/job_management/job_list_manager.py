@@ -156,6 +156,7 @@ class JobListManager(object):
 
     def _sync(self):
         """Get all jobs from the database and parse the done and errored"""
+
         jobs = self.get_job_statuses()
         self.parse_done_and_errors(jobs)
 
