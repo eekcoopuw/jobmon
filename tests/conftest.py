@@ -32,6 +32,8 @@ def ephemera_conn_str():
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.task_dag import TaskDag
+from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.attributes import attribute_database_loaders
 
 
@@ -149,6 +151,19 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
         return jsm_client.post(url, json=json, headers=headers)
     monkeypatch.setattr(requests, 'post', post_jsm)
     monkeypatch.setattr(requester, 'get_content', get_flask_content)
+
+
+@pytest.fixture
+def simple_workflow(real_jsm_jqs, db_cfg):
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+
+    wfa = "my_simple_dag"
+    workflow = Workflow(wfa, interrupt_on_error=False)
+    workflow.add_tasks([t1, t2, t3])
+    workflow.execute()
+    return workflow
 
 
 @pytest.fixture(scope='function')

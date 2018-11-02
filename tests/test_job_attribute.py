@@ -1,6 +1,8 @@
 import pytest
 
+from jobmon.client.requester import Requester
 from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.attributes.constants import job_attribute
 
 
@@ -85,3 +87,22 @@ def test_usage_job_attribute_error(job_list_manager_sge):
     with pytest.raises(ValueError) as exc:
         task.add_job_attribute(job_attribute.WALLCLOCK, "10")
     assert "Invalid attribute configuration" in str(exc.value)
+
+
+def test_attributes_retrievable(job_list_manager_sge):
+    # add attributes to workflow and jobs
+    task = BashTask("sleep 1")
+    task.add_job_attribute(job_attribute.NUM_DRAWS, "10")
+
+    wf = Workflow('test_attributes')
+    wf.add_task(task)
+    wf.run()
+
+    job_id = wf.task_dag.job_list_manager.hash_job_map[task.hash]
+
+    from jobmon.client.the_client_config import get_the_client_config
+    req = Requester(get_the_client_config(), 'jqs')
+    return_code, resp = req.send_request('/job/{}/job_attribute'
+        .format(job_id.job_id),
+        {'job_attribute_type': job_attribute.NUM_DRAWS}, 'get')
+    assert resp['job_attr_dct'][0]['value'] == '10'

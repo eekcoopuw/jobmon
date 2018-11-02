@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from jobmon.models.sql_base import Base
+from jobmon.models.job_instance import JobInstance
 
 logger = logging.getLogger(__name__)
 
