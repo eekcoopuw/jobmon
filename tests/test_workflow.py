@@ -402,6 +402,21 @@ def test_nodename_on_fail(simple_workflow_w_errors):
         assert nodenames and all(nodenames)
 
 
+def test_fail_fast(real_jsm_jqs, db_cfg):
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("erroring_out 1", upstream_tasks=[t1])
+    t3 = BashTask("sleep 30", upstream_tasks=[t2], max_runtime=1)
+    t4 = BashTask("not_a_command 3", upstream_tasks=[t3])
+
+    workflow = Workflow("test_fail_fast", fail_fast=True,
+                        interrupt_on_error=False)
+    workflow.add_tasks([t1, t2, t3, t4])
+    workflow.execute()
+
+    assert len(workflow.task_dag.job_list_manager.all_error) == 1
+    assert len(workflow.task_dag.job_list_manager.all_done) == 1
+
+
 def test_heartbeat(real_jsm_jqs, db_cfg):
 
     # TODO: Fix this awful hack... I believe the DAG fixtures above create

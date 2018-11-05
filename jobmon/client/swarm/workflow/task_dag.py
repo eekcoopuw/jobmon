@@ -22,7 +22,8 @@ class DagExecutionStatus(object):
 class TaskDag(object):
     """A DAG of ExecutableTasks."""
 
-    def __init__(self, name="", interrupt_on_error=True, executor=None):
+    def __init__(self, name="", interrupt_on_error=True, executor=None,
+                 fail_fast=False):
 
         self.dag_id = None
         self.job_list_manager = None
@@ -40,6 +41,7 @@ class TaskDag(object):
         # Control whether the JIF/JIR daemons should interrupt on errors...
         # this should primarily be set to True, except for test purposes
         self.interrupt_on_error = interrupt_on_error
+        self.fail_fast = fail_fast
 
         self.executor = executor
 
@@ -71,7 +73,8 @@ class TaskDag(object):
         if dag_id:
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
-                interrupt_on_error=self.interrupt_on_error)
+                interrupt_on_error=self.interrupt_on_error,
+                fail_fast=self.fail_fast)
 
             # Bind all the tasks to the job_list_manager... This has to be done
             # before the reset happens. TODO: Investigate the sequencing,
@@ -205,6 +208,8 @@ class TaskDag(object):
             # TBD timeout?
             completed_tasks, failed_tasks = (
                 self.job_list_manager.block_until_any_done_or_error())
+            if failed_tasks and self.fail_fast is True:
+                break  # fail out early
             for task in completed_tasks:
                 n_executions += 1
             logger.debug(
@@ -233,6 +238,8 @@ class TaskDag(object):
         num_new_completed = len(all_completed) - len(previously_completed)
         all_failed = self.job_list_manager.all_error
         if all_failed:
+            if self.fail_fast:
+                logger.info("Failing after first failure, as requested")
             logger.info("DAG execute finished, failed {}".format(all_failed))
             self.job_list_manager.disconnect()
             return (DagExecutionStatus.FAILED, num_new_completed,

@@ -157,6 +157,23 @@ Tasks that may have been made in previous Workflows will be ignored.
     Figure out how we want to give users visibility into the Workflows
     they've created over time.
 
+
+Making Workflow Fail On First Failure
+=======================================
+
+On occassion, a user might want to see how far a workflow can get before it fails,
+or want to immediately see where problem spots are. To do this, the user can just
+instantiate the workflow with fail_fast set to True. Then add tasks to the workflow
+as normal, and the workflow will fail on the first failure.
+
+For example::
+    wf = Workflow(workflow_args='testing', fail_fast=True)
+    t1 = BashTask("not a command 1")
+    t2 = BashTask("sleep 10", upstream_tasks=[t1])
+    wf.add_tasks([t1, t2])
+    wf.run()
+
+
 Jobmon Database
 ***************
 
