@@ -42,16 +42,16 @@ def valid_command_check(job_list_manager_sge):
 # @pytest.mark.parametrize('queue', ['all.q', 'long.q', 'profile.q',
 #                                    'geospatial.q'])
 def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
-                                     j_resource=True, mem_free='6G',
-                                     queue='all.q'):
-    
+                                     slots=1):
+
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="sge_foobar", mem_free=mem_free, num_cores=2,
-             j_resource=j_resource,
-             queue=queue, max_runtime_seconds=120))
+             name="sge_foobar", slots=slots))
 
     job_list_manager_sge.queue_job(job)
+    import pdb
+    pdb.set_trace()
+    # print os.environ["CONN_STR"]
 
     timeout_and_skip(10, 120, 1, partial(
         valid_command_check,
@@ -172,18 +172,16 @@ def test_runtime_transformed_correctly():
 @pytest.mark.cluster
 def test_invalid_j_resource_caught(jlm):
     # with pytest.raises(InvalidResponse) as exc:
-    import pdb
-    pdb.set_trace()
     job = jlm.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="j_resource", mem_free='2G', num_cores=8,
              j_resource='Nope', queue='all.q', max_runtime_seconds=120))
 
-    # jlm.queue_job(job)
-    #
-    # jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
-    # with pytest.raises(ValueError) as exc:
-    #     import pdb
-    #     pdb.set_trace()
-    #     jlm.job_instance_factory._create_job_instance(jobs[0])
-    # assert 'j_resource is a bool arg.' in exc
+    jlm.queue_job(job)
+
+    jobs = jlm.job_instance_factory._get_jobs_queued_for_instantiation()
+    with pytest.raises(ValueError) as exc:
+        import pdb
+        pdb.set_trace()
+        jlm.job_instance_factory._create_job_instance(jobs[0])
+    assert 'j_resource is a bool arg.' in exc

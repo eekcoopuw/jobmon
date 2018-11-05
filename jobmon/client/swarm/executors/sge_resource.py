@@ -64,13 +64,12 @@ class SGEResource(object):
         """Ensure slots or cores requested isn't more than available on that
         node
         """
+        max_cores = 56
         if self.queue is not None:
             if 'c2' in self.queue:
                 max_cores = 100
             elif self.queue == "geospatial.q":
                 max_cores = 64
-        else:
-            max_cores = 56
         if (self.slots is not None and
             self.slots not in range(1, max_cores + 1)):
             raise ValueError("Got an invalid number of slots. Received {} "
