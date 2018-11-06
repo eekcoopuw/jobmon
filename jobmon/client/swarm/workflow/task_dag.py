@@ -207,10 +207,10 @@ class TaskDag(object):
             # TBD timeout?
             completed_tasks, failed_tasks = (
                 self.job_list_manager.block_until_any_done_or_error())
-            if failed_tasks and self.fail_fast is True:
-                break  # fail out early
             for task in completed_tasks:
                 n_executions += 1
+            if failed_tasks and self.fail_fast is True:
+                break  # fail out early
             logger.debug(
                 "Return from blocking call, completed: {}, failed: {}".format(
                     [t.job_id for t in completed_tasks],
