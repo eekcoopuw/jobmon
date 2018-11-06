@@ -73,8 +73,7 @@ class TaskDag(object):
         if dag_id:
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
-                interrupt_on_error=self.interrupt_on_error,
-                fail_fast=self.fail_fast)
+                interrupt_on_error=self.interrupt_on_error)
 
             # Bind all the tasks to the job_list_manager... This has to be done
             # before the reset happens. TODO: Investigate the sequencing,
