@@ -91,7 +91,7 @@ def test_usage_job_attribute_error(job_list_manager_sge):
 
 def test_attributes_retrievable(job_list_manager_sge):
     # add attributes to workflow and jobs
-    task = BashTask("sleep 1")
+    task = BashTask(command="sleep 1", slots=1)
     task.add_job_attribute(job_attribute.NUM_DRAWS, "10")
 
     wf = Workflow('test_attributes')

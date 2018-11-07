@@ -50,8 +50,8 @@ def get_task_status(real_dag, task):
 def test_bash_task(dag_factory):
     """Create a dag with one very simple BashTask and execute it"""
     name = 'bash_task'
-    task = BashTask(command="date", name=name, mem_free=1, max_attempts=2,
-                    max_runtime=60)
+    task = BashTask(command="date", name=name, mem_free='1G', max_attempts=2,
+                    slots=1, max_runtime_seconds=60)
     executor = SGEExecutor(project='proj_jenkins')
     real_dag = dag_factory(executor)
     real_dag.add_task(task)
@@ -66,9 +66,9 @@ def test_bash_task(dag_factory):
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.mem_free == 1
+        assert job.mem_free == '1G'
         assert job.max_attempts == 2
-        assert job.max_runtime == 60
+        assert job.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
@@ -86,7 +86,8 @@ def test_python_task(dag_factory, tmp_out_dir):
                       args=["--sleep_secs", "1",
                             "--output_file_path", output_file_name,
                             "--name", name],
-                      name=name, mem_free=1, max_attempts=2, max_runtime_seconds=60)
+                      name=name, mem_free='1G', max_attempts=2, slots=1,
+                      max_runtime_seconds=60)
 
     executor = SGEExecutor(project='proj_jenkins')
     real_dag = dag_factory(executor)
@@ -102,9 +103,9 @@ def test_python_task(dag_factory, tmp_out_dir):
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.mem_free == 1
+        assert job.mem_free == '1G'
         assert job.max_attempts == 2
-        assert job.max_runtime == 60
+        assert job.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
@@ -118,7 +119,8 @@ def test_R_task(dag_factory, tmp_out_dir):
     makedirs_safely(root_out_dir)
 
     task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name,
-                 mem_free=1, max_attempts=2, max_runtime=60)
+                 mem_free='1G', max_attempts=2, max_runtime_seconds=60,
+                 slots=1)
     executor = SGEExecutor(project='proj_jenkins')
     real_dag = dag_factory(executor)
     real_dag.add_task(task)
@@ -133,9 +135,9 @@ def test_R_task(dag_factory, tmp_out_dir):
     with session_scope() as session:
         job = session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.mem_free == 1
+        assert job.mem_free == '1G'
         assert job.max_attempts == 2
-        assert job.max_runtime == 60
+        assert job.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
@@ -148,7 +150,8 @@ def test_stata_task(dag_factory, tmp_out_dir):
     makedirs_safely(root_out_dir)
 
     task = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
-                     name=name, mem_free=1, max_attempts=2, max_runtime=60)
+                     name=name, mem_free='1G', max_attempts=2,
+                     max_runtime_seconds=60, slots=1)
     executor = SGEExecutor(project='proj_jenkins')
     executor.set_temp_dir(root_out_dir)
     dag = dag_factory(executor)
@@ -164,9 +167,9 @@ def test_stata_task(dag_factory, tmp_out_dir):
         job = session.query(Job).filter_by(name=name).first()
         sge_id = [ji for ji in job.job_instances][0].executor_id
         job_instance_id = [ji for ji in job.job_instances][0].job_instance_id
-        assert job.mem_free == 1
+        assert job.mem_free == '1G'
         assert job.max_attempts == 2
-        assert job.max_runtime == 60
+        assert job.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(sge_id)
     assert sge_jobname == name
@@ -191,8 +194,8 @@ def test_specific_queue(dag_factory, tmp_out_dir):
                       args=["--sleep_secs", "1",
                             "--output_file_path", output_file_name,
                             "--name", name],
-                      name=name, mem_free=1, max_attempts=2, max_runtime_seconds=60,
-                      queue='all.q@@c2-nodes')
+                      name=name, mem_free='1G', max_attempts=2,
+                      max_runtime_seconds=60, queue='all.q@@c2-nodes')
     executor = SGEExecutor(project='proj_jenkins')
     dag = dag_factory(executor)
     dag.add_task(task)

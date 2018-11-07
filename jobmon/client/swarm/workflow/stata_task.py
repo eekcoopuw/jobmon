@@ -14,8 +14,9 @@ class StataTask(ExecutableTask):
 
     def __init__(self, path_to_stata_binary=default_stata_script, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=None, num_cores=None, mem_free=2, max_attempts=3,
-                 max_runtime_seconds=None, tag=None, queue=None, j_resource=False):
+                 slots=None, num_cores=None, mem_free=None, max_attempts=3,
+                 max_runtime_seconds=None, tag=None, queue=None,
+                 j_resource=False):
         """
         This runs a stata file using stata-mp command, using the flags -b
         (batch) and -q (quiet).
@@ -34,7 +35,7 @@ class StataTask(ExecutableTask):
                 This will be prepended to the command.
             name (str): name that will be visible in qstat for this job
             slots (int): slots to request on the cluster. Default is 1
-            mem_free (int): amount of memory in GBs to request on the cluster.
+            mem_free (str): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 2
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 1

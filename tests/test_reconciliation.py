@@ -137,7 +137,8 @@ def test_reconciler_sge_timeout(job_list_manager_sge):
 
     # Queue a test job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
-                name="sleepyjob_fail", max_attempts=3, max_runtime_seconds=3)
+                name="sleepyjob_fail", max_attempts=3, max_runtime_seconds=3,
+                slots=1)
     job = job_list_manager_sge.bind_task(task)
     job_list_manager_sge.queue_job(job)
 
@@ -183,7 +184,8 @@ def test_ignore_qw_in_timeouts(job_list_manager_sge):
     # short... make sure that job doesn't actually get killed
     # TBD I don't think that has been implemented.
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
-                name="sleepyjob", max_attempts=3, max_runtime_seconds=3)
+                name="sleepyjob", max_attempts=3, max_runtime_seconds=3,
+                slots=1)
     job = job_list_manager_sge.bind_task(task)
     job_list_manager_sge.queue_job(job)
 

@@ -19,7 +19,7 @@ else:
 def test_valid_command(real_dag_id, job_list_manager_sge):
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="sge_foobar", slots=2, mem_free=4, max_attempts=3))
+             name="sge_foobar", slots=2, mem_free='4G', max_attempts=3))
     job_list_manager_sge.queue_job(job)
 
     timeout_and_skip(10, 120, 1, partial(
@@ -40,7 +40,7 @@ def test_context_args(real_jsm_jqs, job_list_manager_sge):
     delay_to = (datetime.now() + timedelta(minutes=5)).strftime("%m%d%H%M")
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="sge_foobar", slots=2, mem_free=4, max_attempts=3,
+             name="sge_foobar", slots=2, mem_free='4G', max_attempts=3,
              context_args={'sge_add_args': '-a {}'.format(delay_to)}))
     job_list_manager_sge.queue_job(job)
 

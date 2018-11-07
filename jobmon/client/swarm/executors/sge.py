@@ -45,6 +45,8 @@ class SGEExecutor(Executor):
             return sge_jid
         except Exception as e:
             logger.error(e)
+            if isinstance(e, ValueError):
+                raise e
             return ERROR_SGE_JID
 
     def execute(self, job_instance):

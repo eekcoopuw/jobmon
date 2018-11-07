@@ -54,7 +54,6 @@ class SGEResource(object):
     def _validate_queue(self):
         valid_queues = self._get_valid_queues()
         if self.queue is not None:
-            # valid = any([q in self.queue for q in valid_queues])
             valid = self.queue in valid_queues
             if not valid:
                 raise ValueError("Got invalid queue {}. Valid queues are {}"
@@ -110,7 +109,7 @@ class SGEResource(object):
         """Ensure memory requested isn't more than available on any node"""
         if self.mem_free is not None:
             self.mem_free = self._transform_mem_to_gb()
-            if self.mem_free not in range(0, 512):
+            if int(self.mem_free) not in range(0, 512):
                 raise ValueError("Can only request mem_free_gb between "
                                  "0 and 512GB (the limit on all.q and "
                                  "profile.q). Got {}"
