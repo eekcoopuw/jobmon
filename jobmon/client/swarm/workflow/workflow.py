@@ -53,18 +53,30 @@ class Workflow(object):
     2. The tasks added to the workflow. A Workflow is built up by
         using Workflow.add_task(). In order to resume a Workflow, all the same
         tasks must be added with the same dependencies between tasks.
-
-    3. The User may change the timeout value to better suit
-        their workflow by using the zmq_timeout_ms flag and assigning a timeout
-        in milliseconds. If the timeout is being set by the user, the connection
-        will be reconfigured accordingly.
     """
 
     def __init__(self, workflow_args=None, name="",
                  description="", stderr=None, stdout=None, project=None,
                  reset_running_jobs=True, working_dir=None,
-                 executor_class='SGEExecutor', zmq_timeout_ms=None,
+                 executor_class='SGEExecutor', fail_fast=False,
                  interrupt_on_error=False):
+        """
+        Args:
+            workflow_args (str): unique identifier of a workflow
+            name (str): name of the workflow
+            description (str): description of the workflow
+            stderr (str): filepath where stderr should be sent, if run on sGE
+            stdout (str): filepath where stdout should be sent, if run on sGE
+            project (str): SGE project to run under, if run on SGE
+            reset_running_jobs (bool): whether or not to reset running jobs
+            working_dir (str): the working dir that a job should be run from,
+                if run on SGE
+            executor_class (str): name of one of Jobmon's executors
+            fail_fast (bool): whether or not to break out of execution on
+                first failure
+            interrupt_on_error (bool): whether or not the JIF/JIR daemons
+                should interrupt on errors
+        """
         self.wf_dao = None
         self.name = name
         self.description = description
@@ -93,6 +105,7 @@ class Workflow(object):
         self.task_dag = TaskDag(
             executor=self.executor,
             interrupt_on_error=interrupt_on_error,
+            fail_fast=fail_fast
         )
 
         if workflow_args:

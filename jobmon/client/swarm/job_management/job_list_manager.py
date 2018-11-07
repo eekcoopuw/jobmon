@@ -1,6 +1,5 @@
 import logging
 import time
-from datetime import datetime
 from threading import Event, Thread
 
 from jobmon.client.the_client_config import get_the_client_config
