@@ -13,11 +13,7 @@ from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 
 from tests.timeout_and_skip import timeout_and_skip
-
-if sys.version_info < (3, 0):
-    from functools32 import partial
-else:
-    from functools import partial
+from functools import partial
 
 logger = logging.getLogger(__name__)
 

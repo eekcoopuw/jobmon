@@ -2,12 +2,7 @@ import pytest
 import sys
 import os
 from sqlalchemy.exc import OperationalError
-
-
-if sys.version_info < (3, 0):
-    from exceptions import SystemExit as Py2Py3Exit
-else:
-    Py2Py3Exit = ValueError
+Py2Py3Exit = ValueError
 
 
 def test_invalid_sub_command():

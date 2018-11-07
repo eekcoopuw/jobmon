@@ -4,7 +4,7 @@ import datetime
 
 
 class SGEResource(object):
-    """Manages the transition between the new (cores)/mem/runtime) cluster and
+    """Manages the transition between the new (cores/mem/runtime) cluster and
     old (slots). Can convert from new to old via the JSV, but not vice-versa.
     Validates inputs.
     """
@@ -83,21 +83,21 @@ class SGEResource(object):
     def _transform_mem_to_gb(self):
         # do we want upper and lowercase g, m, t options?
         mem = self.mem_free
-        if mem[-1] == "M" or mem[-1] == "m":
+        if mem[-1].lower() == "m":
             mem = float(self.mem_free[:-1])
             mem /= 1000
-        elif mem[-2:] == "MB" or mem[-2:] == "mb":
+        elif mem[-2:].lower() == "mb":
             mem = float(mem[:-2])
             mem /= 1000
-        elif mem[-1] == "T" or mem[-1] == "t":
+        elif mem[-1].lower() == "t":
             mem = float(mem[:-1])
             mem *= 1000
-        elif mem[-2:] == "TB" or mem[-2:] == "tb":
+        elif mem[-2:].lower() == "tb":
             mem = float(mem[:-2])
             mem *= 1000
-        elif mem[-1] == "G" or mem[-1] == "g":
+        elif mem[-1].lower() == "g":
             mem = float(mem[:-1])
-        elif mem[-2:] == "GB" or mem[-2:] == "gb":
+        elif mem[-2:].lower() == "gb":
             mem = float(mem[:-2])
         else:
             raise ValueError("Memory measure should be an int followed by M, "

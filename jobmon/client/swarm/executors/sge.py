@@ -107,7 +107,7 @@ class SGEExecutor(Executor):
         # command's context (i.e. context = Executor, SGE/Sequential/Multiproc)
         resources = SGEResource(slots=job.slots, mem_free=job.mem_free,
                                 num_cores=job.num_cores, queue=job.queue,
-                                max_runtime_seconds = job.max_runtime_seconds,
+                                max_runtime_seconds=job.max_runtime_seconds,
                                 j_resource= job.j_resource)
 
         (slots, mem_free, num_cores, queue, max_runtime_seconds,

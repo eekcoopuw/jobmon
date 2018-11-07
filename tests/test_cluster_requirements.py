@@ -12,10 +12,7 @@ from jobmon.exceptions import InvalidResponse
 
 from tests.timeout_and_skip import timeout_and_skip
 
-if sys.version_info < (3, 0):
-    from functools32 import partial
-else:
-    from functools import partial
+from functools import partial
 
 
 @pytest.fixture

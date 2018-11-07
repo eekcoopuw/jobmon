@@ -9,10 +9,7 @@ from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 
 from tests.timeout_and_skip import timeout_and_skip
 
-if sys.version_info < (3, 0):
-    from functools32 import partial
-else:
-    from functools import partial
+from functools import partial
 
 
 class Task(ExecutableTask):
