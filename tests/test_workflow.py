@@ -44,7 +44,7 @@ def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
 
     wf = Workflow("stata_temp_dir_test", interrupt_on_error=False)
     wf.add_tasks([t1, t2])
-    
+
     success = wf.run()
     assert success
 
@@ -590,7 +590,7 @@ def test_workflow_status_dates(simple_workflow):
 
 def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     t1 = PythonTask(script='{}/executor_args_check.py'.format(
-        os.path.dirname(os.path.realpath(__file__))))
+        os.path.dirname(os.path.realpath(__file__))), slots=1)
     t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
     t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 

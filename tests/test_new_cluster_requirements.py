@@ -36,17 +36,18 @@ def valid_command_check(job_list_manager_sge):
         return False
 
 
-# @pytest.mark.cluster
+@pytest.mark.cluster
 # @pytest.mark.parametrize('j_resource', [True, False])
-# @pytest.mark.parametrize('mem_free', ['6G', '6GB', '10MB', '10M', '1T', '1TB'])
+@pytest.mark.parametrize('mem_free', ['6G', '6GB', '10MB', '10M'])
 # @pytest.mark.parametrize('queue', ['all.q', 'long.q', 'profile.q',
 #                                    'geospatial.q'])
 def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
-                                     slots=1):
+                                     mem_free):
 
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="sge_foobar", slots=slots))
+             name="sge_foobar", mem_free=mem_free, slots=1,
+             j_resource=False))
 
     job_list_manager_sge.queue_job(job)
 
