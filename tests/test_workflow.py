@@ -35,10 +35,11 @@ def simple_workflow(real_jsm_jqs, db_cfg):
 
 @pytest.fixture
 def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("not_a_command 1", upstream_tasks=[t1])
-    t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime=1)
-    t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("not_a_command 1", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime_seconds=1,
+                  slots=1)
+    t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3], slots=1)
 
     workflow = Workflow("my_failing_args", interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3, t4])
@@ -51,24 +52,25 @@ def mock_slack(msg, channel):
 
 
 def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
-    t1 = StataTask(script='di "hello"')
-    t2 = StataTask(script='di "world"', upstream_tasks=[t1])
+    t1 = StataTask(script='di "hello"', slots=1)
+    t2 = StataTask(script='di "world"', upstream_tasks=[t1], slots=1)
 
     wf = Workflow("stata_temp_dir_test", interrupt_on_error=False)
     wf.add_tasks([t1, t2])
+
     success = wf.run()
     assert success
 
 
 def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Create identical dags
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
-    t4 = BashTask("sleep 1")
-    t5 = BashTask("sleep 2", upstream_tasks=[t4])
-    t6 = BashTask("sleep 3", upstream_tasks=[t5])
+    t4 = BashTask("sleep 1", slots=1)
+    t5 = BashTask("sleep 2", upstream_tasks=[t4], slots=1)
+    t6 = BashTask("sleep 3", upstream_tasks=[t5], slots=1)
 
     wfa1 = "v1"
     wf1 = Workflow(wfa1, interrupt_on_error=False)
@@ -93,13 +95,13 @@ def test_wfargs_update(real_jsm_jqs, db_cfg):
 
 def test_dag_update(real_jsm_jqs, db_cfg):
     # Create different dags
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
-    t4 = BashTask("sleep 3")
-    t5 = BashTask("sleep 2", upstream_tasks=[t4])
-    t6 = BashTask("sleep 1", upstream_tasks=[t5])
+    t4 = BashTask("sleep 3", slots=1)
+    t5 = BashTask("sleep 2", upstream_tasks=[t4], slots=1)
+    t6 = BashTask("sleep 1", upstream_tasks=[t5], slots=1)
 
     wfa1 = "dag_update"
     wf1 = Workflow(wfa1, interrupt_on_error=False)
@@ -125,13 +127,13 @@ def test_dag_update(real_jsm_jqs, db_cfg):
 
 def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
     # Create different dags
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
-    t4 = BashTask("sleep 3")
-    t5 = BashTask("sleep 2", upstream_tasks=[t4])
-    t6 = BashTask("sleep 1", upstream_tasks=[t5])
+    t4 = BashTask("sleep 3", slots=1)
+    t5 = BashTask("sleep 2", upstream_tasks=[t4], slots=1)
+    t6 = BashTask("sleep 1", upstream_tasks=[t5], slots=1)
 
     wfa1 = "wfargs_dag_update"
     wf1 = Workflow(wfa1, interrupt_on_error=False)
@@ -185,9 +187,9 @@ def test_stop_resume(simple_workflow, tmpdir):
                                          jid=to_run_jid))
 
     # Re-create the dag "from scratch" (copy simple_workflow fixture)
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "my_simple_dag"
     elogdir = str(tmpdir.mkdir("wf_elogs"))
@@ -267,9 +269,9 @@ def test_reset_attempts_on_resume(simple_workflow):
                                              id=stopped_wf.id))
 
     # Re-instantiate the DAG + Workflow
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False)
@@ -326,9 +328,9 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
     workflow by modifying the WorkflowArgs (e.g. new version #)
     """
     # Re-create the dag "from scratch" (copy simple_workflow fixture)
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False)
@@ -490,12 +492,12 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
             session.add(TaskDagMeta())
         session.commit()
 
-    t1 = BashTask("echo 'hello'")
-    t2 = BashTask("echo 'to'", upstream_tasks=[t1])
-    t3 = BashTask("echo 'the'", upstream_tasks=[t2])
-    t4 = BashTask("echo 'beautiful'", upstream_tasks=[t3])
-    t5 = BashTask("echo 'world'", upstream_tasks=[t4])
-    t6 = BashTask("sleep 1", upstream_tasks=[t5])
+    t1 = BashTask("echo 'hello'", slots=1)
+    t2 = BashTask("echo 'to'", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("echo 'the'", upstream_tasks=[t2], slots=1)
+    t4 = BashTask("echo 'beautiful'", upstream_tasks=[t3], slots=1)
+    t5 = BashTask("echo 'world'", upstream_tasks=[t4], slots=1)
+    t6 = BashTask("sleep 1", upstream_tasks=[t5], slots=1)
     workflow = Workflow("test_failing_nodes", interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3, t4, t5, t6])
     workflow.run()
@@ -545,9 +547,9 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
 
 def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
     """Make sure adding tasks to a workflow (and not just a task dag) works"""
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "add_tasks_to_workflow"
     workflow = Workflow(workflow_args=wfa, interrupt_on_error=False)
@@ -564,9 +566,9 @@ def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
 
 def test_anonymous_workflow(real_jsm_jqs, db_cfg):
     # Make sure uuid is created for an anonymous workflow
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     workflow = Workflow(interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3])
@@ -617,9 +619,9 @@ def test_workflow_status_dates(simple_workflow):
 
 def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     t1 = PythonTask(script='{}/executor_args_check.py'.format(
-        os.path.dirname(os.path.realpath(__file__))))
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+        os.path.dirname(os.path.realpath(__file__))), slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "my_simple_dag"
     workflow = Workflow(workflow_args=wfa, project='proj_jenkins',

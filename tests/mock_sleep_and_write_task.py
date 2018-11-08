@@ -20,8 +20,9 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
                  fail_always=False,
                  fail_count=0
                  ):
-        etk.ExecutableTask.__init__(self, command,
+        etk.ExecutableTask.__init__(self, command, slots=1,
                                     upstream_tasks=upstream_tasks)
+
         # TBD validation using the types module.
         self.fail_always = fail_always
         self.fail_count = fail_count

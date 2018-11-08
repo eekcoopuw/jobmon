@@ -40,7 +40,7 @@ class JobListManager(object):
         self.job_factory = JobFactory(dag_id)
 
         self._stop_event = Event()
-        self.job_inst_factory = JobInstanceFactory(
+        self.job_instance_factory = JobInstanceFactory(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
@@ -83,11 +83,13 @@ class JobListManager(object):
                 command=task.command,
                 tag=task.tag,
                 slots=task.slots,
+                num_cores=task.num_cores,
                 mem_free=task.mem_free,
                 max_attempts=task.max_attempts,
-                max_runtime=task.max_runtime,
+                max_runtime_seconds=task.max_runtime_seconds,
                 context_args=task.context_args,
-                queue=task.queue
+                queue=task.queue,
+                j_resource=task.j_resource
             )
 
         # adding the attributes to the job now that there is a job_id
@@ -153,6 +155,7 @@ class JobListManager(object):
 
     def _sync(self):
         """Get all jobs from the database and parse the done and errored"""
+
         jobs = self.get_job_statuses()
         self.parse_done_and_errors(jobs)
 
@@ -246,7 +249,7 @@ class JobListManager(object):
         threads
         """
         self.jif_proc = Thread(
-            target=self.job_inst_factory.instantiate_queued_jobs_periodically,
+            target=self.job_instance_factory.instantiate_queued_jobs_periodically,
             args=(self.job_instantiation_interval,))
         self.jif_proc.daemon = True
         self.jif_proc.start()

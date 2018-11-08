@@ -25,6 +25,8 @@ def ephemera_conn_str():
     edb = create_ephemerdb()
     conn_str = edb.start()
 
+
+
     os.environ['CONN_STR'] = conn_str
     yield conn_str
 
@@ -155,9 +157,9 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
 
 @pytest.fixture
 def simple_workflow(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False)

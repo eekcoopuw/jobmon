@@ -59,14 +59,15 @@ class ExecutableTask(object):
         return True
 
     def __init__(self, command, upstream_tasks=None, env_variables={},
-                 name=None, slots=1, mem_free=2, max_attempts=3,
-                 max_runtime=None, tag=None, queue=None, context_args=None,
+                 name=None, slots=None, mem_free=None, num_cores=None,
+                 max_runtime_seconds=None, queue=None, max_attempts=3,
+                 j_resource=False, tag=None, context_args=None,
                  job_attributes={}):
         """
         Create a task
 
         Args
-         command: the unique command for this Task, also readable by humans.
+        command: the unique command for this Task, also readable by humans.
             Should include all parameters.
             Two Tasks are equal (__eq__) iff they have the same command
         upstream_tasks (list): Task objects that must be run prior to this
@@ -75,11 +76,12 @@ class ExecutableTask(object):
                 This will be prepended to the command.
         name (str): name that will be visible in qstat for this job
         slots (int): slots to request on the cluster. Default is 1
+        num_cores (int): number of cores to request on the cluster
         mem_free (int): amount of memory to request on the cluster.
             Generally 2x slots. Default is 2
         max_attempts (int): number of attempts to allow the cluster to try
             before giving up. Default is 1
-        max_runtime (int, seconds): how long the job should be allowed to
+        max_runtime_seconds (int): how long the job should be allowed to
             run before the executor kills it. Default is None, for indefinite.
         tag (str): a group identifier. Currently just used for visualization.
             All tasks with the same tag will be colored the same in a
@@ -90,6 +92,7 @@ class ExecutableTask(object):
             tracked. Once the task becomes a job and receives a job_id,
             these attributes will be used for the job_factory
             add_job_attribute function
+        j_resource(bool): whether this task is using the j-drive or not
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
@@ -106,10 +109,12 @@ class ExecutableTask(object):
 
         self.slots = slots
         self.mem_free = mem_free
-        self.max_attempts = max_attempts
-        self.max_runtime = max_runtime
-        self.context_args = context_args
+        self.num_cores = num_cores
+        self.max_runtime_seconds = max_runtime_seconds
         self.queue = queue
+        self.max_attempts = max_attempts
+        self.j_resource = j_resource
+        self.context_args = context_args
 
         # Names of jobs can't start with a numeric.
         if name is None:

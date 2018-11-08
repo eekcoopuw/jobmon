@@ -13,11 +13,7 @@ from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 
 from tests.timeout_and_skip import timeout_and_skip
-
-if sys.version_info < (3, 0):
-    from functools32 import partial
-else:
-    from functools import partial
+from functools import partial
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +57,7 @@ def test_reconciler_dummy(job_list_manager_dummy):
     task = Task(command="ls", name="dummyfbb")
     job = job_list_manager_dummy.bind_task(task)
     job_list_manager_dummy.queue_job(job)
-    job_list_manager_dummy.job_inst_factory.instantiate_queued_jobs()
+    job_list_manager_dummy.job_instance_factory.instantiate_queued_jobs()
 
     jir = job_list_manager_dummy.job_inst_reconciler
     exec_ids = jir._get_presumed_submitted_or_running()
@@ -137,7 +133,8 @@ def test_reconciler_sge_timeout(job_list_manager_sge):
 
     # Queue a test job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
-                name="sleepyjob_fail", max_attempts=3, max_runtime=3)
+                name="sleepyjob_fail", max_attempts=3, max_runtime_seconds=3,
+                slots=1)
     job = job_list_manager_sge.bind_task(task)
     job_list_manager_sge.queue_job(job)
 
@@ -183,7 +180,8 @@ def test_ignore_qw_in_timeouts(job_list_manager_sge):
     # short... make sure that job doesn't actually get killed
     # TBD I don't think that has been implemented.
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
-                name="sleepyjob", max_attempts=3, max_runtime=3)
+                name="sleepyjob", max_attempts=3, max_runtime_seconds=3,
+                slots=1)
     job = job_list_manager_sge.bind_task(task)
     job_list_manager_sge.queue_job(job)
 

@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, Boolean
 from sqlalchemy.orm import relationship
 
 from datetime import datetime
@@ -24,11 +24,12 @@ class Job(Base):
         return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
                    job_hash=int(dct['job_hash']), name=dct['name'],
                    tag=dct['tag'], command=dct['command'], slots=dct['slots'],
-                   mem_free=dct['mem_free'], status=dct['status'],
+                   mem_free=dct['mem_free'], num_cores=dct['num_cores'],
+                   status=dct['status'], max_runtime_seconds=dct['max_runtime_seconds'],
                    num_attempts=dct['num_attempts'],
                    max_attempts=dct['max_attempts'],
                    context_args=dct['context_args'],
-                   queue=dct['queue'],
+                   queue=dct['queue'], j_resource=dct['j_resource'],
                    last_nodename=dct['last_nodename'],
                    last_process_group_id=dct['last_process_group_id'])
 
@@ -38,10 +39,12 @@ class Job(Base):
                 'name': self.name, 'tag': self.tag, 'job_hash': self.job_hash,
                 'command': self.command, 'status': self.status,
                 'slots': self.slots, 'mem_free': self.mem_free,
+                'num_cores': self.num_cores,
+                'max_runtime_seconds': self.max_runtime_seconds,
                 'num_attempts': self.num_attempts,
                 'max_attempts': self.max_attempts,
                 'context_args': self.context_args,
-                'queue': self.queue,
+                'queue': self.queue, 'j_resource': self.j_resource,
                 'last_nodename': lnode,
                 'last_process_group_id': lpgid}
 
@@ -56,11 +59,13 @@ class Job(Base):
     command = Column(Text)
     context_args = Column(String(1000))
     queue = Column(String(255))
-    slots = Column(Integer, default=1)
-    mem_free = Column(Integer, default=1)
+    slots = Column(Integer, default=None)
+    mem_free = Column(String(255))
+    num_cores = Column(Integer, default=None)
+    j_resource = Column(Boolean, default=False)
+    max_runtime_seconds = Column(Integer, default=None)
     num_attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=1)
-    max_runtime = Column(Integer)
     status = Column(
         String(1),
         ForeignKey('job_status.id'),

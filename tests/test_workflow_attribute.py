@@ -11,7 +11,7 @@ def test_workflow_attribute(real_dag):
     from jobmon.server.database import ScopedSession
     wfa = "workflow_with_attribute"
     workflow = Workflow(wfa)
-    t1 = BashTask("sleep 1")
+    t1 = BashTask("sleep 1", slots=1)
     workflow.add_tasks([t1])
     workflow.execute()
 
@@ -39,7 +39,7 @@ def test_workflow_attribute(real_dag):
 def test_workflow_attribute_input_error(real_jsm_jqs, db_cfg):
     wfa = "workflow_with_wrong_arg_attribute"
     workflow = Workflow(wfa)
-    t1 = BashTask("sleep 1")
+    t1 = BashTask("sleep 1", slots=1)
     workflow.add_tasks([t1])
     workflow.execute()
 
@@ -53,7 +53,7 @@ def test_workflow_attribute_tag(real_jsm_jqs, db_cfg):
     from jobmon.server.database import ScopedSession
     wfa = "workflow_with_tag_attribute"
     workflow = Workflow(wfa)
-    t1 = BashTask("sleep 1")
+    t1 = BashTask("sleep 1", slots=1)
     workflow.add_tasks([t1])
     workflow.execute()
 
