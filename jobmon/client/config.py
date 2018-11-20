@@ -48,7 +48,7 @@ class ClientConfig(object):
     default_opts = {
         "jobmon_version": str(jobmon.__version__),
         "host": "jobmon-p01.ihme.washington.edu",
-        "jsm_port": 7258,
+        "jsm_port": 7256,
         "jqs_port": 7258,
         "jobmon_command": derive_jobmon_command_from_env()
     }
