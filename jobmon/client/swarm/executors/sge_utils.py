@@ -20,17 +20,23 @@ from jobmon.exceptions import SGENotAvailable
 
 # Because the drmaa package needs this library in order to load.
 DRMAA_PATH = "/usr/local/UGE/lib/lx-amd64/libdrmaa.so.1.0"
-if "DRMAA_LIBRARY_PATH" not in os.environ:
-    try:
-        os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(
-            os.environ["SGE_CLUSTER_NAME"])
-        import drmaa
-    except KeyError:
-        raise SGENotAvailable("'SGE_CLUSTER_NAME' not set")
-    except Exception as e:
-        raise SGENotAvailable(e)
-import drmaa
 
+
+def check_sge_connected():
+    if "DRMAA_LIBRARY_PATH" not in os.environ:
+        try:
+            os.environ["DRMAA_LIBRARY_PATH"] = DRMAA_PATH.format(
+                os.environ["SGE_CLUSTER_NAME"])
+            import drmaa
+        except KeyError:
+           raise SGENotAvailable("'SGE_CLUSTER_NAME' not set")
+        except Exception as e:
+           raise SGENotAvailable(e)
+    try:
+        import drmaa
+    except Exception as e:
+        pass
+    return drmaa
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
@@ -49,6 +55,7 @@ def _drmaa_session():
     Can set this by setting DRMAA_LIBRARY_PATH. This should be the complete
     path the the library with .so at the end.
     """
+    drmaa=check_sge_connected()
     if "session" not in vars(_drmaa_session):
         session = drmaa.Session()
         session.initialize()
@@ -73,6 +80,7 @@ def true_path(file_or_dir=None, executable=None):
 
     Specify one of the two arguments, not both.
     """
+    check_sge_connected()
     if file_or_dir is not None:
         f = file_or_dir
     elif executable is not None:
@@ -93,6 +101,7 @@ def get_project_limits(project):
     from the cluster.
     See /share/local/IT/scripts/cluster_projects_report_admin.sh
     """
+    check_sge_connected()
     if not project:
         project = 'ihme_general'
     call = ("""qconf -srqs | egrep -A 1 -i "TRUE" | grep -i limit | grep """ +
@@ -121,6 +130,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
     Returns:
         DataFrame of qstat return values
     """
+    check_sge_connected()
     cmd = ["qstat", "-r"]
     if status is not None:
         cmd.extend(["-s", status])
@@ -239,7 +249,7 @@ def qstat_details(jids):
     #    https://www.crummy.com/software/BeautifulSoup/bs4/doc/
     #
     # -- tom
-
+    check_sge_connected()
     jids = np.atleast_1d(jids)
     cmd = ["qstat", "-j", "%s" % ",".join([str(j) for j in jids])]
 
@@ -350,6 +360,7 @@ def get_holds(jid):
     Returns:
         comma separated string of job id holds for a given string
     """
+    check_sge_connected()
     p1 = subprocess.Popen(["qstat", "-j", str(jid)], stdout=subprocess.PIPE)
     p2 = subprocess.Popen(
         ["grep", "jid_predecessor_list:"],
@@ -393,6 +404,7 @@ def reqsub(job_id):
     Returns:
         new job_id of resubmitted job
     """
+    check_sge_connected()
     return subprocess.check_output(['qmod', '-r', str(job_id)])
 
 
@@ -496,6 +508,7 @@ def qsub(
     Returns:
         job_id of submitted job
     """
+    check_sge_connected()
     if slots <= 0:
         raise ValueError("Requested number of slots must be greater than "
                          "zero not {}".format(slots))
@@ -684,6 +697,7 @@ def _wait_done(job_ids):
 
 
 def qdel(job_ids):
+    check_sge_connected()
     jids = [str(jid) for jid in np.atleast_1d(job_ids)]
     stdout = subprocess.check_output(['qdel'] + jids)
     return stdout
