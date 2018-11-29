@@ -166,21 +166,6 @@ def test_blocking_updates(job_list_manager_d):
     )
 
 
-def blocking_updates_check(job_list_manager_d, prev_job, job_id1, job_id2,
-                           job_id3):
-    done, errors = job_list_manager_d.block_until_no_instances(
-        raise_on_any_error=False)
-    done = list(done)
-    if len(done) == 3:
-        assert len(errors) == 1
-        assert set([j.job_id for j in done]) == set([prev_job, job_id1,
-                                                    job_id2])
-        assert errors[0].job_id == job_id3
-        return True
-    else:
-        return False
-
-
 def test_blocking_update_timeout(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="sleep 3",
                                             name="foobarbaz", slots=1))

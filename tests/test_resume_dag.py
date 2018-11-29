@@ -15,6 +15,7 @@ handler.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 
+@pytest.mark.qsubs_jobs
 def test_resume_real_dag(real_dag, tmp_out_dir):
     root_out_dir = "{}/mocks/test_resume_real_dag".format(tmp_out_dir)
     makedirs_safely(root_out_dir)

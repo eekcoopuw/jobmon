@@ -134,23 +134,19 @@ class JobListManager(object):
             jobs(list): list of objects of type models.Job
         """
         completed_tasks = set()
-        completed_jobs = []
         failed_tasks = set()
-        failed_jobs = []
         for job in jobs:
             task = self.bound_tasks[job.job_id]
             if task.status == JobStatus.DONE and task not in self.all_done:
                 completed_tasks.add(task)
-                completed_jobs += [job]
             elif (task.status == JobStatus.ERROR_FATAL and
                   task not in self.all_error):
                 failed_tasks.add(task)
-                failed_jobs += [job]
             else:
                 continue
-        self.all_done.update(set(completed_jobs))
-        self.all_error -= set(completed_jobs)
-        self.all_error.update(set(failed_jobs))
+        self.all_done.update(completed_tasks)
+        self.all_error -= set(completed_tasks)
+        self.all_error.update(set(failed_tasks))
         return completed_tasks, failed_tasks
 
     def _sync(self):
@@ -171,31 +167,6 @@ class JobListManager(object):
                 return completed, failed
             time.sleep(poll_interval)
             time_since_last_update += poll_interval
-
-    def block_until_no_instances(self, timeout=36000, poll_interval=10,
-                                 raise_on_any_error=True):
-        """Block code execution until there are no jobs left"""
-        logger.info("Blocking, poll interval = {}".format(poll_interval))
-
-        time_since_last_update = 0
-        while True:
-            if time_since_last_update > timeout:
-                return None
-            self._sync()
-
-            if len(self.active_jobs) == 0:
-                break
-
-            if raise_on_any_error:
-                if len(self.all_error) > 0:
-                    raise RuntimeError("1 or more jobs encountered a "
-                                       "fatal error")
-            logger.debug("{} active jobs. Waiting {} seconds...".format(
-                len(self.active_jobs), poll_interval))
-            time.sleep(poll_interval)
-            time_since_last_update += poll_interval
-
-        return list(self.all_done), list(self.all_error)
 
     def _create_job(self, *args, **kwargs):
         """Create a job by passing the job args/kwargs through to the
