@@ -130,57 +130,6 @@ def daemon_valid_command_check(job_list_manager_d):
     return len(job_list_manager_d.all_done) == 1
 
 
-def test_blocking_updates(job_list_manager_d):
-
-    # Test 1 job
-    job = job_list_manager_d.bind_task(Task(command="sleep 1",
-                                            name="foobarbaz", slots=1))
-    job_list_manager_d.queue_job(job)
-    done, _ = job_list_manager_d.block_until_any_done_or_error()
-    done = list(done)
-    assert len(done) == 1
-    assert done[0].job_id == job.job_id
-    assert done[0].status == JobStatus.DONE
-
-    # Test multiple jobs
-    job1 = job_list_manager_d.bind_task(Task(command="sleep 2",
-                                             name="foobarbaz1",
-                                             slots=1))
-    job2 = job_list_manager_d.bind_task(Task(command="sleep 3",
-                                             name="foobarbaz2",
-                                             slots=1))
-    job3 = job_list_manager_d.bind_task(Task(command="not a command",
-                                             name="foobarbaz2",
-                                             slots=1))
-    job_list_manager_d.queue_job(job1)
-    job_list_manager_d.queue_job(job2)
-    job_list_manager_d.queue_job(job3)
-
-    timeout_and_skip(3, 30, 1, partial(
-        blocking_updates_check,
-        job_list_manager_d=job_list_manager_d,
-        prev_job=job.job_id,
-        job_id1=job1.job_id,
-        job_id2=job2.job_id,
-        job_id3=job3.job_id)
-    )
-
-
-def blocking_updates_check(job_list_manager_d, prev_job, job_id1, job_id2,
-                           job_id3):
-    done, errors = job_list_manager_d.block_until_no_instances(
-        raise_on_any_error=False)
-    done = list(done)
-    if len(done) == 3:
-        assert len(errors) == 1
-        assert set([j.job_id for j in done]) == set([prev_job, job_id1,
-                                                    job_id2])
-        assert errors[0].job_id == job_id3
-        return True
-    else:
-        return False
-
-
 def test_blocking_update_timeout(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="sleep 3",
                                             name="foobarbaz", slots=1))

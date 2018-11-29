@@ -18,7 +18,7 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 
 def match_name_to_sge_name(jid):
     # Try this a couple of times... SGE is weird
-    retries = 5
+    retries = 10
     while retries > 0:
         try:
             sge_jobname = check_output(
@@ -33,11 +33,12 @@ def match_name_to_sge_name(jid):
                 break
             except:
                 pass
-            sleep(5 - retries)
+            sleep(10 - retries)
             retries = retries - 1
             if retries == 0:
                 raise RuntimeError("Attempted to use qstat to get jobname. "
-                                   "Giving up after 5 retries")
+                                   "Giving up after {} "
+                                   "retries".format(retries))
     sge_jobname = sge_jobname.split()[-1].strip()
     return sge_jobname
 
