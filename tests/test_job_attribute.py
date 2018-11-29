@@ -9,7 +9,7 @@ from jobmon.attributes.constants import job_attribute
 def test_job_attribute(job_list_manager_sge):
     from jobmon.server.database import ScopedSession
     # create a job
-    task = BashTask("sleep 1")
+    task = BashTask("sleep 1", slots=1)
 
     # add an attribute to the task
     task.add_job_attribute(job_attribute.NUM_DRAWS, "10")
@@ -41,7 +41,7 @@ def test_job_attribute(job_list_manager_sge):
 
 def test_job_attribute_input_error(job_list_manager_sge):
     # create a job
-    task = BashTask("sleep 1")
+    task = BashTask("sleep 1", slots=1)
     with pytest.raises(ValueError) as exc:
         task.add_job_attribute("num_locations", "fifty")
     assert "Invalid" in str(exc.value)
@@ -50,7 +50,7 @@ def test_job_attribute_input_error(job_list_manager_sge):
 def test_job_attributes(job_list_manager_sge):
     from jobmon.server.database import ScopedSession
 
-    task = BashTask("sleep 1")
+    task = BashTask("sleep 1", slots=1)
     # add an attribute to the task
     dict_of_attributes = {job_attribute.NUM_DRAWS: "10",
                           job_attribute.NUM_LOCATIONS: "50",
@@ -81,7 +81,7 @@ def test_job_attributes(job_list_manager_sge):
 
 
 def test_usage_job_attribute_error(job_list_manager_sge):
-    task = BashTask("sleep 1")
+    task = BashTask("sleep 1", slots=1)
     # Try to add a usage attribute, this should cause an error because this is
     # configured with usage stats, not with user assigned values
     with pytest.raises(ValueError) as exc:
