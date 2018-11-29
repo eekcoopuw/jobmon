@@ -8,6 +8,7 @@ from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 @pytest.mark.skip(reason="Too big to run by default, only run when "
                   "specifically requested")
+@pytest.mark.qsubs_jobs
 def test_burdenator_scale(db_cfg, real_jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Create and execute  a big four-phase fork and join dag with expanding and

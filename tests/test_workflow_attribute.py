@@ -7,6 +7,7 @@ from jobmon.attributes.constants import workflow_attribute, job_attribute
 from jobmon.attributes.attribute_models import WorkflowAttribute, JobAttribute
 
 
+@pytest.mark.qsubs_jobs
 def test_workflow_attribute(real_dag):
     from jobmon.server.database import ScopedSession
     wfa = "workflow_with_attribute"
@@ -36,6 +37,7 @@ def test_workflow_attribute(real_dag):
     assert workflow_attribute_entry_value == "100"
 
 
+@pytest.mark.qsubs_jobs
 def test_workflow_attribute_input_error(real_jsm_jqs, db_cfg):
     wfa = "workflow_with_wrong_arg_attribute"
     workflow = Workflow(wfa)
@@ -49,6 +51,7 @@ def test_workflow_attribute_input_error(real_jsm_jqs, db_cfg):
     assert "Invalid attribute" in str(exc.value)
 
 
+@pytest.mark.qsubs_jobs
 def test_workflow_attribute_tag(real_jsm_jqs, db_cfg):
     from jobmon.server.database import ScopedSession
     wfa = "workflow_with_tag_attribute"

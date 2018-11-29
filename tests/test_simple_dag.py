@@ -57,6 +57,7 @@ def task_status(real_dag, task):
     return real_dag.job_list_manager.status_from_task(task)
 
 
+@pytest.mark.qsubs_jobs
 def test_empty_real_dag(real_dag):
     """
     Create a real_dag with no Tasks. Call all the creation methods and check
@@ -74,6 +75,7 @@ def test_empty_real_dag(real_dag):
     assert num_failed == 0
 
 
+@pytest.mark.qsubs_jobs
 def test_one_task(tmp_out_dir, real_dag):
     """Create a real_dag with one Task and execute it"""
     root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
@@ -123,6 +125,7 @@ def test_two_tasks_same_name_errors(tmp_out_dir, real_dag):
         real_dag.add_task(task_a_again)
 
 
+@pytest.mark.qsubs_jobs
 def test_three_linear_tasks(tmp_out_dir, real_dag):
     """
     Create and execute a real_dag with three Tasks, one after another:
@@ -173,6 +176,7 @@ def test_three_linear_tasks(tmp_out_dir, real_dag):
     # TBD validation
 
 
+@pytest.mark.qsubs_jobs
 def test_fork_and_join_tasks(tmp_out_dir, real_dag):
     """
     Create a small fork and join real_dag with four phases:
@@ -255,6 +259,7 @@ def test_fork_and_join_tasks(tmp_out_dir, real_dag):
     assert task_status(real_dag, task_d) == JobStatus.DONE
 
 
+@pytest.mark.qsubs_jobs
 def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, real_dag):
     """
     Create the same small fork and join real_dag.
@@ -332,6 +337,7 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, real_dag):
     assert task_status(real_dag, task_d) == JobStatus.REGISTERED
 
 
+@pytest.mark.qsubs_jobs
 def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, real_dag):
     """
     Create the same fork and join real_dag with three Tasks a->b[0..3]->c and
@@ -430,6 +436,7 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, real_dag):
     assert sge_submit_cmd_contains(done_sge_id, kill_pgid_text)
 
 
+@pytest.mark.qsubs_jobs
 def test_bushy_real_dag(tmp_out_dir, real_dag):
     """
     Similar to the a small fork and join real_dag but with connections between
@@ -522,6 +529,7 @@ def test_bushy_real_dag(tmp_out_dir, real_dag):
     assert task_status(real_dag, task_d) == JobStatus.DONE
 
 
+@pytest.mark.qsubs_jobs
 def test_real_dag_logging(tmp_out_dir, real_dag):
     """
     Create a real_dag with one Task and execute it, and make sure logs show up
@@ -560,8 +568,10 @@ def test_real_dag_logging(tmp_out_dir, real_dag):
         print(td.created_date)
         assert td.created_date  # this should not be empty
 
+
 @pytest.mark.skip(reason="Too big to run by default, only run when "
                   "specifically requested")
+@pytest.mark.qsubs_jobs
 def test_dag_logging_using_mem(tmp_out_dir, dag):
     """
     Create a dag with one Task and execute it, and make sure logs show up in db

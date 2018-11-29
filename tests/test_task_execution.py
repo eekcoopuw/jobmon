@@ -48,6 +48,7 @@ def get_task_status(real_dag, task):
     return job_list_manager.status_from_task(task)
 
 
+@pytest.mark.qsubs_jobs
 def test_bash_task(dag_factory):
     """Create a dag with one very simple BashTask and execute it"""
     name = 'bash_task'
@@ -75,6 +76,7 @@ def test_bash_task(dag_factory):
     assert sge_jobname == name
 
 
+@pytest.mark.qsubs_jobs
 def test_python_task(dag_factory, tmp_out_dir):
     """Execute a PythonTask"""
     name = 'python_task'
@@ -112,6 +114,7 @@ def test_python_task(dag_factory, tmp_out_dir):
     assert sge_jobname == name
 
 
+@pytest.mark.qsubs_jobs
 def test_R_task(dag_factory, tmp_out_dir):
     """Execute an RTask"""
     name = 'r_task'
@@ -144,6 +147,7 @@ def test_R_task(dag_factory, tmp_out_dir):
     assert sge_jobname == name
 
 
+@pytest.mark.qsubs_jobs
 def test_stata_task(dag_factory, tmp_out_dir):
     """Execute a simple stata Task"""
     name = 'stata_task'
@@ -184,6 +188,7 @@ def test_stata_task(dag_factory, tmp_out_dir):
 
 @pytest.mark.skipif(os.environ['SGE_CLUSTER_NAME'] == 'dev',
                     reason="no c2-nodes on cluster-dev")
+@pytest.mark.qsubs_jobs
 def test_specific_queue(dag_factory, tmp_out_dir):
     name = 'c2_nodes_only'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
