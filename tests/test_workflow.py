@@ -21,19 +21,6 @@ from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete
 
 
 @pytest.fixture
-def simple_workflow(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
-
-    wfa = "my_simple_dag"
-    workflow = Workflow(wfa, interrupt_on_error=False)
-    workflow.add_tasks([t1, t2, t3])
-    workflow.execute()
-    return workflow
-
-
-@pytest.fixture
 def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
     t1 = BashTask("sleep 1", slots=1)
     t2 = BashTask("not_a_command 1", upstream_tasks=[t1], slots=1)
@@ -62,6 +49,7 @@ def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
     assert success
 
 
+@pytest.mark.qsubs_jobs
 def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Create identical dags
     t1 = BashTask("sleep 1", slots=1)
@@ -93,6 +81,7 @@ def test_wfargs_update(real_jsm_jqs, db_cfg):
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
 
+@pytest.mark.qsubs_jobs
 def test_dag_update(real_jsm_jqs, db_cfg):
     # Create different dags
     t1 = BashTask("sleep 1", slots=1)
@@ -125,6 +114,7 @@ def test_dag_update(real_jsm_jqs, db_cfg):
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
 
+@pytest.mark.qsubs_jobs
 def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
     # Create different dags
     t1 = BashTask("sleep 1", slots=1)
@@ -157,6 +147,7 @@ def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
 
+@pytest.mark.qsubs_jobs
 def test_stop_resume(simple_workflow, tmpdir):
     # Manually modify the database so that some mid-dag jobs appear in
     # a running / non-complete / non-error state
@@ -237,6 +228,7 @@ def test_stop_resume(simple_workflow, tmpdir):
         assert jlm.status_from_task(task) == JobStatus.DONE
 
 
+@pytest.mark.qsubs_jobs
 def test_reset_attempts_on_resume(simple_workflow):
     # Manually modify the database so that some mid-dag jobs appear in
     # error state, max-ing out the attempts
@@ -323,6 +315,7 @@ def test_reset_attempts_on_resume(simple_workflow):
         assert other_wfr.status == WorkflowRunStatus.STOPPED
 
 
+@pytest.mark.qsubs_jobs
 def test_attempt_resume_on_complete_workflow(simple_workflow):
     """Should not allow a resume, but should prompt user to create a new
     workflow by modifying the WorkflowArgs (e.g. new version #)
@@ -404,12 +397,13 @@ def test_nodename_on_fail(simple_workflow_w_errors):
         assert nodenames and all(nodenames)
 
 
+@pytest.mark.qsubs_jobs
 def test_fail_fast(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("erroring_out 1", upstream_tasks=[t1])
-    t3 = BashTask("sleep 10", upstream_tasks=[t1])
-    t4 = BashTask("sleep 11", upstream_tasks=[t3])
-    t5 = BashTask("sleep 12", upstream_tasks=[t4])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("erroring_out 1", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 10", upstream_tasks=[t1], slots=1)
+    t4 = BashTask("sleep 11", upstream_tasks=[t3], slots=1)
+    t5 = BashTask("sleep 12", upstream_tasks=[t4], slots=1)
 
     workflow = Workflow("test_fail_fast", fail_fast=True,
                         interrupt_on_error=False)
@@ -617,6 +611,7 @@ def test_workflow_status_dates(simple_workflow):
             assert wfr.created_date != wfr.status_date
 
 
+@pytest.mark.qsubs_jobs
 def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     t1 = PythonTask(script='{}/executor_args_check.py'.format(
         os.path.dirname(os.path.realpath(__file__))), slots=1)
@@ -637,4 +632,3 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
         '/ihme/centralcomp/auto_test_data')
     assert workflow.workflow_run.stderr == '/ihme/centralcomp/auto_test_data'
     assert workflow.workflow_run.stdout == '/ihme/centralcomp/auto_test_data'
-

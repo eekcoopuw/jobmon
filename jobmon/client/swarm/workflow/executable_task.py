@@ -235,6 +235,10 @@ class BoundTask(object):
             self.hash = None
 
     @property
+    def is_bound(self):
+        return (self._task is not None) and (self.hash is not None)
+
+    @property
     def all_upstreams_done(self):
         """Return a bool of if upstreams are done or not"""
         return all([u.is_done for u in self.upstream_tasks])

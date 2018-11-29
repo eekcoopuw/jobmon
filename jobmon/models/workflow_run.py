@@ -38,6 +38,7 @@ class WorkflowRun(Base):
     @classmethod
     def from_wire(cls, dct):
         return cls(
+            id=dct['id'],
             workflow_id=dct['workflow_id'],
             user=dct['user'],
             hostname=dct['hostname'],
@@ -53,6 +54,7 @@ class WorkflowRun(Base):
 
     def to_wire(self):
         return {
+            'id': self.id,
             'workflow_id': self.workflow_id,
             'user': self.user,
             'hostname': self.hostname,

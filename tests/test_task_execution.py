@@ -18,7 +18,7 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 
 def match_name_to_sge_name(jid):
     # Try this a couple of times... SGE is weird
-    retries = 5
+    retries = 10
     while retries > 0:
         try:
             sge_jobname = check_output(
@@ -33,11 +33,12 @@ def match_name_to_sge_name(jid):
                 break
             except:
                 pass
-            sleep(5 - retries)
+            sleep(10 - retries)
             retries = retries - 1
             if retries == 0:
                 raise RuntimeError("Attempted to use qstat to get jobname. "
-                                   "Giving up after 5 retries")
+                                   "Giving up after {} "
+                                   "retries".format(retries))
     sge_jobname = sge_jobname.split()[-1].strip()
     return sge_jobname
 
@@ -47,6 +48,7 @@ def get_task_status(real_dag, task):
     return job_list_manager.status_from_task(task)
 
 
+@pytest.mark.qsubs_jobs
 def test_bash_task(dag_factory):
     """Create a dag with one very simple BashTask and execute it"""
     name = 'bash_task'
@@ -74,6 +76,7 @@ def test_bash_task(dag_factory):
     assert sge_jobname == name
 
 
+@pytest.mark.qsubs_jobs
 def test_python_task(dag_factory, tmp_out_dir):
     """Execute a PythonTask"""
     name = 'python_task'
@@ -111,6 +114,7 @@ def test_python_task(dag_factory, tmp_out_dir):
     assert sge_jobname == name
 
 
+@pytest.mark.qsubs_jobs
 def test_R_task(dag_factory, tmp_out_dir):
     """Execute an RTask"""
     name = 'r_task'
@@ -143,6 +147,7 @@ def test_R_task(dag_factory, tmp_out_dir):
     assert sge_jobname == name
 
 
+@pytest.mark.qsubs_jobs
 def test_stata_task(dag_factory, tmp_out_dir):
     """Execute a simple stata Task"""
     name = 'stata_task'
@@ -183,6 +188,7 @@ def test_stata_task(dag_factory, tmp_out_dir):
 
 @pytest.mark.skipif(os.environ['SGE_CLUSTER_NAME'] == 'dev',
                     reason="no c2-nodes on cluster-dev")
+@pytest.mark.qsubs_jobs
 def test_specific_queue(dag_factory, tmp_out_dir):
     name = 'c2_nodes_only'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)

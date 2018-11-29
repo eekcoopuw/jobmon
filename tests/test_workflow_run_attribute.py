@@ -62,6 +62,7 @@ def test_workflow_run_attribute_input_error(real_jsm_jqs, db_cfg):
     assert "Invalid" in str(exc.value)
 
 
+@pytest.mark.qsubs_jobs
 def test_new_workflow_has_project_limit(real_jsm_jqs, db_cfg):
     from jobmon.server.database import session_scope
     wfa = "test_new_workflow_has_project_limit"
