@@ -22,9 +22,9 @@ from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete
 
 @pytest.fixture
 def simple_workflow(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("sleep 2", upstream_tasks=[t1])
-    t3 = BashTask("sleep 3", upstream_tasks=[t2])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False)
@@ -405,11 +405,11 @@ def test_nodename_on_fail(simple_workflow_w_errors):
 
 
 def test_fail_fast(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 1")
-    t2 = BashTask("erroring_out 1", upstream_tasks=[t1])
-    t3 = BashTask("sleep 10", upstream_tasks=[t1])
-    t4 = BashTask("sleep 11", upstream_tasks=[t3])
-    t5 = BashTask("sleep 12", upstream_tasks=[t4])
+    t1 = BashTask("sleep 1", slots=1)
+    t2 = BashTask("erroring_out 1", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 10", upstream_tasks=[t1], slots=1)
+    t4 = BashTask("sleep 11", upstream_tasks=[t3], slots=1)
+    t5 = BashTask("sleep 12", upstream_tasks=[t4], slots=1)
 
     workflow = Workflow("test_fail_fast", fail_fast=True,
                         interrupt_on_error=False)
