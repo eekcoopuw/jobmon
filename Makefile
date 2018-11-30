@@ -227,4 +227,6 @@ dummy:
 
 .PHONY: test
 test:
-	./build_and_run_tests.sh
+	./build_env.sh
+	./run_tests.sh
+	./teardown_env.sh
