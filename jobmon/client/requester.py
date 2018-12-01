@@ -14,16 +14,9 @@ class Requester(object):
 
     """
 
-    def __init__(self, config, service):
+    def __init__(self, config):
         """set class defaults. attempt to connect with server."""
-        if service == 'jsm':
-            port = config.jsm_port
-        elif service == 'jqs':
-            port = config.jqs_port
-        else:
-            raise ValueError("Service can only be jqs or jsm. Got {}"
-                             .format(service))
-        self.url = "http://" + config.host + ":{}".format(port)
+        self.url = "http://" + config.host + ":{}".format(config.port)
 
     def send_request(self, app_route, message, request_type, verbose=True):
         """Send request to server.

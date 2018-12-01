@@ -1,7 +1,7 @@
 import os
 
-from jobmon.server.config import ServerConfig
 import jobmon
+from jobmon.server.config import ServerConfig
 
 
 def get_the_server_config():

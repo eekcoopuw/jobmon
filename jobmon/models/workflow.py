@@ -1,15 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import relationship
-
-from jobmon.models.sql_base import Base
+from jobmon.models import DB
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.models.workflow_run import WorkflowRun
-from jobmon.models.task_dag import TaskDagMeta
 
 
-class Workflow(Base):
+class Workflow(DB.model):
 
     __tablename__ = 'workflow'
 
@@ -30,26 +25,25 @@ class Workflow(Base):
                 'description': self.description, 'name': self.name, 'user':
                 self.user, 'status': self.status}
 
-    id = Column(
-        Integer, primary_key=True)
-    dag_id = Column(
-        Integer, ForeignKey('task_dag.dag_id'))
-    workflow_args = Column(Text)
-    workflow_hash = Column(Text)
-    description = Column(Text)
-    name = Column(String(150))
-    user = Column(String(150))
-    created_date = Column(
-        DateTime, default=datetime.utcnow)
-    status_date = Column(
-        DateTime, default=datetime.utcnow)
-    status = Column(String(1),
-                    ForeignKey(
-                        'workflow_status.id'),
-                    nullable=False,
-                    default=WorkflowStatus.CREATED)
+    id = DB.Column(
+        DB.Integer, primary_key=True)
+    dag_id = DB.Column(
+        DB.Integer, DB.ForeignKey('task_dag.dag_id'))
+    workflow_args = DB.Column(DB.Text)
+    workflow_hash = DB.Column(DB.Text)
+    description = DB.Column(DB.Text)
+    name = DB.Column(DB.String(150))
+    user = DB.Column(DB.String(150))
+    created_date = DB.Column(
+        DB.DateTime, default=datetime.utcnow)
+    status_date = DB.Column(
+        DB.DateTime, default=datetime.utcnow)
+    status = DB.Column(DB.String(1),
+                       DB.ForeignKey('workflow_status.id'),
+                       nullable=False,
+                       default=WorkflowStatus.CREATED)
 
-    workflow_runs = relationship(
+    workflow_runs = DB.relationship(
         "WorkflowRun", back_populates="workflow")
-    task_dag = relationship(
+    task_dag = DB.relationship(
         "TaskDagMeta", back_populates="workflow")

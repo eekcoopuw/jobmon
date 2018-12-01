@@ -1,23 +1,20 @@
 import argparse
 import logging
-import shlex
 import os
-
-from sqlalchemy.exc import IntegrityError
+import shlex
 import subprocess
 
-from jobmon.server import database
-from jobmon.server import database_loaders
-from jobmon.bootstrap import install_rcfile
-from jobmon.server.database import session_scope
+from sqlalchemy.exc import IntegrityError
+
+from jobmon.attributes import attribute_database_loaders
 from jobmon.client.requester import Requester
 from jobmon.client.the_client_config import get_the_client_config
+from jobmon.server import database_loaders
+from jobmon.server.database import session_scope
+from jobmon.server.services import create_app
 from jobmon.server.the_server_config import get_the_server_config
 from jobmon.server.services.health_monitor.notifiers import SlackNotifier
 from jobmon.server.services.health_monitor.health_monitor import HealthMonitor
-from jobmon.server.services.job_state_manager import app as jsm_app
-from jobmon.server.services.job_query_server import app as jqs_app
-from jobmon.attributes import attribute_database_loaders
 
 try:
     FileExistsError
@@ -27,8 +24,7 @@ except NameError:
 
 def main():
     args = parse_args()
-    if args.sub_command != "configure":
-        apply_args_to_config(args)
+    apply_args_to_config(args)
     args.func(args)
 
 
@@ -53,14 +49,11 @@ def apply_args_to_config(args):
     cli_opts = vars(args)
     cli_opts = {k: v for k, v in cli_opts.items() if v is not None}
     if 'hostname' in cli_opts:
-        os.environ['RUN_HOST'] = cli_opts['hostname']
+        os.environ['JOBMON_HOST'] = cli_opts['hostname']
     if 'conn_str' in cli_opts:
         os.environ['CONN_STR'] = cli_opts['conn_str']
     get_the_server_config().apply_opts_dct(cli_opts)
 
-    # Don't forget to recreate the engine... in case the conn_str in the
-    # config has changed
-    database.recreate_engine()
     return get_the_server_config()
 
 
@@ -95,12 +88,6 @@ def parse_args(argstr=None):
     # Create subparsers
     subparsers = parser.add_subparsers(dest="sub_command")
 
-    config_parser = subparsers.add_parser(
-        "configure", description="Installs jobmon rc file")
-    config_parser.set_defaults(func=install_rcfile)
-    config_parser.add_argument("-f", "--force", action='store_true')
-    config_parser.add_argument("--file", type=str, default="~/.jobmonrc")
-
     initdb_parser = subparsers.add_parser("initdb")
     initdb_parser.set_defaults(func=initdb)
 
@@ -120,7 +107,7 @@ def parse_args(argstr=None):
         args = parser.parse_args()
     if not args.sub_command:
         raise ValueError("sub-command required: "
-                         "{configure, initdb, start, test}")
+                         "{initdb, start, test}")
     return args
 
 
@@ -128,10 +115,8 @@ def start(args):
     """Start the services"""
     if get_the_server_config().verbose:
         logging.basicConfig(level=logging.DEBUG)
-    if args.service == "job_state_manager":
-        start_job_state_manager()
-    elif args.service == "job_query_server":
-        start_job_query_server()
+    if args.service == "web_server":
+        start_web_server()
     elif args.service == "health_monitor":
         start_health_monitor()
     else:
@@ -140,16 +125,12 @@ def start(args):
                          .format(args.service))
 
 
-def start_job_state_manager():
-    """Start the JobStateManager process"""
-    start_nginx()
-    jsm_app.start()
-
-
-def start_job_query_server():
+def start_web_server():
     """Start the JobQueryServer process"""
     start_nginx()
-    jqs_app.start()
+    # TODO: Sift through and get the correct 'config' object
+    app = create_app(config.conn_str)
+    app.start()
 
 
 def start_health_monitor():
@@ -172,10 +153,8 @@ def start_health_monitor():
 
 
 def test_connection(args):
-    jsm_req = Requester(get_the_client_config(), 'jsm')
-    jsm_req.send_request(app_route='/', request_type='get')  # is alive?
-    jqs_req = Requester(get_the_client_config(), 'jqs')
-    jqs_req.send_request(app_route='/', request_type='get')  # is alive?
+    requester = Requester(get_the_client_config())
+    requester.send_request(app_route='/', request_type='get')  # is alive?
 
 
 if __name__ == "__main__":

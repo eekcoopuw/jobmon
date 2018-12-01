@@ -1,20 +1,16 @@
 import logging
-
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, Boolean
-from sqlalchemy.orm import relationship
-
 from datetime import datetime
 
+from jobmon.models import DB
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
-from jobmon.models.sql_base import Base
 from jobmon.models.exceptions import InvalidStateTransition
 
 logger = logging.getLogger(__name__)
 
 
-class Job(Base):
+class Job(DB.model):
     """The table in the database that holds all info on Jobs"""
 
     __tablename__ = 'job'
@@ -48,30 +44,30 @@ class Job(Base):
                 'last_nodename': lnode,
                 'last_process_group_id': lpgid}
 
-    job_id = Column(Integer, primary_key=True)
-    job_instances = relationship("JobInstance", back_populates="job")
-    dag_id = Column(
-        Integer,
-        ForeignKey('task_dag.dag_id'))
-    job_hash = Column(String(255), nullable=False)
-    name = Column(String(255))
-    tag = Column(String(255))
-    command = Column(Text)
-    context_args = Column(String(1000))
-    queue = Column(String(255))
-    slots = Column(Integer, default=None)
-    mem_free = Column(String(255))
-    num_cores = Column(Integer, default=None)
-    j_resource = Column(Boolean, default=False)
-    max_runtime_seconds = Column(Integer, default=None)
-    num_attempts = Column(Integer, default=0)
-    max_attempts = Column(Integer, default=1)
-    status = Column(
-        String(1),
-        ForeignKey('job_status.id'),
+    job_id = DB.Column(DB.Integer, primary_key=True)
+    job_instances = DB.relationship("JobInstance", back_populates="job")
+    dag_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('task_dag.dag_id'))
+    job_hash = DB.Column(DB.String(255), nullable=False)
+    name = DB.Column(DB.String(255))
+    tag = DB.Column(DB.String(255))
+    command = DB.Column(DB.Text)
+    context_args = DB.Column(DB.String(1000))
+    queue = DB.Column(DB.String(255))
+    slots = DB.Column(DB.Integer, default=None)
+    mem_free = DB.Column(DB.String(255))
+    num_cores = DB.Column(DB.Integer, default=None)
+    j_resource = DB.Column(DB.Boolean, default=False)
+    max_runtime_seconds = DB.Column(DB.Integer, default=None)
+    num_attempts = DB.Column(DB.Integer, default=0)
+    max_attempts = DB.Column(DB.Integer, default=1)
+    status = DB.Column(
+        DB.String(1),
+        DB.ForeignKey('job_status.id'),
         nullable=False)
-    submitted_date = Column(DateTime, default=datetime.utcnow)
-    status_date = Column(DateTime, default=datetime.utcnow)
+    submitted_date = DB.Column(DB.DateTime, default=datetime.utcnow)
+    status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
 
     last_nodename = None
     last_process_group_id = None

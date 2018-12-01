@@ -7,7 +7,6 @@ import jobmon
 def get_the_client_config():
     return ClientConfig(
         jobmon_version=str(jobmon.__version__),
-        host=os.environ.get('RUN_HOST', 'jobmon-p01.ihme.washington.edu'),
-        jsm_port=7256,
-        jqs_port=7258,
+        host=os.environ.get('JOBMON_HOST', 'jobmon-p01.ihme.washington.edu'),
+        port=7256,
         jobmon_command=derive_jobmon_command_from_env())

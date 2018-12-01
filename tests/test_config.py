@@ -48,4 +48,4 @@ def test_client_config_command_line():
 
     # reset
     get_the_client_config().apply_opts_dct(orig_opts)
-    os.environ['RUN_HOST'] = orig_cfg.host
+    os.environ['JOBMON_HOST'] = orig_cfg.host

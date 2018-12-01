@@ -78,8 +78,8 @@ class Executor(object):
             jobmon_command,
             "--command", "'{}'".format(job.command),
             "--job_instance_id", job_instance_id,
-            "--jsm_host", get_the_client_config().jsm_conn.host,
-            "--jsm_port", get_the_client_config().jsm_conn.port,
+            "--jm_host", get_the_client_config().jm_conn.host,
+            "--jm_port", get_the_client_config().jm_conn.port,
             "--executor_class", self.__class__.__name__,
         ]
         if self.temp_dir and 'stata' in job.command:

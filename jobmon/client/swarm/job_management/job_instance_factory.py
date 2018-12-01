@@ -31,8 +31,7 @@ class JobInstanceFactory(object):
             stop_event (obj, default None): Object of type threading.Event
         """
         self.dag_id = dag_id
-        self.jsm_req = Requester(get_the_client_config(), 'jsm')
-        self.jqs_req = Requester(get_the_client_config(), 'jqs')
+        self.requester = Requester(get_the_client_config())
         self.interrupt_on_error = interrupt_on_error
 
         # At this level, default to using a Sequential Executor if None is
@@ -120,18 +119,18 @@ class JobInstanceFactory(object):
         try:
             job_instance = JobInstance(job=job)
             executor_class = self.executor.__class__
-            job_instance.register(self.jsm_req, executor_class.__name__)
+            job_instance.register(self.requester, executor_class.__name__)
         except Exception as e:
             logger.error(e)
         logger.debug("Executing {}".format(job.command))
         executor_id = self.executor.execute(job_instance=job_instance)
         if executor_id:
-            job_instance.assign_executor_id(self.jsm_req, executor_id)
+            job_instance.assign_executor_id(self.requester, executor_id)
         return job_instance, executor_id
 
     def _get_jobs_queued_for_instantiation(self):
         try:
-            rc, response = self.jqs_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/dag/{}/job'.format(self.dag_id),
                 message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
                 request_type='get')
@@ -142,7 +141,7 @@ class JobInstanceFactory(object):
         return jobs
 
     def _register_job_instance(self, job, executor_type):
-        rc, response = self.jsm_req.send_request(
+        rc, response = self.requester.send_request(
             app_route='/job_instance',
             message={'job_id': str(job.job_id),
                      'executor_type': executor_type},
@@ -152,7 +151,7 @@ class JobInstanceFactory(object):
 
     def _register_submission_to_batch_executor(self, job_instance_id,
                                                executor_id):
-        self.jsm_req.send_request(
+        self.requester.send_request(
             app_route=('/job_instance/{}/log_executor_id'
                        .format(job_instance_id)),
             message={'executor_id': str(executor_id)},

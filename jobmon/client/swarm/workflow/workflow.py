@@ -97,8 +97,7 @@ class Workflow(object):
         }
         self.set_executor(executor_class)
 
-        self.jsm_req = Requester(get_the_client_config(), 'jsm')
-        self.jqs_req = Requester(get_the_client_config(), 'jqs')
+        self.requester = Requester(get_the_client_config())
 
         self.reset_running_jobs = reset_running_jobs
 
@@ -225,7 +224,7 @@ class Workflow(object):
             )
 
             # Create new workflow in Database
-            rc, response = self.jsm_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/workflow',
                 message={'dag_id': str(self.task_dag.dag_id),
                          'workflow_args': self.workflow_args,
@@ -283,7 +282,7 @@ class Workflow(object):
 
     def _matching_dag_ids(self):
         """Find all matching dag_ids for this task_dag_hash"""
-        rc, response = self.jqs_req.send_request(
+        rc, response = self.requester.send_request(
             app_route='/dag',
             message={'dag_hash': self.task_dag.hash},
             request_type='get')
@@ -295,7 +294,7 @@ class Workflow(object):
         dag_ids = self._matching_dag_ids()
         workflows = []
         for dag_id in dag_ids:
-            rc, response = self.jqs_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/dag/{}/workflow'.format(dag_id),
                 message={'workflow_args': str(self.workflow_args)},
                 request_type='get')
@@ -306,7 +305,7 @@ class Workflow(object):
 
     def _update_status(self, status):
         """Update the workflow with the status passed in"""
-        rc, response = self.jsm_req.send_request(
+        rc, response = self.requester.send_request(
             app_route='/workflow',
             message={'wf_id': str(self.id), 'status': status,
                      'status_date': str(datetime.utcnow())},
@@ -423,7 +422,7 @@ class Workflow(object):
         self.is_valid_attribute(
             attribute_type, value)
         if self.is_bound:
-            rc, response = self.jsm_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/workflow_attribute',
                 message={'workflow_id': str(self.id),
                          'attribute_type': str(attribute_type),

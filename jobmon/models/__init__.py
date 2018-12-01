@@ -1,1 +1,2 @@
-from .task_dag import TaskDagMeta
+from flask_sqlalchemy import SQLAlchemy
+DB = SQLAlchemy()

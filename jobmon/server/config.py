@@ -1,16 +1,9 @@
 import logging
-import json
-import os
 
 import jobmon
 
 
 logger = logging.getLogger(__file__)
-
-try:
-    from json import JSONDecodeError
-except ImportError:
-    JSONDecodeError = ValueError
 
 
 class InvalidConfig(Exception):
@@ -63,55 +56,3 @@ class ServerConfig(object):
         self.default_node_slack_channel = default_node_slack_channel
 
         self.verbose = verbose
-
-    @property
-    def conn_str(self):
-        return self._conn_str
-
-    @conn_str.setter
-    def conn_str(self, value):
-        self._conn_str = value
-
-    def apply_opts_dct(self, opts_dct):
-        for opt, opt_val in opts_dct.items():
-            if opt == 'conn_str':
-                os.environ[opt.upper()] = opt_val
-            opts_dct[opt] = setattr(self, opt, opt_val)
-        return self
-
-    @classmethod
-    def from_file(cls, filename):
-        opts_dict = cls.get_file_opts(filename)
-        opts_dict = cls.apply_defaults(opts_dict)
-        return cls(**opts_dict)
-
-    @classmethod
-    def from_defaults(cls):
-        return cls(**cls.default_opts)
-
-    @staticmethod
-    def get_file_opts(filename):
-        rcfile = os.path.abspath(os.path.expanduser(filename))
-        with open(rcfile) as json_file:
-            try:
-                config = json.load(json_file)
-            except JSONDecodeError:
-                raise InvalidConfig("Configuration error. {} is not "
-                                    "valid JSON".format(rcfile))
-        opts_dict = {k: v for k, v in config.items()
-                     if k in ServerConfig.default_opts}
-        return opts_dict
-
-    @staticmethod
-    def apply_defaults(opts_dict):
-        gc_opts = {}
-        for opt in ServerConfig.default_opts:
-            if opt in opts_dict:
-                gc_opts[opt] = opts_dict[opt]
-                val = opts_dict[opt]
-            else:
-                gc_opts[opt] = ServerConfig.default_opts[opt]
-                val = ServerConfig.default_opts[opt]
-            if opt == 'conn_str':
-                os.environ[opt.upper()] = val
-        return gc_opts

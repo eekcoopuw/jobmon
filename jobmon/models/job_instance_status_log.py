@@ -1,26 +1,23 @@
 import logging
-
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-
 from datetime import datetime
 
-from jobmon.models.sql_base import Base
+from jobmon.models import DB
 
 logger = logging.getLogger(__name__)
 
 
-class JobInstanceStatusLog(Base):
+class JobInstanceStatusLog(DB.model):
     """The table in the database that logs the JobInstance statuses"""
 
     __tablename__ = 'job_instance_status_log'
 
-    id = Column(Integer, primary_key=True)
-    job_instance_id = Column(
-        Integer,
-        ForeignKey('job_instance.job_instance_id'),
+    id = DB.Column(DB.Integer, primary_key=True)
+    job_instance_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('job_instance.job_instance_id'),
         nullable=False)
-    status = Column(
-        String(1),
-        ForeignKey('job_instance_status.id'),
+    status = DB.Column(
+        DB.String(1),
+        DB.ForeignKey('job_instance_status.id'),
         nullable=False)
-    status_time = Column(DateTime, default=datetime.utcnow)
+    status_time = DB.Column(DB.DateTime, default=datetime.utcnow)

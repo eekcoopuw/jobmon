@@ -1,29 +1,24 @@
 import logging
-
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Text
-from sqlalchemy.orm import relationship
-
 from datetime import datetime
 
-from jobmon.models.sql_base import Base
-from jobmon.models.job_instance import JobInstance
+from jobmon.models import DB
 
 logger = logging.getLogger(__name__)
 
 
-class JobInstanceErrorLog(Base):
+class JobInstanceErrorLog(DB.model):
     """The table in the database that logs the error messages for
     job_instances
     """
 
     __tablename__ = 'job_instance_error_log'
 
-    id = Column(Integer, primary_key=True)
-    job_instance_id = Column(
-        Integer,
-        ForeignKey('job_instance.job_instance_id'),
+    id = DB.Column(DB.Integer, primary_key=True)
+    job_instance_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('job_instance.job_instance_id'),
         nullable=False)
-    error_time = Column(DateTime, default=datetime.utcnow)
-    description = Column(Text)
+    error_time = DB.Column(DB.DateTime, default=datetime.utcnow)
+    description = DB.Column(DB.Text)
 
-    job_instance = relationship("JobInstance", back_populates="errors")
+    job_instance = DB.relationship("JobInstance", back_populates="errors")

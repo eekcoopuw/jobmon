@@ -1,11 +1,7 @@
 import logging
-
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
-
 from datetime import datetime
 
-from jobmon.models.sql_base import Base
+from jobmon.models import DB
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.exceptions import InvalidStateTransition
@@ -13,7 +9,7 @@ from jobmon.models.exceptions import InvalidStateTransition
 logger = logging.getLogger(__name__)
 
 
-class JobInstance(Base):
+class JobInstance(DB.model):
     """The table in the database that holds all info on JobInstances"""
 
     __tablename__ = 'job_instance'
@@ -44,31 +40,32 @@ class JobInstance(Base):
             'time_since_status_update': time_since_status,
         }
 
-    job_instance_id = Column(Integer, primary_key=True)
-    workflow_run_id = Column(Integer)
-    executor_type = Column(String(50))
-    executor_id = Column(Integer)
-    job_id = Column(
-        Integer,
-        ForeignKey('job.job_id'),
+    job_instance_id = DB.Column(DB.Integer, primary_key=True)
+    workflow_run_id = DB.Column(DB.Integer)
+    executor_type = DB.Column(DB.String(50))
+    executor_id = DB.Column(DB.Integer)
+    job_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('job.job_id'),
         nullable=False)
-    job = relationship("Job", back_populates="job_instances")
-    usage_str = Column(String(250))
-    nodename = Column(String(50))
-    process_group_id = Column(Integer)
-    wallclock = Column(String(50))
-    maxrss = Column(String(50))
-    cpu = Column(String(50))
-    io = Column(String(50))
-    status = Column(
-        String(1),
-        ForeignKey('job_instance_status.id'),
+    job = DB.relationship("Job", back_populates="job_instances")
+    usage_str = DB.Column(DB.String(250))
+    nodename = DB.Column(DB.String(50))
+    process_group_id = DB.Column(DB.Integer)
+    wallclock = DB.Column(DB.String(50))
+    maxrss = DB.Column(DB.String(50))
+    cpu = DB.Column(DB.String(50))
+    io = DB.Column(DB.String(50))
+    status = DB.Column(
+        DB.String(1),
+        DB.ForeignKey('job_instance_status.id'),
         default=JobInstanceStatus.INSTANTIATED,
         nullable=False)
-    submitted_date = Column(DateTime, default=datetime.utcnow)
-    status_date = Column(DateTime, default=datetime.utcnow)
+    submitted_date = DB.Column(DB.DateTime, default=datetime.utcnow)
+    status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
 
-    errors = relationship("JobInstanceErrorLog", back_populates="job_instance")
+    errors = DB.relationship("JobInstanceErrorLog",
+                             back_populates="job_instance")
 
     valid_transitions = [
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),

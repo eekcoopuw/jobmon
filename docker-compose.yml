@@ -1,7 +1,7 @@
 version: '3'
 
 services:
-  jsm:
+  jobmon:
     build: .
     image: jobmon
     volumes:
@@ -17,29 +17,7 @@ services:
     command: [
         "jobmon",
         "--verbose",
-        "start", "job_state_manager"]
-    links:
-        - db
-    logging:
-        options:
-            max-size: "100m"
-            max-file: "10"
-  jqs:
-    image: jobmon
-    volumes:
-        - ./jqs_uwsgi.ini:/app/uwsgi.ini
-    ports:
-        - "7258:80"
-    entrypoint:
-        - ./wait-for-tables.sh
-        - db
-    environment:
-        - JOBMON_PASS_SERVICE_USER
-        - CONN_STR=${SERVICE_USER_CONN_STR}
-    command: [
-        "jobmon",
-        "--verbose",
-        "start", "job_query_server"]
+        "start", "web_services"]
     links:
         - db
     logging:

@@ -41,14 +41,13 @@ class WorkflowRun(object):
                  slack_channel='jobmon-alerts', working_dir=None,
                  reset_running_jobs=True):
         self.workflow_id = workflow_id
-        self.jsm_req = Requester(get_the_client_config(), 'jsm')
-        self.jqs_req = Requester(get_the_client_config(), 'jqs')
+        self.requester = Requester(get_the_client_config(), 'jsm')
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
         self.working_dir = working_dir
         self.kill_previous_workflow_runs(reset_running_jobs)
-        rc, response = self.jsm_req.send_request(
+        rc, response = self.requester.send_request(
             app_route='/workflow_run',
             message={'workflow_id': workflow_id,
                      'user': getpass.getuser(),
@@ -77,7 +76,7 @@ class WorkflowRun(object):
     def check_if_workflow_is_running(self):
         """Query the JQS to see if the workflow is currently running"""
         rc, response = \
-            self.jqs_req.send_request(
+            self.reqester.send_request(
                 app_route='/workflow/{}/workflow_run'.format(self.workflow_id),
                 message={},
                 request_type='get')
@@ -108,7 +107,7 @@ class WorkflowRun(object):
                    "creating orphaned processes and hard-to-find bugs"
                    .format(wf_run['id'], wf_run['user']))
             logger.error(msg)
-            _, _ = self.jsm_req.send_request(
+            _, _ = self.requester.send_request(
                 app_route='/workflow_run',
                 message={'wfr_id': wf_run.id,
                          'status': WorkflowRunStatus.STOPPED},
@@ -131,7 +130,7 @@ class WorkflowRun(object):
                     raise ValueError("{} is not supported by this version of "
                                      "jobmon".format(wf_run.executor_class))
                 # get job instances of workflow run
-                _, response = self.jqs_req.send_request(
+                _, response = self.requester.send_request(
                     app_route=('/workflow_run/<workflow_run_id>/job_instance'
                                .format(wf_run.id)),
                     message={},
@@ -140,7 +139,7 @@ class WorkflowRun(object):
                                  for ji in response['job_instances']]
                 if job_instances:
                     previous_executor.terminate_job_instances(job_instances)
-            _, _ = self.jsm_req.send_request(
+            _, _ = self.requester.send_request(
                 app_route='/workflow_run',
                 message={'workflow_run_id': wf_run.id,
                          'status': WorkflowRunStatus.STOPPED},
@@ -165,7 +164,7 @@ class WorkflowRun(object):
         """Update the status of the workflow_run with whatever status is
         passed
         """
-        rc, _ = self.jsm_req.send_request(
+        rc, _ = self.requester.send_request(
             app_route='/workflow_run',
             message={'wfr_id': self.id, 'status': status,
                      'status_date': str(datetime.utcnow())},
@@ -197,7 +196,7 @@ class WorkflowRun(object):
                              .format(value,
                                      type(value).__name__))
         else:
-            rc, workflow_run_attribute_id = self.jsm_req.send_request(
+            rc, workflow_run_attribute_id = self.requester.send_request(
                 app_route='/workflow_run_attribute',
                 message={'workflow_run_id': str(self.id),
                          'attribute_type': str(attribute_type),

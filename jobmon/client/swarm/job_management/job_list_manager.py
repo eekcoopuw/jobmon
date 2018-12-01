@@ -45,7 +45,7 @@ class JobListManager(object):
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
 
-        self.jqs_req = Requester(get_the_client_config(), 'jqs')
+        self.requester = Requester(get_the_client_config())
 
         self.bound_tasks = {}  # {job_id: BoundTask}
         self.hash_job_map = {}  # {job_hash: job}
@@ -104,12 +104,12 @@ class JobListManager(object):
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""
         if self.last_sync:
-            rc, response = self.jqs_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/dag/{}/job'.format(self.dag_id),
                 message={'last_sync': str(self.last_sync)},
                 request_type='get')
         else:
-            rc, response = self.jqs_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/dag/{}/job'.format(self.dag_id),
                 message={},
                 request_type='get')
