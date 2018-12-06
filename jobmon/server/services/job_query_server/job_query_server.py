@@ -94,29 +94,12 @@ def get_job_attribute_by_workflow(workflow_id):
     job_attribute_type = request.args.get('job_attribute_type', None)
     job_type = request.args.get('job_type', None)
     if job_attribute_type:
-        if job_type:
-            attribute = (ScopedSession.query(JobAttribute).join(Job)
-                         .join(TaskDagMeta)
-                         .join(Workflow)
-                         .filter(Workflow.id == workflow_id,
-                                 JobAttribute.attribute_type ==
-                                 job_attribute_type,
-                                 Job.command.like('%'+job_type+'%'))
-                         ).all()
-        else:
-            attribute = (ScopedSession.query(JobAttribute).join(Job)
-                     .join(TaskDagMeta)
-                     .join(Workflow)
-                     .filter(Workflow.id == workflow_id,
-                             JobAttribute.attribute_type == job_attribute_type)
-                     ).all()
-    elif job_type:
         attribute = (ScopedSession.query(JobAttribute).join(Job)
-                     .join(TaskDagMeta)
-                     .join(Workflow)
-                     .filter(Workflow.id == workflow_id,
-                             Job.command.like('%'+job_type+'%'))
-                     ).all()
+                 .join(TaskDagMeta)
+                 .join(Workflow)
+                 .filter(Workflow.id == workflow_id,
+                         JobAttribute.attribute_type == job_attribute_type)
+                 ).all()
     else:
         attribute = (ScopedSession.query(JobAttribute).join(Job)
                      .join(TaskDagMeta)
