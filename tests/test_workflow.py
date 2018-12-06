@@ -2,7 +2,7 @@ import pytest
 from time import sleep
 import os
 
-from jobmon import BashTask # testing new style imports
+from jobmon import BashTask  # testing new style imports
 from jobmon import PythonTask
 from jobmon import StataTask
 from jobmon import Workflow
@@ -15,7 +15,7 @@ from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client import shared_requester as req
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete
 
@@ -362,8 +362,6 @@ def test_dag_reset(simple_workflow_w_errors):
 
     # Now RESET and make sure all the jobs that aren't "DONE" flip back to
     # REGISTERED
-    from jobmon.client.requester import Requester
-    req = Requester(get_the_client_config(), 'jsm')
     rc, _ = req.send_request(
         app_route='/task_dag/{}/reset_incomplete_jobs'.format(dag_id),
         message={},

@@ -5,14 +5,15 @@ from sqlalchemy.orm import contains_eager
 
 from flask import jsonify, request, Blueprint
 
-from jobmon.attributes.attribute_models import JobAttribute, WorkflowAttribute
 from jobmon.models import DB
+from jobmon.models.attributes.job_attribute import JobAttribute
+from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.job import Job
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.models.workflow import Workflow
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes

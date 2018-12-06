@@ -11,22 +11,15 @@ class ConnectionConfig(object):
             you can specify the hostname and port directly
         port (int): in lieu of a filepath to the monitor info,
             you can specify the hostname and port directly
-        request_retries (int, optional): How many times to attempt to contact
-            the other side. Default=3
-        request_timeout (int, optional): How many milliseconds to wait for a
-            response from the other side. Default=10 seconds
     """
 
-    def __init__(self, host, port, request_retries=3, request_timeout=30000):
+    def __init__(self, host, port):
 
         self.host = host
         self.port = port
-        self.request_retries = request_retries
-        self.request_timeout = request_timeout
+        self.url = "http://{h}:{p}".format(h=host, p=port)
 
     def __repr__(self):
-        return \
-            """ConnectionConfig(host=host, port=port,
-               request_retries={}, request_timeout={})""".format(
-                self.host, self.port, self.request_retries,
-                self.request_timeout)
+        return ("ConnectionConfig("
+                "host={}, port={}, url={})".format(
+                    self.host, self.port, self.url))

@@ -14,9 +14,9 @@ class Requester(object):
 
     """
 
-    def __init__(self, config):
+    def __init__(self, connection_config):
         """set class defaults. attempt to connect with server."""
-        self.url = "http://" + config.host + ":{}".format(config.port)
+        self.url = connection_config.url
 
     def send_request(self, app_route, message, request_type, verbose=True):
         """Send request to server.

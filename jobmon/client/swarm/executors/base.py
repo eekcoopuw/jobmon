@@ -2,7 +2,7 @@ import logging
 import os
 import subprocess
 
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client import client_config
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class Executor(object):
         Returns:
             (str) unwrappable command
         """
-        jobmon_command = get_the_client_config().default_opts.get(
+        jobmon_command = client_config.default_opts.get(
             'jobmon_command', None)
         if not jobmon_command:
             jobmon_command = subprocess.check_output(
@@ -78,8 +78,8 @@ class Executor(object):
             jobmon_command,
             "--command", "'{}'".format(job.command),
             "--job_instance_id", job_instance_id,
-            "--jm_host", get_the_client_config().jm_conn.host,
-            "--jm_port", get_the_client_config().jm_conn.port,
+            "--jm_host", client_config.jm_conn.host,
+            "--jm_port", client_config.jm_conn.port,
             "--executor_class", self.__class__.__name__,
         ]
         if self.temp_dir and 'stata' in job.command:

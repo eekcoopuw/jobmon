@@ -7,13 +7,12 @@ import uuid
 
 import jobmon
 from cluster_utils.io import makedirs_safely
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client import shared_requester
+from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.client.requester import Requester
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
-from jobmon.attributes.constants import workflow_attribute
 from jobmon.swarm_logger import add_jobmon_file_logger
 
 try:  # Python 3.5+
@@ -59,7 +58,7 @@ class Workflow(object):
                  description="", stderr=None, stdout=None, project=None,
                  reset_running_jobs=True, working_dir=None,
                  executor_class='SGEExecutor', fail_fast=False,
-                 interrupt_on_error=False):
+                 interrupt_on_error=False, requester=shared_requester):
         """
         Args:
             workflow_args (str): unique identifier of a workflow
@@ -97,7 +96,7 @@ class Workflow(object):
         }
         self.set_executor(executor_class)
 
-        self.requester = Requester(get_the_client_config())
+        self.requester = requester
 
         self.reset_running_jobs = reset_running_jobs
 

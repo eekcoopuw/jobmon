@@ -1,5 +1,4 @@
 import pytest
-import sys
 import os
 from sqlalchemy.exc import OperationalError
 Py2Py3Exit = ValueError

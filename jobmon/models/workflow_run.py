@@ -8,7 +8,7 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 logger = logging.getLogger(__name__)
 
 
-class WorkflowRun(DB.model):
+class WorkflowRun(DB.Model):
 
     __tablename__ = 'workflow_run'
 

@@ -3,7 +3,7 @@ from datetime import datetime
 from jobmon.models import DB
 
 
-class TaskDagMeta(DB.model):
+class TaskDagMeta(DB.Model):
     """ A DAG of Tasks."""
 
     __tablename__ = 'task_dag'

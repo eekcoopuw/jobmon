@@ -1,8 +1,8 @@
 import logging
 import hashlib
 
+from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
-from jobmon.attributes.constants import job_attribute
 
 logger = logging.getLogger(__name__)
 

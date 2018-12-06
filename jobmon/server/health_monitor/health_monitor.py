@@ -2,9 +2,8 @@ import logging
 from datetime import datetime, timedelta
 from time import sleep
 
-from jobmon.client.the_client_config import get_the_client_config
-from jobmon.server import database
-from jobmon.client.requester import Requester
+from jobmon.server import app
+from jobmon.client import shared_requester
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 
@@ -30,7 +29,8 @@ class HealthMonitor(object):
     """
 
     def __init__(self, loss_threshold=5, poll_interval=10,
-                 wf_notification_sink=None, node_notification_sink=None):
+                 wf_notification_sink=None, node_notification_sink=None,
+                 requester=shared_requester):
 
         if poll_interval < loss_threshold:
             raise ValueError("poll_interval ({pi} min) must exceed the "
@@ -38,11 +38,13 @@ class HealthMonitor(object):
                                  pi=poll_interval,
                                  lt=loss_threshold))
 
-        self._requester = Requester(get_the_client_config(), 'jsm')
+        self._requester = requester
         self._loss_threshold = timedelta(minutes=loss_threshold)
         self._poll_interval = poll_interval
         self._wf_notification_sink = wf_notification_sink
         self._node_notification_sink = node_notification_sink
+
+        app = create_app(conn_str)
         self._database = database.engine.url.translate_connect_args()[
             'database']
 

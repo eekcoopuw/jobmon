@@ -6,6 +6,8 @@ from flask import jsonify, request, Blueprint
 import warnings
 
 from jobmon.models import DB
+# TODO from jobmon.models.attributes import attribute_models
+from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job import Job
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.job_status import JobStatus
@@ -16,8 +18,6 @@ from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
-from jobmon.attributes import attribute_models
-from jobmon.attributes.constants import job_attribute
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes

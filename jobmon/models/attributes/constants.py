@@ -1,4 +1,4 @@
-from jobmon.attributes.attribute_dictionary import AttributeDictionary
+from jobmon.models.attributes.attribute_dictionary import AttributeDictionary
 
 workflow_attribute = AttributeDictionary({
     'NUM_LOCATIONS': 1,

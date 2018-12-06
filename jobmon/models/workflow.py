@@ -4,7 +4,7 @@ from jobmon.models import DB
 from jobmon.models.workflow_status import WorkflowStatus
 
 
-class Workflow(DB.model):
+class Workflow(DB.Model):
 
     __tablename__ = 'workflow'
 

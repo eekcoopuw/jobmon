@@ -1,25 +1,10 @@
 import logging
 import os
 
-import jobmon
 from jobmon.client.connection_config import ConnectionConfig
 
 
 logger = logging.getLogger(__file__)
-
-try:
-    from json import JSONDecodeError
-except ImportError:
-    JSONDecodeError = ValueError
-
-
-def derive_jobmon_command_from_env():
-    singularity_img_path = os.environ.get('IMGPATH', None)
-    if singularity_img_path:
-        return (
-            'singularity run --app jobmon_command {}'
-            .format(singularity_img_path).encode())
-    return None
 
 
 class InvalidConfig(Exception):
@@ -28,30 +13,33 @@ class InvalidConfig(Exception):
 
 class ClientConfig(object):
     """
-    This is intended to be a singleton and should only accessed via
-    the_client_config.
-
-    If you're a jobmon developer, and you want/need to modify global
-    configuration from a different module, import the config singleton and only
-    use the setters or modifier methods exposed by ClientConfig (e.g.
-    apply_opts_dct).
-
-    For example:
-
-        from jobmon.the_client_config import get_the_client_config
-
-        config = get_the_client_config()
-        config.apply_opts_dct({'port': '12345'})
+    This is intended to be a singleton. Any other usage should be done with
+    CAUTION.
     """
 
-    default_opts = {
-        "jobmon_version": str(jobmon.__version__),
-        "host": "jobmon-p01.ihme.washington.edu",
-        "port": 7256,
-        "jobmon_command": derive_jobmon_command_from_env()
-    }
+    @classmethod
+    def from_defaults(cls):
 
-    def __init__(self, jobmon_version, host, port, jobmon_command):
+        # Prececdence is CLI > ENV vars > config file
+
+        # then load from default config module
+        from jobmon.default_config import DEFAULT_CLIENT_CONFIG
+
+        # then override with ENV variables
+        if "JOBMON_HOST" in os.environ:
+            DEFAULT_CLIENT_CONFIG["host"] = os.environ["JOBMON_HOST"]
+        if "JOBMON_PORT" in os.environ:
+            DEFAULT_CLIENT_CONFIG["port"] = os.environ["JOBMON_PORT"]
+        if "JOBMON_COMMAND" in os.environ:
+            DEFAULT_CLIENT_CONFIG["jobmon_command"] = (
+                os.environ["JOBMON_COMMAND"])
+
+        # and finally override using CLI args (if passed)
+        # TBD
+
+        return cls(**DEFAULT_CLIENT_CONFIG)
+
+    def __init__(self, host, port, jobmon_command):
 
         self._host = host
         self._port = port
@@ -60,5 +48,4 @@ class ClientConfig(object):
             host=host,
             port=str(port))
 
-        self.jobmon_version = jobmon_version
         self.jobmon_command = jobmon_command

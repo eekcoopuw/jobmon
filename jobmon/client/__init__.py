@@ -1,6 +1,5 @@
+from jobmon.client.config import ClientConfig
+from jobmon.client.requester import Requester
 
-from jobmon._version import get_versions
-__version__ = get_versions()['version']
-del get_versions
-
-RELEASE_NAME = "emu"
+client_config = ClientConfig.from_defaults()
+shared_requester = Requester(client_config.jm_conn)

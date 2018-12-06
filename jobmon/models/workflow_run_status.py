@@ -1,15 +1,12 @@
 import logging
 
-from sqlalchemy import DB.Column, DB.DateTime, DB.ForeignKey, DB.Integer, DB.String
-from sqlalchemy.orm import DB.relationship
-
-from jobmon.models.sql_base import DB.model
+from jobmon.models import DB
 
 
 logger = logging.getLogger(__name__)
 
 
-class WorkflowRunStatus(DB.model):
+class WorkflowRunStatus(DB.Model):
     __tablename__ = 'workflow_run_status'
 
     RUNNING = 'R'

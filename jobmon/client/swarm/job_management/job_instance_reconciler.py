@@ -4,11 +4,10 @@ import _thread
 from time import sleep
 import traceback
 
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.client.requester import Requester
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 class JobInstanceReconciler(object):
 
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
-                 stop_event=None):
+                 stop_event=None, requester=shared_requester):
         """The JobInstanceReconciler is a mechanism by which the
         JobStateManager and JobQueryServer make sure the database in sync with
         jobs in qstat
@@ -39,7 +38,7 @@ class JobInstanceReconciler(object):
             stop_event (obj, default None): Object of type threading.Event
         """
         self.dag_id = dag_id
-        self.requester = Requester(get_the_client_config())
+        self.requester = requester
         self.interrupt_on_error = interrupt_on_error
 
         if executor:

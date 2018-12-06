@@ -171,11 +171,9 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
     dag_id
     """
     import random
-    from jobmon.client.requester import Requester
-    from jobmon.client.the_client_config import get_the_client_config
+    from jobmon.client import shared_requester
 
-    req = Requester(get_the_client_config(), 'jsm')
-    rc, response = req.send_request(
+    rc, response = shared_requester.send_request(
         app_route='/task_dag',
         message={'name': 'test dag', 'user': 'test user',
                  'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
@@ -190,11 +188,9 @@ def real_dag_id(real_jsm_jqs, db_cfg):
     return the dag_id
     """
     import random
-    from jobmon.client.the_client_config import get_the_client_config
-    from jobmon.client.requester import Requester
+    from jobmon.client import shared_requester
 
-    req = Requester(get_the_client_config(), 'jsm')
-    rc, response = req.send_request(
+    rc, response = shared_requester.send_request(
         app_route='/task_dag',
         message={'name': 'test dag', 'user': 'test user',
                  'dag_hash': 'test_{}'.format(random.randint(1, 1000)),

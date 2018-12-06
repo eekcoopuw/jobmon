@@ -5,13 +5,12 @@ import socket
 from datetime import datetime
 import logging
 
-from jobmon.client.the_client_config import get_the_client_config
-from jobmon.models.job_instance import JobInstance
-from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.client.requester import Requester
+from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sge_utils import get_project_limits
 from jobmon.client.utils import kill_remote_process
-from jobmon.attributes.constants import workflow_run_attribute
+from jobmon.models.attributes.constants import workflow_run_attribute
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -39,9 +38,9 @@ class WorkflowRun(object):
 
     def __init__(self, workflow_id, stderr, stdout, project,
                  slack_channel='jobmon-alerts', working_dir=None,
-                 reset_running_jobs=True):
+                 reset_running_jobs=True, requester=shared_requester):
         self.workflow_id = workflow_id
-        self.requester = Requester(get_the_client_config(), 'jsm')
+        self.requester = requester
         self.stderr = stderr
         self.stdout = stdout
         self.project = project

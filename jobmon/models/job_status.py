@@ -6,7 +6,7 @@ from jobmon.models import DB
 logger = logging.getLogger(__name__)
 
 
-class JobStatus(DB.model):
+class JobStatus(DB.Model):
     """The table in the database that holds on the possible statuses for Job"""
 
     __tablename__ = 'job_status'

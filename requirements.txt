@@ -5,6 +5,7 @@ cluster_utils
 graphviz
 flask
 flask_cors
+flask_sqlalchemy
 functools32; python_version < '3.0'
 subprocess32; python_version < '3.0'
 

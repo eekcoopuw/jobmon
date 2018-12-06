@@ -10,7 +10,7 @@ from jobmon.models.exceptions import InvalidStateTransition
 logger = logging.getLogger(__name__)
 
 
-class Job(DB.model):
+class Job(DB.Model):
     """The table in the database that holds all info on Jobs"""
 
     __tablename__ = 'job'

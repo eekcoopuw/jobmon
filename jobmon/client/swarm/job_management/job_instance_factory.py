@@ -4,12 +4,11 @@ import logging
 import threading
 from time import sleep
 
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
-from jobmon.client.requester import Requester
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ logger = logging.getLogger(__name__)
 class JobInstanceFactory(object):
 
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
-                 stop_event=None):
+                 stop_event=None, requester=shared_requester):
         """The JobInstanceFactory is in charge of queueing jobs and creating
         job_instances, in order to get the jobs from merely Task objects to
         runnign code.
@@ -31,7 +30,7 @@ class JobInstanceFactory(object):
             stop_event (obj, default None): Object of type threading.Event
         """
         self.dag_id = dag_id
-        self.requester = Requester(get_the_client_config())
+        self.requester = requester
         self.interrupt_on_error = interrupt_on_error
 
         # At this level, default to using a Sequential Executor if None is

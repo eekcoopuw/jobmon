@@ -1,20 +1,19 @@
-import os
-
 from flask import Flask
 from flask_cors import CORS
 
-from jobmon.models import DB
-from jobmon.server.services.job_query_server.job_query_server import jqs
-from jobmon.server.services.job_state_manager.job_state_manager import jsm
+from jobmon.server.config import ServerConfig
 
 
-def create_app(conn_str):
+def create_app(config=None):
     """Create a Flask app"""
+    from jobmon.models import DB
+    from jobmon.server.job_query_server.job_query_server import jqs
+    from jobmon.server.job_state_manager.job_state_manager import jsm
+
     app = Flask(__name__)
-    if conn_str:
-        app.config['SQLALCHEMY_DATABASE_URI'] = conn_str
-    else:
-        app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['CONN_STR']
+    if not config:
+        config = ServerConfig.from_defaults()
+    app.config['SQLALCHEMY_DATABASE_URI'] = config.conn_str
 
     # register blueprints
     app.register_blueprint(jqs)
@@ -27,3 +26,6 @@ def create_app(conn_str):
     CORS(app)
 
     return app
+
+
+app = create_app()

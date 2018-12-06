@@ -9,8 +9,7 @@ import socket
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
 
-from jobmon.client.the_client_config import get_the_client_config
-from jobmon.client.requester import Requester
+from jobmon.client import shared_requester as req
 from jobmon.models.job import Job
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
@@ -64,7 +63,6 @@ def test_get_workflow_run_id(real_dag_id):
     from jobmon.server.services.job_state_manager.job_state_manager import \
         _get_workflow_run_id
     user = getpass.getuser()
-    req = Requester(get_the_client_config(), 'jsm')
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -110,7 +108,6 @@ def test_get_workflow_run_id(real_dag_id):
 def test_get_workflow_run_id_no_workflow(real_dag_id):
     from jobmon.server.services.job_state_manager.job_state_manager import \
         _get_workflow_run_id
-    req = Requester(get_the_client_config(), 'jsm')
     rc, response = req.send_request(
         app_route='/task_dag',
         message={'name': 'testing dag', 'user': 'pytest_user',
@@ -131,7 +128,6 @@ def test_get_workflow_run_id_no_workflow(real_dag_id):
 
 
 def test_jsm_valid_done(real_dag_id):
-    req = Requester(get_the_client_config(), 'jsm')
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -181,7 +177,6 @@ def test_jsm_valid_done(real_dag_id):
 
 
 def test_jsm_valid_error(real_dag_id):
-    req = Requester(get_the_client_config(), 'jsm')
 
     # add job
     _, response = req.send_request(
@@ -225,8 +220,6 @@ def test_jsm_valid_error(real_dag_id):
 
 def test_invalid_transition(dag_id):
 
-    req = Requester(get_the_client_config(), 'jsm')
-
     # add dag
     rc, response = req.send_request(
         app_route='/task_dag',
@@ -257,7 +250,6 @@ def test_invalid_transition(dag_id):
 
 
 def test_jsm_log_usage(real_dag_id):
-    req = Requester(get_the_client_config(), 'jsm')
 
     _, response = req.send_request(
         app_route='/job',
@@ -313,8 +305,6 @@ def test_jsm_log_usage(real_dag_id):
 
 
 def test_job_reset(real_dag_id):
-
-    req = Requester(get_the_client_config(), 'jsm')
 
     _, response = req.send_request(
         app_route='/job',
@@ -415,7 +405,6 @@ def test_job_reset(real_dag_id):
 
 
 def test_jsm_submit_job_attr(real_dag_id):
-    req = Requester(get_the_client_config(), 'jsm')
 
     _, response = req.send_request(
         app_route='/job',

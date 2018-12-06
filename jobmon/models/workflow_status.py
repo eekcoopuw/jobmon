@@ -1,7 +1,7 @@
 from jobmon.models import DB
 
 
-class WorkflowStatus(DB.model):
+class WorkflowStatus(DB.Model):
     __tablename__ = 'workflow_status'
 
     CREATED = 'C'
