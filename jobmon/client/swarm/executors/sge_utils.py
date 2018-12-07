@@ -112,6 +112,7 @@ def get_project_limits(project):
     except ValueError as e:
         logger.warning("Could not get project slot limits. Res is {}. "
                        "ValueError is {}".format(res, e))
+    # enforces a default limit since dev does not have project limits
     return 50
 
 
