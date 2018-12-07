@@ -112,7 +112,8 @@ def get_project_limits(project):
     except ValueError as e:
         logger.warning("Could not get project slot limits. Res is {}. "
                        "ValueError is {}".format(res, e))
-    return -1
+    # enforces a default limit since dev does not have project limits
+    return 50
 
 
 def qstat(status=None, pattern=None, user=None, jids=None):
