@@ -136,7 +136,15 @@ class SGEExecutor(Executor):
             wd_cmd = "-wd {}".format(working_dir)
         else:
             wd_cmd = ""
-        if mem_free:
+        if mem_free and num_cores:
+            # The use of num_cores as opposed to slots indicates that the
+            # user is on the 'new' cluster. The 'new' cluster uses the option
+            # -l m_mem_free to request memory as opposed to '-l mem_free' which
+            # was use ond the 'old cluster. There may be better ways
+            # to detect this at some point (e.g. using the hostname of the
+            # scheduler), but for now this should hold true.
+            mem_cmd = "-l m_mem_free={}g".format(mem_free)
+        elif mem_free:
             mem_cmd = "-l mem_free={}g".format(mem_free)
         else:
             mem_cmd = ""
