@@ -1,5 +1,12 @@
 from jobmon.models import DB
 
+# NOTE: This import needs to be here to support the ForeignKey relationship,
+# otherwise sqlalchemy gets confused about that table. There may be a
+# different way to solve this that involves loading this module elsewhere,
+# but this definitely works
+from jobmon.models.attributes.workflow_attribute_type import \
+    WorkflowAttributeType
+
 
 class WorkflowAttribute(DB.Model):
     __tablename__ = 'workflow_attribute'

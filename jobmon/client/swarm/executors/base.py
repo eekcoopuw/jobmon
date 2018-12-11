@@ -68,8 +68,7 @@ class Executor(object):
         Returns:
             (str) unwrappable command
         """
-        jobmon_command = client_config.default_opts.get(
-            'jobmon_command', None)
+        jobmon_command = client_config.jobmon_command
         if not jobmon_command:
             jobmon_command = subprocess.check_output(
                 ["which", "jobmon_command"])

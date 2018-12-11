@@ -1,8 +1,13 @@
 from jobmon.models import DB
 
+# NOTE: This import needs to be here to support the ForeignKey relationship,
+# otherwise sqlalchemy gets confused about that table. There may be a
+# different way to solve this that involves loading this module elsewhere,
+# but this definitely works
+from jobmon.models.attributes.job_attribute_type import JobAttributeType
+
 
 class JobAttribute(DB.Model):
-    __tablename__ = 'job_attribute'
 
     id = DB.Column(DB.Integer, primary_key=True)
     job_id = DB.Column(DB.Integer, DB.ForeignKey('job.job_id'))

@@ -75,7 +75,7 @@ class WorkflowRun(object):
     def check_if_workflow_is_running(self):
         """Query the JQS to see if the workflow is currently running"""
         rc, response = \
-            self.reqester.send_request(
+            self.requester.send_request(
                 app_route='/workflow/{}/workflow_run'.format(self.workflow_id),
                 message={},
                 request_type='get')

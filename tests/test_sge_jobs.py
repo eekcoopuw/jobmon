@@ -32,7 +32,7 @@ def valid_command_check(job_list_manager_sge):
         return False
 
 
-def test_context_args(real_jsm_jqs, job_list_manager_sge):
+def test_context_args(db_cfg, real_jsm_jqs, job_list_manager_sge):
     delay_to = (datetime.now() + timedelta(minutes=5)).strftime("%m%d%H%M")
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
@@ -42,15 +42,18 @@ def test_context_args(real_jsm_jqs, job_list_manager_sge):
 
     timeout_and_skip(10, 180, 1, partial(
         context_args_check,
+        db_cfg=db_cfg,
         job_id=job.job_id))
 
 
-def context_args_check(job_id):
-    from jobmon.server.database import ScopedSession
-    jis = ScopedSession.query(JobInstance).filter_by(job_id=job_id).all()
-    njis = len(jis)
-    status = jis[0].status
-    sge_jid = jis[0].executor_id
+def context_args_check(db_cfg, job_id):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        jis = DB.session.query(JobInstance).filter_by(job_id=job_id).all()
+        njis = len(jis)
+        status = jis[0].status
+        sge_jid = jis[0].executor_id
     # Make sure the job actually got to SGE
     if njis == 1:
         # Make sure it hasn't advanced to running (i.e. the -a argument worked)

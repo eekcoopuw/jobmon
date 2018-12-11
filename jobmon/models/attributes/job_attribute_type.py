@@ -2,7 +2,6 @@ from jobmon.models import DB
 
 
 class JobAttributeType(DB.Model):
-    __tablename__ = 'job_attribute_type'
 
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))

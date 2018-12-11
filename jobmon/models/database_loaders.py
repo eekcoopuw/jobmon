@@ -1,8 +1,12 @@
 from sqlalchemy.exc import IntegrityError
 
+from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.job_attribute_type import JobAttributeType
+from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.attributes.workflow_attribute_type import \
     WorkflowAttributeType
+from jobmon.models.attributes.workflow_run_attribute import \
+    WorkflowRunAttribute
 from jobmon.models.attributes.workflow_run_attribute_type import \
     WorkflowRunAttributeType
 from jobmon.models.job_instance_status import JobInstanceStatus
@@ -106,7 +110,9 @@ def load_attribute_types(db):
                       'WALLCLOCK': 'string',
                       'CPU': 'string',
                       'IO': 'string',
-                      'MAXRSS': 'string'}
+                      'MAXRSS': 'string',
+                      'USAGE_STR': 'string',
+                      }
     for attribute in job_attributes:
         job_attribute_types = JobAttributeType(
                                 name=attribute,

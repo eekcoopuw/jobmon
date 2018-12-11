@@ -338,7 +338,8 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, real_dag):
 
 
 @pytest.mark.qsubs_jobs
-def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, real_dag):
+def test_fork_and_join_tasks_with_retryable_error(db_cfg, tmp_out_dir,
+                                                  real_dag):
     """
     Create the same fork and join real_dag with three Tasks a->b[0..3]->c and
     execute it.
@@ -418,10 +419,11 @@ def test_fork_and_join_tasks_with_retryable_error(tmp_out_dir, real_dag):
 
     # Check that the failed task's nodename + pgid got propagated to
     # its retry instance
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
         bound_task = real_dag.job_list_manager.bound_task_from_task(task_b[1])
-        job = session.query(Job).filter_by(job_id=bound_task.job_id).first()
+        job = DB.session.query(Job).filter_by(job_id=bound_task.job_id).first()
         done_ji = [ji for ji in job.job_instances
                    if ji.status == JobInstanceStatus.DONE][0]
         err_ji = [ji for ji in job.job_instances
@@ -530,7 +532,7 @@ def test_bushy_real_dag(tmp_out_dir, real_dag):
 
 
 @pytest.mark.qsubs_jobs
-def test_real_dag_logging(tmp_out_dir, real_dag):
+def test_real_dag_logging(db_cfg, tmp_out_dir, real_dag):
     """
     Create a real_dag with one Task and execute it, and make sure logs show up
     in db
@@ -554,9 +556,10 @@ def test_real_dag_logging(tmp_out_dir, real_dag):
     (rc, num_completed, num_previously_complete, num_failed) = \
         real_dag._execute()
 
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
-        ji = session.query(JobInstance).first()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        ji = DB.session.query(JobInstance).first()
         assert ji.usage_str  # all these should exist and not be empty
         assert ji.maxrss
         assert ji.cpu
@@ -564,7 +567,7 @@ def test_real_dag_logging(tmp_out_dir, real_dag):
         assert ji.nodename
         assert ':' not in ji.wallclock  # wallclock should be in seconds
 
-        td = session.query(TaskDagMeta).first()
+        td = DB.session.query(TaskDagMeta).first()
         print(td.created_date)
         assert td.created_date  # this should not be empty
 
@@ -572,7 +575,7 @@ def test_real_dag_logging(tmp_out_dir, real_dag):
 @pytest.mark.skip(reason="Too big to run by default, only run when "
                   "specifically requested")
 @pytest.mark.qsubs_jobs
-def test_dag_logging_using_mem(tmp_out_dir, dag):
+def test_dag_logging_using_mem(db_cfg, tmp_out_dir, dag):
     """
     Create a dag with one Task and execute it, and make sure logs show up in db
 
@@ -594,8 +597,10 @@ def test_dag_logging_using_mem(tmp_out_dir, dag):
     os.makedirs("{}/test_dag_logging_using_mem".format(tmp_out_dir))
     (rc, num_completed, num_previously_complete, num_failed) = dag._execute()
 
-    with session_scope() as session:
-        ji = session.query(JobInstance).first()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        ji = DB.session.query(JobInstance).first()
         assert ji.usage_str  # all these should exist and not be empty
         assert ji.maxrss
         assert ji.cpu
@@ -603,6 +608,6 @@ def test_dag_logging_using_mem(tmp_out_dir, dag):
         assert ji.nodename
         assert ':' not in ji.wallclock  # wallclock should be in seconds
 
-        td = session.query(TaskDagMeta).first()
+        td = DB.session.query(TaskDagMeta).first()
         print(td.created_date)
         assert td.created_date  # this should not be emptp ji,y

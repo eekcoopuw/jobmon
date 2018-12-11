@@ -6,15 +6,18 @@ from flask import jsonify, request, Blueprint
 import warnings
 
 from jobmon.models import DB
-# TODO from jobmon.models.attributes import attribute_models
 from jobmon.models.attributes.constants import job_attribute
-from jobmon.models.job import Job
+from jobmon.models.attributes.job_attribute import JobAttribute
+from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
+from jobmon.models.attributes.workflow_run_attribute import \
+    WorkflowRunAttribute
 from jobmon.models.exceptions import InvalidStateTransition
+from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
-from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
+from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
@@ -399,7 +402,8 @@ def log_usage(job_instance_id):
     if data.get('maxrss', None) is None:
         data['maxrss'] = '-1'
 
-    keys_to_attrs = {data.get('wallclock', None): job_attribute.WALLCLOCK,
+    keys_to_attrs = {data.get('usage_str', None): job_attribute.USAGE_STR,
+                     data.get('wallclock', None): job_attribute.WALLCLOCK,
                      data.get('cpu', None): job_attribute.CPU,
                      data.get('io', None): job_attribute.IO,
                      data.get('maxrss', None): job_attribute.MAXRSS}
@@ -423,7 +427,7 @@ def log_usage(job_instance_id):
             'The value of {kval} being set in the attribute table  is {k}'.
             format(kval=keys_to_attrs[k], k=k))
         if k is not None:
-            ja = (attribute_models.JobAttribute(
+            ja = (JobAttribute(
                 job_id=job_id, attribute_type=keys_to_attrs[k], value=k))
             DB.session.add(ja)
         else:
@@ -605,7 +609,7 @@ def add_workflow_attribute():
         value (str): value of the WorkflowAttribute to add
     """
     data = request.get_json()
-    workflow_attribute = attribute_models.WorkflowAttribute(
+    workflow_attribute = WorkflowAttribute(
         workflow_id=data['workflow_id'],
         attribute_type=data['attribute_type'],
         value=data['value'])
@@ -627,10 +631,10 @@ def add_workflow_run_attribute():
         value (str): value of the WorkflowRunAttribute to add
     """
     data = request.get_json()
-    workflow_run_attribute = attribute_models.\
-        WorkflowRunAttribute(workflow_run_id=data['workflow_run_id'],
-                             attribute_type=data['attribute_type'],
-                             value=data['value'])
+    workflow_run_attribute = WorkflowRunAttribute(
+        workflow_run_id=data['workflow_run_id'],
+        attribute_type=data['attribute_type'],
+        value=data['value'])
     DB.session.add(workflow_run_attribute)
     DB.session.commit()
     resp = jsonify({'workflow_run_attribute_id': workflow_run_attribute.id})
@@ -648,10 +652,10 @@ def add_job_attribute():
         value (str): value of the JobAttribute to add
     """
     data = request.get_json()
-    job_attribute = attribute_models.\
-        JobAttribute(job_id=data['job_id'],
-                     attribute_type=data['attribute_type'],
-                     value=data['value'])
+    job_attribute = JobAttribute(
+        job_id=data['job_id'],
+        attribute_type=data['attribute_type'],
+        value=data['value'])
     DB.session.add(job_attribute)
     DB.session.commit()
     resp = jsonify({'job_attribute_id': job_attribute.id})
