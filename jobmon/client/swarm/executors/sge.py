@@ -158,8 +158,12 @@ class SGEExecutor(Executor):
             j_cmd=""
         if queue:
             q_cmd = "-q '{}'".format(job.queue)
-        else:
-            q_cmd = ""
+        elif num_cores:
+            # The use of num_cores as opposed to slots indicates that the
+            # user is on the 'new' cluster. The 'new' cluster requires
+            # a queue name be passed explicitly, so in the event the user
+            # does not supply one we just fall back to all.q
+            q_cmd = "-q all.q"
         if max_runtime_seconds:
             time_cmd = "-l h_rt={}".format(h_m_s)
         else:
