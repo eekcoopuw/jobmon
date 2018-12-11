@@ -164,6 +164,8 @@ class SGEExecutor(Executor):
             # a queue name be passed explicitly, so in the event the user
             # does not supply one we just fall back to all.q
             q_cmd = "-q all.q"
+        else:
+            q_cmd = ""
         if max_runtime_seconds:
             time_cmd = "-l h_rt={}".format(h_m_s)
         else:
