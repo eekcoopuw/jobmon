@@ -1,6 +1,6 @@
 import pytest
 
-from jobmon.server.services.health_monitor.notifiers import SlackNotifier
+from jobmon.server.health_monitor.notifiers import SlackNotifier
 
 
 def test_raises_correctly():

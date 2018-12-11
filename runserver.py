@@ -4,12 +4,19 @@ import getpass
 import json
 import os
 import random
+import socket
 import string
 import subprocess
 from datetime import datetime
 
-import yaml
 
+INTERNAL_DB_HOST = "db"
+INTERNAL_DB_PORT = 3306
+EXTERNAL_DB_HOST = "jobmon-p01.ihme.washington.edu"
+EXTERNAL_DB_PORT = 3317
+
+EXTERNAL_SERVICE_HOST = "jobmon-p01.ihme.washington.edu"
+EXTERNAL_SERVICE_PORT = 7256
 
 DEFAULT_WF_SLACK_CHANNEL = 'jobmon-alerts'
 DEFAULT_NODE_SLACK_CHANNEL = 'suspicious_nodes'
@@ -46,22 +53,13 @@ def find_release(tags):
                            "without a definitive release "
                            "number.".format(candidate_tags))
     else:
-        return 'no-release'
-
-
-def parse_docker_compose(dc_file):
-    with open(dc_file, "r") as dcf:
-        dc_dct = yaml.load(dcf)
-    return dc_dct
+        return None
 
 
 class JobmonDeployment(object):
 
     def __init__(self, slack_token=None, wf_slack_channel=None,
                  node_slack_channel=None):
-        self.template_rcfile = 'jobmonrc-docker'
-        self.initdb_rcfile = 'jobmonrc-docker-initdb'
-        self.service_rcfile = 'jobmonrc-docker-wsecrets'
         self.info_dir = os.path.expanduser("~/jobmon_deployments")
 
         self.slack_token = slack_token
@@ -71,10 +69,16 @@ class JobmonDeployment(object):
         self.git_commit = git_current_commit()
         self.git_tags = git_tags()
         self.jobmon_version = find_release(self.git_tags)
+        if self.jobmon_version is None:
+            self.jobmon_version = self.git_commit
         self.deploy_date = datetime.now().strftime("%m%d%Y_%H%M%S")
         self.deploy_user = getpass.getuser()
         self.db_accounts = {}
-        if self.deploy_user != 'svcscicompci':
+
+        # In production, only the svcscicompci user should be allowed to
+        # deploy
+        if ((socket.gethostname() == "jobmon-p01") and
+                (self.deploy_user != 'svcscicompci')):
             raise ValueError("Deployment can only be run by the "
                              "'svcscicompci' service user")
 
@@ -84,35 +88,6 @@ class JobmonDeployment(object):
                                            jv=self.jobmon_version)
         os.makedirs(versioned_dir, exist_ok=True)
         return "{d}/{date}.info".format(d=versioned_dir, date=self.deploy_date)
-
-    @property
-    def external_db_port(self):
-        dc_dct = parse_docker_compose("docker-compose.yml")
-        return dc_dct['services']['db']['ports'][0].split(":")[0]
-
-    def _construct_conn_str(self, user):
-        return "mysql://{user}:{pw}@db:3306/docker".format(
-            user=user,
-            pw=self.db_accounts[user]
-        )
-
-    def _cleanup(self):
-        os.remove(self.service_rcfile)
-
-    def _create_jobmonrc_file(self):
-        with open(self.template_rcfile, "r") as f:
-            rcdct = json.load(f)
-            if self.slack_token:
-                rcdct['slack_token'] = self.slack_token
-                rcdct['default_wf_slack_channel'] = self.wf_slack_channel
-                rcdct['default_node_slack_channel'] = self.node_slack_channel
-
-        rcdct['conn_str'] = self._construct_conn_str('service_user')
-        with open(self.service_rcfile, "w") as f:
-            json.dump(rcdct, f)
-        rcdct['conn_str'] = self._construct_conn_str('table_creator')
-        with open(self.initdb_rcfile, "w") as f:
-            json.dump(rcdct, f)
 
     def _create_info_file(self):
         """Write all simple attributes (strings/numbers/single-level lists
@@ -133,15 +108,11 @@ class JobmonDeployment(object):
             json.dump(info, f)
         return info
 
-    def _set_conn_strs(self):
-        os.environ['SERVICE_USER_CONN_STR'] = (
-            "mysql://{user}:{pw}@db:3306/docker".format(
-                user='service_user',
-                pw=os.environ['JOBMON_PASS_SERVICE_USER']))
-        os.environ['TABLE_CREATOR_CONN_STR'] = (
-            "mysql://{user}:{pw}@db:3306/docker".format(
-                user='table_creator',
-                pw=os.environ['JOBMON_PASS_TABLE_CREATOR']))
+    def _set_connection_env(self):
+        os.environ["EXTERNAL_SERVICE_PORT"] = str(EXTERNAL_SERVICE_PORT)
+        os.environ["EXTERNAL_DB_PORT"] = str(EXTERNAL_DB_PORT)
+        os.environ["INTERNAL_DB_HOST"] = INTERNAL_DB_HOST
+        os.environ["INTERNAL_DB_PORT"] = str(INTERNAL_DB_PORT)
 
     def _run_docker(self):
         subprocess.call(["docker-compose", "up", "--build", "-d"])
@@ -153,22 +124,23 @@ class JobmonDeployment(object):
                                           None)
             if env_password is not None:
                 password = env_password
+            elif user == "read_only":
+                password = "docker"
+                os.environ['JOBMON_PASS_' + user.upper()] = password
             else:
-                password = self._set_mysql_user_password_var(user)
+                password = self._set_mysql_user_password_env(user)
             self.db_accounts[user] = password
 
-    def _set_mysql_user_password_var(self, user):
+    def _set_mysql_user_password_env(self, user):
         password = gen_password()
         os.environ['JOBMON_PASS_' + user.upper()] = password
         return password
 
     def run(self):
         self._set_mysql_user_passwords()
-        self._set_conn_strs()
-        self._create_jobmonrc_file()
+        self._set_connection_env()
         self._create_info_file()
         self._run_docker()
-        self._cleanup()
 
 
 def main():

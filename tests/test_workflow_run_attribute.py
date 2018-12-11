@@ -3,11 +3,10 @@ import pytest
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
-from jobmon.attributes.constants import workflow_run_attribute
+from jobmon.models.attributes.constants import workflow_run_attribute
 
 
 def test_workflow_run_attribute(real_jsm_jqs, db_cfg):
-    from jobmon.server.database import ScopedSession
     # create a workflow_run
     wfa = "test_workflow_run_attribute"
     workflow = Workflow(wfa)
@@ -22,28 +21,31 @@ def test_workflow_run_attribute(real_jsm_jqs, db_cfg):
                                             "1000")
 
     # query from workflow_run_attribute table
-    attribute_query = ScopedSession.execute("""
-        SELECT wf_run_att.id,
-               wf_run_att.workflow_run_id,
-               wf_run_att.attribute_type,
-               wf_run_att.value
-        FROM workflow_run_attribute
-             as wf_run_att
-        JOIN workflow_run as wf_run
-        ON wf_run_att.workflow_run_id
-           =wf_run.id
-        WHERE wf_run_att.workflow_run_id
-              ={id}
-        AND wf_run_att.attribute_type = {ty}
-        """.format(id=workflow_run.id, ty=workflow_run_attribute.NUM_DRAWS))
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        attribute_query = DB.session.execute("""
+            SELECT wf_run_att.id,
+                   wf_run_att.workflow_run_id,
+                   wf_run_att.attribute_type,
+                   wf_run_att.value
+            FROM workflow_run_attribute
+                 as wf_run_att
+            JOIN workflow_run as wf_run
+            ON wf_run_att.workflow_run_id
+               =wf_run.id
+            WHERE wf_run_att.workflow_run_id
+                  ={id}
+            AND wf_run_att.attribute_type = {ty}
+            """.format(id=workflow_run.id, ty=workflow_run_attribute.NUM_DRAWS))
 
-    attribute_entry = attribute_query.fetchone()
-    entry_type = attribute_entry.attribute_type
-    entry_value = attribute_entry.value
-    ScopedSession.commit()
+        attribute_entry = attribute_query.fetchone()
+        entry_type = attribute_entry.attribute_type
+        entry_value = attribute_entry.value
+        DB.session.commit()
 
-    assert entry_type == workflow_run_attribute.NUM_DRAWS
-    assert entry_value == "1000"
+        assert entry_type == workflow_run_attribute.NUM_DRAWS
+        assert entry_value == "1000"
 
 
 def test_workflow_run_attribute_input_error(real_jsm_jqs, db_cfg):
@@ -64,7 +66,6 @@ def test_workflow_run_attribute_input_error(real_jsm_jqs, db_cfg):
 
 @pytest.mark.qsubs_jobs
 def test_new_workflow_has_project_limit(real_jsm_jqs, db_cfg):
-    from jobmon.server.database import session_scope
     wfa = "test_new_workflow_has_project_limit"
     workflow = Workflow(wfa, project='proj_burdenator')
     t1 = BashTask("sleep 1", slots=1)
@@ -73,9 +74,11 @@ def test_new_workflow_has_project_limit(real_jsm_jqs, db_cfg):
     workflow._create_workflow_run()
     workflow_run = workflow.workflow_run
 
-    with session_scope() as session:
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
         # query from workflow_run_attribute table
-        attribute_query = session.execute("""
+        attribute_query = DB.session.execute("""
                                 SELECT wf_run_att.id,
                                        wf_run_att.workflow_run_id,
                                        wf_run_att.attribute_type,
@@ -97,23 +100,23 @@ def test_new_workflow_has_project_limit(real_jsm_jqs, db_cfg):
         assert entry_value  # Can't be None, although it could be -1 if no
         # slot limits
 
-    # advance to done state
-    dag_status, n_new_done, n_prev_done, n_failed = (
-        workflow.task_dag._execute_interruptible())
-    if dag_status == DagExecutionStatus.SUCCEEDED:
-        workflow._done()
-    elif dag_status == DagExecutionStatus.FAILED:
-        workflow._error()
-    elif dag_status == DagExecutionStatus.STOPPED_BY_USER:
-        workflow._stopped()
-    else:
-        raise RuntimeError("Received unknown response from "
-                           "TaskDag._execute()")
+        # advance to done state
+        dag_status, n_new_done, n_prev_done, n_failed = (
+            workflow.task_dag._execute_interruptible())
+        if dag_status == DagExecutionStatus.SUCCEEDED:
+            workflow._done()
+        elif dag_status == DagExecutionStatus.FAILED:
+            workflow._error()
+        elif dag_status == DagExecutionStatus.STOPPED_BY_USER:
+            workflow._stopped()
+        else:
+            raise RuntimeError("Received unknown response from "
+                               "TaskDag._execute()")
 
-    # make sure SLOT_LIMIT_AT_END  is filled in
-    with session_scope() as session:
+    with app.app_context():
+        # make sure SLOT_LIMIT_AT_END  is filled in
         # query from workflow_run_attribute table
-        attribute_query = session.execute("""
+        attribute_query = DB.session.execute("""
                                 SELECT wf_run_att.id,
                                        wf_run_att.workflow_run_id,
                                        wf_run_att.attribute_type,

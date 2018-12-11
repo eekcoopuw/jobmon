@@ -1,11 +1,10 @@
 import json
 import logging
 
-from jobmon.client import requester
+from jobmon.client import shared_requester
 from jobmon.exceptions import InvalidResponse
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job import Job
-from jobmon.attributes.constants import job_attribute
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -20,13 +19,14 @@ logger = logging.getLogger(__name__)
 
 class JobFactory(object):
 
-    def __init__(self, dag_id):
+    def __init__(self, dag_id, requester=shared_requester):
         self.dag_id = dag_id
-        self.requester = requester.Requester(get_the_client_config(), 'jsm')
+        self.requester = requester
 
-    def create_job(self, command, jobname, job_hash, slots=None, num_cores=None,
-                   mem_free=2, max_attempts=1, max_runtime_seconds=None,
-                   context_args=None, tag=None, queue=None, j_resource=False):
+    def create_job(self, command, jobname, job_hash, slots=None,
+                   num_cores=None, mem_free=2, max_attempts=1,
+                   max_runtime_seconds=None, context_args=None, tag=None,
+                   queue=None, j_resource=False):
         """
         Create a job entry in the database.
 
@@ -121,7 +121,7 @@ class JobFactory(object):
             raise ValueError(
                 "Invalid attribute configuration for {} with name: {}, user "
                 "input not used to configure attribute value".format(
-                attribute_type, type(attribute_type).__name__))
+                    attribute_type, type(attribute_type).__name__))
         elif not isinstance(attribute_type, int):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,

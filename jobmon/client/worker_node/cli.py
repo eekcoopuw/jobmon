@@ -43,8 +43,8 @@ def unwrap():
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)
-    parser.add_argument("--jsm_host", required=True)
-    parser.add_argument("--jsm_port", required=True)
+    parser.add_argument("--jm_host", required=True)
+    parser.add_argument("--jm_port", required=True)
     parser.add_argument("--executor_class", required=True)
     parser.add_argument("--temp_dir", required=False)
     parser.add_argument("--last_nodename", required=False)
@@ -76,7 +76,7 @@ def unwrap():
     ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
                                       executor_class=ExecutorClass,
                                       process_group_id=os.getpid(),
-                                      hostname=args['jsm_host'])
+                                      hostname=args['jm_host'])
     ji_intercom.log_running()
 
     try:

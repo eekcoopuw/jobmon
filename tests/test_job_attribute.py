@@ -1,13 +1,12 @@
 import pytest
 
-from jobmon.client.requester import Requester
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.attributes.constants import job_attribute
+from jobmon.models.attributes.constants import job_attribute
 
 
-def test_job_attribute(job_list_manager_sge):
-    from jobmon.server.database import ScopedSession
+def test_job_attribute(db_cfg, job_list_manager_sge):
+
     # create a job
     task = BashTask("sleep 1", slots=1)
 
@@ -20,23 +19,26 @@ def test_job_attribute(job_list_manager_sge):
     job_list_manager_sge.add_job_attribute(job, job_attribute.NUM_DRAWS, "10")
 
     # query from job_attribute table
-    job_attribute_query = ScopedSession.execute("""
-                            SELECT job_attribute.id,
-                                   job_attribute.job_id,
-                                   job_attribute.attribute_type,
-                                   job_attribute.value
-                            FROM job_attribute
-                            JOIN job
-                            ON job_attribute.job_id=job.job_id
-                            WHERE job_attribute.job_id={id}
-                            """.format(id=job.job_id))
-    ScopedSession.commit()
-    attribute_entry = job_attribute_query.fetchone()
-    attribute_entry_type = attribute_entry.attribute_type
-    attribute_entry_value = attribute_entry.value
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job_attribute_query = DB.session.execute("""
+                                SELECT job_attribute.id,
+                                       job_attribute.job_id,
+                                       job_attribute.attribute_type,
+                                       job_attribute.value
+                                FROM job_attribute
+                                JOIN job
+                                ON job_attribute.job_id=job.job_id
+                                WHERE job_attribute.job_id={id}
+                                """.format(id=job.job_id))
+        DB.session.commit()
+        attribute_entry = job_attribute_query.fetchone()
+        attribute_entry_type = attribute_entry.attribute_type
+        attribute_entry_value = attribute_entry.value
 
-    assert attribute_entry_type == job_attribute.NUM_DRAWS
-    assert attribute_entry_value == "10"
+        assert attribute_entry_type == job_attribute.NUM_DRAWS
+        assert attribute_entry_value == "10"
 
 
 def test_job_attribute_input_error(job_list_manager_sge):
@@ -47,8 +49,7 @@ def test_job_attribute_input_error(job_list_manager_sge):
     assert "Invalid" in str(exc.value)
 
 
-def test_job_attributes(job_list_manager_sge):
-    from jobmon.server.database import ScopedSession
+def test_job_attributes(db_cfg, job_list_manager_sge):
 
     task = BashTask("sleep 1", slots=1)
     # add an attribute to the task
@@ -60,24 +61,27 @@ def test_job_attributes(job_list_manager_sge):
     job = job_list_manager_sge.bind_task(task)
 
     # query from job_attribute table
-    job_attribute_query = ScopedSession.execute("""
-                            SELECT job_attribute.id,
-                                   job_attribute.job_id,
-                                   job_attribute.attribute_type,
-                                   job_attribute.value
-                            FROM job_attribute
-                            JOIN job
-                            ON job_attribute.job_id=job.job_id
-                            WHERE job_attribute.job_id={id}
-                            """.format(id=job.job_id))
-    ScopedSession.commit()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job_attribute_query = DB.session.execute("""
+                                SELECT job_attribute.id,
+                                       job_attribute.job_id,
+                                       job_attribute.attribute_type,
+                                       job_attribute.value
+                                FROM job_attribute
+                                JOIN job
+                                ON job_attribute.job_id=job.job_id
+                                WHERE job_attribute.job_id={id}
+                                """.format(id=job.job_id))
+        DB.session.commit()
 
-    attribute_entries = job_attribute_query.fetchall()
-    for entry in attribute_entries:
-        attribute_entry_type = entry.attribute_type
-        attribute_entry_value = entry.value
-        assert (dict_of_attributes[attribute_entry_type] ==
-                attribute_entry_value)
+        attribute_entries = job_attribute_query.fetchall()
+        for entry in attribute_entries:
+            attribute_entry_type = entry.attribute_type
+            attribute_entry_value = entry.value
+            assert (dict_of_attributes[attribute_entry_type] ==
+                    attribute_entry_value)
 
 
 def test_usage_job_attribute_error(job_list_manager_sge):
@@ -100,9 +104,8 @@ def test_attributes_retrievable(job_list_manager_sge):
 
     job_id = wf.task_dag.job_list_manager.hash_job_map[task.hash]
 
-    from jobmon.client.the_client_config import get_the_client_config
-    req = Requester(get_the_client_config(), 'jqs')
-    return_code, resp = req.send_request('/job/{}/job_attribute'
-        .format(job_id.job_id),
+    from jobmon.client import shared_requester
+    return_code, resp = shared_requester.send_request(
+        '/job/{}/job_attribute'.format(job_id.job_id),
         {'job_attribute_type': job_attribute.NUM_DRAWS}, 'get')
     assert resp['job_attr_dct'][0]['value'] == '10'

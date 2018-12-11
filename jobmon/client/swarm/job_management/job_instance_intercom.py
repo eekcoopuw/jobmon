@@ -1,8 +1,7 @@
 import logging
 import socket
 
-from jobmon.client.requester import Requester
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client import shared_requester
 
 
 logger = logging.getLogger(__name__)
@@ -11,7 +10,7 @@ logger = logging.getLogger(__name__)
 class JobInstanceIntercom(object):
 
     def __init__(self, job_instance_id, executor_class, process_group_id,
-                 hostname):
+                 hostname, requester=shared_requester):
         """
         The JobInstanceIntercom is a mechanism whereby a running job_isntance
         can communicate back to the JobStateManager to log its status, errors,
@@ -29,7 +28,7 @@ class JobInstanceIntercom(object):
         self.job_instance_id = job_instance_id
         self.process_group_id = process_group_id
         self.hostname = hostname
-        self.requester = Requester(get_the_client_config(), 'jsm')
+        self.requester = shared_requester
         self.executor_class = executor_class
         self.executor = executor_class()
         logger.debug("Instantiated JobInstanceIntercom")

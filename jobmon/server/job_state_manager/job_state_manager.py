@@ -5,19 +5,22 @@ from datetime import datetime
 from flask import jsonify, request, Blueprint
 import warnings
 
-from jobmon.models.job import Job
+from jobmon.models import DB
+from jobmon.models.attributes.constants import job_attribute
+from jobmon.models.attributes.job_attribute import JobAttribute
+from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
+from jobmon.models.attributes.workflow_run_attribute import \
+    WorkflowRunAttribute
 from jobmon.models.exceptions import InvalidStateTransition
+from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
-from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
+from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
-from jobmon.server.database import ScopedSession
-from jobmon.attributes import attribute_models
-from jobmon.attributes.constants import job_attribute
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -94,7 +97,7 @@ def add_job():
         command=data['command'],
         dag_id=data['dag_id'],
         slots=data.get('slots', None),
-        num_cores = data.get('num_cores', None),
+        num_cores=data.get('num_cores', None),
         mem_free=data.get('mem_free', 2),
         max_attempts=data.get('max_attempts', 1),
         max_runtime_seconds=data.get('max_runtime_seconds', None),
@@ -103,8 +106,8 @@ def add_job():
         queue=data.get('queue', None),
         j_resource=data.get('j_resource', False),
         status=JobStatus.REGISTERED)
-    ScopedSession.add(job)
-    ScopedSession.commit()
+    DB.session.add(job)
+    DB.session.commit()
     job_dct = job.to_wire()
     resp = jsonify(job_dct=job_dct)
     resp.status_code = StatusCodes.OK
@@ -125,8 +128,8 @@ def add_task_dag():
         name=data['name'],
         user=data['user'],
         dag_hash=data['dag_hash'])
-    ScopedSession.add(dag)
-    ScopedSession.commit()
+    DB.session.add(dag)
+    DB.session.commit()
     dag_id = dag.dag_id
     resp = jsonify(dag_id=dag_id)
     resp.status_code = StatusCodes.OK
@@ -135,16 +138,16 @@ def add_task_dag():
 
 def _get_workflow_run_id(job_id):
     """Return the workflow_run_id by job_id"""
-    job = ScopedSession.query(Job).filter_by(job_id=job_id).first()
-    wf = ScopedSession.query(Workflow).filter_by(dag_id=job.dag_id).first()
+    job = DB.session.query(Job).filter_by(job_id=job_id).first()
+    wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
     if not wf:
-        ScopedSession.commit()
+        DB.session.commit()
         return None  # no workflow has started, so no workflow run
-    wf_run = (ScopedSession.query(WorkflowRunDAO).
+    wf_run = (DB.session.query(WorkflowRunDAO).
               filter_by(workflow_id=wf.id).
               order_by(WorkflowRunDAO.id.desc()).first())
     wf_run_id = wf_run.id
-    ScopedSession.commit()
+    DB.session.commit()
     return wf_run_id
 
 
@@ -163,8 +166,8 @@ def add_job_instance():
         executor_type=data['executor_type'],
         job_id=data['job_id'],
         workflow_run_id=workflow_run_id)
-    ScopedSession.add(job_instance)
-    ScopedSession.commit()
+    DB.session.add(job_instance)
+    DB.session.commit()
     ji_id = job_instance.job_instance_id
 
     # TODO: Would prefer putting this in the model, but can't find the
@@ -181,7 +184,7 @@ def add_job_instance():
         else:
             raise
     finally:
-        ScopedSession.commit()
+        DB.session.commit()
     resp = jsonify(job_instance_id=ji_id)
     resp.status_code = StatusCodes.OK
     return resp
@@ -208,14 +211,14 @@ def add_update_workflow():
                       name=data['name'],
                       user=data['user'],
                       description=data.get('description', ""))
-        ScopedSession.add(wf)
+        DB.session.add(wf)
     else:
         wf_id = data.pop('wf_id')
-        wf = ScopedSession.query(Workflow).\
+        wf = DB.session.query(Workflow).\
             filter(Workflow.id == wf_id).first()
         for key, val in data.items():
             setattr(wf, key, val)
-    ScopedSession.commit()
+    DB.session.commit()
     wf_dct = wf.to_wire()
     resp = jsonify(workflow_dct=wf_dct)
     resp.status_code = StatusCodes.OK
@@ -248,18 +251,18 @@ def add_update_workflow_run():
                              stdout=data['stdout'],
                              project=data['project'],
                              slack_channel=data['slack_channel'])
-        workflow = ScopedSession.query(Workflow).\
+        workflow = DB.session.query(Workflow).\
             filter(Workflow.id == data['workflow_id']).first()
         # Set all previous runs to STOPPED
         for run in workflow.workflow_runs:
             run.status = WorkflowRunStatus.STOPPED
-        ScopedSession.add(wfr)
+        DB.session.add(wfr)
     else:
-        wfr = ScopedSession.query(WorkflowRunDAO).\
+        wfr = DB.session.query(WorkflowRunDAO).\
             filter(WorkflowRunDAO.id == data['wfr_id']).first()
         for key, val in data.items():
             setattr(wfr, key, val)
-    ScopedSession.commit()
+    DB.session.commit()
     wfr_id = wfr.id
     resp = jsonify(workflow_run_id=wfr_id)
     resp.status_code = StatusCodes.OK
@@ -274,10 +277,10 @@ def log_done(job_instance_id):
         job_instance_id: id of the job_instance to log done
     """
     logger.debug("Log DONE for JI {}".format(job_instance_id))
-    ji = _get_job_instance(ScopedSession, job_instance_id)
+    ji = _get_job_instance(DB.session, job_instance_id)
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
-    ScopedSession.commit()
+    DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
     return resp
@@ -294,15 +297,15 @@ def log_error(job_instance_id):
     data = request.get_json()
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
-    ji = _get_job_instance(ScopedSession, job_instance_id)
+    ji = _get_job_instance(DB.session, job_instance_id)
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.ERROR)
-    ScopedSession.commit()
+    DB.session.commit()
     error = JobInstanceErrorLog(
         job_instance_id=job_instance_id,
         description=data['error_message'])
-    ScopedSession.add(error)
-    ScopedSession.commit()
+    DB.session.add(error)
+    DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
     return resp
@@ -317,12 +320,12 @@ def log_executor_id(job_instance_id):
     """
     data = request.get_json()
     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
-    ji = _get_job_instance(ScopedSession, job_instance_id)
+    ji = _get_job_instance(DB.session, job_instance_id)
     logger.info("in log_executor_id, ji is {}".format(ji))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     _update_job_instance(ji, executor_id=data['executor_id'])
-    ScopedSession.commit()
+    DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
     return resp
@@ -335,11 +338,11 @@ def log_heartbeat(dag_id):
 
         job_instance_id: id of the job_instance to log
     """
-    dag = ScopedSession.query(TaskDagMeta).filter_by(
+    dag = DB.session.query(TaskDagMeta).filter_by(
         dag_id=dag_id).first()
     if dag:
         dag.heartbeat_date = datetime.utcnow()
-    ScopedSession.commit()
+    DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -354,11 +357,11 @@ def log_running(job_instance_id):
     """
     data = request.get_json()
     logger.debug("Log RUNNING for JI {}".format(job_instance_id))
-    ji = _get_job_instance(ScopedSession, job_instance_id)
+    ji = _get_job_instance(DB.session, job_instance_id)
     msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
-    ScopedSession.commit()
+    DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
     return resp
@@ -374,9 +377,9 @@ def log_nodename(job_instance_id):
     """
     data = request.get_json()
     logger.debug("Log USAGE for JI {}".format(job_instance_id))
-    ji = _get_job_instance(ScopedSession, job_instance_id)
+    ji = _get_job_instance(DB.session, job_instance_id)
     msg = _update_job_instance(ji, nodename=data['nodename'])
-    ScopedSession.commit()
+    DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
     return resp
@@ -399,7 +402,8 @@ def log_usage(job_instance_id):
     if data.get('maxrss', None) is None:
         data['maxrss'] = '-1'
 
-    keys_to_attrs = {data.get('wallclock', None): job_attribute.WALLCLOCK,
+    keys_to_attrs = {data.get('usage_str', None): job_attribute.USAGE_STR,
+                     data.get('wallclock', None): job_attribute.WALLCLOCK,
                      data.get('cpu', None): job_attribute.CPU,
                      data.get('io', None): job_attribute.IO,
                      data.get('maxrss', None): job_attribute.MAXRSS}
@@ -410,7 +414,7 @@ def log_usage(job_instance_id):
                                    data.get('maxrss', None),
                                    data.get('cpu', None),
                                    data.get('io', None)))
-    job_instance = _get_job_instance(ScopedSession, job_instance_id)
+    job_instance = _get_job_instance(DB.session, job_instance_id)
     job_id = job_instance.job_id
     msg = _update_job_instance(job_instance,
                                usage_str=data.get('usage_str', None),
@@ -423,12 +427,12 @@ def log_usage(job_instance_id):
             'The value of {kval} being set in the attribute table  is {k}'.
             format(kval=keys_to_attrs[k], k=k))
         if k is not None:
-            ja = (attribute_models.JobAttribute(
+            ja = (JobAttribute(
                 job_id=job_id, attribute_type=keys_to_attrs[k], value=k))
-            ScopedSession.add(ja)
+            DB.session.add(ja)
         else:
             logger.debug('The value has not been set, nothing to upload')
-    ScopedSession.commit()
+    DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
     return resp
@@ -442,7 +446,7 @@ def queue_job(job_id):
         job_id: id of the job to queue
     """
     logger.debug("Queue Job {}".format(job_id))
-    job = ScopedSession.query(Job)\
+    job = DB.session.query(Job)\
         .filter_by(job_id=job_id).first()
     try:
         job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
@@ -454,7 +458,7 @@ def queue_job(job_id):
             logger.debug(msg)
         else:
             raise
-    ScopedSession.commit()
+    DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -467,9 +471,9 @@ def reset_job(job_id):
 
         job_id: id of the job to reset
     """
-    job = ScopedSession.query(Job).filter_by(job_id=job_id).first()
+    job = DB.session.query(Job).filter_by(job_id=job_id).first()
     job.reset()
-    ScopedSession.commit()
+    DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -482,7 +486,7 @@ def reset_incomplete_jobs(dag_id):
 
         dag_id: id of the dag to reset
     """
-    time = get_time(ScopedSession)
+    time = get_time(DB.session)
     up_job = """
         UPDATE job
         SET status=:registered_status, num_attempts=0, status_date='{}'
@@ -505,21 +509,21 @@ def reset_incomplete_jobs(dag_id):
         WHERE job.dag_id=:dag_id
         AND job.status!=:done_status
     """
-    ScopedSession.execute(
+    DB.session.execute(
         up_job,
         {"dag_id": dag_id,
          "registered_status": JobStatus.REGISTERED,
          "done_status": JobStatus.DONE})
-    ScopedSession.execute(
+    DB.session.execute(
         up_job_instance,
         {"dag_id": dag_id,
          "error_status": JobInstanceStatus.ERROR,
          "done_status": JobStatus.DONE})
-    ScopedSession.execute(
+    DB.session.execute(
         log_errors,
         {"dag_id": dag_id,
          "done_status": JobStatus.DONE})
-    ScopedSession.commit()
+    DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -530,8 +534,8 @@ def _get_job_instance(session, job_instance_id):
 
     Args:
 
-        session: ScopedSession or Session object to use to connect to the db
-        job_instance_id (int): job_instance_id with which to query the database"
+        session: DB.session or Session object to use to connect to the db
+        job_instance_id (int): job_instance_id with which to query the database
     """
     job_instance = session.query(JobInstance).filter_by(
         job_instance_id=job_instance_id).first()
@@ -605,12 +609,12 @@ def add_workflow_attribute():
         value (str): value of the WorkflowAttribute to add
     """
     data = request.get_json()
-    workflow_attribute = attribute_models.WorkflowAttribute(
+    workflow_attribute = WorkflowAttribute(
         workflow_id=data['workflow_id'],
         attribute_type=data['attribute_type'],
         value=data['value'])
-    ScopedSession.add(workflow_attribute)
-    ScopedSession.commit()
+    DB.session.add(workflow_attribute)
+    DB.session.commit()
     resp = jsonify({'workflow_attribute_id': workflow_attribute.id})
     resp.status_code = StatusCodes.OK
     return resp
@@ -627,12 +631,12 @@ def add_workflow_run_attribute():
         value (str): value of the WorkflowRunAttribute to add
     """
     data = request.get_json()
-    workflow_run_attribute = attribute_models.\
-        WorkflowRunAttribute(workflow_run_id=data['workflow_run_id'],
-                             attribute_type=data['attribute_type'],
-                             value=data['value'])
-    ScopedSession.add(workflow_run_attribute)
-    ScopedSession.commit()
+    workflow_run_attribute = WorkflowRunAttribute(
+        workflow_run_id=data['workflow_run_id'],
+        attribute_type=data['attribute_type'],
+        value=data['value'])
+    DB.session.add(workflow_run_attribute)
+    DB.session.commit()
     resp = jsonify({'workflow_run_attribute_id': workflow_run_attribute.id})
     resp.status_code = StatusCodes.OK
     return resp
@@ -648,12 +652,12 @@ def add_job_attribute():
         value (str): value of the JobAttribute to add
     """
     data = request.get_json()
-    job_attribute = attribute_models.\
-        JobAttribute(job_id=data['job_id'],
-                     attribute_type=data['attribute_type'],
-                     value=data['value'])
-    ScopedSession.add(job_attribute)
-    ScopedSession.commit()
+    job_attribute = JobAttribute(
+        job_id=data['job_id'],
+        attribute_type=data['attribute_type'],
+        value=data['value'])
+    DB.session.add(job_attribute)
+    DB.session.commit()
     resp = jsonify({'job_attribute_id': job_attribute.id})
     resp.status_code = StatusCodes.OK
     return resp

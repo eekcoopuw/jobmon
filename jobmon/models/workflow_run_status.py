@@ -1,15 +1,12 @@
 import logging
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
-
-from jobmon.models.sql_base import Base
+from jobmon.models import DB
 
 
 logger = logging.getLogger(__name__)
 
 
-class WorkflowRunStatus(Base):
+class WorkflowRunStatus(DB.Model):
     __tablename__ = 'workflow_run_status'
 
     RUNNING = 'R'
@@ -17,5 +14,5 @@ class WorkflowRunStatus(Base):
     ERROR = 'E'
     DONE = 'D'
 
-    id = Column(String(1), primary_key=True)
-    label = Column(String(150), nullable=False)
+    id = DB.Column(DB.String(1), primary_key=True)
+    label = DB.Column(DB.String(150), nullable=False)

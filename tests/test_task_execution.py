@@ -49,7 +49,7 @@ def get_task_status(real_dag, task):
 
 
 @pytest.mark.qsubs_jobs
-def test_bash_task(dag_factory):
+def test_bash_task(db_cfg, dag_factory):
     """Create a dag with one very simple BashTask and execute it"""
     name = 'bash_task'
     task = BashTask(command="date", name=name, mem_free='1G', max_attempts=2,
@@ -64,9 +64,10 @@ def test_bash_task(dag_factory):
     assert num_completed == 1
     assert get_task_status(real_dag, task) == JobStatus.DONE
 
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
-        job = session.query(Job).filter_by(name=name).first()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
         assert job.mem_free == '1G'
         assert job.max_attempts == 2
@@ -77,7 +78,7 @@ def test_bash_task(dag_factory):
 
 
 @pytest.mark.qsubs_jobs
-def test_python_task(dag_factory, tmp_out_dir):
+def test_python_task(db_cfg, dag_factory, tmp_out_dir):
     """Execute a PythonTask"""
     name = 'python_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
@@ -102,9 +103,10 @@ def test_python_task(dag_factory, tmp_out_dir):
     assert num_completed == 1
     assert get_task_status(real_dag, task) == JobStatus.DONE
 
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
-        job = session.query(Job).filter_by(name=name).first()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
         assert job.mem_free == '1G'
         assert job.max_attempts == 2
@@ -115,7 +117,7 @@ def test_python_task(dag_factory, tmp_out_dir):
 
 
 @pytest.mark.qsubs_jobs
-def test_R_task(dag_factory, tmp_out_dir):
+def test_R_task(db_cfg, dag_factory, tmp_out_dir):
     """Execute an RTask"""
     name = 'r_task'
 
@@ -135,9 +137,10 @@ def test_R_task(dag_factory, tmp_out_dir):
     assert num_completed == 1
     assert get_task_status(real_dag, task) == JobStatus.DONE
 
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
-        job = session.query(Job).filter_by(name=name).first()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
         assert job.mem_free == '1G'
         assert job.max_attempts == 2
@@ -148,7 +151,7 @@ def test_R_task(dag_factory, tmp_out_dir):
 
 
 @pytest.mark.qsubs_jobs
-def test_stata_task(dag_factory, tmp_out_dir):
+def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
     """Execute a simple stata Task"""
     name = 'stata_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
@@ -167,9 +170,10 @@ def test_stata_task(dag_factory, tmp_out_dir):
     assert num_completed == 1
     assert get_task_status(dag, task) == JobStatus.DONE
 
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
-        job = session.query(Job).filter_by(name=name).first()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
         sge_id = [ji for ji in job.job_instances][0].executor_id
         job_instance_id = [ji for ji in job.job_instances][0].job_instance_id
         assert job.mem_free == '1G'
@@ -189,7 +193,7 @@ def test_stata_task(dag_factory, tmp_out_dir):
 @pytest.mark.skipif(os.environ['SGE_CLUSTER_NAME'] == 'dev',
                     reason="no c2-nodes on cluster-dev")
 @pytest.mark.qsubs_jobs
-def test_specific_queue(dag_factory, tmp_out_dir):
+def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
     name = 'c2_nodes_only'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
@@ -211,9 +215,10 @@ def test_specific_queue(dag_factory, tmp_out_dir):
     assert num_completed == 1
     assert get_task_status(dag, task) == JobStatus.DONE
 
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
-        job = session.query(Job).filter_by(name=name).first()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
         assert job.queue == 'all.q@@c2-nodes'
         jids = [ji.nodename for ji in job.job_instances]
         assert all(['c2' in nodename for nodename in jids])

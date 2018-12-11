@@ -5,13 +5,12 @@ import socket
 from datetime import datetime
 import logging
 
-from jobmon.client.the_client_config import get_the_client_config
-from jobmon.models.job_instance import JobInstance
-from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.client.requester import Requester
+from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sge_utils import get_project_limits
 from jobmon.client.utils import kill_remote_process
-from jobmon.attributes.constants import workflow_run_attribute
+from jobmon.models.attributes.constants import workflow_run_attribute
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -39,16 +38,15 @@ class WorkflowRun(object):
 
     def __init__(self, workflow_id, stderr, stdout, project,
                  slack_channel='jobmon-alerts', working_dir=None,
-                 reset_running_jobs=True):
+                 reset_running_jobs=True, requester=shared_requester):
         self.workflow_id = workflow_id
-        self.jsm_req = Requester(get_the_client_config(), 'jsm')
-        self.jqs_req = Requester(get_the_client_config(), 'jqs')
+        self.requester = requester
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
         self.working_dir = working_dir
         self.kill_previous_workflow_runs(reset_running_jobs)
-        rc, response = self.jsm_req.send_request(
+        rc, response = self.requester.send_request(
             app_route='/workflow_run',
             message={'workflow_id': workflow_id,
                      'user': getpass.getuser(),
@@ -77,7 +75,7 @@ class WorkflowRun(object):
     def check_if_workflow_is_running(self):
         """Query the JQS to see if the workflow is currently running"""
         rc, response = \
-            self.jqs_req.send_request(
+            self.requester.send_request(
                 app_route='/workflow/{}/workflow_run'.format(self.workflow_id),
                 message={},
                 request_type='get')
@@ -108,7 +106,7 @@ class WorkflowRun(object):
                    "creating orphaned processes and hard-to-find bugs"
                    .format(wf_run['id'], wf_run['user']))
             logger.error(msg)
-            _, _ = self.jsm_req.send_request(
+            _, _ = self.requester.send_request(
                 app_route='/workflow_run',
                 message={'wfr_id': wf_run.id,
                          'status': WorkflowRunStatus.STOPPED},
@@ -131,7 +129,7 @@ class WorkflowRun(object):
                     raise ValueError("{} is not supported by this version of "
                                      "jobmon".format(wf_run.executor_class))
                 # get job instances of workflow run
-                _, response = self.jqs_req.send_request(
+                _, response = self.requester.send_request(
                     app_route=('/workflow_run/<workflow_run_id>/job_instance'
                                .format(wf_run.id)),
                     message={},
@@ -140,7 +138,7 @@ class WorkflowRun(object):
                                  for ji in response['job_instances']]
                 if job_instances:
                     previous_executor.terminate_job_instances(job_instances)
-            _, _ = self.jsm_req.send_request(
+            _, _ = self.requester.send_request(
                 app_route='/workflow_run',
                 message={'workflow_run_id': wf_run.id,
                          'status': WorkflowRunStatus.STOPPED},
@@ -165,7 +163,7 @@ class WorkflowRun(object):
         """Update the status of the workflow_run with whatever status is
         passed
         """
-        rc, _ = self.jsm_req.send_request(
+        rc, _ = self.requester.send_request(
             app_route='/workflow_run',
             message={'wfr_id': self.id, 'status': status,
                      'status_date': str(datetime.utcnow())},
@@ -197,7 +195,7 @@ class WorkflowRun(object):
                              .format(value,
                                      type(value).__name__))
         else:
-            rc, workflow_run_attribute_id = self.jsm_req.send_request(
+            rc, workflow_run_attribute_id = self.requester.send_request(
                 app_route='/workflow_run_attribute',
                 message={'workflow_run_id': str(self.id),
                          'attribute_type': str(attribute_type),

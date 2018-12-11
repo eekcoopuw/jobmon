@@ -1,22 +1,19 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer, String
-from sqlalchemy.orm import relationship
-
-from jobmon.models.sql_base import Base
+from jobmon.models import DB
 
 
-class TaskDagMeta(Base):
+class TaskDagMeta(DB.Model):
     """ A DAG of Tasks."""
 
     __tablename__ = 'task_dag'
     """The table in the database that holds all info on TaskDags"""
 
-    dag_id = Column(Integer, primary_key=True)
-    dag_hash = Column(String(150))
-    name = Column(String(150))
-    user = Column(String(150))
-    heartbeat_date = Column(DateTime, default=datetime.utcnow)
-    created_date = Column(DateTime, default=datetime.utcnow)
+    dag_id = DB.Column(DB.Integer, primary_key=True)
+    dag_hash = DB.Column(DB.String(150))
+    name = DB.Column(DB.String(150))
+    user = DB.Column(DB.String(150))
+    heartbeat_date = DB.Column(DB.DateTime, default=datetime.utcnow)
+    created_date = DB.Column(DB.DateTime, default=datetime.utcnow)
 
-    workflow = relationship("Workflow", back_populates="task_dag")
+    workflow = DB.relationship("Workflow", back_populates="task_dag")

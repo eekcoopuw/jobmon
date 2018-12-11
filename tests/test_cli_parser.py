@@ -1,61 +1,42 @@
 import pytest
-import sys
 import os
 from sqlalchemy.exc import OperationalError
+
+from jobmon.cli import CLI
+
 Py2Py3Exit = ValueError
 
 
 def test_invalid_sub_command():
-    from jobmon.cli import parse_args
+    cli = CLI()
+
     with pytest.raises(Py2Py3Exit):
         # Should complain that jobmon requires a sub-command
-        parse_args("--conn_str mysql://user:pass@host")
-    with pytest.raises(Py2Py3Exit):
-        # Should complain that jobmon requires a sub-command
-        parse_args("")
+        cli.parse_args("")
     with pytest.raises(SystemExit):
         # Should complain that the sub-command is not recongnized
-        parse_args("not_a_valid_subcommand")
+        cli.parse_args("not_a_valid_subcommand")
     with pytest.raises(SystemExit):
         # Should complain that the option is not recognized
-        parse_args("--not_a_real_option initdb")
+        cli.parse_args("--not_a_real_option initdb")
 
 
-def test_start_subcommand():
+@pytest.mark.parametrize("valid_subcommand",
+                          ["health_monitor", "web_service"])
+def test_start_subcommand(valid_subcommand):
+    cli = CLI()
+
     # A service name should be required...
-    from jobmon.cli import parse_args
     with pytest.raises(SystemExit):
-        parse_args("start")
+        cli.parse_args("start")
 
-    # Must be health_monitor
-    parse_args("start health_monitor")
+    # Must be valid subcommand
+    args = cli.parse_args("start {}".format(valid_subcommand))
 
     # ... and the start function and service name should be attached
-    args = parse_args("start health_monitor")
     assert args.func.__name__ == "start"
-    assert args.service == "health_monitor"
+    assert args.service == valid_subcommand
 
     # Not something else...
     with pytest.raises(SystemExit):
-        parse_args("start foobar")
-
-
-def test_initdb_subcommand():
-    from jobmon.cli import apply_args_to_config, parse_args
-    from jobmon.server.the_server_config import get_the_server_config
-
-    conn_str = get_the_server_config().conn_str
-
-    args = parse_args("--conn_str mysql://not:a@real/database initdb")
-    apply_args_to_config(args)
-
-    # Since that conn_str should point to a certainly non-existent
-    # database, the attempt to initialize a database there
-    # should raise an operational error
-    with pytest.raises(OperationalError):
-        args.func(args)
-
-    os.environ['conn_str'] = conn_str
-    get_the_server_config().apply_opts_dct({'conn_str': conn_str})
-    from jobmon.server import database
-    database.recreate_engine()
+        cli.parse_args("start foobar")
