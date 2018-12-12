@@ -9,8 +9,7 @@ import socket
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
 
-from jobmon.client.the_client_config import get_the_client_config
-from jobmon.client.requester import Requester
+from jobmon.client import shared_requester as req
 from jobmon.models.job import Job
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
@@ -18,7 +17,7 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow import Workflow
-from jobmon.attributes.constants import job_attribute
+from jobmon.models.attributes.constants import job_attribute
 
 
 HASH = 12345
@@ -34,12 +33,13 @@ def commit_hooked_jsm(jsm_jqs):
     can intercept Error Logging and force transaction failures to test
     downstream error handling
     """
+    DB = db_cfg["DB"]
     jsm, _ = jsm_jqs
 
     from sqlalchemy import event
-    from jobmon.server.database import Session
 
-    @event.listens_for(Session, 'before_commit')
+    sessionmaker = DB.create_session()
+    @event.listens_for(sessionmaker, 'before_commit')
     def inspect_on_done_or_error(session):
         if any(session.dirty):
             done_jobs = [j for j in session.dirty
@@ -57,14 +57,13 @@ def commit_hooked_jsm(jsm_jqs):
             if any(errors_to_log):
                 raise OperationalError("Test hook", "", "")
     yield jsm
-    event.remove(Session, 'before_commit', inspect_on_done_or_error)
+    event.remove(sessionmaker, 'before_commit', inspect_on_done_or_error)
 
 
-def test_get_workflow_run_id(real_dag_id):
-    from jobmon.server.services.job_state_manager.job_state_manager import \
+def test_get_workflow_run_id(db_cfg, real_dag_id):
+    from jobmon.server.job_state_manager.job_state_manager import \
         _get_workflow_run_id
     user = getpass.getuser()
-    req = Requester(get_the_client_config(), 'jsm')
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -104,13 +103,14 @@ def test_get_workflow_run_id(real_dag_id):
     wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
-    assert wf_run_id == _get_workflow_run_id(job.job_id)
+    app = db_cfg["app"]
+    with app.app_context():
+        assert wf_run_id == _get_workflow_run_id(job.job_id)
 
 
-def test_get_workflow_run_id_no_workflow(real_dag_id):
-    from jobmon.server.services.job_state_manager.job_state_manager import \
+def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):
+    from jobmon.server.job_state_manager.job_state_manager import \
         _get_workflow_run_id
-    req = Requester(get_the_client_config(), 'jsm')
     rc, response = req.send_request(
         app_route='/task_dag',
         message={'name': 'testing dag', 'user': 'pytest_user',
@@ -127,11 +127,12 @@ def test_get_workflow_run_id_no_workflow(real_dag_id):
                  'dag_id': str(dag_id)},
         request_type='post')
     job = Job.from_wire(response['job_dct'])
-    assert not _get_workflow_run_id(job.job_id)
+    app = db_cfg["app"]
+    with app.app_context():
+        assert not _get_workflow_run_id(job.job_id)
 
 
 def test_jsm_valid_done(real_dag_id):
-    req = Requester(get_the_client_config(), 'jsm')
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -181,7 +182,6 @@ def test_jsm_valid_done(real_dag_id):
 
 
 def test_jsm_valid_error(real_dag_id):
-    req = Requester(get_the_client_config(), 'jsm')
 
     # add job
     _, response = req.send_request(
@@ -225,8 +225,6 @@ def test_jsm_valid_error(real_dag_id):
 
 def test_invalid_transition(dag_id):
 
-    req = Requester(get_the_client_config(), 'jsm')
-
     # add dag
     rc, response = req.send_request(
         app_route='/task_dag',
@@ -256,8 +254,7 @@ def test_invalid_transition(dag_id):
             request_type='post')
 
 
-def test_jsm_log_usage(real_dag_id):
-    req = Requester(get_the_client_config(), 'jsm')
+def test_jsm_log_usage(db_cfg, real_dag_id):
 
     _, response = req.send_request(
         app_route='/job',
@@ -296,9 +293,10 @@ def test_jsm_log_usage(real_dag_id):
                  'io': '1'},
         request_type='post')
     # open new session on the db and ensure job stats are being loggged
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
-        ji = session.query(JobInstance).filter(
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        ji = DB.session.query(JobInstance).filter(
             JobInstance.job_instance_id == job_instance_id).first()
         assert ji.usage_str == 'used resources'
         assert ji.wallclock == '0'
@@ -312,9 +310,7 @@ def test_jsm_log_usage(real_dag_id):
         request_type='post')
 
 
-def test_job_reset(real_dag_id):
-
-    req = Requester(get_the_client_config(), 'jsm')
+def test_job_reset(db_cfg, real_dag_id):
 
     _, response = req.send_request(
         app_route='/job',
@@ -395,9 +391,10 @@ def test_job_reset(real_dag_id):
         message={},
         request_type='post')
 
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
-        jobs = session.query(Job).filter_by(dag_id=real_dag_id,
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        jobs = DB.session.query(Job).filter_by(dag_id=real_dag_id,
                                             job_id=job.job_id).all()
         assert len(jobs) == 1
         job = jobs[0]
@@ -414,8 +411,7 @@ def test_job_reset(real_dag_id):
         assert len(errors) == 5
 
 
-def test_jsm_submit_job_attr(real_dag_id):
-    req = Requester(get_the_client_config(), 'jsm')
+def test_jsm_submit_job_attr(db_cfg, real_dag_id):
 
     _, response = req.send_request(
         app_route='/job',
@@ -457,7 +453,8 @@ def test_jsm_submit_job_attr(real_dag_id):
         request_type='post')
 
     # open new session on the db and ensure job stats are being loggged
-    dict_of_attributes = {job_attribute.WALLCLOCK: '0',
+    dict_of_attributes = {job_attribute.USAGE_STR: 'used resources',
+                          job_attribute.WALLCLOCK: '0',
                           job_attribute.CPU: "00:00:00",
                           job_attribute.IO: "1",
                           job_attribute.MAXRSS: "1g"}
@@ -467,19 +464,22 @@ def test_jsm_submit_job_attr(real_dag_id):
         message={},
         request_type='post')
 
-    from jobmon.server.database import ScopedSession
-    job_attribute_query = ScopedSession.execute("""
-                                            SELECT job_attribute.id,
-                                                   job_attribute.job_id,
-                                                   job_attribute.attribute_type,
-                                                   job_attribute.value
-                                            FROM job_attribute
-                                            JOIN job
-                                            ON job_attribute.job_id=job.job_id
-                                            WHERE job_attribute.job_id={id}
-                                            """.format(id=job.job_id))
-    attribute_entries = job_attribute_query.fetchall()
-    for entry in attribute_entries:
-        attribute_entry_type = entry.attribute_type
-        attribute_entry_value = entry.value
-        assert dict_of_attributes[attribute_entry_type] == attribute_entry_value
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job_attribute_query = DB.session.execute("""
+                                                SELECT job_attribute.id,
+                                                       job_attribute.job_id,
+                                                       job_attribute.attribute_type,
+                                                       job_attribute.value
+                                                FROM job_attribute
+                                                JOIN job
+                                                ON job_attribute.job_id=job.job_id
+                                                WHERE job_attribute.job_id={id}
+                                                """.format(id=job.job_id))
+        attribute_entries = job_attribute_query.fetchall()
+        for entry in attribute_entries:
+            attribute_entry_type = entry.attribute_type
+            attribute_entry_value = entry.value
+            assert (dict_of_attributes[attribute_entry_type] ==
+                    attribute_entry_value)

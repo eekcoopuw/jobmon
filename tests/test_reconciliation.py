@@ -5,8 +5,7 @@ import logging
 
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.models.job import Job
-from jobmon.client.requester import Requester
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client import shared_requester as req
 from jobmon.client.swarm.executors.dummy import DummyExecutor
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
@@ -156,8 +155,6 @@ def reconciler_sge_timeout_check(job_list_manager_sge, dag_id,
     if len(job_list_manager_sge.all_error) == 1:
         assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
 
-        req = Requester(get_the_client_config(), 'jqs')
-
         # The job should have been tried 3 times...
         _, response = req.send_request(
             app_route='/dag/{}/job'.format(dag_id),
@@ -201,8 +198,6 @@ def ignore_qw_in_timeouts_check(job_list_manager_sge, dag_id, job_id):
     job_list_manager_sge._sync()
     if len(job_list_manager_sge.all_error) == 1:
         assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
-
-        req = Requester(get_the_client_config(), 'jqs')
 
         # The job should have been tried 3 times...
         _, response = req.send_request(

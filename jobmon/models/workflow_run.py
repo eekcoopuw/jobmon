@@ -1,39 +1,36 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import relationship
-
-from jobmon.models.sql_base import Base
+from jobmon.models import DB
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 
 logger = logging.getLogger(__name__)
 
 
-class WorkflowRun(Base):
+class WorkflowRun(DB.Model):
 
     __tablename__ = 'workflow_run'
 
-    id = Column(Integer, primary_key=True)
-    workflow_id = Column(Integer, ForeignKey('workflow.id'))
-    user = Column(String(150))
-    hostname = Column(String(150))
-    pid = Column(Integer)
-    stderr = Column(String(1000))
-    stdout = Column(String(1000))
-    project = Column(String(150))
-    working_dir = Column(String(1000), default=None)
-    slack_channel = Column(String(150))
-    executor_class = Column(String(150))
-    created_date = Column(DateTime, default=datetime.utcnow)
-    status_date = Column(DateTime, default=datetime.utcnow)
-    status = Column(String(1),
-                    ForeignKey('workflow_run_status.id'),
-                    nullable=False,
-                    default=WorkflowRunStatus.RUNNING)
+    id = DB.Column(DB.Integer, primary_key=True)
+    workflow_id = DB.Column(DB.Integer, DB.ForeignKey('workflow.id'))
+    user = DB.Column(DB.String(150))
+    hostname = DB.Column(DB.String(150))
+    pid = DB.Column(DB.Integer)
+    stderr = DB.Column(DB.String(1000))
+    stdout = DB.Column(DB.String(1000))
+    project = DB.Column(DB.String(150))
+    working_dir = DB.Column(DB.String(1000), default=None)
+    slack_channel = DB.Column(DB.String(150))
+    executor_class = DB.Column(DB.String(150))
+    created_date = DB.Column(DB.DateTime, default=datetime.utcnow)
+    status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
+    status = DB.Column(DB.String(1),
+                       DB.ForeignKey('workflow_run_status.id'),
+                       nullable=False,
+                       default=WorkflowRunStatus.RUNNING)
 
-    workflow = relationship("Workflow", back_populates="workflow_runs")
+    workflow = DB.relationship("Workflow", back_populates="workflow_runs")
 
     @classmethod
     def from_wire(cls, dct):

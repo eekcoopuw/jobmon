@@ -11,68 +11,69 @@ from jobmon.models.workflow_status import WorkflowStatus
 
 def test_job_submit_times(db_cfg):
     """Test that db datetimes aren't all the same..."""
-    from jobmon.server.database import session_scope
-    with session_scope() as session:
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
+    with app.app_context():
 
         # Create dags
         dag = TaskDagMeta(dag_hash='abcd', name='foo', user='bar')
-        session.add(dag)
-        session.commit()
+        DB.session.add(dag)
+        DB.session.commit()
 
         sleep(1)
 
         dag2 = TaskDagMeta(dag_hash='abcd2', name='foo2', user='bar')
-        session.add(dag2)
-        session.commit()
+        DB.session.add(dag2)
+        DB.session.commit()
 
         dag_id = dag.dag_id
 
         # Create workflows
         wf1 = Workflow(dag_id=dag_id, status=WorkflowStatus.CREATED)
-        session.add(wf1)
-        session.commit()
+        DB.session.add(wf1)
+        DB.session.commit()
         sleep(1)
         wf2 = Workflow(dag_id=dag_id, status=WorkflowStatus.CREATED)
-        session.add(wf2)
-        session.commit()
+        DB.session.add(wf2)
+        DB.session.commit()
 
         # And runs...
         wfr1 = WorkflowRunDAO(workflow_id=wf1.id,
                               status=WorkflowRunStatus.RUNNING)
-        session.add(wfr1)
-        session.commit()
+        DB.session.add(wfr1)
+        DB.session.commit()
         sleep(1)
         wfr2 = WorkflowRunDAO(workflow_id=wf1.id,
                               status=WorkflowRunStatus.RUNNING)
-        session.add(wfr2)
-        session.commit()
+        DB.session.add(wfr2)
+        DB.session.commit()
 
         # Create a job
         job1 = Job(dag_id=dag_id, name='test1', job_hash=1,
                    status=JobStatus.REGISTERED)
-        session.add(job1)
-        session.commit()
+        DB.session.add(job1)
+        DB.session.commit()
 
     sleep(1)
-    with session_scope() as session:
+    with app.app_context():
         job2 = Job(dag_id=dag_id, name='test2', job_hash=2,
                    status=JobStatus.REGISTERED)
-        session.add(job2)
-        session.commit()
+        DB.session.add(job2)
+        DB.session.commit()
 
     sleep(1)
-    with session_scope() as session:
+    with app.app_context():
         job3 = Job(dag_id=dag_id, name='test3', job_hash=3,
                    status=JobStatus.REGISTERED)
-        session.add(job3)
-        session.commit()
+        DB.session.add(job3)
+        DB.session.commit()
 
-    with session_scope() as session:
-
-        dags = session.query(TaskDagMeta).all()
-        wfs = session.query(Workflow).all()
-        wfrs = session.query(WorkflowRunDAO).all()
-        jobs = session.query(Job).all()
+    with app.app_context():
+        dags = DB.session.query(TaskDagMeta).all()
+        wfs = DB.session.query(Workflow).all()
+        wfrs = DB.session.query(WorkflowRunDAO).all()
+        jobs = DB.session.query(Job).all()
 
         assert len(dags) == 2
         assert len(wfs) == 2

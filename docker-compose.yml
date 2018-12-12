@@ -1,45 +1,23 @@
 version: '3'
 
 services:
-  jsm:
+  jobmon:
     build: .
     image: jobmon
     volumes:
-        - ./jsm_uwsgi.ini:/app/uwsgi.ini
+        - ./uwsgi.ini:/app/uwsgi.ini
     ports:
-        - "7256:80"
+        - "${EXTERNAL_SERVICE_PORT}:80"
     entrypoint:
         - ./wait-for-tables.sh
         - db
+    command: ["jobmon", "start", "web_service"]
     environment:
-        - JOBMON_PASS_SERVICE_USER
-        - CONN_STR=${SERVICE_USER_CONN_STR}
-    command: [
-        "jobmon",
-        "--verbose",
-        "start", "job_state_manager"]
-    links:
-        - db
-    logging:
-        options:
-            max-size: "100m"
-            max-file: "10"
-  jqs:
-    image: jobmon
-    volumes:
-        - ./jqs_uwsgi.ini:/app/uwsgi.ini
-    ports:
-        - "7258:80"
-    entrypoint:
-        - ./wait-for-tables.sh
-        - db
-    environment:
-        - JOBMON_PASS_SERVICE_USER
-        - CONN_STR=${SERVICE_USER_CONN_STR}
-    command: [
-        "jobmon",
-        "--verbose",
-        "start", "job_query_server"]
+        - DB_HOST=${INTERNAL_DB_HOST}
+        - DB_PORT=${INTERNAL_DB_PORT}
+        - DB_USER=service_user
+        - DB_PASS=${JOBMON_PASS_SERVICE_USER}
+        - JOBMON_PORT=${EXTERNAL_SERVICE_PORT}
     links:
         - db
     logging:
@@ -49,20 +27,21 @@ services:
   monitor:
     image: jobmon
     depends_on:
-        - jsm
+        - jobmon
     entrypoint:
         - ./wait-for-tables.sh
         - db
     environment:
-        - JOBMON_PASS_SERVICE_USER
-        - CONN_STR=${SERVICE_USER_CONN_STR}
-    command: [
-        "jobmon",
-        "--verbose",
-        "start", "health_monitor"]
+        - DB_HOST=${INTERNAL_DB_HOST}
+        - DB_PORT=${INTERNAL_DB_PORT}
+        - DB_USER=service_user
+        - DB_PASS=${JOBMON_PASS_SERVICE_USER}
+        - JOBMON_PORT=${EXTERNAL_SERVICE_PORT}
+    links:
+    command: ["jobmon", "start", "health_monitor"]
     links:
         - db
-        - jsm
+        - jobmon
     logging:
         options:
             max-size: "100m"
@@ -70,22 +49,23 @@ services:
   initdb:
     image: jobmon
     depends_on:
-        - jsm
+        - jobmon
     entrypoint:
         - ./wait-for-db.sh
         - db
     environment:
-        - JOBMON_PASS_TABLE_CREATOR
-        - CONN_STR=${TABLE_CREATOR_CONN_STR}
-    command: ["jobmon", "--verbose", "initdb"]
+        - DB_HOST=${INTERNAL_DB_HOST}
+        - DB_PORT=${INTERNAL_DB_PORT}
+        - DB_USER=table_creator
+        - DB_PASS=${JOBMON_PASS_TABLE_CREATOR}
+        - JOBMON_PORT=${EXTERNAL_SERVICE_PORT}
+    command: ["jobmon", "initdb"]
     links:
         - db
-    volumes:
-        - ./jobmonrc-docker-initdb:/root/.jobmonrc
   db:
     image: mysql:5.7
     ports:
-        - "3317:3306"
+        - "${EXTERNAL_DB_PORT}:3306"
     environment:
         - MYSQL_ROOT_PASSWORD=${JOBMON_PASS_ROOT}
         - MYSQL_DATABASE=docker

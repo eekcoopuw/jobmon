@@ -1,4 +1,4 @@
-from jobmon.attributes.attribute_dictionary import AttributeDictionary
+from jobmon.models.attributes.attribute_dictionary import AttributeDictionary
 
 workflow_attribute = AttributeDictionary({
     'NUM_LOCATIONS': 1,
@@ -46,4 +46,6 @@ job_attribute = AttributeDictionary({
     'WALLCLOCK': 13,
     'CPU': 14,
     'IO': 15,
-    'MAXRSS': 16})
+    'MAXRSS': 16,
+    'USAGE_STR': 17,
+})

@@ -4,11 +4,10 @@ import _thread
 from time import sleep
 import traceback
 
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.client.requester import Requester
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -25,7 +24,7 @@ logger = logging.getLogger(__name__)
 class JobInstanceReconciler(object):
 
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
-                 stop_event=None):
+                 stop_event=None, requester=shared_requester):
         """The JobInstanceReconciler is a mechanism by which the
         JobStateManager and JobQueryServer make sure the database in sync with
         jobs in qstat
@@ -39,8 +38,7 @@ class JobInstanceReconciler(object):
             stop_event (obj, default None): Object of type threading.Event
         """
         self.dag_id = dag_id
-        self.jsm_req = Requester(get_the_client_config(), 'jsm')
-        self.jqs_req = Requester(get_the_client_config(), 'jqs')
+        self.requester = requester
         self.interrupt_on_error = interrupt_on_error
 
         if executor:
@@ -147,7 +145,7 @@ class JobInstanceReconciler(object):
         running
         """
         try:
-            rc, response = self.jqs_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/dag/{}/job_instance'.format(self.dag_id),
                 message={'status': [
                     JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
@@ -167,7 +165,7 @@ class JobInstanceReconciler(object):
         current "from_wire" utility.
         """
         try:
-            rc, response = self.jqs_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/dag/{}/job_instance'.format(self.dag_id),
                 message={'status': [
                          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
@@ -188,7 +186,7 @@ class JobInstanceReconciler(object):
             job_instance_id (int): id for the job_instance that has timed out
             hostname (str): host where the job_instance was running
         """
-        return self.jsm_req.send_request(
+        return self.requester.send_request(
             app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
             message={'nodename': hostname},
             request_type='post')
@@ -202,7 +200,7 @@ class JobInstanceReconciler(object):
             executor_id (id): id for the executor where the job_instance was
             running
         """
-        return self.jsm_req.send_request(
+        return self.requester.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message={'error_message': ("Job no longer visible in qstat, "
                                        "check qacct or jobmon database for "
@@ -215,14 +213,14 @@ class JobInstanceReconciler(object):
         Args:
             job_instance_id (int): id for the job_instance that has timed out
         """
-        return self.jsm_req.send_request(
+        return self.requester.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message={'error_message': "Timed out"},
             request_type='post')
 
     def _request_permission_to_reconcile(self):
         """Syncs with the database and logs a heartbeat"""
-        return self.jsm_req.send_request(
+        return self.requester.send_request(
             app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
             message={},
             request_type='post')

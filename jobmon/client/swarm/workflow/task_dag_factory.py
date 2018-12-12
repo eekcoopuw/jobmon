@@ -2,8 +2,7 @@ from datetime import datetime
 import logging
 from getpass import getuser
 
-from jobmon.client.the_client_config import get_the_client_config
-from jobmon.client.requester import Requester
+from jobmon.client import shared_requester
 from jobmon.models.task_dag import TaskDagMeta
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,8 @@ class TaskDagMetaFactory(object):
     def __init__(self):
         logger.debug("TaskDagFactory created")
 
-    def create_task_dag(self, name, dag_hash, user):
+    def create_task_dag(self, name, dag_hash, user,
+                        requester=shared_requester):
         """
         Creates a new DAG, complete with its own JobListManager
 
@@ -27,8 +27,7 @@ class TaskDagMetaFactory(object):
              the new task dag
         """
         logger.debug("DagFactory creating new DAG {}".format(name))
-        req = Requester(get_the_client_config(), 'jsm')
-        rc, response = req.send_request(
+        rc, response = requester.send_request(
             app_route='/task_dag',
             message={'name': name, 'user': getuser(), 'dag_hash': dag_hash,
                      'created_date': str(datetime.utcnow())},

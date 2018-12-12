@@ -7,13 +7,12 @@ import uuid
 
 import jobmon
 from cluster_utils.io import makedirs_safely
-from jobmon.client.the_client_config import get_the_client_config
+from jobmon.client import shared_requester
+from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.client.requester import Requester
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
-from jobmon.attributes.constants import workflow_attribute
 from jobmon.swarm_logger import add_jobmon_file_logger
 
 try:  # Python 3.5+
@@ -59,7 +58,7 @@ class Workflow(object):
                  description="", stderr=None, stdout=None, project=None,
                  reset_running_jobs=True, working_dir=None,
                  executor_class='SGEExecutor', fail_fast=False,
-                 interrupt_on_error=False):
+                 interrupt_on_error=False, requester=shared_requester):
         """
         Args:
             workflow_args (str): unique identifier of a workflow
@@ -97,8 +96,7 @@ class Workflow(object):
         }
         self.set_executor(executor_class)
 
-        self.jsm_req = Requester(get_the_client_config(), 'jsm')
-        self.jqs_req = Requester(get_the_client_config(), 'jqs')
+        self.requester = requester
 
         self.reset_running_jobs = reset_running_jobs
 
@@ -225,7 +223,7 @@ class Workflow(object):
             )
 
             # Create new workflow in Database
-            rc, response = self.jsm_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/workflow',
                 message={'dag_id': str(self.task_dag.dag_id),
                          'workflow_args': self.workflow_args,
@@ -283,7 +281,7 @@ class Workflow(object):
 
     def _matching_dag_ids(self):
         """Find all matching dag_ids for this task_dag_hash"""
-        rc, response = self.jqs_req.send_request(
+        rc, response = self.requester.send_request(
             app_route='/dag',
             message={'dag_hash': self.task_dag.hash},
             request_type='get')
@@ -295,7 +293,7 @@ class Workflow(object):
         dag_ids = self._matching_dag_ids()
         workflows = []
         for dag_id in dag_ids:
-            rc, response = self.jqs_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/dag/{}/workflow'.format(dag_id),
                 message={'workflow_args': str(self.workflow_args)},
                 request_type='get')
@@ -306,7 +304,7 @@ class Workflow(object):
 
     def _update_status(self, status):
         """Update the workflow with the status passed in"""
-        rc, response = self.jsm_req.send_request(
+        rc, response = self.requester.send_request(
             app_route='/workflow',
             message={'wf_id': str(self.id), 'status': status,
                      'status_date': str(datetime.utcnow())},
@@ -342,8 +340,8 @@ class Workflow(object):
 
     def execute(self):
         """Run this workflow"""
-        add_jobmon_file_logger('jobmon', logging.DEBUG,
-                               '{}/jobmon.log'.format(os.getcwd()))
+        # add_jobmon_file_logger('jobmon', logging.DEBUG,
+        #                        '{}/jobmon.log'.format(os.getcwd()))
         if not self.is_bound:
             self._bind()
         self._create_workflow_run()
@@ -423,7 +421,7 @@ class Workflow(object):
         self.is_valid_attribute(
             attribute_type, value)
         if self.is_bound:
-            rc, response = self.jsm_req.send_request(
+            rc, response = self.requester.send_request(
                 app_route='/workflow_attribute',
                 message={'workflow_id': str(self.id),
                          'attribute_type': str(attribute_type),
