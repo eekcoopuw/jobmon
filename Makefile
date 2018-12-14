@@ -224,3 +224,9 @@ dummy:
 	$(SPHINXBUILD) -b dummy $(ALLSPHINXOPTS) $(BUILDDIR)/dummy
 	@echo
 	@echo "Build finished. Dummy builder generates no files."
+
+.PHONY: test
+test:
+	./build_env.sh
+	./run_tests.sh
+	./teardown_env.sh
