@@ -112,6 +112,12 @@ class SGEExecutor(Executor):
 
         (slots, mem_free, num_cores, queue, max_runtime_seconds,
          j_resource) = resources.return_valid_resources()
+        # if the job is configured for the fair cluster, but is being run on
+        # dev or prod we need to make sure it formats its qsub accordingly
+        dev_or_prod = False
+        if(os.environ['SGE_CLUSTER_NAME'] == 'dev' or
+                os.environ['SGE_CLUSTER_NAME'] == 'prod'):
+            dev_or_prod = True
 
         ctx_args = json.loads(job.context_args)
         if 'sge_add_args' in ctx_args:
@@ -136,7 +142,7 @@ class SGEExecutor(Executor):
             wd_cmd = "-wd {}".format(working_dir)
         else:
             wd_cmd = ""
-        if mem_free and num_cores:
+        if mem_free and num_cores and not dev_or_prod:
             # The use of num_cores as opposed to slots indicates that the
             # user is on the 'new' cluster. The 'new' cluster uses the option
             # -l m_mem_free to request memory as opposed to '-l mem_free' which
@@ -148,8 +154,10 @@ class SGEExecutor(Executor):
             mem_cmd = "-l mem_free={}g".format(mem_free)
         else:
             mem_cmd = ""
-        if num_cores:
+        if num_cores and not dev_or_prod:
             cpu_cmd = "-l fthread={}".format(num_cores)
+        elif num_cores and dev_or_prod:
+            cpu_cmd = "-pe multi_slot {}".format(num_cores)
         else:
             cpu_cmd = "-pe multi_slot {}".format(slots)
         if j_resource is True:
@@ -158,11 +166,13 @@ class SGEExecutor(Executor):
             j_cmd=""
         if queue:
             q_cmd = "-q '{}'".format(job.queue)
-        elif num_cores:
+        elif num_cores and not dev_or_prod:
             # The use of num_cores as opposed to slots indicates that the
-            # user is on the 'new' cluster. The 'new' cluster requires
-            # a queue name be passed explicitly, so in the event the user
-            # does not supply one we just fall back to all.q
+            # user is on the 'new' cluster, but we also check that the current
+            # cluster that it is being run on is not one of the 'old' ones
+            # (dev or prod). The 'new' cluster requires a queue name be passed
+            # explicitly, so in the event the user does not supply one we just
+            # fall back to all.q
             q_cmd = "-q all.q"
         else:
             q_cmd = ""
