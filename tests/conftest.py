@@ -31,6 +31,11 @@ def ephemera_conn_str():
     """
     edb = create_ephemerdb()
     conn_str = edb.start()
+
+    # if you are debugging on the fair cluster for ephemeradb add
+    # .cluster.ihme.washington.edu to the end of the node name as the host
+    # (for some reason socket.getfqdn() does not return this properly here
+    # but that is where the database is configured
     yield conn_str
 
 
@@ -48,7 +53,7 @@ def test_session_config(ephemera_conn_str):
     db_conn_dict = unpack_conn_str(ephemera_conn_str)
     cfg = {
         "JOBMON_HOST": socket.gethostname(),
-        "JOBMON_PORT": 6789,
+        "JOBMON_PORT": "6789",
         "DB_HOST": db_conn_dict["host"],
         "DB_PORT": db_conn_dict["port"],
         "DB_USER": db_conn_dict["user"],

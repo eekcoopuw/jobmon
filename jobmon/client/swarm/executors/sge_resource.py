@@ -1,6 +1,8 @@
 import os
 import subprocess
 import datetime
+import logging
+logger = logging.getLogger(__name__)
 
 
 class SGEResource(object):
@@ -24,6 +26,8 @@ class SGEResource(object):
             run before the executor kills it. Not currently required by the
             new cluster, but will be. Default is None, for indefinite.
         j_resource (bool): whether or not the job will need the J drive
+        max_runtime: max_runtime_seconds converted into h:m:s style for new
+        cluster
 
          Raises:
             ValueError:
@@ -44,6 +48,7 @@ class SGEResource(object):
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
         self.j_resource = j_resource
+        self.max_runtime = None
 
     def _get_valid_queues(self):
         check_valid_queues = "qconf -sql"
@@ -58,10 +63,12 @@ class SGEResource(object):
             if not valid:
                 raise ValueError("Got invalid queue {}. Valid queues are {}"
                                  .format(self.queue, valid_queues))
+        if self.queue is None and "el7" in os.environ["SGE_ENV"]:
+            self.queue = "all.q"
 
     def _validate_slots_and_cores(self):
-        """Ensure slots or cores requested isn't more than available on that
-        node
+        """Ensure cores requested isn't more than available on that
+        node, at this point slots have been converted to cores
         """
         max_cores = 56
         if self.queue is not None:
@@ -69,12 +76,7 @@ class SGEResource(object):
                 max_cores = 100
             elif self.queue == "geospatial.q":
                 max_cores = 64
-        if (self.slots is not None and
-            self.slots not in range(1, max_cores + 1)):
-            raise ValueError("Got an invalid number of slots. Received {} "
-                             "but the max_slots is {}"
-                             .format(self.slots, max_cores))
-        if (self.num_cores is not None and
+        if (self.num_cores is None or
             self.num_cores not in range(1, max_cores + 1)):
             raise ValueError("Got an invalid number of cores. Received {} "
                              "but the max_cores is {}"
@@ -115,21 +117,28 @@ class SGEResource(object):
                                  "profile.q). Got {}"
                                  .format(self.mem_free))
         else:
-            self.mem_free = 0
+            logger.debug("You have not specified a memory amount so you have "
+                         "been given 1G, if you need more, add it is a "
+                         "parameter to your Task")
+            self.mem_free = 1
 
     def _transform_secs_to_hms(self):
         return str(datetime.timedelta(seconds=self.max_runtime_seconds))
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
-        if self.max_runtime_seconds is not None:
+        if self.max_runtime_seconds is None and "el7" in os.environ["SGE_ENV"]:
+            # a max_runtime has to be provided for the fair cluster, so if none
+            #  is provided, set it to 5 minutes so that it fails quickly
+            logger.debug("You did not specify a maximum runtime so it has been "
+                         "set to 5 minutes")
+            self.max_runtime_seconds = 300
+        elif self.max_runtime_seconds is not None:
             if self.queue == "all.q":
                 if self.max_runtime_seconds > 86400:
                     raise ValueError("Can only run for up to 1 day (86400 sec) on "
                                      "all.q, you requested {} seconds"
                                      .format(self.max_runtime_seconds))
-                else:
-                    self.max_runtime_seconds = self._transform_secs_to_hms()
             elif self.queue == "geospatial.q":
                 if self.max_runtime_seconds > 1555200:
                     raise ValueError("Can only run for up to 18 days (1555200 sec)"
@@ -141,12 +150,13 @@ class SGEResource(object):
                                      "on {}, you requested {} seconds"
                                      .format(self.queue,
                                              self.max_runtime_seconds))
-                else:
-                    self.max_runtime_seconds = self._transform_secs_to_hms()
             elif self.max_runtime_seconds > 86400:
                 raise ValueError("You did not request all.q, profile.q, "
                                  "geospatial.q, or long.q to run your jobs so you "
                                  "must limit your runtime to under 1 day")
+        else:
+            self.max_runtime_seconds = 0
+        self.max_runtime = self._transform_secs_to_hms()
 
     def _validate_j_resource(self):
         if not(self.j_resource is True or self.j_resource is False):
@@ -154,34 +164,46 @@ class SGEResource(object):
                              .format(self.j_resource))
 
     def _validate_exclusivity(self):
-        """Ensure there's no conflicting arguments"""
+        """Ensure there's no conflicting arguments, also if slots are specified,
+        and num_cores are not, then set the num_cores to equal the slot value"""
         if self.slots and self.num_cores:
             raise ValueError("Cannot specify BOTH slots and num_cores. "
                              "Specify one or the other, your requested {} slots"
                              "and {} cores".format(self.slots, self.num_cores))
         if not self.slots and not self.num_cores:
             raise ValueError("Must pass one of [slots, num_cores]")
+        if self.slots and not self.num_cores:
+            logger.debug("User Specified slots instead of num_cores, so we are"
+                         "converting it, but to run on the fair cluster they "
+                         "should specify num_cores")
+            self.num_cores = self.slots
 
     def _validate_args_based_on_cluster(self):
-        """Ensure all essential arguments are present and not None"""
-        cluster = os.environ['SGE_CLUSTER_NAME']
-        if cluster == 'test_cluster':
+        """Ensure all essential arguments are present and not None, the fair
+        cluster can be identified by its cluster name containing el7"""
+        cluster = os.environ['SGE_ENV']
+        if "el7" in cluster:
             for arg in [self.queue, self.num_cores, self.mem_free,
                         self.max_runtime_seconds]:
                 if arg is None:
-                    raise ValueError("To use {}, arg {} can't be None"
-                                     .format(cluster, arg))
+                    raise ValueError("To use {}, Your arguments for queue, "
+                                     "num_cores/slots, mem_free, max_runtime"
+                                     "_seconds can't be none, yours are:{} {} "
+                                     "{} {}"
+                                     .format(cluster, self.queue,
+                                             self.num_cores, self.mem_free,
+                                             self.max_runtime_seconds))
         # else: they have to have either slots or cores which is checked
         # in the _validate_exclusivity function
 
     def return_valid_resources(self):
         """Validate all resources and return them"""
-        self._validate_args_based_on_cluster()
         self._validate_exclusivity()
         self._validate_queue()
         self._validate_slots_and_cores()
         self._validate_memory()
         self._validate_runtime()
         self._validate_j_resource()
-        return (self.slots, self.mem_free, self.num_cores, self.j_resource,
-                self.queue, self.max_runtime_seconds)
+        self._validate_args_based_on_cluster()
+        return (self.mem_free, self.num_cores, self.queue,
+                self.max_runtime, self.j_resource)
