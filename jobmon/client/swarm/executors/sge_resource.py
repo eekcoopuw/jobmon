@@ -65,6 +65,8 @@ class SGEResource(object):
                                  .format(self.queue, valid_queues))
         if self.queue is None and "el7" in os.environ["SGE_ENV"]:
             self.queue = "all.q"
+        logger.debug("Now queues: {}, given queue: {}".format(valid_queues,
+                                                                self.queue))
 
     def _validate_slots_and_cores(self):
         """Ensure cores requested isn't more than available on that

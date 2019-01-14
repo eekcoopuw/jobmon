@@ -110,6 +110,7 @@ class SGEExecutor(Executor):
                                 num_cores=job.num_cores, queue=job.queue,
                                 max_runtime_seconds=job.max_runtime_seconds,
                                 j_resource=job.j_resource)
+        logger.debug("configured with queue: {}".format(job.queue))
         # if the job is configured for the fair cluster, but is being run on
         # dev/prod we need to make sure it formats its qsub to work on dev/prod
         dev_or_prod = False
@@ -119,6 +120,11 @@ class SGEExecutor(Executor):
         (mem_free, num_cores, queue, max_runtime,
          j_resource) = resources.return_valid_resources()
 
+        logger.debug("Resources are: {} {} {} {} {} ".format(mem_free,
+                                                       num_cores, queue,
+                                                       max_runtime,
+                                                       j_resource))
+
         ctx_args = json.loads(job.context_args)
         logger.debug("Context Args: {}".format(ctx_args))
         if 'sge_add_args' in ctx_args:
@@ -127,6 +133,8 @@ class SGEExecutor(Executor):
             sge_add_args = ""
         if project:
             project_cmd = "-P {}".format(project)
+        elif not dev_or_prod and not project:
+            project_cmd = "-P ihme_general"
         else:
             project_cmd = ""
         if stderr:
@@ -162,8 +170,8 @@ class SGEExecutor(Executor):
             j_cmd = "-l archive"
         else:
             j_cmd = ""
-        if queue:
-            q_cmd = "-q '{}'".format(job.queue)
+        if queue and not dev_or_prod:
+            q_cmd = "-q '{}'".format(queue)
         elif not dev_or_prod and queue is None:
             # The 'new' cluster requires a queue name be passed
             # explicitly, so in the event the user does not supply one we just
@@ -171,7 +179,7 @@ class SGEExecutor(Executor):
             q_cmd = "-q all.q"
         else:
             q_cmd = ""
-        if max_runtime:
+        if max_runtime and not dev_or_prod:
             time_cmd = "-l h_rt={}".format(max_runtime)
         else:
             time_cmd = ""

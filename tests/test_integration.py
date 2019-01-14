@@ -53,9 +53,8 @@ def test_sync(job_list_manager_sge_no_daemons):
     assert now is not None
 
     job = job_list_manager_sge.bind_task(Task(command='fizzbuzz',  name='bar',
-                                              num_cores=1, j_resource=False))
-    import pdb
-    pdb.set_trace()
+                                              num_cores=1))
+
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
     sleep(35)

@@ -73,7 +73,7 @@ class JobInstanceIntercom(object):
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_running'
                        .format(self.job_instance_id)),
-            message={'nodename': socket.gethostname(),
+            message={'nodename': socket.getfqdn(),
                      'process_group_id': str(self.process_group_id)},
             request_type='post')
         return rc
