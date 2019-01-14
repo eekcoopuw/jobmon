@@ -33,7 +33,6 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
-            logger.debug("QSUB: {}".format(qsub_cmd))
             resp = subprocess.check_output(qsub_cmd, shell=True)
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
@@ -110,7 +109,6 @@ class SGEExecutor(Executor):
                                 num_cores=job.num_cores, queue=job.queue,
                                 max_runtime_seconds=job.max_runtime_seconds,
                                 j_resource=job.j_resource)
-        logger.debug("configured with queue: {}".format(job.queue))
         # if the job is configured for the fair cluster, but is being run on
         # dev/prod we need to make sure it formats its qsub to work on dev/prod
         dev_or_prod = False
@@ -120,13 +118,7 @@ class SGEExecutor(Executor):
         (mem_free, num_cores, queue, max_runtime,
          j_resource) = resources.return_valid_resources()
 
-        logger.debug("Resources are: {} {} {} {} {} ".format(mem_free,
-                                                       num_cores, queue,
-                                                       max_runtime,
-                                                       j_resource))
-
         ctx_args = json.loads(job.context_args)
-        logger.debug("Context Args: {}".format(ctx_args))
         if 'sge_add_args' in ctx_args:
             sge_add_args = ctx_args['sge_add_args']
         else:
