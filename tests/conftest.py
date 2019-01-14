@@ -53,7 +53,7 @@ def test_session_config(ephemera_conn_str):
     db_conn_dict = unpack_conn_str(ephemera_conn_str)
     cfg = {
         "JOBMON_HOST": socket.gethostname(),
-        "JOBMON_PORT": 6789,
+        "JOBMON_PORT": "6789",
         "DB_HOST": db_conn_dict["host"],
         "DB_PORT": db_conn_dict["port"],
         "DB_USER": db_conn_dict["user"],
