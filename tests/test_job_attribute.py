@@ -8,7 +8,7 @@ from jobmon.models.attributes.constants import job_attribute
 def test_job_attribute(db_cfg, job_list_manager_sge):
 
     # create a job
-    task = BashTask("sleep 1", slots=1)
+    task = BashTask("sleep 1", num_cores=1)
 
     # add an attribute to the task
     task.add_job_attribute(job_attribute.NUM_DRAWS, "10")
@@ -43,7 +43,7 @@ def test_job_attribute(db_cfg, job_list_manager_sge):
 
 def test_job_attribute_input_error(job_list_manager_sge):
     # create a job
-    task = BashTask("sleep 1", slots=1)
+    task = BashTask("sleep 1", num_cores=1)
     with pytest.raises(ValueError) as exc:
         task.add_job_attribute("num_locations", "fifty")
     assert "Invalid" in str(exc.value)
@@ -51,7 +51,7 @@ def test_job_attribute_input_error(job_list_manager_sge):
 
 def test_job_attributes(db_cfg, job_list_manager_sge):
 
-    task = BashTask("sleep 1", slots=1)
+    task = BashTask("sleep 1", num_cores=1)
     # add an attribute to the task
     dict_of_attributes = {job_attribute.NUM_DRAWS: "10",
                           job_attribute.NUM_LOCATIONS: "50",
@@ -95,7 +95,7 @@ def test_usage_job_attribute_error(job_list_manager_sge):
 
 def test_attributes_retrievable(job_list_manager_sge):
     # add attributes to workflow and jobs
-    task = BashTask(command="sleep 1", slots=1)
+    task = BashTask(command="sleep 1", num_cores=1)
     task.add_job_attribute(job_attribute.NUM_DRAWS, "10")
 
     wf = Workflow('test_attributes')

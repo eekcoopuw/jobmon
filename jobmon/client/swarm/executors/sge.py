@@ -108,9 +108,14 @@ class SGEExecutor(Executor):
         resources = SGEResource(slots=job.slots, mem_free=job.mem_free,
                                 num_cores=job.num_cores, queue=job.queue,
                                 max_runtime_seconds=job.max_runtime_seconds,
-                                j_resource= job.j_resource)
+                                j_resource=job.j_resource)
+        # if the job is configured for the fair cluster, but is being run on
+        # dev/prod we need to make sure it formats its qsub to work on dev/prod
+        dev_or_prod = False
+        if "el6" in os.environ['SGE_ENV']:
+            dev_or_prod = True
 
-        (slots, mem_free, num_cores, queue, max_runtime_seconds,
+        (mem_free, num_cores, queue, max_runtime,
          j_resource) = resources.return_valid_resources()
 
         ctx_args = json.loads(job.context_args)
@@ -120,6 +125,8 @@ class SGEExecutor(Executor):
             sge_add_args = ""
         if project:
             project_cmd = "-P {}".format(project)
+        elif not dev_or_prod and not project:
+            project_cmd = "-P ihme_general"
         else:
             project_cmd = ""
         if stderr:
@@ -136,38 +143,36 @@ class SGEExecutor(Executor):
             wd_cmd = "-wd {}".format(working_dir)
         else:
             wd_cmd = ""
-        if mem_free and num_cores:
-            # The use of num_cores as opposed to slots indicates that the
-            # user is on the 'new' cluster. The 'new' cluster uses the option
-            # -l m_mem_free to request memory as opposed to '-l mem_free' which
-            # was use ond the 'old cluster. There may be better ways
-            # to detect this at some point (e.g. using the hostname of the
-            # scheduler), but for now this should hold true.
-            mem_cmd = "-l m_mem_free={}g".format(mem_free)
+        if mem_free and not dev_or_prod:
+            # Currently this just checks the name of the cluster and if it is
+            # not one of the older ones it formats it to the fair cluster.
+            # There may be better ways to detect this at some point (e.g. using
+            #  the hostname of the scheduler), but for now this should hold
+            # true.
+            mem_cmd = "-l m_mem_free={}G".format(mem_free)
         elif mem_free:
-            mem_cmd = "-l mem_free={}g".format(mem_free)
+            mem_cmd = "-l mem_free={}G".format(mem_free)
         else:
             mem_cmd = ""
-        if num_cores:
+        if num_cores and not dev_or_prod:
             cpu_cmd = "-l fthread={}".format(num_cores)
         else:
-            cpu_cmd = "-pe multi_slot {}".format(slots)
-        if j_resource is True:
-            j_cmd= "-l archive"
+            cpu_cmd = "-pe multi_slot {}".format(num_cores)
+        if j_resource is True and not dev_or_prod:
+            j_cmd = "-l archive"
         else:
-            j_cmd=""
-        if queue:
-            q_cmd = "-q '{}'".format(job.queue)
-        elif num_cores:
-            # The use of num_cores as opposed to slots indicates that the
-            # user is on the 'new' cluster. The 'new' cluster requires
-            # a queue name be passed explicitly, so in the event the user
-            # does not supply one we just fall back to all.q
+            j_cmd = ""
+        if queue and not dev_or_prod:
+            q_cmd = "-q '{}'".format(queue)
+        elif not dev_or_prod and queue is None:
+            # The 'new' cluster requires a queue name be passed
+            # explicitly, so in the event the user does not supply one we just
+            # fall back to all.q
             q_cmd = "-q all.q"
         else:
             q_cmd = ""
-        if max_runtime_seconds:
-            time_cmd = "-l h_rt={}".format(h_m_s)
+        if max_runtime and not dev_or_prod:
+            time_cmd = "-l h_rt={}".format(max_runtime)
         else:
             time_cmd = ""
 
@@ -179,7 +184,7 @@ class SGEExecutor(Executor):
         # otherwise those Jobs could end up using a different config and not be
         # able to talk back to the appropriate server(s)
         qsub_cmd = ('qsub {wd} -N {jn} {qc} '
-                    '{cpu} {j} {mem} {time}'
+                    '{cpu} {j} {mem} {time} '
                     '{project} {stderr} {stdout} '
                     '{sge_add_args} '
                     '-V {path}/submit_master.sh '

@@ -17,7 +17,7 @@ class Task(ExecutableTask):
 
     def __init__(self, command, name, *args, **kwargs):
         super(Task, self).__init__(command=command, name=name, max_attempts=1,
-                                   *args, **kwargs)
+                                *args, **kwargs)
 
 
 @pytest.fixture(scope='function')
@@ -53,7 +53,8 @@ def test_sync(job_list_manager_sge_no_daemons):
     assert now is not None
 
     job = job_list_manager_sge.bind_task(Task(command='fizzbuzz',  name='bar',
-                                              slots=1))
+                                              num_cores=1))
+
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
     sleep(35)
@@ -67,7 +68,8 @@ def test_sync(job_list_manager_sge_no_daemons):
 
 
 def test_invalid_command(job_list_manager):
-    job = job_list_manager.bind_task(Task(command='foo', name='bar', slots=1))
+    job = job_list_manager.bind_task(Task(command='foo', name='bar',
+                                          num_cores=1))
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
 
@@ -83,7 +85,8 @@ def test_invalid_command(job_list_manager):
 
 
 def test_valid_command(job_list_manager):
-    job = job_list_manager.bind_task(Task(command='ls', name='baz', slots=1))
+    job = job_list_manager.bind_task(Task(command='ls', name='baz',
+                                          num_cores=1))
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
     assert len(job_list_manager.all_done) == 0
@@ -100,7 +103,7 @@ def test_valid_command(job_list_manager):
 
 def test_daemon_invalid_command(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="some new job",
-                                            name="foobar", slots=1))
+                                            name="foobar", num_cores=1))
     job_list_manager_d.queue_job(job)
 
     # Give some time for the job to get to the executor
@@ -116,7 +119,7 @@ def daemon_invalid_command_check(job_list_manager_d):
 
 def test_daemon_valid_command(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="ls", name="foobarbaz",
-                                            slots=1))
+                                            num_cores=1))
     job_list_manager_d.queue_job(job)
 
     # Give some time for the job to get to the executor
@@ -132,7 +135,7 @@ def daemon_valid_command_check(job_list_manager_d):
 
 def test_blocking_update_timeout(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="sleep 3",
-                                            name="foobarbaz", slots=1))
+                                            name="foobarbaz", num_cores=1))
     job_list_manager_d.queue_job(job)
     assert job_list_manager_d.block_until_any_done_or_error(timeout=2) is None
 
@@ -141,7 +144,7 @@ def test_sge_valid_command(job_list_manager_sge_no_daemons):
     job_list_manager_sge = job_list_manager_sge_no_daemons
     job = job_list_manager_sge.bind_task(Task(command="ls",
                                               name="sgefbb",
-                                              slots=3,
+                                              num_cores=3,
                                               mem_free='6M'))
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
