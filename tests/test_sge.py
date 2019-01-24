@@ -21,9 +21,9 @@ def test_true_path():
     assert sge.true_path("blah").endswith("/blah")
     assert sge.true_path(file_or_dir=".") == path.abspath(".")
 
-    # this is failing because this file doesn't exist on the fair cluster,
-    # add back once it does
-    # assert sge.true_path(executable="time") == "/usr/bin/time"
+    # the path differs based on the cluster but all are in /bin/time
+    # (some are in /usr/bin/time)
+    assert "/bin/time" in sge.true_path(executable="time")
 
 
 @pytest.mark.cluster
