@@ -37,7 +37,6 @@ services:
         - DB_USER=service_user
         - DB_PASS=${JOBMON_PASS_SERVICE_USER}
         - JOBMON_PORT=${EXTERNAL_SERVICE_PORT}
-    links:
     command: ["jobmon", "start", "health_monitor"]
     links:
         - db

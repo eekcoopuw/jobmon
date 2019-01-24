@@ -1,11 +1,7 @@
-import logging
 from datetime import datetime
 
 from jobmon.models import DB
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-
-
-logger = logging.getLogger(__name__)
 
 
 class WorkflowRun(DB.Model):
@@ -30,7 +26,7 @@ class WorkflowRun(DB.Model):
                        nullable=False,
                        default=WorkflowRunStatus.RUNNING)
 
-    workflow = DB.relationship("Workflow", back_populates="workflow_runs")
+    workflow = DB.relationship("Workflow", backref="workflow_runs", lazy=True)
 
     @classmethod
     def from_wire(cls, dct):

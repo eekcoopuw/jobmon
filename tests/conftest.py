@@ -79,7 +79,6 @@ def env_var(monkeypatch, test_session_config):
     monkeypatch.setenv("DB_PASS", test_session_config["DB_PASS"])
     monkeypatch.setenv("DB_NAME", test_session_config["DB_NAME"])
 
-
     cc = ConnectionConfig(host=test_session_config["JOBMON_HOST"],
                           port=test_session_config["JOBMON_PORT"])
     monkeypatch.setattr(shared_requester, 'url', cc.url)
