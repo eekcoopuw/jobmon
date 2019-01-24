@@ -19,9 +19,14 @@ import numpy as np
 from jobmon.exceptions import SGENotAvailable
 
 # Because the drmaa package needs this library in order to load.
-# and the SGE root path differs between dev/prod and fair clusters
-# DRMAA_PATH = "/usr/local/UGE/lib/lx-amd64/libdrmaa.so.1.0"
-DRMAA_PATH = "{}/lib/lx-amd64/libdrmaa.so.1.0".format(os.environ["SGE_ROOT"])
+# and the SGE root path differs between dev/prod and fair clusters, and that
+# path does not exist at all on the jobmon server, so there need to be
+# different configurations
+
+if "el6" in os.environ['SGE_ENV'] or "el7" in os.environ['SGE_ENV']:
+    DRMAA_PATH = "{}/lib/lx-amd64/libdrmaa.so.1.0".format(os.environ["SGE_ROOT"])
+else:
+    DRMAA_PATH = "/usr/local/UGE/lib/lx-amd64/libdrmaa.so.1.0"
 
 
 def check_sge_connected():

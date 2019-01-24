@@ -43,7 +43,5 @@ class Workflow(DB.Model):
                        nullable=False,
                        default=WorkflowStatus.CREATED)
 
-    workflow_runs = DB.relationship(
-        "WorkflowRun", back_populates="workflow")
     task_dag = DB.relationship(
         "TaskDagMeta", back_populates="workflow")

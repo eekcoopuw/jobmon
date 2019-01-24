@@ -71,21 +71,16 @@ To deploy a centralized JobStateManager and JobQueryServer:
  ssh -i svcsci_id_rsa svcscicompci@jobmon-p01.ihme.washington.edu
 
 2. cd into ~/tmp
-3. Clone the jobmon repo into a new folder within ~/tmp, with a descriptive folder name::
+3. Clone the jobmon repo into a new folder within ~/tmp, with a descriptive folder name like jobmon-<version>::
 
     git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git new_name
 
 4. As per the "Version Control" section below, update the port numbers in, unless this has already been done:
-  a. docker-compose.yaml
+  a. runserver.py
   b. this documentation
-  c. the default .jobmonrc file
-  d. jobmon/config.py
-  e. jobmon/bootstrap.py
-  f. k8s/db-service.yaml
-  g. k8s/jsm-service.yaml
-  h. k8s/jqs-service.yaml
-  i. docsource/quickstart.rst
-  j. And do a recursive grep to be sure!   e.g.   ``grep -r 3312 *``
+  c. jobmon/default_config.py
+  d. docsource/quickstart.rst
+  e. And do a recursive grep to be sure!   e.g.   ``grep -r 3800 *``
 5. Submit the new version number files back to git
 6. From the root directory of the repo, run::
 
@@ -109,7 +104,7 @@ For testing purposes, you can then access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3800
+    port: 3810
     user: read_only
     pass: docker
 
@@ -133,6 +128,7 @@ http      6258 6256  n/a   3315
 http.2    6258 6256  n/a   3316
 http.3    7258 7256  n/a   3317
 http.4         8256        3800
+http.5         8356        3810
 ========  ==== ===== ===== ====
 
 
