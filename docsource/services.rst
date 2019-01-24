@@ -79,8 +79,8 @@ To deploy a centralized JobStateManager and JobQueryServer:
   a. runserver.py
   b. this documentation
   c. jobmon/default_config.py
-  i. docsource/quickstart.rst
-  j. And do a recursive grep to be sure!   e.g.   ``grep -r 3800 *``
+  d. docsource/quickstart.rst
+  e. And do a recursive grep to be sure!   e.g.   ``grep -r 3800 *``
 5. Submit the new version number files back to git
 6. From the root directory of the repo, run::
 
