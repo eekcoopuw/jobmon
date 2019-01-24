@@ -12,7 +12,7 @@ def derive_jobmon_command_from_env():
 
 DEFAULT_SERVER_CONFIG = {
     "db_host": "jobmon-p01.ihme.washington.edu",
-    "db_port": 3306,
+    "db_port": 3810,
     "db_user": "read_only",
     "db_pass": "docker",
     "slack_token": "",
@@ -22,6 +22,6 @@ DEFAULT_SERVER_CONFIG = {
 
 DEFAULT_CLIENT_CONFIG = {
     "host": "jobmon-p01.ihme.washington.edu",
-    "port": 80,
+    "port": 8356,
     "jobmon_command": derive_jobmon_command_from_env(),
 }
