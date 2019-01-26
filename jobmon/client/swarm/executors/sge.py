@@ -36,13 +36,8 @@ class SGEExecutor(Executor):
             resp = subprocess.check_output(qsub_cmd, shell=True)
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
-
-            # TODO: FIX THIS ... DRMAA QSUB METHOD IS FAILING FOR SOME REASON,
-            # NEED TO INVESTIGATE THE JOBTYPE ASSUMPTIONS. RESORTING TO
-            # BASIC COMMAND-LINE QSUB FOR NOW
-            # sge_jid = sge.qsub(cmd, jobname=job.name, jobtype='plain')
-
             return sge_jid
+
         except Exception as e:
             logger.error(e)
             if isinstance(e, ValueError):
