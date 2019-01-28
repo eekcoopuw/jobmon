@@ -23,7 +23,7 @@ class TaskDag(object):
     """A DAG of ExecutableTasks."""
 
     def __init__(self, name="", interrupt_on_error=True, executor=None,
-                 fail_fast=False):
+                 fail_fast=False, seconds_until_timeout=None):
 
         self.dag_id = None
         self.job_list_manager = None
@@ -44,6 +44,8 @@ class TaskDag(object):
         self.fail_fast = fail_fast
 
         self.executor = executor
+
+        self.seconds_until_timeout = seconds_until_timeout
 
     def _set_fail_after_n_executions(self, n):
         """
@@ -206,7 +208,8 @@ class TaskDag(object):
 
             # TBD timeout?
             completed_tasks, failed_tasks = (
-                self.job_list_manager.block_until_any_done_or_error())
+                self.job_list_manager.block_until_any_done_or_error(
+                    timeout=self.seconds_until_timeout))
             for task in completed_tasks:
                 n_executions += 1
             if failed_tasks and self.fail_fast is True:
