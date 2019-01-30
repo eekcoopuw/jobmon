@@ -207,6 +207,7 @@ class TaskDag(object):
                     self.job_list_manager.queue_task(task)
 
             # TBD timeout?
+            # An exception is raised if the runtime exceeds the timeout limit
             completed_tasks, failed_tasks = (
                 self.job_list_manager.block_until_any_done_or_error(
                     timeout=self.seconds_until_timeout))

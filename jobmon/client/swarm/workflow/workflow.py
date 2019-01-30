@@ -77,7 +77,7 @@ class Workflow(object):
             interrupt_on_error (bool): whether or not the JIF/JIR daemons
                 should interrupt on errors
             seconds_until_timeout (int): amount of time (in seconds) to wait
-                until the whole workflow times out and stops execution
+                until the whole workflow times out. Submitted jobs will continue
 
         """
         self.wf_dao = None
