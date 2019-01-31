@@ -497,8 +497,9 @@ def test_timeout(real_jsm_jqs, db_cfg):
 
     with pytest.raises(RuntimeError) as error:
         wf1.execute()
-    expected_msg = ("Not all jobs completed within the given workflow "
-                    "timeout length (3 seconds). Submitted jobs will still"
+
+    expected_msg = ("Not all tasks completed within the given workflow "
+                    "timeout length (3 seconds). Submitted tasks will still"
                     " run, but the workflow will need to be restarted.")
     assert expected_msg == str(error.value)
 

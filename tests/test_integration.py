@@ -137,7 +137,14 @@ def test_blocking_update_timeout(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="sleep 3",
                                             name="foobarbaz", num_cores=1))
     job_list_manager_d.queue_job(job)
-    assert job_list_manager_d.block_until_any_done_or_error(timeout=2) is None
+
+    with pytest.raises(RuntimeError) as error:
+        job_list_manager_d.block_until_any_done_or_error(timeout=2)
+
+    expected_msg = ("Not all tasks completed within the given workflow "
+                    "timeout length (2 seconds). Submitted tasks will still"
+                    " run, but the workflow will need to be restarted.")
+    assert expected_msg == str(error.value)
 
 
 def test_sge_valid_command(job_list_manager_sge_no_daemons):
