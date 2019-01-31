@@ -10,7 +10,7 @@
 # normal installation sequence. We add a step here to install a working
 # version.
 
-conda create -y -n my_jobmon_env python=3.7
+conda create -y -n my_jobmon_env python=3.6
 source activate my_jobmon_env
 conda install -y --file conda_requirements.txt
 pip install -r requirements.txt
