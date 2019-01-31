@@ -18,4 +18,4 @@ pip install -e .
 
 # one of the (conda_)requirements.txt deps installs a different, breaking
 # version of openssl
-conda install -y -c conda-forge openssl
+conda install -y -c conda-forge openssl=1.0.2p
