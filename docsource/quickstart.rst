@@ -50,7 +50,8 @@ Constructing a Workflow and adding a few Tasks is simple::
     my_wf = Workflow(workflow_args="quickstart", project='proj_jenkins',
                      stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
                      stdout='/ihme/scratch/users/{}/sgeoutput'.format(user)),
-                     working_dir='/homes/{}'.format(user))
+                     working_dir='/homes/{}'.format(user),
+                     timeout=3600)
 
     # Add some Tasks to it...
     write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
@@ -73,6 +74,8 @@ Constructing a Workflow and adding a few Tasks is simple::
 .. note::
     If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon Task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
 
+.. note::
+    By default Workflows are set to time out if your tasks haven't all completed after 10 hours (or 36000 seconds). If your Workflow times out before your tasks have finished running, those tasks will continue running, but you will need to restart your Workflow again. You can change this if your tasks combined run longer than 10 hours.
 
 Restart Tasks and Resume Workflows
 =======================================
