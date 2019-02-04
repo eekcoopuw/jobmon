@@ -486,6 +486,24 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
         assert wfr.id not in [w.id for w in active]
 
 
+def test_timeout(real_jsm_jqs, db_cfg):
+    t1 = BashTask("sleep 10", slots=1)
+    t2 = BashTask("sleep 11", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 12", upstream_tasks=[t2], slots=1)
+
+    wfa1 = "timeout_dag"
+    wf1 = Workflow(wfa1, interrupt_on_error=False, seconds_until_timeout=3)
+    wf1.add_tasks([t1, t2, t3])
+
+    with pytest.raises(RuntimeError) as error:
+        wf1.execute()
+
+    expected_msg = ("Not all tasks completed within the given workflow "
+                    "timeout length (3 seconds). Submitted tasks will still"
+                    " run, but the workflow will need to be restarted.")
+    assert expected_msg == str(error.value)
+
+
 def test_failing_nodes(real_jsm_jqs, db_cfg):
 
     # these dummy dags will increment the ID of our dag-of-interest to

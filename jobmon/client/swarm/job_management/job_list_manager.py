@@ -176,7 +176,11 @@ class JobListManager(object):
         time_since_last_update = 0
         while True:
             if time_since_last_update > timeout:
-                return None
+                raise RuntimeError("Not all tasks completed within the given "
+                                   "workflow timeout length ({} seconds). "
+                                   "Submitted tasks will still run, but the "
+                                   "workflow will need to be restarted."
+                                   .format(timeout))
             jobs = self.get_job_statuses()
             completed, failed = self.parse_done_and_errors(jobs)
             if completed or failed:

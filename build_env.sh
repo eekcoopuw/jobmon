@@ -18,4 +18,6 @@ pip install -e .
 
 # one of the (conda_)requirements.txt deps installs a different, breaking
 # version of openssl
-conda install -y -c conda-forge openssl
+# Feb 4 2019: Setting openssl to version 1.0.2p to prevent issues we've been
+# having with openssl causing dbunavailable errors with ephemerdb when testing
+conda install -y -c conda-forge openssl=1.0.2p
