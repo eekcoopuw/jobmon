@@ -12,13 +12,20 @@ class SGEResource(object):
     """
 
     def __init__(self, slots=None, mem_free=None, num_cores=None,
-                 queue=None, max_runtime_seconds=None, j_resource=False):
+                 queue=None, max_runtime_seconds=None, j_resource=False,
+                 m_mem_free=None):
         """
         Args
         slots (int): slots to request on the cluster
         mem_free (str): amount of memory in gbs, tbs, or mbs to request on
-            the cluster
-        num_cores (int): number of cores to request on the cluster.
+            the cluster, this is deprecated and will be removed when the dev
+            and prod clusters are taken offline. Mutually exclusive with
+            m_mem_free
+        m_mem_free (str): amount of memory in gbs, tbs, or mbs to request on
+            the fair cluster. Mutually exclusive with mem_free as it will fully
+            replace that argument when the dev and prod clusters are taken
+            offline
+        num_cores (int): number of cores to request on the cluster
         j_resource (bool): whether or not to access the J drive. Default: False
         queue (str): queue of cluster nodes to submit this task to. Must be
             a valid queue, as defined by "qconf -sql"
@@ -35,20 +42,33 @@ class SGEResource(object):
              If BOTH slots and cores are specified or neither are
              If the queue isn't a valid queue in qconf -sql
              If cores or slots aren't in a valid range: 1 to 48 or 100
-             If mem_free_gb is not in a valid range: 1GB to 1TB
+             If mem_free is not in a valid range: 1GB to 1TB
+             If m_mem_free is not in a valid range: 1GB to 1TB
+             If mem_free and m_mem_free are both passed as arguments
              If runtime isn't in the valid range for the associated queue
              If j_resource isn't a bool
 
         Returns
             queue, slots, num_cores, mem_free_gb, max_runtime_secs
         """
+        # TODO: remove mem_free and slots when prod and dev clusters go offline
         self.slots = slots
-        self.mem_free = mem_free
         self.num_cores = num_cores
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
         self.j_resource = j_resource
         self.max_runtime = None
+
+        if mem_free is not None and m_mem_free is not None:
+            raise ValueError("Cannot pass both mem_free: {} and m_mem_free: "
+                             "{} when creating an SGEResource. mem_free is "
+                             "deprecated, so it's recommended to use "
+                             "m_mem_free.".format(mem_free, m_mem_free))
+        else:
+            if m_mem_free:
+                self.mem_free = m_mem_free
+            else:
+                self.mem_free = mem_free
 
     def _get_valid_queues(self):
         check_valid_queues = "qconf -sql"
@@ -114,7 +134,7 @@ class SGEResource(object):
         if self.mem_free is not None:
             self.mem_free = self._transform_mem_to_gb()
             if int(self.mem_free) not in range(0, 512):
-                raise ValueError("Can only request mem_free_gb between "
+                raise ValueError("Can only request mem_free between "
                                  "0 and 512GB (the limit on all.q and "
                                  "profile.q). Got {}"
                                  .format(self.mem_free))
@@ -132,30 +152,33 @@ class SGEResource(object):
         if self.max_runtime_seconds is None and "el7" in os.environ["SGE_ENV"]:
             # a max_runtime has to be provided for the fair cluster, so if none
             #  is provided, set it to 5 minutes so that it fails quickly
-            logger.debug("You did not specify a maximum runtime so it has been "
-                         "set to 5 minutes")
+            logger.debug("You did not specify a maximum runtime so it has "
+                         "been set to 5 minutes")
             self.max_runtime_seconds = 300
         elif self.max_runtime_seconds is not None:
             if self.queue == "all.q":
                 if self.max_runtime_seconds > 86400:
-                    raise ValueError("Can only run for up to 1 day (86400 sec) on "
-                                     "all.q, you requested {} seconds"
+                    raise ValueError("Can only run for up to 1 day (86400 sec)"
+                                     " on all.q, you requested {} seconds"
                                      .format(self.max_runtime_seconds))
             elif self.queue == "geospatial.q":
                 if self.max_runtime_seconds > 1555200:
-                    raise ValueError("Can only run for up to 18 days (1555200 sec)"
-                                     " on geospatial.q, you requested {} seconds"
+                    raise ValueError("Can only run for up to 18 days "
+                                     "(1555200 sec) on geospatial.q, you "
+                                     "requested {} seconds"
                                      .format(self.max_runtime_seconds))
             elif self.queue == "long.q" or self.queue == "profile.q":
                 if self.max_runtime_seconds > 604800:
-                    raise ValueError("Can only run for up to 1 week (604800 sec) "
-                                     "on {}, you requested {} seconds"
+                    raise ValueError("Can only run for up to 1 week "
+                                     "(604800 sec) on {}, you requested {} "
+                                     "seconds"
                                      .format(self.queue,
                                              self.max_runtime_seconds))
             elif self.max_runtime_seconds > 86400:
                 raise ValueError("You did not request all.q, profile.q, "
-                                 "geospatial.q, or long.q to run your jobs so you "
-                                 "must limit your runtime to under 1 day")
+                                 "geospatial.q, or long.q to run your jobs "
+                                 "so you must limit your runtime to under 1 "
+                                 "day")
         else:
             self.max_runtime_seconds = 0
         self.max_runtime = self._transform_secs_to_hms()
@@ -166,12 +189,14 @@ class SGEResource(object):
                              .format(self.j_resource))
 
     def _validate_exclusivity(self):
-        """Ensure there's no conflicting arguments, also if slots are specified,
-        and num_cores are not, then set the num_cores to equal the slot value"""
+        """Ensure there's no conflicting arguments, also if slots are
+        specified, and num_cores are not, then set the num_cores to equal the
+        slot value"""
         if self.slots and self.num_cores:
             raise ValueError("Cannot specify BOTH slots and num_cores. "
-                             "Specify one or the other, your requested {} slots"
-                             "and {} cores".format(self.slots, self.num_cores))
+                             "Specify one or the other, your requested {} "
+                             "slots and {} cores".format(self.slots,
+                                                         self.num_cores))
         if not self.slots and not self.num_cores:
             raise ValueError("Must pass one of [slots, num_cores]")
         if self.slots and not self.num_cores:

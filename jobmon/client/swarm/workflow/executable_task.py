@@ -62,7 +62,7 @@ class ExecutableTask(object):
                  name=None, slots=None, mem_free=None, num_cores=None,
                  max_runtime_seconds=None, queue=None, max_attempts=3,
                  j_resource=False, tag=None, context_args=None,
-                 job_attributes={}):
+                 job_attributes={}, m_mem_free=None):
         """
         Create a task
 
@@ -78,9 +78,13 @@ class ExecutableTask(object):
         slots (int): slots to request on the cluster. Default is 1
         num_cores (int): number of cores to request on the cluster
         mem_free (int): amount of memory to request on the cluster.
-            Generally 2x slots. Default is 2
+            Generally 2x slots. Default is 1
+        m_mem_free (str): amount of memory in gbs, tbs, or mbs to request on
+            the fair cluster. Mutually exclusive with mem_free as it will fully
+            replace that argument when the dev and prod clusters are taken
+            offline
         max_attempts (int): number of attempts to allow the cluster to try
-            before giving up. Default is 1
+            before giving up. Default is 3
         max_runtime_seconds (int): how long the job should be allowed to
             run before the executor kills it. Default is None, for indefinite.
         tag (str): a group identifier. Currently just used for visualization.
@@ -109,6 +113,7 @@ class ExecutableTask(object):
 
         self.slots = slots
         self.mem_free = mem_free
+        self.m_mem_free = m_mem_free
         self.num_cores = num_cores
         self.max_runtime_seconds = max_runtime_seconds
         self.queue = queue

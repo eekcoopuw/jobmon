@@ -14,7 +14,7 @@ class PythonTask(ExecutableTask):
                  args=None, upstream_tasks=None, env_variables={}, name=None,
                  slots=None, num_cores=None, mem_free=None, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None,
-                 j_resource=False):
+                 j_resource=False, m_mem_free=None):
         """
         Args:
             path_to_python_binary (str): the python install that should be used
@@ -29,9 +29,13 @@ class PythonTask(ExecutableTask):
             slots (int): slots to request on the cluster. Default is 1
             num_cores (int): number of cores to request on the cluster
             mem_free (str): amount of memory in GBs to request on the cluster.
-                Generally 2x slots. Default is 2
+                Generally 2x slots. Default is 1
+            m_mem_free (str): amount of memory in gbs, tbs, or mbs to request
+                on the fair cluster. Mutually exclusive with mem_free as it
+                will fully replace that argument when the dev and prod clusters
+                are taken offline
             max_attempts (int): number of attempts to allow the cluster to try
-                before giving up. Default is 1
+                before giving up. Default is 3
             max_runtime_seconds (int): how long the job should be allowed to
                 run before the executor kills it. Default is None, for
                 indefinite.
@@ -50,7 +54,7 @@ class PythonTask(ExecutableTask):
             upstream_tasks=upstream_tasks, name=name, slots=slots,
             num_cores=num_cores, mem_free=mem_free, max_attempts=max_attempts,
             max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
-            j_resource=j_resource)
+            j_resource=j_resource, m_mem_free=m_mem_free)
 
     @staticmethod
     def make_cmd(path_to_python_binary, script, args):
