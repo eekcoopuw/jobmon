@@ -51,7 +51,7 @@ Constructing a Workflow and adding a few Tasks is simple::
                      stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
                      stdout='/ihme/scratch/users/{}/sgeoutput'.format(user)),
                      working_dir='/homes/{}'.format(user),
-                     timeout=3600)
+                     seconds_until_timeout=3600)
 
     # Add some Tasks to it...
     write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
