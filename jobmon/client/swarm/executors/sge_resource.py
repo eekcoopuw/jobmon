@@ -7,8 +7,8 @@ logger = logging.getLogger(__name__)
 
 class SGEResource(object):
     """Manages the transition between the new (cores/mem/runtime) cluster and
-    old (slots). Can convert from new to old via the JSV, but not vice-versa.
-    Validates inputs.
+    old (slots). Can convert from new to old via the JSV, but not vice-versa
+    (except for m_mem_free and mem_free). Validates inputs.
     """
 
     def __init__(self, slots=None, mem_free=None, num_cores=None,

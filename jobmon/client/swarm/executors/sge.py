@@ -145,6 +145,12 @@ class SGEExecutor(Executor):
             # There may be better ways to detect this at some point (e.g. using
             #  the hostname of the scheduler), but for now this should hold
             # true.
+            if job.mem_free is not None:
+                logger.warning("You are requesting memory on the fair cluster "
+                               "with mem_free. The mem_free parameter is "
+                               "deprecated and will be removed when the dev "
+                               "and prod clusters are brought offline. "
+                               "Please use m_mem_free instead.")
             mem_cmd = "-l m_mem_free={}G".format(mem_free)
         elif mem_free:
             mem_cmd = "-l mem_free={}G".format(mem_free)
