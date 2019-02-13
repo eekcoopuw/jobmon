@@ -112,14 +112,23 @@ class ExecutableTask(object):
         self.hash = int(hashlib.sha1(command.encode('utf-8')).hexdigest(), 16)
 
         self.slots = slots
-        self.mem_free = mem_free
-        self.m_mem_free = m_mem_free
         self.num_cores = num_cores
         self.max_runtime_seconds = max_runtime_seconds
         self.queue = queue
         self.max_attempts = max_attempts
         self.j_resource = j_resource
         self.context_args = context_args
+
+        if mem_free is not None and m_mem_free is not None:
+            raise ValueError("Cannot pass both mem_free: {} and m_mem_free: "
+                             "{} when creating a task. mem_free is "
+                             "deprecated, so it's recommended to use "
+                             "m_mem_free.".format(mem_free, m_mem_free))
+        else:
+            if m_mem_free:
+                self.mem_free = m_mem_free
+            else:
+                self.mem_free = mem_free
 
         # Names of jobs can't start with a numeric.
         if name is None:

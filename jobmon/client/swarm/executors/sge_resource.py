@@ -12,19 +12,13 @@ class SGEResource(object):
     """
 
     def __init__(self, slots=None, mem_free=None, num_cores=None,
-                 queue=None, max_runtime_seconds=None, j_resource=False,
-                 m_mem_free=None):
+                 queue=None, max_runtime_seconds=None, j_resource=False):
         """
         Args
         slots (int): slots to request on the cluster
         mem_free (str): amount of memory in gbs, tbs, or mbs to request on
-            the cluster, this is deprecated and will be removed when the dev
-            and prod clusters are taken offline. Mutually exclusive with
-            m_mem_free
-        m_mem_free (str): amount of memory in gbs, tbs, or mbs to request on
-            the fair cluster. Mutually exclusive with mem_free as it will fully
-            replace that argument when the dev and prod clusters are taken
-            offline
+            the cluster, this is deprecated and will be replaced with
+            m_mem_free when the dev and prod clusters are taken offline.
         num_cores (int): number of cores to request on the cluster
         j_resource (bool): whether or not to access the J drive. Default: False
         queue (str): queue of cluster nodes to submit this task to. Must be
@@ -58,17 +52,7 @@ class SGEResource(object):
         self.max_runtime_seconds = max_runtime_seconds
         self.j_resource = j_resource
         self.max_runtime = None
-
-        if mem_free is not None and m_mem_free is not None:
-            raise ValueError("Cannot pass both mem_free: {} and m_mem_free: "
-                             "{} when creating an SGEResource. mem_free is "
-                             "deprecated, so it's recommended to use "
-                             "m_mem_free.".format(mem_free, m_mem_free))
-        else:
-            if m_mem_free:
-                self.mem_free = m_mem_free
-            else:
-                self.mem_free = mem_free
+        self.mem_free = mem_free
 
     def _get_valid_queues(self):
         check_valid_queues = "qconf -sql"
@@ -134,7 +118,7 @@ class SGEResource(object):
         if self.mem_free is not None:
             self.mem_free = self._transform_mem_to_gb()
             if int(self.mem_free) not in range(0, 512):
-                raise ValueError("Can only request mem_free between "
+                raise ValueError("Can only request mem_free_gb between "
                                  "0 and 512GB (the limit on all.q and "
                                  "profile.q). Got {}"
                                  .format(self.mem_free))

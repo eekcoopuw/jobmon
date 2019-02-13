@@ -164,3 +164,18 @@ def test_invalid_j_resource_caught(no_daemon):
                  j_resource='Nope', queue='all.q', max_runtime_seconds=120))
 
     assert 'Could not create_job' in exc.value.args[0]
+
+
+@pytest.mark.cluster
+def test_both_mem_free_error():
+    from jobmon.client.swarm.workflow.bash_task import BashTask
+    expected_msg = ("Cannot pass both mem_free: 1G and m_mem_free: 1G when "
+                    "creating a task. mem_free is deprecated, so it's "
+                    "recommended to use m_mem_free.")
+
+    with pytest.raises(ValueError) as error:
+        test = BashTask(command="sleep 10", name='test_mem_args',
+                        mem_free='1G', m_mem_free='1G', max_attempts=2,
+                        slots=1, max_runtime_seconds=60)
+
+    assert expected_msg == str(error.value)
