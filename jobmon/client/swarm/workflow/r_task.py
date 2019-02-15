@@ -28,7 +28,7 @@ class RTask(ExecutableTask):
             name (str): name that will be visible in qstat for this job
             slots (int): slots to request on the cluster. Default is 1
             num_cores (int): the number of cores to request on the cluster
-            mem_free (str): amount of memory in GBs to request on the cluster.
+            mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 1
             m_mem_free (str): amount of memory in gbs, tbs, or mbs (G, T, or M)
                  to request on the fair cluster. Mutually exclusive with
