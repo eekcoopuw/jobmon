@@ -43,7 +43,7 @@ class JobInstance(DB.Model):
     job_instance_id = DB.Column(DB.Integer, primary_key=True)
     workflow_run_id = DB.Column(DB.Integer)
     executor_type = DB.Column(DB.String(50))
-    executor_id = DB.Column(DB.Integer)
+    executor_id = DB.Column(DB.Integer, index=True)
     job_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('job.job_id'),
@@ -66,6 +66,7 @@ class JobInstance(DB.Model):
 
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
+
 
     valid_transitions = [
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),

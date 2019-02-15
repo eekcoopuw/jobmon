@@ -50,8 +50,8 @@ class JobInstanceFactory(object):
 
     def instantiate_queued_jobs_periodically(self, poll_interval=1):
         """Running in a thread, this function allows the JobInstanceFactory to
-        periodically get all jobs taht are ready and queue them for
-        instantation
+        periodically get all jobs that are ready and queue them for
+        instantiation
 
         Args:
             poll_interval (int): how often you want this function to poll for

@@ -10,12 +10,12 @@
 # normal installation sequence. We add a step here to install a working
 # version.
 
-conda create -y -n my_jobmon_env python=3.7
+conda create -y -n my_jobmon_env python=3.6
 source activate my_jobmon_env
 conda install -y --file conda_requirements.txt
-pip install -r requirements.txt
+# NO: pip install -r requirements.txt
 pip install -e .
 
 # one of the (conda_)requirements.txt deps installs a different, breaking
-# version of openssl
+# version of openssl. We want openssl=1.0.2p=h14c3975_0
 conda install -y -c conda-forge openssl
