@@ -20,7 +20,7 @@ class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
                  reconciliation_interval=10,
-                 job_instantiation_interval=1, interrupt_on_error=True,
+                 job_instantiation_interval=3, interrupt_on_error=True,
                  requester=shared_requester):
         """Manages all the list of jobs that are running, done or errored
         Args:
@@ -30,7 +30,7 @@ class JobListManager(object):
             start_daemons (bool, default False): whether or not to start the
             JobInstanceFactory and JobReconciler as daemonized threads
             reconciliation_interval (int, default 10 ): number of seconds to
-            wait between reconciliation attemps
+            wait between reconciliation attempts
             job_instantiation_interval (int, default 1): number of seconds to
             wait between instantiating newly ready jobs
             interrupt_on_error (bool, default True): whether or not to

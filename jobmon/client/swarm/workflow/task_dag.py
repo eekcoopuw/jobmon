@@ -71,6 +71,10 @@ class TaskDag(object):
         Args:
             dag_id (int): Defaults to None, in which case a new dag_id is
                 created
+            reset_running_jobs (bool) : Set this to true in the "cold resume"
+                use case, where the human operator knows that there are no
+                jobs running, in which case reset their statuses in the
+                database
         """
         if dag_id:
             self.job_list_manager = JobListManager(
