@@ -66,23 +66,21 @@ Deploying JobStateManager and JobQueryServer
 
 To deploy a centralized JobStateManager and JobQueryServer:
 
-1. Ssh into jobmon.p01.ihme.washington.edu
+1. Ssh into jobmon.p01.ihme.washington.edu using your ssh keys::
+
+ ssh -i svcsci_id_rsa svcscicompci@jobmon-p01.ihme.washington.edu
+
 2. cd into ~/tmp
-3. Clone the jobmon repo into a new folder within ~/tmp, with a descriptive folder name::
+3. Clone the jobmon repo into a new folder within ~/tmp, with a descriptive folder name like jobmon-<version>::
 
     git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git new_name
 
 4. As per the "Version Control" section below, update the port numbers in, unless this has already been done:
-  a. docker-compose.yaml
+  a. runserver.py
   b. this documentation
-  c. the default .jobmonrc file
-  d. jobmon/config.py
-  e. jobmon/bootstrap.py
-  f. k8s/db-service.yaml
-  g. k8s/jsm-service.yaml
-  h. k8s/jqs-service.yaml
-  i. docsource/quickstart.rst
-  j. And do a recursive grep to be sure!   e.g.   ``grep -r 3312 *``
+  c. jobmon/default_config.py
+  d. docsource/quickstart.rst
+  e. And do a recursive grep to be sure!   e.g.   ``grep -r 3800 *``
 5. Submit the new version number files back to git
 6. From the root directory of the repo, run::
 
@@ -106,12 +104,13 @@ For testing purposes, you can then access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3317
-    user: docker
+    port: 3810
+    user: read_only
     pass: docker
 
 
-Each new version of jobmon increments the ports, so for example:
+Each new version of jobmon increments the ports and the db port reflects the
+release number (0.8.0 = 3800), so for example:
 
 ========  ==== ===== ===== ====
 Version   jqs  jsm-1 jsm-2 db
@@ -128,6 +127,8 @@ emu.7     5258 5256  5257  3314
 http      6258 6256  n/a   3315
 http.2    6258 6256  n/a   3316
 http.3    7258 7256  n/a   3317
+http.4         8256        3800
+http.5         8356        3810
 ========  ==== ===== ===== ====
 
 

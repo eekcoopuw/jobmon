@@ -22,13 +22,17 @@ from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete
 
 @pytest.fixture
 def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("not_a_command 1", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime_seconds=1,
-                  slots=1)
-    t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1, mem_free='2G', queue="all.q",
+                  j_resource=False)
+    t2 = BashTask("not_a_command 1", upstream_tasks=[t1], num_cores=1,
+                  mem_free='2G', queue="all.q", j_resource=False)
+    t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime_seconds=4,
+                  num_cores=1, mem_free='2G', queue="all.q", j_resource=False)
+    t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3], num_cores=1,
+                  mem_free='2G', queue="all.q", j_resource=False)
 
-    workflow = Workflow("my_failing_args", interrupt_on_error=False)
+    workflow = Workflow("my_failing_args", interrupt_on_error=False,
+                        project='ihme_general')
     workflow.add_tasks([t1, t2, t3, t4])
     workflow.execute()
     return workflow
@@ -480,6 +484,24 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
     with app.app_context():
         active = hm_hyper._get_active_workflow_runs(DB.session)
         assert wfr.id not in [w.id for w in active]
+
+
+def test_timeout(real_jsm_jqs, db_cfg):
+    t1 = BashTask("sleep 10", slots=1)
+    t2 = BashTask("sleep 11", upstream_tasks=[t1], slots=1)
+    t3 = BashTask("sleep 12", upstream_tasks=[t2], slots=1)
+
+    wfa1 = "timeout_dag"
+    wf1 = Workflow(wfa1, interrupt_on_error=False, seconds_until_timeout=3)
+    wf1.add_tasks([t1, t2, t3])
+
+    with pytest.raises(RuntimeError) as error:
+        wf1.execute()
+
+    expected_msg = ("Not all tasks completed within the given workflow "
+                    "timeout length (3 seconds). Submitted tasks will still"
+                    " run, but the workflow will need to be restarted.")
+    assert expected_msg == str(error.value)
 
 
 def test_failing_nodes(real_jsm_jqs, db_cfg):

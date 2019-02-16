@@ -13,9 +13,11 @@
 conda create -y -n my_jobmon_env python=3.6
 source activate my_jobmon_env
 conda install -y --file conda_requirements.txt
-# NO: pip install -r requirements.txt
+pip install -r requirements.txt
 pip install -e .
 
 # one of the (conda_)requirements.txt deps installs a different, breaking
-# version of openssl. We want openssl=1.0.2p=h14c3975_0
-conda install -y -c conda-forge openssl
+# version of openssl
+# Feb 4 2019: Setting openssl to version 1.0.2p to prevent issues we've been
+# having with openssl causing dbunavailable errors with ephemerdb when testing
+conda install -y -c conda-forge openssl=1.0.2p

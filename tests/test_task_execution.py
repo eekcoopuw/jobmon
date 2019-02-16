@@ -190,8 +190,8 @@ def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
         "{jid}-simple_stata_script.log".format(jid=job_instance_id)))
 
 
-@pytest.mark.skipif(os.environ['SGE_CLUSTER_NAME'] == 'dev',
-                    reason="no c2-nodes on cluster-dev")
+@pytest.mark.skip("Need to use a specific queue for fair cluster so these "
+                  "tests would only work on the prod cluster")
 @pytest.mark.qsubs_jobs
 def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
     name = 'c2_nodes_only'

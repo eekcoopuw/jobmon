@@ -92,7 +92,7 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
         app_route='/workflow_run',
         message={'workflow_id': str(wf.id),
                  'user': user,
-                 'hostname': socket.gethostname(),
+                 'hostname': socket.getfqdn(),
                  'pid': '000',
                  'stderr': "",
                  'stdout': "",
@@ -164,7 +164,7 @@ def test_jsm_valid_done(real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(job_instance_id),
-        message={'nodename': socket.gethostname(),
+        message={'nodename': socket.getfqdn(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
@@ -214,7 +214,7 @@ def test_jsm_valid_error(real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(job_instance_id),
-        message={'nodename': socket.gethostname(),
+        message={'nodename': socket.getfqdn(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
@@ -281,7 +281,7 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(job_instance_id),
-        message={'nodename': socket.gethostname(),
+        message={'nodename': socket.getfqdn(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
@@ -303,7 +303,7 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
         assert ji.maxrss == '1g'
         assert ji.cpu == '00:00:00'
         assert ji.io == '1'
-        assert ji.nodename == socket.gethostname()
+        assert ji.nodename == socket.getfqdn()
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
         message={},
@@ -339,7 +339,7 @@ def test_job_reset(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(ji1),
-        message={'nodename': socket.gethostname(),
+        message={'nodename': socket.getfqdn(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
@@ -360,7 +360,7 @@ def test_job_reset(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(ji2),
-        message={'nodename': socket.gethostname(),
+        message={'nodename': socket.getfqdn(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
     req.send_request(
@@ -381,7 +381,7 @@ def test_job_reset(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(ji3),
-        message={'nodename': socket.gethostname(),
+        message={'nodename': socket.getfqdn(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
 
@@ -439,7 +439,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(ji),
-        message={'nodename': socket.gethostname(),
+        message={'nodename': socket.getfqdn(),
                  'process_group_id': str(os.getpid())},
         request_type='post')
 
