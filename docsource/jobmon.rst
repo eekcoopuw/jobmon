@@ -14,7 +14,7 @@ Submodules
 ----------
 
 jobmon.client module
------------------------
+--------------------
 
 .. automodule:: jobmon.client
     :members:
@@ -22,7 +22,7 @@ jobmon.client module
     :show-inheritance:
 
 jobmon.models module
------------------
+--------------------
 
 .. automodule:: jobmon.models
     :members:

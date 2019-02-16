@@ -41,28 +41,35 @@ the connection string should specify a user+password that
 has SELECT privileges on the jobmon database, but does not require INSERT or
 UPDATE privileges.
 
+Jobmon Monitoring Service
+*************************
+This watches for disappearing dags  and workflows, as well as failing nodes.
+It reports failing nodes to a specific slack channel.
+
 
 Troubleshooting a running JobStateManager and JobQueryServer
 ************************************************************
 
-The "jobmon server" is actually two or three separate docker containers,
+The "jobmon server" is actually three or four separate docker containers,
 executing on jobmon-p01.
 From release 0.8.0 and onwards there are two docker containers:
 
-1. jobmonXXXX  (jobmon query service and jobmon state manager)
-2. jobmonemup3_db_1  (jobmon mysql database, release 0.8.2)
+1. jobmon082_monitor_1  (monitoring service)
+2. jobmon082_jobmon_1  (jobmon query service and jobmon state manager)
+3. jobmon082_db_1  (jobmon mysql database, release 0.8.2)
 
-Prior to 0.8.0 there were three (the :
+Prior to 0.8.0 there were four containers, the JQS qnd JSM were separated :
 
-1. jobmonemup3_jqs_1  (jobmon query service, emu update 3)
-2. jobmonemup3_jsm_1  (jobmon state manager, emu update 3)
-3. jobmonemup3_db_1  (jobmon database, emu update 3)
+1. jobmon071_monitor_1  (monitoring service)
+2. jobmon071_jqs_1  (jobmon query service, emu update 3)
+3. jobmon071_jsm_1  (jobmon state manager, emu update 3)
+4. jobmon071_db_1  (jobmon database, emu update 3)
 
 1. ssh to jobmon-p01
 2. "docker ps" will show the running containers and their uptimes, for example see below.
-3. Logs (voluminous):  "docker logs --tail 10 jobmonemup3_jsm_1"
-4. To start a specific service use the name, eg:  "docker start jobmonemup3_jqs_1"
-5. A container can be restarted by container id or name, eg "docker restart 4594e55149456" or "docker restart jobmonemup3_jqs_1"
+3. Logs (voluminous):  "docker logs --tail 10 jobmon082_jobmon_1"
+4. To start a specific service use the name, eg:  "docker start jobmon082_jobmon_1"
+5. A container can be restarted by container id or name, eg "docker restart 4594e55149456" or "docker restart jobmon082_jobmon_1"
 
 
 .. image:: images/docker_ps.png
@@ -91,6 +98,7 @@ To deploy a centralized JobStateManager and JobQueryServer:
     git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git new_name
 
 4. As per the "Version Control" section below, update the port numbers in all the following places, unless this has already been done:
+
   a. runserver.py
   b. this documentation
   c. jobmon/default_config.py
