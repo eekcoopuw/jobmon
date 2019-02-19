@@ -67,6 +67,7 @@ class JobInstance(DB.Model):
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
 
+
     valid_transitions = [
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
 
