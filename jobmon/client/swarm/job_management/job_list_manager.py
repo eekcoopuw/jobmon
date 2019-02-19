@@ -20,7 +20,8 @@ class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
                  reconciliation_interval=10,
-                 job_instantiation_interval=3, interrupt_on_error=True,
+                 job_instantiation_interval=10, interrupt_on_error=True,
+                 max_ignored_502=100,
                  requester=shared_requester):
         """Manages all the list of jobs that are running, done or errored
         Args:
@@ -41,7 +42,8 @@ class JobListManager(object):
 
         self._stop_event = Event()
         self.job_instance_factory = JobInstanceFactory(
-            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
+            dag_id, executor, interrupt_on_error, stop_event=self._stop_event,
+            max_ignored_502=max_ignored_502)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
 
@@ -58,6 +60,7 @@ class JobListManager(object):
 
         self.reconciliation_interval = reconciliation_interval
         self.job_instantiation_interval = job_instantiation_interval
+        self.max_ignored_502 = max_ignored_502
         if start_daemons:
             self._start_job_instance_manager()
 

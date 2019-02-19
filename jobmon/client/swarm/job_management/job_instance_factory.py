@@ -134,7 +134,7 @@ class JobInstanceFactory(object):
 
     def _get_jobs_queued_for_instantiation(self):
         """
-        Contact the server, if it receives a 502 Gateway Unavailable
+        Contact the server, if it receives a 502 Gateway Unavailable Error
         then log an error and return an empty list.
         This method does not have a retry-wait loop because that is taken
         care of by the main poll interval.
