@@ -134,10 +134,6 @@ class ExecutableTask(object):
         if isinstance(self.mem_free, int):
             self.mem_free = f'{self.mem_free}G'
 
-        print("initialized executable task")
-        print(f'mem_free is {self.mem_free}')
-        print(f'type of mem_free is {type(self.mem_free)}')
-
         # Names of jobs can't start with a numeric.
         if name is None:
             self.name = "task_{}".format(self.hash)
