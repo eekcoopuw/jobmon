@@ -1,14 +1,20 @@
+
+from functools import partial
 import pytest
 from time import sleep
 
 from jobmon.client.swarm.executors import sge_utils
 
+def do_nothing():
+    return
 
-def timeout_and_skip(step_size, max_time, max_qw, partial_test_function):
+def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
+                     partial_test_function=partial(
+        do_nothing)):
     """
     Utility function to wrap a test in a timeout loop. If it exceeds timeouts
-    check if there were qwait states. If so, skip the test because it probably
-    timed out due to cluster load.
+    then check if there were qwait states. If so, skip the test because it
+    probably timed out due to cluster load.
 
     Args:
         step_size: number of seconds to wait between subsequent checks

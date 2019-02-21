@@ -10,7 +10,6 @@ import logging
 import re
 from datetime import datetime
 from time import sleep
-from sqlalchemy.exc import IntegrityError
 from cluster_utils.ephemerdb import create_ephemerdb
 
 logger = logging.getLogger(__name__)
@@ -263,7 +262,8 @@ def job_list_manager_sub(dag_id):
 def job_list_manager_sge(real_dag_id, tmpdir_factory):
     """This creates a job_list_manager that uses the SGEExecutor, does
     start the JobInstanceFactory and JobReconciler threads, and does not
-    interrupt on error
+    interrupt on error. It has short reconciliation intervals so that the
+    tests run faster than in production.
     """
     from jobmon.client.swarm.executors.sge import SGEExecutor
     from jobmon.client.swarm.job_management.job_list_manager import \
@@ -275,6 +275,8 @@ def job_list_manager_sge(real_dag_id, tmpdir_factory):
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
                            project='proj_jenkins')
     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
+                         reconciliation_interval=10,
+                         job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm
     jlm.disconnect()

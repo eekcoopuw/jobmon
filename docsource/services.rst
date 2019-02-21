@@ -121,6 +121,12 @@ The runserver.py script will also ask for two slack channels.
 There is a bug - you have to re-enter the default slack channel names, surrounded by single quotes.
 The script will run ``docker-compose up build``
 
+Notice that the most priviliged database passwords are randomly generated in runserver.py
+They are then set as enviornment variables in the docker service container. To
+see them, connect to the docker container like this:
+``docker exec -it jobmon071_jqs_1 bash``
+and do a print env, look for: ``JOBMON_PASS_SERVICE_USER``
+
 
 Version Control
 ***************

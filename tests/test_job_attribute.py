@@ -1,5 +1,6 @@
 import pytest
 
+from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.models.attributes.constants import job_attribute
@@ -95,7 +96,7 @@ def test_usage_job_attribute_error(job_list_manager_sge):
 
 def test_attributes_retrievable(job_list_manager_sge):
     # add attributes to workflow and jobs
-    task = BashTask(command="sleep 1", num_cores=1)
+    task = BashTask(command=sge.true_path("tests/shellfiles/sleep.sh"), num_cores=1)
     task.add_job_attribute(job_attribute.NUM_DRAWS, "10")
 
     wf = Workflow('test_attributes')

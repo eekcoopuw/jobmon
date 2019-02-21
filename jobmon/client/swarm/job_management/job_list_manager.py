@@ -20,7 +20,8 @@ class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
                  reconciliation_interval=10,
-                 job_instantiation_interval=10, interrupt_on_error=True,
+                 job_instantiation_interval=10,
+                 interrupt_on_error=True,
                  max_ignored_502=100,
                  requester=shared_requester):
         """Manages all the list of jobs that are running, done or errored
@@ -116,7 +117,8 @@ class JobListManager(object):
                 app_route='/dag/{}/job'.format(self.dag_id),
                 message={},
                 request_type='get')
-        logger.debug("rc is {} and response is {}".format(rc, response))
+        logger.debug("JLM::get_job_statuses(): rc is {} and response is {}".
+                     format(rc, response))
         utcnow = response['time']
         self.last_sync = utcnow
 
@@ -170,7 +172,6 @@ class JobListManager(object):
 
     def _sync(self):
         """Get all jobs from the database and parse the done and errored"""
-
         jobs = self.get_job_statuses()
         self.parse_done_and_errors(jobs)
 

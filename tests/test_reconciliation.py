@@ -1,5 +1,4 @@
 import pytest
-import sys
 from time import sleep
 import logging
 
@@ -30,7 +29,7 @@ def job_list_manager_dummy(real_dag_id):
 
 
 @pytest.fixture(scope='function')
-def job_list_manager_sge(real_dag_id):
+def job_list_manager_reconciliation(real_dag_id):
     executor = SGEExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
                          start_daemons=True, reconciliation_interval=2,
@@ -53,7 +52,7 @@ def test_reconciler_dummy(job_list_manager_dummy):
     job_list_manager_dummy.all_error = set()
 
     # Queue a job
-    task = Task(command="ls", name="dummyfbb")
+    task = Task(command="ls", numcores="1", name="dummyfbb")
     job = job_list_manager_dummy.bind_task(task)
     job_list_manager_dummy.queue_job(job)
     job_list_manager_dummy.job_instance_factory.instantiate_queued_jobs()
@@ -84,25 +83,25 @@ def reconciler_dummy_check(job_list_manager_dummy, job_id):
         return False
 
 
-def test_reconciler_sge(job_list_manager_sge):
+def test_reconciler_sge(job_list_manager_reconciliation):
     # Flush the error queue to avoid false positives from other tests
-    job_list_manager_sge.all_error = set()
+    job_list_manager_reconciliation.all_error = set()
 
     # Queue a job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
                 name="sleepyjob_pass")
-    job = job_list_manager_sge.bind_task(task)
-    job_list_manager_sge.queue_job(job)
+    job = job_list_manager_reconciliation.bind_task(task)
+    job_list_manager_reconciliation.queue_job(job)
 
     # Give the job_state_manager some time to process the error message
     # This test job just sleeps for 30s, so it should not be missing
     # DO NOT put in a while-True loop
     sleep(10)
-    jir = job_list_manager_sge.job_inst_reconciler
+    jir = job_list_manager_reconciliation.job_inst_reconciler
     jir.reconcile()
 
-    job_list_manager_sge._sync()
-    assert len(job_list_manager_sge.all_error) == 0
+    job_list_manager_reconciliation._sync()
+    assert len(job_list_manager_reconciliation.all_error) == 0
 
     # Artificially advance job to DONE so it doesn't impact downstream tests
     for job_instance in jir._get_presumed_submitted_or_running():
@@ -126,16 +125,16 @@ def test_reconciler_sge(job_list_manager_sge):
             request_type='post')
 
 
-def test_reconciler_sge_timeout(job_list_manager_sge):
+def test_reconciler_sge_timeout(job_list_manager_reconciliation):
     # Flush the error queue to avoid false positives from other tests
-    job_list_manager_sge.all_error = set()
+    job_list_manager_reconciliation.all_error = set()
 
     # Queue a test job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
                 name="sleepyjob_fail", max_attempts=3, max_runtime_seconds=3,
                 slots=1)
-    job = job_list_manager_sge.bind_task(task)
-    job_list_manager_sge.queue_job(job)
+    job = job_list_manager_reconciliation.bind_task(task)
+    job_list_manager_reconciliation.queue_job(job)
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job.
@@ -144,16 +143,16 @@ def test_reconciler_sge_timeout(job_list_manager_sge):
     # 60
     timeout_and_skip(20, 100, 1, partial(
         reconciler_sge_timeout_check,
-        job_list_manager_sge=job_list_manager_sge,
-        dag_id=job_list_manager_sge.dag_id,
+        job_list_manager_reconciliation=job_list_manager_reconciliation,
+        dag_id=job_list_manager_reconciliation.dag_id,
         job_id=job.job_id))
 
 
-def reconciler_sge_timeout_check(job_list_manager_sge, dag_id,
+def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
                                  job_id):
-    job_list_manager_sge._sync()
-    if len(job_list_manager_sge.all_error) == 1:
-        assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
+    job_list_manager_reconciliation._sync()
+    if len(job_list_manager_reconciliation.all_error) == 1:
+        assert job_id in [j.job_id for j in job_list_manager_reconciliation.all_error]
 
         # The job should have been tried 3 times...
         _, response = req.send_request(
@@ -168,9 +167,9 @@ def reconciler_sge_timeout_check(job_list_manager_sge, dag_id,
         return False
 
 
-def test_ignore_qw_in_timeouts(job_list_manager_sge):
+def test_ignore_qw_in_timeouts(job_list_manager_reconciliation):
     # Flush the error queue to avoid false positives from other tests
-    job_list_manager_sge.all_error = set()
+    job_list_manager_reconciliation.all_error = set()
 
     # Qsub a long running job -> queue another job that waits on it,
     # to simulate a hqw -> set the timeout for that hqw job to something
@@ -179,8 +178,8 @@ def test_ignore_qw_in_timeouts(job_list_manager_sge):
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
                 name="sleepyjob", max_attempts=3, max_runtime_seconds=3,
                 slots=1)
-    job = job_list_manager_sge.bind_task(task)
-    job_list_manager_sge.queue_job(job)
+    job = job_list_manager_reconciliation.bind_task(task)
+    job_list_manager_reconciliation.queue_job(job)
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job
@@ -189,15 +188,15 @@ def test_ignore_qw_in_timeouts(job_list_manager_sge):
 
     timeout_and_skip(10, 90, 1, partial(
         ignore_qw_in_timeouts_check,
-        job_list_manager_sge=job_list_manager_sge,
-        dag_id=job_list_manager_sge.dag_id,
+        job_list_manager_reconciliation=job_list_manager_reconciliation,
+        dag_id=job_list_manager_reconciliation.dag_id,
         job_id=job.job_id))
 
 
-def ignore_qw_in_timeouts_check(job_list_manager_sge, dag_id, job_id):
-    job_list_manager_sge._sync()
-    if len(job_list_manager_sge.all_error) == 1:
-        assert job_id in [j.job_id for j in job_list_manager_sge.all_error]
+def ignore_qw_in_timeouts_check(job_list_manager_reconciliation, dag_id, job_id):
+    job_list_manager_reconciliation._sync()
+    if len(job_list_manager_reconciliation.all_error) == 1:
+        assert job_id in [j.job_id for j in job_list_manager_reconciliation.all_error]
 
         # The job should have been tried 3 times...
         _, response = req.send_request(

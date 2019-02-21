@@ -29,7 +29,10 @@ def job_list_manager(real_dag_id):
 
 @pytest.fixture(scope='function')
 def job_list_manager_d(real_dag_id):
+    """Quick job_instantiation_interval for quick tests"""
     jlm = JobListManager(real_dag_id, start_daemons=True,
+                         reconciliation_interval=10,
+                         job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
@@ -38,10 +41,13 @@ def job_list_manager_d(real_dag_id):
 @pytest.fixture(scope='function')
 def job_list_manager_sge_no_daemons(real_dag_id):
     """This fixture starts a JobListManager using the SGEExecutor, but without
-    running JobInstanceFactory or JobReconciler in daemonized threads
+    running JobInstanceFactory or JobReconciler in daemonized threads.
+    Quick job_instantiation_interval for quick tests.
     """
     executor = SGEExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
+                         reconciliation_interval=10,
+                         job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
@@ -52,12 +58,16 @@ def test_sync(job_list_manager_sge_no_daemons):
     now = job_list_manager_sge.last_sync
     assert now is not None
 
-    job = job_list_manager_sge.bind_task(Task(command='fizzbuzz',  name='bar',
+    # This job will intentionally fail
+    job = job_list_manager_sge.bind_task(Task(command='fizzbuzz', name='bar',
+                                              mem_free='1G',
                                               num_cores=1))
 
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
-    sleep(35)
+    # 35 is three times the job reconciliation interval (10 seconds) plus
+    # some slop
+    sleep(60)
 
     # with a new job failed, make sure that the sync has been updated and the
     # call with the sync filter actually returns jobs
