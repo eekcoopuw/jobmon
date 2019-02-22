@@ -22,6 +22,7 @@ class JobInstance(DB.Model):
                    nodename=dct['nodename'],
                    process_group_id=dct['process_group_id'],
                    job_id=dct['job_id'],
+                   dag_id=dct['dag_id'],
                    status=dct['status'],
                    status_date=datetime.strptime(dct['status_date'],
                                                  "%Y-%m-%dT%H:%M:%S"))
@@ -33,6 +34,7 @@ class JobInstance(DB.Model):
             'workflow_run_id': self.workflow_run_id,
             'executor_id': self.executor_id,
             'job_id': self.job_id,
+            'dag_id': self.dag_id,
             'status': self.status,
             'nodename': self.nodename,
             'process_group_id': self.process_group_id,
@@ -49,6 +51,12 @@ class JobInstance(DB.Model):
         DB.ForeignKey('job.job_id'),
         nullable=False)
     job = DB.relationship("Job", back_populates="job_instances")
+    dag_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('task_dag.dag_id'),
+        index=True,
+        nullable=False)
+    dag = DB.relationship("TaskDagMeta")
     usage_str = DB.Column(DB.String(250))
     nodename = DB.Column(DB.String(50))
     process_group_id = DB.Column(DB.Integer)

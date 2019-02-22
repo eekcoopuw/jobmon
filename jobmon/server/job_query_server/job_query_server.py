@@ -174,25 +174,24 @@ def get_job_instances_by_filter(dag_id):
         return jobs whose runtime is above max_runtime_seconds
     """
     if request.args.get('runtime', None) is not None:
-        instances = DB.session.query(JobInstance).\
+
+        instances = DB.session.query(JobInstance). \
+            filter_by(dag_id=dag_id).\
             filter(
                 JobInstance.status.in_(request.args.getlist('status'))).\
             join(Job).\
             options(contains_eager(JobInstance.job)).\
-            filter(Job.dag_id == dag_id,
-                   Job.max_runtime_seconds != None).all()  # noqa: E711
+            filter(Job.max_runtime_seconds != None).all()  # noqa: E711
         DB.session.commit()
         now = datetime.utcnow()
         instances = [r.to_wire() for r in instances
                      if ((now - r.status_date).seconds >
                          r.job.max_runtime_seconds)]
     else:
-        instances = DB.session.query(JobInstance).\
+        instances = DB.session.query(JobInstance). \
+            filter_by(dag_id=dag_id).\
             filter(
-                JobInstance.status.in_(request.args.getlist('status'))).\
-            join(Job).\
-            options(contains_eager(JobInstance.job)).\
-            filter_by(dag_id=dag_id).all()
+                JobInstance.status.in_(request.args.getlist('status'))).all()
         DB.session.commit()
         instances = [i.to_wire() for i in instances]
     resp = jsonify(ji_dcts=instances)
