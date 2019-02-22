@@ -64,21 +64,14 @@ def confirm_ssh_safe():
         UnsafeSSHDirectory
     """
 
-    # check that the user home directory is "755" or less
-    errors = ""
-    perms = get_permissions("~")
-    if not (int(perms[0]) == 7 and int(perms[1]) <= 5 and int(perms[2]) <= 5):
-        msg = (
-            "Home directory permissions must be 755 or less - found {}. "
-        ).format(perms)
-        errors += msg
-
     # verify that ssh keys have the right permissions
     _ssh_safety_lookup = {
+        "~": "755",
         "~/.ssh": "700",
         "~/.ssh/id_rsa.pub": "644",
         "~/.ssh/id_rsa": "600",
     }
+    errors = ""
     for directory in _ssh_safety_lookup.keys():
         try:
             check_permissions(directory, _ssh_safety_lookup[directory])
