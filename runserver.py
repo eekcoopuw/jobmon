@@ -13,10 +13,10 @@ from datetime import datetime
 INTERNAL_DB_HOST = "db"
 INTERNAL_DB_PORT = 3306
 EXTERNAL_DB_HOST = "jobmon-p01.ihme.washington.edu"
-EXTERNAL_DB_PORT = 3810
+EXTERNAL_DB_PORT = 3830
 
 EXTERNAL_SERVICE_HOST = "jobmon-p01.ihme.washington.edu"
-EXTERNAL_SERVICE_PORT = 8356
+EXTERNAL_SERVICE_PORT = 8456
 
 DEFAULT_WF_SLACK_CHANNEL = 'jobmon-alerts'
 DEFAULT_NODE_SLACK_CHANNEL = 'suspicious_nodes'
