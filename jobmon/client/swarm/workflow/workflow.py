@@ -59,7 +59,7 @@ class Workflow(object):
                  reset_running_jobs=True, working_dir=None,
                  executor_class='SGEExecutor', fail_fast=False,
                  interrupt_on_error=False, requester=shared_requester,
-                 seconds_until_timeout=36000, max_ignored_502=100):
+                 seconds_until_timeout=36000):
         """
         Args:
             workflow_args (str): unique identifier of a workflow
@@ -77,10 +77,8 @@ class Workflow(object):
             interrupt_on_error (bool): whether or not the JIF/JIR daemons
                 should interrupt on errors
             seconds_until_timeout (int): amount of time (in seconds) to wait
-                until the whole workflow times out.
-                Submitted jobs will continue
-            max_ignored_502 (int) : Total number of HTTP 502 errors that
-                will be ignored before this dag fails
+                until the whole workflow times out. Submitted jobs will
+                continue
 
         """
         self.wf_dao = None
@@ -111,8 +109,7 @@ class Workflow(object):
             executor=self.executor,
             interrupt_on_error=interrupt_on_error,
             fail_fast=fail_fast,
-            seconds_until_timeout=seconds_until_timeout,
-            max_ignored_502=max_ignored_502
+            seconds_until_timeout=seconds_until_timeout
         )
 
         if workflow_args:

@@ -23,10 +23,9 @@ class TaskDag(object):
     """A DAG of ExecutableTasks."""
 
     def __init__(self, name="", interrupt_on_error=True, executor=None,
-                 fail_fast=False, reconciliation_interval=10,
-                 job_instantiation_interval=10,
-                 seconds_until_timeout=36000,
-                 max_ignored_502=100):
+                 fail_fast=False, reconciliation_interval=3,
+                 job_instantiation_interval=3,
+                 seconds_until_timeout=36000):
 
         self.dag_id = None
         self.job_list_manager = None
@@ -51,7 +50,6 @@ class TaskDag(object):
         self.reconciliation_interval = reconciliation_interval
         self.job_instantiation_interval = job_instantiation_interval
         self.seconds_until_timeout = seconds_until_timeout
-        self.max_ignored_502 = max_ignored_502
 
     def _set_fail_after_n_executions(self, n):
         """
@@ -87,8 +85,7 @@ class TaskDag(object):
                 dag_id, executor=self.executor, start_daemons=True,
                 interrupt_on_error=self.interrupt_on_error,
                 reconciliation_interval=self.reconciliation_interval,
-                job_instantiation_interval=self.job_instantiation_interval,
-                max_ignored_502=self.max_ignored_502)
+                job_instantiation_interval=self.job_instantiation_interval)
 
             # Bind all the tasks to the job_list_manager... This has to be done
             # before the reset happens. TODO: Investigate the sequencing,
@@ -114,8 +111,7 @@ class TaskDag(object):
                                             user=getpass.getuser())
             self.job_list_manager = JobListManager(
                 self.meta.dag_id, executor=self.executor, start_daemons=True,
-                interrupt_on_error=self.interrupt_on_error,
-                max_ignored_502=self.max_ignored_502)
+                interrupt_on_error=self.interrupt_on_error)
             self.dag_id = self.meta.dag_id
 
             # Bind all the tasks to the job_list_manager

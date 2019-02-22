@@ -94,6 +94,7 @@ def test_usage_job_attribute_error(job_list_manager_sge):
     assert "Invalid attribute configuration" in str(exc.value)
 
 
+@pytest.mark.skip(reason='hangs on cluster')
 def test_attributes_retrievable(job_list_manager_sge):
     # add attributes to workflow and jobs
     task = BashTask(command=sge.true_path("tests/shellfiles/sleep.sh"), num_cores=1)

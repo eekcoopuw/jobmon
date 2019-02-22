@@ -16,8 +16,7 @@ logger = logging.getLogger(__name__)
 class JobInstanceFactory(object):
 
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
-                 stop_event=None, requester=shared_requester,
-                 max_ignored_502=100):
+                 stop_event=None, requester=shared_requester):
         """The JobInstanceFactory is in charge of queueing jobs and creating
         job_instances, in order to get the jobs from merely Task objects to
         running code.
@@ -29,14 +28,10 @@ class JobInstanceFactory(object):
             interrupt_on_error (bool, default True): whether or not to
             interrupt the thread if there's an error
             stop_event (obj, default None): Object of type threading.Event
-            max_ignored_502 : the maximum number of HTTP 502 errors that can
-            be ignored before it raises an error
         """
         self.dag_id = dag_id
         self.requester = requester
         self.interrupt_on_error = interrupt_on_error
-        self.number_ignored_502 = 0
-        self.max_ignored_502 = max_ignored_502
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they
@@ -133,33 +128,12 @@ class JobInstanceFactory(object):
         return job_instance, executor_id
 
     def _get_jobs_queued_for_instantiation(self):
-        """
-        Contact the server, if it receives a 502 Gateway Unavailable Error
-        then log an error and return an empty list.
-        This method does not have a retry-wait loop because that is taken
-        care of by the main poll interval.
-        If the total number of such errors ignored exceeds the max_ignored_502
-        then it raises an error
-        :return:
-        """
-        jobs = []
         try:
             rc, response = self.requester.send_request(
                 app_route='/dag/{}/job'.format(self.dag_id),
                 message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
                 request_type='get')
-            if rc == 502:
-                # Oops, HTTP returns 502 Gateway Unavailable,
-                # which means it is overloaded
-                self.number_ignored_502 += 1
-                logger.error(f"JIF:_get_jobs_queued_for_instantiation " \
-                               "received a 502 error, total such errors" \
-                               "{self.number_ignored_502}")
-                if self.number_ignored_502 > self.max_ignored_502:
-                    raise(f"JIF: Too many ({self.number_ignored_502}) errors "
-                          f"ignored, giving up")
-            else:
-                jobs = [Job.from_wire(j) for j in response['job_dcts']]
+            jobs = [Job.from_wire(j) for j in response['job_dcts']]
 
         except TypeError:
             # Ignore, it indicates that there are no jobs queued

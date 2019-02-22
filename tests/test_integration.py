@@ -1,7 +1,9 @@
 import pytest
 import sys
 from time import sleep
+from unittest import mock
 
+from tenacity import stop_after_attempt
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
@@ -169,3 +171,42 @@ def test_sge_valid_command(job_list_manager_sge_no_daemons):
     assert (job_list_manager_sge.bound_tasks[job.job_id].status ==
             JobStatus.INSTANTIATED)
     print("finishing test_sge_valid_command")
+
+
+def test_server_502(job_list_manager):
+    '''
+    GBDSCI-1553
+
+    We should be able to automatically retry if server returns 5XX
+    status code. If we exceed retry budget, we should raise informative error
+    '''
+    err_response = (
+        502,
+        b'<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body '
+        b'bgcolor="white">\r\n<center><h1>502 Bad Gateway</h1></center>\r\n'
+        b'<hr><center>nginx/1.13.12</center>\r\n</body>\r\n</html>\r\n'
+    )
+    good_response = (
+        200,
+        {'job_dcts': [], 'time': '2019-02-21 17:40:07'}
+    )
+
+    job = job_list_manager.bind_task(Task(command='ls', name='baz',
+                                          num_cores=1))
+    job_list_manager.queue_job(job)
+    job_list_manager.job_instance_factory.instantiate_queued_jobs()
+
+    # mock requester.get_content to return 2 502s then 200
+    with mock.patch('jobmon.client.requester.get_content') as m:
+        m.side_effect = [err_response]*2 + [good_response] + [err_response]*2
+
+        job_list_manager.get_job_statuses()  # fails at first
+
+        # should have retried twice + one success
+        retrier = job_list_manager.requester.send_request.retry
+        assert retrier.statistics['attempt_number'] == 3
+
+        # if we end up stopping we should get an error
+        with pytest.raises(RuntimeError, match='Status code was 502'):
+            retrier.stop = stop_after_attempt(1)
+            job_list_manager.get_job_statuses()
