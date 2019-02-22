@@ -27,6 +27,8 @@ class SGEExecutor(Executor):
 
         super().__init__(*args, **kwargs)
 
+        sge_utils.confirm_ssh_safe()
+
     def _execute_sge(self, job, job_instance_id):
         try:
             qsub_cmd = self.build_wrapped_command(job, job_instance_id,

@@ -56,3 +56,7 @@ class NoDatabase(Exception):
 
 class SGENotAvailable(Exception):
     pass
+
+
+class UnsafeSSHDirectory(Exception):
+    pass
