@@ -7,9 +7,11 @@ class ReturnCodes(object):
     Please add more as the need arises."""
     OK = 0
     INVALID_RESPONSE_FORMAT = 1
-    INVALID_ACTION = 2
-    GENERIC_ERROR = 3
-    NO_RESULTS = 4
+    INVALID_REQUEST_FORMAT = 2
+    INVALID_ACTION = 3
+    GENERIC_ERROR = 4
+    NO_RESULTS = 5
+    UNKNOWN_EXIT_STATE = 99
 
 
 class ServerRunning(Exception):
@@ -28,27 +30,29 @@ class CentralJobMonitorNotAlive(Exception):
     pass
 
 
-class NoResponseRecieved(Exception):
+class NoResponseReceived(Exception):
     pass
 
 
-def log_exceptions(job):
-    def wrapper(func):
-        def catch_and_send(*args, **kwargs):
-            try:
-                func(*args, **kwargs)
-            except Exception as e:
-                job.log_error(str(e))
-                raise
-        return catch_and_send
-    return wrapper
+class NoSocket(Exception):
+    pass
 
 
-class ZmqHandler(Handler):
+class InvalidRequest(Exception):
+    pass
 
-    def __init__(self, job):
-        super().__init__()
-        self.job = job
 
-    def emit(self, record):
-        self.job.log_error(record.message)
+class InvalidResponse(Exception):
+    pass
+
+
+class InvalidAction(Exception):
+    pass
+
+
+class NoDatabase(Exception):
+    pass
+
+
+class SGENotAvailable(Exception):
+    pass

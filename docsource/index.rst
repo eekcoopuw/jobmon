@@ -3,24 +3,37 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-The Job Monitor (jobmon)
-=========================================================
+Jobmon
+######
+
+The jobmon package intends to provide simple, central monitoring of statuses
+and errors encountered by distributed tasks. It seeks to easily drop-in
+to existing code bases without significant refactoring.
+
+In addition to simple monitoring, it provides utilities for managing a graph of
+interrelated jobs. It can manage the sequencing of job execution based on the
+interdependencies you declare and can retry jobs that might fail due to random
+cluster instability.
 
 
-
-Contents:
+Table of Contents
+*****************
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 4
 
-          Home <index>
-          overview
-          Module reference <modules>
-
+    quickstart
+    advanced_dependencies
+    dag_visualization
+    services
+    azure
+    glossary
+    design_notes
+    API Reference <modules>
 
 
 Indices and tables
-==================
+******************
 
 * :ref:`genindex`
 * :ref:`modindex`
