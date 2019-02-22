@@ -159,7 +159,7 @@ def get_flask_content(response):
         content = response.data
     else:
         content = response.content
-    return content
+    return response.status_code, content
 
 
 @pytest.fixture(scope='function')

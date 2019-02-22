@@ -52,7 +52,7 @@ def test_reconciler_dummy(job_list_manager_dummy):
     job_list_manager_dummy.all_error = set()
 
     # Queue a job
-    task = Task(command="ls", numcores="1", name="dummyfbb")
+    task = Task(command="ls", num_cores="1", name="dummyfbb")
     job = job_list_manager_dummy.bind_task(task)
     job_list_manager_dummy.queue_job(job)
     job_list_manager_dummy.job_instance_factory.instantiate_queued_jobs()
