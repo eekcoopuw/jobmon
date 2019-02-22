@@ -70,8 +70,8 @@ class Executor(object):
         """
         jobmon_command = client_config.jobmon_command
         if not jobmon_command:
-            jobmon_command = subprocess.check_output(
-                ["which", "jobmon_command"])
+            jobmon_command = os.path.realpath(
+                subprocess.check_output(["which", "jobmon_command"]))
         jobmon_command = jobmon_command.strip().decode("utf-8")
         wrapped_cmd = [
             jobmon_command,

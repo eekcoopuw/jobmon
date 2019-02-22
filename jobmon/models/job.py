@@ -67,7 +67,8 @@ class Job(DB.Model):
         DB.ForeignKey('job_status.id'),
         nullable=False)
     submitted_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
+    status_date = DB.Column(DB.DateTime, default=datetime.utcnow,
+                            index=True)
 
     last_nodename = None
     last_process_group_id = None
