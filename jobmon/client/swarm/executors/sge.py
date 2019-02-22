@@ -104,6 +104,7 @@ class SGEExecutor(Executor):
                                 num_cores=job.num_cores, queue=job.queue,
                                 max_runtime_seconds=job.max_runtime_seconds,
                                 j_resource=job.j_resource)
+
         # if the job is configured for the fair cluster, but is being run on
         # dev/prod we need to make sure it formats its qsub to work on dev/prod
         dev_or_prod = False
