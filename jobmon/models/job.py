@@ -14,6 +14,8 @@ class Job(DB.Model):
     """The table in the database that holds all info on Jobs"""
 
     __tablename__ = 'job'
+    __table_args__ = (
+        DB.Index("ix_dag_id_status_date", "dag_id", "status_date"),)
 
     @classmethod
     def from_wire(cls, dct):
