@@ -271,7 +271,7 @@ def add_update_workflow_run():
 
 @jsm.route('/job_instance/<job_instance_id>/log_done', methods=['POST'])
 def log_done(job_instance_id):
-    """Log a job_istnace as done
+    """Log a job_instance as done
     Args:
 
         job_instance_id: id of the job_instance to log done
@@ -298,16 +298,21 @@ def log_error(job_instance_id):
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
-    msg = _update_job_instance_state(
-        ji, JobInstanceStatus.ERROR)
-    DB.session.commit()
-    error = JobInstanceErrorLog(
-        job_instance_id=job_instance_id,
-        description=data['error_message'])
-    DB.session.add(error)
-    DB.session.commit()
-    resp = jsonify(message=msg)
-    resp.status_code = StatusCodes.OK
+    try:
+        msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
+        DB.session.commit()
+        error = JobInstanceErrorLog(
+            job_instance_id=job_instance_id,
+            description=data['error_message'])
+        DB.session.add(error)
+        DB.session.commit()
+        resp = jsonify(message=msg)
+        resp.status_code = StatusCodes.OK
+    except InvalidStateTransition:
+        log_msg = f"JSM::log_error(), reason={msg}"
+        warnings.warn(log_msg)
+        logger.debug(log_msg)
+        raise
     return resp
 
 
