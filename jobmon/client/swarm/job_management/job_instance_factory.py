@@ -19,7 +19,7 @@ class JobInstanceFactory(object):
                  stop_event=None, requester=shared_requester):
         """The JobInstanceFactory is in charge of queueing jobs and creating
         job_instances, in order to get the jobs from merely Task objects to
-        runnign code.
+        running code.
 
         Args:
             dag_id (int): the id for the dag to run
@@ -48,7 +48,7 @@ class JobInstanceFactory(object):
         else:
             self._stop_event = stop_event
 
-    def instantiate_queued_jobs_periodically(self, poll_interval=1):
+    def instantiate_queued_jobs_periodically(self, poll_interval=3):
         """Running in a thread, this function allows the JobInstanceFactory to
         periodically get all jobs that are ready and queue them for
         instantiation
@@ -134,9 +134,11 @@ class JobInstanceFactory(object):
                 message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
                 request_type='get')
             jobs = [Job.from_wire(j) for j in response['job_dcts']]
+
         except TypeError:
-            # Ignore if there are no jobs queued
+            # Ignore, it indicates that there are no jobs queued
             jobs = []
+
         return jobs
 
     def _register_job_instance(self, job, executor_type):

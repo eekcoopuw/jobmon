@@ -50,6 +50,7 @@ install_requires = [
     'requests',
     'paramiko',
     'graphviz',
+    'tenacity'
 ]
 if sys.version_info < (3, 0):
     install_requires.append('subprocess32')
