@@ -280,7 +280,7 @@ def add_update_workflow_run():
 
 @jsm.route('/job_instance/<job_instance_id>/log_done', methods=['POST'])
 def log_done(job_instance_id):
-    """Log a job_istnace as done
+    """Log a job_instance as done
     Args:
 
         job_instance_id: id of the job_instance to log done
@@ -307,16 +307,21 @@ def log_error(job_instance_id):
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
-    msg = _update_job_instance_state(
-        ji, JobInstanceStatus.ERROR)
-    DB.session.commit()
-    error = JobInstanceErrorLog(
-        job_instance_id=job_instance_id,
-        description=data['error_message'])
-    DB.session.add(error)
-    DB.session.commit()
-    resp = jsonify(message=msg)
-    resp.status_code = StatusCodes.OK
+    try:
+        msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
+        DB.session.commit()
+        error = JobInstanceErrorLog(
+            job_instance_id=job_instance_id,
+            description=data['error_message'])
+        DB.session.add(error)
+        DB.session.commit()
+        resp = jsonify(message=msg)
+        resp.status_code = StatusCodes.OK
+    except InvalidStateTransition:
+        log_msg = f"JSM::log_error(), reason={msg}"
+        warnings.warn(log_msg)
+        logger.debug(log_msg)
+        raise
     return resp
 
 
@@ -387,9 +392,9 @@ def log_nodename(job_instance_id):
     data = request.get_json()
     logger.debug("Log USAGE for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
-    msg = _update_job_instance(ji, nodename=data['nodename'])
+    _update_job_instance(ji, nodename=data['nodename'])
     DB.session.commit()
-    resp = jsonify(message=msg)
+    resp = jsonify(message='')
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -433,7 +438,7 @@ def log_usage(job_instance_id):
                                io=data.get('io', None))
     for k in keys_to_attrs:
         logger.debug(
-            'The value of {kval} being set in the attribute table  is {k}'.
+            'The value of {kval} being set in the attribute table is {k}'.
             format(kval=keys_to_attrs[k], k=k))
         if k is not None:
             ja = (JobAttribute(
@@ -577,7 +582,7 @@ def _update_job_instance_state(job_instance, status_id):
 
     # TODO: Investigate moving this publish logic into some SQLAlchemy-
     # event driven framework. Given the amount of code copying here, to
-    # ensure consistenty with committed transactions it doesn't feel like
+    # ensure consistency with committed transactions it doesn't feel like
     # the JobStateManager should be the responsible party on this one.
     #
     # ... see tests/tests_job_state_manager.py for Event example
@@ -613,7 +618,7 @@ def add_workflow_attribute():
     """Set attributes on a workflow
 
     Args:
-        workflow_id (int): id of the workflow on which to set attributres
+        workflow_id (int): id of the workflow on which to set attributes
         attribute_type (obj): object of type WorkflowAttribute
         value (str): value of the WorkflowAttribute to add
     """
@@ -634,8 +639,8 @@ def add_workflow_run_attribute():
     """Set attributes on a workflow_run
 
     Args:
-        workflow_run)_id (int): id of the workflow_run on which to set
-        attributres
+        workflow_run_id (int): id of the workflow_run on which to set
+        attributes
         attribute_type (obj): object of type WorkflowRunAttribute
         value (str): value of the WorkflowRunAttribute to add
     """
@@ -656,7 +661,7 @@ def add_job_attribute():
     """Set attributes on a job
 
     Args:
-        job_id (int): id of the job on which to set attributres
+        job_id (int): id of the job on which to set attributes
         attribute_type (obj): object of type JobAttribute
         value (str): value of the JobAttribute to add
     """

@@ -78,7 +78,7 @@ class CLI(object):
         """Start monitoring for lost workflow runs"""
         if self.config.slack_token:
             wf_notifier = SlackNotifier(
-                self.cconfig.slack_token,
+                self.config.slack_token,
                 self.config.default_wf_slack_channel)
             wf_sink = wf_notifier.send
             node_notifier = SlackNotifier(
