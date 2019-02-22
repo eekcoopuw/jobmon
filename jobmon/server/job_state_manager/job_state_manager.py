@@ -151,6 +151,13 @@ def _get_workflow_run_id(job_id):
     return wf_run_id
 
 
+def _get_dag_id(job_id):
+    """Return the workflow_run_id by job_id"""
+    job = DB.session.query(Job).filter_by(job_id=job_id).first()
+    DB.session.commit()
+    return job.dag_id
+
+
 @jsm.route('/job_instance', methods=['POST'])
 def add_job_instance():
     """Add a job_instance to the database
@@ -162,9 +169,11 @@ def add_job_instance():
     data = request.get_json()
     logger.debug("Add JI for job {}".format(data['job_id']))
     workflow_run_id = _get_workflow_run_id(data['job_id'])
+    dag_id = _get_dag_id(data['job_id'])
     job_instance = JobInstance(
         executor_type=data['executor_type'],
         job_id=data['job_id'],
+        dag_id=dag_id,
         workflow_run_id=workflow_run_id)
     DB.session.add(job_instance)
     DB.session.commit()
