@@ -54,6 +54,7 @@ class JobInstance(DB.Model):
     dag_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('task_dag.dag_id'),
+        index=True,
         nullable=False)
     dag = DB.relationship("TaskDagMeta")
     usage_str = DB.Column(DB.String(250))
