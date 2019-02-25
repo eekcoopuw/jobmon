@@ -1,8 +1,27 @@
 import logging
 import requests
+from tenacity import retry, wait_exponential, retry_if_result, stop_after_delay
 
 
 logger = logging.getLogger(__name__)
+
+
+def is_5XX(result):
+    '''
+    return True if get_content result has 5XX status '''
+    status = result[0]
+    is_bad = status > 499 and status < 600
+    return is_bad
+
+
+def raise_if_exceed_retry(retry_state):
+    '''
+    if we trigger retry error, raise informative RuntimeError
+    '''
+    status, content = retry_state.outcome.result()
+    raise RuntimeError(
+        'Exceeded HTTP request retry budget. '
+        f'Status code was {status} and content was {content}')
 
 
 class Requester(object):
@@ -18,8 +37,17 @@ class Requester(object):
         """set class defaults. attempt to connect with server."""
         self.url = connection_config.url
 
+    @retry(
+        wait=wait_exponential(max=10),
+        stop=stop_after_delay(120),
+        retry=retry_if_result(is_5XX),
+        retry_error_callback=raise_if_exceed_retry)
     def send_request(self, app_route, message, request_type, verbose=True):
-        """Send request to server.
+        """
+        Send request to server.
+
+        If we get a 5XX status code, we will retry for up to 2 minutes using
+        exponential backoff.
 
         Args:
             app_route (str): The specific end point with which you want to
@@ -48,6 +76,9 @@ class Requester(object):
 
         Returns:
             Server reply message
+
+        Raises:
+            RuntimeError if 500 errors occur for > 2 minutes
         """
         route = self.build_full_url(app_route)
         if request_type not in ['get', 'post', 'put']:
@@ -62,11 +93,11 @@ class Requester(object):
         else:
             r = requests.put(route, json=message,
                              headers={'Content-Type': 'application/json'})
-        content = get_content(r)
+        status_code, content = get_content(r)
         if content:
             if verbose is True:
                 logger.debug(content)
-        return r.status_code, content
+        return status_code, content
 
     def build_full_url(self, app_route):
         return self.url + app_route
@@ -78,7 +109,6 @@ def get_content(response):
             content = response.json()
         except TypeError:  # for test_client, response.json is a dict not fn
             content = response.json
-
     else:
         content = response.content
-    return content
+    return response.status_code, content

@@ -23,7 +23,9 @@ class TaskDag(object):
     """A DAG of ExecutableTasks."""
 
     def __init__(self, name="", interrupt_on_error=True, executor=None,
-                 fail_fast=False, seconds_until_timeout=36000):
+                 fail_fast=False, reconciliation_interval=3,
+                 job_instantiation_interval=3,
+                 seconds_until_timeout=36000):
 
         self.dag_id = None
         self.job_list_manager = None
@@ -45,6 +47,8 @@ class TaskDag(object):
 
         self.executor = executor
 
+        self.reconciliation_interval = reconciliation_interval
+        self.job_instantiation_interval = job_instantiation_interval
         self.seconds_until_timeout = seconds_until_timeout
 
     def _set_fail_after_n_executions(self, n):
@@ -71,11 +75,17 @@ class TaskDag(object):
         Args:
             dag_id (int): Defaults to None, in which case a new dag_id is
                 created
+            reset_running_jobs (bool) : Set this to true in the "cold resume"
+                use case, where the human operator knows that there are no
+                jobs running, in which case reset their statuses in the
+                database
         """
         if dag_id:
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
-                interrupt_on_error=self.interrupt_on_error)
+                interrupt_on_error=self.interrupt_on_error,
+                reconciliation_interval=self.reconciliation_interval,
+                job_instantiation_interval=self.job_instantiation_interval)
 
             # Bind all the tasks to the job_list_manager... This has to be done
             # before the reset happens. TODO: Investigate the sequencing,

@@ -1,5 +1,4 @@
 import pytest
-import os
 
 from jobmon.default_config import DEFAULT_SERVER_CONFIG as DSG
 from jobmon.server.config import ServerConfig

@@ -1,15 +1,14 @@
+from functools import partial
+
 import pytest
 
-from jobmon.client.swarm.executors.sge_resource import SGEResource
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.executors.sge import SGEExecutor
-from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
+from jobmon.client.swarm.executors.sge_resource import SGEResource
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.exceptions import InvalidResponse
-
 from tests.timeout_and_skip import timeout_and_skip
-
-from functools import partial
 
 
 @pytest.fixture
@@ -31,14 +30,12 @@ def valid_command_check(job_list_manager_sge):
 
 
 @pytest.mark.cluster
-# @pytest.mark.parametrize('j_resource', [True, False])
 @pytest.mark.parametrize('mem_free', ['6G', '6GB', '10MB', '10M'])
 @pytest.mark.parametrize('queue', ['all.q'])
 # add these queues once they have actually been created on the fair cluster:
 # 'long.q', 'profile.q','geospatial.q'])
 def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
                                      mem_free, queue):
-
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="sge_foobar", mem_free=mem_free, num_cores=1, queue=queue,
@@ -46,9 +43,10 @@ def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
 
     job_list_manager_sge.queue_job(job)
 
-    timeout_and_skip(10, 120, 1, partial(
-        valid_command_check,
-        job_list_manager_sge=job_list_manager_sge))
+    timeout_and_skip(step_size=10, max_time=120, max_qw=1,
+                     partial_test_function=partial(
+                         valid_command_check,
+                         job_list_manager_sge=job_list_manager_sge))
 
 
 @pytest.mark.cluster

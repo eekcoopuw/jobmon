@@ -67,8 +67,9 @@ def test_session_config(ephemera_conn_str):
 
 @pytest.fixture(autouse=True)
 def env_var(monkeypatch, test_session_config):
-    """These two env variables are what tell the configs that\
-    we're running tests, not production code
+    """These two env variables are what tell the configs that we're running
+    tests,
+    not production code
     """
     from jobmon.client import shared_requester
     from jobmon.client.connection_config import ConnectionConfig
@@ -191,7 +192,7 @@ def get_flask_content(response):
         content = response.data
     else:
         content = response.content
-    return content
+    return response.status_code, content
 
 
 @pytest.fixture(scope='function')
@@ -294,7 +295,8 @@ def job_list_manager_sub(dag_id):
 def job_list_manager_sge(real_dag_id, tmpdir_factory):
     """This creates a job_list_manager that uses the SGEExecutor, does
     start the JobInstanceFactory and JobReconciler threads, and does not
-    interrupt on error
+    interrupt on error. It has short reconciliation intervals so that the
+    tests run faster than in production.
     """
     from jobmon.client.swarm.executors.sge import SGEExecutor
     from jobmon.client.swarm.job_management.job_list_manager import \
@@ -306,6 +308,8 @@ def job_list_manager_sge(real_dag_id, tmpdir_factory):
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
                            project='proj_jenkins')
     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
+                         reconciliation_interval=10,
+                         job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
