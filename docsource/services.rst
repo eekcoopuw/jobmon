@@ -90,7 +90,7 @@ To deploy a centralized JobStateManager and JobQueryServer:
 
 1. Ssh into jobmon-p01.ihme.washington.edu using your svcscicompci ssh key::
 
-    ssh -i svcsci_id_rsa svcscicompci@jobmon-p01.ihme.washington.edu
+    ssh -i ~/.ssh/svcsci_id_rsa svcscicompci@jobmon-p01.ihme.washington.edu
 
 2. cd into ~/tmp
 3. Clone the jobmon repo into a new folder within ~/tmp, with a descriptive folder name like jobmon-<version>::

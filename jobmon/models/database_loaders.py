@@ -9,8 +9,14 @@ from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
 from jobmon.models.attributes.workflow_run_attribute_type import \
     WorkflowRunAttributeType
+from jobmon.models.job import Job
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
+from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.workflow import Workflow
+from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_status import WorkflowStatus
 
@@ -121,6 +127,28 @@ def load_attribute_types(db):
 
     # add all attribute types to db
     db.session.add_all(attribute_types)
+
+
+def clean_job_db(db):
+    """Deletes all rows from the mutable tables, does not delete the
+    immutable status and type tables. Useful when testing."""
+
+    # Be careful of the deletion order, must not violate foreign keys.
+    # So delete the "leaf" tables first.
+
+    db.session.query(JobInstanceErrorLog).delete()
+    db.session.query(JobInstance).delete()
+    db.session.query(JobAttribute).delete()
+    db.session.query(Job).delete()
+
+    db.session.query(WorkflowRunAttribute).delete()
+    db.session.query(WorkflowRun).delete()
+    db.session.query(WorkflowAttribute).delete()
+    db.session.query(Workflow).delete()
+    db.session.query(TaskDagMeta).delete()
+
+    db.session.commit()
+    return True
 
 
 def main(db):

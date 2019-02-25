@@ -1,7 +1,4 @@
 import pytest
-import sys
-import os
-import os.path as path
 
 from jobmon.client.swarm.executors.sge_resource import SGEResource
 from jobmon.client.swarm.executors import sge_utils as sge
