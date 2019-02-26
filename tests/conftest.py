@@ -135,7 +135,7 @@ def db_cfg(local_flask_app):
     yield {'app': app, 'DB': DB}
 
     with app.app_context():
-        database_loaders.clean_job_db(DB)
+        database_loaders.delete_job_db(DB)
 
 
 @pytest.fixture(scope='session')

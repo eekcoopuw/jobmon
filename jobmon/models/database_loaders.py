@@ -129,23 +129,32 @@ def load_attribute_types(db):
     db.session.add_all(attribute_types)
 
 
+def _truncate(db, model_class):
+    db.session.execute("truncate table docker.{t}".
+                       format(t=model_class.__tablename__))
+
+
 def clean_job_db(db):
     """Deletes all rows from the mutable tables, does not delete the
-    immutable status and type tables. Useful when testing."""
+    immutable status and type tables. Useful when testing.
+
+    db: flask_sqlalchemy.SQLAlchemy
+    Hmm, we have created a dependency on flask. Not good
+    """
 
     # Be careful of the deletion order, must not violate foreign keys.
     # So delete the "leaf" tables first.
 
-    db.session.query(JobInstanceErrorLog).delete()
-    db.session.query(JobInstance).delete()
-    db.session.query(JobAttribute).delete()
-    db.session.query(Job).delete()
+    _truncate(db, JobInstanceErrorLog)
+    _truncate(db, JobInstance)
+    _truncate(db, JobAttribute)
+    _truncate(db, Job)
 
-    db.session.query(WorkflowRunAttribute).delete()
-    db.session.query(WorkflowRun).delete()
-    db.session.query(WorkflowAttribute).delete()
-    db.session.query(Workflow).delete()
-    db.session.query(TaskDagMeta).delete()
+    _truncate(db, WorkflowRunAttribute)
+    _truncate(db, WorkflowRun)
+    _truncate(db, WorkflowAttribute)
+    _truncate(db, Workflow)
+    _truncate(db, TaskDagMeta)
 
     db.session.commit()
     return True

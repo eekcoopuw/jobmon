@@ -8,6 +8,7 @@ from jobmon.models.attributes.job_attribute_type import JobAttributeType
 
 
 class JobAttribute(DB.Model):
+    __tablename__ = 'job_attribute'
 
     id = DB.Column(DB.Integer, primary_key=True)
     job_id = DB.Column(DB.Integer, DB.ForeignKey('job.job_id'))
