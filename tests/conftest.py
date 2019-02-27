@@ -3,6 +3,7 @@ from builtins import str
 import os
 import pytest
 import pwd
+import requests
 import shutil
 import uuid
 import socket
@@ -101,7 +102,7 @@ def local_flask_app(env_var):
 
 
 def create_database_if_needed(app, DB):
-    """If the dabase tavbles do not exist then create it. The test is
+    """If the dabase tables do not exist then create it. The test is
     whether the Workflow table exists."""
     from jobmon.models import database_loaders
     database_exists = False
@@ -135,7 +136,7 @@ def db_cfg(local_flask_app):
     yield {'app': app, 'DB': DB}
 
     with app.app_context():
-        database_loaders.delete_job_db(DB)
+        database_loaders.clean_job_db(DB)
 
 
 @pytest.fixture(scope='session')
