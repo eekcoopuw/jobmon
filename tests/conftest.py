@@ -3,13 +3,17 @@ from builtins import str
 import os
 import pytest
 import pwd
+import requests
 import shutil
 import uuid
 import socket
 import logging
 import re
+
 from datetime import datetime
+from sqlalchemy.exc import ProgrammingError
 from time import sleep
+
 from cluster_utils.ephemerdb import create_ephemerdb
 
 logger = logging.getLogger(__name__)
@@ -28,7 +32,7 @@ def ephemera_conn_str():
     because the ephemera db has to be started before any other code
     imports the_server_config
     """
-    edb = create_ephemerdb()
+    edb = create_ephemerdb(elevated_privileges=True)
     conn_str = edb.start()
 
     # if you are debugging on the fair cluster for ephemeradb add
@@ -64,7 +68,8 @@ def test_session_config(ephemera_conn_str):
 
 @pytest.fixture(autouse=True)
 def env_var(monkeypatch, test_session_config):
-    """These two env variables are what tell theconfigs that we're running tests,
+    """These two env variables are what tell the configs that we're running
+    tests,
     not production code
     """
     from jobmon.client import shared_requester
@@ -84,25 +89,54 @@ def env_var(monkeypatch, test_session_config):
 
 
 @pytest.fixture(scope='function')
-def db_cfg(env_var):
+def local_flask_app(env_var):
+    """Sets up the in-process flask app and initializes its database
+    connections"""
+
+    from jobmon.server import create_app
+    app = create_app()
+    # The init_app call sets up database connections
+    from jobmon.models import DB
+    DB.init_app(app)
+    yield {'app': app, 'DB': DB}
+
+
+def create_database_if_needed(app, DB):
+    """If the database tables do not exist then create it. The test is
+    whether the Workflow table exists."""
+    from jobmon.models import database_loaders
+    database_exists = False
+    with app.app_context():
+        try:
+            DB.session.execute("""SELECT * FROM workflow""")
+            database_exists = True
+        except ProgrammingError:
+            # ProgrammingError will be thrown if that table does not exist
+            pass
+
+        if not database_exists:
+            database_loaders.create_job_db(DB)
+            database_loaders.load_default_statuses(DB)
+            database_loaders.load_attribute_types(DB)
+            DB.session.commit()
+
+
+@pytest.fixture(scope='function')
+def db_cfg(local_flask_app):
     """This run at the beginning of every function to tear down the db
     of the previous test and restart it fresh
     """
-    from jobmon.server import create_app
-    from jobmon.models import DB, database_loaders
+    from jobmon.models import database_loaders
 
-    app = create_app()
-    DB.init_app(app)
-    with app.app_context():
-        database_loaders.create_job_db(DB)
-        database_loaders.load_default_statuses(DB)
-        database_loaders.load_attribute_types(DB)
-        DB.session.commit()
+    app = local_flask_app["app"]
+    DB = local_flask_app["DB"]
+
+    create_database_if_needed(app, DB)
 
     yield {'app': app, 'DB': DB}
 
     with app.app_context():
-        database_loaders.delete_job_db(DB)
+        database_loaders.clean_job_db(DB)
 
 
 @pytest.fixture(scope='session')

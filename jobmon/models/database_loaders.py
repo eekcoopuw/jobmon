@@ -9,8 +9,14 @@ from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
 from jobmon.models.attributes.workflow_run_attribute_type import \
     WorkflowRunAttributeType
+from jobmon.models.job import Job
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
+from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.workflow import Workflow
+from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_status import WorkflowStatus
 
@@ -121,6 +127,43 @@ def load_attribute_types(db):
 
     # add all attribute types to db
     db.session.add_all(attribute_types)
+
+
+def _truncate(db, model_class):
+    db.session.execute("truncate table {t}".
+                       format(t=model_class.__tablename__))
+
+
+def clean_job_db(db):
+    """Truncates the mutable tables, does not delete the
+    immutable status and type tables. Useful when testing.
+    The ordinary user on ephermedb does not have delete priviliges, must use
+    root.
+
+    db: flask_sqlalchemy.SQLAlchemy
+    Hmm, we have created a dependency on flask. Not good
+    """
+
+    # Be careful of the deletion order, must not violate foreign keys.
+    # So delete the "leaf" tables first.
+    # Must turn off the foreign key checks to allow truncate
+    db.session.execute("SET FOREIGN_KEY_CHECKS = 0")
+    _truncate(db, JobInstanceErrorLog)
+    _truncate(db, JobInstance)
+    _truncate(db, JobAttribute)
+    _truncate(db, Job)
+
+    _truncate(db, WorkflowRunAttribute)
+    _truncate(db, WorkflowRun)
+    _truncate(db, WorkflowAttribute)
+    _truncate(db, Workflow)
+    _truncate(db, TaskDagMeta)
+
+    # And turn the constraints back on again!
+    db.session.execute("SET FOREIGN_KEY_CHECKS = 1")
+
+    db.session.commit()
+    return True
 
 
 def main(db):

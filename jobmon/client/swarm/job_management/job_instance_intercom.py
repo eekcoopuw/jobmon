@@ -12,7 +12,7 @@ class JobInstanceIntercom(object):
     def __init__(self, job_instance_id, executor_class, process_group_id,
                  hostname, requester=shared_requester):
         """
-        The JobInstanceIntercom is a mechanism whereby a running job_isntance
+        The JobInstanceIntercom is a mechanism whereby a running job_instance
         can communicate back to the JobStateManager to log its status, errors,
         usage details, etc.
 

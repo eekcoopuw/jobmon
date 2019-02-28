@@ -658,17 +658,22 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
     t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
+
     wfa = "my_simple_dag"
     workflow = Workflow(workflow_args=wfa, project='proj_jenkins',
                         working_dir='/ihme/centralcomp/auto_test_data',
-                        stderr='/ihme/centralcomp/auto_test_data',
-                        stdout='/ihme/centralcomp/auto_test_data')
+                        stderr='/tmp',
+                        stdout='/tmp')
     workflow.add_tasks([t1, t2, t3])
     wf_status = workflow.execute()
+
     assert wf_status == DagExecutionStatus.SUCCEEDED
+    # If the working directory is not set correctly then executor_args_check.py
+    # will fail and write its error message into the job_instance_error_log
+    # table
 
     assert workflow.workflow_run.project == 'proj_jenkins'
     assert workflow.workflow_run.working_dir == (
         '/ihme/centralcomp/auto_test_data')
-    assert workflow.workflow_run.stderr == '/ihme/centralcomp/auto_test_data'
-    assert workflow.workflow_run.stdout == '/ihme/centralcomp/auto_test_data'
+    assert workflow.workflow_run.stderr == '/tmp'
+    assert workflow.workflow_run.stdout == '/tmp'

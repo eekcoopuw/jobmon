@@ -1,6 +1,4 @@
 import pytest
-import os
-from sqlalchemy.exc import OperationalError
 
 from jobmon.cli import CLI
 
