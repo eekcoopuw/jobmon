@@ -244,7 +244,7 @@ def add_update_workflow_run():
         hostname (str): host on which this workflow_run was run
         pid (str): process_id where this workflow_run is/was run
         stderr (str): where stderr should be directed
-        stdout (str): where stdout should be directedf
+        stdout (str): where stdout should be directed
         project (str): sge project where this workflow_run should be run
         slack_channel (str): channel where this workflow_run should send
         notifications
@@ -258,6 +258,7 @@ def add_update_workflow_run():
                              pid=data['pid'],
                              stderr=data['stderr'],
                              stdout=data['stdout'],
+                             working_dir=data['working_dir'],
                              project=data['project'],
                              slack_channel=data['slack_channel'])
         workflow = DB.session.query(Workflow).\

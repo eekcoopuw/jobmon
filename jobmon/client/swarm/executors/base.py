@@ -10,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 class Executor(object):
     """Base class for executors. Subclasses are required to implement an
-    exeucte() method that takes a JobInstance, constructs a
-    jombon-interpretable exectable command (typically using this base class's
+    execute() method that takes a JobInstance, constructs a
+    jobmon-interpretable executable command (typically using this base class's
     build_wrapped_command()), and optionally returns an executor_id.
 
     While not required, implementing get_usage_stats() will allow collection
@@ -37,7 +37,7 @@ class Executor(object):
         command.
 
         Optionally, return an (int) executor_id which the subclass could
-        use at a later time to idenfity the associated JobInstance, terminate
+        use at a later time to identify the associated JobInstance, terminate
         it, monitor for missingness, or collect usage statistics. If the
         subclass does not intend to offer those functionalities, this method
         can return None.

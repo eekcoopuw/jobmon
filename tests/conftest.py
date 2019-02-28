@@ -32,7 +32,7 @@ def ephemera_conn_str():
     because the ephemera db has to be started before any other code
     imports the_server_config
     """
-    edb = create_ephemerdb()
+    edb = create_ephemerdb(elevated_privileges=True)
     conn_str = edb.start()
 
     # if you are debugging on the fair cluster for ephemeradb add
@@ -102,7 +102,7 @@ def local_flask_app(env_var):
 
 
 def create_database_if_needed(app, DB):
-    """If the dabase tables do not exist then create it. The test is
+    """If the database tables do not exist then create it. The test is
     whether the Workflow table exists."""
     from jobmon.models import database_loaders
     database_exists = False

@@ -130,13 +130,15 @@ def load_attribute_types(db):
 
 
 def _truncate(db, model_class):
-    db.session.execute("truncate table docker.{t}".
+    db.session.execute("truncate table {t}".
                        format(t=model_class.__tablename__))
 
 
 def clean_job_db(db):
-    """Deletes all rows from the mutable tables, does not delete the
+    """Truncates the mutable tables, does not delete the
     immutable status and type tables. Useful when testing.
+    The ordinary user on ephermedb does not have delete priviliges, must use
+    root.
 
     db: flask_sqlalchemy.SQLAlchemy
     Hmm, we have created a dependency on flask. Not good
@@ -144,7 +146,8 @@ def clean_job_db(db):
 
     # Be careful of the deletion order, must not violate foreign keys.
     # So delete the "leaf" tables first.
-
+    # Must turn off the foreign key checks to allow truncate
+    db.session.execute("SET FOREIGN_KEY_CHECKS = 0")
     _truncate(db, JobInstanceErrorLog)
     _truncate(db, JobInstance)
     _truncate(db, JobAttribute)
@@ -155,6 +158,9 @@ def clean_job_db(db):
     _truncate(db, WorkflowAttribute)
     _truncate(db, Workflow)
     _truncate(db, TaskDagMeta)
+
+    # And turn the constraints back on again!
+    db.session.execute("SET FOREIGN_KEY_CHECKS = 1")
 
     db.session.commit()
     return True
