@@ -156,7 +156,7 @@ def real_jsm_jqs(test_session_config):
     ))
     p1.start()
 
-# USe a wait loop for it to be up
+    # Wait for it to be up
     status = 404
     count = 0
     max_tries = 60
