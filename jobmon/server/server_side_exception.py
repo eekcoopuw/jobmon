@@ -4,7 +4,7 @@ import warnings
 
 
 class ServerSideException(Exception):
-    """Used for all exceptions on the server sedie (JQS, JSM)"""
+    """Used for all exceptions on the server side (JQS, JSM)"""
     def __init__(self, msg: str):
         self.msg = msg
 
@@ -20,6 +20,6 @@ def log_and_raise(msg: str, logger: Logger):
     """
     warnings.warn(msg)
     logger.error(msg)
-    # Use value traceback so that the original exception is not lost
+    # Use value and traceback so that the original exception is not lost
     (_, value, traceback) = sys.exc_info()
     raise ServerSideException(f"{msg} from {value}").with_traceback(traceback)
