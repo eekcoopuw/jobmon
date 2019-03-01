@@ -156,7 +156,27 @@ def real_jsm_jqs(test_session_config):
     ))
     p1.start()
 
-    sleep(30)
+    # Wait for it to be up
+    status = 404
+    count = 0
+    max_tries = 60
+    while not status == 200 and count < max_tries:
+        try:
+            count += 1
+            r = requests.get('http://0.0.0.0:{port}'.
+                             format(port=test_session_config["JOBMON_PORT"]))
+            status = r.status_code
+        except Exception:
+            # Connection failures land here
+            # Safe to catch all because there is a max retry
+            pass
+        # sleep outside of try block!
+        sleep(3)
+
+    if count >= max_tries:
+        raise TimeoutError(
+            f"Out-of-process jsm and jqs services did not answer after "
+            "{count} attempts, probably failed to start.")
     yield
 
     p1.terminate()
