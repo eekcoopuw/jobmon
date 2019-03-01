@@ -166,7 +166,6 @@ def real_jsm_jqs(test_session_config):
             r = requests.get('http://0.0.0.0:{port}'.
                              format(port=test_session_config["JOBMON_PORT"]))
             status = r.status_code
-            print(f"XXX real_jsm_jqs ready {status} on try {count}")
         except Exception:
             # Connection failures land here
             # Safe to catch all because there is a max retry
