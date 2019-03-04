@@ -1,9 +1,11 @@
 import os
 import signal
 import subprocess
+import logging
 
 from paramiko.client import SSHClient, WarningPolicy
 
+logger = logging.getLogger(__name__)
 
 SSH_KEYFILE_NAME = "jobmonauto_id_rsa"
 _ssh_dir = os.path.realpath(os.path.expanduser("~/.ssh"))
@@ -38,9 +40,19 @@ def _run_remote_command(hostname, command):
 
 def _setup_keyfile():
     if not _keyfile_exists():
+        logger.debug("{} not found. Create it for the user.".format(_ssh_keyfile))
         _create_keyfile()
         _add_keyfile_to_authorized_keys()
         _set_authorized_keys_perms()
+    else:
+        for akf in _authorized_keyfiles:
+            if _key_in_auth_keyfile(_ssh_keyfile, akf):
+                logger.debug("Found {key} in {auth}".format(key=_ssh_keyfile, auth=akf))
+            else:
+                logger.debug("Add {key} to {auth}".format(key=_ssh_keyfile, auth=akf))
+                append_cmd = 'cat {keyfile}.pub >> {akf}'.format(keyfile=_ssh_keyfile,
+                                                                 akf=akf)
+                subprocess.call(append_cmd, shell=True)
     return "{}".format(_ssh_keyfile)
 
 
@@ -58,6 +70,12 @@ def _keyfile_exists():
 def _create_keyfile():
     keygen_command = 'ssh-keygen -t rsa -f {} -q -N ""'.format(_ssh_keyfile)
     return subprocess.call(keygen_command, shell=True)
+
+
+def _key_in_auth_keyfile(keyfile=_ssh_keyfile, authfile=_authorized_keyfiles[0]):
+    k_file = open(keyfile, "r").read()
+    a_file = open(authfile, "r").read()
+    return k_file in a_file
 
 
 def _set_authorized_keys_perms():
