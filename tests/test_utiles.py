@@ -24,7 +24,7 @@ _PUB_FILE = "test_rsa.pub"
 _AUTH_FILE = "test_auth"
 
 # Unit test for _key_in_auth_keyfile
-def test_key_in_aut_keyfile():
+def test_key_in_auth_keyfile():
     dir = os.getcwd()
     pub_path = dir + "/" + _PUB_FILE
     auth_path = dir + "/" + _AUTH_FILE
