@@ -1,6 +1,7 @@
 import pytest
-from time import sleep
+import time
 import os
+import stat
 import typing
 
 from jobmon.client import utils
@@ -18,32 +19,66 @@ _KEY2 = "ssh-rsa AAAAB3NzaC1yc2EPPPBIwDDDQEA0HDKZ8Kes1U0l3+sGTkdATbADSzXJtozIHL7
         "IOGni/dhn0Txh33xzFd8EXdXrgQKob/KC7LfV46TT3bacNMVqJURPuo4zX62K9o8fnIx5hk27+V13EYs/TcNh18QhepWHc2lLHDIxW" + \
         "rXsRQydD/obxchunlyHyroCMDnex0iQfdpUgLTzBXHn5b3g4qc0gQaF3t6zR0u027stOWtyw== limingxu@cn461.ihme.washington.edu"
 
-# The testing pub file
-_PUB_FILE = "test_rsa.pub"
+# The testing key files
+_PRI_FILE = "{d}/test_{t}_rsa".format(d=os.getcwd(), t=str(int(time.time())))
+_PUB_FILE = "{}.pub".format(_PRI_FILE)
 # The testing auth file
-_AUTH_FILE = "test_auth"
+_AUTH_FILE = "{d}/test_{t}_auth".format(d=os.getcwd(), t=str(int(time.time())))
+# The testing auth2 file
+_AUTH_FILE2 = "{d}/test_{t}_auth2".format(d=os.getcwd(), t=str(int(time.time())))
+
 
 # Unit test for _key_in_auth_keyfile
+@pytest.mark.unittest
 def test_key_in_auth_keyfile():
-    dir = os.getcwd()
-    pub_path = dir + "/" + _PUB_FILE
-    auth_path = dir + "/" + _AUTH_FILE
     # Test pub key not in auth file
-    f = open(pub_path, "w")
+    f = open(_PUB_FILE, "w")
     f.write(_KEY1)
     f.close()
-    f = open(auth_path, "w")
+    f = open(_AUTH_FILE, "w")
     f.write(_KEY2)
     f.close()
-    assert(not utils._key_in_auth_keyfile(pub_path, auth_path))
+    r = utils._key_in_auth_keyfile(_PUB_FILE, _AUTH_FILE)
+    # Clean the test files
+    os.remove(_PUB_FILE)
+    os.remove(_AUTH_FILE)
+    assert(not r)
     # Test pub key in auth file
-    os.remove(auth_path)
-    f = open(auth_path, "w")
+    f = open(_PUB_FILE, "w")
     f.write(_KEY1)
     f.close()
-    assert(utils._key_in_auth_keyfile(pub_path, auth_path))
+    f = open(_AUTH_FILE, "w")
+    f.write(_KEY1)
+    f.close()
+    r = utils._key_in_auth_keyfile(_PUB_FILE, _AUTH_FILE)
     # Clean the test files
-    os.remove(pub_path)
-    os.remove(auth_path)
+    os.remove(_PUB_FILE)
+    os.remove(_AUTH_FILE)
+    assert r
+
+
+@pytest.mark.unittest
+def test_set_authorized_keys_perms():
+    f = open(_AUTH_FILE, "w")
+    f.close()
+    auth_files = [_AUTH_FILE]
+    utils._set_authorized_keys_perms(auth_files)
+    r = oct(os.stat(_AUTH_FILE).st_mode)[-3:]
+    os.remove(_AUTH_FILE)
+    assert(r == "600")
+
+
+@pytest.mark.unittest
+def test_add_keyfile_to_authorized_keys():
+    f = open(_AUTH_FILE, "w")
+    f.close()
+    f = open(_PUB_FILE, "w")
+    f.write(_KEY1)
+    f.close()
+    utils._add_keyfile_to_authorized_keys(_PRI_FILE, [_AUTH_FILE])
+    r = utils._key_in_auth_keyfile(_PUB_FILE, _AUTH_FILE)
+    os.remove(_AUTH_FILE)
+    os.remove(_PUB_FILE)
+    assert r
 
 

@@ -56,9 +56,9 @@ def _setup_keyfile():
     return "{}".format(_ssh_keyfile)
 
 
-def _add_keyfile_to_authorized_keys():
-    for akf in _authorized_keyfiles:
-        append_cmd = 'cat {keyfile}.pub >> {akf}'.format(keyfile=_ssh_keyfile,
+def _add_keyfile_to_authorized_keys(kfile=_ssh_keyfile, authfiles=_authorized_keyfiles):
+    for akf in authfiles:
+        append_cmd = 'cat {keyfile}.pub >> {akf}'.format(keyfile=kfile,
                                                          akf=akf)
         subprocess.call(append_cmd, shell=True)
 
@@ -78,7 +78,7 @@ def _key_in_auth_keyfile(keyfile=_ssh_keyfile, authfile=_authorized_keyfiles[0])
     return k_file in a_file
 
 
-def _set_authorized_keys_perms():
-    for akf in _authorized_keyfiles:
+def _set_authorized_keys_perms(files=_authorized_keyfiles):
+    for akf in files:
         chmod_cmd = "chmod 600 {}".format(akf)
         subprocess.call(chmod_cmd, shell=True)
