@@ -1,8 +1,6 @@
 import pytest
 import time
 import os
-import stat
-import typing
 
 from jobmon.client import utils
 
