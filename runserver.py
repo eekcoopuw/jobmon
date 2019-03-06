@@ -9,13 +9,15 @@ import string
 import subprocess
 from datetime import datetime
 
+from jobmon.models.attributes import constants
+
 
 INTERNAL_DB_HOST = "db"
 INTERNAL_DB_PORT = 3306
-EXTERNAL_DB_HOST = "jobmon-p01.ihme.washington.edu"
+EXTERNAL_DB_HOST = constants.deploy_attribute["SERVER_QDNS"]
 EXTERNAL_DB_PORT = 3830
 
-EXTERNAL_SERVICE_HOST = "jobmon-p01.ihme.washington.edu"
+EXTERNAL_SERVICE_HOST = constants.deploy_attribute["SERVER_QDNS"]
 EXTERNAL_SERVICE_PORT = 8456
 
 DEFAULT_WF_SLACK_CHANNEL = 'jobmon-alerts'
@@ -77,7 +79,7 @@ class JobmonDeployment(object):
 
         # In production, only the svcscicompci user should be allowed to
         # deploy
-        if ((socket.gethostname() == "jobmon-p01") and
+        if ((socket.gethostname() == constants.deploy_attribute["SERVER_HOSTNAME"]) and
                 (self.deploy_user != 'svcscicompci')):
             raise ValueError("Deployment can only be run by the "
                              "'svcscicompci' service user")
