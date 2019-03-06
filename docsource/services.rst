@@ -106,9 +106,14 @@ To deploy a centralized JobStateManager and JobQueryServer:
   e. And do a recursive grep to be sure!   e.g.   ``grep -r 3800 *``
 
 5. Submit the new version number files back to git
-6. From the root directory of the repo, run::
+6. Activate the jobmon conda environment:
+    source activate jobmon
+7. From the root directory of the repo, run::
 
     ./runserver.py
+
+    Note: By the end of Mar 7, 2019, on jobmon-docker-cont-p01, the version of docker-compose comes with the conda environment has a bug, but the downgrade is blocked by other packages, so a working version has been put under ~/bin.
+          Do `export PATH="~/bin:$PATH"` to use the bypass version.
 
 You'll be prompted for a slack bot token.
 Use the 'BotUserOathToken' from::
@@ -125,7 +130,7 @@ Notice that the most priviliged database passwords are randomly generated in run
 They are then set as enviornment variables in the docker service container. To
 see them, connect to the docker container like this:
 ``docker exec -it jobmon071_jqs_1 bash``
-and do a print env, look for: ``JOBMON_PASS_SERVICE_USER``
+and do a `env`, look for: ``DB_USER & DB_PASS``
 
 
 Version Control
@@ -143,6 +148,7 @@ from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 Each new version of jobmon increments the ports and the db port reflects the
 release number (0.8.0 = 3800), so for example:
 
+jobmon-p01
 ========  ==== ===== ===== ==== =======
 Version   jqs  jsm-1 jsm-2 db   git-tag
 ========  ==== ===== ===== ==== =======
@@ -164,6 +170,12 @@ http.6         8356        3810  0.8.2
 http.7         8456        3830  0.8.3
 ========  ==== ===== ===== ==== =======
 
+jobmon-docker-cont-p01
+========  ==== ===== ===== ==== =======
+Version   jqs  jsm-1 jsm-2 db   git-tag
+========  ==== ===== ===== ==== =======
+http.8         8456        3830  0.8.4
+========  ==== ===== ===== ==== =======
 
 The port numbers come in pairs, e.g. "3313:3306".
 The number on the right of the colon is the port-number inside the container, and never changes.
