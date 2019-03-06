@@ -14,11 +14,6 @@ import subprocess
 import pandas as pd
 import numpy as np
 
-from cluster_utils.io import (get_permissions, check_permissions,
-                              InvalidPermissions)
-
-from jobmon.exceptions import UnsafeSSHDirectory
-
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 
@@ -55,31 +50,6 @@ def true_path(file_or_dir=None, executable=None):
         f = f.decode('utf-8')
     f = os.path.abspath(os.path.expanduser(f))
     return f.strip(' \t\r\n')
-
-
-def confirm_ssh_safe():
-    """Verify that the ssh directory of a user is secure.
-
-    Raises:
-        UnsafeSSHDirectory
-    """
-
-    # verify that ssh keys have the right permissions
-    _ssh_safety_lookup = {
-        "~": "755",
-        "~/.ssh": "700",
-        "~/.ssh/id_rsa.pub": "644",
-        "~/.ssh/id_rsa": "600",
-    }
-    errors = ""
-    for directory in _ssh_safety_lookup.keys():
-        try:
-            check_permissions(directory, _ssh_safety_lookup[directory])
-        except InvalidPermissions as e:
-            errors += e.args[0]  # first arg is exception message
-
-    if errors:
-        raise UnsafeSSHDirectory(errors)
 
 
 def get_project_limits(project):

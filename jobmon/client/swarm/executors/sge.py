@@ -27,7 +27,7 @@ class SGEExecutor(Executor):
 
         super().__init__(*args, **kwargs)
 
-        sge_utils.confirm_ssh_safe()
+        sge_utils.confirm_correct_perms()
 
     def _execute_sge(self, job, job_instance_id):
         try:
