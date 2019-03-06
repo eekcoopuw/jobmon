@@ -1,4 +1,5 @@
 import os
+from jobmon.models.attributes import constants
 
 
 def derive_jobmon_command_from_env():
@@ -11,7 +12,7 @@ def derive_jobmon_command_from_env():
 
 
 DEFAULT_SERVER_CONFIG = {
-    "db_host": "jobmon-p01.ihme.washington.edu",
+    "db_host": constants.deploy_attribute["SERVER_QDNS"],
     "db_port": 3830,
     "db_user": "read_only",
     "db_pass": "docker",
@@ -21,7 +22,7 @@ DEFAULT_SERVER_CONFIG = {
 }
 
 DEFAULT_CLIENT_CONFIG = {
-    "host": "jobmon-p01.ihme.washington.edu",
+    "host": constants.deploy_attribute["SERVER_QDNS"],
     "port": 8456,
     "jobmon_command": derive_jobmon_command_from_env(),
 }
