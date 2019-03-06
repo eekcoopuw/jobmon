@@ -63,7 +63,7 @@ def test_set_authorized_keys_perms():
     utils._set_authorized_keys_perms(auth_files)
     r = oct(os.stat(_AUTH_FILE).st_mode)[-3:]
     os.remove(_AUTH_FILE)
-    assert(r == "600")
+    assert(r == "644")
 
 
 @pytest.mark.unittest
@@ -78,5 +78,3 @@ def test_add_keyfile_to_authorized_keys():
     os.remove(_AUTH_FILE)
     os.remove(_PUB_FILE)
     assert r
-
-
