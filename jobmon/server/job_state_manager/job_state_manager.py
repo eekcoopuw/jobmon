@@ -22,6 +22,8 @@ from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
 
+from jobmon.server.server_side_exception import log_and_raise
+
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
 except ImportError:
@@ -566,19 +568,31 @@ def _update_job_instance_state(job_instance, status_id):
         job_instance (obj) object of time models.JobInstance
         status_id (int): id of the status to which to transition
     """
-    logger.debug("Update JI state {} for  {}".format(status_id,
-                                                     job_instance))
+    logger.debug(f"Update JI state {status_id} for {job_instance}")
     try:
         job_instance.transition(status_id)
     except InvalidStateTransition:
         if job_instance.status == status_id:
-            msg = ("Caught InvalidStateTransition. Not transitioning job "
-                   "{} from {} to {}".format(job_instance.job_instance_id,
-                                             job_instance.status, status_id))
+            # It was already in that state, just log it
+            msg = f"Attempting to transition to existing state." \
+                   "Not transitioning job, jid= " \
+                   "{job_instance.job_instance_id}" \
+                   "from {job_instance.status} to {status_id}"
             warnings.warn(msg)
-            logger.debug(msg)
+            logger.warning(msg)
         else:
-            raise
+            # Tried to move to an illegal state
+            msg = f"Illegal state transition. " \
+                   "Not transitioning job, jid= " \
+                   "{job_instance.job_instance_id}, " \
+                   "from {job_instance.status} to {status_id}"
+            log_and_raise(msg, logger)
+    except Exception as e:
+        msg = f"General exception in _update_job_instance_state, " \
+               "jid {job_instance}, transitioning to {job_instance}. " \
+               "Not transitioning job. {e}"
+        log_and_raise(msg, logger)
+
     job = job_instance.job
 
     # TODO: Investigate moving this publish logic into some SQLAlchemy-
