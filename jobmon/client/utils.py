@@ -70,13 +70,13 @@ def _get_ssh_permission_dict():
     # check the ssh dir itself. if it doesn't exist do nothing because
     # ssh-keygen will run later
     if os.path.exists(_ssh_dir):
-        ssh_safety_lookup[_ssh_dir] = "700"
+        ssh_safety_lookup[_ssh_dir] = ["700"]
 
         # if ssh dir exists, check that the private key exists.
         # if private key exists, confirm permissions for private key and
         # authorized_keys file
         if os.path.exists(_ssh_keyfile):
-            ssh_safety_lookup[_ssh_keyfile] = "600"
+            ssh_safety_lookup[_ssh_keyfile] = ["600"]
             for auth_key in _authorized_keyfiles:
                 ssh_safety_lookup[auth_key] = ["644", "600"]  # 600 for legacy
     return ssh_safety_lookup
