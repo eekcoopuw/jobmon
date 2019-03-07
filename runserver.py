@@ -15,10 +15,10 @@ from jobmon.models.attributes import constants
 INTERNAL_DB_HOST = "db"
 INTERNAL_DB_PORT = 3306
 EXTERNAL_DB_HOST = constants.deploy_attribute["SERVER_QDNS"]
-EXTERNAL_DB_PORT = 3830
+EXTERNAL_DB_PORT = constants.deploy_attribute["DB_PORT"]
 
 EXTERNAL_SERVICE_HOST = constants.deploy_attribute["SERVER_QDNS"]
-EXTERNAL_SERVICE_PORT = 8456
+EXTERNAL_SERVICE_PORT = constants.deploy_attribute["SERVICE_PORT"]
 
 DEFAULT_WF_SLACK_CHANNEL = 'jobmon-alerts'
 DEFAULT_NODE_SLACK_CHANNEL = 'suspicious_nodes'

@@ -53,4 +53,6 @@ job_attribute = AttributeDictionary({
 deploy_attribute = AttributeDictionary({
     'SERVER_QDNS': "jobmon-docker-cont-p01.hosts.ihme.washington.edu",
     'SERVER_HOSTNAME': "jobmon-docker-cont-p01",
+    'DB_PORT': 3840,
+    'SERVICE_PORT': 8457,
 })

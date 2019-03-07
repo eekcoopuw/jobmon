@@ -13,7 +13,7 @@ def derive_jobmon_command_from_env():
 
 DEFAULT_SERVER_CONFIG = {
     "db_host": constants.deploy_attribute["SERVER_QDNS"],
-    "db_port": 3830,
+    "db_port": constants.deploy_attribute["DB_PORT"],
     "db_user": "read_only",
     "db_pass": "docker",
     "slack_token": "",
@@ -23,6 +23,6 @@ DEFAULT_SERVER_CONFIG = {
 
 DEFAULT_CLIENT_CONFIG = {
     "host": constants.deploy_attribute["SERVER_QDNS"],
-    "port": 8456,
+    "port": constants.deploy_attribute["SERVICE_PORT"],
     "jobmon_command": derive_jobmon_command_from_env(),
 }
