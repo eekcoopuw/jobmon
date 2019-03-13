@@ -115,6 +115,8 @@ class JobmonDeployment(object):
         os.environ["EXTERNAL_DB_PORT"] = str(EXTERNAL_DB_PORT)
         os.environ["INTERNAL_DB_HOST"] = INTERNAL_DB_HOST
         os.environ["INTERNAL_DB_PORT"] = str(INTERNAL_DB_PORT)
+        os.environ["JOBMON_VERSION"] = "".join(self.jobmon_version.split('.'))
+
 
     def _run_docker(self):
         subprocess.call(["docker-compose", "up", "--build", "-d"])
