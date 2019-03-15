@@ -21,6 +21,7 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
+from jobmon.server import jobmonLogging
 
 from jobmon.server.server_side_exception import log_and_raise
 
@@ -39,7 +40,7 @@ jsm = Blueprint("job_state_manager", __name__)
 # see https://docs.python.org/2/library/logging.html
 # Logging has to be set up BEFORE the Thread
 # Therefore see tests/conf_test.py
-logger = logging.getLogger(__name__)
+logger = jobmonLogging.getLogger(__name__)
 
 
 def mogrify(topic, msg):
@@ -690,3 +691,45 @@ def add_job_attribute():
     resp = jsonify({'job_attribute_id': job_attribute.id})
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@jsm.route('/log_level', methods=['GET'])
+def get_log_level():
+    """A simple 'action' to get the current server log level
+    """
+    level: str = logging.getLevelName(jobmonLogging.getlogLevel())
+    logger.debug(level)
+    resp = jsonify(msg="Server log level: {}".format(level))
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/log_level/<level>', methods=['POST'])
+def set_log_level(level):
+    """Reset a job and change its status
+    Args:
+
+        level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO, DEBUG
+    """
+    level = level.upper()
+    if level == "CRITICAL":
+        jobmonLogging.setlogLevel(logging.CRITICAL)
+    elif level == "ERROR":
+        jobmonLogging.setlogLevel(logging.ERROR)
+    elif level == "WARNING":
+        jobmonLogging.setlogLevel(logging.WARNING)
+    elif level == "INFO":
+        jobmonLogging.setlogLevel(logging.INFO)
+    elif level == "DEBUG":
+        jobmonLogging.setlogLevel(logging.DEBUG)
+    else:
+        level = "NOTSET"
+        jobmonLogging.setlogLevel(logging.NOTSET)
+
+    resp = jsonify(msn="Set server log to {}".format(level))
+    resp.status_code = StatusCodes.OK
+    return resp
+
+"""
+TODO: attach syslog
+"""
