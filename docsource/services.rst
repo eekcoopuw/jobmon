@@ -142,9 +142,11 @@ maps it to a different port externally.
 
 Updates before a new version can be deployed
 ********************************************
-If your most recent commit on master is ready to be deployed, make sure that the ports have been updated for the new version:
+If your most recent commit on master is ready to be deployed, make sure that
+the ports have been updated for the new version:
 
-1. To update the ports, make a PR with the port numbers incremented according to the version control [above] in the following places:
+1. To update the ports, make a PR with the port numbers incremented according
+to the version control [above] in the following places:
 
   a. runserver.py
   b. this documentation
@@ -152,22 +154,44 @@ If your most recent commit on master is ready to be deployed, make sure that the
   d. docsource/quickstart.rst
   e. And do a recursive grep to be sure!   e.g.   ``grep -r <previous port number> *``
 
+2. Check that the correct host and password information is available in
+quickstart.rst and this (services.rst)
+
 Creating a Jenkins build to deploy your new version to the PyPi server
 **********************************************************************
-1. Tag the most recent commit (that contains updated ports) on stash with the version that you are going to deploy, tag with the format release-0.8.4 and make sure that you can see the tag in the stash UI (sometimes tagging through command line doesn't show up and work properly)
+1. Tag the most recent commit (that contains updated ports) on stash with the
+version that you are going to deploy, tag with the format release-0.8.4 and
+make sure that you can see the tag in the stash UI (sometimes tagging through
+command line doesn't show up and work properly)
 
-  a. You can tag directly through the stash UI by clicking on the commit and adding a tag
+  a. You can tag directly through the stash UI by clicking on the commit and
+  adding a tag
 
-2. Check the pypi server to make sure that there is not an existing build of the version you just tagged you can go to:
-http://dev-tomflem.ihme.washington.edu/docs/jobmon/ to make sure that the version is not already present
+2. Check the pypi server to make sure that there is not an existing build of
+the version you just tagged you can go to:
+http://dev-tomflem.ihme.washington.edu/docs/jobmon/ to make sure that the
+version is not already present
 
 3. If there is already a version deployed with the same version either:
 
-  a. Tag with a new version that doesn't exist (best if you haven't already set up matching port numbers and deployed the database accordingly), and build as normal
-  b. Go on to the pypi server (pypi.services.ihme.washington.edu) with your normal ihme credentials and delete the tar for the given build in the pypi docker container (this should be your last resort)
-  c. If you had to delete the version from the pypi server, you need to edit the jenkins file to rebuild even if it has built that version before, the easiest way to do this is by clicking replay on a previously successful build that ran without tests, editing the jenkinsfile to make sure that when it deploys to the server it doesn't first check if version exists, and running that.
+  a. Tag with a new version that doesn't exist (best if you haven't already
+  set up matching port numbers and deployed the database accordingly), and
+  build as normal
 
-4. If you are sure that the version doesn't exist, run a jenkins build setting skip_tests=True. If the build completes successfully, check the docs again to make sure the new version is up and labelled as expected
+  b. Go on to the pypi server (pypi.services.ihme.washington.edu) with your
+  normal ihme credentials and delete the tar for the given build in the pypi
+  docker container (this should be your last resort)
+
+  c. If you had to delete the version from the pypi server, you need to edit
+  the jenkins file to rebuild even if it has built that version before,
+  the easiest way to do this is by clicking replay on a previously successful
+  build that ran without tests, editing the jenkinsfile to make sure that when
+  it deploys to the server it doesn't first check if version exists, and
+  running that.
+
+4. If you are sure that the version doesn't exist, run a jenkins build setting
+skip_tests=True. If the build completes successfully, check the docs again to
+make sure the new version is up and labelled as expected
 
 
 Deploying JobStateManager and JobQueryServer
@@ -175,7 +199,7 @@ Deploying JobStateManager and JobQueryServer
 
 To deploy a centralized JobStateManager and JobQueryServer:
 
-1. Make sure you have properly build and deployed to jenkins, then ssh into jobmon-p01.ihme.washington.edu using your svcscicompci ssh key::
+1. Make sure you have properly build and deployed to jenkins, then ssh intojobmon-p01.ihme.washington.edu using your svcscicompci ssh key::
 
     ssh -i ~/.ssh/svcsci_id_rsa svcscicompci@jobmon-p01.ihme.washington.edu
 
