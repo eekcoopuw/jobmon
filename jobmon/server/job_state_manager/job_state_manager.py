@@ -1,9 +1,9 @@
-import logging
 import os
 import json
 from datetime import datetime
 from flask import jsonify, request, Blueprint
 import warnings
+import socket
 
 from jobmon.models import DB
 from jobmon.models.attributes.constants import job_attribute
@@ -21,7 +21,7 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
-from jobmon.server import jobmonLogging
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 from jobmon.server.server_side_exception import log_and_raise
 
@@ -40,7 +40,7 @@ jsm = Blueprint("job_state_manager", __name__)
 # see https://docs.python.org/2/library/logging.html
 # Logging has to be set up BEFORE the Thread
 # Therefore see tests/conf_test.py
-logger = jobmonLogging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def mogrify(topic, msg):
@@ -697,39 +697,79 @@ def add_job_attribute():
 def get_log_level():
     """A simple 'action' to get the current server log level
     """
-    level: str = logging.getLevelName(jobmonLogging.getlogLevel())
+    level: str = logging.getLevelName()
     logger.debug(level)
-    resp = jsonify(msg="Server log level: {}".format(level))
+    resp = jsonify({'level': level})
     resp.status_code = StatusCodes.OK
     return resp
 
 
 @jsm.route('/log_level/<level>', methods=['POST'])
 def set_log_level(level):
-    """Reset a job and change its status
+    """Change log level
     Args:
 
         level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO, DEBUG
     """
+
     level = level.upper()
     if level == "CRITICAL":
-        jobmonLogging.setlogLevel(logging.CRITICAL)
+        logging.setlogLevel(logging.CRITICAL)
     elif level == "ERROR":
-        jobmonLogging.setlogLevel(logging.ERROR)
+        logging.setlogLevel(logging.ERROR)
     elif level == "WARNING":
-        jobmonLogging.setlogLevel(logging.WARNING)
+        logging.setlogLevel(logging.WARNING)
     elif level == "INFO":
-        jobmonLogging.setlogLevel(logging.INFO)
+        logging.setlogLevel(logging.INFO)
     elif level == "DEBUG":
-        jobmonLogging.setlogLevel(logging.DEBUG)
+        logging.setlogLevel(logging.DEBUG)
     else:
         level = "NOTSET"
-        jobmonLogging.setlogLevel(logging.NOTSET)
+        logging.setlogLevel(logging.NOTSET)
 
     resp = jsonify(msn="Set server log to {}".format(level))
     resp.status_code = StatusCodes.OK
     return resp
 
-"""
-TODO: attach syslog
-"""
+
+@jsm.route('/attach_remote_syslog/<level>/<host>/<port>/<sockettype>', methods=['POST'])
+def attach_remote_syslog(level, host, port, sockettype):
+    """
+    Add a remote syslog handler
+
+    :param level: remote syslog level
+    :param host: remote syslog server host
+    :param port: remote syslog server port
+    :param port: remote syslog server socket type; unless specified as TCP, otherwise, UDP
+    :return:
+    """
+    level = level.upper()
+    if level not in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
+        level = "NOTSET"
+
+    try:
+        port = int(port)
+    except:
+        resp = jsonify(msn="Unable to convert {} to integer".format(port))
+        resp.status_code = StatusCodes.BAD_REQUEST
+        return resp
+
+    s = socket.SOCK_DGRAM
+    if sockettype.upper == "TCP":
+        s = socket.SOCK_STREAM
+
+    try:
+        logging.attachSyslog(host=host, port=port, socktype=s, l=level)
+        resp = jsonify(msn="Attach syslog {h}:{p}".format(h=host, p=port))
+        resp.status_code = StatusCodes.OK
+        return resp
+    except:
+        resp = jsonify(msn="Fail to attach syslog {h}:{p}".format(h=host, p=port))
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+        return resp
+
+
+@jsm.route('/syslog_status', methods=['GET'])
+def syslog_status():
+    resp = jsonify({'syslog': logging.isSyslogAttached()})
+    return resp
