@@ -487,7 +487,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
                     attribute_entry_value)
 
 
-testdata = (
+testdata: dict = (
     ('CRITICAL', 'CRITICAL'),
     ('error', 'ERROR'),
     ('WarNING', 'WARNING'),
@@ -514,7 +514,7 @@ def test_dynamic_change_log_level(level: str, expected: str):
     assert response['level'] == expected
 
 
-def test_syslog():
+def test_syslog_parameter():
     # get syslog status
     rc, response = req.send_request(
         app_route='/syslog_status',
@@ -526,7 +526,32 @@ def test_syslog():
 
     # try to attach a wrong port and expect failure
     rc, response = req.send_request(
-        app_route='/attach_remote_syslog/debug/127.0.0.0/port/tcp',
+        app_route='/attach_remote_syslog/debug/127.0.0.1/port/tcp',
         message={},
         request_type='post')
     assert rc == 400
+
+    # get syslog status
+    rc, response = req.send_request(
+        app_route='/syslog_status',
+        message={},
+        request_type='get'
+    )
+    assert rc == 200
+    assert response['syslog'] is False
+
+    # try to attach a wrong port and expect failure
+    rc, response = req.send_request(
+        app_route='/attach_remote_syslog/debug/127.0.0.1/12345/tcp',
+        message={},
+        request_type='post')
+    assert rc == 200
+
+    # get syslog status
+    rc, response = req.send_request(
+        app_route='/syslog_status',
+        message={},
+        request_type='get'
+    )
+    assert rc == 200
+    assert response['syslog']

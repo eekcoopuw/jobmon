@@ -4,6 +4,7 @@ from datetime import datetime
 from flask import jsonify, request, Blueprint
 import warnings
 import socket
+import traceback
 
 from jobmon.models import DB
 from jobmon.models.attributes.constants import job_attribute
@@ -732,6 +733,19 @@ def set_log_level(level):
     return resp
 
 
+def getLogLevelUseName(name: str) -> int:
+    log_level_dict = {"CRITICAL": logging.CRITICAL,
+                      "ERROR": logging.ERROR,
+                      "WARNING": logging.WARNING,
+                      "INFO": logging.INFO,
+                      "DEBUG": logging.DEBUG,
+                      "NOTSET": logging.NOTSET}
+    level = name.upper()
+    if level not in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
+        level = "NOTSET"
+    return log_level_dict[level]
+
+
 @jsm.route('/attach_remote_syslog/<level>/<host>/<port>/<sockettype>', methods=['POST'])
 def attach_remote_syslog(level, host, port, sockettype):
     """
@@ -743,6 +757,7 @@ def attach_remote_syslog(level, host, port, sockettype):
     :param port: remote syslog server socket type; unless specified as TCP, otherwise, UDP
     :return:
     """
+
     level = level.upper()
     if level not in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
         level = "NOTSET"
@@ -759,12 +774,12 @@ def attach_remote_syslog(level, host, port, sockettype):
         s = socket.SOCK_STREAM
 
     try:
-        logging.attachSyslog(host=host, port=port, socktype=s, l=level)
+        logging.attachSyslog(host=host, port=port, socktype=s, l=getLogLevelUseName(level))
         resp = jsonify(msn="Attach syslog {h}:{p}".format(h=host, p=port))
         resp.status_code = StatusCodes.OK
         return resp
     except:
-        resp = jsonify(msn="Fail to attach syslog {h}:{p}".format(h=host, p=port))
+        resp = jsonify(msn=traceback.format_exc())
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
         return resp
 
