@@ -324,7 +324,7 @@ class Workflow(object):
         StataTask, since it creates logs in the working dir by default,
         potentially overwhelming that directory
         """
-        scratch_tmp_dir = "/ihme/scratch/tmp"
+        scratch_tmp_dir = "/ihme/scratch/tmp/jobmon/stata_logs"
         local_tmp_dir = "/tmp"
         if os.path.exists(os.path.realpath(scratch_tmp_dir)):
             tmp_root = scratch_tmp_dir
