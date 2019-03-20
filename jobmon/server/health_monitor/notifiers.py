@@ -1,5 +1,5 @@
 import requests
-import logging
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,7 @@ class SlackNotifier(object):
         self.slack_api_url = 'https://slack.com/api/chat.postMessage'
 
     def send(self, msg, channel=None):
+        logger.debug(logging.myself())
         """Send message to Slack using requests.post"""
         if not channel:
             channel = self.default_channel
@@ -25,6 +26,7 @@ class SlackNotifier(object):
             self.slack_api_url,
             headers={'Authorization': 'Bearer {}'.format(self._token)},
             json={'channel': channel, 'text': msg})
+        logger.debug(resp)
         if resp.status_code != requests.codes.OK:
             error = "Could not send Slack message. {}".format(resp.content)
             if "Server Error" in error:  # catch Slack server outage error
