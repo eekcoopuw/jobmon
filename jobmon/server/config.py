@@ -1,9 +1,8 @@
-import logging
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 import os
 
 
 logger = logging.getLogger(__file__)
-
 
 class InvalidConfig(Exception):
     pass
