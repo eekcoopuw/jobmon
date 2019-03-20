@@ -271,6 +271,7 @@ class Workflow(object):
         """Create new workflow in the db"""
         self.workflow_run = WorkflowRun(
             self.id, self.stderr, self.stdout, self.project,
+            executor_class=self.executor_class,
             reset_running_jobs=self.reset_running_jobs,
             working_dir=self.working_dir)
 
