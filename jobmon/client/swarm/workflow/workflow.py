@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 class WorkflowAlreadyComplete(Exception):
     pass
 
+RESUME = True
+DONT_RESUME = False
+
 
 class Workflow(object):
     """(aka Batch, aka Swarm)
@@ -59,7 +62,7 @@ class Workflow(object):
                  reset_running_jobs=True, working_dir=None,
                  executor_class='SGEExecutor', fail_fast=False,
                  interrupt_on_error=False, requester=shared_requester,
-                 seconds_until_timeout=36000):
+                 seconds_until_timeout=36000, resume=DONT_RESUME):
         """
         Args:
             workflow_args (str): unique identifier of a workflow
@@ -114,6 +117,16 @@ class Workflow(object):
 
         if workflow_args:
             self.workflow_args = workflow_args
+            unique = self.is_unique_workflow()
+
+            if not unique and resume:
+                print("This workflow already exists, do you want to proceed "
+                      "with attempting to restart that workflow: ")
+            elif not unique:
+                raise Exception("You are trying to submit a workflow with "
+                                "arguments that are not unique, if you are "
+                                "trying to resume a previous workflow, "
+                                "please set the resume flag")
         else:
             self.workflow_args = str(
                 uuid.uuid4())
@@ -124,6 +137,12 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
+
+    def is_unique_workflow(self) -> bool:
+        is_unique = True
+        # wf_hash = self._compute_hash(self)
+        matching_wfs = self._matching_workflows()
+        return is_unique
 
     def set_executor(self, executor_class):
         """Set which executor to use to run the tasks.

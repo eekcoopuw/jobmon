@@ -678,3 +678,17 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     assert workflow.workflow_run.stderr == '/tmp'
     assert workflow.workflow_run.stdout == '/tmp'
     assert workflow.workflow_run.executor_class == 'SGEExecutor'
+
+
+def test_workflow_identical_args(real_jsm_jqs, db_cfg):
+    import pdb
+    pdb.set_trace()
+    wf1 = Workflow(workflow_args="same", project='proj_jenkins')
+    task = BashTask("sleep 1", slots=1)
+    wf1.add_task(task)
+
+    wf1.execute()
+
+    wf2 = Workflow(workflow_args="same", project='proj_jenkins')
+    wf2.add_task(task)
+    wf2.execute()
