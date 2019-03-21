@@ -3,8 +3,8 @@ import hashlib
 import os
 import pytest
 import random
-import logging
 import socket
+import urllib
 
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
@@ -18,6 +18,7 @@ from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow import Workflow
 from jobmon.models.attributes.constants import job_attribute
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 
 HASH = 12345
@@ -484,3 +485,73 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
             attribute_entry_value = entry.value
             assert (dict_of_attributes[attribute_entry_type] ==
                     attribute_entry_value)
+
+
+testdata: dict = (
+    ('CRITICAL', 'CRITICAL'),
+    ('error', 'ERROR'),
+    ('WarNING', 'WARNING'),
+    ('iNFO', 'INFO'),
+    ('DEBUg', 'DEBUG'),
+    ('whatever', 'NOTSET')
+)
+
+@pytest.mark.parametrize("level,expected", testdata)
+def test_dynamic_change_log_level(level: str, expected: str):
+    # set log level to <level>
+    rc, response = req.send_request(
+        app_route='/log_level/{}'.format(level),
+        message={},
+        request_type='post')
+    assert rc == 200
+    # check log level is <expected>
+    rc, response = req.send_request(
+        app_route='/log_level',
+        message={},
+        request_type='get')
+    assert rc == 200
+
+    assert response['level'] == expected
+
+
+def test_syslog_parameter():
+    # get syslog status
+    rc, response = req.send_request(
+        app_route='/syslog_status',
+        message={},
+        request_type='get'
+    )
+    assert rc == 200
+    assert response['syslog'] is False
+
+    # try to attach a wrong port and expect failure
+    rc, response = req.send_request(
+        app_route='/attach_remote_syslog/debug/127.0.0.1/port/tcp',
+        message={},
+        request_type='post')
+    assert rc == 400
+
+    # get syslog status
+    rc, response = req.send_request(
+        app_route='/syslog_status',
+        message={},
+        request_type='get'
+    )
+    assert rc == 200
+    assert response['syslog'] is False
+
+    # try to attach a wrong port and expect failure
+    rc, response = req.send_request(
+        app_route='/attach_remote_syslog/debug/127.0.0.1/12345/tcp',
+        message={},
+        request_type='post')
+    assert rc == 200
+
+    # get syslog status
+    rc, response = req.send_request(
+        app_route='/syslog_status',
+        message={},
+        request_type='get'
+    )
+    assert rc == 200
+    assert response['syslog']
