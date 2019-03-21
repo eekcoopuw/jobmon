@@ -862,3 +862,15 @@ def syslog_status():
     logger.debug(logging.myself())
     resp = jsonify({'syslog': logging.isSyslogAttached()})
     return resp
+
+
+@jsm.route('/debug_on', methods=['POST'])
+def setRootLoggerToDebug():
+    """
+    This function set the root log level to debug. Be careful because you are unable to set it back.
+    :return:
+    """
+    logging._setRootLoggerLevel(logging.DEBUG)
+    resp = jsonify(msn="The root logger lever has been set to DEBUG. This action is irreversible.")
+    resp.status_code = StatusCodes.OK
+    return resp

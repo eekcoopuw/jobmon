@@ -3,7 +3,6 @@ import hashlib
 import os
 import pytest
 import random
-import logging
 import socket
 import urllib
 
@@ -19,7 +18,7 @@ from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow import Workflow
 from jobmon.models.attributes.constants import job_attribute
-from jobmon.server.jobmonLogging import jobmonLogging
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 
 HASH = 12345

@@ -1,6 +1,8 @@
 import logging
 import socket
 import inspect
+from flask.logging import default_handler
+from flask import Flask
 
 from logging.handlers import SysLogHandler
 
@@ -16,11 +18,31 @@ class jobmonLogging():
 
     _logger: logging.Logger = None
     _handler: logging.Handler = None
-    _format: str = '%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s'
-    _logLevel: int = DEBUG
+    _format: str = '%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s'
+    _logLevel: int = INFO
     _syslogAttached: bool = False
+    # The list holds specific loggers we want to monitor
+    # So far we have flask and sqlalchemy
+    _loggerArray: list = []
 
     myself = lambda: "----" + inspect.stack()[1][1] + "----" + inspect.stack()[1][3]
+
+    @staticmethod
+    def _createSpecialLoggers():
+        # Create formatter
+        formatter: str = '%(asctime)s %(remote_addr)s requested %(url)s %(levelname) %(module)s: %(message)s'
+
+        # Flask logger
+        flask_logger = Flask(__name__).logger
+        flask_logger.setLevel(jobmonLogging._logLevel)
+        default_handler = flask_logger.handlers[0]
+        jobmonLogging._loggerArray.append(flask_logger)
+        # sqlalchemy logger
+        sqlalchemy_logger = logging.getLogger('sqlalchemy')
+        sqlalchemy_logger.setLevel(jobmonLogging._logLevel)
+        sqlalchemy_logger.addHandler(default_handler)
+        jobmonLogging._loggerArray.append(sqlalchemy_logger)
+
 
     def __init__(self):
         # Add a standard format when the logger is called the first time
@@ -36,6 +58,8 @@ class jobmonLogging():
             jobmonLogging._logger.debug("Stream log haddler attached")
             jobmonLogging._handler.setLevel(jobmonLogging._logLevel)
             jobmonLogging._logger.debug("Log level set to {}".format(jobmonLogging.getLevelName()))
+            jobmonLogging._loggerArray.append(jobmonLogging._logger)
+            jobmonLogging._createSpecialLoggers()
 
     @staticmethod
     def logParameter(name: str, v: any):
@@ -48,7 +72,10 @@ class jobmonLogging():
         jobmonLogging._logger.debug(jobmonLogging.myself())
         jobmonLogging._logger.debug(jobmonLogging.logParameter("level", level))
         jobmonLogging._logLevel = level
-        jobmonLogging._handler.setLevel(level)
+        jobmonLogging._logger.info("----------------Log Lever Set to {}----------------".format(jobmonLogging.getLevelName()))
+        for l in jobmonLogging._loggerArray:
+            for h in l.handlers:
+                h.setLevel(level)
         jobmonLogging._logger.setLevel(level)
         jobmonLogging._logger.debug("Log level set to {}".format(jobmonLogging.getLevelName()))
 
@@ -100,3 +127,17 @@ class jobmonLogging():
         jobmonLogging._logger.debug(jobmonLogging.myself())
         jobmonLogging._logger.debug("Syslog attached: {}".format(jobmonLogging._syslogAttached))
         return jobmonLogging._syslogAttached
+
+    @staticmethod
+    def _setRootLoggerLevel(level: int):
+        # Based on my testing, this seems to work one way. You can change from INFO to DEBUG, but unable to change back.
+        jobmonLogging._logger.info("!!!   You are changing the root logger level to {}   !!!".format(logging.getLevelName(level)))
+        root = logging.getLogger()
+        root.debug("before change")
+        formatter = logging.Formatter(jobmonLogging._format)
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        handler.setLevel(level)
+        root.addHandler(handler)
+        root.setLevel(level)
+        root.debug("after change")
