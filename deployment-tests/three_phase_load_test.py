@@ -2,7 +2,7 @@ import getpass
 import random
 import sys
 import uuid
-
+from datetime import datetime
 
 from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.client.swarm.executors import sge_utils as sge
@@ -12,8 +12,9 @@ from jobmon import BashTask
 
 def three_phase_load_test(n_jobs: int):
     """
-    Creates and runs one workflow n jobs and another 3n jobs that have
-    dependencies to the previous n jobs. This can be used to test how jobmon
+    Creates and runs one workflow with n jobs and another 3n jobs that have
+    dependencies to the previous n jobsm then a final tier that has n jobs
+    with multiple dependencies on the 3n job tier. This can test how jobmon
     will respond when there is a large load of connections and communication
     to and from the db (like when dismod or codcorrect run)
     """
@@ -57,14 +58,17 @@ def three_phase_load_test(n_jobs: int):
     wf.add_tasks(tier1+tier2+tier3)
 
     num_tasks = 5*n_jobs
-    print(f"Beginning the workflow, there are {num_tasks} tasks in this DAG")
+    time = datetime.now().strftime("%m/%d/%Y_%H:%M:%S")
+    print(f"{time}: Beginning the workflow, there are {num_tasks} tasks in this "
+          f"DAG")
     wf.execute()
-    print("Workflow complete!")
+    time = datetime.now().strftime("%m/%d/%Y/_%H:%M:%S")
+    print(f"{time}: Workflow complete!")
 
 
 if __name__ == "__main__":
     n_jobs=1
     if len(sys.argv) > 1:
-        print(sys.argv)
-        n_jobs = sys.argv[1]
+        n_jobs = int(sys.argv[1])
+        assert n_jobs > 0, "Please provide an integer greater than 0 for the number of jobs"
     three_phase_load_test(n_jobs)
