@@ -677,3 +677,4 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
         '/ihme/centralcomp/auto_test_data')
     assert workflow.workflow_run.stderr == '/tmp'
     assert workflow.workflow_run.stdout == '/tmp'
+    assert workflow.workflow_run.executor_class == 'SGEExecutor'

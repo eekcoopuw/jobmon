@@ -99,6 +99,7 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
                  'stdout': "",
                  'project': 'proj_jenkins',
                  'slack_channel': "",
+                 'executor_class': 'SGEExecutor',
                  'working_dir': ""},
         request_type='post')
     wf_run_id = response['workflow_run_id']

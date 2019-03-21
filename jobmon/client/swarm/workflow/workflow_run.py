@@ -37,13 +37,15 @@ class WorkflowRun(object):
     """
 
     def __init__(self, workflow_id, stderr, stdout, project,
-                 slack_channel='jobmon-alerts', working_dir=None,
-                 reset_running_jobs=True, requester=shared_requester):
+                 slack_channel='jobmon-alerts', executor_class='SGEExecutor',
+                 working_dir=None, reset_running_jobs=True,
+                 requester=shared_requester):
         self.workflow_id = workflow_id
         self.requester = requester
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
+        self.executor_class = executor_class
         self.working_dir = working_dir
         self.kill_previous_workflow_runs(reset_running_jobs)
         rc, response = self.requester.send_request(
@@ -56,7 +58,8 @@ class WorkflowRun(object):
                      'stdout': stdout,
                      'project': project,
                      'slack_channel': slack_channel,
-                     'working_dir': self.working_dir},
+                     'executor_class': executor_class,
+                     'working_dir': working_dir},
             request_type='post')
         wfr_id = response['workflow_run_id']
         if rc != StatusCodes.OK:
