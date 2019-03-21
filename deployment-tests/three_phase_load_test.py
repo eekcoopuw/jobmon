@@ -1,8 +1,11 @@
+import getpass
 import random
 import sys
 import uuid
 
+
 from jobmon.client.swarm.workflow.workflow import Workflow
+from jobmon.client.swarm.executors import sge_utils as sge
 
 from jobmon import BashTask
 
@@ -14,24 +17,29 @@ def three_phase_load_test(n_jobs: int):
     will respond when there is a large load of connections and communication
     to and from the db (like when dismod or codcorrect run)
     """
-    wf = Workflow("load-test",
-                  "./load_test_stderr.log",
+    wfid = uuid.uuid4()
+    user = getpass.getuser()
+    wf = Workflow(f"load-test_{wfid}","load_test",
+                  stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
+                  stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
                   project="proj_burdenator")
+
+    command = sge.true_path("deployment-tests/sleep_and_echo.sh")
 
     tier1 = []
     # First Tier
     for i in range(n_jobs):
-        uid = uuid.uuid4()
+        uid = str(uuid.uuid4())
         sleep_time = random.randint(30, 41)
-        tier_1_task = BashTask(f"echo 'tier 1 {uid}' sleep {sleep_time}", slots=1)
+        tier_1_task = BashTask(f"{command} {sleep_time} {uid}", slots=1)
         tier1.append(tier_1_task)
 
     tier2 = []
     # Second Tier, depend on 1 tier 1 task
     for i in range(n_jobs*3):
-        uid = uuid.uuid4()
+        uid = str(uuid.uuid4())
         sleep_time = random.randint(30, 41)
-        tier_2_task = BashTask(f"echo 'tier 2 {uid}' sleep {sleep_time}",
+        tier_2_task = BashTask(f"{command} {sleep_time} {uid}",
                                upstream_tasks=[tier1[(i % n_jobs)]], slots=1)
         tier2.append(tier_2_task)
 
@@ -39,11 +47,11 @@ def three_phase_load_test(n_jobs: int):
     tier3 = []
     # Third Tier, depend on 3 tier 2 tasks
     for i in range(n_jobs):
-        uid = uuid.uuid4()
+        uid = str(uuid.uuid4())
         sleep_time = random.randint(30, 41)
-        tier_3_task = BashTask(f"echo 'tier 3 {uid}' sleep {sleep_time}",
-                               upstream_tasks=[tier2[i], tier2[(i+n_jobs)-1],
-                                               tier2[(i+(2*n_jobs)-1)]], slots=1)
+        tier_3_task = BashTask(f"{command} {sleep_time} {uid}",
+                               upstream_tasks=[tier2[i], tier2[(i+n_jobs)],
+                                               tier2[(i+(2*n_jobs))]], slots=1)
         tier3.append(tier_3_task)
 
     wf.add_tasks(tier1+tier2+tier3)
@@ -55,7 +63,7 @@ def three_phase_load_test(n_jobs: int):
 
 
 if __name__ == "__main__":
-    n_jobs=4
+    n_jobs=1
     if len(sys.argv) > 1:
         print(sys.argv)
         n_jobs = sys.argv[1]
