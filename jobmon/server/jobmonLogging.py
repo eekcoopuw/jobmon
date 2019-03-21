@@ -29,13 +29,12 @@ class jobmonLogging():
 
     @staticmethod
     def _createSpecialLoggers():
-        # Create formatter
-        formatter: str = '%(asctime)s %(remote_addr)s requested %(url)s %(levelname) %(module)s: %(message)s'
-
         # Flask logger
         flask_logger = Flask(__name__).logger
         flask_logger.setLevel(jobmonLogging._logLevel)
         default_handler = flask_logger.handlers[0]
+        formatter = logging.Formatter(jobmonLogging._format)
+        default_handler.setFormatter(formatter)
         jobmonLogging._loggerArray.append(flask_logger)
         # sqlalchemy logger
         sqlalchemy_logger = logging.getLogger('sqlalchemy')
