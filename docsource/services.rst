@@ -128,6 +128,7 @@ Version   jqs  jsm-1 jsm-2 db   git-tag
 ========  ==== ===== ===== ==== =============
 http.8         8457        3840 release-0.8.4
 http.9         8458        3841 release-0.8.5
+http.10        8656        3860 release-0.8.6
 ========  ==== ===== ===== ==== =============
 
 The port numbers come in pairs, e.g. "3313:3306".
