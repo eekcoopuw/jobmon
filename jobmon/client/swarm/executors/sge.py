@@ -7,6 +7,7 @@ from time import sleep
 import pandas as pd
 
 from cluster_utils.io import makedirs_safely
+from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.executors.sge_resource import SGEResource
@@ -27,7 +28,7 @@ class SGEExecutor(Executor):
 
         super().__init__(*args, **kwargs)
 
-        sge_utils.confirm_ssh_safe()
+        confirm_correct_perms()
 
     def _execute_sge(self, job, job_instance_id):
         try:

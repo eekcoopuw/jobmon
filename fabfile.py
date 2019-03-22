@@ -1,7 +1,8 @@
 from fabric.api import cd, env, run, settings
+from jobmon.models.attributes import constants
 
 env.use_ssh_config = True
-env.hosts = ['jobmon-p01.ihme.washington.edu']
+env.hosts = [constants.deploy_attribute["HOSTNAME"]]
 
 
 def deploy():

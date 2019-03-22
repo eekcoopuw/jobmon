@@ -1,9 +1,10 @@
-import logging
 import os
 import json
 from datetime import datetime
 from flask import jsonify, request, Blueprint
 import warnings
+import socket
+import traceback
 
 from jobmon.models import DB
 from jobmon.models.attributes.constants import job_attribute
@@ -21,6 +22,7 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 from jobmon.server.server_side_exception import log_and_raise
 
@@ -47,6 +49,7 @@ def mogrify(topic, msg):
     see: https://stackoverflow.com/questions/25188792/
     how-can-i-use-send-json-with-pyzmq-pub-sub
     """
+
     return str(topic) + ' ' + json.dumps(msg)
 
 
@@ -66,6 +69,7 @@ def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening
     """
+    logger.debug(logging.myself())
     logmsg = "{}: Responder received is_alive?".format(os.getpid())
     logger.debug(logmsg)
     resp = jsonify(msg="Yes, I am alive")
@@ -92,7 +96,9 @@ def add_job():
         queue: which queue is being used
         j_resource: if the j_drive is being used
     """
+    logger.debug(logging.myself())
     data = request.get_json()
+    logger.debug(data)
     job = Job(
         name=data['name'],
         job_hash=data['job_hash'],
@@ -109,6 +115,7 @@ def add_job():
         j_resource=data.get('j_resource', False),
         status=JobStatus.REGISTERED)
     DB.session.add(job)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
     job_dct = job.to_wire()
     resp = jsonify(job_dct=job_dct)
@@ -125,12 +132,15 @@ def add_task_dag():
         user: name of the user of the dag
         dag_hash: unique hash for the task_dag
     """
+    logger.debug(logging.myself())
     data = request.get_json(force=True)
+    logger.debug(data)
     dag = TaskDagMeta(
         name=data['name'],
         user=data['user'],
         dag_hash=data['dag_hash'])
     DB.session.add(dag)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
     dag_id = dag.dag_id
     resp = jsonify(dag_id=dag_id)
@@ -140,7 +150,10 @@ def add_task_dag():
 
 def _get_workflow_run_id(job_id):
     """Return the workflow_run_id by job_id"""
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_id", job_id))
     job = DB.session.query(Job).filter_by(job_id=job_id).first()
+    logger.debug(logging.logParameter("DB.session", DB.session))
     wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
     if not wf:
         DB.session.commit()
@@ -155,7 +168,10 @@ def _get_workflow_run_id(job_id):
 
 def _get_dag_id(job_id):
     """Return the workflow_run_id by job_id"""
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_id", job_id))
     job = DB.session.query(Job).filter_by(job_id=job_id).first()
+    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
     return job.dag_id
 
@@ -168,7 +184,9 @@ def add_job_instance():
         job_id (int): unique id for the job
         executor_type (str): string name of the executor type used
     """
+    logger.debug(logging.myself())
     data = request.get_json()
+    logger.debug(data)
     logger.debug("Add JI for job {}".format(data['job_id']))
     workflow_run_id = _get_workflow_run_id(data['job_id'])
     dag_id = _get_dag_id(data['job_id'])
@@ -178,6 +196,7 @@ def add_job_instance():
         dag_id=dag_id,
         workflow_run_id=workflow_run_id)
     DB.session.add(job_instance)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
     ji_id = job_instance.job_instance_id
 
@@ -214,7 +233,9 @@ def add_update_workflow():
         description (str): string description of the workflow, optional
         any other Workflow attributes you want to set
     """
+    logger.debug(logging.myself())
     data = request.get_json()
+    logger.debug(data)
     if request.method == 'POST':
         wf = Workflow(dag_id=data['dag_id'],
                       workflow_args=data['workflow_args'],
@@ -223,6 +244,7 @@ def add_update_workflow():
                       user=data['user'],
                       description=data.get('description', ""))
         DB.session.add(wf)
+        logger.debug(logging.logParameter("DB.session", DB.session))
     else:
         wf_id = data.pop('wf_id')
         wf = DB.session.query(Workflow).\
@@ -252,7 +274,9 @@ def add_update_workflow_run():
         notifications
         any other Workflow attributes you want to set
     """
+    logger.debug(logging.myself())
     data = request.get_json()
+    logger.debug(data)
     if request.method == 'POST':
         wfr = WorkflowRunDAO(workflow_id=data['workflow_id'],
                              user=data['user'],
@@ -262,13 +286,15 @@ def add_update_workflow_run():
                              stdout=data['stdout'],
                              working_dir=data['working_dir'],
                              project=data['project'],
-                             slack_channel=data['slack_channel'])
+                             slack_channel=data['slack_channel'],
+                             executor_class=data['executor_class'])
         workflow = DB.session.query(Workflow).\
             filter(Workflow.id == data['workflow_id']).first()
         # Set all previous runs to STOPPED
         for run in workflow.workflow_runs:
             run.status = WorkflowRunStatus.STOPPED
         DB.session.add(wfr)
+        logger.debug(logging.logParameter("DB.session", DB.session))
     else:
         wfr = DB.session.query(WorkflowRunDAO).\
             filter(WorkflowRunDAO.id == data['wfr_id']).first()
@@ -288,8 +314,11 @@ def log_done(job_instance_id):
 
         job_instance_id: id of the job_instance to log done
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     logger.debug("Log DONE for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
     DB.session.commit()
@@ -306,6 +335,8 @@ def log_error(job_instance_id):
         job_instance_id (str): id of the job_instance to log done
         error_message (str): message to log as error
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
@@ -317,6 +348,7 @@ def log_error(job_instance_id):
             job_instance_id=job_instance_id,
             description=data['error_message'])
         DB.session.add(error)
+        logger.debug(logging.logParameter("DB.session", DB.session))
         DB.session.commit()
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.OK
@@ -335,9 +367,12 @@ def log_executor_id(job_instance_id):
 
         job_instance_id: id of the job_instance to log
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     logger.info("in log_executor_id, ji is {}".format(ji))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
@@ -355,6 +390,8 @@ def log_heartbeat(dag_id):
 
         job_instance_id: id of the job_instance to log
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("dag_id", dag_id))
     dag = DB.session.query(TaskDagMeta).filter_by(
         dag_id=dag_id).first()
     if dag:
@@ -372,9 +409,12 @@ def log_running(job_instance_id):
 
         job_instance_id: id of the job_instance to log as running
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     logger.debug("Log RUNNING for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
@@ -392,9 +432,12 @@ def log_nodename(job_instance_id):
         job_instance_id: id of the job_instance to log done
         nodename (str): name of the node on which the job_instance is running
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     logger.debug("Log USAGE for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     _update_job_instance(ji, nodename=data['nodename'])
     DB.session.commit()
     resp = jsonify(message='')
@@ -414,8 +457,9 @@ def log_usage(job_instance_id):
         cpu (str, optional): cpu used
         io (str, optional): io used
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
-    logger.debug("Log USAGE for JI {}".format(job_instance_id))
     if data.get('maxrss', None) is None:
         data['maxrss'] = '-1'
 
@@ -432,6 +476,7 @@ def log_usage(job_instance_id):
                                    data.get('cpu', None),
                                    data.get('io', None)))
     job_instance = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     job_id = job_instance.job_id
     msg = _update_job_instance(job_instance,
                                usage_str=data.get('usage_str', None),
@@ -462,7 +507,8 @@ def queue_job(job_id):
 
         job_id: id of the job to queue
     """
-    logger.debug("Queue Job {}".format(job_id))
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_id", job_id))
     job = DB.session.query(Job)\
         .filter_by(job_id=job_id).first()
     try:
@@ -471,8 +517,7 @@ def queue_job(job_id):
         if job.status == JobStatus.QUEUED_FOR_INSTANTIATION:
             msg = ("Caught InvalidStateTransition. Not transitioning job "
                    "{} from Q to Q".format(job_id))
-            warnings.warn(msg)
-            logger.debug(msg)
+            logger.warning(msg)
         else:
             raise
     DB.session.commit()
@@ -488,7 +533,10 @@ def reset_job(job_id):
 
         job_id: id of the job to reset
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_id", job_id))
     job = DB.session.query(Job).filter_by(job_id=job_id).first()
+    logger.debug(logging.logParameter("DB.session", DB.session))
     job.reset()
     DB.session.commit()
     resp = jsonify()
@@ -503,6 +551,8 @@ def reset_incomplete_jobs(dag_id):
 
         dag_id: id of the dag to reset
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("dag_id", dag_id))
     time = get_time(DB.session)
     up_job = """
         UPDATE job
@@ -526,16 +576,20 @@ def reset_incomplete_jobs(dag_id):
         WHERE job.dag_id=:dag_id
         AND job.status!=:done_status
     """
+    logger.debug("Query:\n{}".format(up_job))
+    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.execute(
         up_job,
         {"dag_id": dag_id,
          "registered_status": JobStatus.REGISTERED,
          "done_status": JobStatus.DONE})
+    logger.debug("Query:\n{}".format(up_job_instance))
     DB.session.execute(
         up_job_instance,
         {"dag_id": dag_id,
          "error_status": JobInstanceStatus.ERROR,
          "done_status": JobStatus.DONE})
+    logger.debug("Query:\n{}".format(log_errors))
     DB.session.execute(
         log_errors,
         {"dag_id": dag_id,
@@ -554,6 +608,9 @@ def _get_job_instance(session, job_instance_id):
         session: DB.session or Session object to use to connect to the db
         job_instance_id (int): job_instance_id with which to query the database
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("session", session))
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     job_instance = session.query(JobInstance).filter_by(
         job_instance_id=job_instance_id).first()
     return job_instance
@@ -568,6 +625,7 @@ def _update_job_instance_state(job_instance, status_id):
         job_instance (obj) object of time models.JobInstance
         status_id (int): id of the status to which to transition
     """
+    logger.debug(logging.myself())
     logger.debug(f"Update JI state {status_id} for {job_instance}")
     try:
         job_instance.transition(status_id)
@@ -578,7 +636,6 @@ def _update_job_instance_state(job_instance, status_id):
                    "Not transitioning job, jid= " \
                    "{job_instance.job_instance_id}" \
                    "from {job_instance.status} to {status_id}"
-            warnings.warn(msg)
             logger.warning(msg)
         else:
             # Tried to move to an illegal state
@@ -614,9 +671,13 @@ def _update_job_instance(job_instance, **kwargs):
     Args:
         job_instance (obj): object of type models.JobInstance
     """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance", job_instance))
     logger.debug("Update JI  {}".format(job_instance))
     status_requested = kwargs.get('status', None)
+    logger.debug(logging.logParameter("status_requested", status_requested))
     if status_requested is not None:
+        logger.debug("status_requested:{s}; job_instance.status:{j}".format(s=status_requested, j=job_instance.status))
         if status_requested == job_instance.status:
             kwargs.pop(status_requested)
             logger.debug("Caught InvalidStateTransition. Not transitioning "
@@ -637,11 +698,14 @@ def add_workflow_attribute():
         attribute_type (obj): object of type WorkflowAttribute
         value (str): value of the WorkflowAttribute to add
     """
+    logger.debug(logging.myself())
     data = request.get_json()
     workflow_attribute = WorkflowAttribute(
         workflow_id=data['workflow_id'],
         attribute_type=data['attribute_type'],
         value=data['value'])
+    logger.debug(workflow_attribute)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.add(workflow_attribute)
     DB.session.commit()
     resp = jsonify({'workflow_attribute_id': workflow_attribute.id})
@@ -659,12 +723,15 @@ def add_workflow_run_attribute():
         attribute_type (obj): object of type WorkflowRunAttribute
         value (str): value of the WorkflowRunAttribute to add
     """
+    logger.debug(logging.myself())
     data = request.get_json()
     workflow_run_attribute = WorkflowRunAttribute(
         workflow_run_id=data['workflow_run_id'],
         attribute_type=data['attribute_type'],
         value=data['value'])
+    logger.debug(workflow_run_attribute)
     DB.session.add(workflow_run_attribute)
+    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
     resp = jsonify({'workflow_run_attribute_id': workflow_run_attribute.id})
     resp.status_code = StatusCodes.OK
@@ -680,13 +747,131 @@ def add_job_attribute():
         attribute_type (obj): object of type JobAttribute
         value (str): value of the JobAttribute to add
     """
+    logger.debug(logging.myself())
     data = request.get_json()
     job_attribute = JobAttribute(
         job_id=data['job_id'],
         attribute_type=data['attribute_type'],
         value=data['value'])
+    logger.debug(job_attribute)
     DB.session.add(job_attribute)
     DB.session.commit()
     resp = jsonify({'job_attribute_id': job_attribute.id})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/log_level', methods=['GET'])
+def get_log_level():
+    """A simple 'action' to get the current server log level
+    """
+    logger.debug(logging.myself())
+    level: str = logging.getLevelName()
+    logger.debug(level)
+    resp = jsonify({'level': level})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/log_level/<level>', methods=['POST'])
+def set_log_level(level):
+    """Change log level
+    Args:
+
+        level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO, DEBUG
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("level", level))
+    level = level.upper()
+    if level == "CRITICAL":
+        logging.setlogLevel(logging.CRITICAL)
+    elif level == "ERROR":
+        logging.setlogLevel(logging.ERROR)
+    elif level == "WARNING":
+        logging.setlogLevel(logging.WARNING)
+    elif level == "INFO":
+        logging.setlogLevel(logging.INFO)
+    elif level == "DEBUG":
+        logging.setlogLevel(logging.DEBUG)
+    else:
+        level = "NOTSET"
+        logging.setlogLevel(logging.NOTSET)
+    resp = jsonify(msn="Set server log to {}".format(level))
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+def getLogLevelUseName(name: str) -> int:
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("name", name))
+    log_level_dict = {"CRITICAL": logging.CRITICAL,
+                      "ERROR": logging.ERROR,
+                      "WARNING": logging.WARNING,
+                      "INFO": logging.INFO,
+                      "DEBUG": logging.DEBUG,
+                      "NOTSET": logging.NOTSET}
+    level = name.upper()
+    if level not in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
+        level = "NOTSET"
+    return log_level_dict[level]
+
+
+@jsm.route('/attach_remote_syslog/<level>/<host>/<port>/<sockettype>', methods=['POST'])
+def attach_remote_syslog(level, host, port, sockettype):
+    """
+    Add a remote syslog handler
+
+    :param level: remote syslog level
+    :param host: remote syslog server host
+    :param port: remote syslog server port
+    :param port: remote syslog server socket type; unless specified as TCP, otherwise, UDP
+    :return:
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("level", level))
+    logger.debug(logging.logParameter("host", host))
+    logger.debug(logging.logParameter("port", port))
+    logger.debug(logging.logParameter("sockettype", sockettype))
+    level = level.upper()
+    if level not in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
+        level = "NOTSET"
+
+    try:
+        port = int(port)
+    except:
+        resp = jsonify(msn="Unable to convert {} to integer".format(port))
+        resp.status_code = StatusCodes.BAD_REQUEST
+        return resp
+
+    s = socket.SOCK_DGRAM
+    if sockettype.upper == "TCP":
+        s = socket.SOCK_STREAM
+
+    try:
+        logging.attachSyslog(host=host, port=port, socktype=s, l=getLogLevelUseName(level))
+        resp = jsonify(msn="Attach syslog {h}:{p}".format(h=host, p=port))
+        resp.status_code = StatusCodes.OK
+        return resp
+    except:
+        resp = jsonify(msn=traceback.format_exc())
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+        return resp
+
+
+@jsm.route('/syslog_status', methods=['GET'])
+def syslog_status():
+    logger.debug(logging.myself())
+    resp = jsonify({'syslog': logging.isSyslogAttached()})
+    return resp
+
+
+@jsm.route('/debug_on', methods=['POST'])
+def setRootLoggerToDebug():
+    """
+    This function set the root log level to debug. Be careful because you are unable to set it back.
+    :return:
+    """
+    logging._setRootLoggerLevel(logging.DEBUG)
+    resp = jsonify(msn="The root logger lever has been set to DEBUG. This action is irreversible.")
     resp.status_code = StatusCodes.OK
     return resp

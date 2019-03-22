@@ -83,12 +83,126 @@ On the cluster, run a command like the following:
   mysqldump -h jobmon-p01.ihme.washington.edu --port 3305 -u docker -p docker --database docker  > dbs_3305_dump.sql
 
 
+Version Control
+***************
+
+For testing purposes, you can then access the jobmon database on that server
+from your favorite DB browser (e.g. Sequel Pro) using the credentials::
+
+    host: jobmon-p01.ihme.washington.edu
+    port: 3830
+    user: read_only
+    pass: docker
+
+    or host: jobmon-docker-cont-p01.hosts.ihme.washington.edu (depending on the version)
+
+
+Each new version of jobmon increments the ports and the db port reflects the
+release number (0.8.0 = 3800), so for example:
+
+jobmon-p01
+========  ==== ===== ===== ==== =============
+Version   jqs  jsm-1 jsm-2 db   git-tag
+========  ==== ===== ===== ==== =============
+emu.0     na   4556  4557  3307
+emu.1     4658 4656  4657  3308
+emu.2     4758 4756  4757  3309
+emu.3     4858 4856  4857  3310
+<<<<<<< HEAD
+emu.3     4958 4956  4957  3311  0.6.0
+emu.4     5058 5056  5057  3312  0.6.1
+emu.5     4458 4456  4457  3305  # gbd2017_production hotfixes 063again
+emu.6     5158 5156  5157  3313  0.6.6   Database lost
+emu.7     5258 5256  5257  3314  0.6.7
+http      6258 6256  n/a   3315  0.7.0
+http.2    6258 6256  n/a   3316  release-0.7.1
+http.3    7258 7256  n/a   3317  release-0.7.2
+http.4         8256        3800  release-0.8.0
+http.5         8356        3810  release-0.8.1
+http.6         8356        3820  release-0.8.2
+http.7         8456        3830  release-0.8.3
+========  ==== ===== ===== ==== =======
+
+
+jobmon-docker-cont-p01
+========  ==== ===== ===== ==== =============
+Version   jqs  jsm-1 jsm-2 db   git-tag
+========  ==== ===== ===== ==== =============
+http.8         8457        3840 release-0.8.4
+http.9         8458        3841 release-0.8.5
+========  ==== ===== ===== ==== =============
+
+The port numbers come in pairs, e.g. "3313:3306".
+The number on the right of the colon is the port-number inside the container, and never changes.
+The port number on the left of the colon is the external port number and must be changed on each release.
+See also::
+https://docs.docker.com/compose/networking/
+
+Note that Docker does "NATing" (Network Address Translation) so that the
+mysql database is listening on port 3306 within its contained, but docker
+maps it to a different port externally.
+
+
+Updates before a new version can be deployed
+********************************************
+If your most recent commit on master is ready to be deployed, make sure that
+the ports have been updated for the new version:
+
+1. To update the ports, make a PR with the port numbers incremented according
+to the version control [above] in the following places:
+
+  a. runserver.py
+  b. this documentation
+  c. jobmon/default_config.py
+  d. docsource/quickstart.rst
+  e. And do a recursive grep to be sure!   e.g.   ``grep -r <previous port number> *``
+
+2. Check that the correct host and password information is available in
+quickstart.rst and this (services.rst)
+
+Creating a Jenkins build to deploy your new version to the PyPi server
+**********************************************************************
+1. Tag the most recent commit (that contains updated ports) on stash with the
+version that you are going to deploy, tag with the format release-0.8.4 and
+make sure that you can see the tag in the stash UI (sometimes tagging through
+command line doesn't show up and work properly)
+
+  a. You can tag directly through the stash UI by clicking on the commit and
+  adding a tag
+
+2. Check the pypi server to make sure that there is not an existing build of
+the version you just tagged you can go to:
+http://dev-tomflem.ihme.washington.edu/docs/jobmon/ to make sure that the
+version is not already present
+
+3. If there is already a version deployed with the same version either:
+
+  a. Tag with a new version that doesn't exist (best if you haven't already
+  set up matching port numbers and deployed the database accordingly), and
+  build as normal
+
+  b. Go on to the pypi server (pypi.services.ihme.washington.edu) with your
+  normal ihme credentials and delete the tar for the given build in the pypi
+  docker container (this should be your last resort)
+
+  c. If you had to delete the version from the pypi server, you need to edit
+  the jenkins file to rebuild even if it has built that version before,
+  the easiest way to do this is by clicking replay on a previously successful
+  build that ran without tests, editing the jenkinsfile to make sure that when
+  it deploys to the server it doesn't first check if version exists, and
+  running that.
+
+4. If you are sure that the version doesn't exist, run a jenkins build setting
+skip_tests=True. If the build completes successfully, check the docs again to
+make sure the new version is up and labelled as expected
+
+
 Deploying JobStateManager and JobQueryServer
 ********************************************
 
 To deploy a centralized JobStateManager and JobQueryServer:
 
-1. Ssh into jobmon-p01.ihme.washington.edu using your svcscicompci ssh key::
+1. Make sure you have properly build and deployed to jenkins, then ssh intojobmon-p01.ihme.washington.edu using your svcscicompci ssh key::
 
     ssh -i ~/.ssh/svcsci_id_rsa svcscicompci@jobmon-p01.ihme.washington.edu
 
@@ -97,18 +211,14 @@ To deploy a centralized JobStateManager and JobQueryServer:
 
     git clone ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git new_name
 
-4. As per the "Version Control" section below, update the port numbers in all the following places, unless this has already been done:
-
-  a. runserver.py
-  b. this documentation
-  c. jobmon/default_config.py
-  d. docsource/quickstart.rst
-  e. And do a recursive grep to be sure!   e.g.   ``grep -r 3800 *``
-
-5. Submit the new version number files back to git
-6. From the root directory of the repo, run::
+6. Activate the jobmon conda environment:
+    source activate jobmon
+7. From the root directory of the repo, run::
 
     ./runserver.py
+
+    Note: By the end of Mar 7, 2019, on jobmon-docker-cont-p01, the version of docker-compose comes with the conda environment has a bug, but the downgrade is blocked by other packages, so a working version has been put under ~/bin.
+          Do `export PATH="~/bin:$PATH"` to use the bypass version.
 
 You'll be prompted for a slack bot token.
 Use the 'BotUserOathToken' from::
@@ -122,59 +232,10 @@ There is a bug - you have to re-enter the default slack channel names, surrounde
 The script will run ``docker-compose up build``
 
 Notice that the most priviliged database passwords are randomly generated in runserver.py
-They are then set as enviornment variables in the docker service container. To
+They are then set as environment variables in the docker service container. To
 see them, connect to the docker container like this:
 ``docker exec -it jobmon071_jqs_1 bash``
-and do a print env, look for: ``JOBMON_PASS_SERVICE_USER``
-
-
-Version Control
-***************
-
-For testing purposes, you can then access the jobmon database on that server
-from your favorite DB browser (e.g. Sequel Pro) using the credentials::
-
-    host: jobmon-p01.ihme.washington.edu
-    port: 3830
-    user: read_only
-    pass: docker
-
-
-Each new version of jobmon increments the ports and the db port reflects the
-release number (0.8.0 = 3800), so for example:
-
-========  ==== ===== ===== ==== =======
-Version   jqs  jsm-1 jsm-2 db   git-tag
-========  ==== ===== ===== ==== =======
-emu.0     na   4556  4557  3307
-emu.1     4658 4656  4657  3308
-emu.2     4758 4756  4757  3309
-emu.3     4858 4856  4857  3310
-emu.3     4958 4956  4957  3311  0.6.0
-emu.4     5058 5056  5057  3312  0.6.1
-emu.5     4458 4456  4457  3305  # gbd2017_production hotfixes 063again
-emu.6     5158 5156  5157  3313  0.6.6   Database lost
-emu.7     5258 5256  5257  3314  0.6.7
-http      6258 6256  n/a   3315  0.7.0
-http.2    6258 6256  n/a   3316  0.7.1
-http.3    7258 7256  n/a   3317  0.7.2
-http.4         8256        3800  0.8.1
-http.5         8356        3810  0.8.2
-http.6         8356        3810  0.8.2
-http.7         8456        3830  0.8.3
-========  ==== ===== ===== ==== =======
-
-
-The port numbers come in pairs, e.g. "3313:3306".
-The number on the right of the colon is the port-number inside the container, and never changes.
-The port number on the left of the colon is the external port number and must be changed on each release.
-See also::
-https://docs.docker.com/compose/networking/
-
-Note that Docker does "NATing" (Network Address Translation) so that the
-mysql database is listening on port 3306 within its contained, but docker
-maps it to a different port externally.
-
+and do a `env`, look for: ``DB_USER & DB_PASS``
 
 Deployment architecture
 ***********************

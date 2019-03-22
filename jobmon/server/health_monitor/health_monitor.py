@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime, timedelta
 from time import sleep
 
@@ -11,10 +10,10 @@ from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow import Workflow
 from jobmon.server import create_app
 from jobmon.server.config import ServerConfig
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 
-logger = logging.getLogger(__name__)
-
+logger = logging.getLogger(__file__)
 
 class HealthMonitor(object):
     """Watches for disappearing dags / workflows, as well as failing nodes
@@ -36,7 +35,7 @@ class HealthMonitor(object):
     def __init__(self, loss_threshold=5, poll_interval=10,
                  wf_notification_sink=None, node_notification_sink=None,
                  requester=shared_requester):
-
+        logger.debug(logging.myself())
         if poll_interval < loss_threshold:
             raise ValueError("poll_interval ({pi} min) must exceed the "
                              "loss_threshold ({lt} min)".format(
@@ -50,12 +49,14 @@ class HealthMonitor(object):
         self._node_notification_sink = node_notification_sink
 
         config = ServerConfig.from_defaults()
+        logger.debug("DB config: {}".format(config))
         self.app = create_app(config)
         DB.init_app(self.app)
         self._database = config.db_name
 
     def monitor_forever(self):
         """Run in a thread and monitor for failing jobs"""
+        logger.debug(logging.myself())
         while True:
             with self.app.app_context():
                 # Identify and log lost workflow runs
@@ -73,6 +74,7 @@ class HealthMonitor(object):
 
     def _get_succeeding_active_workflow_runs(self, session):
         """Collect all active workflow runs that have < 10% failure rate"""
+        logger.debug(logging.myself())
         with self.app.app_context():
             query = (
                 """SELECT
@@ -90,6 +92,7 @@ class HealthMonitor(object):
                 GROUP BY workflow_run_id
                 HAVING failure_rate <= .1
                      """.format(db=self._database, s=WorkflowRunStatus.RUNNING))
+            logger.debug("Query:\n{}".format(query))
             res = session.execute(query).fetchall()
             if res:
                 return [tup[0] for tup in res]
@@ -100,6 +103,7 @@ class HealthMonitor(object):
         currently successful workflow runs, and report the ones that have at
         least 5 job instances and at least 50% failure rate on that node
         """
+        logger.debug(logging.myself())
         with self.app.app_context():
             if not working_wf_runs:
                 # no active/successful workflow runs have < 10% failure
@@ -120,6 +124,7 @@ class HealthMonitor(object):
                 GROUP BY nodename
                 HAVING COUNT(job_instance_id) > 5 and failure_rate > .2;"""
                 .format(db=self._database, wf=working_wf_runs))
+            logger.debug("Query:\n{}".format(query))
             res = session.execute(query).fetchall()
             if res:
                 return [tup[0] for tup in res]
@@ -127,14 +132,17 @@ class HealthMonitor(object):
 
     def _notify_of_failing_nodes(self, nodes):
         """Ping slack of any failing nodes"""
+        logger.debug(logging.myself())
         if not nodes:
             return
         msg = "Potentially failing nodes found: {}".format(nodes)
+        logger.debug(msg)
         if self._node_notification_sink:
             self._node_notification_sink(msg)
 
     def _get_active_workflow_runs(self, session):
         """Retrieve all workflow_runs that are actively running"""
+        logger.debug(logging.myself())
         with self.app.app_context():
             wrs = session.query(WorkflowRunDAO).\
                 options(joinedload(WorkflowRunDAO.workflow).\
@@ -146,12 +154,14 @@ class HealthMonitor(object):
         """Return all workflow_runs that are lost, i.e. not logged a
         heartbeat in a while
         """
+        logger.debug(logging.myself())
         with self.app.app_context():
             wrs = self._get_active_workflow_runs(session)
             return [wr for wr in wrs if self._has_lost_workflow_run(wr)]
 
     def _has_lost_workflow_run(self, workflow_run):
         """Return bool if workflow has a lost workflow_run"""
+        logger.debug(logging.myself())
         with self.app.app_context():
             td = workflow_run.workflow.task_dag
             time_since_last_heartbeat = (datetime.utcnow() - td.heartbeat_date)
@@ -159,6 +169,7 @@ class HealthMonitor(object):
 
     def _register_lost_workflow_runs(self, lost_workflow_runs):
         """Register all lost workflow_runs with the database"""
+        logger.debug(logging.myself())
         for wfr in lost_workflow_runs:
             self._requester.send_request(
                 app_route='/workflow_run',

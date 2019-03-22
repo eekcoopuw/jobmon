@@ -2,6 +2,7 @@ from flask import Flask
 from flask_cors import CORS
 
 from jobmon.server.config import ServerConfig
+from jobmon.server.jobmonLogging import jobmonLogging
 
 
 def create_app(config=None):

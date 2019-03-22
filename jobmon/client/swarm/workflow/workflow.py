@@ -271,6 +271,7 @@ class Workflow(object):
         """Create new workflow in the db"""
         self.workflow_run = WorkflowRun(
             self.id, self.stderr, self.stdout, self.project,
+            executor_class=self.executor_class,
             reset_running_jobs=self.reset_running_jobs,
             working_dir=self.working_dir)
 
@@ -323,7 +324,7 @@ class Workflow(object):
         StataTask, since it creates logs in the working dir by default,
         potentially overwhelming that directory
         """
-        scratch_tmp_dir = "/ihme/scratch/tmp"
+        scratch_tmp_dir = "/ihme/scratch/tmp/jobmon/stata_logs"
         local_tmp_dir = "/tmp"
         if os.path.exists(os.path.realpath(scratch_tmp_dir)):
             tmp_root = scratch_tmp_dir
