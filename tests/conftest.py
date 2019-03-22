@@ -34,12 +34,10 @@ def ephemera_conn_str():
     """
     edb = create_ephemerdb(elevated_privileges=True)
     conn_str = edb.start()
-
-    # if you are debugging on the fair cluster for ephemeradb add
-    # .cluster.ihme.washington.edu to the end of the node name as the host
-    # (for some reason socket.getfqdn() does not return this properly here
-    # but that is where the database is configured
+    # use the ephemera db root privileges (root: singularity_root) otherwise
+    # you will not see changes to the database
     yield conn_str
+
 
 
 # NOTE: there are two types of tests that conftest sets up. 1. Using the real
