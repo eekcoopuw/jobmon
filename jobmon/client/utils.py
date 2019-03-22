@@ -42,7 +42,8 @@ def confirm_correct_perms(perm_dict=None):
                 # raise exception after checking all possible permits
                 pass
         if permission_violation:
-            errors += "{d} permission not in {p}".format(d=directory, p=perm_dict[directory])
+            errors += "{d} permission not in {p} ".format(
+                d=directory, p=perm_dict[directory])
 
     if errors:
         raise UnsafeSSHDirectory(errors)

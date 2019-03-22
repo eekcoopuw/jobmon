@@ -1,10 +1,11 @@
 import pytest
-import sys
 from time import sleep
 from unittest import mock
 
 from tenacity import stop_after_attempt
 from jobmon.models.job_status import JobStatus
+from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
@@ -19,7 +20,7 @@ class Task(ExecutableTask):
 
     def __init__(self, command, name, *args, **kwargs):
         super(Task, self).__init__(command=command, name=name, max_attempts=1,
-                                *args, **kwargs)
+                                   *args, **kwargs)
 
 
 @pytest.fixture(scope='function')
@@ -65,11 +66,19 @@ def test_sync(job_list_manager_sge_no_daemons):
                                               mem_free='1G',
                                               num_cores=1))
 
+    # create job instances
     job_list_manager_sge.queue_job(job)
-    job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
-    # 35 is three times the job reconciliation interval (10 seconds) plus
-    # some slop
-    sleep(60)
+    jid = job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
+
+    # check that the job clears the queue by checking the jqs for any
+    # submitted or running
+    job_inst_rec = job_list_manager_sge.job_inst_reconciler
+    max_sleep = 600  # 10 min max till test fails
+    slept = 0
+    while jid and slept <= max_sleep:
+        slept += 5
+        sleep(5)
+        jid = job_inst_rec._get_presumed_submitted_or_running()
 
     # with a new job failed, make sure that the sync has been updated and the
     # call with the sync filter actually returns jobs
@@ -91,6 +100,9 @@ def test_invalid_command(job_list_manager):
     assert len(job_list_manager.all_error) == 0
 
     job_list_manager.job_instance_factory.instantiate_queued_jobs()
+
+    # sleep is okay because we are using the sequential executor which should
+    # always schedule the job
     sleep(35)
     job_list_manager._sync()
     assert len(job_list_manager.all_error) > 0
@@ -108,6 +120,9 @@ def test_valid_command(job_list_manager):
     assert len(njobs1) == 1
 
     job_list_manager.job_instance_factory.instantiate_queued_jobs()
+
+    # sleep is okay because we are using the sequential executor which should
+    # always schedule the job
     sleep(35)
     job_list_manager._sync()
     assert len(job_list_manager.all_done) > 0
@@ -198,7 +213,8 @@ def test_server_502(job_list_manager):
 
     # mock requester.get_content to return 2 502s then 200
     with mock.patch('jobmon.client.requester.get_content') as m:
-        m.side_effect = [err_response]*2 + [good_response] + [err_response]*2
+        m.side_effect = [err_response] * 2 + \
+            [good_response] + [err_response] * 2
 
         job_list_manager.get_job_statuses()  # fails at first
 

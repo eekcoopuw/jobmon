@@ -95,9 +95,13 @@ def local_flask_app(env_var):
 
     from jobmon.server import create_app
     app = create_app()
+
     # The init_app call sets up database connections
     from jobmon.models import DB
-    DB.init_app(app)
+
+    # Logan Sandar: my assessment is that DB.init_app() should not be necessary
+    # because it occurs in create_app() and I think DB has global state.
+    # DB.init_app(app)
     yield {'app': app, 'DB': DB}
 
 
@@ -145,6 +149,8 @@ def real_jsm_jqs(test_session_config):
     import multiprocessing as mp
     from tests.run_services import run_web_service
 
+    # spawn ensures that no attributes are copied to the new process. Python
+    # starts from scratch
     ctx = mp.get_context('spawn')
     p1 = ctx.Process(target=run_web_service, args=(
         test_session_config["JOBMON_PORT"],
