@@ -113,13 +113,10 @@ class JobInstanceReconciler(object):
         # This is kludgy... Re-visit the data structure used for communicating
         # executor IDs back from the JobQueryServer
         missing_job_instance_ids = []
-        for job_instance in presumed:
-            if job_instance.executor_id:
-                if job_instance.executor_id not in actual:
-                    job_instance_id = job_instance.job_instance_id
-                    self._log_mysterious_error(job_instance_id,
-                                               job_instance.executor_id)
-                    missing_job_instance_ids.append(job_instance_id)
+        for job_instance_id, executor_id in presumed:
+            if executor_id and executor_id not in actual:
+                self._log_mysterious_error(job_instance_id, executor_id)
+                missing_job_instance_ids.append(job_instance_id)
         return missing_job_instance_ids
 
     def terminate_timed_out_jobs(self):
@@ -146,13 +143,12 @@ class JobInstanceReconciler(object):
         """
         try:
             rc, response = self.requester.send_request(
-                app_route='/dag/{}/job_instance'.format(self.dag_id),
+                app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
                 message={'status': [
                     JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
                     JobInstanceStatus.RUNNING]},
                 request_type='get')
-            job_instances = response['ji_dcts']
-            job_instances = [JobInstance.from_wire(j) for j in job_instances]
+            job_instances = response['jiid_exid_tuples']
         except TypeError:
             job_instances = []
         return job_instances
@@ -166,19 +162,18 @@ class JobInstanceReconciler(object):
         """
         try:
             rc, response = self.requester.send_request(
-                app_route='/dag/{}/job_instance'.format(self.dag_id),
+                app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
                 message={'status': [
                          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
                          JobInstanceStatus.RUNNING],
                          'runtime': 'timed_out'},
                 request_type='get')
-            job_instances = response['ji_dcts']
+            jiid_exid_tuples = response['jiid_exid_tuples']
             if rc != StatusCodes.OK:
-                job_instances = []
+                jiid_exid_tuples = []
         except TypeError:
-            job_instances = []
-        job_instances = [JobInstance.from_wire(ji) for ji in job_instances]
-        return job_instances
+            jiid_exid_tuples = []
+        return jiid_exid_tuples
 
     def _log_timeout_hostname(self, job_instance_id, hostname):
         """Logs the hostname for any job that has timed out
