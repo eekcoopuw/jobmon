@@ -632,7 +632,8 @@ def test_anonymous_workflow(db_cfg, real_jsm_jqs):
 
     # Restart it using the uuid.
     uu_id = workflow.workflow_args
-    new_workflow = Workflow(workflow_args=uu_id, interrupt_on_error=False)
+    new_workflow = Workflow(workflow_args=uu_id, interrupt_on_error=False,
+                            resume=True)
     new_workflow.add_tasks([t1, t2, t3])
     new_workflow.run()
 
