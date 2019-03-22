@@ -73,7 +73,10 @@ def test_sync(job_list_manager_sge_no_daemons):
     # check that the job clears the queue by checking the jqs for any
     # submitted or running
     job_inst_rec = job_list_manager_sge.job_inst_reconciler
-    while jid:
+    max_sleep = 600  # 10 min max till test fails
+    slept = 0
+    while jid and slept <= max_sleep:
+        slept += 5
         sleep(5)
         jid = job_inst_rec._get_presumed_submitted_or_running()
 
