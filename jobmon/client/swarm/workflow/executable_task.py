@@ -228,10 +228,17 @@ class ExecutableTask(object):
             format(hs=self.hash, name=self.name)
 
 
+class simpleJob():
+    def __init__(self, job_id, status, job_hash):
+        self.job_id = job_id
+        self.status = status
+        self.job_hash = job_hash
+
+
 class BoundTask(object):
     """The class that bridges the gap between a task and it's bound Job"""
 
-    def __init__(self, task, job, job_list_manager):
+    def __init__(self, task, job: simpleJob, job_list_manager):
         """
         Link task and job
 
@@ -244,7 +251,6 @@ class BoundTask(object):
         self.status = job.status
 
         self._jlm = job_list_manager
-        self._job = job
         self._task = task
 
         if task:

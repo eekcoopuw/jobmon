@@ -11,9 +11,11 @@ from jobmon.client.swarm.job_management.job_instance_factory import \
 from jobmon.client.swarm.job_management.job_instance_reconciler import \
     JobInstanceReconciler
 from jobmon.client.swarm.workflow.executable_task import BoundTask
+from jobmon.client.swarm.workflow.executable_task import simpleJob
 
 
 logger = logging.getLogger(__name__)
+
 
 
 class JobListManager(object):
@@ -49,8 +51,8 @@ class JobListManager(object):
         self.requester = shared_requester
 
         self.bound_tasks = {}  # {job_id: BoundTask}
-        self.hash_job_map = {}  # {job_hash: job}
-        self.job_hash_map = {}  # {job: job_hash}
+        self.hash_job_map = {}  # {job_hash: simpleJob}
+        self.job_hash_map = {}  # {simpleJob: job_hash}
 
         self.all_done = set()
         self.all_error = set()
@@ -75,10 +77,11 @@ class JobListManager(object):
         Args:
             task (obj): obj of a type inherited from ExecutableTask
         """
+        job = None
         if task.hash in self.hash_job_map:
             job = self.hash_job_map[task.hash]
         else:
-            job = self._create_job(
+            j = self._create_job(
                 jobname=task.name,
                 job_hash=task.hash,
                 command=task.command,
@@ -93,6 +96,8 @@ class JobListManager(object):
                 j_resource=task.j_resource
             )
 
+            job = simpleJob(j.job_id, j.status, j.job_hash)
+
         # adding the attributes to the job now that there is a job_id
         for attribute in task.job_attributes:
             self.job_factory.add_job_attribute(
@@ -106,12 +111,12 @@ class JobListManager(object):
         """Query the database for the status of all jobs"""
         if self.last_sync:
             rc, response = self.requester.send_request(
-                app_route='/dag/{}/job'.format(self.dag_id),
+                app_route='/dag/{}/job_status'.format(self.dag_id),
                 message={'last_sync': str(self.last_sync)},
                 request_type='get')
         else:
             rc, response = self.requester.send_request(
-                app_route='/dag/{}/job'.format(self.dag_id),
+                app_route='/dag/{}/job_status'.format(self.dag_id),
                 message={},
                 request_type='get')
         logger.debug("JLM::get_job_statuses(): rc is {} and response is {}".
@@ -119,10 +124,11 @@ class JobListManager(object):
         utcnow = response['time']
         self.last_sync = utcnow
 
-        jobs = [Job.from_wire(j) for j in response['job_dcts']]
+        jobs = response['job_dcts']
         for job in jobs:
-            if job.job_id in self.bound_tasks:
-                self.bound_tasks[job.job_id].status = job.status
+            j = simpleJob(job["job_id"], job["status"], job["job_hash"])
+            if job["job_id"] in self.bound_tasks:
+                self.bound_tasks[job["job_id"]].status = job["status"]
             else:
                 # This should really only happen the first time
                 # _sync() is called when resuming a WF/DAG. This
@@ -134,10 +140,10 @@ class JobListManager(object):
                 # be subject to removal altogether if it can be
                 # determined that there is a better way to determine
                 # previous state in resume cases
-                self.bound_tasks[job.job_id] = BoundTask(
+                self.bound_tasks[job["job_id"]] = BoundTask(
                     task=None, job=job, job_list_manager=self)
-            self.hash_job_map[job.job_hash] = job
-            self.job_hash_map[job] = job.job_hash
+            self.hash_job_map[job["job_hash"]] = j
+            self.job_hash_map[j] = job["job_hash"]
         return jobs
 
     def parse_done_and_errors(self, jobs):
@@ -148,7 +154,7 @@ class JobListManager(object):
         completed_tasks = set()
         failed_tasks = set()
         for job in jobs:
-            task = self.bound_tasks[job.job_id]
+            task = self.bound_tasks[job["job_id"]]
             if task.status == JobStatus.DONE and task not in self.all_done:
                 completed_tasks.add(task)
             elif (task.status == JobStatus.ERROR_FATAL and
@@ -194,38 +200,45 @@ class JobListManager(object):
         JobFactory
         """
         job = self.job_factory.create_job(*args, **kwargs)
-        self.hash_job_map[job.job_hash] = job
-        self.job_hash_map[job] = job.job_hash
+        j = simpleJob(job.job_id, job.status, job.job_hash)
+        self.hash_job_map[job.job_hash] = j
+        self.job_hash_map[j] = job.job_hash
         return job
 
-    def queue_job(self, job):
+    def queue_job(self, variable):
         """Queue a job by passing the job's id to the JobFactory"""
-        self.job_factory.queue_job(job.job_id)
-        task = self.bound_tasks[job.job_id]
+        job_id = variable
+        if str(type(variable)) != "<class 'int'>":
+            # what we really need here is a job_id, so take job_id as variable for the optimized query
+            # it seems some clients are using the function, so support the old way
+            # thus, I have to take advantage of the typeless feature of python, which is a bad practise
+            job_id = variable.job_id
+        self.job_factory.queue_job(job_id)
+        task = self.bound_tasks[job_id]
         task.status = JobStatus.QUEUED_FOR_INSTANTIATION
 
     def queue_task(self, task):
         """Add a task's hash to the hash_job_map"""
-        job = self.hash_job_map[task.hash]
-        self.queue_job(job)
+        job_id = self.hash_job_map[task.hash].job_id
+        self.queue_job(job_id)
 
     def reset_jobs(self):
         """Reset jobs by passing through to the JobFactory"""
         self.job_factory.reset_jobs()
         self._sync()
 
-    def add_job_attribute(self, job, attribute_type, value):
+    def add_job_attribute(self, job_id, attribute_type, value):
         """Add a job_attribute to a job by passing thorugh to the JobFactory"""
-        self.job_factory.add_job_attribute(job.job_id, attribute_type, value)
+        self.job_factory.add_job_attribute(job_id, attribute_type, value)
 
     def status_from_hash(self, job_hash):
         """Get the status of a job from its hash"""
-        job = self.hash_job_map[job_hash]
-        return self.status_from_job(job)
+        job_id = self.hash_job_map[job_hash].job_id
+        return self.status_from_job(job_id)
 
-    def status_from_job(self, job):
+    def status_from_job(self, job_id):
         """Get the status of a job by its ID"""
-        return self.bound_tasks[job.job_id].status
+        return self.bound_tasks[job_id].status
 
     def status_from_task(self, task):
         """Get the status of a task from its hash"""
@@ -233,8 +246,8 @@ class JobListManager(object):
 
     def bound_task_from_task(self, task):
         """Get a BoundTask from a regular Task"""
-        job = self.hash_job_map[task.hash]
-        return self.bound_tasks[job.job_id]
+        job_id = self.hash_job_map[task.hash]
+        return self.bound_tasks[job_id]
 
     def _start_job_instance_manager(self):
         """Start the JobInstanceFactory and JobReconciler in separate

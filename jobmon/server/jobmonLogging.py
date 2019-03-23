@@ -19,7 +19,7 @@ class jobmonLogging():
     _logger: logging.Logger = None
     _handler: logging.Handler = None
     _format: str = '%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s %(threadName)s: %(message)s'
-    _logLevel: int = DEBUG
+    _logLevel: int = INFO
     _syslogAttached: bool = False
     # The list holds specific loggers we want to monitor
     # So far we have flask and sqlalchemy
@@ -35,7 +35,10 @@ class jobmonLogging():
         # Flask logger
         flask_logger = Flask(__name__).logger
         flask_logger.setLevel(jobmonLogging._logLevel)
-        default_handler = flask_logger.handlers[0]
+        if len(flask_logger.handlers) == 0:
+            default_handler = jobmonLogging._handler
+        else:
+            default_handler = flask_logger.handlers[0]
         jobmonLogging._loggerArray.append(flask_logger)
         # sqlalchemy logger
         sqlalchemy_logger = logging.getLogger('sqlalchemy')
@@ -79,6 +82,7 @@ class jobmonLogging():
         jobmonLogging._logLevel = level
         jobmonLogging._logger.info("----------------Log Lever Set to {}----------------".format(jobmonLogging.getLevelName()))
         for l in jobmonLogging._loggerArray:
+            l.setLevel(level)
             for h in l.handlers:
                 h.setLevel(level)
         jobmonLogging._logger.setLevel(level)
