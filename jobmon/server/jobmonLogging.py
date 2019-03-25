@@ -19,7 +19,7 @@ class jobmonLogging():
     _logger: logging.Logger = None
     _handler: logging.Handler = None
     _format: str = '%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s %(threadName)s: %(message)s'
-    _logLevel: int = INFO
+    _logLevel: int = WARNING
     _syslogAttached: bool = False
     # The list holds specific loggers we want to monitor
     # So far we have flask and sqlalchemy

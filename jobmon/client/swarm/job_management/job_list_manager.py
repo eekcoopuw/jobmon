@@ -246,7 +246,7 @@ class JobListManager(object):
 
     def bound_task_from_task(self, task):
         """Get a BoundTask from a regular Task"""
-        job_id = self.hash_job_map[task.hash]
+        job_id = self.hash_job_map[task.hash].job_id
         return self.bound_tasks[job_id]
 
     def _start_job_instance_manager(self):

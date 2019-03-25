@@ -64,7 +64,6 @@ def test_sync(job_list_manager_sge_no_daemons):
     job = job_list_manager_sge.bind_task(Task(command='fizzbuzz', name='bar',
                                               mem_free='1G',
                                               num_cores=1))
-
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
     # 35 is three times the job reconciliation interval (10 seconds) plus
@@ -85,7 +84,7 @@ def test_invalid_command(job_list_manager):
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
 
-    job_list_manager.queue_job(job)
+    job_list_manager.queue_job(job.job_id)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
     assert len(job_list_manager.all_error) == 0
@@ -102,8 +101,7 @@ def test_valid_command(job_list_manager):
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
     assert len(job_list_manager.all_done) == 0
-
-    job_list_manager.queue_job(job)
+    job_list_manager.queue_job(job.job_id)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
 
@@ -116,7 +114,7 @@ def test_valid_command(job_list_manager):
 def test_daemon_invalid_command(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="some new job",
                                             name="foobar", num_cores=1))
-    job_list_manager_d.queue_job(job)
+    job_list_manager_d.queue_job(job.job_id)
 
     # Give some time for the job to get to the executor
     timeout_and_skip(3, 30, 1, partial(
@@ -132,7 +130,7 @@ def daemon_invalid_command_check(job_list_manager_d):
 def test_daemon_valid_command(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="ls", name="foobarbaz",
                                             num_cores=1))
-    job_list_manager_d.queue_job(job)
+    job_list_manager_d.queue_job(job.job_id)
 
     # Give some time for the job to get to the executor
     timeout_and_skip(3, 30, 1, partial(
