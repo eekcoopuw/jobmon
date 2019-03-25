@@ -233,7 +233,7 @@ class JobListManager(object):
 
     def status_from_hash(self, job_hash):
         """Get the status of a job from its hash"""
-        job_id = self.hash_job_map[job_hash].job_id
+        job_id = self.hash_job_map[job_hash]["job_id"]
         return self.status_from_job(job_id)
 
     def status_from_job(self, job_id):
