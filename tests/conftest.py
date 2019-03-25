@@ -182,7 +182,7 @@ def real_jsm_jqs(test_session_config):
     if count >= max_tries:
         raise TimeoutError(
             f"Out-of-process jsm and jqs services did not answer after "
-            "{count} attempts, probably failed to start.")
+            f"{count} attempts, probably failed to start.")
     yield
 
     p1.terminate()
