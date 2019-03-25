@@ -184,7 +184,7 @@ def get_jobs_by_status_only(dag_id):
             Job.dag_id == dag_id,
             Job.status_date >= last_sync).all()
     DB.session.commit()
-    job_dcts = [{"job_id": j[0], "status": j[1], "job_hash": j[2]} for j in jobs]
+    job_dcts = [{"job_id": j[0], "status": j[1], "job_hash": int(j[2])} for j in jobs]
     resp = jsonify(job_dcts=job_dcts, time=time)
     resp.status_code = StatusCodes.OK
     return resp
