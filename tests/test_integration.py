@@ -64,6 +64,7 @@ def test_sync(job_list_manager_sge_no_daemons):
     job = job_list_manager_sge.bind_task(Task(command='fizzbuzz', name='bar',
                                               mem_free='1G',
                                               num_cores=1))
+    # create job instances
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
     # 35 is three times the job reconciliation interval (10 seconds) plus

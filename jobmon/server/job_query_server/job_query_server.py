@@ -2,7 +2,6 @@ import logging
 import os
 from datetime import datetime
 from sqlalchemy.orm import contains_eager
-from sqlalchemy.orm import load_only
 
 from flask import jsonify, request, Blueprint
 
