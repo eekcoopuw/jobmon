@@ -1,21 +1,14 @@
-from __future__ import print_function
-
 import argparse
 import os
+import subprocess
 import sys
 import traceback
 
-import jsonpickle
 
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
-
-if sys.version_info > (3, 0):
-    import subprocess
-else:
-    import subprocess32 as subprocess
 
 
 def unwrap():
@@ -29,15 +22,6 @@ def unwrap():
         in stderr stream of parent process
         """
         print(*args, file=sys.stderr, **kwargs)
-
-    def jpickle_parser(s):
-        return jsonpickle.decode(s)
-
-    def intnone_parser(s):
-        try:
-            return int(s)
-        except ValueError:
-            return None
 
     # parse arguments
     parser = argparse.ArgumentParser()
