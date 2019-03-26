@@ -111,9 +111,10 @@ if __name__ == "__main__":
             if sys.argv[3] == '--all_phases':
                 all_phases = True
         assert n_jobs > 0, "Please provide an integer greater than 0 for the" \
-                           " number of jobs"
+                           f" number of jobs, you requested {n_jobs}"
         assert (0 <= n_ex < n_jobs), "Please provide a value for the"\
                                      " number of jobs that will error"\
                                      " out that is less than the " \
-                                     "number of jobs and not negative"
+                                     " number of jobs and not negative, you " \
+                                     f"requested {n_ex}"
     load_test_with_exceptions(n_jobs, n_ex, all_phases=all_phases)
