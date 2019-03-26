@@ -151,11 +151,10 @@ the ports have been updated for the new version:
 1. To update the ports, make a PR with the port numbers incremented according
 to the version control [above] in the following places:
 
-  a. runserver.py
-  b. this documentation
-  c. jobmon/default_config.py
-  d. docsource/quickstart.rst
-  e. And do a recursive grep to be sure!   e.g.   ``grep -r <previous port number> *``
+  a. docsource/services.rst
+  b. docsource/quickstart.rst
+  c. jobmon/models/attributes/constants.py
+  d. And do a recursive grep to be sure!   e.g.   ``grep -r 3800 *``
 
 2. Check that the correct host and password information is available in
 quickstart.rst and this (services.rst)
