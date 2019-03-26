@@ -35,27 +35,18 @@ else:
 
 
 install_requires = [
-    'bs4',
     'pandas',
     'sqlalchemy',
     'numpy',
-    'pymysql',
-    'pyyaml',
-    'drmaa',
     'flask',
     'flask_cors',
     'flask_sqlalchemy',
-    'jsonpickle',
     'cluster_utils',
     'requests',
     'paramiko',
     'graphviz',
     'tenacity'
 ]
-if sys.version_info < (3, 0):
-    install_requires.append('subprocess32')
-    install_requires.append('future')  # adds a queue module to python2
-    install_requires.append('httplib')
 
 
 setup(
@@ -86,5 +77,5 @@ setup(
               ],
     entry_points={
         'console_scripts': [
-             "jobmon=jobmon.cli:main",
-             "jobmon_command=jobmon.client.worker_node.cli:unwrap"]})
+            "jobmon=jobmon.cli:main",
+            "jobmon_command=jobmon.client.worker_node.cli:unwrap"]})

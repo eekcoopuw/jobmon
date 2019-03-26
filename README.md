@@ -31,12 +31,6 @@ That should do it.
 
 
 ## Dependencies
-- pyzmq
 - pandas
 - sqlalchemy
 - numpy
-- pymysql
-- pyyaml
-- drmaa
-- jsonpickle
-- subprocess32
