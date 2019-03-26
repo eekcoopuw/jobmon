@@ -633,21 +633,21 @@ def _update_job_instance_state(job_instance, status_id):
         if job_instance.status == status_id:
             # It was already in that state, just log it
             msg = f"Attempting to transition to existing state." \
-                   "Not transitioning job, jid= " \
-                   "{job_instance.job_instance_id}" \
-                   "from {job_instance.status} to {status_id}"
+                  f"Not transitioning job, jid= " \
+                  f"{job_instance.job_instance_id}" \
+                  f"from {job_instance.status} to {status_id}"
             logger.warning(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. " \
-                   "Not transitioning job, jid= " \
-                   "{job_instance.job_instance_id}, " \
-                   "from {job_instance.status} to {status_id}"
+                  f"Not transitioning job, jid= " \
+                  f"{job_instance.job_instance_id}, " \
+                  f"from {job_instance.status} to {status_id}"
             log_and_raise(msg, logger)
     except Exception as e:
         msg = f"General exception in _update_job_instance_state, " \
-               "jid {job_instance}, transitioning to {job_instance}. " \
-               "Not transitioning job. {e}"
+              f"jid {job_instance}, transitioning to {job_instance}. " \
+              f"Not transitioning job. {e}"
         log_and_raise(msg, logger)
 
     job = job_instance.job
@@ -677,7 +677,8 @@ def _update_job_instance(job_instance, **kwargs):
     status_requested = kwargs.get('status', None)
     logger.debug(logging.logParameter("status_requested", status_requested))
     if status_requested is not None:
-        logger.debug("status_requested:{s}; job_instance.status:{j}".format(s=status_requested, j=job_instance.status))
+        logger.debug("status_requested:{s}; job_instance.status:{j}".format
+                     (s=status_requested, j=job_instance.status))
         if status_requested == job_instance.status:
             kwargs.pop(status_requested)
             logger.debug("Caught InvalidStateTransition. Not transitioning "
@@ -816,7 +817,8 @@ def getLogLevelUseName(name: str) -> int:
     return log_level_dict[level]
 
 
-@jsm.route('/attach_remote_syslog/<level>/<host>/<port>/<sockettype>', methods=['POST'])
+@jsm.route('/attach_remote_syslog/<level>/<host>/<port>/<sockettype>',
+           methods=['POST'])
 def attach_remote_syslog(level, host, port, sockettype):
     """
     Add a remote syslog handler
@@ -824,7 +826,8 @@ def attach_remote_syslog(level, host, port, sockettype):
     :param level: remote syslog level
     :param host: remote syslog server host
     :param port: remote syslog server port
-    :param port: remote syslog server socket type; unless specified as TCP, otherwise, UDP
+    :param port: remote syslog server socket type; unless specified as TCP,
+    otherwise, UDP
     :return:
     """
     logger.debug(logging.myself())
@@ -848,7 +851,8 @@ def attach_remote_syslog(level, host, port, sockettype):
         s = socket.SOCK_STREAM
 
     try:
-        logging.attachSyslog(host=host, port=port, socktype=s, l=getLogLevelUseName(level))
+        logging.attachSyslog(host=host, port=port, socktype=s,
+                             l=getLogLevelUseName(level))
         resp = jsonify(msn="Attach syslog {h}:{p}".format(h=host, p=port))
         resp.status_code = StatusCodes.OK
         return resp
@@ -868,10 +872,12 @@ def syslog_status():
 @jsm.route('/debug_on', methods=['POST'])
 def setRootLoggerToDebug():
     """
-    This function set the root log level to debug. Be careful because you are unable to set it back.
+    This function set the root log level to debug. Be careful because you are
+    unable to set it back.
     :return:
     """
     logging._setRootLoggerLevel(logging.DEBUG)
-    resp = jsonify(msn="The root logger lever has been set to DEBUG. This action is irreversible.")
+    resp = jsonify(msn="The root logger lever has been set to DEBUG. This "
+                       "action is irreversible.")
     resp.status_code = StatusCodes.OK
     return resp
