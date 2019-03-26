@@ -17,7 +17,7 @@ def test_job_attribute(db_cfg, job_list_manager_sge):
     job = job_list_manager_sge.bind_task(task)
 
     # add an attribute to the job
-    job_list_manager_sge.add_job_attribute(job, job_attribute.NUM_DRAWS, "10")
+    job_list_manager_sge.add_job_attribute(job.job_id, job_attribute.NUM_DRAWS, "10")
 
     # query from job_attribute table
     app = db_cfg["app"]

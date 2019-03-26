@@ -240,11 +240,10 @@ class BoundTask(object):
             job (obj): obj of type models.Job
             job_list_manager (obj): obj of type JobListManager
         """
-        self.job_id = job.job_id
-        self.status = job.status
+        self.job_id = job["job_id"]
+        self.status = job["status"]
 
         self._jlm = job_list_manager
-        self._job = job
         self._task = task
 
         if task:

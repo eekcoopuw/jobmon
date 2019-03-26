@@ -607,7 +607,6 @@ def test_anonymous_workflow(db_cfg, real_jsm_jqs):
     workflow = Workflow(interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3])
     workflow.run()
-
     bt3 = workflow.task_dag.job_list_manager.bound_task_from_task(t3)
 
     assert workflow.workflow_args is not None

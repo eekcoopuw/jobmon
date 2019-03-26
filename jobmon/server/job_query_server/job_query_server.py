@@ -164,6 +164,33 @@ def get_jobs_by_status(dag_id):
     return resp
 
 
+
+@jqs.route('/dag/<dag_id>/job_status', methods=['GET'])
+def get_jobs_by_status_only(dag_id):
+    """Returns all jobs in the database that have the specified status
+
+    Args:
+        status (str): status to query for
+        last_sync (datetime): time since when to get jobs
+    """
+    last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
+    time = get_time(DB.session)
+    if request.args.get('status', None) is not None:
+        jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status, Job.job_hash).filter(
+            Job.status == request.args['status'],
+            Job.dag_id == dag_id,
+            Job.status_date >= last_sync).all()
+    else:
+        jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status, Job.job_hash).filter(
+            Job.dag_id == dag_id,
+            Job.status_date >= last_sync).all()
+    DB.session.commit()
+    job_dcts = [{"job_id": j[0], "status": j[1], "job_hash": int(j[2])} for j in jobs]
+    resp = jsonify(job_dcts=job_dcts, time=time)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/dag/<dag_id>/job_instance_executor_ids', methods=['GET'])
 def get_job_instance_executor_ids_by_filter(dag_id):
     """Returns all job_instances in the database that have the specified filter
