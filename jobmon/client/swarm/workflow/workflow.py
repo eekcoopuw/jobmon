@@ -30,6 +30,15 @@ class WorkflowAlreadyComplete(Exception):
     pass
 
 
+class WorkflowAlreadyExists(Exception):
+    pass
+
+
+class ResumeStatus(object):
+    RESUME = True
+    DONT_RESUME = False
+
+
 class Workflow(object):
     """(aka Batch, aka Swarm)
     A Workflow is a framework by which a user may define the relationship
@@ -59,7 +68,7 @@ class Workflow(object):
                  reset_running_jobs=True, working_dir=None,
                  executor_class='SGEExecutor', fail_fast=False,
                  interrupt_on_error=False, requester=shared_requester,
-                 seconds_until_timeout=36000):
+                 seconds_until_timeout=36000, resume=ResumeStatus.DONT_RESUME):
         """
         Args:
             workflow_args (str): unique identifier of a workflow
@@ -79,6 +88,9 @@ class Workflow(object):
             seconds_until_timeout (int): amount of time (in seconds) to wait
                 until the whole workflow times out. Submitted jobs will
                 continue
+            resume (bool): whether the workflow should be resumed or not, if
+                it is not and an identical workflow already exists, the
+                workflow will error out
 
         """
         self.wf_dao = None
@@ -111,6 +123,7 @@ class Workflow(object):
             fail_fast=fail_fast,
             seconds_until_timeout=seconds_until_timeout
         )
+        self.resume=resume
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -124,6 +137,7 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
+
 
     def set_executor(self, executor_class):
         """Set which executor to use to run the tasks.
@@ -208,12 +222,18 @@ class Workflow(object):
     def _bind(self):
         """Bind the database and all of its tasks to the database"""
         potential_wfs = self._matching_workflows()
-        if len(potential_wfs) == 1:
-
-            # TODO: Should prompt the user, asking whether they really want to
-            # resume or whether they want to create a new Workflow... will need
-            # to sit outside this
-            # if/else block
+        if len(potential_wfs) > 0 and not self.resume:
+            raise WorkflowAlreadyExists("This workflow and task dag already "
+                                        "exist. If you are trying to resume a "
+                                        "workflow, please set the resume flag "
+                                        "of the workflow. If you are not "
+                                        "trying to resume a workflow, make "
+                                        "sure the workflow args are unique or "
+                                        "the task dag is unique ")
+        elif len(potential_wfs) > 0 and self.resume:
+            logger.info("You're workflow args and task dag are identical to a "
+                        "prior workflow, therefore you are RESUMING a "
+                        "workflow, not starting a new workflow")
             self.wf_dao = potential_wfs[
                 0]
             if self.wf_dao.status == WorkflowStatus.DONE:
