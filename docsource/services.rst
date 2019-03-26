@@ -101,26 +101,27 @@ Each new version of jobmon increments the ports and the db port reflects the
 release number (0.8.0 = 3800), so for example:
 
 jobmon-p01
-========  ==== ===== ===== ==== =============
-Version   jqs  jsm-1 jsm-2 db   git-tag
-========  ==== ===== ===== ==== =============
+========  ==== ===== ===== ==== ============= ==========
+Version   jqs  jsm-1 jsm-2 db   git-tag       dbs-notes
+========  ==== ===== ===== ==== ============= ==========
 emu.0     na   4556  4557  3307
 emu.1     4658 4656  4657  3308
 emu.2     4758 4756  4757  3309
 emu.3     4858 4856  4857  3310
-emu.3     4958 4956  4957  3311
-emu.4     5058 5056  5057  3312
-emu.5     4458 4456  4457  3305 # gbd2017_production hotfixes
-emu.6     5158 5156  5157  3313
-emu.7     5258 5256  5257  3314
-http      6258 6256  n/a   3315
-http.2    6258 6256  n/a   3316 release-0.7.1
-http.3    7258 7256  n/a   3317
-http.4         8256        3800
-http.5         8356        3810
-http.6         8356        3810 release-0.8.2
-http.7         8456        3830 release-0.8.3
-========  ==== ===== ===== ==== =============
+emu.3     4958 4956  4957  3311  0.6.0
+emu.4     5058 5056  5057  3312  0.6.1
+emu.5     4458 4456  4457  3305  kelly-and-leo  063again
+emu.6     5158 5156  5157  3313  0.6.6          Database-lost
+emu.7     5258 5256  5257  3314  0.6.7
+http      6258 6256  n/a   3315  0.7.0
+http.2    6258 6256  n/a   3316  release-0.7.1
+http.3    7258 7256  n/a   3317  release-0.7.2
+http.4         8256        3800  release-0.8.0
+http.5         8356        3810  release-0.8.1
+http.6         8356        3820  release-0.8.2
+http.7         8456        3830  release-0.8.3
+========  ==== ===== ===== ==== ============== =======
+
 
 jobmon-docker-cont-p01
 ========  ==== ===== ===== ==== =============
@@ -128,6 +129,7 @@ Version   jqs  jsm-1 jsm-2 db   git-tag
 ========  ==== ===== ===== ==== =============
 http.8         8457        3840 release-0.8.4
 http.9         8458        3841 release-0.8.5
+http.10        8656        3860 release-0.8.6
 ========  ==== ===== ===== ==== =============
 
 The port numbers come in pairs, e.g. "3313:3306".

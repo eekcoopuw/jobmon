@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime
 from sqlalchemy.orm import contains_eager
+from sqlalchemy.sql import func
 
 from flask import jsonify, request, Blueprint
 
@@ -163,6 +164,7 @@ def get_jobs_by_status(dag_id):
     return resp
 
 
+
 @jqs.route('/dag/<dag_id>/job_status', methods=['GET'])
 def get_jobs_by_status_only(dag_id):
     """Returns all jobs in the database that have the specified status
@@ -189,15 +191,18 @@ def get_jobs_by_status_only(dag_id):
     return resp
 
 
-@jqs.route('/dag/<dag_id>/job_instance', methods=['GET'])
-def get_job_instances_by_filter(dag_id):
+@jqs.route('/dag/<dag_id>/job_instance_executor_ids', methods=['GET'])
+def get_job_instance_executor_ids_by_filter(dag_id):
     """Returns all job_instances in the database that have the specified filter
 
     Args:
         dag_id (int): dag_id to which the job_instances are attached
         status (list): list of statuses to query for
         runtime (str, optional, option: 'timed_out'): if specified, will only
-        return jobs whose runtime is above max_runtime_seconds
+
+    Return:
+        list of tuples (job_instance_id, executor_id) whose runtime is above
+        max_runtime_seconds
     """
     if request.args.get('runtime', None) is not None:
 
@@ -207,20 +212,21 @@ def get_job_instances_by_filter(dag_id):
                 JobInstance.status.in_(request.args.getlist('status'))).\
             join(Job).\
             options(contains_eager(JobInstance.job)).\
-            filter(Job.max_runtime_seconds != None).all()  # noqa: E711
-        DB.session.commit()
-        now = datetime.utcnow()
-        instances = [r.to_wire() for r in instances
-                     if ((now - r.status_date).seconds >
-                         r.job.max_runtime_seconds)]
+            filter(Job.max_runtime_seconds != None).\
+            filter(
+                func.timediff(str(datetime.utcnow()), JobInstance.status_date
+                              ) > Job.max_runtime_seconds).\
+            with_entities(JobInstance.job_instance_id, JobInstance.executor_id
+                          ).all()  # noqa: E711
     else:
         instances = DB.session.query(JobInstance). \
             filter_by(dag_id=dag_id).\
             filter(
-                JobInstance.status.in_(request.args.getlist('status'))).all()
-        DB.session.commit()
-        instances = [i.to_wire() for i in instances]
-    resp = jsonify(ji_dcts=instances)
+                JobInstance.status.in_(request.args.getlist('status'))).\
+            with_entities(JobInstance.job_instance_id, JobInstance.executor_id
+                          ).all()  # noqa: E711
+    DB.session.commit()
+    resp = jsonify(jiid_exid_tuples=instances)
     resp.status_code = StatusCodes.OK
     return resp
 

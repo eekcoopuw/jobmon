@@ -34,12 +34,10 @@ def ephemera_conn_str():
     """
     edb = create_ephemerdb(elevated_privileges=True)
     conn_str = edb.start()
-
-    # if you are debugging on the fair cluster for ephemeradb add
-    # .cluster.ihme.washington.edu to the end of the node name as the host
-    # (for some reason socket.getfqdn() does not return this properly here
-    # but that is where the database is configured
+    # use the ephemera db root privileges (root: singularity_root) otherwise
+    # you will not see changes to the database
     yield conn_str
+
 
 
 # NOTE: there are two types of tests that conftest sets up. 1. Using the real
@@ -95,9 +93,13 @@ def local_flask_app(env_var):
 
     from jobmon.server import create_app
     app = create_app()
+
     # The init_app call sets up database connections
     from jobmon.models import DB
-    DB.init_app(app)
+
+    # Logan Sandar: my assessment is that DB.init_app() should not be necessary
+    # because it occurs in create_app() and I think DB has global state.
+    # DB.init_app(app)
     yield {'app': app, 'DB': DB}
 
 
@@ -145,6 +147,8 @@ def real_jsm_jqs(test_session_config):
     import multiprocessing as mp
     from tests.run_services import run_web_service
 
+    # spawn ensures that no attributes are copied to the new process. Python
+    # starts from scratch
     ctx = mp.get_context('spawn')
     p1 = ctx.Process(target=run_web_service, args=(
         test_session_config["JOBMON_PORT"],
@@ -176,7 +180,7 @@ def real_jsm_jqs(test_session_config):
     if count >= max_tries:
         raise TimeoutError(
             f"Out-of-process jsm and jqs services did not answer after "
-            "{count} attempts, probably failed to start.")
+            f"{count} attempts, probably failed to start.")
     yield
 
     p1.terminate()

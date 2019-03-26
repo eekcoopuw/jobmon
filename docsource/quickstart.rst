@@ -94,12 +94,12 @@ To resume the Workflow created above::
     import getpass
     from jobmon.workflow.workflow import Workflow
 
-    # Re-instantiate your Workflow with the same WorkflowArgs
+    # Re-instantiate your Workflow with the same WorkflowArgs but add the resume flag
     user = getpass.getuser()
     my_wf = Workflow(workflow_args"quickstart", project='proj_jenkins',
                   stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
                   stdout='/ihme/scratch/users/{}/sgeoutput'.format(user),
-                  working_dir='/homes/{}'.format(user))
+                  working_dir='/homes/{}'.format(user), resume=True)
 
     # Re-add the same Tasks to it...
     write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
@@ -113,7 +113,7 @@ To resume the Workflow created above::
 
     my_wf.run()
 
-That's it.
+That's it. It is the same setup, just change the resume flag so that it is true (otherwise you will get an error that you are creating a workflow that already exists)
 
 Behind the scenes, the Workflow will launch your Tasks as soon as each is
 ready to run (i.e. as soon as the Task's upstream dependencies are DONE). It
@@ -185,7 +185,7 @@ By default, your Workflow talks to our centrally-hosted jobmon server
 jobmon database from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-docker-cont-p01.hosts.ihme.washington.edu
-    port: 3841
+    port: 3860 
     user: read_only
     pass: docker
     database: docker

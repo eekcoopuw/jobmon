@@ -17,7 +17,8 @@ from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client import shared_requester as req
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
-from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete
+from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
+    WorkflowAlreadyExists, ResumeStatus
 
 
 @pytest.fixture
@@ -193,7 +194,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     ologdir = str(tmpdir.mkdir("wf_ologs"))
 
     workflow = Workflow(wfa, stderr=elogdir, stdout=ologdir,
-                        project='proj_jenkins')
+                        project='proj_jenkins', resume=ResumeStatus.RESUME)
     workflow.add_tasks([t1, t2, t3])
     workflow.execute()
 
@@ -274,7 +275,8 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
     t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "my_simple_dag"
-    workflow = Workflow(wfa, interrupt_on_error=False)
+    workflow = Workflow(wfa, interrupt_on_error=False,
+                        resume=ResumeStatus.RESUME)
     workflow.add_tasks([t1, t2, t3])
 
     # Before actually executing the DAG, validate that the database has
@@ -334,7 +336,8 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
     t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "my_simple_dag"
-    workflow = Workflow(wfa, interrupt_on_error=False)
+    workflow = Workflow(wfa, interrupt_on_error=False,
+                        resume=ResumeStatus.RESUME)
     workflow.add_tasks([t1, t2, t3])
 
     with pytest.raises(WorkflowAlreadyComplete):
@@ -628,7 +631,8 @@ def test_anonymous_workflow(db_cfg, real_jsm_jqs):
 
     # Restart it using the uuid.
     uu_id = workflow.workflow_args
-    new_workflow = Workflow(workflow_args=uu_id, interrupt_on_error=False)
+    new_workflow = Workflow(workflow_args=uu_id, interrupt_on_error=False,
+                            resume=True)
     new_workflow.add_tasks([t1, t2, t3])
     new_workflow.run()
 
@@ -677,3 +681,25 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     assert workflow.workflow_run.stderr == '/tmp'
     assert workflow.workflow_run.stdout == '/tmp'
     assert workflow.workflow_run.executor_class == 'SGEExecutor'
+
+
+def test_workflow_identical_args(real_jsm_jqs, db_cfg, monkeypatch):
+    # first workflow runs and finishes
+    wf1 = Workflow(workflow_args="same", project='proj_jenkins')
+    task = BashTask("sleep 2", slots=1)
+    wf1.add_task(task)
+    wf1.execute()
+
+    # tries to create an identical workflow without the restart flag
+    wf2 = Workflow(workflow_args="same", project='proj_jenkins')
+    wf2.add_task(task)
+    with pytest.raises(WorkflowAlreadyExists):
+        wf2.execute()
+
+    # creates a workflow, okayed to restart, but original workflow is done
+    wf3 = Workflow(workflow_args="same", project='proj_jenkins',
+                   resume=ResumeStatus.RESUME)
+    wf3.add_task(task)
+    with pytest.raises(WorkflowAlreadyComplete):
+        wf3.execute()
+

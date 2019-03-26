@@ -62,9 +62,9 @@ class SGEExecutor(Executor):
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids
 
-    def terminate_job_instances(self, job_instance_list):
-        ji_dict_list = [ji.to_wire() for ji in job_instance_list]
-        to_df = pd.DataFrame.from_dict(ji_dict_list)
+    def terminate_job_instances(self, jiid_exid_tuples):
+        to_df = pd.DataFrame(data=jiid_exid_tuples,
+                             columns=["job_instance_id", "executor_id"])
         if len(to_df) == 0:
             return []
         sge_jobs = sge_utils.qstat()
