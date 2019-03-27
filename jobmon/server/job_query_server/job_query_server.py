@@ -177,6 +177,11 @@ def get_jobs_by_status_only(dag_id):
     last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
     time = get_time(DB.session)
     if request.args.get('status', None) is not None:
+        # select docker.job.job_id, docker.job.job_hash, docker.job.status from docker.job where  docker.job.dag_id=1 and docker.job.status="G";
+        # vs.
+        # select docker.job.job_id, docker.job.job_hash, docker.job.status from docker.job where  docker.job.status="G" and docker.job.dag_id=1;
+        # 0.000 sec vs 0.015 sec (result from MySQL WorkBench)
+        # Thus move the dag_id in front of status in the filter
         jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status, Job.job_hash).filter(
             Job.dag_id == dag_id,
             Job.status == request.args['status'],
