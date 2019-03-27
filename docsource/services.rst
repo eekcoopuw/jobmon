@@ -100,7 +100,8 @@ from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 Each new version of jobmon increments the ports and the db port reflects the
 release number (0.8.0 = 3800), so for example:
 
-jobmon-p01
+jobmon-p01.ihme.washington.edu
+
 ========  ==== ===== ===== ==== ============= ==========
 Version   jqs  jsm-1 jsm-2 db   git-tag       dbs-notes
 ========  ==== ===== ===== ==== ============= ==========
@@ -123,7 +124,8 @@ http.7         8456        3830  release-0.8.3
 ========  ==== ===== ===== ==== ============== =======
 
 
-jobmon-docker-cont-p01
+jobmon-docker-cont-p01.hosts.ihme.washington.edu
+
 ========  ==== ===== ===== ==== =============
 Version   jqs  jsm-1 jsm-2 db   git-tag
 ========  ==== ===== ===== ==== =============
