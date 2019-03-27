@@ -1,5 +1,6 @@
 import argparse
 import os
+import shutil
 import time
 
 from getpass import getuser
@@ -62,11 +63,11 @@ def main():
             fp = open(counter_file, "w")
             fp.write("{}\n".format(count_so_far))
             fp.close()
-            raise ValueError("Programmed intermittent failures, total "
-                             "failures so far: {}".format(count_so_far))
+            time.sleep(40)  # set to sleep longer than the max runtime
         else:
             # Enough failures, we should succeed this time
             time.sleep(args.sleep_secs)
+            shutil.rmtree(args.fail_count_fp)
     else:
         # No "fail" argument, we should succeed
         time.sleep(args.sleep_secs)
