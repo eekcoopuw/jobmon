@@ -178,8 +178,8 @@ def get_jobs_by_status_only(dag_id):
     time = get_time(DB.session)
     if request.args.get('status', None) is not None:
         jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status, Job.job_hash).filter(
-            Job.status == request.args['status'],
             Job.dag_id == dag_id,
+            Job.status == request.args['status'],
             Job.status_date >= last_sync).all()
     else:
         jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status, Job.job_hash).filter(
