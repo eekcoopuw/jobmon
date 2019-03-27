@@ -1,4 +1,3 @@
-import logging
 import os
 from datetime import datetime
 from sqlalchemy.orm import contains_eager
@@ -15,6 +14,7 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
