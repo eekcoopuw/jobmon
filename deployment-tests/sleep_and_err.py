@@ -51,12 +51,13 @@ def main():
         raise ValueError("Mock task failing permanently by command line arg")
     elif args.fail_count:
         # Go check how many times this script has failed
-        counter_file = "{}-count".format(args.fail_count_fp)
+        counter_file = "{}-count_{}".format(args.fail_count_fp, args.unique_id)
         if os.path.exists(counter_file):
             # Not the first time, let's see how many times we have failed
             fp = open(counter_file, "r")
             count_so_far = int(fp.read())
             fp.close()
+            os.remove(counter_file)
         else:
             # First time, have not yet failed
             count_so_far = 0

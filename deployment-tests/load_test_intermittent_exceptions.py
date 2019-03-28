@@ -88,7 +88,7 @@ def add_random_timeouts(task_list: List, n_exceptions: int,
     random.seed(4)
     sample = random.sample(task_list, n_exceptions)
     for task in sample:
-        task.fail_count = 2
+        task.fail_count = 1
         task.command += f" --fail_count {task.fail_count}"
         if sleep_timeout:
             task.sleep_timeout = True
