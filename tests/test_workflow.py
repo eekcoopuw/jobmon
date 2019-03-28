@@ -477,6 +477,9 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
         # the reconciliation heart rate is now > this monitor's threshold,
         # so should be identified as lost
         lost = hm_hyper._get_lost_workflow_runs(DB.session)
+        if not lost:
+            sleep(50)
+            lost = hm_hyper._get_lost_workflow_runs(DB.session)
         assert lost
 
         # register the run as lost...
