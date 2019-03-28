@@ -83,7 +83,7 @@ def test_attributes_on_workflow_retrievable(simple_workflow):
     simple_workflow.add_workflow_attribute(workflow_attribute.TAG, 'tester')
     for job in simple_workflow.task_dag.job_list_manager.all_done:
         simple_workflow.task_dag.job_list_manager.add_job_attribute(
-            job, job_attribute.TAG, 'tester')
+            job.job_id, job_attribute.TAG, 'tester')
 
     # make sure we can get those attributes back
     return_code, resp = req.send_request(
