@@ -19,6 +19,7 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
                  upstream_tasks=None,
                  fail_always=False,
                  fail_count=0,
+                 sleep_timeout=False,
                  max_runtime_seconds=None
                  ):
         etk.ExecutableTask.__init__(self, command, num_cores=1, mem_free='2G',
@@ -28,6 +29,7 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
         # TBD validation using the types module.
         self.fail_always = fail_always
         self.fail_count = fail_count
+        self.sleep_timeout = sleep_timeout
 
         # NB this package must be installed into the conda env so that it will
         # be found
@@ -36,3 +38,5 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
             self.command += " --fail_always"
         if self.fail_count:
             self.command += " --fail_count {}".format(fail_count)
+        if self.sleep_timeout:
+            self.command += " --sleep_timeout"
