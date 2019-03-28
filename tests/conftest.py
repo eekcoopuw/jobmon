@@ -405,9 +405,15 @@ def execution_test_script_perms():
     files = os.listdir(shell_path)
     os.chmod(shell_path, perms)
     for file in files:
-        os.chmod(f'{shell_path}{file}', perms)
+        try:
+            os.chmod(f'{shell_path}{file}', perms)
+        except Exception as e:
+            raise e
     for file in executed_files:
-        os.chmod(f'{path}/{file}', perms)
+        try:
+            os.chmod(f'{path}/{file}', perms)
+        except Exception as e:
+            raise e
 
 
 
