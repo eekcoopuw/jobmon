@@ -393,6 +393,9 @@ def dag_factory(db_cfg, real_jsm_jqs, request):
 
 @pytest.fixture(autouse=True)
 def execution_test_script_perms():
+    executed_files = ['executor_args_check.py', 'simple_R_script.r',
+                      'simple_stata_script.do', 'memory_usage_array.py',
+                      'remote_sleep_and_write.py']
     if sys.version_info.major == 3:
         perms = int("0o755", 8)
     else:
@@ -403,7 +406,8 @@ def execution_test_script_perms():
     os.chmod(shell_path, perms)
     for file in files:
         os.chmod(f'{shell_path}{file}', perms)
-    os.chmod(f'{path}/executor_args_check.py', perms)
+    for file in executed_files:
+        os.chmod(f'{path}/{file}', perms)
 
 
 
