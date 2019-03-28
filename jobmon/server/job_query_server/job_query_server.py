@@ -5,6 +5,7 @@ from sqlalchemy.orm import contains_eager
 from sqlalchemy.sql import func
 
 from flask import jsonify, request, Blueprint
+from typing import Dict
 
 from jobmon.models import DB
 from jobmon.models.attributes.job_attribute import JobAttribute
@@ -166,7 +167,7 @@ def get_jobs_by_status(dag_id):
 
 
 @jqs.route('/dag/<dag_id>/queued_jobs/<n_queued_jobs>', methods=['GET'])
-def get_queued_jobs(dag_id, n_queued_jobs):
+def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
     """Returns oldest n jobs (or all jobs if total queued jobs < n) to be
     instantiated. Because the SGE can only qsub jobs at a certain rate, and we
     poll every 10 seconds, it does not make sense to return all jobs that are

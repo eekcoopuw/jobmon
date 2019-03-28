@@ -249,6 +249,7 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
         job = sge_jlm_for_queues.bind_task(task)
         sge_jlm_for_queues.queue_job(job)
 
+    # comparing results and times of old query vs new query
     time_a = time.time()
     rc, response = test_jif.requester.send_request(
         app_route=f'/dag/{test_jif.dag_id}/job',
@@ -256,10 +257,13 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
         request_type='get')
     all_jobs = [Job.from_wire(j) for j in response['job_dcts']]
     time_b = time.time()
+
+    # now new query that should only return 3 jobs
     select_jobs = test_jif._get_jobs_queued_for_instantiation()
     time_c = time.time()
     first_query = time_b - time_a
     new_query = time_c - time_b
+
 
     assert len(select_jobs) == 3
     assert len(all_jobs) == 20
