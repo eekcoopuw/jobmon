@@ -3,7 +3,6 @@ import time
 from threading import Event, Thread
 
 from jobmon.client import shared_requester
-from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.job_management.job_factory import JobFactory
 from jobmon.client.swarm.job_management.job_instance_factory import \
@@ -11,7 +10,7 @@ from jobmon.client.swarm.job_management.job_instance_factory import \
 from jobmon.client.swarm.job_management.job_instance_reconciler import \
     JobInstanceReconciler
 from jobmon.client.swarm.workflow.executable_task import BoundTask
-from jobmon.models.stubs import StubJob
+from jobmon.client.stubs import StubJob
 
 
 logger = logging.getLogger(__name__)

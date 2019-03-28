@@ -3,7 +3,7 @@ import hashlib
 
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
-from jobmon.models.stubs import StubJob
+from jobmon.client.stubs import StubJob
 
 logger = logging.getLogger(__name__)
 

@@ -15,7 +15,7 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.models.stubs import StubJob
+from jobmon.client.stubs import StubJob
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
