@@ -15,6 +15,7 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.client.stubs import StubJob
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -176,16 +177,21 @@ def get_jobs_by_status_only(dag_id):
     last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
     time = get_time(DB.session)
     if request.args.get('status', None) is not None:
+        # select docker.job.job_id, docker.job.job_hash, docker.job.status from docker.job where  docker.job.dag_id=1 and docker.job.status="G";
+        # vs.
+        # select docker.job.job_id, docker.job.job_hash, docker.job.status from docker.job where  docker.job.status="G" and docker.job.dag_id=1;
+        # 0.000 sec vs 0.015 sec (result from MySQL WorkBench)
+        # Thus move the dag_id in front of status in the filter
         jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status, Job.job_hash).filter(
-            Job.status == request.args['status'],
             Job.dag_id == dag_id,
+            Job.status == request.args['status'],
             Job.status_date >= last_sync).all()
     else:
         jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status, Job.job_hash).filter(
             Job.dag_id == dag_id,
             Job.status_date >= last_sync).all()
     DB.session.commit()
-    job_dcts = [{"job_id": j[0], "status": j[1], "job_hash": int(j[2])} for j in jobs]
+    job_dcts = [StubJob(j).to_wire() for j in jobs]
     resp = jsonify(job_dcts=job_dcts, time=time)
     resp.status_code = StatusCodes.OK
     return resp
