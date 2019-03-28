@@ -29,10 +29,8 @@ from jobmon.server.server_side_exception import log_and_raise
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
 except ImportError:
-    try:  # Python 3
-        from http import client as StatusCodes
-    except ImportError:  # Python 2
-        import httplib as StatusCodes
+    from http import client as StatusCodes
+
 
 jsm = Blueprint("job_state_manager", __name__)
 
@@ -779,7 +777,8 @@ def set_log_level(level):
     """Change log level
     Args:
 
-        level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO, DEBUG
+        level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO,
+            DEBUG
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("level", level))
@@ -841,7 +840,7 @@ def attach_remote_syslog(level, host, port, sockettype):
 
     try:
         port = int(port)
-    except:
+    except Exception:
         resp = jsonify(msn="Unable to convert {} to integer".format(port))
         resp.status_code = StatusCodes.BAD_REQUEST
         return resp
@@ -856,7 +855,7 @@ def attach_remote_syslog(level, host, port, sockettype):
         resp = jsonify(msn="Attach syslog {h}:{p}".format(h=host, p=port))
         resp.status_code = StatusCodes.OK
         return resp
-    except:
+    except Exception:
         resp = jsonify(msn=traceback.format_exc())
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
         return resp
