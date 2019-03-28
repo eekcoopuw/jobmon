@@ -6,3 +6,4 @@ graphviz
 flask
 flask_cors
 flask_sqlalchemy
+tenacity
