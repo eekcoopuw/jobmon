@@ -9,6 +9,7 @@ import uuid
 import socket
 import logging
 import re
+import sys
 
 from datetime import datetime
 from sqlalchemy.exc import ProgrammingError
@@ -388,3 +389,21 @@ def dag_factory(db_cfg, real_jsm_jqs, request):
     for dag in dags:
         if dag.job_list_manager:
             dag.job_list_manager.disconnect()
+
+
+@pytest.fixture(autouse=True)
+def execution_test_script_perms():
+    if sys.version_info.major == 3:
+        perms = int("0o755", 8)
+    else:
+        perms = int("0755", 8)
+    path = os.path.dirname(os.path.realpath(__file__))
+    shell_path = os.path.join(path, 'shellfiles/')
+    files = os.listdir(shell_path)
+    os.chmod(shell_path, perms)
+    for file in files:
+        os.chmod(f'{shell_path}{file}', perms)
+    os.chmod(f'{path}/executor_args_check.py', perms)
+
+
+
