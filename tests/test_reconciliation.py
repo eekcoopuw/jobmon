@@ -1,4 +1,5 @@
 import pytest
+import time
 from time import sleep
 import logging
 
@@ -248,13 +249,17 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
         job = sge_jlm_for_queues.bind_task(task)
         sge_jlm_for_queues.queue_job(job)
 
-
+    time_a = time.time()
     rc, response = test_jif.requester.send_request(
         app_route=f'/dag/{test_jif.dag_id}/job',
         message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
         request_type='get')
     all_jobs = [Job.from_wire(j) for j in response['job_dcts']]
+    time_b = time.time()
     select_jobs = test_jif._get_jobs_queued_for_instantiation()
+    time_c = time.time()
+    first_query = time_b - time_a
+    new_query = time_c - time_b
 
     assert len(select_jobs) == 3
     assert len(all_jobs) == 20
