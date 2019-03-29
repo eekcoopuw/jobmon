@@ -133,6 +133,7 @@ http.8         8457        3840 release-0.8.4
 http.9         8458        3841 release-0.8.5
 http.10        8656        3860 release-0.8.6
 http.11        8756        3870 release-0.8.7
+http.12        8856        3880 release-0.8.8
 ========  ==== ===== ===== ==== =============
 
 The port numbers come in pairs, e.g. "3313:3306".
