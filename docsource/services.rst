@@ -241,6 +241,28 @@ see them, connect to the docker container like this:
 ``docker exec -it jobmon071_jqs_1 bash``
 and do a `env`, look for: ``DB_USER & DB_PASS``
 
+
+Pushing the Docker Image to the Registry
+****************************************
+In order to keep track of old builds, we push them to the registry so that we can have a record of them even if we are no longer using the containers on the server itself
+
+In the version of the jobmon repo that you want to build and push, run::
+
+    docker build --tag registry-app-p01.ihme.washington.edu/jobmon/<the version you are saving(ex. v0.8.9)>:latest
+
+Then login to the registry so that you can push the image::
+
+    docker login registry-app-p01.ihme.washington.edu
+
+And enter your registry credentials.
+
+Finally, run::
+
+    docker push registry-app-p01.ihme.washington.edu/jobmon/<the version you are saving(ex. v0.8.9)>:latest
+
+And check the registry at https://reg.ihme.washington.edu/harbor/projects/44/repositories to ensure that it worked
+
+
 Deployment architecture
 ***********************
 .. image:: images/deployment_architecture.png
