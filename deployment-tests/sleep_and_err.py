@@ -57,7 +57,7 @@ def main():
             fp = open(counter_file, "r")
             count_so_far = int(fp.read())
             fp.close()
-            os.remove(counter_file)
+            # os.remove(counter_file)
         else:
             # First time, have not yet failed
             count_so_far = 0
