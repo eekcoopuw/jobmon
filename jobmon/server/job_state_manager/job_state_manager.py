@@ -780,24 +780,49 @@ def set_log_level(level):
     Args:
 
         level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO, DEBUG
+
+        data:
+             loggers: a list of logger
+                      Currently only support 'jobmonServer' and 'flask';
+                      Other values will be ignored;
+                      Empty list default to 'jobmonServer'.
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("level", level))
     level = level.upper()
+    l: int = logging.NOTSET
+
     if level == "CRITICAL":
-        logging.setlogLevel(logging.CRITICAL)
+        l = logging.CRITICAL
     elif level == "ERROR":
-        logging.setlogLevel(logging.ERROR)
+        l = logging.ERROR
     elif level == "WARNING":
-        logging.setlogLevel(logging.WARNING)
+        l = logging.WARNING
     elif level == "INFO":
-        logging.setlogLevel(logging.INFO)
+        l = logging.INFO
     elif level == "DEBUG":
-        logging.setlogLevel(logging.DEBUG)
+        l = logging.DEBUG
+
+    data = request.get_json()
+    logger.debug(data)
+
+    logger_list = []
+    try:
+        logger_list = data['loggers']
+    except:
+        # Deliberately eat the exception. If no data provided, change all other loggers except sqlalchemy
+        pass
+
+    if len(logger_list) == 0:
+        # Default to reset jobmonServer log level
+        logging.setlogLevel(l)
     else:
-        level = "NOTSET"
-        logging.setlogLevel(logging.NOTSET)
-    resp = jsonify(msn="Set server log to {}".format(level))
+        if 'jobmonServer' in logger_list:
+            logging.setlogLevel(l)
+        elif 'flask' in logger_list:
+            logging.setFlaskLogLevel(l)
+
+    resp = jsonify(msn="Set {loggers} server log to {level}".format(level=level, loggers=logger_list))
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -881,3 +906,4 @@ def setRootLoggerToDebug():
                        "action is irreversible.")
     resp.status_code = StatusCodes.OK
     return resp
+

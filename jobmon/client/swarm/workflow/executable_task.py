@@ -3,6 +3,7 @@ import hashlib
 
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
+from jobmon.client.stubs import StubJob
 
 logger = logging.getLogger(__name__)
 
@@ -231,7 +232,7 @@ class ExecutableTask(object):
 class BoundTask(object):
     """The class that bridges the gap between a task and it's bound Job"""
 
-    def __init__(self, task, job, job_list_manager):
+    def __init__(self, task, job: StubJob, job_list_manager):
         """
         Link task and job
 
@@ -240,8 +241,8 @@ class BoundTask(object):
             job (obj): obj of type models.Job
             job_list_manager (obj): obj of type JobListManager
         """
-        self.job_id = job["job_id"]
-        self.status = job["status"]
+        self.job_id = job.job_id
+        self.status = job.status
 
         self._jlm = job_list_manager
         self._task = task
