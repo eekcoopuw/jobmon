@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 class JobInstanceFactory(object):
 
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
-                 stop_event=None, requester=shared_requester):
+                 n_queued_jobs=1000, stop_event=None,
+                 requester=shared_requester):
         """The JobInstanceFactory is in charge of queueing jobs and creating
         job_instances, in order to get the jobs from merely Task objects to
         running code.
@@ -26,12 +27,15 @@ class JobInstanceFactory(object):
             executor (obj, default SequentialExecutor): obj of type
             SequentialExecutor, DummyExecutor or SGEExecutor
             interrupt_on_error (bool, default True): whether or not to
-            interrupt the thread if there's an error
+                interrupt the thread if there's an error
+            n_queued_jobs (int): number of queued jobs to return and send to
+                be instantiated
             stop_event (obj, default None): Object of type threading.Event
         """
         self.dag_id = dag_id
         self.requester = requester
         self.interrupt_on_error = interrupt_on_error
+        self.n_queued_jobs = n_queued_jobs
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they
@@ -130,8 +134,8 @@ class JobInstanceFactory(object):
     def _get_jobs_queued_for_instantiation(self):
         try:
             rc, response = self.requester.send_request(
-                app_route='/dag/{}/job'.format(self.dag_id),
-                message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
+                app_route=f'/dag/{self.dag_id}/queued_jobs/{self.n_queued_jobs}',
+                message={},
                 request_type='get')
             jobs = [Job.from_wire(j) for j in response['job_dcts']]
 

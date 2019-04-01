@@ -643,7 +643,8 @@ def _update_job_instance_state(job_instance, status_id):
                   f"Not transitioning job, jid= " \
                   f"{job_instance.job_instance_id}, " \
                   f"from {job_instance.status} to {status_id}"
-            log_and_raise(msg, logger)
+            # log_and_raise(msg, logger)
+            logger.error(msg)
     except Exception as e:
         msg = f"General exception in _update_job_instance_state, " \
               f"jid {job_instance}, transitioning to {job_instance}. " \

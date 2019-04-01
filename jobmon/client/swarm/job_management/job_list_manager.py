@@ -3,7 +3,6 @@ import time
 from threading import Event, Thread
 
 from jobmon.client import shared_requester
-from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.job_management.job_factory import JobFactory
 from jobmon.client.swarm.job_management.job_instance_factory import \
@@ -11,6 +10,7 @@ from jobmon.client.swarm.job_management.job_instance_factory import \
 from jobmon.client.swarm.job_management.job_instance_reconciler import \
     JobInstanceReconciler
 from jobmon.client.swarm.workflow.executable_task import BoundTask
+from jobmon.client.stubs import StubJob
 
 
 logger = logging.getLogger(__name__)
@@ -22,28 +22,31 @@ class JobListManager(object):
     def __init__(self, dag_id, executor=None, start_daemons=False,
                  reconciliation_interval=10,
                  job_instantiation_interval=3,
-                 interrupt_on_error=True,
+                 interrupt_on_error=True, n_queued_jobs=1000,
                  requester=shared_requester):
         """Manages all the list of jobs that are running, done or errored
         Args:
             dag_id (int): the id for the dag to run
             executor (obj, default SequentialExecutor): obj of type
-            SequentialExecutor, DummyExecutor or SGEExecutor
+                SequentialExecutor, DummyExecutor or SGEExecutor
             start_daemons (bool, default False): whether or not to start the
-            JobInstanceFactory and JobReconciler as daemonized threads
+                JobInstanceFactory and JobReconciler as daemonized threads
             reconciliation_interval (int, default 10 ): number of seconds to
-            wait between reconciliation attempts
+                wait between reconciliation attempts
             job_instantiation_interval (int, default 3): number of seconds to
-            wait between instantiating newly ready jobs
+                wait between instantiating newly ready jobs
             interrupt_on_error (bool, default True): whether or not to
-            interrupt the thread if there's an error
+                interrupt the thread if there's an error
+            n_queued_jobs (int): number of queued jobs that should be returned
+                to be instantiated
         """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
 
         self._stop_event = Event()
         self.job_instance_factory = JobInstanceFactory(
-            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
+            dag_id, executor, interrupt_on_error, n_queued_jobs,
+            stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
 
@@ -71,16 +74,12 @@ class JobListManager(object):
                                        JobStatus.DONE,
                                        JobStatus.ERROR_FATAL]]
 
-    def _job_to_dic(self, j: Job):
-        job = {"job_id": j.job_id, "job_hash": j.job_hash, "status": j.status}
-        return job
-
     def bind_task(self, task):
         """Bind a task to the database, making it a job
         Args:
             task (obj): obj of a type inherited from ExecutableTask
         """
-        job = dict()
+
         if task.hash in self.hash_job_map:
             job = self.hash_job_map[task.hash]
         else:
@@ -102,10 +101,10 @@ class JobListManager(object):
         # adding the attributes to the job now that there is a job_id
         for attribute in task.job_attributes:
             self.job_factory.add_job_attribute(
-                job["job_id"], attribute, task.job_attributes[attribute])
+                job.job_id, attribute, task.job_attributes[attribute])
 
         bound_task = BoundTask(task=task, job=job, job_list_manager=self)
-        self.bound_tasks[job["job_id"]] = bound_task
+        self.bound_tasks[job.job_id] = bound_task
         return bound_task
 
     def get_job_statuses(self):
@@ -125,10 +124,10 @@ class JobListManager(object):
         utcnow = response['time']
         self.last_sync = utcnow
 
-        jobs = response['job_dcts']
+        jobs = StubJob.from_wire(response['job_dcts'])
         for job in jobs:
-            if job["job_id"] in self.bound_tasks.keys():
-                self.bound_tasks[job["job_id"]].status = job["status"]
+            if job.job_id in self.bound_tasks.keys():
+                self.bound_tasks[job.job_id].status = job.status
             else:
                 # This should really only happen the first time
                 # _sync() is called when resuming a WF/DAG. This
@@ -140,10 +139,10 @@ class JobListManager(object):
                 # be subject to removal altogether if it can be
                 # determined that there is a better way to determine
                 # previous state in resume cases
-                self.bound_tasks[job["job_id"]] = BoundTask(
+                self.bound_tasks[job.job_id] = BoundTask(
                     task=None, job=job, job_list_manager=self)
-            self.hash_job_map[job["job_hash"]] = job
-            self.job_hash_map[job["job_id"]] = job["job_hash"]
+            self.hash_job_map[job.job_hash] = job
+            self.job_hash_map[job.job_id] = job.job_hash
         return jobs
 
     def parse_done_and_errors(self, jobs):
@@ -154,7 +153,7 @@ class JobListManager(object):
         completed_tasks = set()
         failed_tasks = set()
         for job in jobs:
-            task = self.bound_tasks[job["job_id"]]
+            task = self.bound_tasks[job.job_id]
             if task.status == JobStatus.DONE and task not in self.all_done:
                 completed_tasks.add(task)
             elif (task.status == JobStatus.ERROR_FATAL and
@@ -195,14 +194,14 @@ class JobListManager(object):
             time.sleep(poll_interval)
             time_since_last_update += poll_interval
 
-    def _create_job(self, *args, **kwargs) -> dict:
+    def _create_job(self, *args, **kwargs):
         """Create a job by passing the job args/kwargs through to the
         JobFactory
         """
         j = self.job_factory.create_job(*args, **kwargs)
-        job = self._job_to_dic(j)
-        self.hash_job_map[job["job_hash"]] = job
-        self.job_hash_map[job["job_id"]] = job["job_hash"]
+        job = StubJob.job_to_stub(j)
+        self.hash_job_map[job.job_hash] = job
+        self.job_hash_map[job.job_id] = job.job_hash
         return job
 
     def queue_job(self, variable):
@@ -219,7 +218,7 @@ class JobListManager(object):
 
     def queue_task(self, task):
         """Add a task's hash to the hash_job_map"""
-        job_id = self.hash_job_map[task.hash]["job_id"]
+        job_id = self.hash_job_map[task.hash].job_id
         self.queue_job(job_id)
 
     def reset_jobs(self):
@@ -233,7 +232,7 @@ class JobListManager(object):
 
     def status_from_hash(self, job_hash):
         """Get the status of a job from its hash"""
-        job_id = self.hash_job_map[job_hash]["job_id"]
+        job_id = self.hash_job_map[job_hash].job_id
         return self.status_from_job(job_id)
 
     def status_from_job(self, job_id):
@@ -246,7 +245,7 @@ class JobListManager(object):
 
     def bound_task_from_task(self, task):
         """Get a BoundTask from a regular Task"""
-        job_id = self.hash_job_map[task.hash]["job_id"]
+        job_id = self.hash_job_map[task.hash].job_id
         return self.bound_tasks[job_id]
 
     def _start_job_instance_manager(self):
