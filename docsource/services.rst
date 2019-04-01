@@ -248,7 +248,7 @@ In order to keep track of old builds, we push them to the registry so that we ca
 
 In the version of the jobmon repo that you want to build and push, run::
 
-    docker build --tag registry-app-p01.ihme.washington.edu/jobmon/<the version you are saving(ex. v0.8.9)>:latest
+    docker build --tag registry-app-p01.ihme.washington.edu/jobmon/jobmon:<version ex. 0.8.9>
 
 Then login to the registry so that you can push the image::
 
@@ -258,7 +258,7 @@ And enter your registry credentials.
 
 Finally, run::
 
-    docker push registry-app-p01.ihme.washington.edu/jobmon/<the version you are saving(ex. v0.8.9)>:latest
+    docker push registry-app-p01.ihme.washington.edu/jobmon/jobmon:<version ex. 0.8.9>
 
 And check the registry at https://reg.ihme.washington.edu/harbor/projects/44/repositories to ensure that it worked
 
