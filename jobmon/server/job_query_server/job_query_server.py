@@ -4,11 +4,13 @@ from sqlalchemy.orm import contains_eager
 from sqlalchemy.sql import func
 
 from flask import jsonify, request, Blueprint
+from typing import Dict
 
 from jobmon.models import DB
 from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
@@ -163,8 +165,8 @@ def get_jobs_by_status(dag_id):
     time = get_time(DB.session)
     if request.args.get('status', None) is not None:
         jobs = DB.session.query(Job).filter(
-            Job.status == request.args['status'],
             Job.dag_id == dag_id,
+            Job.status == request.args['status'],
             Job.status_date >= last_sync).all()
     else:
         jobs = DB.session.query(Job).filter(
@@ -177,6 +179,28 @@ def get_jobs_by_status(dag_id):
     resp.status_code = StatusCodes.OK
     return resp
 
+
+@jqs.route('/dag/<dag_id>/queued_jobs/<n_queued_jobs>', methods=['GET'])
+def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
+    """Returns oldest n jobs (or all jobs if total queued jobs < n) to be
+    instantiated. Because the SGE can only qsub jobs at a certain rate, and we
+    poll every 10 seconds, it does not make sense to return all jobs that are
+    queued because only a subset of them can actually be instantiated
+    Args:
+        last_sync (datetime): time since when to get jobs
+    """
+    last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
+    time = get_time(DB.session)
+    jobs = DB.session.query(Job).filter(
+        Job.dag_id == dag_id,
+        Job.status == JobStatus.QUEUED_FOR_INSTANTIATION,
+        Job.status_date >= last_sync).order_by(Job.job_id)\
+        .limit(n_queued_jobs)
+    DB.session.commit()
+    job_dcts = [j.to_wire() for j in jobs]
+    resp = jsonify(job_dcts=job_dcts, time=time)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jqs.route('/dag/<dag_id>/job_status', methods=['GET'])
