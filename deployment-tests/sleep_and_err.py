@@ -1,6 +1,5 @@
 import argparse
 import os
-import shutil
 import time
 
 from getpass import getuser
@@ -32,7 +31,7 @@ def main():
                              'times you can either configure them to throw a '
                              'value error or sleep longer than the given '
                              'timeout')
-    parser.add_argument('--unique_id',
+    parser.add_argument('--uid',
                         type=str, default='uuid',
                         action='store',
                         help='If set, commands will be made unique so that '
@@ -40,7 +39,7 @@ def main():
                              'iterations without getting warnings')
     parser.add_argument('--fail_count_fp',
                         type=str,
-                        default='/tmp/jobmon-test',
+                        default=f'/tmp/jobmon-test',
                         action='store',
                         help='filepath to count how many failures have '
                                'occurred')
@@ -51,17 +50,15 @@ def main():
         raise ValueError("Mock task failing permanently by command line arg")
     elif args.fail_count:
         # Go check how many times this script has failed
-        counter_file = "{}-count_{}".format(args.fail_count_fp, args.unique_id)
+        counter_file = "{}-count_{}".format(args.fail_count_fp, args.uid)
         if os.path.exists(counter_file):
             # Not the first time, let's see how many times we have failed
             fp = open(counter_file, "r")
             count_so_far = int(fp.read())
             fp.close()
-            # os.remove(counter_file)
         else:
             # First time, have not yet failed
             count_so_far = 0
-
         if count_so_far < args.fail_count:
             # Have not yet failed enough
             count_so_far += 1
@@ -76,8 +73,6 @@ def main():
         else:
             # Enough failures, we should succeed this time
             time.sleep(args.sleep_secs)
-            # shutil.rmtree(args.fail_count_fp)
-            # os.remove(counter_file)
     else:
         # No "fail" argument, we should succeed
         time.sleep(args.sleep_secs)

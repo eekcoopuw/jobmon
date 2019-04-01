@@ -1,10 +1,11 @@
 import argparse
 import getpass
+import os
 import random
-import sys
 import uuid
 from datetime import datetime
 from typing import List
+import hashlib
 
 
 from jobmon.client.swarm.workflow.workflow import Workflow
@@ -24,14 +25,15 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int, sleep_timeout: bool
     tier1 = []
     for i in range(n_jobs):
         sleep = random.randint(20, 31)
-        uid = f"tier1_{uuid.uuid4()}"
-        cs = sge.true_path(f"deployment-tests/sleep_and_err.py --unique_id "
-                           f"{uid}")
+        uid = f"tier_1_{uuid.uuid4()}"
+        cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid {uid}")
         task = SleepAndWriteFileMockTask(
             command=f"python {cs} --sleep_secs {sleep}",
             max_runtime_seconds=40)
         tier1.append(task)
 
+    add_random_timeouts(tier1, n_exceptions, sleep_timeout)
+    wf.add_tasks(tier1)
     num_tasks = n_jobs
 
     if all_phases:
@@ -40,9 +42,8 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int, sleep_timeout: bool
         # Second Tier, depend on 1 tier 1 task
         for i in range(n_jobs * 3):
             sleep = random.randint(20, 31)
-            uid = f"tier2_{uuid.uuid4()}"
-            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --unique_id"
-                               f" {uid}")
+            uid = f"tier_2_{uuid.uuid4()}"
+            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid {uid}")
             task = SleepAndWriteFileMockTask(
                 command=f"python {cs} --sleep_secs {sleep}",
                 upstream_tasks=[tier1[(i % n_jobs)]], max_runtime_seconds=40)
@@ -56,9 +57,8 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int, sleep_timeout: bool
         # Third Tier, depend on 3 tier 2 tasks
         for i in range(n_jobs):
             sleep = random.randint(20, 31)
-            uid = f"tier3_{uuid.uuid4()}"
-            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --unique_id"
-                               f" {uid}")
+            uid = f"tier_3_{uuid.uuid4()}"
+            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid {uid}")
             task = SleepAndWriteFileMockTask(
                 command=f"python {cs} --sleep_secs {sleep}",
                 upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
@@ -67,11 +67,7 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int, sleep_timeout: bool
             tier3.append(task)
 
         add_random_timeouts(tier3, n_exceptions, sleep_timeout)
-        wf.add_tasks(tier1 + tier2 + tier3)
-
-    else:
-        add_random_timeouts(tier1, n_exceptions, sleep_timeout)
-        wf.add_tasks(tier1)
+        wf.add_tasks(tier2 + tier3)
 
     time = datetime.now().strftime("%m/%d/%Y_%H:%M:%S")
     print(f"{time}: Beginning the workflow, there are {num_tasks} tasks in "
@@ -79,6 +75,7 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int, sleep_timeout: bool
     wf.execute()
     time = datetime.now().strftime("%m/%d/%Y/_%H:%M:%S")
     print(f"{time}: Workflow complete!")
+    
 
 
 def add_random_timeouts(task_list: List, n_exceptions: int,
@@ -86,14 +83,17 @@ def add_random_timeouts(task_list: List, n_exceptions: int,
     """set a random group of tasks to timeout. Seeded with 4 so we can
     replicate the random group """
     random.seed(4)
-    sample = random.sample(task_list, n_exceptions)
-    for task in sample:
+    seed_list = list(range(len(task_list))) # need to make a reproducible list
+    sample = random.sample(seed_list, n_exceptions)
+    for index in sample:
+        task = task_list[index]
         task.fail_count = 1
-        task.command += f" --fail_count {task.fail_count}"
+        task.command += f" --fail_count {task.fail_count} " \
+                        f"--fail_count_fp /ihme/scratch/users/" \
+                        f"{getpass.getuser()}/tests/load_test"
         if sleep_timeout:
             task.sleep_timeout = True
             task.command += " --sleep_timeout"
-        print(task.command)
 
 
 if __name__ == "__main__":
