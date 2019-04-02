@@ -30,7 +30,7 @@ def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
     for i in range(n_jobs):
         sleep = random.randint(30, 41)
         uid = f"tier1_{uuid.uuid4()}"
-        cs = sge.true_path(f"deployment-tests/sleep_and_err.py --unique_id "
+        cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid "
                            f"{uid}")
         task = SleepAndWriteFileMockTask(
             command=f"python {cs} --sleep_secs {sleep}")
@@ -45,7 +45,7 @@ def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
         for i in range(n_jobs * 3):
             sleep = random.randint(30, 41)
             uid = f"tier2_{uuid.uuid4()}"
-            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --unique_id"
+            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid"
                                f" {uid}")
             task=SleepAndWriteFileMockTask(command=f"python {cs} --sleep_secs"
                                                    f" {sleep}",
@@ -61,7 +61,7 @@ def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
         for i in range(n_jobs):
             sleep = random.randint(30, 41)
             uid = f"tier3_{uuid.uuid4()}"
-            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --unique_id"
+            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid"
                                f" {uid}")
             task =SleepAndWriteFileMockTask(command=f"python {cs} --sleep_secs"
                                                     f" {sleep}",
@@ -96,7 +96,7 @@ def add_random_err(task_list, n_ex):
 
 if __name__ == "__main__":
     """
-    ex. call ' python deployment-tests/load_test_with_exceptions.py 1 0 
+    ex. call ' python deployment-tests/load_test_with_failures.py 1 0 
     --all_phases'
      to run three tiers 1 job, 3 jobs, 1 job, without any raising exceptions
     """
