@@ -1,4 +1,5 @@
 import os
+from http import HTTPStatus as StatusCodes
 import json
 from datetime import datetime
 from flask import jsonify, request, Blueprint
@@ -25,11 +26,6 @@ from jobmon.models.workflow import Workflow
 from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 from jobmon.server.server_side_exception import log_and_raise
-
-try:  # Python 3.5+
-    from http import HTTPStatus as StatusCodes
-except ImportError:
-    from http import client as StatusCodes
 
 
 jsm = Blueprint("job_state_manager", __name__)

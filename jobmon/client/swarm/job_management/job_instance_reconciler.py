@@ -1,3 +1,4 @@
+from http import HTTPStatus as StatusCodes
 import logging
 import threading
 import _thread
@@ -6,16 +7,7 @@ import traceback
 
 from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
-from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
-
-try:  # Python 3.5+
-    from http import HTTPStatus as StatusCodes
-except ImportError:
-    try:  # Python 3
-        from http import client as StatusCodes
-    except ImportError:  # Python 2
-        import httplib as StatusCodes
 
 
 logger = logging.getLogger(__name__)
@@ -95,7 +87,7 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
-    def reconcile(self):
+    def reconcile2(self):
         """Identifies jobs that have disappeared from the batch execution
         system (e.g. SGE), and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
@@ -118,6 +110,20 @@ class JobInstanceReconciler(object):
                 self._log_mysterious_error(job_instance_id, executor_id)
                 missing_job_instance_ids.append(job_instance_id)
         return missing_job_instance_ids
+
+    def reconcile(self):
+        """Identifies jobs that have disappeared from the batch execution
+        system (e.g. SGE), and reports their disappearance back to the
+        JobStateManager so they can either be retried or flagged as
+        fatal errors
+        """
+        self._request_permission_to_reconcile()
+        try:
+            actual = self.executor.get_actual_submitted_or_running()
+        except NotImplementedError:
+            logger.warning("{} does not implement reconciliation methods"
+                           .format(self.executor.__class__.__name__))
+            return []
 
     def terminate_timed_out_jobs(self):
         """Attempts to terminate jobs that have been in the "running"
