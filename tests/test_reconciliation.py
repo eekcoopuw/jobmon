@@ -1,14 +1,18 @@
 import pytest
+import time
 from time import sleep
 import logging
 
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
 from jobmon.client import shared_requester as req
 from jobmon.client.swarm.executors.dummy import DummyExecutor
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
+from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 from tests.timeout_and_skip import timeout_and_skip
 from functools import partial
@@ -209,3 +213,59 @@ def ignore_qw_in_timeouts_check(job_list_manager_reconciliation, dag_id, job_id)
         return True
     else:
         return False
+
+@pytest.fixture(scope='function')
+def sge_jlm_for_queues(real_dag_id, tmpdir_factory):
+    """This creates a job_list_manager that uses the SGEExecutor, does
+    start the JobInstanceFactory and JobReconciler threads, and does not
+    interrupt on error. It has short reconciliation intervals so that the
+    tests run faster than in production.
+    """
+    from jobmon.client.swarm.executors.sge import SGEExecutor
+    from jobmon.client.swarm.job_management.job_list_manager import \
+        JobListManager
+
+    elogdir = str(tmpdir_factory.mktemp("elogs"))
+    ologdir = str(tmpdir_factory.mktemp("ologs"))
+
+    executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
+                           project='proj_jenkins')
+    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False,
+                         reconciliation_interval=10,
+                         job_instantiation_interval=10,
+                         interrupt_on_error=True, n_queued_jobs=3)
+    yield jlm
+    jlm.disconnect()
+
+
+def test_queued_for_instantiation(sge_jlm_for_queues):
+
+    test_jif = sge_jlm_for_queues.job_instance_factory
+
+    tasks = []
+    for i in range(20):
+        task = BashTask(command=f"sleep {i}", slots=1)
+        tasks.append(task)
+        job = sge_jlm_for_queues.bind_task(task)
+        sge_jlm_for_queues.queue_job(job)
+
+    # comparing results and times of old query vs new query
+    time_a = time.time()
+    rc, response = test_jif.requester.send_request(
+        app_route=f'/dag/{test_jif.dag_id}/job',
+        message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
+        request_type='get')
+    all_jobs = [Job.from_wire(j) for j in response['job_dcts']]
+    time_b = time.time()
+
+    # now new query that should only return 3 jobs
+    select_jobs = test_jif._get_jobs_queued_for_instantiation()
+    time_c = time.time()
+    first_query = time_b - time_a
+    new_query = time_c - time_b
+
+
+    assert len(select_jobs) == 3
+    assert len(all_jobs) == 20
+    for i in range(3):
+        assert select_jobs[i].job_id == (i+1)

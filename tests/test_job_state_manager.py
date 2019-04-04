@@ -605,3 +605,53 @@ def test_syslog_parameter():
     )
     assert rc == 200
     assert response['syslog']
+
+
+def test_set_flask_log_level_seperately(real_dag_id):
+    print("----------------------------default------------------------")
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    print("-------------------------flask info-----------------------")
+    rc, response = req.send_request(
+        app_route='/log_level/info',
+        message={'loggers': ['flask']},
+        request_type='post')
+    assert rc == 200
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    print("-------------------------all info-----------------------")
+    rc, response = req.send_request(
+        app_route='/log_level/info',
+        message={'loggers': ['flask', 'jobmonServer']},
+        request_type='post')
+    assert rc == 200
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    print("-------------------------flask error-----------------------")
+    rc, response = req.send_request(
+        app_route='/log_level/error',
+        message={'loggers': ['flask']},
+        request_type='post')
+    assert rc == 200
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')

@@ -102,27 +102,26 @@ release number (0.8.0 = 3800), so for example:
 
 jobmon-p01.ihme.washington.edu
 
-========  ==== ===== ===== ==== ============= ==========
-Version   jqs  jsm-1 jsm-2 db   git-tag       dbs-notes
-========  ==== ===== ===== ==== ============= ==========
-emu.0     na   4556  4557  3307
-emu.1     4658 4656  4657  3308
-emu.2     4758 4756  4757  3309
-emu.3     4858 4856  4857  3310
-emu.3     4958 4956  4957  3311  0.6.0
-emu.4     5058 5056  5057  3312  0.6.1
-emu.5     4458 4456  4457  3305  kelly-and-leo  063again
-emu.6     5158 5156  5157  3313  0.6.6          Database-lost
-emu.7     5258 5256  5257  3314  0.6.7
-http      6258 6256  n/a   3315  0.7.0
-http.2    6258 6256  n/a   3316  release-0.7.1
-http.3    7258 7256  n/a   3317  release-0.7.2
-http.4         8256        3800  release-0.8.0
-http.5         8356        3810  release-0.8.1
-http.6         8356        3820  release-0.8.2
-http.7         8456        3830  release-0.8.3
-========  ==== ===== ===== ==== ============== =======
-
+======== ==== ===== ===== ==== ============= ================
+Version  jqs  jsm-1 jsm-2 db   git-tag       dbs-notes
+======== ==== ===== ===== ==== ============= ================
+emu.0    na   4556  4557  3307
+emu.1    4658 4656  4657  3308
+emu.2    4758 4756  4757  3309
+emu.3    4858 4856  4857  3310
+emu.3    4958 4956  4957  3311 0.6.0
+emu.4    5058 5056  5057  3312 0.6.1
+emu.5    4458 4456  4457  3305 kelly-and-leo  063again
+emu.6    5158 5156  5157  3313 0.6.6          Database-lost
+emu.7    5258 5256  5257  3314 0.6.7
+http     6258 6256  n/a   3315 0.7.0
+http.2   6258 6256  n/a   3316 release-0.7.1
+http.3   7258 7256  n/a   3317 release-0.7.2
+http.4        8256        3800 release-0.8.0
+http.5        8356        3810 release-0.8.1
+http.6        8356        3820 release-0.8.2
+http.7        8456        3830 release-0.8.3
+======== ==== ===== ===== ==== ============= ================
 
 jobmon-docker-cont-p01.hosts.ihme.washington.edu
 
@@ -133,6 +132,8 @@ http.8         8457        3840 release-0.8.4
 http.9         8458        3841 release-0.8.5
 http.10        8656        3860 release-0.8.6
 http.11        8756        3870 release-0.8.7
+http.12        8856        3880 release-0.8.8
+http.13        8956        3890 release-0.8.9
 ========  ==== ===== ===== ==== =============
 
 The port numbers come in pairs, e.g. "3313:3306".
@@ -238,6 +239,28 @@ They are then set as environment variables in the docker service container. To
 see them, connect to the docker container like this:
 ``docker exec -it jobmon071_jqs_1 bash``
 and do a `env`, look for: ``DB_USER & DB_PASS``
+
+
+Pushing the Docker Image to the Registry
+****************************************
+In order to keep track of old builds, we push them to the registry so that we can have a record of them even if we are no longer using the containers on the server itself
+
+In the version of the jobmon repo that you want to build and push, run::
+
+    docker build --tag registry-app-p01.ihme.washington.edu/jobmon/jobmon:<version ex. 0.8.9>
+
+Then login to the registry so that you can push the image::
+
+    docker login registry-app-p01.ihme.washington.edu
+
+And enter your registry credentials.
+
+Finally, run::
+
+    docker push registry-app-p01.ihme.washington.edu/jobmon/jobmon:<version ex. 0.8.9>
+
+And check the registry at https://reg.ihme.washington.edu/harbor/projects/44/repositories to ensure that it worked
+
 
 Deployment architecture
 ***********************

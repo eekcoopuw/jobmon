@@ -19,11 +19,15 @@ class jobmonLogging():
     _logger: logging.Logger = None
     _handler: logging.Handler = None
     _format: str = '%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s %(threadName)s: %(message)s'
-    _logLevel: int = WARNING
+    _logLevel: int = INFO
     _syslogAttached: bool = False
     # The list holds specific loggers we want to monitor
     # So far we have flask and sqlalchemy
     _loggerArray: list = []
+    # Flask prints too many logs at INFO level, so set it's level separately
+    _falskLogLevel: int = WARNING
+    # Loggers that use flask logger
+    _flaskLoggerArray: list = []
 
     @staticmethod
     def myself():
@@ -35,7 +39,7 @@ class jobmonLogging():
         return "----" + inspect.stack()[1][1] + "----" + inspect.stack()[1][3]
 
     @staticmethod
-    def _createSpecialLoggers():
+    def _createFlaskLoggers():
         # Flask logger
         flask_logger = Flask(__name__).logger
         flask_logger.setLevel(jobmonLogging._logLevel)
@@ -43,17 +47,17 @@ class jobmonLogging():
             default_handler = jobmonLogging._handler
         else:
             default_handler = flask_logger.handlers[0]
-        jobmonLogging._loggerArray.append(flask_logger)
+        jobmonLogging._flaskLoggerArray.append(flask_logger)
         # sqlalchemy logger
-        sqlalchemy_logger = logging.getLogger('sqlalchemy')
-        sqlalchemy_logger.setLevel(jobmonLogging._logLevel)
-        sqlalchemy_logger.addHandler(default_handler)
-        jobmonLogging._loggerArray.append(sqlalchemy_logger)
+        jobmonLogging._flaskLoggers = logging.getLogger('sqlalchemy')
+        jobmonLogging._flaskLoggers.setLevel(jobmonLogging._falskLogLevel)
+        jobmonLogging._flaskLoggers.addHandler(default_handler)
+
         # werkzeug logger
         werkzeug_logger = logging.getLogger("werkzeug")
         werkzeug_logger.setLevel(jobmonLogging._logLevel)
         werkzeug_logger.addHandler(default_handler)
-        jobmonLogging._loggerArray.append(werkzeug_logger)
+        jobmonLogging._flaskLoggerArray.append(werkzeug_logger)
 
 
     def __init__(self):
@@ -71,20 +75,29 @@ class jobmonLogging():
             jobmonLogging._handler.setLevel(jobmonLogging._logLevel)
             jobmonLogging._logger.debug("Log level set to {}".format(jobmonLogging.getLevelName()))
             jobmonLogging._loggerArray.append(jobmonLogging._logger)
-            jobmonLogging._createSpecialLoggers()
+            jobmonLogging._createFlaskLoggers()
 
     @staticmethod
     def logParameter(name: str, v: any):
         return "[Name: {n}, Type: {t}, Value: {v}]".format(n=name, t=type(v), v=v)
 
+
+    @staticmethod
+    def setFlaskLogLevel(level: int):
+        jobmonLogging._flaskLoggers.setLevel(level)
+        jobmonLogging._falskLogLevel = level
+        for l in jobmonLogging._flaskLoggerArray:
+            for h in l.handlers:
+                h.setLevel(level)
+
     @staticmethod
     def setlogLevel(level: int):
+        # Set jobmonServer log level
         if jobmonLogging._logger is None:
             jobmonLogging()
         jobmonLogging._logger.debug(jobmonLogging.myself())
         jobmonLogging._logger.debug(jobmonLogging.logParameter("level", level))
         jobmonLogging._logLevel = level
-        jobmonLogging._logger.info("----------------Log Lever Set to {}----------------".format(jobmonLogging.getLevelName()))
         for l in jobmonLogging._loggerArray:
             l.setLevel(level)
             for h in l.handlers:
@@ -94,6 +107,7 @@ class jobmonLogging():
 
     @staticmethod
     def getlogLevel() -> int:
+        # Get jobmonServer log level
         jobmonLogging._logger.debug(jobmonLogging.myself())
         return jobmonLogging._logLevel
 
@@ -106,7 +120,7 @@ class jobmonLogging():
     def getLogger(name: str = __file__) -> logging.Logger:
         if jobmonLogging._logger is None:
             jobmonLogging()
-        jobmonLogging._logger.debug(jobmonLogging.myself())
+        jobmonLogging._logger.info(jobmonLogging.myself())
         jobmonLogging._logger.debug(jobmonLogging.logParameter("name", name))
         return jobmonLogging._logger
 

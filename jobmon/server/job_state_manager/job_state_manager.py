@@ -627,21 +627,22 @@ def _update_job_instance_state(job_instance, status_id):
         if job_instance.status == status_id:
             # It was already in that state, just log it
             msg = f"Attempting to transition to existing state." \
-                  f"Not transitioning job, jid= " \
-                  f"{job_instance.job_instance_id}" \
-                  f"from {job_instance.status} to {status_id}"
+                f"Not transitioning job, jid= " \
+                f"{job_instance.job_instance_id}" \
+                f"from {job_instance.status} to {status_id}"
             logger.warning(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. " \
-                  f"Not transitioning job, jid= " \
-                  f"{job_instance.job_instance_id}, " \
-                  f"from {job_instance.status} to {status_id}"
-            log_and_raise(msg, logger)
+                f"Not transitioning job, jid= " \
+                f"{job_instance.job_instance_id}, " \
+                f"from {job_instance.status} to {status_id}"
+            # log_and_raise(msg, logger)
+            logger.error(msg)
     except Exception as e:
         msg = f"General exception in _update_job_instance_state, " \
-              f"jid {job_instance}, transitioning to {job_instance}. " \
-              f"Not transitioning job. {e}"
+            f"jid {job_instance}, transitioning to {job_instance}. " \
+            f"Not transitioning job. {e}"
         log_and_raise(msg, logger)
 
     job = job_instance.job
@@ -775,24 +776,51 @@ def set_log_level(level):
 
         level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO,
             DEBUG
+
+        data:
+             loggers: a list of logger
+                      Currently only support 'jobmonServer' and 'flask';
+                      Other values will be ignored;
+                      Empty list default to 'jobmonServer'.
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("level", level))
     level = level.upper()
+    lev: int = logging.NOTSET
+
     if level == "CRITICAL":
-        logging.setlogLevel(logging.CRITICAL)
+        lev = logging.CRITICAL
     elif level == "ERROR":
-        logging.setlogLevel(logging.ERROR)
+        lev = logging.ERROR
     elif level == "WARNING":
-        logging.setlogLevel(logging.WARNING)
+        lev = logging.WARNING
     elif level == "INFO":
-        logging.setlogLevel(logging.INFO)
+        lev = logging.INFO
     elif level == "DEBUG":
-        logging.setlogLevel(logging.DEBUG)
+        lev = logging.DEBUG
+
+    data = request.get_json()
+    logger.debug(data)
+
+    logger_list = []
+    try:
+        logger_list = data['loggers']
+    except Exception:
+        # Deliberately eat the exception. If no data provided, change all other
+        # loggers except sqlalchemy
+        pass
+
+    if len(logger_list) == 0:
+        # Default to reset jobmonServer log level
+        logging.setlogLevel(lev)
     else:
-        level = "NOTSET"
-        logging.setlogLevel(logging.NOTSET)
-    resp = jsonify(msn="Set server log to {}".format(level))
+        if 'jobmonServer' in logger_list:
+            logging.setlogLevel(lev)
+        elif 'flask' in logger_list:
+            logging.setFlaskLogLevel(lev)
+
+    resp = jsonify(msn="Set {loggers} server log to {level}".format(
+        level=level, loggers=logger_list))
     resp.status_code = StatusCodes.OK
     return resp
 

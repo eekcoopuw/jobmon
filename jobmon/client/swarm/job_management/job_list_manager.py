@@ -21,28 +21,31 @@ class JobListManager(object):
     def __init__(self, dag_id, executor=None, start_daemons=False,
                  reconciliation_interval=10,
                  job_instantiation_interval=3,
-                 interrupt_on_error=True,
+                 interrupt_on_error=True, n_queued_jobs=1000,
                  requester=shared_requester):
         """Manages all the list of jobs that are running, done or errored
         Args:
             dag_id (int): the id for the dag to run
             executor (obj, default SequentialExecutor): obj of type
-            SequentialExecutor, DummyExecutor or SGEExecutor
+                SequentialExecutor, DummyExecutor or SGEExecutor
             start_daemons (bool, default False): whether or not to start the
-            JobInstanceFactory and JobReconciler as daemonized threads
+                JobInstanceFactory and JobReconciler as daemonized threads
             reconciliation_interval (int, default 10 ): number of seconds to
-            wait between reconciliation attempts
+                wait between reconciliation attempts
             job_instantiation_interval (int, default 3): number of seconds to
-            wait between instantiating newly ready jobs
+                wait between instantiating newly ready jobs
             interrupt_on_error (bool, default True): whether or not to
-            interrupt the thread if there's an error
+                interrupt the thread if there's an error
+            n_queued_jobs (int): number of queued jobs that should be returned
+                to be instantiated
         """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
 
         self._stop_event = Event()
         self.job_instance_factory = JobInstanceFactory(
-            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
+            dag_id, executor, interrupt_on_error, n_queued_jobs,
+            stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
 
