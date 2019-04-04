@@ -65,17 +65,16 @@ class JobInstanceReconciler(object):
             poll_interval (int): how often you want this function to poll for
             newly ready jobs
         """
-        logger.info("Reconciling jobs against 'qstat' at {}s "
-                    "intervals".format(poll_interval))
+        logger.info(
+            f"Reconciling jobs against 'qstat' at {poll_interval}s intervals")
         while True and not self._stop_event.is_set():
             try:
-                logging.debug(
-                    "Reconciling at interval {}s".format(poll_interval))
+                logging.debug(f"Reconciling at interval {poll_interval}s")
                 self.reconcile()
                 self.terminate_timed_out_jobs()
                 sleep(poll_interval)
             except Exception as e:
-                msg = "About to raise Keyboard Interrupt signal {}".format(e)
+                msg = f"About to raise Keyboard Interrupt signal {e}"
                 logger.error(msg)
                 stack = traceback.format_exc()
                 logger.error(stack)
@@ -87,30 +86,6 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
-    def reconcile2(self):
-        """Identifies jobs that have disappeared from the batch execution
-        system (e.g. SGE), and reports their disappearance back to the
-        JobStateManager so they can either be retried or flagged as
-        fatal errors
-        """
-        presumed = self._get_presumed_submitted_or_running()
-        self._request_permission_to_reconcile()
-        try:
-            actual = self.executor.get_actual_submitted_or_running()
-        except NotImplementedError:
-            logger.warning("{} does not implement reconciliation methods"
-                           .format(self.executor.__class__.__name__))
-            return []
-
-        # This is kludgy... Re-visit the data structure used for communicating
-        # executor IDs back from the JobQueryServer
-        missing_job_instance_ids = []
-        for job_instance_id, executor_id in presumed:
-            if executor_id and executor_id not in actual:
-                self._log_mysterious_error(job_instance_id, executor_id)
-                missing_job_instance_ids.append(job_instance_id)
-        return missing_job_instance_ids
-
     def reconcile(self):
         """Identifies jobs that have disappeared from the batch execution
         system (e.g. SGE), and reports their disappearance back to the
@@ -121,9 +96,13 @@ class JobInstanceReconciler(object):
         try:
             actual = self.executor.get_actual_submitted_or_running()
         except NotImplementedError:
-            logger.warning("{} does not implement reconciliation methods"
-                           .format(self.executor.__class__.__name__))
+            logger.warning(f"{self.executor.__class__.__name__} does not "
+                           "implement reconciliation methods")
             return []
+        rc, response = self.requester.send_request(
+            app_route=f'/task_dag/{self.dag_id}/reconcile',
+            message={'executor_ids': actual},
+            request_type='post')
 
     def terminate_timed_out_jobs(self):
         """Attempts to terminate jobs that have been in the "running"
@@ -142,22 +121,6 @@ class JobInstanceReconciler(object):
         except NotImplementedError:
             logger.warning("{} does not implement reconciliation methods"
                            .format(self.executor.__class__.__name__))
-
-    def _get_presumed_submitted_or_running(self):
-        """Pulls all jobs from the database that are marked as submitted or
-        running
-        """
-        try:
-            rc, response = self.requester.send_request(
-                app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
-                message={'status': [
-                    JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                    JobInstanceStatus.RUNNING]},
-                request_type='get')
-            job_instances = response['jiid_exid_tuples']
-        except TypeError:
-            job_instances = []
-        return job_instances
 
     def _get_timed_out_jobs(self):
         """Returns timed_out jobs as a list of JobInstances.
@@ -190,23 +153,6 @@ class JobInstanceReconciler(object):
         return self.requester.send_request(
             app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
             message={'nodename': hostname},
-            request_type='post')
-
-    def _log_mysterious_error(self, job_instance_id, executor_id):
-        """Logs if a job has fallen out of qstat but according to the
-        reconciler, should still be there.
-
-        Args:
-            job_instance_id (int): id for the job_instance that has timed out
-            executor_id (id): id for the executor where the job_instance was
-            running
-        """
-        return self.requester.send_request(
-            app_route='/job_instance/{}/log_error'.format(job_instance_id),
-            message={'error_message': ("Job no longer visible in qstat, "
-                                       "check qacct or jobmon database for "
-                                       "executor_id {} and job_instance_id {}"
-                                       .format(executor_id, job_instance_id))},
             request_type='post')
 
     def _log_timeout_error(self, job_instance_id):

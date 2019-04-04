@@ -1,10 +1,11 @@
-import os
 from datetime import datetime
-from sqlalchemy.orm import contains_eager
-from sqlalchemy.sql import func
+from http import HTTPStatus as StatusCodes
+import os
+from typing import Dict
 
 from flask import jsonify, request, Blueprint
-from typing import Dict
+from sqlalchemy.orm import contains_eager
+from sqlalchemy.sql import func
 
 from jobmon.models import DB
 from jobmon.models.attributes.job_attribute import JobAttribute
@@ -19,14 +20,6 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.jobmonLogging import jobmonLogging as logging
 from jobmon.client.stubs import StubJob
 
-
-try:  # Python 3.5+
-    from http import HTTPStatus as StatusCodes
-except ImportError:
-    try:  # Python 3
-        from http import client as StatusCodes
-    except ImportError:  # Python 2
-        import httplib as StatusCodes
 
 jqs = Blueprint("job_query_server", __name__)
 
@@ -216,17 +209,21 @@ def get_jobs_by_status_only(dag_id):
     last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
     time = get_time(DB.session)
     if request.args.get('status', None) is not None:
-        # select docker.job.job_id, docker.job.job_hash, docker.job.status from docker.job where  docker.job.dag_id=1 and docker.job.status="G";
+        # select docker.job.job_id, docker.job.job_hash, docker.job.status from
+        # docker.job where  docker.job.dag_id=1 and docker.job.status="G";
         # vs.
-        # select docker.job.job_id, docker.job.job_hash, docker.job.status from docker.job where  docker.job.status="G" and docker.job.dag_id=1;
+        # select docker.job.job_id, docker.job.job_hash, docker.job.status from
+        # docker.job where  docker.job.status="G" and docker.job.dag_id=1;
         # 0.000 sec vs 0.015 sec (result from MySQL WorkBench)
         # Thus move the dag_id in front of status in the filter
-        jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status, Job.job_hash).filter(
+        jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status,
+                                                   Job.job_hash).filter(
             Job.dag_id == dag_id,
             Job.status == request.args['status'],
             Job.status_date >= last_sync).all()
     else:
-        jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status, Job.job_hash).filter(
+        jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status,
+                                                   Job.job_hash).filter(
             Job.dag_id == dag_id,
             Job.status_date >= last_sync).all()
     DB.session.commit()

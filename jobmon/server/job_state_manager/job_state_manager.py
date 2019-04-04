@@ -1,11 +1,13 @@
-import os
+from datetime import datetime
 from http import HTTPStatus as StatusCodes
 import json
-from datetime import datetime
-from flask import jsonify, request, Blueprint
-import warnings
+import os
 import socket
 import traceback
+import warnings
+
+from flask import jsonify, request, Blueprint
+from sqlalchemy.sql import func
 
 from jobmon.models import DB
 from jobmon.models.attributes.constants import job_attribute
@@ -389,8 +391,77 @@ def log_heartbeat(dag_id):
     dag = DB.session.query(TaskDagMeta).filter_by(
         dag_id=dag_id).first()
     if dag:
-        dag.heartbeat_date = datetime.utcnow()
+        # set to database time not web app time
+        dag.heartbeat_date = func.UTC_TIMESTAMP()
     DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+def _log_ji_error_within_heartbeat(session, job_instance_id, error_msg):
+    """log an error if the job instance hasn't been updated since
+    reconciliation heartbeat occurred.
+
+    Args:
+
+        session: DB.session or Session object to use to connect to the db
+        job_instance_id (int): job_instance_id with which to query the database
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("session", session))
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+
+    # query for a job instance if it hasn't been updated since last heartbeat
+    ji = session.query(JobInstance).\
+        join(TaskDagMeta).\
+        filter(JobInstance.dag_id == TaskDagMeta.dag_id).\
+        filter(JobInstance.job_instance_id == job_instance_id).\
+        filter(JobInstance.status_date <= TaskDagMeta.heartbeat_date)\
+        .one_or_none()
+    DB.session.commit()
+
+    if ji:
+        try:
+            msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
+            DB.session.commit()
+            error = JobInstanceErrorLog(job_instance_id=job_instance_id,
+                                        description=error_msg)
+            DB.session.add(error)
+            DB.session.commit()
+        except InvalidStateTransition:
+            log_msg = f"JSM::log_error(), reason={msg}"
+            warnings.warn(log_msg)
+            logger.debug(log_msg)
+
+
+@jsm.route('/task_dag/<dag_id>/reconcile', methods=['POST'])
+def reconcile(dag_id):
+    """Log a job_instance as being responsive, with a heartbeat
+    Args:
+
+        job_instance_id: id of the job_instance to log
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("dag_id", dag_id))
+    actual = request.args.get('executor_ids', [])
+
+    instances = DB.session.query(JobInstance). \
+        filter_by(dag_id=dag_id).\
+        filter(
+            JobInstance.status.in_([
+                JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                JobInstanceStatus.RUNNING])).\
+        with_entities(JobInstance.job_instance_id, JobInstance.executor_id
+                      ).all()
+    DB.session.commit()
+
+    for job_instance_id, executor_id in instances:
+        if executor_id and executor_id not in actual:
+            msg = ("Job no longer visible in qstat, check qacct or jobmon "
+                   f"database for executor_id {executor_id} and "
+                   f"job_instance_id {job_instance_id}")
+            _log_ji_error_within_heartbeat(DB.session, job_instance_id, msg)
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
