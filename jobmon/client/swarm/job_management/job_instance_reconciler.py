@@ -98,11 +98,14 @@ class JobInstanceReconciler(object):
         except NotImplementedError:
             logger.warning(f"{self.executor.__class__.__name__} does not "
                            "implement reconciliation methods")
-            return []
+            actual = []
         rc, response = self.requester.send_request(
             app_route=f'/task_dag/{self.dag_id}/reconcile',
             message={'executor_ids': actual},
             request_type='post')
+        if rc != 200:
+            print(rc)
+            raise Exception
 
     def terminate_timed_out_jobs(self):
         """Attempts to terminate jobs that have been in the "running"

@@ -6,6 +6,7 @@ import logging
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
+from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.client import shared_requester as req
 from jobmon.client.swarm.executors.dummy import DummyExecutor
 from jobmon.client.swarm.executors.sge import SGEExecutor
@@ -42,49 +43,23 @@ def job_list_manager_reconciliation(real_dag_id):
     jlm.disconnect()
 
 
-@pytest.fixture(scope='function')
-def job_list_manager_dummy_nod(real_dag_id):
-    executor = DummyExecutor()
-    jlm = JobListManager(real_dag_id, executor=executor,
-                         start_daemons=False, interrupt_on_error=False)
-    yield jlm
-    jlm.disconnect()
-
-
 def test_reconciler_dummy(job_list_manager_dummy):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_dummy.all_error = set()
 
     # Queue a job
-    task = Task(command="ls", num_cores="1", name="dummyfbb")
+    task = Task(command="ls", num_cores="1", name="dummyfbb", max_attempts=1)
     job = job_list_manager_dummy.bind_task(task)
     job_list_manager_dummy.queue_job(job)
     job_list_manager_dummy.job_instance_factory.instantiate_queued_jobs()
 
-    jir = job_list_manager_dummy.job_inst_reconciler
-    exec_ids = jir._get_presumed_submitted_or_running()
-    assert len(exec_ids) == 1
-
     # Since we are using the 'dummy' executor, we never actually do
-    # any work. The job remains in 'instantiated' state and does not
-    # appear in qstat (unless we get super unlucky with random numbers...) and
-    # thus should resolve to missing.
-    # TODO: Fix that 'super unlucky' bit
-    jir.reconcile()
-
+    # any work. The job remains gets moved to error during reconciliation
+    # because we only allow 1 attempt
     sleep(10)
-    reconciler_dummy_check(
-        job_list_manager_dummy=job_list_manager_dummy,
-        job_id=job.job_id)
-
-
-def reconciler_dummy_check(job_list_manager_dummy, job_id):
-    job_list_manager_dummy.all_error = set()
-    if len(job_list_manager_dummy.all_error) == 1:
-        assert job_list_manager_dummy.all_error == [job_id]
-        return True
-    else:
-        return False
+    job_list_manager_dummy.job_inst_reconciler.reconcile()
+    job_list_manager_dummy._sync()
+    assert job_list_manager_dummy.all_error
 
 
 def test_reconciler_sge(job_list_manager_reconciliation):
@@ -106,27 +81,6 @@ def test_reconciler_sge(job_list_manager_reconciliation):
 
     job_list_manager_reconciliation._sync()
     assert len(job_list_manager_reconciliation.all_error) == 0
-
-    # Artificially advance job to DONE so it doesn't impact downstream tests
-    for job_instance in jir._get_presumed_submitted_or_running():
-        req = jir.jsm_req
-        try:
-            # In case the job never actually got out of qw due to a busy
-            # cluster
-            req.send_request(
-                app_route=('/job_instance/{}/log_running'
-                           .format(job_instance.job_instance_id)),
-                message={'job_instance_id': str(job_instance.job_instance_id),
-                         'nodename': "not_a_node",
-                         'process_group_id': str(1234)},
-                request_type='post')
-        except Exception as e:
-            print(e)
-        req.send_request(
-            app_route=('/job_instance/{}/log_done'
-                       .format(job_instance.job_instance_id)),
-            message={'job_instance_id': str(job_instance.job_instance_id)},
-            request_type='post')
 
 
 def test_reconciler_sge_timeout(job_list_manager_reconciliation):
@@ -156,7 +110,8 @@ def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
                                  job_id):
     job_list_manager_reconciliation._sync()
     if len(job_list_manager_reconciliation.all_error) == 1:
-        assert job_id in [j.job_id for j in job_list_manager_reconciliation.all_error]
+        assert job_id in [
+            j.job_id for j in job_list_manager_reconciliation.all_error]
 
         # The job should have been tried 3 times...
         _, response = req.send_request(
@@ -197,10 +152,12 @@ def test_ignore_qw_in_timeouts(job_list_manager_reconciliation):
         job_id=job.job_id))
 
 
-def ignore_qw_in_timeouts_check(job_list_manager_reconciliation, dag_id, job_id):
+def ignore_qw_in_timeouts_check(job_list_manager_reconciliation, dag_id, job_id
+                                ):
     job_list_manager_reconciliation._sync()
     if len(job_list_manager_reconciliation.all_error) == 1:
-        assert job_id in [j.job_id for j in job_list_manager_reconciliation.all_error]
+        assert job_id in [
+            j.job_id for j in job_list_manager_reconciliation.all_error]
 
         # The job should have been tried 3 times...
         _, response = req.send_request(
@@ -213,6 +170,7 @@ def ignore_qw_in_timeouts_check(job_list_manager_reconciliation, dag_id, job_id)
         return True
     else:
         return False
+
 
 @pytest.fixture(scope='function')
 def sge_jlm_for_queues(real_dag_id, tmpdir_factory):
@@ -263,7 +221,6 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
     time_c = time.time()
     first_query = time_b - time_a
     new_query = time_c - time_b
-
 
     assert len(select_jobs) == 3
     assert len(all_jobs) == 20

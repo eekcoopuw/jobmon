@@ -437,7 +437,7 @@ def _log_ji_error_within_heartbeat(session, job_instance_id, error_msg):
 
 @jsm.route('/task_dag/<dag_id>/reconcile', methods=['POST'])
 def reconcile(dag_id):
-    """Log a job_instance as being responsive, with a heartbeat
+    """ensure all jobs that we thought were active continue to log heartbeats
     Args:
 
         job_instance_id: id of the job_instance to log
@@ -702,6 +702,7 @@ def _update_job_instance_state(job_instance, status_id):
                 f"{job_instance.job_instance_id}" \
                 f"from {job_instance.status} to {status_id}"
             logger.warning(msg)
+            print(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. " \
@@ -710,11 +711,13 @@ def _update_job_instance_state(job_instance, status_id):
                 f"from {job_instance.status} to {status_id}"
             # log_and_raise(msg, logger)
             logger.error(msg)
+            print(msg)
     except Exception as e:
         msg = f"General exception in _update_job_instance_state, " \
             f"jid {job_instance}, transitioning to {job_instance}. " \
             f"Not transitioning job. {e}"
         log_and_raise(msg, logger)
+        print(msg)
 
     job = job_instance.job
 
