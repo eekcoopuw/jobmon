@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from http import HTTPStatus as StatusCodes
 import json
 import os
@@ -380,7 +380,7 @@ def log_executor_id(job_instance_id):
 
 
 @jsm.route('/task_dag/<dag_id>/log_heartbeat', methods=['POST'])
-def log_heartbeat(dag_id):
+def log_dag_heartbeat(dag_id):
     """Log a job_instance as being responsive, with a heartbeat
     Args:
 
@@ -393,6 +393,26 @@ def log_heartbeat(dag_id):
     if dag:
         # set to database time not web app time
         dag.heartbeat_date = func.UTC_TIMESTAMP()
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/job_instance_id/<job_instance_id>/log_report_by', methods=['POST'])
+def log_ji_report_by(job_instance_id):
+    """Log a job_instance as being responsive, with a heartbeat
+    Args:
+
+        job_instance_id: id of the job_instance to log
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    ji = DB.session.query(TaskDagMeta).filter_by(
+        job_instance_id=job_instance_id).first()
+    if ji:
+        # set to database time not web app time
+        ji.report_by_date = (func.UTC_TIMESTAMP()+timedelta(seconds=30))
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK

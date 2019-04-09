@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import traceback
+from time import sleep
 
 
 from jobmon.exceptions import ReturnCodes
@@ -33,6 +34,7 @@ def unwrap():
     parser.add_argument("--temp_dir", required=False)
     parser.add_argument("--last_nodename", required=False)
     parser.add_argument("--last_pgid", required=False)
+    parser.add_argument("--poll_seconds", default=10, type=int)
 
     # makes a dict
     args = vars(parser.parse_args())
@@ -71,16 +73,27 @@ def unwrap():
             args['temp_dir'] = None
 
         # open subprocess using a process group so any children are also killed
-        proc = subprocess.Popen(
+        # proc = subprocess.Popen(
+        #     args["command"],
+        #     cwd=args["temp_dir"],
+        #     env=os.environ.copy(),
+        #     stdout=subprocess.PIPE,
+        #     stderr=subprocess.PIPE,
+        #     shell=True)
+
+        proc = subprocess.run(
             args["command"],
             cwd=args["temp_dir"],
             env=os.environ.copy(),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=True)
+            shell=True,
+            universal_newlines=True
+            )
+        while proc.poll() is None:
+            ji_intercom.log_report_by()
+            sleep(args['poll_seconds'])
 
         # communicate till done
-        stdout, stderr = proc.communicate()
+        # stdout, stderr = proc.communicate()
         returncode = proc.returncode
 
     except Exception as exc:

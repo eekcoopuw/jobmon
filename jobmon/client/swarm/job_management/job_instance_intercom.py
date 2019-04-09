@@ -77,3 +77,11 @@ class JobInstanceIntercom(object):
                      'process_group_id': str(self.process_group_id)},
             request_type='post')
         return rc
+
+    def log_report_by(self):
+        """Log the heartbeat to show that the job instance is still alive"""
+        rc, _ = self.requester.send_request(
+            app_route=(f'/job_instance/{self.job_instance_id}/log_report_by'),
+            message={},
+            request_type='post')
+        return rc
