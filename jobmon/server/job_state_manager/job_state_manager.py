@@ -421,6 +421,9 @@ def _log_ji_error_within_heartbeat(session, job_instance_id, error_msg):
         .one_or_none()
     DB.session.commit()
 
+    # only update to error if status hasn't been updated by other process.
+    # this avoids race conditions between the reconciliation thread and the
+    # worker processes
     if ji:
         try:
             msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
@@ -444,14 +447,19 @@ def reconcile(dag_id):
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("dag_id", dag_id))
-    actual = request.args.get('executor_ids', [])
+    actual = request.get_json()["executor_ids"]
 
-    instances = DB.session.query(JobInstance). \
+    # query all job instances that are submitted to executor or running.
+    # ignore job instances created after heartbeat began. We'll reconcile them
+    # during the next reconciliation loop.
+    instances = DB.session.query(JobInstance).\
+        join(TaskDagMeta).\
         filter_by(dag_id=dag_id).\
         filter(
             JobInstance.status.in_([
                 JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
                 JobInstanceStatus.RUNNING])).\
+        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
         with_entities(JobInstance.job_instance_id, JobInstance.executor_id
                       ).all()
     DB.session.commit()

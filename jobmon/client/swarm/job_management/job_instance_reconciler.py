@@ -103,9 +103,6 @@ class JobInstanceReconciler(object):
             app_route=f'/task_dag/{self.dag_id}/reconcile',
             message={'executor_ids': actual},
             request_type='post')
-        if rc != 200:
-            print(rc)
-            raise Exception
 
     def terminate_timed_out_jobs(self):
         """Attempts to terminate jobs that have been in the "running"
