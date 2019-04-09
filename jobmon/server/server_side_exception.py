@@ -5,6 +5,7 @@ import warnings
 
 class ServerSideException(Exception):
     """Used for all exceptions on the server side (JQS, JSM)"""
+
     def __init__(self, msg: str):
         self.msg = msg
 

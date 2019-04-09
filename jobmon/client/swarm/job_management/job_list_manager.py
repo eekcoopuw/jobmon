@@ -16,7 +16,6 @@ from jobmon.client.stubs import StubJob
 logger = logging.getLogger(__name__)
 
 
-
 class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
@@ -208,9 +207,10 @@ class JobListManager(object):
         """Queue a job by passing the job's id to the JobFactory"""
         job_id = variable
         if str(type(variable)) != "<class 'int'>":
-            # what we really need here is a job_id, so take job_id as variable for the optimized query
-            # it seems some clients are using the function, so support the old way
-            # thus, I have to take advantage of the typeless feature of python, which is a bad practise
+            # what we really need here is a job_id, so take job_id as variable
+            # for the optimized query it seems some clients are using the
+            # function, so support the old way thus, I have to take advantage
+            # of the typeless feature of python, which is a bad practise
             job_id = variable.job_id
         self.job_factory.queue_job(job_id)
         task = self.bound_tasks[job_id]

@@ -1,10 +1,13 @@
-import os
-import json
 from datetime import datetime
-from flask import jsonify, request, Blueprint
-import warnings
+from http import HTTPStatus as StatusCodes
+import json
+import os
 import socket
 import traceback
+import warnings
+
+from flask import jsonify, request, Blueprint
+from sqlalchemy.sql import func
 
 from jobmon.models import DB
 from jobmon.models.attributes.constants import job_attribute
@@ -26,13 +29,6 @@ from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 from jobmon.server.server_side_exception import log_and_raise
 
-try:  # Python 3.5+
-    from http import HTTPStatus as StatusCodes
-except ImportError:
-    try:  # Python 3
-        from http import client as StatusCodes
-    except ImportError:  # Python 2
-        import httplib as StatusCodes
 
 jsm = Blueprint("job_state_manager", __name__)
 
@@ -395,8 +391,85 @@ def log_heartbeat(dag_id):
     dag = DB.session.query(TaskDagMeta).filter_by(
         dag_id=dag_id).first()
     if dag:
-        dag.heartbeat_date = datetime.utcnow()
+        # set to database time not web app time
+        dag.heartbeat_date = func.UTC_TIMESTAMP()
     DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+def _log_ji_error_within_heartbeat(session, job_instance_id, error_msg):
+    """log an error if the job instance hasn't been updated since
+    reconciliation heartbeat occurred.
+
+    Args:
+
+        session: DB.session or Session object to use to connect to the db
+        job_instance_id (int): job_instance_id with which to query the database
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("session", session))
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+
+    # query for a job instance if it hasn't been updated since last heartbeat
+    ji = session.query(JobInstance).\
+        join(TaskDagMeta).\
+        filter(JobInstance.dag_id == TaskDagMeta.dag_id).\
+        filter(JobInstance.job_instance_id == job_instance_id).\
+        filter(JobInstance.status_date <= TaskDagMeta.heartbeat_date)\
+        .one_or_none()
+    DB.session.commit()
+
+    # only update to error if status hasn't been updated by other process.
+    # this avoids race conditions between the reconciliation thread and the
+    # worker processes
+    if ji:
+        try:
+            msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
+            DB.session.commit()
+            error = JobInstanceErrorLog(job_instance_id=job_instance_id,
+                                        description=error_msg)
+            DB.session.add(error)
+            DB.session.commit()
+        except InvalidStateTransition:
+            log_msg = f"JSM::log_error(), reason={msg}"
+            warnings.warn(log_msg)
+            logger.debug(log_msg)
+
+
+@jsm.route('/task_dag/<dag_id>/reconcile', methods=['POST'])
+def reconcile(dag_id):
+    """ensure all jobs that we thought were active continue to log heartbeats
+    Args:
+
+        job_instance_id: id of the job_instance to log
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("dag_id", dag_id))
+    actual = request.get_json()["executor_ids"]
+
+    # query all job instances that are submitted to executor or running.
+    # ignore job instances created after heartbeat began. We'll reconcile them
+    # during the next reconciliation loop.
+    instances = DB.session.query(JobInstance).\
+        join(TaskDagMeta).\
+        filter_by(dag_id=dag_id).\
+        filter(
+            JobInstance.status.in_([
+                JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                JobInstanceStatus.RUNNING])).\
+        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
+        with_entities(JobInstance.job_instance_id, JobInstance.executor_id
+                      ).all()
+    DB.session.commit()
+
+    for job_instance_id, executor_id in instances:
+        if executor_id and executor_id not in actual:
+            msg = ("Job no longer visible in qstat, check qacct or jobmon "
+                   f"database for executor_id {executor_id} and "
+                   f"job_instance_id {job_instance_id}")
+            _log_ji_error_within_heartbeat(DB.session, job_instance_id, msg)
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -633,23 +706,26 @@ def _update_job_instance_state(job_instance, status_id):
         if job_instance.status == status_id:
             # It was already in that state, just log it
             msg = f"Attempting to transition to existing state." \
-                  f"Not transitioning job, jid= " \
-                  f"{job_instance.job_instance_id}" \
-                  f"from {job_instance.status} to {status_id}"
+                f"Not transitioning job, jid= " \
+                f"{job_instance.job_instance_id}" \
+                f"from {job_instance.status} to {status_id}"
             logger.warning(msg)
+            print(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. " \
-                  f"Not transitioning job, jid= " \
-                  f"{job_instance.job_instance_id}, " \
-                  f"from {job_instance.status} to {status_id}"
+                f"Not transitioning job, jid= " \
+                f"{job_instance.job_instance_id}, " \
+                f"from {job_instance.status} to {status_id}"
             # log_and_raise(msg, logger)
             logger.error(msg)
+            print(msg)
     except Exception as e:
         msg = f"General exception in _update_job_instance_state, " \
-              f"jid {job_instance}, transitioning to {job_instance}. " \
-              f"Not transitioning job. {e}"
+            f"jid {job_instance}, transitioning to {job_instance}. " \
+            f"Not transitioning job. {e}"
         log_and_raise(msg, logger)
+        print(msg)
 
     job = job_instance.job
 
@@ -780,7 +856,8 @@ def set_log_level(level):
     """Change log level
     Args:
 
-        level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO, DEBUG
+        level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO,
+            DEBUG
 
         data:
              loggers: a list of logger
@@ -791,18 +868,18 @@ def set_log_level(level):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("level", level))
     level = level.upper()
-    l: int = logging.NOTSET
+    lev: int = logging.NOTSET
 
     if level == "CRITICAL":
-        l = logging.CRITICAL
+        lev = logging.CRITICAL
     elif level == "ERROR":
-        l = logging.ERROR
+        lev = logging.ERROR
     elif level == "WARNING":
-        l = logging.WARNING
+        lev = logging.WARNING
     elif level == "INFO":
-        l = logging.INFO
+        lev = logging.INFO
     elif level == "DEBUG":
-        l = logging.DEBUG
+        lev = logging.DEBUG
 
     data = request.get_json()
     logger.debug(data)
@@ -810,20 +887,22 @@ def set_log_level(level):
     logger_list = []
     try:
         logger_list = data['loggers']
-    except:
-        # Deliberately eat the exception. If no data provided, change all other loggers except sqlalchemy
+    except Exception:
+        # Deliberately eat the exception. If no data provided, change all other
+        # loggers except sqlalchemy
         pass
 
     if len(logger_list) == 0:
         # Default to reset jobmonServer log level
-        logging.setlogLevel(l)
+        logging.setlogLevel(lev)
     else:
         if 'jobmonServer' in logger_list:
-            logging.setlogLevel(l)
+            logging.setlogLevel(lev)
         elif 'flask' in logger_list:
-            logging.setFlaskLogLevel(l)
+            logging.setFlaskLogLevel(lev)
 
-    resp = jsonify(msn="Set {loggers} server log to {level}".format(level=level, loggers=logger_list))
+    resp = jsonify(msn="Set {loggers} server log to {level}".format(
+        level=level, loggers=logger_list))
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -867,7 +946,7 @@ def attach_remote_syslog(level, host, port, sockettype):
 
     try:
         port = int(port)
-    except:
+    except Exception:
         resp = jsonify(msn="Unable to convert {} to integer".format(port))
         resp.status_code = StatusCodes.BAD_REQUEST
         return resp
@@ -882,7 +961,7 @@ def attach_remote_syslog(level, host, port, sockettype):
         resp = jsonify(msn="Attach syslog {h}:{p}".format(h=host, p=port))
         resp.status_code = StatusCodes.OK
         return resp
-    except:
+    except Exception:
         resp = jsonify(msn=traceback.format_exc())
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
         return resp

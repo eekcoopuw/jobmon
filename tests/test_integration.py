@@ -4,6 +4,8 @@ from unittest import mock
 
 from tenacity import stop_after_attempt
 from jobmon.models.job_status import JobStatus
+from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
@@ -54,6 +56,20 @@ def job_list_manager_sge_no_daemons(real_dag_id):
     jlm.disconnect()
 
 
+def get_presumed_submitted_or_running(dag_id):
+    try:
+        rc, response = shared_requester.send_request(
+            app_route=f'/dag/{dag_id}/job_instance_executor_ids',
+            message={'status': [
+                JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                JobInstanceStatus.RUNNING]},
+            request_type='get')
+        job_instances = response['jiid_exid_tuples']
+    except TypeError:
+        job_instances = []
+    return job_instances
+
+
 def test_sync(job_list_manager_sge_no_daemons):
     job_list_manager_sge = job_list_manager_sge_no_daemons
     now = job_list_manager_sge.last_sync
@@ -69,13 +85,12 @@ def test_sync(job_list_manager_sge_no_daemons):
 
     # check that the job clears the queue by checking the jqs for any
     # submitted or running
-    job_inst_rec = job_list_manager_sge.job_inst_reconciler
     max_sleep = 600  # 10 min max till test fails
     slept = 0
     while jid and slept <= max_sleep:
         slept += 5
         sleep(5)
-        jid = job_inst_rec._get_presumed_submitted_or_running()
+        jid = get_presumed_submitted_or_running(job_list_manager_sge.dag_id)
 
     # with a new job failed, make sure that the sync has been updated and the
     # call with the sync filter actually returns jobs
