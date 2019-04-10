@@ -129,7 +129,8 @@ class SGEResource(object):
             self.mem_free = 1
 
     def _transform_secs_to_hms(self):
-        return str(datetime.timedelta(seconds=self.max_runtime_seconds))
+        """UGE will accept seconds. Do not use funky formatting with days"""
+        return str(self.max_runtime_seconds)
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
