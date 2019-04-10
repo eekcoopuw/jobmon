@@ -366,13 +366,17 @@ def log_executor_id(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
+    report_by_date = func.ADDTIME(
+        func.UTC_TIMESTAMP(),
+        func.SEC_TO_TIME(data["report_by_transitition_buffer"]))
     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug(logging.logParameter("DB.session", DB.session))
     logger.info("in log_executor_id, ji is {}".format(ji))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
-    _update_job_instance(ji, executor_id=data['executor_id'])
+    _update_job_instance(ji, executor_id=data['executor_id'],
+                         report_by_date=report_by_date)
     DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
@@ -399,7 +403,7 @@ def log_dag_heartbeat(dag_id):
     return resp
 
 
-@jsm.route('/job_instance_id/<job_instance_id>/log_report_by', methods=['POST'])
+@jsm.route('/job_instance/<job_instance_id>/log_report_by', methods=['POST'])
 def log_ji_report_by(job_instance_id):
     """Log a job_instance as being responsive, with a heartbeat
     Args:
@@ -416,7 +420,7 @@ def log_ji_report_by(job_instance_id):
 
     # set to database time not web app time
     ji.report_by_date = func.ADDTIME(func.UTC_TIMESTAMP(),
-                                     heartbeat_interval * 3)
+                                     func.SEC_TO_TIME(heartbeat_interval * 3))
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -438,13 +442,15 @@ def reconcile(dag_id):
     params = {}
     for key in ["reconciliation_interval", "executor_ids"]:
         params[key] = data[key]
-    query = """
-        UPDATE job_instance
-        SET report_by_date = ADDTIME(UTC_TIMESTAMP(),
-                                     :reconciliation_interval * 3)
-        WHERE executor_id in :executor_ids"""
-    DB.session.execute(query, params)
-    DB.session.commit()
+
+    if params["executor_ids"]:
+        query = """
+            UPDATE job_instance
+            SET report_by_date = ADDTIME(
+                UTC_TIMESTAMP(), SEC_TO_TIME(:reconciliation_interval * 3))
+            WHERE executor_id in :executor_ids"""
+        DB.session.execute(query, params)
+        DB.session.commit()
 
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
