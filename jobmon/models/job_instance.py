@@ -75,7 +75,7 @@ class JobInstance(DB.Model):
     status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
     report_by_date = DB.Column(
         DB.DateTime,
-        default=func.ADDTIME(func.UTC_TIMESTAMP(), '20'))
+        default=func.ADDTIME(func.UTC_TIMESTAMP(), 20))
 
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")

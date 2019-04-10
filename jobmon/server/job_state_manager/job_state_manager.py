@@ -7,7 +7,7 @@ import traceback
 import warnings
 
 from flask import jsonify, request, Blueprint
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from jobmon.models import DB
 from jobmon.models.attributes.constants import job_attribute
@@ -408,7 +408,7 @@ def log_ji_report_by(job_instance_id):
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-    heartbeat_interval = request.get_json()["heartbeat_interval"]
+    poll_interval = request.get_json()["poll_interval"]
 
     # job instance should exist if we are calling this route
     ji = DB.session.query(JobInstance).filter_by(
@@ -416,7 +416,7 @@ def log_ji_report_by(job_instance_id):
 
     # set to database time not web app time
     ji.report_by_date = func.ADDTIME(func.UTC_TIMESTAMP(),
-                                     heartbeat_interval)
+                                     poll_interval * 3)
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -471,17 +471,17 @@ def reconcile(dag_id):
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("dag_id", dag_id))
-    actual = request.get_json()["executor_ids"]
+    data = request.get_json()
 
     # update all jobs submitted to batch executor with a new report_by_date
-    newdatetime = datetime.utcnow()+timedelta(seconds=30)
+    params = {}
+    for key in ["poll_interval", "executor_ids"]:
+        params[key] = data[key]
     query = """
-    UPDATE job_instance
-    SET report_by_date={time}
-    WHERE executor_id in {actual}
-    """.format(time=newdatetime, actual=actual)
-    DB.session.execute(query)
-
+        UPDATE job_instance
+        SET report_by_date = ADDTIME(UTC_TIMESTAMP(), :poll_interval)
+        WHERE executor_id  in :executor_ids"""
+    DB.session.execute(query, params)
 
     # query all job instances that are submitted to executor or running.
     # ignore job instances created after heartbeat began. We'll reconcile them
