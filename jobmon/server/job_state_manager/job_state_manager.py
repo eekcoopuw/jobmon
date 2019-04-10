@@ -408,11 +408,15 @@ def log_ji_report_by(job_instance_id):
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-    ji = DB.session.query(TaskDagMeta).filter_by(
-        job_instance_id=job_instance_id).first()
-    if ji:
-        # set to database time not web app time
-        ji.report_by_date = (func.UTC_TIMESTAMP()+timedelta(seconds=30))
+    heartbeat_interval = request.get_json()["heartbeat_interval"]
+
+    # job instance should exist if we are calling this route
+    ji = DB.session.query(JobInstance).filter_by(
+        job_instance_id=job_instance_id).one()
+
+    # set to database time not web app time
+    ji.report_by_date = func.ADDTIME(func.UTC_TIMESTAMP(),
+                                     heartbeat_interval)
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK

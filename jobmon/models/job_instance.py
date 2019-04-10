@@ -1,5 +1,7 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
+
+from sqlalchemy.sql import func
 
 from jobmon.models import DB
 from jobmon.models.job_instance_status import JobInstanceStatus
@@ -71,8 +73,9 @@ class JobInstance(DB.Model):
         nullable=False)
     submitted_date = DB.Column(DB.DateTime, default=datetime.utcnow)
     status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    report_by = datetime.utcnow()+timedelta(seconds=20)
-    report_by_date = DB.Column(DB.DateTime, default=report_by)
+    report_by_date = DB.Column(
+        DB.DateTime,
+        default=func.ADDTIME(func.UTC_TIMESTAMP(), '20'))
 
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
