@@ -55,7 +55,7 @@ def test_reconciler_dummy(job_list_manager_dummy):
 
     # How long we wait for a JI to report it is running before reconciler moves
     # it to error state.
-    jif.report_by_transitition_buffer = 5
+    jif.next_report_increment = 5
     job_list_manager_dummy.job_instance_factory.instantiate_queued_jobs()
 
     # Since we are using the 'dummy' executor, we never actually do

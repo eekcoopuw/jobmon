@@ -32,7 +32,7 @@ class JobInstanceFactory(object):
             n_queued_jobs (int): number of queued jobs to return and send to
                 be instantiated
             stop_event (obj, default None): Object of type threading.Event
-            report_by_transitition_buffer
+            next_report_increment (int)
                 (int, default client_config.heartbeat_interval): How long to
                 wait for a job instance to report after it is moved into
                 SUBMITTED_TO_BATCH_EXECUTOR state. generally 3x the
