@@ -1,3 +1,4 @@
+import os
 import pytest
 import time
 from time import sleep
@@ -44,6 +45,10 @@ def job_list_manager_reconciliation(real_dag_id):
 
 
 def test_reconciler_dummy(job_list_manager_dummy):
+    """Creates a job instance, gets an executor id so it can be in submitted
+    to the batch executor state, and then it will never be run (it will miss
+    its report by date and the reconciler will kill it)"""
+
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_dummy.all_error = set()
 
@@ -57,7 +62,7 @@ def test_reconciler_dummy(job_list_manager_dummy):
     # any work. The job remains gets moved to error during reconciliation
     # because we only allow 1 attempt
     sleep(10)
-    job_list_manager_dummy.job_inst_reconciler.reconcile()
+    job_list_manager_dummy.job_inst_reconciler.reconcile(10)
     job_list_manager_dummy._sync()
     assert job_list_manager_dummy.all_error
 
@@ -68,7 +73,7 @@ def test_reconciler_sge(job_list_manager_reconciliation):
 
     # Queue a job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
-                name="sleepyjob_pass")
+                name="sleepyjob_pass", slots=1)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
 
@@ -77,10 +82,50 @@ def test_reconciler_sge(job_list_manager_reconciliation):
     # DO NOT put in a while-True loop
     sleep(10)
     jir = job_list_manager_reconciliation.job_inst_reconciler
-    jir.reconcile()
+    jir.reconcile(10)
 
     job_list_manager_reconciliation._sync()
     assert len(job_list_manager_reconciliation.all_error) == 0
+
+
+def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation):
+    os.environ["HEARTBEAT_INTERVAL"] = '10'
+    job_list_manager_reconciliation.all_error = set()
+    jir = job_list_manager_reconciliation.job_inst_reconciler
+    jif = job_list_manager_reconciliation.job_instance_factory
+
+    task = BashTask(command="sleep 5", name="heartbeat_sleeper", slots=1,
+                    max_runtime_seconds=500)
+    job = job_list_manager_reconciliation.bind_task(task)
+    job_list_manager_reconciliation.queue_job(job)
+
+    jif.instantiate_queued_jobs()
+    jir.reconcile(10)
+    job_list_manager_reconciliation._sync()
+    assert job_list_manager_reconciliation.all_done
+
+    #assert new heartbeats have been logged since the job instance was created
+    os.environ.pop("HEARTBEAT_INTERVAL", None)
+
+
+def test_reconciler_running_ji_dissappears(job_list_manager_reconciliation):
+    os.environ["HEARTBEAT_INTERVAL"] = '10'
+    job_list_manager_reconciliation.all_error = set()
+    jir = job_list_manager_reconciliation.job_inst_reconciler
+    jif = job_list_manager_reconciliation.job_instance_factory
+
+    task = BashTask(command="sleep 60", name="heartbeat_sleeper", slots=1)
+    job = job_list_manager_reconciliation.bind_task(task)
+    job_list_manager_reconciliation.queue_job(job)
+
+    jif.instantiate_queued_jobs()
+    # kill jobs
+    jir.reconcile(10)
+    job_list_manager_reconciliation._sync()
+    assert job_list_manager_reconciliation.all_error
+
+    #assert new heartbeats have been logged since the job instance was created
+    os.environ.pop("HEARTBEAT_INTERVAL", None)
 
 
 def test_reconciler_sge_timeout(job_list_manager_reconciliation):
