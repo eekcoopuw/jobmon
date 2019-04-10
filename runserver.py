@@ -71,7 +71,10 @@ def validate_slack_token(slack_token: str) -> bool:
         SLACK_API_URL,
         headers={'Authorization': 'Bearer {}'.format(slack_token)})
     if resp.status_code != 200:
-        
+        print(f"Response returned a bad status code: {resp.status_code} "
+              f"(Expected 200) with content {resp.json()}. "
+              f"Retry with token or skip")
+        return False
     return resp.json()['error'] != 'invalid_auth'
 
 
