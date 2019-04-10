@@ -93,16 +93,14 @@ def test_resource_arguments(real_jsm_jqs, db_cfg):
     Test the parsing/serialization max run time and cores.
     90,000 seconds is deliberately longer than one day, testing a specific
     bug"""
-    t1 = BashTask("sleep 10", slots=1 )
-                  # queue='long.q',
-                  # max_runtime_seconds=90_000,
-                  # num_cores=2)
-    wf = Workflow("test_resource_arguments-{}".format(uuid.uuid4()),
-                  "./test_resource_arguments-{}.log",
-                  project="proj_burdenator")
+    t1 = BashTask("sleep 10",
+                  queue='long.q',
+                  max_runtime_seconds=90_000,
+                  num_cores=2)
+    wf = Workflow("test_resource_arguments-{}".format(uuid.uuid4()))
     wf.add_tasks([t1])
-    success = wf.execute()
-    assert success
+    return_code = wf.execute()
+    assert return_code == DagExecutionStatus.SUCCEEDED
 
 
 @pytest.mark.qsubs_jobs
