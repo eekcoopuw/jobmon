@@ -51,13 +51,18 @@ def test_reconciler_dummy(job_list_manager_dummy):
     task = Task(command="ls", num_cores="1", name="dummyfbb", max_attempts=1)
     job = job_list_manager_dummy.bind_task(task)
     job_list_manager_dummy.queue_job(job)
+    jif = job_list_manager_dummy.job_instance_factory
+
+    # How long we wait for a JI to report it is running before reconciler moves
+    # it to error state.
+    jif.report_by_transitition_buffer = 5
     job_list_manager_dummy.job_instance_factory.instantiate_queued_jobs()
 
     # Since we are using the 'dummy' executor, we never actually do
-    # any work. The job remains gets moved to error during reconciliation
+    # any work. The job gets moved to error during reconciliation
     # because we only allow 1 attempt
     sleep(10)
-    job_list_manager_dummy.job_inst_reconciler.reconcile()
+    job_list_manager_dummy.job_inst_reconciler.reconcile(2)
     job_list_manager_dummy._sync()
     assert job_list_manager_dummy.all_error
 

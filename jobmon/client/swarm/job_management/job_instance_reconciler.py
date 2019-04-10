@@ -88,7 +88,7 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
-    def reconcile(self, reconciliation_interval):
+    def reconcile(self, reconciliation_interval=10):
         """Identifies jobs that have disappeared from the batch execution
         system (e.g. SGE), and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
