@@ -50,6 +50,9 @@ class Executor(object):
     def get_actual_submitted_or_running(self):
         raise NotImplementedError
 
+    def get_actual_submitted_to_executor(self):
+        raise NotImplementedError
+
     def terminate_job_instances(self, job_instance_list):
         """If implemented, return a list of (job_instance_id, hostname) tuples
         for any job_instances that are terminated
