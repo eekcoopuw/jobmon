@@ -68,13 +68,14 @@ class JobInstanceIntercom(object):
             logger.warning("Usage stats not available for {} "
                            "executors".format(self.executor_class))
 
-    def log_running(self):
+    def log_running(self, heartbeat_interval):
         """Tell the JobStateManager that this job_instance is running"""
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_running'
                        .format(self.job_instance_id)),
             message={'nodename': socket.getfqdn(),
-                     'process_group_id': str(self.process_group_id)},
+                     'process_group_id': str(self.process_group_id),
+                     "heartbeat_interval": heartbeat_interval},
             request_type='post')
         return rc
 
