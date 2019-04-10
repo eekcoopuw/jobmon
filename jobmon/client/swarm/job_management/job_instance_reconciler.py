@@ -70,7 +70,7 @@ class JobInstanceReconciler(object):
         while True and not self._stop_event.is_set():
             try:
                 logging.debug(f"Reconciling at interval {poll_interval}s")
-                self.reconcile()
+                self.reconcile(poll_interval)
                 self.terminate_timed_out_jobs()
                 sleep(poll_interval)
             except Exception as e:
@@ -86,7 +86,7 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
-    def reconcile(self):
+    def reconcile(self, poll_interval):
         """Identifies jobs that have disappeared from the batch execution
         system (e.g. SGE), and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
@@ -102,9 +102,9 @@ class JobInstanceReconciler(object):
             actual = []
         rc, response = self.requester.send_request(
             app_route=f'/task_dag/{self.dag_id}/reconcile',
-            message={'executor_ids': actual},
+            message={'executor_ids': actual,
+                     'poll_interval': poll_interval},
             request_type='post')
-        
 
     def terminate_timed_out_jobs(self):
         """Attempts to terminate jobs that have been in the "running"
