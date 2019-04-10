@@ -57,22 +57,24 @@ class JobInstanceReconciler(object):
         """
         self.executor = executor
 
-    def reconcile_periodically(self, poll_interval=10):
+    def reconcile_periodically(self, reconciliation_interval=10):
         """Running in a thread, this function allows the JobInstanceReconciler
         to periodically reconcile all jobs against 'qstat'
 
         Args:
-            poll_interval (int): how often you want this function to poll for
-            newly ready jobs
+            reconciliation_interval (int): how often you want this function to
+            poll for newly ready jobs
         """
         logger.info(
-            f"Reconciling jobs against 'qstat' at {poll_interval}s intervals")
+            f"Reconciling jobs against 'qstat' at {reconciliation_interval}s "
+            "intervals")
         while True and not self._stop_event.is_set():
             try:
-                logging.debug(f"Reconciling at interval {poll_interval}s")
-                self.reconcile(poll_interval)
+                logging.debug(
+                    f"Reconciling at interval {reconciliation_interval}s")
+                self.reconcile(reconciliation_interval)
                 self.terminate_timed_out_jobs()
-                sleep(poll_interval)
+                sleep(reconciliation_interval)
             except Exception as e:
                 msg = f"About to raise Keyboard Interrupt signal {e}"
                 logger.error(msg)
@@ -86,7 +88,7 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
-    def reconcile(self, poll_interval):
+    def reconcile(self, reconciliation_interval):
         """Identifies jobs that have disappeared from the batch execution
         system (e.g. SGE), and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
@@ -94,16 +96,19 @@ class JobInstanceReconciler(object):
         """
         self._request_permission_to_reconcile()
         try:
-            actual = self.executor.get_actual_submitted_not_running()
-
+            actual = self.executor.get_actual_submitted_to_executor()
         except NotImplementedError:
-            logger.warning(f"{self.executor.__class__.__name__} does not "
-                           "implement reconciliation methods")
+            logger.warning(
+                f"{self.executor.__class__.__name__} does not implement "
+                "reconciliation methods. If a job instance does not register a"
+                " heartbeat from a worker process in "
+                f"{reconciliation_interval * 3}s the job instance will be "
+                "moved to error state.")
             actual = []
         rc, response = self.requester.send_request(
             app_route=f'/task_dag/{self.dag_id}/reconcile',
             message={'executor_ids': actual,
-                     'poll_interval': poll_interval},
+                     'reconciliation_interval': reconciliation_interval},
             request_type='post')
 
     def terminate_timed_out_jobs(self):

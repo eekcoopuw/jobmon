@@ -408,7 +408,7 @@ def log_ji_report_by(job_instance_id):
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-    poll_interval = request.get_json()["poll_interval"]
+    heartbeat_interval = request.get_json()["heartbeat_interval"]
 
     # job instance should exist if we are calling this route
     ji = DB.session.query(JobInstance).filter_by(
@@ -416,50 +416,11 @@ def log_ji_report_by(job_instance_id):
 
     # set to database time not web app time
     ji.report_by_date = func.ADDTIME(func.UTC_TIMESTAMP(),
-                                     poll_interval * 3)
+                                     heartbeat_interval * 3)
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
-
-
-def _log_ji_error_within_heartbeat(session, job_instance_id, error_msg):
-    """log an error if the job instance hasn't been updated since
-    reconciliation heartbeat occurred.
-
-    Args:
-
-        session: DB.session or Session object to use to connect to the db
-        job_instance_id (int): job_instance_id with which to query the database
-    """
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("session", session))
-    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-
-    # query for a job instance if it hasn't been updated since last heartbeat
-    ji = session.query(JobInstance).\
-        join(TaskDagMeta).\
-        filter(JobInstance.dag_id == TaskDagMeta.dag_id).\
-        filter(JobInstance.job_instance_id == job_instance_id).\
-        filter(JobInstance.status_date <= TaskDagMeta.heartbeat_date)\
-        .one_or_none()
-    DB.session.commit()
-
-    # only update to error if status hasn't been updated by other process.
-    # this avoids race conditions between the reconciliation thread and the
-    # worker processes
-    if ji:
-        try:
-            msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
-            DB.session.commit()
-            error = JobInstanceErrorLog(job_instance_id=job_instance_id,
-                                        description=error_msg)
-            DB.session.add(error)
-            DB.session.commit()
-        except InvalidStateTransition:
-            log_msg = f"JSM::log_error(), reason={msg}"
-            warnings.warn(log_msg)
-            logger.debug(log_msg)
 
 
 @jsm.route('/task_dag/<dag_id>/reconcile', methods=['POST'])
@@ -475,15 +436,18 @@ def reconcile(dag_id):
 
     # update all jobs submitted to batch executor with a new report_by_date
     params = {}
-    for key in ["poll_interval", "executor_ids"]:
+    for key in ["reconciliation_interval", "executor_ids"]:
         params[key] = data[key]
     query = """
         UPDATE job_instance
-        SET report_by_date = ADDTIME(UTC_TIMESTAMP(), :poll_interval)
-        WHERE executor_id  in :executor_ids"""
+        SET report_by_date = ADDTIME(UTC_TIMESTAMP(),
+                                     :reconciliation_interval * 3)
+        WHERE executor_id in :executor_ids"""
     DB.session.execute(query, params)
+    DB.session.commit()
 
-    # query all job instances that are submitted to executor or running.
+    # query all job instances that are submitted to executor or running which
+    # haven't reported as alive in the allocated time.
     # ignore job instances created after heartbeat began. We'll reconcile them
     # during the next reconciliation loop.
     instances = DB.session.query(JobInstance).\
@@ -494,16 +458,19 @@ def reconcile(dag_id):
                 JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
                 JobInstanceStatus.RUNNING])).\
         filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
-        with_entities(JobInstance.job_instance_id, JobInstance.executor_id
-                      ).all()
+        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
     DB.session.commit()
 
-    for job_instance_id, executor_id in instances:
-        if executor_id and executor_id not in actual:
-            msg = ("Job no longer visible in qstat, check qacct or jobmon "
-                   f"database for executor_id {executor_id} and "
-                   f"job_instance_id {job_instance_id}")
-            _log_ji_error_within_heartbeat(DB.session, job_instance_id, msg)
+    for ji in instances:
+        _update_job_instance_state(ji, JobInstanceStatus.ERROR)
+        msg = ("Job no longer visible in qstat, check qacct or jobmon "
+               f"database for executor_id {ji.executor_id} and "
+               f"job_instance_id {ji.job_instance_id}")
+        error = JobInstanceErrorLog(job_instance_id=ji.job_instance_id,
+                                    description=msg)
+        DB.session.add(error)
+        DB.session.commit()
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
