@@ -66,11 +66,11 @@ class SGEExecutor(Executor):
         return executor_ids
 
     def get_actual_submitted_not_running(self):
-        qstat_out = sge_utils.qstat()
+        """only get jobs with a pending state (qw) from qstat"""
+        qstat_out = sge_utils.qstat(status='p')
         executor_ids = list(qstat_out.job_id)
         executor_ids = [int(eid) for eid in executor_ids]
-        total_output = list(qstat_out.status)
-        return executor_ids, total_output
+        return executor_ids
 
     def terminate_job_instances(self, jiid_exid_tuples):
         to_df = pd.DataFrame(data=jiid_exid_tuples,
