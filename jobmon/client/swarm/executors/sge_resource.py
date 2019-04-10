@@ -142,8 +142,9 @@ class SGEResource(object):
             self.max_runtime_seconds = 300
         elif self.max_runtime_seconds is not None:
             if self.queue == "all.q":
-                if self.max_runtime_seconds > 86400:
-                    raise ValueError("Can only run for up to 1 day (86400 sec)"
+                if self.max_runtime_seconds > 3 * 86400:
+                    raise ValueError("Can only run for up to 3 days"
+                                     "(259200 sec)"
                                      " on all.q, you requested {} seconds"
                                      .format(self.max_runtime_seconds))
             elif self.queue == "geospatial.q":
@@ -159,11 +160,11 @@ class SGEResource(object):
                                      "seconds"
                                      .format(self.queue,
                                              self.max_runtime_seconds))
-            elif self.max_runtime_seconds > 86400:
+            elif self.max_runtime_seconds > 3 * 86400:
                 raise ValueError("You did not request all.q, profile.q, "
                                  "geospatial.q, or long.q to run your jobs "
-                                 "so you must limit your runtime to under 1 "
-                                 "day")
+                                 "so you must limit your runtime to under 3 "
+                                 "days")
         else:
             self.max_runtime_seconds = 0
         self.max_runtime = self._transform_secs_to_hms()
