@@ -94,10 +94,8 @@ class JobInstanceReconciler(object):
         """
         self._request_permission_to_reconcile()
         try:
-            actual, total_output = self.executor.get_actual_submitted_not_running()
-            # update the report by date for all of these executor ids
-            # (jobs that are submitted by running)
-            list(total_output.status)
+            actual = self.executor.get_actual_submitted_not_running()
+
         except NotImplementedError:
             logger.warning(f"{self.executor.__class__.__name__} does not "
                            "implement reconciliation methods")
@@ -106,6 +104,7 @@ class JobInstanceReconciler(object):
             app_route=f'/task_dag/{self.dag_id}/reconcile',
             message={'executor_ids': actual},
             request_type='post')
+        
 
     def terminate_timed_out_jobs(self):
         """Attempts to terminate jobs that have been in the "running"

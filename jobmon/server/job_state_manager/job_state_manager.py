@@ -473,6 +473,16 @@ def reconcile(dag_id):
     logger.debug(logging.logParameter("dag_id", dag_id))
     actual = request.get_json()["executor_ids"]
 
+    # update all jobs submitted to batch executor with a new report_by_date
+    newdatetime = datetime.utcnow()+timedelta(seconds=30)
+    query = """
+    UPDATE job_instance
+    SET report_by_date={time}
+    WHERE executor_id in {actual}
+    """.format(time=newdatetime, actual=actual)
+    DB.session.execute(query)
+
+
     # query all job instances that are submitted to executor or running.
     # ignore job instances created after heartbeat began. We'll reconcile them
     # during the next reconciliation loop.
