@@ -162,12 +162,14 @@ def test_jsm_valid_done(real_dag_id):
     # do job logging
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
-        message={'executor_id': str(12345)},
+        message={'executor_id': str(12345),
+                 'report_by_transitition_buffer': 15},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(job_instance_id),
         message={'nodename': socket.getfqdn(),
-                 'process_group_id': str(os.getpid())},
+                 'process_group_id': str(os.getpid()),
+                 'heartbeat_interval': 120},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_usage'.format(job_instance_id),
@@ -212,12 +214,14 @@ def test_jsm_valid_error(real_dag_id):
     # do job logging
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
-        message={'executor_id': str(12345)},
+        message={'executor_id': str(12345),
+                 'report_by_transitition_buffer': 15},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(job_instance_id),
         message={'nodename': socket.getfqdn(),
-                 'process_group_id': str(os.getpid())},
+                 'process_group_id': str(os.getpid()),
+                 'heartbeat_interval': 120},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(job_instance_id),
@@ -289,13 +293,15 @@ def test_untimely_transition(real_dag_id, db_cfg):
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(job_instance_id),
         message={'nodename': socket.getfqdn(),
-                 'process_group_id': str(os.getpid())},
+                 'process_group_id': str(os.getpid()),
+                 'heartbeat_interval': 120},
         request_type='post')
 
     # try and go backward to submitted and make sure state stays in running
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
-        message={'executor_id': str(12345)},
+        message={'executor_id': str(12345),
+                 'report_by_transitition_buffer': 15},
         request_type='post')
 
     DB = db_cfg["DB"]
@@ -329,12 +335,14 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
     job_instance_id = response['job_instance_id']
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
-        message={'executor_id': str(12345)},
+        message={'executor_id': str(12345),
+                 'report_by_transitition_buffer': 15},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(job_instance_id),
         message={'nodename': socket.getfqdn(),
-                 'process_group_id': str(os.getpid())},
+                 'process_group_id': str(os.getpid()),
+                 'heartbeat_interval': 120},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_usage'.format(job_instance_id),
@@ -387,12 +395,14 @@ def test_job_reset(db_cfg, real_dag_id):
     ji1 = response['job_instance_id']
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji1),
-        message={'executor_id': str(12345)},
+        message={'executor_id': str(12345),
+                 'report_by_transitition_buffer': 15},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(ji1),
         message={'nodename': socket.getfqdn(),
-                 'process_group_id': str(os.getpid())},
+                 'process_group_id': str(os.getpid()),
+                 'heartbeat_interval': 120},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji1),
@@ -408,12 +418,14 @@ def test_job_reset(db_cfg, real_dag_id):
     ji2 = response['job_instance_id']
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji2),
-        message={'executor_id': str(12346)},
+        message={'executor_id': str(12345),
+                 'report_by_transitition_buffer': 15},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(ji2),
         message={'nodename': socket.getfqdn(),
-                 'process_group_id': str(os.getpid())},
+                 'process_group_id': str(os.getpid()),
+                 'heartbeat_interval': 120},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji2),
@@ -429,12 +441,14 @@ def test_job_reset(db_cfg, real_dag_id):
     ji3 = response['job_instance_id']
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji3),
-        message={'executor_id': str(12347)},
+        message={'executor_id': str(12345),
+                 'report_by_transitition_buffer': 15},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(ji3),
         message={'nodename': socket.getfqdn(),
-                 'process_group_id': str(os.getpid())},
+                 'process_group_id': str(os.getpid()),
+                 'heartbeat_interval': 120},
         request_type='post')
 
     # Reset the job to REGISTERED
@@ -447,7 +461,7 @@ def test_job_reset(db_cfg, real_dag_id):
     DB = db_cfg["DB"]
     with app.app_context():
         jobs = DB.session.query(Job).filter_by(dag_id=real_dag_id,
-                                            job_id=job.job_id).all()
+                                               job_id=job.job_id).all()
         assert len(jobs) == 1
         job = jobs[0]
         assert job.status == JobStatus.REGISTERED
@@ -487,12 +501,14 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
     ji = response['job_instance_id']
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji),
-        message={'executor_id': str(12345)},
+        message={'executor_id': str(12345),
+                 'report_by_transitition_buffer': 15},
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_running'.format(ji),
         message={'nodename': socket.getfqdn(),
-                 'process_group_id': str(os.getpid())},
+                 'process_group_id': str(os.getpid()),
+                 'heartbeat_interval': 120},
         request_type='post')
 
     req.send_request(

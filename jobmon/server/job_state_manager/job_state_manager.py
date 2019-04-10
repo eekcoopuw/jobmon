@@ -498,6 +498,8 @@ def log_running(job_instance_id):
     msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
+    ji.report_by_date = func.ADDTIME(
+        func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['heartbeat_interval'] * 3))
     DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
