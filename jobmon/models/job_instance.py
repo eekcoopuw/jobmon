@@ -75,7 +75,6 @@ class JobInstance(DB.Model):
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
 
-
     valid_transitions = [
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
 
@@ -91,6 +90,11 @@ class JobInstance(DB.Model):
         (JobInstanceStatus.RUNNING, JobInstanceStatus.ERROR),
 
         (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
+
+    untimely_transitions = [
+        (JobInstanceStatus.RUNNING,
+         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
+    ]
 
     def register(self, requester, executor_type):
         """Register a new job_instance"""
@@ -112,18 +116,36 @@ class JobInstance(DB.Model):
 
     def transition(self, new_state):
         """Transition the JobInstance status"""
-        self._validate_transition(new_state)
-        self.status = new_state
-        self.status_date = datetime.utcnow()
-        if new_state == JobInstanceStatus.RUNNING:
-            self.job.transition(JobStatus.RUNNING)
-        elif new_state == JobInstanceStatus.DONE:
-            self.job.transition(JobStatus.DONE)
-        elif new_state == JobInstanceStatus.ERROR:
-            self.job.transition_to_error()
+        # if the transition is timely, move to new state. Otherwise do nothing
+        if self._is_timely_transition(new_state):
+            self._validate_transition(new_state)
+            self.status = new_state
+            self.status_date = datetime.utcnow()
+            if new_state == JobInstanceStatus.RUNNING:
+                self.job.transition(JobStatus.RUNNING)
+            elif new_state == JobInstanceStatus.DONE:
+                self.job.transition(JobStatus.DONE)
+            elif new_state == JobInstanceStatus.ERROR:
+                self.job.transition_to_error()
 
     def _validate_transition(self, new_state):
         """Ensure the JobInstance status transition is valid"""
         if (self.status, new_state) not in self.__class__.valid_transitions:
             raise InvalidStateTransition('JobInstance', self.job_instance_id,
                                          self.status, new_state)
+
+    def _is_timely_transition(self, new_state):
+        """Check if the transition is invalid due to a race condition"""
+
+        # TODO: move the job instance factory into the job state manager to
+        # eliminate the race condition?
+        if (self.status, new_state) in self.__class__.untimely_transitions:
+            msg = str(InvalidStateTransition(
+                'JobInstance', self.job_instance_id, self.status, new_state))
+            msg += ". This is an untimely transition likely caused by a race "\
+                   " condition between the UGE scheduler and the job instance"\
+                   " factory which logs the UGE id on the job instance."
+            logger.warn(msg)
+            return False
+        else:
+            return True

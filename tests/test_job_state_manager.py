@@ -256,6 +256,56 @@ def test_invalid_transition(dag_id):
             request_type='post')
 
 
+def test_untimely_transition(real_dag_id, db_cfg):
+    from jobmon.server.job_state_manager.job_state_manager import \
+        _get_job_instance
+
+    # add job
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
+
+    # add job instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = response['job_instance_id']
+
+    # the job hits a race and reports running before the executor logs
+    # the UGE id
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.getfqdn(),
+                 'process_group_id': str(os.getpid())},
+        request_type='post')
+
+    # try and go backward to submitted and make sure state stays in running
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345)},
+        request_type='post')
+
+    DB = db_cfg["DB"]
+    app = db_cfg["app"]
+    with app.app_context():
+        ji = _get_job_instance(DB.session, job_instance_id)
+        assert ji.status == JobInstanceStatus.RUNNING
+        assert ji.executor_id == 12345
+
+
 def test_jsm_log_usage(db_cfg, real_dag_id):
 
     _, response = req.send_request(
