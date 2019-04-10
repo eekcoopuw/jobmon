@@ -53,6 +53,7 @@ class SGEResource(object):
         self.j_resource = j_resource
         self.max_runtime = None
         self.mem_free = mem_free
+        self._cluster = os.environ['SGE_ENV']  # el7 in SGE_ENV is fair cluster
 
     def _get_valid_queues(self):
         check_valid_queues = "qconf -sql"
@@ -65,12 +66,12 @@ class SGEResource(object):
         if self.queue is not None:
             valid = self.queue in valid_queues
             if not valid:
-                raise ValueError("Got invalid queue {}. Valid queues are {}"
-                                 .format(self.queue, valid_queues))
-        if self.queue is None and "el7" in os.environ["SGE_ENV"]:
+                logger.info(ValueError(f"Got invalid queue {self.queue}. "
+                                       f"Valid queues are {valid_queues}"))
+        if self.queue is None and "el7" in self._cluster:
             self.queue = "all.q"
         logger.debug("Now queues: {}, given queue: {}".format(valid_queues,
-                                                                self.queue))
+                                                              self.queue))
 
     def _validate_slots_and_cores(self):
         """Ensure cores requested isn't more than available on that
@@ -133,7 +134,7 @@ class SGEResource(object):
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
-        if self.max_runtime_seconds is None and "el7" in os.environ["SGE_ENV"]:
+        if self.max_runtime_seconds is None and "el7" in self._cluster:
             # a max_runtime has to be provided for the fair cluster, so if none
             #  is provided, set it to 5 minutes so that it fails quickly
             logger.debug("You did not specify a maximum runtime so it has "
@@ -192,8 +193,7 @@ class SGEResource(object):
     def _validate_args_based_on_cluster(self):
         """Ensure all essential arguments are present and not None, the fair
         cluster can be identified by its cluster name containing el7"""
-        cluster = os.environ['SGE_ENV']
-        if "el7" in cluster:
+        if "el7" in self._cluster:
             for arg in [self.queue, self.num_cores, self.mem_free,
                         self.max_runtime_seconds]:
                 if arg is None:
@@ -201,7 +201,7 @@ class SGEResource(object):
                                      "num_cores/slots, mem_free, max_runtime"
                                      "_seconds can't be none, yours are:{} {} "
                                      "{} {}"
-                                     .format(cluster, self.queue,
+                                     .format(self._cluster, self.queue,
                                              self.num_cores, self.mem_free,
                                              self.max_runtime_seconds))
         # else: they have to have either slots or cores which is checked
