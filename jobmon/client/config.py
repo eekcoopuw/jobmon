@@ -33,13 +33,16 @@ class ClientConfig(object):
         if "JOBMON_COMMAND" in os.environ:
             DEFAULT_CLIENT_CONFIG["jobmon_command"] = (
                 os.environ["JOBMON_COMMAND"])
+        if "HEARTBEAT_INTERVAL" in os.environ:
+            DEFAULT_CLIENT_CONFIG["heartbeat_interval"] = (
+                os.environ["HEARTBEAT_INTERVAL"])
 
         # and finally override using CLI args (if passed)
         # TBD
 
         return cls(**DEFAULT_CLIENT_CONFIG)
 
-    def __init__(self, host, port, jobmon_command):
+    def __init__(self, host, port, jobmon_command, heartbeat_interval):
 
         self._host = host
         self._port = port
@@ -49,3 +52,4 @@ class ClientConfig(object):
             port=str(port))
 
         self.jobmon_command = jobmon_command
+        self.heartbeat_interval = heartbeat_interval

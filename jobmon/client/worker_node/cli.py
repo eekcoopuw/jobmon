@@ -34,7 +34,7 @@ def unwrap():
     parser.add_argument("--temp_dir", required=False)
     parser.add_argument("--last_nodename", required=False)
     parser.add_argument("--last_pgid", required=False)
-    parser.add_argument("--poll_interval", default=10, type=int)
+    parser.add_argument("--heartbeat_interval", default=120, type=int)
 
     # makes a dict
     args = vars(parser.parse_args())
@@ -83,8 +83,8 @@ def unwrap():
             universal_newlines=True)
 
         while proc.poll() is None:
-            ji_intercom.log_report_by(args['poll_interval'])
-            sleep(args['poll_interval'])
+            ji_intercom.log_report_by(args['heartbeat_interval'])
+            sleep(args['heartbeat_interval'])
 
         # communicate the stdout and stderr
         stdout, stderr = proc.communicate()

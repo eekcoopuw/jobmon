@@ -78,10 +78,10 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_report_by(self, poll_interval):
+    def log_report_by(self, heartbeat_interval):
         """Log the heartbeat to show that the job instance is still alive"""
         rc, _ = self.requester.send_request(
             app_route=(f'/job_instance/{self.job_instance_id}/log_report_by'),
-            message={"poll_interval": poll_interval},
+            message={"heartbeat_interval": heartbeat_interval},
             request_type='post')
         return rc
