@@ -72,7 +72,7 @@ class JobInstanceReconciler(object):
             try:
                 logging.debug(
                     f"Reconciling at interval {reconciliation_interval}s")
-                self.reconcile(reconciliation_interval)
+                self.reconcile(reconciliation_interval * 3)
                 self.terminate_timed_out_jobs()
                 sleep(reconciliation_interval)
             except Exception as e:
@@ -88,11 +88,16 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
-    def reconcile(self, reconciliation_interval=10):
+    def reconcile(self, next_report_increment=30):
         """Identifies jobs that have disappeared from the batch execution
         system (e.g. SGE), and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
         fatal errors
+
+        Args:
+            next_report_increment (int): how long is a job in batch state
+                allowed to wait till next heartbeat till it is moved into error
+                state. Generally 3x the reconciliation interval.
         """
         self._request_permission_to_reconcile()
         try:
@@ -102,13 +107,13 @@ class JobInstanceReconciler(object):
                 f"{self.executor.__class__.__name__} does not implement "
                 "reconciliation methods. If a job instance does not register a"
                 " heartbeat from a worker process in "
-                f"{reconciliation_interval * 3}s the job instance will be "
+                f"{next_report_increment * 3}s the job instance will be "
                 "moved to error state.")
             actual = []
         rc, response = self.requester.send_request(
             app_route=f'/task_dag/{self.dag_id}/reconcile',
             message={'executor_ids': actual,
-                     'reconciliation_interval': reconciliation_interval},
+                     'next_report_increment': next_report_increment},
             request_type='post')
 
     def terminate_timed_out_jobs(self):
