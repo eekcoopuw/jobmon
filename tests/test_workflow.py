@@ -94,7 +94,7 @@ def test_resource_arguments(real_jsm_jqs, db_cfg):
     90,000 seconds is deliberately longer than one day, testing a specific
     bug"""
     t1 = BashTask("sleep 10",
-                  queue='long.q',
+                  queue='all.q',
                   max_runtime_seconds=90_000,
                   num_cores=2)
     wf = Workflow("test_resource_arguments-{}".format(uuid.uuid4()))

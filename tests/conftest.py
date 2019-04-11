@@ -37,6 +37,8 @@ def ephemera_conn_str():
     conn_str = edb.start()
     # use the ephemera db root privileges (root: singularity_root) otherwise
     # you will not see changes to the database
+    logger.info(f"Database connection {conn_str}")
+    print(f"****** Database connection {conn_str}")
     yield conn_str
 
 
