@@ -89,6 +89,7 @@ def unwrap():
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
                 ji_intercom.log_report_by(
                     next_report_increment=args['heartbeat_interval'] * 3)
+                last_heartbeat_time = time()
 
         # communicate the stdout and stderr
         stdout, stderr = proc.communicate()
