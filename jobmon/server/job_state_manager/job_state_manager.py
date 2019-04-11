@@ -412,16 +412,25 @@ def log_ji_report_by(job_instance_id):
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-    next_report_increment = request.get_json()["next_report_increment"]
 
     # job instance should exist if we are calling this route
-    ji = DB.session.query(JobInstance).filter_by(
-        job_instance_id=job_instance_id).one()
+    # ji = DB.session.query(JobInstance).filter_by(
+    #     job_instance_id=job_instance_id).one()
+    params = {}
+    params["next_report_increment"] = request.get_json()["next_report_increment"]
+    params["job_instance_id"] = job_instance_id
 
-    # set to database time not web app time
-    ji.report_by_date = func.ADDTIME(func.UTC_TIMESTAMP(),
-                                     func.SEC_TO_TIME(next_report_increment))
+    query = """
+        UPDATE job_instance
+        SET report_by_date = ADDTIME(
+            UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+        WHERE job_instance_id = :job_instance_id"""
+    DB.session.execute(query, params)
     DB.session.commit()
+    # set to database time not web app time
+    # ji.report_by_date = func.ADDTIME(func.UTC_TIMESTAMP(),
+    #                                  func.SEC_TO_TIME(next_report_increment))
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
