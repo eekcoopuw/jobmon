@@ -46,7 +46,7 @@ class JobListManager(object):
         self.job_instance_factory = JobInstanceFactory(
             dag_id, executor, interrupt_on_error, n_queued_jobs,
             stop_event=self._stop_event,
-            report_by_transitition_buffer=reconciliation_interval * 3)
+            next_report_increment=reconciliation_interval * 3)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
 

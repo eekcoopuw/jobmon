@@ -368,7 +368,7 @@ def log_executor_id(job_instance_id):
     data = request.get_json()
     report_by_date = func.ADDTIME(
         func.UTC_TIMESTAMP(),
-        func.SEC_TO_TIME(data["report_by_transitition_buffer"]))
+        func.SEC_TO_TIME(data["next_report_increment"]))
     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug(logging.logParameter("DB.session", DB.session))
@@ -412,7 +412,7 @@ def log_ji_report_by(job_instance_id):
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-    heartbeat_interval = request.get_json()["heartbeat_interval"]
+    next_report_increment = request.get_json()["next_report_increment"]
 
     # job instance should exist if we are calling this route
     ji = DB.session.query(JobInstance).filter_by(
@@ -420,7 +420,7 @@ def log_ji_report_by(job_instance_id):
 
     # set to database time not web app time
     ji.report_by_date = func.ADDTIME(func.UTC_TIMESTAMP(),
-                                     func.SEC_TO_TIME(heartbeat_interval * 3))
+                                     func.SEC_TO_TIME(next_report_increment))
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -440,14 +440,14 @@ def reconcile(dag_id):
 
     # update all jobs submitted to batch executor with a new report_by_date
     params = {}
-    for key in ["reconciliation_interval", "executor_ids"]:
+    for key in ["next_report_increment", "executor_ids"]:
         params[key] = data[key]
 
     if params["executor_ids"]:
         query = """
             UPDATE job_instance
             SET report_by_date = ADDTIME(
-                UTC_TIMESTAMP(), SEC_TO_TIME(:reconciliation_interval * 3))
+                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
             WHERE executor_id in :executor_ids"""
         DB.session.execute(query, params)
         DB.session.commit()
@@ -499,7 +499,7 @@ def log_running(job_instance_id):
     ji.nodename = data['nodename']
     ji.process_group_id = data['process_group_id']
     ji.report_by_date = func.ADDTIME(
-        func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['heartbeat_interval'] * 3))
+        func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
     DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
