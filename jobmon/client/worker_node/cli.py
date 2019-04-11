@@ -64,7 +64,8 @@ def unwrap():
                                       executor_class=ExecutorClass,
                                       process_group_id=os.getpid(),
                                       hostname=args['jm_host'])
-    ji_intercom.log_running(args['heartbeat_interval'])
+    ji_intercom.log_running(
+        next_report_increment=args['heartbeat_interval'] * 3)
 
     try:
         if 'last_nodename' in args and 'last_pgid' in args:
@@ -86,7 +87,8 @@ def unwrap():
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
-                ji_intercom.log_report_by(args['heartbeat_interval'])
+                ji_intercom.log_report_by(
+                    next_report_increment=args['heartbeat_interval'] * 3)
 
         # communicate the stdout and stderr
         stdout, stderr = proc.communicate()

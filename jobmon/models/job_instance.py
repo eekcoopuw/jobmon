@@ -112,14 +112,13 @@ class JobInstance(DB.Model):
         return self.job_instance_id
 
     def assign_executor_id(self, requester, executor_id,
-                           report_by_transitition_buffer):
+                           next_report_increment):
         """Assign the executor_id to this job_instance"""
-        buff = report_by_transitition_buffer
         requester.send_request(
             app_route=('/job_instance/{}/log_executor_id'
                        .format(self.job_instance_id)),
             message={'executor_id': str(executor_id),
-                     'report_by_transitition_buffer': buff},
+                     'next_report_increment': next_report_increment},
             request_type='post')
 
     def transition(self, new_state):
