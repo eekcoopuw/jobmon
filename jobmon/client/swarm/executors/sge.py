@@ -39,6 +39,7 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
+            logger.debug(f"About to qsub {qsub_cmd}")
             resp = subprocess.check_output(qsub_cmd, shell=True)
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])

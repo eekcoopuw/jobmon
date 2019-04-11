@@ -1,3 +1,5 @@
+
+import uuid
 from jobmon.client.swarm.workflow.workflow import Workflow
 
 from jobmon import BashTask
@@ -8,12 +10,16 @@ def six_job_test():
     Creates and runs one workflow with six jobs. Used to 'smoke test' a
     new deployment of jobmon.
     """
-
     # First Tier
-    t1 = BashTask("sleep 10", slots=1)
+    # Deliberately put in on the long queue with max runtime > 1 day
+    t1 = BashTask("sleep 10", slots=1,
+                  queue='long.q',
+                  max_runtime_seconds=90_000)
 
     # Second Tier, both depend on first tier
-    t2 = BashTask("sleep 20", upstream_tasks=[t1], slots=1)
+    t2 = BashTask("sleep 20", upstream_tasks=[t1], slots=1,
+                  queue='all.q',
+                  max_runtime_seconds=60)
     t3 = BashTask("sleep 25", upstream_tasks=[t1], slots=1)
 
     # Third Tier, cross product dependency on second tier
@@ -23,7 +29,7 @@ def six_job_test():
     # Fourth Tier, ties it all back together
     t6 = BashTask("sleep 19", upstream_tasks=[t4, t5], slots=1)
 
-    wf = Workflow("six-job-test",
+    wf = Workflow("six-job-test-{}".format(uuid.uuid4()),
                   "./six_job_test_stderr.log",
                   project="proj_burdenator")
     wf.add_tasks([t1, t2, t3, t4, t5, t6])
