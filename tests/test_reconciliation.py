@@ -46,6 +46,12 @@ def job_list_manager_reconciliation(real_dag_id):
     jlm.disconnect()
 
 
+@pytest.fixture(scope='function', autouse=True)
+def fast_heartbeats():
+    from jobmon.client import client_config
+    client_config.heartbeat_interval = 10
+
+
 def test_reconciler_dummy(job_list_manager_dummy):
     """Creates a job instance, gets an executor id so it can be in submitted
     to the batch executor state, and then it will never be run (it will miss
@@ -96,7 +102,6 @@ def test_reconciler_sge(job_list_manager_reconciliation):
 
 
 def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
-    os.environ["HEARTBEAT_INTERVAL"] = '10'
     job_list_manager_reconciliation.all_error = set()
     jir = job_list_manager_reconciliation.job_inst_reconciler
     jif = job_list_manager_reconciliation.job_instance_factory
@@ -125,41 +130,42 @@ def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
         FROM job_instance
         WHERE job_id = {}""".format(job_id)
         res = DB.session.execute(query).fetchone()
-    DB.session.commit()
+        DB.session.commit()
     start, end = res
     assert start < end # indicating at least one heartbeat got logged
-    os.environ.pop("HEARTBEAT_INTERVAL", None)
 
 
 def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
                                           db_cfg):
-    os.environ["HEARTBEAT_INTERVAL"] = '10'
     job_list_manager_reconciliation.all_error = set()
     jir = job_list_manager_reconciliation.job_inst_reconciler
     jif = job_list_manager_reconciliation.job_instance_factory
 
-    task = BashTask(command="sleep 500", name="heartbeat_sleeper", slots=1)
+    task = BashTask(command="sleep 500", name="heartbeat_sleeper", slots=1,
+                    max_attempts=1)
+
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
 
     jid = jif.instantiate_queued_jobs()[0].job_instance_id
-    # qstat_out = sge.qstat(status='p')
-    # while((qstat_out.name == 'heartbeat_sleeper').any()):
-    #     qstat_out = sge.qstat(status='p')
-    pid, hostname = query_until_running(db_cfg, jid)
+    status = query_until_running(db_cfg, jid).status
+    while status != 'R':
+        res = query_until_running(db_cfg, jid)
+        status = res.status
+    pid = res.process_group_id
+    hostname = res.nodename
     kill_remote_process(hostname=hostname, pid=pid)
     count = 0
-    while len(job_list_manager_reconciliation.all_error) < 1 and count < 5:
-        count += 1
-        sleep(30)
-        jir.reconcile(10)
-        job_list_manager_reconciliation._sync()
-    import pdb
-    pdb.set_trace()
-    assert job_list_manager_reconciliation.all_error
 
-    #assert new heartbeats have been logged since the job instance was created
-    os.environ.pop("HEARTBEAT_INTERVAL", None)
+    # job should not log a heartbeat so it should error out within 30 seconds
+    while len(job_list_manager_reconciliation.all_error) < 1 and count < 10:
+        count += 1
+        sleep(10)
+        jir.reconcile(next_report_increment=10)
+        job_list_manager_reconciliation.last_sync = None
+        job_list_manager_reconciliation._sync()
+        
+    assert job_list_manager_reconciliation.all_error
 
 
 def query_until_running(db_cfg, jid):
@@ -173,23 +179,7 @@ def query_until_running(db_cfg, jid):
                """.format(jid=jid)
         res = DB.session.execute(query).fetchone()
         DB.session.commit()
-    count = 0
-        # wait for it to run so that there is a process group id we can use to kill
-    while(res.status != "R") and count < 6:
-        sleep(10)
-        count += 1
-        with app.app_context():
-            query = """
-                       SELECT process_group_id, nodename, status
-                       FROM job_instance
-                       WHERE job_instance_id = {jid}
-                   """.format(jid=jid)
-            res = DB.session.execute(query).fetchone()
-            DB.session.commit()
-    assert res.status == "R"
-    pid = res.process_group_id
-    hostname = res.nodename
-    return pid, hostname
+    return res
 
 
 def test_reconciler_sge_timeout(job_list_manager_reconciliation):
