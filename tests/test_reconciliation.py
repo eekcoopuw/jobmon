@@ -160,11 +160,11 @@ def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
     # job should not log a heartbeat so it should error out within 30 seconds
     while len(job_list_manager_reconciliation.all_error) < 1 and count < 10:
         count += 1
-        sleep(10)
+        sleep(20)
         jir.reconcile(next_report_increment=10)
         job_list_manager_reconciliation.last_sync = None
         job_list_manager_reconciliation._sync()
-        
+
     assert job_list_manager_reconciliation.all_error
 
 
