@@ -5,8 +5,10 @@ from time import sleep
 
 from jobmon.client.swarm.executors import sge_utils
 
+
 def do_nothing():
     return
+
 
 def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
                      partial_test_function=partial(
@@ -45,7 +47,7 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
                         "timed out (qwait count {}), might be:" \
                         "   a real bug," \
                         "   cluster load, or" \
-                        "   project permissions for 'proj_jenkins'" \
+                        "   project permissions for 'proj_tools'" \
                         .format(qw_count)
             else:
                 #  Probe qstat and count the number of qw states.

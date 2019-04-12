@@ -23,9 +23,9 @@ def six_job_test():
     # Fourth Tier, ties it all back together
     t6 = BashTask("sleep 19", upstream_tasks=[t4, t5], slots=1)
 
-    wf = Workflow("six-job-test",
+    wf = Workflow("six-job-test 1",
                   "./six_job_test_stderr.log",
-                  project="proj_burdenator")
+                  project="proj_tools")
     wf.add_tasks([t1, t2, t3, t4, t5, t6])
     print("Running the workflow, about 70 seconds minimum")
     wf.execute()

@@ -332,7 +332,7 @@ def job_list_manager_sge(real_dag_id, tmpdir_factory):
     ologdir = str(tmpdir_factory.mktemp("ologs"))
 
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
-                           project='proj_jenkins')
+                           project='proj_tools')
     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
                          reconciliation_interval=10,
                          job_instantiation_interval=1,

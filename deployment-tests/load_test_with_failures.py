@@ -1,4 +1,5 @@
 import getpass
+import os
 import random
 import sys
 import uuid
@@ -8,6 +9,10 @@ from datetime import datetime
 from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.client.swarm.executors import sge_utils as sge
 from mock_sleep_and_write_task import SleepAndWriteFileMockTask
+
+
+thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
+script = os.path.join(thisdir, "sleep_and_err.py")
 
 
 def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
@@ -24,14 +29,12 @@ def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
     wf = Workflow(f"load-test_{wfid}", "load_test_with_exceptions",
                   stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
-                  project="proj_burdenator")
+                  project="proj_tools")
 
-    tier1 =[]
+    tier1 = []
     for i in range(n_jobs):
         sleep = random.randint(30, 41)
-        uid = f"tier1_{uuid.uuid4()}"
-        cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid "
-                           f"{uid}")
+        cs = f"{script} --uid tier1_{uuid.uuid4()}"
         task = SleepAndWriteFileMockTask(
             command=f"python {cs} --sleep_secs {sleep}")
         tier1.append(task)
@@ -39,39 +42,34 @@ def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
     num_tasks = n_jobs
 
     if all_phases:
-        num_tasks = 5*n_jobs
+        num_tasks = 5 * n_jobs
         tier2 = []
         # Second Tier, depend on 1 tier 1 task
         for i in range(n_jobs * 3):
             sleep = random.randint(30, 41)
-            uid = f"tier2_{uuid.uuid4()}"
-            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid"
-                               f" {uid}")
-            task=SleepAndWriteFileMockTask(command=f"python {cs} --sleep_secs"
-                                                   f" {sleep}",
-                                           upstream_tasks=[tier1[(i%n_jobs)]])
+            cs = f"{script} --uid tier2_{uuid.uuid4()}"
+            task = SleepAndWriteFileMockTask(
+                command=f"python {cs} --sleep_secs {sleep}",
+                upstream_tasks=[tier1[(i % n_jobs)]])
             tier2.append(task)
         # if you run all tasks all first tier tasks will run smoothly, then
         # tier 2 tasks will start, and some will error out which will cause
         # some tier 3 tasks to time out
-        add_random_err(tier2, (n_ex*3))
+        add_random_err(tier2, (n_ex * 3))
 
         tier3 = []
         # Third Tier, depend on 3 tier 2 tasks
         for i in range(n_jobs):
             sleep = random.randint(30, 41)
-            uid = f"tier3_{uuid.uuid4()}"
-            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid"
-                               f" {uid}")
-            task =SleepAndWriteFileMockTask(command=f"python {cs} --sleep_secs"
-                                                    f" {sleep}",
-                                            upstream_tasks=
-                                            [tier2[i], tier2[(i+n_jobs)],
-                                             tier2[(i+(2*n_jobs))]])
+            cs = f"{script} --uid tier3_{uuid.uuid4()}"
+            task = SleepAndWriteFileMockTask(
+                command=f"python {cs} --sleep_secs {sleep}",
+                upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
+                                tier2[(i + (2 * n_jobs))]])
             tier3.append(task)
 
         add_random_err(tier3, n_ex)
-        wf.add_tasks(tier1+tier2 + tier3)
+        wf.add_tasks(tier1 + tier2 + tier3)
 
     else:
         add_random_err(tier1, n_ex)
@@ -96,12 +94,12 @@ def add_random_err(task_list, n_ex):
 
 if __name__ == "__main__":
     """
-    ex. call ' python deployment-tests/load_test_with_failures.py 1 0 
+    ex. call ' python deployment-tests/load_test_with_failures.py 1 0
     --all_phases'
      to run three tiers 1 job, 3 jobs, 1 job, without any raising exceptions
     """
     n_jobs = 1
-    n_ex = 0 #default set to not have any jobs that error out
+    n_ex = 0  # default set to not have any jobs that error out
     all_phases = False
     print(len(sys.argv))
     if len(sys.argv) > 1:

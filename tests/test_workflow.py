@@ -194,7 +194,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     ologdir = str(tmpdir.mkdir("wf_ologs"))
 
     workflow = Workflow(wfa, stderr=elogdir, stdout=ologdir,
-                        project='proj_jenkins', resume=ResumeStatus.RESUME)
+                        project='proj_tools', resume=ResumeStatus.RESUME)
     workflow.add_tasks([t1, t2, t3])
     workflow.execute()
 
@@ -664,9 +664,8 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
     t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
-
     wfa = "my_simple_dag"
-    workflow = Workflow(workflow_args=wfa, project='proj_jenkins',
+    workflow = Workflow(workflow_args=wfa, project='proj_tools',
                         working_dir='/ihme/centralcomp/auto_test_data',
                         stderr='/tmp',
                         stdout='/tmp')
@@ -678,7 +677,7 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     # will fail and write its error message into the job_instance_error_log
     # table
 
-    assert workflow.workflow_run.project == 'proj_jenkins'
+    assert workflow.workflow_run.project == 'proj_tools'
     assert workflow.workflow_run.working_dir == (
         '/ihme/centralcomp/auto_test_data')
     assert workflow.workflow_run.stderr == '/tmp'
@@ -688,19 +687,19 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
 
 def test_workflow_identical_args(real_jsm_jqs, db_cfg, monkeypatch):
     # first workflow runs and finishes
-    wf1 = Workflow(workflow_args="same", project='proj_jenkins')
+    wf1 = Workflow(workflow_args="same", project='proj_tools')
     task = BashTask("sleep 2", slots=1)
     wf1.add_task(task)
     wf1.execute()
 
     # tries to create an identical workflow without the restart flag
-    wf2 = Workflow(workflow_args="same", project='proj_jenkins')
+    wf2 = Workflow(workflow_args="same", project='proj_tools')
     wf2.add_task(task)
     with pytest.raises(WorkflowAlreadyExists):
         wf2.execute()
 
     # creates a workflow, okayed to restart, but original workflow is done
-    wf3 = Workflow(workflow_args="same", project='proj_jenkins',
+    wf3 = Workflow(workflow_args="same", project='proj_tools',
                    resume=ResumeStatus.RESUME)
     wf3.add_task(task)
     with pytest.raises(WorkflowAlreadyComplete):
