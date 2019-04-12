@@ -123,7 +123,7 @@ class SGEResource(object):
                                  "profile.q). Got {}"
                                  .format(self.mem_free))
         else:
-            logger.debug("You have not specified a memory amount so you have "
+            logger.info("You have not specified a memory amount so you have "
                          "been given 1G, if you need more, add it is a "
                          "parameter to your Task")
             self.mem_free = 1
@@ -184,7 +184,7 @@ class SGEResource(object):
         if not self.slots and not self.num_cores:
             raise ValueError("Must pass one of [slots, num_cores]")
         if self.slots and not self.num_cores:
-            logger.debug("User Specified slots instead of num_cores, so we are"
+            logger.info("User Specified slots instead of num_cores, so we are"
                          "converting it, but to run on the fair cluster they "
                          "should specify num_cores")
             self.num_cores = self.slots
