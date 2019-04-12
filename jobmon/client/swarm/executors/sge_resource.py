@@ -136,7 +136,7 @@ class SGEResource(object):
         if self.max_runtime_seconds is None and "el7" in os.environ["SGE_ENV"]:
             # a max_runtime has to be provided for the fair cluster, so if none
             #  is provided, set it to 5 minutes so that it fails quickly
-            logger.debug("You did not specify a maximum runtime so it has "
+            logger.info("You did not specify a maximum runtime so it has "
                          "been set to 5 minutes")
             self.max_runtime_seconds = 300
         elif self.max_runtime_seconds is not None:
