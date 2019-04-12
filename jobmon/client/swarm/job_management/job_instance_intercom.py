@@ -19,8 +19,8 @@ class JobInstanceIntercom(object):
         Args:
             job_instance_id (int): the id of the job_instance_id that is
             reporting back
-            executor_class (str): string representing the type of executor that
-            was used for this job instance
+            executor_class (Executor): object representing the kind of
+            executor that was used for this job instance
             process_group_id (int): linux process_group_id that this
             job_instance is a part of
             hostname (str): hostname where this job_instance is running
