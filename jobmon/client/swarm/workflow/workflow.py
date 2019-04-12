@@ -7,7 +7,7 @@ import uuid
 
 import jobmon
 from cluster_utils.io import makedirs_safely
-from jobmon.client import shared_requester
+from jobmon.client import shared_requester, client_config
 from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
@@ -68,7 +68,9 @@ class Workflow(object):
                  reset_running_jobs=True, working_dir=None,
                  executor_class='SGEExecutor', fail_fast=False,
                  interrupt_on_error=False, requester=shared_requester,
-                 seconds_until_timeout=36000, resume=ResumeStatus.DONT_RESUME):
+                 seconds_until_timeout=36000, resume=ResumeStatus.DONT_RESUME,
+                 reconciliation_interval=None, heartbeat_interval=None,
+                 report_by_buffer=None):
         """
         Args:
             workflow_args (str): unique identifier of a workflow
@@ -91,7 +93,15 @@ class Workflow(object):
             resume (bool): whether the workflow should be resumed or not, if
                 it is not and an identical workflow already exists, the
                 workflow will error out
-
+            reconciliation_interval(int): rate at which reconciler reconciles
+                jobs to for errors and check state changes, default set to 10
+                seconds in client config, but user can reconfigure here
+            heartbeat_interval (int): rate at which worker node reports
+                back if it is still alive and running
+            report_by_buffer (int): number of heartbeats we push out the
+                report_by_date (default = 3.1) so a job in qw can miss 3
+                reconciliations or a running job can miss 3 worker heartbeats,
+                and then we will register that it as lost
         """
         self.wf_dao = None
         self.name = name
@@ -123,7 +133,16 @@ class Workflow(object):
             fail_fast=fail_fast,
             seconds_until_timeout=seconds_until_timeout
         )
-        self.resume=resume
+        self.resume = resume
+
+        # if the user wants to specify the reconciliation and heartbeat rate,
+        # as well as buffer time, they can do so here
+        if reconciliation_interval:
+            os.environ["RECONCILIATION_INTERVAL"] = str(reconciliation_interval)
+        if heartbeat_interval:
+            os.environ["HEARTBEAT_INTERVAL"] = str(heartbeat_interval)
+        if report_by_buffer:
+            os.environ["REPORT_BY_BUFFER"] = str(report_by_buffer)
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -137,7 +156,6 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
-
 
     def set_executor(self, executor_class):
         """Set which executor to use to run the tasks.

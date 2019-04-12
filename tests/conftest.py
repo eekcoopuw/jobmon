@@ -71,7 +71,7 @@ def env_var(monkeypatch, test_session_config):
     tests,
     not production code
     """
-    from jobmon.client import shared_requester
+    from jobmon.client import shared_requester, client_config
     from jobmon.client.connection_config import ConnectionConfig
 
     monkeypatch.setenv("JOBMON_HOST", test_session_config["JOBMON_HOST"])
@@ -85,6 +85,9 @@ def env_var(monkeypatch, test_session_config):
     cc = ConnectionConfig(host=test_session_config["JOBMON_HOST"],
                           port=test_session_config["JOBMON_PORT"])
     monkeypatch.setattr(shared_requester, 'url', cc.url)
+    monkeypatch.setattr(client_config, 'heartbeat_interval', 10)
+    monkeypatch.setattr(client_config, 'report_by_buffer', 2.1)
+    monkeypatch.setattr(client_config, 'reconciliation_interval', 5)
 
 
 @pytest.fixture(scope='function')

@@ -69,7 +69,9 @@ class JobInstanceIntercom(object):
                            "executors".format(self.executor_class))
 
     def log_running(self, next_report_increment):
-        """Tell the JobStateManager that this job_instance is running"""
+        """Tell the JobStateManager that this job_instance is running, and
+        update the report_by_date to be further in the future in case it gets
+        reconciled immediately"""
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_running'
                        .format(self.job_instance_id)),

@@ -16,9 +16,7 @@ class JobInstanceFactory(object):
 
     def __init__(self, dag_id, executor=None, interrupt_on_error=True,
                  n_queued_jobs=1000, stop_event=None,
-                 requester=shared_requester,
-                 next_report_increment=client_config.heartbeat_interval
-                 ):
+                 requester=shared_requester):
         """The JobInstanceFactory is in charge of queueing jobs and creating
         job_instances, in order to get the jobs from merely Task objects to
         running code.
@@ -32,17 +30,13 @@ class JobInstanceFactory(object):
             n_queued_jobs (int): number of queued jobs to return and send to
                 be instantiated
             stop_event (obj, default None): Object of type threading.Event
-            next_report_increment (int)
-                (int, default client_config.heartbeat_interval): How long to
-                wait for a job instance to report after it is moved into
-                SUBMITTED_TO_BATCH_EXECUTOR state. generally 3x the
-                reconciliation interval.
         """
         self.dag_id = dag_id
         self.requester = requester
         self.interrupt_on_error = interrupt_on_error
         self.n_queued_jobs = n_queued_jobs
-        self.next_report_increment = next_report_increment
+        self.next_report_increment = client_config.heartbeat_interval * \
+                                     client_config.report_by_buffer
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they

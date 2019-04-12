@@ -81,7 +81,8 @@ class Executor(object):
             "--jm_host", client_config.jm_conn.host,
             "--jm_port", client_config.jm_conn.port,
             "--executor_class", self.__class__.__name__,
-            "--heartbeat_interval", client_config.heartbeat_interval
+            "--heartbeat_interval", client_config.heartbeat_interval,
+            "--report_by_buffer", client_config.report_by_buffer
         ]
         if self.temp_dir and 'stata' in job.command:
             wrapped_cmd.extend(["--temp_dir", self.temp_dir])
