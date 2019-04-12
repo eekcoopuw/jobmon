@@ -337,7 +337,6 @@ def job_list_manager_sge(real_dag_id, tmpdir_factory):
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
                            project='proj_jenkins')
     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
-                         reconciliation_interval=10,
                          job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm
