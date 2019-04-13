@@ -1,18 +1,14 @@
-import pytest
-
 from cluster_utils.io import makedirs_safely
 
 from jobmon.client.swarm.executors import sge_utils as sge
-from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
+from tests.mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 
-@pytest.mark.skip(reason="Too big to run by default, only run when "
-                  "specifically requested")
-@pytest.mark.qsubs_jobs
 def test_burdenator_scale(db_cfg, real_jsm_jqs, task_dag_manager, tmp_out_dir):
     """
     Create and execute  a big four-phase fork and join dag with expanding and
-    contracting phase sizes.
+    contracting phase sizes. Design to be similar to the burdenator, but does
+    not really add much to the three_phase_load_test
     No "guard" tasks between phases, so they can just roll through:
      a[0..N]->b[0..3*N]->c[0..N]->d[0..N/10]
 
