@@ -81,7 +81,6 @@ class TaskDag(object):
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
                 interrupt_on_error=self.interrupt_on_error,
-                reconciliation_interval=self.reconciliation_interval,
                 job_instantiation_interval=self.job_instantiation_interval)
 
             # Bind all the tasks to the job_list_manager... This has to be done

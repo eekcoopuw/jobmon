@@ -217,4 +217,6 @@ class SGEExecutor(Executor):
                         project=project_cmd,
                         stderr=stderr_cmd,
                         stdout=stdout_cmd))
+        logger.debug(qsub_cmd)
+        logger.debug(os.getcwd())
         return qsub_cmd

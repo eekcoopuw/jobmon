@@ -98,7 +98,7 @@ class Workflow(object):
                 seconds in client config, but user can reconfigure here
             heartbeat_interval (int): rate at which worker node reports
                 back if it is still alive and running
-            report_by_buffer (int): number of heartbeats we push out the
+            report_by_buffer (float): number of heartbeats we push out the
                 report_by_date (default = 3.1) so a job in qw can miss 3
                 reconciliations or a running job can miss 3 worker heartbeats,
                 and then we will register that it as lost
@@ -138,11 +138,11 @@ class Workflow(object):
         # if the user wants to specify the reconciliation and heartbeat rate,
         # as well as buffer time, they can do so here
         if reconciliation_interval:
-            os.environ["RECONCILIATION_INTERVAL"] = str(reconciliation_interval)
+            client_config.reconciliation_interval = reconciliation_interval
         if heartbeat_interval:
-            os.environ["HEARTBEAT_INTERVAL"] = str(heartbeat_interval)
+            client_config.heartbeat_interval = heartbeat_interval
         if report_by_buffer:
-            os.environ["REPORT_BY_BUFFER"] = str(report_by_buffer)
+            client_config.report_by_buffer = report_by_buffer
 
         if workflow_args:
             self.workflow_args = workflow_args
