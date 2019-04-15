@@ -4,7 +4,6 @@ import os
 import pytest
 import random
 import socket
-import urllib
 
 from sqlalchemy.exc import OperationalError
 from datetime import datetime
