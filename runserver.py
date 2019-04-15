@@ -81,10 +81,11 @@ def validate_slack_token(slack_token: str) -> bool:
 class JobmonDeployment(object):
 
     def __init__(self, slack_token=None, wf_slack_channel=None,
-                 node_slack_channel=None):
+                 node_slack_channel=None, push_to_registry=False):
         self.info_dir = os.path.expanduser("~/jobmon_deployments")
 
         self.slack_token = slack_token
+        self.push_to_registry = push_to_registry
         self.wf_slack_channel = wf_slack_channel
         self.node_slack_channel = node_slack_channel
 
@@ -137,9 +138,13 @@ class JobmonDeployment(object):
         os.environ["INTERNAL_DB_PORT"] = str(INTERNAL_DB_PORT)
         os.environ["JOBMON_VERSION"] = "".join(self.jobmon_version.split('.'))
 
-
     def _run_docker(self):
         subprocess.call(["docker-compose", "up", "--build", "-d"])
+
+    def _upload_image(self):
+        version = os.environ['JOBMON_VERSION']
+        tag = f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{version}"
+        subprocess.call(["docker", "push", tag])
 
     def _set_mysql_user_passwords(self):
         users = ['root', 'table_creator', 'service_user', 'read_only']
@@ -165,9 +170,19 @@ class JobmonDeployment(object):
         self._set_connection_env()
         self._create_info_file()
         self._run_docker()
+        if self.push_to_registry:
+            self._upload_image()
 
 
 def main():
+    print("Signing into the harbor registry you will be prompted for your "
+          "credentials:")
+    resp = subprocess.call(["docker", "login", "registry-app-p01.ihme.washington.edu"])
+    if resp == 0:
+        push_to_registry = True
+    else:
+        push_to_registry = False
+
     slack_token = input("Slack bot token (leave empty to skip): ") or None
     while slack_token is not None:
         token_is_valid = validate_slack_token(slack_token)
@@ -176,6 +191,7 @@ def main():
         else:
             slack_token = input(
                 "Slack bot token (leave empty to skip): ") or None
+
     if slack_token:
         wf_slack_channel = (
                 input(
@@ -190,10 +206,11 @@ def main():
 
         deployment = JobmonDeployment(slack_token=slack_token,
                                       wf_slack_channel=wf_slack_channel,
-                                      node_slack_channel=node_slack_channel)
+                                      node_slack_channel=node_slack_channel,
+                                      push_to_registry=push_to_registry)
         deployment.run()
     else:
-        deployment = JobmonDeployment()
+        deployment = JobmonDeployment(push_to_registry=push_to_registry)
         deployment.run()
 
 
