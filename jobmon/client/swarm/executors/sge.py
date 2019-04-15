@@ -39,6 +39,7 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
+            logger.debug(f"About to qsub {qsub_cmd}")
             resp = subprocess.check_output(qsub_cmd, shell=True)
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
@@ -121,6 +122,7 @@ class SGEExecutor(Executor):
         # if the job is configured for the fair cluster, but is being run on
         # dev/prod we need to make sure it formats its qsub to work on dev/prod
         dev_or_prod = False
+        # el6 means it's dev or prod
         if "el6" in os.environ['SGE_ENV']:
             dev_or_prod = True
 
@@ -153,17 +155,6 @@ class SGEExecutor(Executor):
         else:
             wd_cmd = ""
         if mem_free and not dev_or_prod:
-            # Currently this just checks the name of the cluster and if it is
-            # not one of the older ones it formats it to the fair cluster.
-            # There may be better ways to detect this at some point (e.g. using
-            #  the hostname of the scheduler), but for now this should hold
-            # true.
-            if job.mem_free is not None:
-                logger.warning("You are requesting memory on the fair cluster "
-                               "with mem_free. The mem_free parameter is "
-                               "deprecated and will be removed when the dev "
-                               "and prod clusters are brought offline. "
-                               "Please use m_mem_free instead.")
             mem_cmd = "-l m_mem_free={}G".format(mem_free)
         elif mem_free:
             mem_cmd = "-l mem_free={}G".format(mem_free)

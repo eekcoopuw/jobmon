@@ -3,7 +3,7 @@ version: '2'
 services:
   jobmon:
     build: .
-    image: jobmon
+    image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
     container_name: jobmon${JOBMON_VERSION}_jobmon_1
     volumes:
         - ./uwsgi.ini:/app/uwsgi.ini
@@ -26,7 +26,7 @@ services:
             max-size: "100m"
             max-file: "10"
   monitor:
-    image: jobmon
+    image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
     container_name: jobmon${JOBMON_VERSION}_monitor_1
     depends_on:
         - jobmon
@@ -48,7 +48,7 @@ services:
             max-size: "100m"
             max-file: "10"
   initdb:
-    image: jobmon
+    image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
     container_name: jobmon${JOBMON_VERSION}_initdb_1
     depends_on:
         - jobmon

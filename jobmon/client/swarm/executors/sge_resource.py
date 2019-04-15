@@ -124,26 +124,28 @@ class SGEResource(object):
                                  "profile.q). Got {}"
                                  .format(self.mem_free))
         else:
-            logger.debug("You have not specified a memory amount so you have "
+            logger.info("You have not specified a memory amount so you have "
                          "been given 1G, if you need more, add it is a "
                          "parameter to your Task")
             self.mem_free = 1
 
     def _transform_secs_to_hms(self):
-        return str(datetime.timedelta(seconds=self.max_runtime_seconds))
+        """UGE will accept seconds. Do not use funky formatting with days"""
+        return str(self.max_runtime_seconds)
 
     def _validate_runtime(self):
         """Ensure that max_runtime passed in fits on the queue requested"""
         if self.max_runtime_seconds is None and "el7" in self._cluster:
             # a max_runtime has to be provided for the fair cluster, so if none
             #  is provided, set it to 5 minutes so that it fails quickly
-            logger.debug("You did not specify a maximum runtime so it has "
+            logger.info("You did not specify a maximum runtime so it has "
                          "been set to 5 minutes")
             self.max_runtime_seconds = 300
         elif self.max_runtime_seconds is not None:
             if self.queue == "all.q":
-                if self.max_runtime_seconds > 86400:
-                    raise ValueError("Can only run for up to 1 day (86400 sec)"
+                if self.max_runtime_seconds > 3 * 86400:
+                    raise ValueError("Can only run for up to 3 days"
+                                     "(259200 sec)"
                                      " on all.q, you requested {} seconds"
                                      .format(self.max_runtime_seconds))
             elif self.queue == "geospatial.q":
@@ -159,11 +161,11 @@ class SGEResource(object):
                                      "seconds"
                                      .format(self.queue,
                                              self.max_runtime_seconds))
-            elif self.max_runtime_seconds > 86400:
+            elif self.max_runtime_seconds > 3 * 86400:
                 raise ValueError("You did not request all.q, profile.q, "
                                  "geospatial.q, or long.q to run your jobs "
-                                 "so you must limit your runtime to under 1 "
-                                 "day")
+                                 "so you must limit your runtime to under 3 "
+                                 "days")
         else:
             self.max_runtime_seconds = 0
         self.max_runtime = self._transform_secs_to_hms()
@@ -185,7 +187,7 @@ class SGEResource(object):
         if not self.slots and not self.num_cores:
             raise ValueError("Must pass one of [slots, num_cores]")
         if self.slots and not self.num_cores:
-            logger.debug("User Specified slots instead of num_cores, so we are"
+            logger.info("User Specified slots instead of num_cores, so we are"
                          "converting it, but to run on the fair cluster they "
                          "should specify num_cores")
             self.num_cores = self.slots

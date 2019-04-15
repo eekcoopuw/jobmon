@@ -1,6 +1,7 @@
 import pytest
 from time import sleep
 import os
+import uuid
 
 from jobmon import BashTask  # testing new style imports
 from jobmon import PythonTask
@@ -84,6 +85,22 @@ def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Make sure the second Workflow has a distinct set of Jobs
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
+
+
+@pytest.mark.qsubs_jobs
+def test_resource_arguments(real_jsm_jqs, db_cfg):
+    """
+    Test the parsing/serialization max run time and cores.
+    90,000 seconds is deliberately longer than one day, testing a specific
+    bug"""
+    t1 = BashTask("sleep 10",
+                  queue='all.q',
+                  max_runtime_seconds=90_000,
+                  num_cores=2)
+    wf = Workflow("test_resource_arguments-{}".format(uuid.uuid4()))
+    wf.add_tasks([t1])
+    return_code = wf.execute()
+    assert return_code == DagExecutionStatus.SUCCEEDED
 
 
 @pytest.mark.qsubs_jobs
