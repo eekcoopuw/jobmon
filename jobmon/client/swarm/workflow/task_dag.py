@@ -23,8 +23,7 @@ class TaskDag(object):
     """A DAG of ExecutableTasks."""
 
     def __init__(self, name="", interrupt_on_error=True, executor=None,
-                 fail_fast=False, reconciliation_interval=3,
-                 job_instantiation_interval=3,
+                 fail_fast=False, job_instantiation_interval=3,
                  seconds_until_timeout=36000):
 
         self.dag_id = None
@@ -46,8 +45,6 @@ class TaskDag(object):
         self.fail_fast = fail_fast
 
         self.executor = executor
-
-        self.reconciliation_interval = reconciliation_interval
         self.job_instantiation_interval = job_instantiation_interval
         self.seconds_until_timeout = seconds_until_timeout
 
@@ -84,7 +81,6 @@ class TaskDag(object):
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
                 interrupt_on_error=self.interrupt_on_error,
-                reconciliation_interval=self.reconciliation_interval,
                 job_instantiation_interval=self.job_instantiation_interval)
 
             # Bind all the tasks to the job_list_manager... This has to be done

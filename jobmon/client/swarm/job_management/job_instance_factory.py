@@ -4,10 +4,9 @@ import logging
 import threading
 from time import sleep
 
-from jobmon.client import shared_requester
+from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job import Job
-from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 
 logger = logging.getLogger(__name__)
@@ -36,6 +35,8 @@ class JobInstanceFactory(object):
         self.requester = requester
         self.interrupt_on_error = interrupt_on_error
         self.n_queued_jobs = n_queued_jobs
+        self.next_report_increment = client_config.heartbeat_interval * \
+                                     client_config.report_by_buffer
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they
@@ -128,7 +129,8 @@ class JobInstanceFactory(object):
         logger.debug("Executing {}".format(job.command))
         executor_id = self.executor.execute(job_instance=job_instance)
         if executor_id:
-            job_instance.assign_executor_id(self.requester, executor_id)
+            job_instance.assign_executor_id(self.requester, executor_id,
+                                            self.next_report_increment)
         return job_instance, executor_id
 
     def _get_jobs_queued_for_instantiation(self):

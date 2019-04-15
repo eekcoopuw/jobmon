@@ -21,8 +21,8 @@ downstream tasks depend on these jobs.
 .. code::
 
     # python 3
-    from jobmon.workflow.workflow import Workflow
-    from jobmon.workflow.python_task import PythonTask
+    from jobmon.client.swarm.workflow import Workflow
+    from jobmon.client.swarm.python_task import PythonTask
 
     from my_app.utils import split_locs_by_loc_set
 

@@ -735,7 +735,7 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     assert workflow.workflow_run.executor_class == 'SGEExecutor'
 
 
-def test_workflow_identical_args(real_jsm_jqs, db_cfg, monkeypatch):
+def test_workflow_identical_args(real_jsm_jqs, db_cfg):
     # first workflow runs and finishes
     wf1 = Workflow(workflow_args="same", project='proj_jenkins')
     task = BashTask("sleep 2", slots=1)
@@ -754,4 +754,14 @@ def test_workflow_identical_args(real_jsm_jqs, db_cfg, monkeypatch):
     wf3.add_task(task)
     with pytest.raises(WorkflowAlreadyComplete):
         wf3.execute()
+
+
+def test_workflow_config_reconciliation():
+    task = BashTask("sleep 1", slots=1)
+    wf = Workflow(name="test_reconciliation_args", reconciliation_interval=3,
+                  heartbeat_interval=4, report_by_buffer=5.1)
+    from jobmon.client import client_config
+    assert client_config.report_by_buffer == 5.1
+    assert client_config.heartbeat_interval == 4
+    assert client_config.reconciliation_interval == 3
 
