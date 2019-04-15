@@ -385,10 +385,10 @@ def log_executor_id(job_instance_id):
 
 @jsm.route('/task_dag/<dag_id>/log_heartbeat', methods=['POST'])
 def log_dag_heartbeat(dag_id):
-    """Log a job_instance as being responsive, with a heartbeat
+    """Log a dag as being responsive, with a heartbeat
     Args:
 
-        job_instance_id: id of the job_instance to log
+        dag id: id of the job_instance to log
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("dag_id", dag_id))
