@@ -124,7 +124,7 @@ class SGEResource(object):
                                  "profile.q). Got {}"
                                  .format(self.mem_free))
         else:
-            logger.debug("You have not specified a memory amount so you have "
+            logger.info("You have not specified a memory amount so you have "
                          "been given 1G, if you need more, add it is a "
                          "parameter to your Task")
             self.mem_free = 1
@@ -138,7 +138,7 @@ class SGEResource(object):
         if self.max_runtime_seconds is None and "el7" in self._cluster:
             # a max_runtime has to be provided for the fair cluster, so if none
             #  is provided, set it to 5 minutes so that it fails quickly
-            logger.debug("You did not specify a maximum runtime so it has "
+            logger.info("You did not specify a maximum runtime so it has "
                          "been set to 5 minutes")
             self.max_runtime_seconds = 300
         elif self.max_runtime_seconds is not None:
@@ -187,7 +187,7 @@ class SGEResource(object):
         if not self.slots and not self.num_cores:
             raise ValueError("Must pass one of [slots, num_cores]")
         if self.slots and not self.num_cores:
-            logger.debug("User Specified slots instead of num_cores, so we are"
+            logger.info("User Specified slots instead of num_cores, so we are"
                          "converting it, but to run on the fair cluster they "
                          "should specify num_cores")
             self.num_cores = self.slots

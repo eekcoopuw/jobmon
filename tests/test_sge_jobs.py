@@ -1,5 +1,3 @@
-import sys
-
 from datetime import datetime, timedelta
 
 from jobmon.client.swarm.executors import sge_utils as sge

@@ -1,12 +1,10 @@
 import pytest
 import time
 from time import sleep
-import logging
 
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
-from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.client import shared_requester as req
 from jobmon.client.swarm.executors.dummy import DummyExecutor
 from jobmon.client.swarm.executors.sge import SGEExecutor
