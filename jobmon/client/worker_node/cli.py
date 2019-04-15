@@ -101,3 +101,8 @@ def unwrap():
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
         ji_intercom.log_done()
+
+    # If there's nothing wrong with the unwrapping itself we want to propagate
+    # the return code from the subprocess onward for proper reporting
+    if returncode:
+        sys.exit(returncode)

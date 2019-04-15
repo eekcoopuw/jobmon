@@ -2,6 +2,7 @@ import pytest
 from time import sleep
 import os
 import uuid
+import subprocess
 
 from jobmon import BashTask  # testing new style imports
 from jobmon import PythonTask
@@ -423,6 +424,37 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
         # Make sure all their node names were recorded
         nodenames = [ji.nodename for ji in jis]
         assert nodenames and all(nodenames)
+
+
+def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
+    task = BashTask("not_a_command 1", num_cores=1, m_mem_free='2G',
+                    queue="all.q", j_resource=False)
+
+    err_wf = Workflow("my_failing_task", interrupt_on_error=False,
+                      project='ihme_general')
+    err_wf.add_task(task)
+    err_wf.execute()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
+    # get executor_id of row where dag_id matches err_wf's dag_id
+    with app.app_context():
+        query = (
+            f"SELECT executor_id FROM "
+            f"job_instance WHERE dag_id = {int(err_wf.dag_id)}")
+
+        errored_job_id = DB.session.execute(query).first()[0]
+    qacct_output = subprocess.check_output(
+        args=['qacct', '-j', f'{errored_job_id}'],
+        encoding='UTF-8').strip()
+    qacct_output = qacct_output.split('\n')[1:]
+    qacct_output = {line.split()[0]: line.split()[1] for line in qacct_output}
+
+    exit_status = int(qacct_output['exit_status'])
+
+    # exit status should not be a success, expect failure
+    assert exit_status != 0
 
 
 # @pytest.mark.skip(reason="there isn't any guarantee that this fails in time")
