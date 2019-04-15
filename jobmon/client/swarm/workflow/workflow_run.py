@@ -111,7 +111,7 @@ class WorkflowRun(object):
             logger.error(msg)
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
-                message={'wfr_id': wf_run['id'],
+                message={'workflow_run_id': wf_run['id'],
                          'status': WorkflowRunStatus.STOPPED},
                 request_type='put')
             raise RuntimeError(msg)
