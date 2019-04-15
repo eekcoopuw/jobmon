@@ -34,7 +34,6 @@ def job_list_manager(real_dag_id):
 def job_list_manager_d(real_dag_id):
     """Quick job_instantiation_interval for quick tests"""
     jlm = JobListManager(real_dag_id, start_daemons=True,
-                         reconciliation_interval=10,
                          job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm
@@ -49,7 +48,6 @@ def job_list_manager_sge_no_daemons(real_dag_id):
     """
     executor = SGEExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
-                         reconciliation_interval=10,
                          job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm

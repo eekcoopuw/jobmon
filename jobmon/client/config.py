@@ -33,16 +33,23 @@ class ClientConfig(object):
         if "JOBMON_COMMAND" in os.environ:
             DEFAULT_CLIENT_CONFIG["jobmon_command"] = (
                 os.environ["JOBMON_COMMAND"])
+        if "RECONCILIATION_INTERVAL" in os.environ:
+            DEFAULT_CLIENT_CONFIG["reconciliation_interval"] = (
+               int(os.environ["RECONCILIATION_INTERVAL"]))
         if "HEARTBEAT_INTERVAL" in os.environ:
             DEFAULT_CLIENT_CONFIG["heartbeat_interval"] = (
-                os.environ["HEARTBEAT_INTERVAL"])
+                int(os.environ["HEARTBEAT_INTERVAL"]))
+        if "REPORT_BY_BUFFER" in os.environ:
+            DEFAULT_CLIENT_CONFIG["report_by_buffer"] = (
+                float(os.environ["report_by_buffer"]))
 
         # and finally override using CLI args (if passed)
         # TBD
 
         return cls(**DEFAULT_CLIENT_CONFIG)
 
-    def __init__(self, host, port, jobmon_command, heartbeat_interval):
+    def __init__(self, host, port, jobmon_command, reconciliation_interval,
+                 heartbeat_interval, report_by_buffer):
 
         self._host = host
         self._port = port
@@ -52,4 +59,7 @@ class ClientConfig(object):
             port=str(port))
 
         self.jobmon_command = jobmon_command
+        self.reconciliation_interval = reconciliation_interval
         self.heartbeat_interval = heartbeat_interval
+        self.report_by_buffer = report_by_buffer
+

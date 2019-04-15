@@ -25,5 +25,7 @@ DEFAULT_CLIENT_CONFIG = {
     "host": constants.deploy_attribute["SERVER_QDNS"],
     "port": constants.deploy_attribute["SERVICE_PORT"],
     "jobmon_command": derive_jobmon_command_from_env(),
-    "heartbeat_interval": 90
+    "reconciliation_interval": 10,
+    "heartbeat_interval": 90,
+    "report_by_buffer": 3.1
 }

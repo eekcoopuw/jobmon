@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
-                 reconciliation_interval=10,
                  job_instantiation_interval=3,
                  interrupt_on_error=True, n_queued_jobs=1000,
                  requester=shared_requester):
@@ -30,8 +29,6 @@ class JobListManager(object):
                 SequentialExecutor, DummyExecutor or SGEExecutor
             start_daemons (bool, default False): whether or not to start the
                 JobInstanceFactory and JobReconciler as daemonized threads
-            reconciliation_interval (int, default 10 ): number of seconds to
-                wait between reconciliation attempts
             job_instantiation_interval (int, default 3): number of seconds to
                 wait between instantiating newly ready jobs
             interrupt_on_error (bool, default True): whether or not to
@@ -45,8 +42,7 @@ class JobListManager(object):
         self._stop_event = Event()
         self.job_instance_factory = JobInstanceFactory(
             dag_id, executor, interrupt_on_error, n_queued_jobs,
-            stop_event=self._stop_event,
-            next_report_increment=reconciliation_interval * 3)
+            stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
 
@@ -61,7 +57,6 @@ class JobListManager(object):
         self.last_sync = None
         self._sync()
 
-        self.reconciliation_interval = reconciliation_interval
         self.job_instantiation_interval = job_instantiation_interval
         if start_daemons:
             self._start_job_instance_manager()
@@ -260,8 +255,7 @@ class JobListManager(object):
         self.jif_proc.start()
 
         self.jir_proc = Thread(
-            target=self.job_inst_reconciler.reconcile_periodically,
-            args=(self.reconciliation_interval,))
+            target=self.job_inst_reconciler.reconcile_periodically)
         self.jir_proc.daemon = True
         self.jir_proc.start()
 

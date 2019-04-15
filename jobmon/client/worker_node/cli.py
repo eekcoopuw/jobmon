@@ -35,7 +35,8 @@ def unwrap():
     parser.add_argument("--temp_dir", required=False)
     parser.add_argument("--last_nodename", required=False)
     parser.add_argument("--last_pgid", required=False)
-    parser.add_argument("--heartbeat_interval", default=120, type=int)
+    parser.add_argument("--heartbeat_interval", default=90, type=int)
+    parser.add_argument("--report_by_buffer", default=3.1, type=float)
 
     # makes a dict
     args = vars(parser.parse_args())
@@ -64,8 +65,8 @@ def unwrap():
                                       executor_class=ExecutorClass,
                                       process_group_id=os.getpid(),
                                       hostname=args['jm_host'])
-    ji_intercom.log_running(
-        next_report_increment=args['heartbeat_interval'] * 3)
+    ji_intercom.log_running(next_report_increment=(
+            args['heartbeat_interval'] * args['report_by_buffer']))
 
     try:
         if 'last_nodename' in args and 'last_pgid' in args:
@@ -87,8 +88,8 @@ def unwrap():
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
-                ji_intercom.log_report_by(
-                    next_report_increment=args['heartbeat_interval'] * 3)
+                ji_intercom.log_report_by(next_report_increment=(
+                        args['heartbeat_interval'] * args['report_by_buffer']))
                 last_heartbeat_time = time()
 
         # communicate the stdout and stderr

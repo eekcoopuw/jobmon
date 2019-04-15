@@ -405,7 +405,11 @@ def log_dag_heartbeat(dag_id):
 
 @jsm.route('/job_instance/<job_instance_id>/log_report_by', methods=['POST'])
 def log_ji_report_by(job_instance_id):
-    """Log a job_instance as being responsive, with a heartbeat
+    """Log a job_instance as being responsive with a new report_by_date, this
+    is done at the worker node heartbeat_interval rate, so it may not happen at
+    the same rate that the reconciler updates batch submitted report_by_dates
+    (also because it causes a lot of traffic if all workers are logging report
+    _by_dates often compared to if the reconciler runs often)
     Args:
 
         job_instance_id: id of the job_instance to log
@@ -413,9 +417,6 @@ def log_ji_report_by(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
 
-    # job instance should exist if we are calling this route
-    # ji = DB.session.query(JobInstance).filter_by(
-    #     job_instance_id=job_instance_id).one()
     params = {}
     params["next_report_increment"] = request.get_json()["next_report_increment"]
     params["job_instance_id"] = job_instance_id
@@ -427,10 +428,6 @@ def log_ji_report_by(job_instance_id):
         WHERE job_instance_id = :job_instance_id"""
     DB.session.execute(query, params)
     DB.session.commit()
-    # set to database time not web app time
-    # ji.report_by_date = func.ADDTIME(func.UTC_TIMESTAMP(),
-    #                                  func.SEC_TO_TIME(next_report_increment))
-
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -438,7 +435,11 @@ def log_ji_report_by(job_instance_id):
 
 @jsm.route('/task_dag/<dag_id>/reconcile', methods=['POST'])
 def reconcile(dag_id):
-    """ensure all jobs that we thought were active continue to log heartbeats
+    """Ensure all jobs that we thought were active continue to log heartbeats,
+    and update all jobs submitted to batch executor with a new report_by_date.
+    Since they are not running jobs, we still have to use qstat and update
+    their report_by_date from the reconciler, therefore they are updated
+    at the reconciliation rate
     Args:
 
         job_instance_id: id of the job_instance to log
@@ -447,7 +448,6 @@ def reconcile(dag_id):
     logger.debug(logging.logParameter("dag_id", dag_id))
     data = request.get_json()
 
-    # update all jobs submitted to batch executor with a new report_by_date
     params = {}
     for key in ["next_report_increment", "executor_ids"]:
         params[key] = data[key]
