@@ -41,9 +41,9 @@ Constructing a Workflow and adding a few Tasks is simple::
 
     import getpass
 
-    from jobmon.workflow.workflow import Workflow
-    from jobmon.workflow.bash_task import BashTask
-    from jobmon.workflow.python_task import PythonTask
+    from jobmon.client.swarm.workflow import Workflow
+    from jobmon.client.swarm.bash_task import BashTask
+    from jobmon.client.swarm.python_task import PythonTask
 
     # Create a Workflow
     user = getpass.getuser()
@@ -92,7 +92,7 @@ A Workflow allows for sophisticated tracking of how many times a DAG gets execut
 To resume the Workflow created above::
 
     import getpass
-    from jobmon.workflow.workflow import Workflow
+    from jobmon.client.swarm.workflow import Workflow
 
     # Re-instantiate your Workflow with the same WorkflowArgs but add the resume flag
     user = getpass.getuser()
