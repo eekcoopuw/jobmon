@@ -100,7 +100,7 @@ def unwrap():
         stdout = ""
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                      traceback.format_exc())
-        returncode = None
+        returncode = 199
 
     print(stdout)
     eprint(stderr)
@@ -117,5 +117,4 @@ def unwrap():
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting
-    if returncode:
-        sys.exit(returncode)
+    sys.exit(returncode)
