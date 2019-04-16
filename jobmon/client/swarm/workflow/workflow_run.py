@@ -63,7 +63,7 @@ class WorkflowRun(object):
             request_type='post')
         wfr_id = response['workflow_run_id']
         if rc != StatusCodes.OK:
-            raise ValueError("Invalid Reponse to add_workflow_run")
+            raise ValueError(f"Invalid Response to add_workflow_run: {rc}")
         self.id = wfr_id
         self.add_project_limit_attribute('start')
 

@@ -143,7 +143,7 @@ def test_daemon_invalid_command(job_list_manager_d):
     job_list_manager_d.queue_job(job.job_id)
 
     # Give some time for the job to get to the executor
-    timeout_and_skip(3, 30, 1, partial(
+    timeout_and_skip(3, 30, 1, "foobar", partial(
         daemon_invalid_command_check,
         job_list_manager_d=job_list_manager_d))
 
@@ -159,7 +159,7 @@ def test_daemon_valid_command(job_list_manager_d):
     job_list_manager_d.queue_job(job.job_id)
 
     # Give some time for the job to get to the executor
-    timeout_and_skip(3, 30, 1, partial(
+    timeout_and_skip(3, 30, 1, "foobarbaz", partial(
         daemon_valid_command_check,
         job_list_manager_d=job_list_manager_d))
 

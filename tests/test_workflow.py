@@ -559,7 +559,8 @@ def test_timeout(real_jsm_jqs, db_cfg):
     assert expected_msg == str(error.value)
 
 
-def test_failing_nodes(real_jsm_jqs, db_cfg):
+def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
+    """Test the Health Montior's identification of failing nodes"""
 
     # these dummy dags will increment the ID of our dag-of-interest to
     # avoid the timing collisions
@@ -585,13 +586,13 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
 
     wfr = workflow.workflow_run
 
-    # give some time to make sure the dag's reconciliation process
-    # has actually started
-    sleep(20)
-
     hm = HealthMonitor(node_notification_sink=mock_slack)
     hm._database = 'singularity'
 
+    # A database commit must follow each dbs update, sqlalchmey might use
+    # a different dbs connection for each dbs statement. So the next query
+    # might not see the because it will be on a different connection.
+    # Therefore ensure that the update has hit the database by using a commit.
     with app.app_context():
 
         # Manually make the workflow run look like it's still running
@@ -600,7 +601,7 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
             SET status='{s}'
             WHERE workflow_id={id}""".format(s=WorkflowRunStatus.RUNNING,
                                              id=workflow.id))
-
+        DB.session.commit()
         # This test's workflow should be in the 'active' AND succeeding list
         active_wfrs = hm._get_succeeding_active_workflow_runs(DB.session)
         assert wfr.id in active_wfrs
@@ -611,11 +612,12 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
             SET nodename='fake_node.ihme.washington.edu', status="{s}"
             WHERE job_instance_id < 7 and workflow_run_id={wfr_id}
             """.format(s=JobInstanceStatus.ERROR, wfr_id=wfr.id))
+        DB.session.commit()
         failing_nodes = hm._calculate_node_failure_rate(DB.session, active_wfrs)
         assert 'fake_node.ihme.washington.edu' in failing_nodes
 
         # Manually make those job instances land on the same node and have
-        # them fail BUT also manually make there dates be older than an hour
+        # them fail BUT also manually make their dates be older than an hour.
         # Ensure they they don't come up because of the time window
         DB.session.execute("""
             UPDATE job_instance
