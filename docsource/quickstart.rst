@@ -77,6 +77,9 @@ Constructing a Workflow and adding a few Tasks is simple::
 .. note::
     By default Workflows are set to time out if your tasks haven't all completed after 10 hours (or 36000 seconds). If your Workflow times out before your tasks have finished running, those tasks will continue running, but you will need to restart your Workflow again. You can change this if your tasks combined run longer than 10 hours.
 
+.. note::
+    Errors with a return code of 199 indicate an issue occurring within Jobmon itself.
+
 Restart Tasks and Resume Workflows
 =======================================
 
