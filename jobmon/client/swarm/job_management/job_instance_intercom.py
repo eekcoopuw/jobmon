@@ -43,6 +43,15 @@ class JobInstanceIntercom(object):
 
     def log_error(self, error_message):
         """Tell the JobStateManager that this job_instance has errored"""
+
+        # clip at 10k to avoid mysql has gone away errors when posting long
+        # messages
+        e_len = len(error_message)
+        if len(error_message) >= 10000:
+            error_message = error_message[-10000:]
+            logger.debug(f"Error_message is {e_len} which is more than the 10k"
+                         "character limit for error messages. Only the final"
+                         "10k will be captured by the database.")
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_error'
                        .format(self.job_instance_id)),
@@ -69,7 +78,9 @@ class JobInstanceIntercom(object):
                            "executors".format(self.executor_class))
 
     def log_running(self, next_report_increment):
-        """Tell the JobStateManager that this job_instance is running"""
+        """Tell the JobStateManager that this job_instance is running, and
+        update the report_by_date to be further in the future in case it gets
+        reconciled immediately"""
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_running'
                        .format(self.job_instance_id)),
