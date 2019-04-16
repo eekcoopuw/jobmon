@@ -12,7 +12,7 @@ from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
 
-
+# TODO: Redesign the scope of the try-catch blocks (return code 199)
 def unwrap():
 
     # This script executes on the target node and wraps the target application.
@@ -100,7 +100,7 @@ def unwrap():
         stdout = ""
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                      traceback.format_exc())
-        returncode = None
+        returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
     print(stdout)
     eprint(stderr)
@@ -114,3 +114,7 @@ def unwrap():
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
         ji_intercom.log_done()
+
+    # If there's nothing wrong with the unwrapping itself we want to propagate
+    # the return code from the subprocess onward for proper reporting
+    sys.exit(returncode)
