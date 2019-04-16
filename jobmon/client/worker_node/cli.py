@@ -100,7 +100,7 @@ def unwrap():
         stdout = ""
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                      traceback.format_exc())
-        returncode = 199
+        returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
     print(stdout)
     eprint(stderr)
