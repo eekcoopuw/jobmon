@@ -1,4 +1,5 @@
 import logging
+import os
 
 import pandas as pd
 from db_tools import ezfuncs
@@ -51,6 +52,13 @@ def define_database_connections():
                 "password": "*****",
                 "default_schema": "docker"
             },
+            "v067": {
+                "host": jobmon_p01,
+                "port": 3314,
+                "user_name": "root",
+                "password": "*****",
+                "default_schema": "docker"
+            },
             "v071": {
                 "host": jobmon_p01,
                 "port": 3316,
@@ -67,23 +75,34 @@ def define_database_connections():
             },
             "v080": {
                 "host": jobmon_p01,
-                "port": 3810,
+                "port": 3800,
                 "user_name": "read_only",
                 "password": "****"
             },
             "v081": {
-                "host": jobmon_docker_cont_p01,
-                "port": 3820,
+                "host": jobmon_p01,
+                "port": 3810,
                 "user_name": "read_only",
                 "password": "*****"
             },
             "v083": {
-                "host": jobmon_docker_cont_p01,
+                "host": jobmon_p01,
                 "port": 3830,
+                "user_name": "read_only",
+                "password": "*****"
+            },
+            "v089": {
+                "host": jobmon_docker_cont_p01,
+                "port": 3890,
                 "user_name": "read_only",
                 "password": "*****"
             }
         })
+    return db_config
+
+def database_conns_from_file(kpi_odbc):
+    db_config = DBConfig(load_base_defs=False, load_odbc_defs=True,
+                         odbc_filepath=kpi_odbc)
     return db_config
 
 
@@ -178,7 +197,14 @@ def main():
     Get them into pandas frames
     """
 
-    db_config = define_database_connections()
+    kpi_odbc = "../kpi.odbc.ini"
+    if os.path.exists(kpi_odbc):
+        db_config = database_conns_from_file(kpi_odbc)
+    else:
+        db_config = define_database_connections()
+
+    import pdb
+    pdb.set_trace()
 
     all_workflows = None
     all_jobs = None
