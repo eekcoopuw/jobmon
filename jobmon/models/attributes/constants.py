@@ -55,4 +55,5 @@ deploy_attribute = AttributeDictionary({
     'SERVER_HOSTNAME': "jobmon-docker-cont-p01",
     'DB_PORT': 3890,
     'SERVICE_PORT': 8956,
+    'SLACK_API_URL': 'https://slack.com/api/chat.postMessage',
 })
