@@ -1,8 +1,18 @@
 jobmon.models package
 =====================
 
+
+Subpackages
+-----------
+
+.. toctree::
+
+    jobmon.models.attributes
+
+
 Submodules
 ----------
+
 
 jobmon.models.database\_loaders module
 --------------------------------------
