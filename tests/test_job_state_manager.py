@@ -96,7 +96,7 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
                  'pid': '000',
                  'stderr': "",
                  'stdout': "",
-                 'project': 'proj_jenkins',
+                 'project': 'proj_tools',
                  'slack_channel': "",
                  'executor_class': 'SGEExecutor',
                  'working_dir': ""},

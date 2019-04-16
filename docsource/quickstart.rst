@@ -47,7 +47,7 @@ Constructing a Workflow and adding a few Tasks is simple::
 
     # Create a Workflow
     user = getpass.getuser()
-    my_wf = Workflow(workflow_args="quickstart", project='proj_jenkins',
+    my_wf = Workflow(workflow_args="quickstart", project='proj_tools',
                      stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
                      stdout='/ihme/scratch/users/{}/sgeoutput'.format(user)),
                      working_dir='/homes/{}'.format(user),

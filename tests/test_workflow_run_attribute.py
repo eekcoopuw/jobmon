@@ -67,7 +67,7 @@ def test_workflow_run_attribute_input_error(real_jsm_jqs, db_cfg):
 @pytest.mark.qsubs_jobs
 def test_new_workflow_has_project_limit(real_jsm_jqs, db_cfg):
     wfa = "test_new_workflow_has_project_limit"
-    workflow = Workflow(wfa, project='proj_burdenator')
+    workflow = Workflow(wfa, project='proj_tools')
     t1 = BashTask("sleep 1", slots=1)
     workflow.add_tasks([t1])
     workflow._bind()

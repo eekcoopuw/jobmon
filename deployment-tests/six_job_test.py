@@ -31,7 +31,7 @@ def six_job_test():
 
     wf = Workflow("six-job-test-{}".format(uuid.uuid4()),
                   "./six_job_test_stderr.log",
-                  project="proj_burdenator")
+                  project="proj_tools")
     wf.add_tasks([t1, t2, t3, t4, t5, t6])
     print("Running the workflow, about 70 seconds minimum")
     wf.execute()

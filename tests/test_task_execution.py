@@ -54,7 +54,7 @@ def test_bash_task(db_cfg, dag_factory):
     name = 'bash_task'
     task = BashTask(command="date", name=name, mem_free='1G', max_attempts=2,
                     slots=1, max_runtime_seconds=60)
-    executor = SGEExecutor(project='proj_jenkins')
+    executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
     real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
@@ -93,7 +93,7 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
                       name=name, mem_free='1G', max_attempts=2, slots=1,
                       max_runtime_seconds=60)
 
-    executor = SGEExecutor(project='proj_jenkins')
+    executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
     real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
@@ -127,7 +127,7 @@ def test_R_task(db_cfg, dag_factory, tmp_out_dir):
     task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name,
                  mem_free='1G', max_attempts=2, max_runtime_seconds=60,
                  slots=1)
-    executor = SGEExecutor(project='proj_jenkins')
+    executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
     real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
@@ -160,7 +160,7 @@ def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
     task = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
                      name=name, mem_free='1G', max_attempts=2,
                      max_runtime_seconds=60, slots=1)
-    executor = SGEExecutor(project='proj_jenkins')
+    executor = SGEExecutor(project='proj_tools')
     executor.set_temp_dir(root_out_dir)
     dag = dag_factory(executor)
     dag.add_task(task)
@@ -206,7 +206,7 @@ def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
                             "--name", name],
                       name=name, mem_free='1G', max_attempts=2,
                       max_runtime_seconds=60, queue='all.q@@c2-nodes')
-    executor = SGEExecutor(project='proj_jenkins')
+    executor = SGEExecutor(project='proj_tools')
     dag = dag_factory(executor)
     dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (dag._execute())

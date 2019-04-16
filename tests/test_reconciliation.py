@@ -119,7 +119,7 @@ def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
     app=db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        query = """ 
+        query = """
         SELECT submitted_date, report_by_date
         FROM job_instance
         WHERE job_id = {}""".format(job_id)
@@ -285,7 +285,7 @@ def sge_jlm_for_queues(real_dag_id, tmpdir_factory):
     ologdir = str(tmpdir_factory.mktemp("ologs"))
 
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
-                           project='proj_jenkins')
+                           project='proj_tools')
     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False,
                          job_instantiation_interval=10,
                          interrupt_on_error=True, n_queued_jobs=3)

@@ -5,28 +5,29 @@ import random
 import uuid
 from datetime import datetime
 from typing import List
-import hashlib
 
 
 from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.client.swarm.executors import sge_utils as sge
 from mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 
-def load_test_with_timeouts(n_jobs: int, n_exceptions: int, sleep_timeout: bool
-                            , all_phases: bool)-> None:
+thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
+script = os.path.join(thisdir, "sleep_and_err.py")
+
+
+def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
+                            sleep_timeout: bool, all_phases: bool)-> None:
     wfid = uuid.uuid4()
     user = getpass.getuser()
     wf = Workflow(f"load-test-{wfid}", "load_test_with_timeouts",
                   stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
-                  project="proj_burdenator")
+                  project="proj_tools")
 
     tier1 = []
     for i in range(n_jobs):
         sleep = random.randint(20, 31)
-        uid = f"tier_1_{uuid.uuid4()}"
-        cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid {uid}")
+        cs = f"{script} --uid tier1_{uuid.uuid4()}"
         task = SleepAndWriteFileMockTask(
             command=f"python {cs} --sleep_secs {sleep}",
             max_runtime_seconds=40)
@@ -42,8 +43,7 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int, sleep_timeout: bool
         # Second Tier, depend on 1 tier 1 task
         for i in range(n_jobs * 3):
             sleep = random.randint(20, 31)
-            uid = f"tier_2_{uuid.uuid4()}"
-            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid {uid}")
+            cs = f"{script} --uid tier2_{uuid.uuid4()}"
             task = SleepAndWriteFileMockTask(
                 command=f"python {cs} --sleep_secs {sleep}",
                 upstream_tasks=[tier1[(i % n_jobs)]], max_runtime_seconds=40)
@@ -57,8 +57,7 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int, sleep_timeout: bool
         # Third Tier, depend on 3 tier 2 tasks
         for i in range(n_jobs):
             sleep = random.randint(20, 31)
-            uid = f"tier_3_{uuid.uuid4()}"
-            cs = sge.true_path(f"deployment-tests/sleep_and_err.py --uid {uid}")
+            cs = f"{script} --uid tier3_{uuid.uuid4()}"
             task = SleepAndWriteFileMockTask(
                 command=f"python {cs} --sleep_secs {sleep}",
                 upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
@@ -75,7 +74,6 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int, sleep_timeout: bool
     wf.execute()
     time = datetime.now().strftime("%m/%d/%Y/_%H:%M:%S")
     print(f"{time}: Workflow complete!")
-    
 
 
 def add_random_timeouts(task_list: List, n_exceptions: int,
@@ -83,7 +81,7 @@ def add_random_timeouts(task_list: List, n_exceptions: int,
     """set a random group of tasks to timeout. Seeded with 4 so we can
     replicate the random group """
     random.seed(4)
-    seed_list = list(range(len(task_list))) # need to make a reproducible list
+    seed_list = list(range(len(task_list)))  # need to make a reproducible list
     sample = random.sample(seed_list, n_exceptions)
     for index in sample:
         task = task_list[index]
@@ -98,7 +96,7 @@ def add_random_timeouts(task_list: List, n_exceptions: int,
 
 if __name__ == "__main__":
     """
-    ex. call ' python deployment-tests/load_test_with_failures.py 1 0 
+    ex. call ' python deployment-tests/load_test_with_failures.py 1 0
     --all_phases'
      to run three tiers 1 job, 3 jobs, 1 job, without any raising exceptions
     """

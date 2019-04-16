@@ -293,7 +293,7 @@ def add_update_workflow_run():
         logger.debug(logging.logParameter("DB.session", DB.session))
     else:
         wfr = DB.session.query(WorkflowRunDAO).\
-            filter(WorkflowRunDAO.id == data['wfr_id']).first()
+            filter(WorkflowRunDAO.id == data['workflow_run_id']).first()
         for key, val in data.items():
             setattr(wfr, key, val)
     DB.session.commit()
