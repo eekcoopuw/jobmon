@@ -20,7 +20,7 @@ def raise_if_exceed_retry(retry_state):
     '''
     status, content = retry_state.outcome.result()
     raise RuntimeError(
-        'Exceeded HTTP request retry budget. '
+        f'Exceeded HTTP request retry budget. '
         f'Status code was {status} and content was {content}')
 
 

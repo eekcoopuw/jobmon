@@ -56,6 +56,10 @@ def get_project_limits(project):
     """This function uses the qconf call from the toolbox to get project_limits
     from the cluster.
     See /share/local/IT/scripts/cluster_projects_report_admin.sh
+
+    The shell script only works on prod.
+    For fair, send a GET to https://toolbox.ihme.washington.edu/cluster/fair/allocations
+    see Jira GBDSCI-1723
     """
     if not project:
         project = 'ihme_general'
