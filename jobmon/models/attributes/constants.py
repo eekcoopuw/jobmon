@@ -53,7 +53,7 @@ job_attribute = AttributeDictionary({
 deploy_attribute = AttributeDictionary({
     'SERVER_QDNS': "jobmon-docker-cont-p01.hosts.ihme.washington.edu",
     'SERVER_HOSTNAME': "jobmon-docker-cont-p01",
-    'DB_PORT': 3890,
-    'SERVICE_PORT': 8956,
+    'DB_PORT': 3900,
+    'SERVICE_PORT': 9056,
     'SLACK_API_URL': 'https://slack.com/api/chat.postMessage',
 })
