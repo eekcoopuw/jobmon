@@ -67,8 +67,13 @@ class SGEExecutor(Executor):
         return executor_ids
 
     def get_actual_submitted_to_executor(self):
-        """only get jobs with a pending state (qw) from qstat"""
-        qstat_out = sge_utils.qstat(status='p')
+        """get jobs that qstat thinks are submitted but not yet running."""
+
+        # jobs returned by this function may well be actually running or done,
+        # but those state transitions are handled by the worker node/heartbeat.
+        qstat_out = sge_utils.qstat(status='pr')
+        qstat_out = qstat_out[
+            qstat_out.status.isin(["qw", "hqw", "hRwq", "t"])]
         executor_ids = list(qstat_out.job_id)
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids
