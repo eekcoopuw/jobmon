@@ -26,6 +26,7 @@ Table of Contents
     advanced_dependencies
     dag_visualization
     services
+    tests
     azure
     glossary
     design_notes

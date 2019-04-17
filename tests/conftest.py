@@ -70,8 +70,7 @@ def test_session_config(ephemera_conn_str):
 @pytest.fixture(autouse=True)
 def env_var(monkeypatch, test_session_config):
     """These two env variables are what tell the configs that we're running
-    tests,
-    not production code
+    tests, not production code
     """
     from jobmon.client import shared_requester, client_config
     from jobmon.client.connection_config import ConnectionConfig
