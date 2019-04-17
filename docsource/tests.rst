@@ -1,7 +1,7 @@
 Testing Strategy
 ################
 
-The goal is that the pytest unit tests should have  sufficient coverage that it
+The goal is that the pytest unit tests should have sufficient coverage that it
 is safe to release if they are all green. That is not the case as of April 2019.
 Bugs reached production even though the tests were green. Therefore every
 production bug must have a new test written, and all new code must start with
@@ -10,7 +10,7 @@ a list of test cases.
 Pytest is used for automatic tests, both unit tests and integration tests.
 
 Load tests are manual and are performed using a deployment of the release
-candidate. Therefore these are also UAT.
+candidate. Therefore these are also User Acceptance Test (UAT).
 
 Unit Tests
 **********
@@ -61,7 +61,7 @@ test_and_skip is an important function that protects against cluster instability
 Many tests create a SGE job and wait for it to complete. If the cluster is
 busy then the job gets stuck in qw (queue-wait) mode. This function has a while
 loop with a timeout. In essence it will skip the test if the job under test is
-stuck in QW mode when the timeout occurs. So the test won't fail.
+stuck in qw mode when the timeout occurs. So the test won't fail.
 
 If a test needs to use a SQL UPDATE command to change a job, then make sure you
 commit after every update. Subsequent operations are not guaranteed to get the
