@@ -137,6 +137,12 @@ class JobmonDeployment(object):
         os.environ["INTERNAL_DB_HOST"] = INTERNAL_DB_HOST
         os.environ["INTERNAL_DB_PORT"] = str(INTERNAL_DB_PORT)
         os.environ["JOBMON_VERSION"] = "".join(self.jobmon_version.split('.'))
+        if self.slack_token is not None:
+            os.environ["SLACK_TOKEN"] = self.slack_token
+        if self.wf_slack_channel is not None:
+            os.environ["WF_SLACK_CHANNEL"] = self.wf_slack_channel
+        if self.node_slack_channel is not None:
+            os.environ["NODE_SLACK_CHANNEL"] = self.node_slack_channel
 
     def _run_docker(self):
         subprocess.call(["docker-compose", "up", "--build", "-d"])
@@ -177,7 +183,8 @@ class JobmonDeployment(object):
 def main():
     print("Signing into the harbor registry you will be prompted for your "
           "credentials:")
-    resp = subprocess.call(["docker", "login", "registry-app-p01.ihme.washington.edu"])
+    resp = subprocess.call(
+        ["docker", "login", "registry-app-p01.ihme.washington.edu"])
     if resp == 0:
         push_to_registry = True
     else:
@@ -194,15 +201,15 @@ def main():
 
     if slack_token:
         wf_slack_channel = (
-                input(
-                    "Slack notification channel for reporting lost workflow "
-                    "runs ({}): ".format(DEFAULT_WF_SLACK_CHANNEL)) or
-                DEFAULT_WF_SLACK_CHANNEL)
+            input(
+                "Slack notification channel for reporting lost workflow "
+                "runs ({}): ".format(DEFAULT_WF_SLACK_CHANNEL)) or
+            DEFAULT_WF_SLACK_CHANNEL)
         node_slack_channel = (
-                input(
-                    "Slack notification channel for reporting failing nodes "
-                    "({}): ".format(DEFAULT_NODE_SLACK_CHANNEL)) or
-                DEFAULT_NODE_SLACK_CHANNEL)
+            input(
+                "Slack notification channel for reporting failing nodes "
+                "({}): ".format(DEFAULT_NODE_SLACK_CHANNEL)) or
+            DEFAULT_NODE_SLACK_CHANNEL)
 
         deployment = JobmonDeployment(slack_token=slack_token,
                                       wf_slack_channel=wf_slack_channel,

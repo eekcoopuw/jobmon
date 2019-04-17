@@ -3,6 +3,7 @@ from time import sleep
 
 from sqlalchemy.orm import joinedload
 
+from jobmon import __version__
 from jobmon.client import shared_requester
 from jobmon.models import DB
 from jobmon.models.workflow_run_status import WorkflowRunStatus
@@ -58,6 +59,12 @@ class HealthMonitor(object):
     def monitor_forever(self):
         """Run in a thread and monitor for failing jobs"""
         logger.debug(logging.myself())
+        if self._wf_notification_sink is not None:
+            self._wf_notification_sink(
+                msg=f"health monitor v{__version__} is alive")
+        if self._node_notification_sink is not None:
+            self._node_notification_sink(
+                msg=f"health monitor v{__version__} is alive")
         while True:
             with self.app.app_context():
                 # Identify and log lost workflow runs
