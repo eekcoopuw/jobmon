@@ -30,7 +30,8 @@ def one_phase_load_test(n_jobs: int) -> None:
                   project="proj_tools")
 
     command = os.path.join(thisdir, "sleep_and_echo.sh")
-    os.chmod(command, stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    st = os.stat(command)
+    os.chmod(command, st.st_mode | stat.S_IXUSR)
 
     task_list = []
     # First Tier

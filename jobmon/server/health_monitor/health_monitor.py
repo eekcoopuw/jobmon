@@ -15,6 +15,7 @@ from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 logger = logging.getLogger(__file__)
 
+
 class HealthMonitor(object):
     """Watches for disappearing dags / workflows, as well as failing nodes
 
@@ -91,7 +92,8 @@ class HealthMonitor(object):
                     wf.status = "{s}"
                 GROUP BY workflow_run_id
                 HAVING failure_rate <= .1
-                     """.format(db=self._database, s=WorkflowRunStatus.RUNNING))
+                     """.format(db=self._database,
+                                s=WorkflowRunStatus.RUNNING))
             logger.debug("Query:\n{}".format(query))
             res = session.execute(query).fetchall()
             if res:
@@ -145,7 +147,7 @@ class HealthMonitor(object):
         logger.debug(logging.myself())
         with self.app.app_context():
             wrs = session.query(WorkflowRunDAO).\
-                options(joinedload(WorkflowRunDAO.workflow).\
+                options(joinedload(WorkflowRunDAO.workflow).
                         joinedload(Workflow.task_dag)).\
                 filter_by(status=WorkflowRunStatus.RUNNING).all()
             return wrs
@@ -173,7 +175,7 @@ class HealthMonitor(object):
         for wfr in lost_workflow_runs:
             self._requester.send_request(
                 app_route='/workflow_run',
-                message={'wfr_id': wfr.id,
+                message={'workflow_run_id': wfr.id,
                          'status': WorkflowRunStatus.ERROR,
                          'status_date': str(datetime.utcnow())},
                 request_type='put')
