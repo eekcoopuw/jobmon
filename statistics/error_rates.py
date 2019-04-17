@@ -100,6 +100,7 @@ def define_database_connections():
         })
     return db_config
 
+
 def database_conns_from_file(kpi_odbc):
     db_config = DBConfig(load_base_defs=False, load_odbc_defs=True,
                          odbc_filepath=kpi_odbc)
@@ -114,8 +115,7 @@ def get_workflow_statistics(conn_name: str) -> pd.DataFrame:
     query = """
     SELECT
       workflow.id, workflow.workflow_args, workflow.description,
-      workflow.status, workflow.status_date, 
-      workflow.workflow_args, 
+      workflow.status, workflow.status_date,  
       COUNT(job.job_id) as number_of_jobs 
     FROM docker.workflow
     JOIN docker.job
@@ -197,35 +197,37 @@ def main():
     Get them into pandas frames
     """
 
-    kpi_odbc = "../kpi.odbc.ini"
+    # Megan created an odbc with all of the jobmon databases and passwords
+    kpi_odbc = "/ihme/scratch/users/svcscicompci/kpi.odbc.ini"
     if os.path.exists(kpi_odbc):
         db_config = database_conns_from_file(kpi_odbc)
     else:
         db_config = define_database_connections()
 
-    import pdb
-    pdb.set_trace()
-
     all_workflows = None
     all_jobs = None
     all_resumes = None
 
+    q3_q4_dbs = ["v071", "v072", "v080", "v081", "v083", "v089"]
+
     # There are cleverer ways but this gets the job done
-    for name, _ in db_config.conn_defs.items():
+    for name in q3_q4_dbs:
         print(f"Accessing {name}")
         w_df = get_workflow_statistics(name)
         j_df = get_job_statistics(name)
         r_df = get_resume_statistics(name)
-        if all_workflows:
-            all_workflows = all_workflows.append(w_df)
-            all_jobs = all_jobs.append(j_df)
-            all_resumes = all_resumes.append(j_df)
-        else:
+
+        try:
+            if not all_workflows.empty:
+                all_workflows = all_workflows.append(w_df)
+                all_jobs = all_jobs.append(j_df)
+                all_resumes = all_resumes.append(r_df)
+        except:
             all_workflows = w_df
             all_jobs = j_df
             all_resumes = r_df
 
-    if all_workflows is not None:
+    if not all_workflows.empty:
         all_workflows.to_hdf('stats_workflows.h5', key='counts')
         all_jobs.to_hdf('stats_jobs.h5', key='counts')
         all_resumes.to_hdf('stats_resumes.h5', key='counts')
