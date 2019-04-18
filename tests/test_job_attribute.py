@@ -5,8 +5,7 @@ import pytest
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.models.attributes.constants import job_attribute, \
-    workflow_attribute
+from jobmon.models.attributes.constants import job_attribute
 from tests.timeout_and_skip import timeout_and_skip
 
 
@@ -112,7 +111,7 @@ def check_job_attribute(workflow: Workflow, job_id: int):
 
 
 def test_attributes_retrievable(real_jsm_jqs, db_cfg):
-    # add attributes to jobs and workflows
+    # add attributes to jobs
 
     wf = Workflow('test_attributes', project="proj_tools")
     task = BashTask(command=sge.true_path("sleep 5"),
