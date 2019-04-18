@@ -1,9 +1,13 @@
+from functools import partial
+
 import pytest
 
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.models.attributes.constants import job_attribute
+from jobmon.models.attributes.constants import job_attribute, \
+    workflow_attribute
+from tests.timeout_and_skip import timeout_and_skip
 
 
 def test_job_attribute(db_cfg, job_list_manager_sge):
@@ -93,21 +97,36 @@ def test_usage_job_attribute_error(job_list_manager_sge):
         task.add_job_attribute(job_attribute.WALLCLOCK, "10")
     assert "Invalid attribute configuration" in str(exc.value)
 
+def check_workflow_attribute(workflow: Workflow, workflow_id: int):
+    return_code, resp = workflow.requester.send_request(
+        '/workflow/{}/workflow_attribute'.format(workflow_id),
+        {'job_attribute_type': job_attribute.NUM_DRAWS}, 'get')
+    return return_code == 200 and resp['job_attr_dct'][0]['value'] == '10'
 
-@pytest.mark.skip(reason='hangs on cluster')
-def test_attributes_retrievable(job_list_manager_sge):
-    # add attributes to workflow and jobs
-    task = BashTask(command=sge.true_path("tests/shellfiles/sleep.sh"), num_cores=1)
+
+def check_job_attribute(workflow: Workflow, job_id: int):
+    return_code, resp = workflow.requester.send_request(
+        '/job/{}/job_attribute'.format(job_id),
+        {'job_attribute_type': job_attribute.NUM_DRAWS}, 'get')
+    return return_code == 200 and resp['job_attr_dct'][0]['value'] == '10'
+
+
+def test_attributes_retrievable(real_jsm_jqs, db_cfg):
+    # add attributes to jobs and workflows
+
+    wf = Workflow('test_attributes', project="proj_tools")
+    task = BashTask(command=sge.true_path("sleep 5"),
+                    num_cores=1)
     task.add_job_attribute(job_attribute.NUM_DRAWS, "10")
-
-    wf = Workflow('test_attributes')
     wf.add_task(task)
     wf.run()
 
-    job_id = wf.task_dag.job_list_manager.hash_job_map[task.hash]
+    stub_job = wf.task_dag.job_list_manager.hash_job_map[task.hash]
+    job_id = stub_job.job_id
 
-    from jobmon.client import shared_requester
-    return_code, resp = shared_requester.send_request(
-        '/job/{}/job_attribute'.format(job_id.job_id),
-        {'job_attribute_type': job_attribute.NUM_DRAWS}, 'get')
-    assert resp['job_attr_dct'][0]['value'] == '10'
+    timeout_and_skip(step_size=10, max_time=30, max_qw=1,
+                     job_name='check_job_attribute',
+                     partial_test_function=partial(
+                         check_job_attribute,
+                         workflow=wf,
+                         job_id=job_id))
