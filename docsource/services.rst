@@ -135,7 +135,8 @@ http.11        8756        3870 release-0.8.7
 http.12        8856        3880 release-0.8.8
 http.13        8956        3890 release-0.8.9
 http.14        9056        3900 release-0.9.0
-http.15.       9056        3900 release-0.9.1
+http.15        9056        3900 release-0.9.1
+http.16        9056        3900 release-0.9.2
 ========  ==== ===== ===== ==== =============
 
 The port numbers come in pairs, e.g. "3313:3306".
