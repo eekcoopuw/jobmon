@@ -101,26 +101,6 @@ class JobInstance(DB.Model):
          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     ]
 
-    def register(self, requester, executor_type):
-        """Register a new job_instance"""
-        rc, response = requester.send_request(
-            app_route='/job_instance',
-            message={'job_id': str(self.job.job_id),
-                     'executor_type': executor_type},
-            request_type='post')
-        self.job_instance_id = response['job_instance_id']
-        return self.job_instance_id
-
-    def assign_executor_id(self, requester, executor_id,
-                           next_report_increment):
-        """Assign the executor_id to this job_instance"""
-        requester.send_request(
-            app_route=('/job_instance/{}/log_executor_id'
-                       .format(self.job_instance_id)),
-            message={'executor_id': str(executor_id),
-                     'next_report_increment': next_report_increment},
-            request_type='post')
-
     def transition(self, new_state):
         """Transition the JobInstance status"""
         # if the transition is timely, move to new state. Otherwise do nothing

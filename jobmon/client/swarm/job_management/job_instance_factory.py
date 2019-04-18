@@ -123,14 +123,16 @@ class JobInstanceFactory(object):
         try:
             job_instance = JobInstance(job=job)
             executor_class = self.executor.__class__
-            job_instance.register(self.requester, executor_class.__name__)
+            job_instance.job_instance_id = self._register_job_instance(
+                job, executor_class.__name__)
         except Exception as e:
             logger.error(e)
         logger.debug("Executing {}".format(job.command))
         executor_id = self.executor.execute(job_instance=job_instance)
         if executor_id:
-            job_instance.assign_executor_id(self.requester, executor_id,
-                                            self.next_report_increment)
+            self._register_submission_to_batch_executor(
+                job_instance.job_instance_id, executor_id,
+                self.next_report_increment)
         return job_instance, executor_id
 
     def _get_jobs_queued_for_instantiation(self):
@@ -157,9 +159,11 @@ class JobInstanceFactory(object):
         return job_instance_id
 
     def _register_submission_to_batch_executor(self, job_instance_id,
-                                               executor_id):
+                                               executor_id,
+                                               next_report_increment):
         self.requester.send_request(
             app_route=('/job_instance/{}/log_executor_id'
                        .format(job_instance_id)),
-            message={'executor_id': str(executor_id)},
-            request_type='put')
+            message={'executor_id': str(executor_id),
+                     'next_report_increment': next_report_increment},
+            request_type='post')

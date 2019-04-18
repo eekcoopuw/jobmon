@@ -34,6 +34,7 @@ class JobInstanceReconciler(object):
         self.interrupt_on_error = interrupt_on_error
         self.reconciliation_interval = client_config.reconciliation_interval
         self.report_by_buffer = client_config.report_by_buffer
+        self.heartbeat_interval = client_config.heartbeat_interval
 
         if executor:
             self.set_executor(executor)
@@ -64,9 +65,11 @@ class JobInstanceReconciler(object):
         to periodically reconcile all jobs against 'qstat'
         """
         logger.info(
-            f"Reconciling jobs against 'qstat' at {self.reconciliation_interval}s "
-            "intervals and updating the report by date at {report_by_buffer} "
-            "times the reconciliation interval")
+            f"Reconciling jobs against 'qstat' at "
+            f"{self.reconciliation_interval} intervals and updating the report"
+            f" by date at {self.report_by_buffer} times the heartbeat "
+            f"interval: {self.heartbeat_interval}")
+
         while True and not self._stop_event.is_set():
             try:
                 logging.debug(
@@ -93,11 +96,11 @@ class JobInstanceReconciler(object):
         JobStateManager so they can either be retried or flagged as
         fatal errors
         """
-        next_report_increment = self.reconciliation_interval * self.report_by_buffer
+        next_report_increment = self.heartbeat_interval * self.report_by_buffer
         self._request_permission_to_reconcile()
         try:
-            # qstat for pending jobs
-            actual = self.executor.get_actual_submitted_to_executor()
+            # qstat for pending jobs or running jobs
+            actual = self.executor.get_actual_submitted_or_running()
         except NotImplementedError:
             logger.warning(
                 f"{self.executor.__class__.__name__} does not implement "
