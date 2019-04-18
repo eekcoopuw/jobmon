@@ -95,13 +95,7 @@ def test_usage_job_attribute_error(job_list_manager_sge):
     with pytest.raises(ValueError) as exc:
         task.add_job_attribute(job_attribute.WALLCLOCK, "10")
     assert "Invalid attribute configuration" in str(exc.value)
-
-def check_workflow_attribute(workflow: Workflow, workflow_id: int):
-    return_code, resp = workflow.requester.send_request(
-        '/workflow/{}/workflow_attribute'.format(workflow_id),
-        {'job_attribute_type': job_attribute.NUM_DRAWS}, 'get')
-    return return_code == 200 and resp['job_attr_dct'][0]['value'] == '10'
-
+    
 
 def check_job_attribute(workflow: Workflow, job_id: int):
     return_code, resp = workflow.requester.send_request(
