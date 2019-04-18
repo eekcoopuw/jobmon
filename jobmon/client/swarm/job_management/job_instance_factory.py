@@ -123,7 +123,8 @@ class JobInstanceFactory(object):
         try:
             job_instance = JobInstance(job=job)
             executor_class = self.executor.__class__
-            self._register_job_instance(job, executor_class.__name__)
+            job_instance.job_instance_id = self._register_job_instance(
+                job, executor_class.__name__)
         except Exception as e:
             logger.error(e)
         logger.debug("Executing {}".format(job.command))
