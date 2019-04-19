@@ -13,6 +13,8 @@ from jobmon.client.swarm.job_management.job_instance_intercom import \
 from jobmon.client.utils import kill_remote_process_group
 
 # TODO: Redesign the scope of the try-catch blocks (return code 199)
+
+
 def unwrap():
 
     # This script executes on the target node and wraps the target application.
@@ -66,14 +68,11 @@ def unwrap():
                                       process_group_id=os.getpid(),
                                       hostname=args['jm_host'])
     ji_intercom.log_running(next_report_increment=(
-            args['heartbeat_interval'] * args['report_by_buffer']))
+        args['heartbeat_interval'] * args['report_by_buffer']))
 
     try:
-        if 'last_nodename' in args and 'last_pgid' in args:
+        if args['last_nodename'] is not None and args['last_pgid'] is not None:
             kill_remote_process_group(args['last_nodename'], args['last_pgid'])
-
-        if 'temp_dir' not in args:
-            args['temp_dir'] = None
 
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(
@@ -89,7 +88,7 @@ def unwrap():
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
                 ji_intercom.log_report_by(next_report_increment=(
-                        args['heartbeat_interval'] * args['report_by_buffer']))
+                    args['heartbeat_interval'] * args['report_by_buffer']))
                 last_heartbeat_time = time()
 
         # communicate the stdout and stderr
