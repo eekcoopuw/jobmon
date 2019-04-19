@@ -55,24 +55,6 @@ class SGEResource(object):
         self.mem_free = mem_free
         self._cluster = os.environ['SGE_ENV']  # el7 in SGE_ENV is fair cluster
 
-    def _get_valid_queues(self):
-        check_valid_queues = "qconf -sql"
-        valid_queues = subprocess.check_output(check_valid_queues,
-                                               shell=True).split()
-        return [q.decode("utf-8") for q in valid_queues]
-
-    def _validate_queue(self):
-        valid_queues = self._get_valid_queues()
-        if self.queue is not None:
-            valid = self.queue in valid_queues
-            if not valid:
-                logger.info(ValueError(f"Got invalid queue {self.queue}. "
-                                       f"Valid queues are {valid_queues}"))
-        if self.queue is None and "el7" in self._cluster:
-            self.queue = "all.q"
-        logger.debug("Now queues: {}, given queue: {}".format(valid_queues,
-                                                              self.queue))
-
     def _validate_slots_and_cores(self):
         """Ensure cores requested isn't more than available on that
         node, at this point slots have been converted to cores

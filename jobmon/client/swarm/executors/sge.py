@@ -176,9 +176,6 @@ class SGEExecutor(Executor):
         if queue and not dev_or_prod:
             q_cmd = "-q '{}'".format(queue)
         elif not dev_or_prod and queue is None:
-            # The 'new' cluster requires a queue name be passed
-            # explicitly, so in the event the user does not supply one we just
-            # fall back to all.q
             q_cmd = "-q all.q"
         else:
             q_cmd = ""
