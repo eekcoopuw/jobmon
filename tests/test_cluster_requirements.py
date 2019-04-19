@@ -103,9 +103,9 @@ def test_exclusive_args_no_slots_or_cores(no_daemon):
 
 @pytest.mark.skip("New cluster queues are not up yet")
 @pytest.mark.cluster
-@pytest.mark.parametrize('runtime', [(86500, 'all.q'), (604900, 'long.q'),
+@pytest.mark.parametrize('runtime', [(259300, 'all.q'), (604900, 'long.q'),
                                      (604900, 'profile.q'),
-                                     (604900, 'geospatial')])
+                                     (1555210, 'geospatial')])
 def test_invalid_runtime_by_queue_caught(no_daemon, runtime):
     job = no_daemon.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
@@ -119,17 +119,6 @@ def test_invalid_runtime_by_queue_caught(no_daemon, runtime):
         no_daemon.job_instance_factory._create_job_instance(jobs[0])
     assert 'Can only run for up to ' in exc.value.args[0]
 
-
-@pytest.mark.cluster
-def test_runtime_transformed_correctly():
-    resource = SGEResource(mem_free='2G', num_cores=1, queue='all.q',
-                           max_runtime_seconds=86399)
-    hms = resource._transform_secs_to_hms()
-    # turns into '23:59:59', if it is exactly 86400 it becomes 1 day 0:00:00
-    h, m, s = hms.split(":")
-    assert int(h) == 23
-    assert int(m) == 59
-    assert int(s) == 59
 
 @pytest.mark.skip("erroring out before it gets to validation because of"
                   " non-bool type")
@@ -173,11 +162,12 @@ def test_no_queue_provided(no_daemon):
     jid, exec_id = no_daemon.job_instance_factory._create_job_instance(jobs[0])
 
     # the job is setup to run but also check that it has the right qsub cmd
-    qsub_cmd = sge_executor.build_wrapped_command(job, jid,
+    qsub_cmd = sge_executor.build_wrapped_command(jobs[0], jid,
                                                   sge_executor.stderr,
                                                   sge_executor.stdout,
                                                   sge_executor.project,
                                                   sge_executor.working_dir)
+    assert 'all.q' in qsub_cmd
 
 
 

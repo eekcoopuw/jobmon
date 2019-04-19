@@ -178,14 +178,14 @@ class SGEResource(object):
         """Ensure all essential arguments are present and not None, the fair
         cluster can be identified by its cluster name containing el7"""
         if "el7" in self._cluster:
-            for arg in [self.queue, self.num_cores, self.mem_free,
+            for arg in [self.num_cores, self.mem_free,
                         self.max_runtime_seconds]:
                 if arg is None:
-                    raise ValueError("To use {}, Your arguments for queue, "
+                    raise ValueError("To use {}, Your arguments for "
                                      "num_cores/slots, mem_free, max_runtime"
-                                     "_seconds can't be none, yours are:{} {} "
+                                     "_seconds can't be none, yours are:{} "
                                      "{} {}"
-                                     .format(self._cluster, self.queue,
+                                     .format(self._cluster,
                                              self.num_cores, self.mem_free,
                                              self.max_runtime_seconds))
         # else: they have to have either slots or cores which is checked
@@ -194,7 +194,6 @@ class SGEResource(object):
     def return_valid_resources(self):
         """Validate all resources and return them"""
         self._validate_exclusivity()
-        self._validate_queue()
         self._validate_slots_and_cores()
         self._validate_memory()
         self._validate_runtime()
