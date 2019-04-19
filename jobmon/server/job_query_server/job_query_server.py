@@ -57,7 +57,7 @@ def get_time(session):
 
 @jqs.route('/workflow/<workflow_id>/workflow_attribute', methods=['GET'])
 def get_workflow_attribute(workflow_id):
-    """Get a partricular attribute of a particular workflow
+    """Get a particular attribute of a particular workflow
 
     Args:
         workflow_id: id of the workflow to retrieve workflow_attributes for
@@ -78,7 +78,7 @@ def get_workflow_attribute(workflow_id):
                      ).all()
     DB.session.commit()
     attr_dcts = [w.to_wire() for w in attribute]
-    logger.info("job_attr_dct={}".format(attr_dcts))
+    logger.info("workflow_attr_dct={}".format(attr_dcts))
     resp = jsonify(workflow_attr_dct=attr_dcts)
     resp.status_code = StatusCodes.OK
     return resp
@@ -86,7 +86,7 @@ def get_workflow_attribute(workflow_id):
 
 @jqs.route('/workflow/<workflow_id>/job_attribute', methods=['GET'])
 def get_job_attribute_by_workflow(workflow_id):
-    """Get a partricular attribute of a particular type of job in the workflow
+    """Get a particular attribute of a particular type of job in the workflow
 
     Args:
         workflow_id: id of the workflow to retrieve workflow_attributes for
@@ -118,7 +118,7 @@ def get_job_attribute_by_workflow(workflow_id):
 
 @jqs.route('/job/<job_id>/job_attribute', methods=['GET'])
 def get_job_attribute(job_id):
-    """Get a partricular attribute of a particular type of job in the workflow
+    """Get a particular attribute of a particular type of job in the workflow
 
     Args:
         job_id: id of the job to retrieve job for

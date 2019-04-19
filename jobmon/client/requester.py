@@ -96,7 +96,7 @@ class Requester(object):
         status_code, content = get_content(r)
         if content:
             if verbose is True:
-                logger.debug(content)
+                logger.debug(f"Received: {content}")
         return status_code, content
 
     def build_full_url(self, app_route):
