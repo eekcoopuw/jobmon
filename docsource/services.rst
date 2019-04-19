@@ -231,10 +231,9 @@ Use the 'BotUserOathToken' from (you must be logged into Slack on your web brows
 
   https://api.slack.com/apps/AA4BZNQH1/oauth?
 
-Press the Copy button on the 'Bot User OAuth Access Token' text box.
-The runserver.py script will not echo that Token when you paste it into the window because the python code is using the getpass input function.
-The runserver.py script will also ask for two slack channels.
-There is a bug - you have to re-enter the default slack channel names, surrounded by single quotes.
+Press the Copy button on the 'Bot User OAuth Access Token' text box and paste it into your terminal.
+The runserver.py script will also ask for two slack channels. Leave them black to use defaults.
+
 The script will run ``docker-compose up build``
 
 Notice that the most privileged database passwords are randomly generated in runserver.py
