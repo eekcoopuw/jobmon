@@ -1,9 +1,10 @@
 from builtins import str
+from datetime import datetime
 import getpass
+from http import HTTPStatus as StatusCodes
+import logging
 import os
 import socket
-from datetime import datetime
-import logging
 
 from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sge_utils import get_project_limits
@@ -12,13 +13,6 @@ from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
-try:  # Python 3.5+
-    from http import HTTPStatus as StatusCodes
-except ImportError:
-    try:  # Python 3
-        from http import client as StatusCodes
-    except ImportError:  # Python 2
-        import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +57,7 @@ class WorkflowRun(object):
             request_type='post')
         wfr_id = response['workflow_run_id']
         if rc != StatusCodes.OK:
-            raise ValueError("Invalid Reponse to add_workflow_run")
+            raise ValueError(f"Invalid Response to add_workflow_run: {rc}")
         self.id = wfr_id
         self.add_project_limit_attribute('start')
 
@@ -111,7 +105,7 @@ class WorkflowRun(object):
             logger.error(msg)
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
-                message={'wfr_id': wf_run['id'],
+                message={'workflow_run_id': wf_run['id'],
                          'status': WorkflowRunStatus.STOPPED},
                 request_type='put')
             raise RuntimeError(msg)
@@ -120,13 +114,15 @@ class WorkflowRun(object):
             logger.info("Kill previous workflow runs: {}".format(wf_run['id']))
             if reset_running_jobs:
                 if wf_run['executor_class'] == "SequentialExecutor":
-                    from jobmon.client.swarm.executors.sequential import SequentialExecutor
+                    from jobmon.client.swarm.executors.sequential import \
+                        SequentialExecutor
                     previous_executor = SequentialExecutor()
                 elif wf_run['executor_class'] == "SGEExecutor":
                     from jobmon.client.swarm.executors.sge import SGEExecutor
                     previous_executor = SGEExecutor()
                 elif wf_run['executor_class'] == "DummyExecutor":
-                    from jobmon.client.swarm.executors.dummy import DummyExecutor
+                    from jobmon.client.swarm.executors.dummy import \
+                        DummyExecutor
                     previous_executor = DummyExecutor()
                 else:
                     raise ValueError("{} is not supported by this version of "
@@ -168,7 +164,7 @@ class WorkflowRun(object):
         """
         rc, _ = self.requester.send_request(
             app_route='/workflow_run',
-            message={'wfr_id': self.id, 'status': status,
+            message={'workflow_run_id': self.id, 'status': status,
                      'status_date': str(datetime.utcnow())},
             request_type='put')
 

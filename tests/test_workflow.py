@@ -2,6 +2,7 @@ import pytest
 from time import sleep
 import os
 import uuid
+import subprocess
 
 from jobmon import BashTask  # testing new style imports
 from jobmon import PythonTask
@@ -211,7 +212,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     ologdir = str(tmpdir.mkdir("wf_ologs"))
 
     workflow = Workflow(wfa, stderr=elogdir, stdout=ologdir,
-                        project='proj_jenkins', resume=ResumeStatus.RESUME)
+                        project='proj_tools', resume=ResumeStatus.RESUME)
     workflow.add_tasks([t1, t2, t3])
     workflow.execute()
 
@@ -425,6 +426,37 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
         assert nodenames and all(nodenames)
 
 
+def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
+    task = BashTask("not_a_command 1", num_cores=1, m_mem_free='2G',
+                    queue="all.q", j_resource=False)
+
+    err_wf = Workflow("my_failing_task", interrupt_on_error=False,
+                      project='ihme_general')
+    err_wf.add_task(task)
+    err_wf.execute()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
+    # get executor_id of row where dag_id matches err_wf's dag_id
+    with app.app_context():
+        query = (
+            f"SELECT executor_id FROM "
+            f"job_instance WHERE dag_id = {int(err_wf.dag_id)}")
+
+        errored_job_id = DB.session.execute(query).first()[0]
+    qacct_output = subprocess.check_output(
+        args=['qacct', '-j', f'{errored_job_id}'],
+        encoding='UTF-8').strip()
+    qacct_output = qacct_output.split('\n')[1:]
+    qacct_output = {line.split()[0]: line.split()[1] for line in qacct_output}
+
+    exit_status = int(qacct_output['exit_status'])
+
+    # exit status should not be a success, expect failure
+    assert exit_status != 0
+
+
 # @pytest.mark.skip(reason="there isn't any guarantee that this fails in time")
 @pytest.mark.qsubs_jobs
 def test_fail_fast(real_jsm_jqs, db_cfg):
@@ -527,7 +559,8 @@ def test_timeout(real_jsm_jqs, db_cfg):
     assert expected_msg == str(error.value)
 
 
-def test_failing_nodes(real_jsm_jqs, db_cfg):
+def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
+    """Test the Health Montior's identification of failing nodes"""
 
     # these dummy dags will increment the ID of our dag-of-interest to
     # avoid the timing collisions
@@ -553,13 +586,13 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
 
     wfr = workflow.workflow_run
 
-    # give some time to make sure the dag's reconciliation process
-    # has actually started
-    sleep(20)
-
     hm = HealthMonitor(node_notification_sink=mock_slack)
     hm._database = 'singularity'
 
+    # A database commit must follow each dbs update, sqlalchmey might use
+    # a different dbs connection for each dbs statement. So the next query
+    # might not see the because it will be on a different connection.
+    # Therefore ensure that the update has hit the database by using a commit.
     with app.app_context():
 
         # Manually make the workflow run look like it's still running
@@ -568,7 +601,7 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
             SET status='{s}'
             WHERE workflow_id={id}""".format(s=WorkflowRunStatus.RUNNING,
                                              id=workflow.id))
-
+        DB.session.commit()
         # This test's workflow should be in the 'active' AND succeeding list
         active_wfrs = hm._get_succeeding_active_workflow_runs(DB.session)
         assert wfr.id in active_wfrs
@@ -579,11 +612,12 @@ def test_failing_nodes(real_jsm_jqs, db_cfg):
             SET nodename='fake_node.ihme.washington.edu', status="{s}"
             WHERE job_instance_id < 7 and workflow_run_id={wfr_id}
             """.format(s=JobInstanceStatus.ERROR, wfr_id=wfr.id))
+        DB.session.commit()
         failing_nodes = hm._calculate_node_failure_rate(DB.session, active_wfrs)
         assert 'fake_node.ihme.washington.edu' in failing_nodes
 
         # Manually make those job instances land on the same node and have
-        # them fail BUT also manually make there dates be older than an hour
+        # them fail BUT also manually make their dates be older than an hour.
         # Ensure they they don't come up because of the time window
         DB.session.execute("""
             UPDATE job_instance
@@ -681,9 +715,8 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
     t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
-
     wfa = "my_simple_dag"
-    workflow = Workflow(workflow_args=wfa, project='proj_jenkins',
+    workflow = Workflow(workflow_args=wfa, project='proj_tools',
                         working_dir='/ihme/centralcomp/auto_test_data',
                         stderr='/tmp',
                         stdout='/tmp')
@@ -695,7 +728,7 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     # will fail and write its error message into the job_instance_error_log
     # table
 
-    assert workflow.workflow_run.project == 'proj_jenkins'
+    assert workflow.workflow_run.project == 'proj_tools'
     assert workflow.workflow_run.working_dir == (
         '/ihme/centralcomp/auto_test_data')
     assert workflow.workflow_run.stderr == '/tmp'
@@ -703,23 +736,33 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     assert workflow.workflow_run.executor_class == 'SGEExecutor'
 
 
-def test_workflow_identical_args(real_jsm_jqs, db_cfg, monkeypatch):
+def test_workflow_identical_args(real_jsm_jqs, db_cfg):
     # first workflow runs and finishes
-    wf1 = Workflow(workflow_args="same", project='proj_jenkins')
+    wf1 = Workflow(workflow_args="same", project='proj_tools')
     task = BashTask("sleep 2", slots=1)
     wf1.add_task(task)
     wf1.execute()
 
     # tries to create an identical workflow without the restart flag
-    wf2 = Workflow(workflow_args="same", project='proj_jenkins')
+    wf2 = Workflow(workflow_args="same", project='proj_tools')
     wf2.add_task(task)
     with pytest.raises(WorkflowAlreadyExists):
         wf2.execute()
 
     # creates a workflow, okayed to restart, but original workflow is done
-    wf3 = Workflow(workflow_args="same", project='proj_jenkins',
+    wf3 = Workflow(workflow_args="same", project='proj_tools',
                    resume=ResumeStatus.RESUME)
     wf3.add_task(task)
     with pytest.raises(WorkflowAlreadyComplete):
         wf3.execute()
+
+
+def test_workflow_config_reconciliation():
+    task = BashTask("sleep 1", slots=1)
+    wf = Workflow(name="test_reconciliation_args", reconciliation_interval=3,
+                  heartbeat_interval=4, report_by_buffer=5.1)
+    from jobmon.client import client_config
+    assert client_config.report_by_buffer == 5.1
+    assert client_config.heartbeat_interval == 4
+    assert client_config.reconciliation_interval == 3
 

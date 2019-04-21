@@ -1,13 +1,17 @@
 import getpass
+import os
 import random
+import stat
 import sys
 import uuid
 from datetime import datetime
 
 from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.client.swarm.executors import sge_utils as sge
 
 from jobmon import BashTask
+
+
+thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 
 def three_phase_load_test(n_jobs: int) -> None:
@@ -20,12 +24,14 @@ def three_phase_load_test(n_jobs: int) -> None:
     """
     wfid = uuid.uuid4()
     user = getpass.getuser()
-    wf = Workflow(f"load-test_{wfid}","load_test",
+    wf = Workflow(f"load-test_{wfid}", "load_test",
                   stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
-                  project="proj_burdenator")
+                  project="proj_tools")
 
-    command = sge.true_path("deployment-tests/sleep_and_echo.sh")
+    command = os.path.join(thisdir, "sleep_and_echo.sh")
+    st = os.stat(command)
+    os.chmod(command, st.st_mode | stat.S_IXUSR)
 
     tier1 = []
     # First Tier
@@ -37,13 +43,12 @@ def three_phase_load_test(n_jobs: int) -> None:
 
     tier2 = []
     # Second Tier, depend on 1 tier 1 task
-    for i in range(n_jobs*3):
+    for i in range(n_jobs * 3):
         uid = str(uuid.uuid4())
         sleep_time = random.randint(30, 41)
         tier_2_task = BashTask(f"{command} {sleep_time} {uid}",
                                upstream_tasks=[tier1[(i % n_jobs)]], slots=1)
         tier2.append(tier_2_task)
-
 
     tier3 = []
     # Third Tier, depend on 3 tier 2 tasks
@@ -51,13 +56,14 @@ def three_phase_load_test(n_jobs: int) -> None:
         uid = str(uuid.uuid4())
         sleep_time = random.randint(30, 41)
         tier_3_task = BashTask(f"{command} {sleep_time} {uid}",
-                               upstream_tasks=[tier2[i], tier2[(i+n_jobs)],
-                                               tier2[(i+(2*n_jobs))]], slots=1)
+                               upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
+                                               tier2[(i + (2 * n_jobs))]],
+                               slots=1)
         tier3.append(tier_3_task)
 
-    wf.add_tasks(tier1+tier2+tier3)
+    wf.add_tasks(tier1 + tier2 + tier3)
 
-    num_tasks = 5*n_jobs
+    num_tasks = 5 * n_jobs
     time = datetime.now().strftime("%m/%d/%Y_%H:%M:%S")
     print(f"{time}: Beginning the workflow, there are {num_tasks} tasks in "
           f"this DAG")
@@ -67,7 +73,7 @@ def three_phase_load_test(n_jobs: int) -> None:
 
 
 if __name__ == "__main__":
-    n_jobs=1
+    n_jobs = 1
     if len(sys.argv) > 1:
         n_jobs = int(sys.argv[1])
         assert n_jobs > 0, "Please provide an integer greater than 0 for the" \

@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime
 
+from sqlalchemy.sql import func
+
 from jobmon.models import DB
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
@@ -71,6 +73,9 @@ class JobInstance(DB.Model):
         nullable=False)
     submitted_date = DB.Column(DB.DateTime, default=datetime.utcnow)
     status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
+    report_by_date = DB.Column(
+        DB.DateTime,
+        default=func.UTC_TIMESTAMP())
 
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
@@ -95,24 +100,6 @@ class JobInstance(DB.Model):
         (JobInstanceStatus.RUNNING,
          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     ]
-
-    def register(self, requester, executor_type):
-        """Register a new job_instance"""
-        rc, response = requester.send_request(
-            app_route='/job_instance',
-            message={'job_id': str(self.job.job_id),
-                     'executor_type': executor_type},
-            request_type='post')
-        self.job_instance_id = response['job_instance_id']
-        return self.job_instance_id
-
-    def assign_executor_id(self, requester, executor_id):
-        """Assign the executor_id to this job_instance"""
-        requester.send_request(
-            app_route=('/job_instance/{}/log_executor_id'
-                       .format(self.job_instance_id)),
-            message={'executor_id': str(executor_id)},
-            request_type='post')
 
     def transition(self, new_state):
         """Transition the JobInstance status"""

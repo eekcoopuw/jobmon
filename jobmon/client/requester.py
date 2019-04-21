@@ -20,7 +20,7 @@ def raise_if_exceed_retry(retry_state):
     '''
     status, content = retry_state.outcome.result()
     raise RuntimeError(
-        'Exceeded HTTP request retry budget. '
+        f'Exceeded HTTP request retry budget. '
         f'Status code was {status} and content was {content}')
 
 
@@ -96,7 +96,7 @@ class Requester(object):
         status_code, content = get_content(r)
         if content:
             if verbose is True:
-                logger.debug(content)
+                logger.debug(f"Received: {content}")
         return status_code, content
 
     def build_full_url(self, app_route):

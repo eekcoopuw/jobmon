@@ -7,6 +7,7 @@ import random
 import socket
 import string
 import subprocess
+import requests
 from datetime import datetime
 
 from jobmon.models.attributes import constants
@@ -22,6 +23,7 @@ EXTERNAL_SERVICE_PORT = constants.deploy_attribute["SERVICE_PORT"]
 
 DEFAULT_WF_SLACK_CHANNEL = 'jobmon-alerts'
 DEFAULT_NODE_SLACK_CHANNEL = 'suspicious_nodes'
+SLACK_API_URL = constants.deploy_attribute['SLACK_API_URL']
 
 
 def gen_password():
@@ -56,6 +58,24 @@ def find_release(tags):
                            "number.".format(candidate_tags))
     else:
         return None
+
+
+def validate_slack_token(slack_token: str) -> bool:
+    """
+    Checks whether a given slack token is valid
+
+    :param slack_token: A Slack Bot User OAuth Access Token
+    :return: True if the token validates, False otherwise
+    """
+    resp = requests.post(
+        SLACK_API_URL,
+        headers={'Authorization': 'Bearer {}'.format(slack_token)})
+    if resp.status_code != 200:
+        print(f"Response returned a bad status code: {resp.status_code} "
+              f"(Expected 200) with content {resp.json()}. "
+              f"Retry with token or skip")
+        return False
+    return resp.json()['error'] != 'invalid_auth'
 
 
 class JobmonDeployment(object):
@@ -117,6 +137,12 @@ class JobmonDeployment(object):
         os.environ["INTERNAL_DB_HOST"] = INTERNAL_DB_HOST
         os.environ["INTERNAL_DB_PORT"] = str(INTERNAL_DB_PORT)
         os.environ["JOBMON_VERSION"] = "".join(self.jobmon_version.split('.'))
+        if self.slack_token is not None:
+            os.environ["SLACK_TOKEN"] = self.slack_token
+        if self.wf_slack_channel is not None:
+            os.environ["WF_SLACK_CHANNEL"] = self.wf_slack_channel
+        if self.node_slack_channel is not None:
+            os.environ["NODE_SLACK_CHANNEL"] = self.node_slack_channel
 
     def _run_docker(self):
         subprocess.call(["docker-compose", "up", "--build", "-d"])
@@ -157,20 +183,32 @@ class JobmonDeployment(object):
 def main():
     print("Signing into the harbor registry you will be prompted for your "
           "credentials:")
-    resp = subprocess.call(["docker", "login", "registry-app-p01.ihme.washington.edu"])
+    resp = subprocess.call(
+        ["docker", "login", "registry-app-p01.ihme.washington.edu"])
     if resp == 0:
         push_to_registry = True
     else:
         push_to_registry = False
-    slack_token = input("Slack bot token: ") or None
+
+    slack_token = input("Slack bot token (leave empty to skip): ") or None
+    while slack_token is not None:
+        token_is_valid = validate_slack_token(slack_token)
+        if token_is_valid:
+            break
+        else:
+            slack_token = input(
+                "Slack bot token (leave empty to skip): ") or None
+
     if slack_token:
         wf_slack_channel = (
-            input("Slack notification channel for reporting lost workflow "
-                  "runs ({}): ".format(DEFAULT_WF_SLACK_CHANNEL)) or
+            input(
+                "Slack notification channel for reporting lost workflow "
+                "runs ({}): ".format(DEFAULT_WF_SLACK_CHANNEL)) or
             DEFAULT_WF_SLACK_CHANNEL)
         node_slack_channel = (
-            input("Slack notification channel for reporting failing nodes "
-                  "({}): ".format(DEFAULT_NODE_SLACK_CHANNEL)) or
+            input(
+                "Slack notification channel for reporting failing nodes "
+                "({}): ".format(DEFAULT_NODE_SLACK_CHANNEL)) or
             DEFAULT_NODE_SLACK_CHANNEL)
 
         deployment = JobmonDeployment(slack_token=slack_token,

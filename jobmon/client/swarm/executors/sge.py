@@ -66,6 +66,18 @@ class SGEExecutor(Executor):
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids
 
+    def get_actual_submitted_to_executor(self):
+        """get jobs that qstat thinks are submitted but not yet running."""
+
+        # jobs returned by this function may well be actually running or done,
+        # but those state transitions are handled by the worker node/heartbeat.
+        qstat_out = sge_utils.qstat(status='pr')
+        qstat_out = qstat_out[
+            qstat_out.status.isin(["qw", "hqw", "hRwq", "t"])]
+        executor_ids = list(qstat_out.job_id)
+        executor_ids = [int(eid) for eid in executor_ids]
+        return executor_ids
+
     def terminate_job_instances(self, jiid_exid_tuples):
         to_df = pd.DataFrame(data=jiid_exid_tuples,
                              columns=["job_instance_id", "executor_id"])

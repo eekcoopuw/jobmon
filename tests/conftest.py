@@ -70,10 +70,9 @@ def test_session_config(ephemera_conn_str):
 @pytest.fixture(autouse=True)
 def env_var(monkeypatch, test_session_config):
     """These two env variables are what tell the configs that we're running
-    tests,
-    not production code
+    tests, not production code
     """
-    from jobmon.client import shared_requester
+    from jobmon.client import shared_requester, client_config
     from jobmon.client.connection_config import ConnectionConfig
 
     monkeypatch.setenv("JOBMON_HOST", test_session_config["JOBMON_HOST"])
@@ -87,6 +86,9 @@ def env_var(monkeypatch, test_session_config):
     cc = ConnectionConfig(host=test_session_config["JOBMON_HOST"],
                           port=test_session_config["JOBMON_PORT"])
     monkeypatch.setattr(shared_requester, 'url', cc.url)
+    monkeypatch.setattr(client_config, 'heartbeat_interval', 10)
+    monkeypatch.setattr(client_config, 'report_by_buffer', 2.1)
+    monkeypatch.setattr(client_config, 'reconciliation_interval', 5)
 
 
 @pytest.fixture(scope='function')
@@ -334,9 +336,8 @@ def job_list_manager_sge(real_dag_id, tmpdir_factory):
     ologdir = str(tmpdir_factory.mktemp("ologs"))
 
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
-                           project='proj_jenkins')
+                           project='proj_tools')
     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
-                         reconciliation_interval=10,
                          job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm

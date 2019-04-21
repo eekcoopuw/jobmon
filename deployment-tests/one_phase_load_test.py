@@ -1,13 +1,17 @@
 import getpass
+import os
 import random
+import stat
 import sys
 import uuid
 from datetime import datetime
 
 from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.client.swarm.executors import sge_utils as sge
 
 from jobmon import BashTask
+
+
+thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 
 def one_phase_load_test(n_jobs: int) -> None:
@@ -23,9 +27,11 @@ def one_phase_load_test(n_jobs: int) -> None:
     wf = Workflow(f"one-phase-load-test_{wfid}", "one_phase_load_test",
                   stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
-                  project="proj_burdenator")
+                  project="proj_tools")
 
-    command = sge.true_path("deployment-tests/sleep_and_echo.sh")
+    command = os.path.join(thisdir, "sleep_and_echo.sh")
+    st = os.stat(command)
+    os.chmod(command, st.st_mode | stat.S_IXUSR)
 
     task_list = []
     # First Tier
@@ -46,7 +52,7 @@ def one_phase_load_test(n_jobs: int) -> None:
 
 
 if __name__ == "__main__":
-    n_jobs=1
+    n_jobs = 1
     if len(sys.argv) > 1:
         n_jobs = int(sys.argv[1])
         assert n_jobs > 0, "Please provide an integer greater than 0 for " \

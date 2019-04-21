@@ -41,13 +41,13 @@ Constructing a Workflow and adding a few Tasks is simple::
 
     import getpass
 
-    from jobmon.workflow.workflow import Workflow
-    from jobmon.workflow.bash_task import BashTask
-    from jobmon.workflow.python_task import PythonTask
+    from jobmon.client.swarm.workflow import Workflow
+    from jobmon.client.swarm.bash_task import BashTask
+    from jobmon.client.swarm.python_task import PythonTask
 
     # Create a Workflow
     user = getpass.getuser()
-    my_wf = Workflow(workflow_args="quickstart", project='proj_jenkins',
+    my_wf = Workflow(workflow_args="quickstart", project='proj_tools',
                      stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
                      stdout='/ihme/scratch/users/{}/sgeoutput'.format(user)),
                      working_dir='/homes/{}'.format(user),
@@ -77,6 +77,9 @@ Constructing a Workflow and adding a few Tasks is simple::
 .. note::
     By default Workflows are set to time out if your tasks haven't all completed after 10 hours (or 36000 seconds). If your Workflow times out before your tasks have finished running, those tasks will continue running, but you will need to restart your Workflow again. You can change this if your tasks combined run longer than 10 hours.
 
+.. note::
+    Errors with a return code of 199 indicate an issue occurring within Jobmon itself.
+
 Restart Tasks and Resume Workflows
 =======================================
 
@@ -92,7 +95,7 @@ A Workflow allows for sophisticated tracking of how many times a DAG gets execut
 To resume the Workflow created above::
 
     import getpass
-    from jobmon.workflow.workflow import Workflow
+    from jobmon.client.swarm.workflow import Workflow
 
     # Re-instantiate your Workflow with the same WorkflowArgs but add the resume flag
     user = getpass.getuser()
@@ -185,7 +188,7 @@ By default, your Workflow talks to our centrally-hosted jobmon server
 jobmon database from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-docker-cont-p01.hosts.ihme.washington.edu
-    port: 3890
+    port: 3900
     user: read_only
     pass: docker
     database: docker

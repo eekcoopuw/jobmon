@@ -79,11 +79,11 @@ class CLI(object):
         if self.config.slack_token:
             wf_notifier = SlackNotifier(
                 self.config.slack_token,
-                self.config.default_wf_slack_channel)
+                self.config.wf_slack_channel)
             wf_sink = wf_notifier.send
             node_notifier = SlackNotifier(
                 self.config.slack_token,
-                self.config.default_node_slack_channel)
+                self.config.node_slack_channel)
             node_sink = node_notifier.send
         else:
             wf_sink = None

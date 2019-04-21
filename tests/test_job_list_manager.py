@@ -34,7 +34,6 @@ def job_list_manager(real_dag_id):
 def job_list_manager_d(real_dag_id):
     """Quick job_instantiation_interval for quick tests"""
     jlm = JobListManager(real_dag_id, start_daemons=True,
-                         reconciliation_interval=10,
                          job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm
@@ -49,7 +48,6 @@ def job_list_manager_sge_no_daemons(real_dag_id):
     """
     executor = SGEExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
-                         reconciliation_interval=10,
                          job_instantiation_interval=1,
                          interrupt_on_error=False)
     yield jlm
@@ -145,7 +143,7 @@ def test_daemon_invalid_command(job_list_manager_d):
     job_list_manager_d.queue_job(job.job_id)
 
     # Give some time for the job to get to the executor
-    timeout_and_skip(3, 30, 1, partial(
+    timeout_and_skip(3, 30, 1, "foobar", partial(
         daemon_invalid_command_check,
         job_list_manager_d=job_list_manager_d))
 
@@ -161,7 +159,7 @@ def test_daemon_valid_command(job_list_manager_d):
     job_list_manager_d.queue_job(job.job_id)
 
     # Give some time for the job to get to the executor
-    timeout_and_skip(3, 30, 1, partial(
+    timeout_and_skip(3, 30, 1, "foobarbaz", partial(
         daemon_valid_command_check,
         job_list_manager_d=job_list_manager_d))
 
@@ -200,12 +198,12 @@ def test_sge_valid_command(job_list_manager_sge_no_daemons):
 
 
 def test_server_502(job_list_manager):
-    '''
+    """
     GBDSCI-1553
 
     We should be able to automatically retry if server returns 5XX
     status code. If we exceed retry budget, we should raise informative error
-    '''
+    """
     err_response = (
         502,
         b'<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body '
@@ -224,6 +222,8 @@ def test_server_502(job_list_manager):
 
     # mock requester.get_content to return 2 502s then 200
     with mock.patch('jobmon.client.requester.get_content') as m:
+        # Docs: If side_effect is an iterable then each call to the mock
+        # will return the next value from the iterable
         m.side_effect = [err_response] * 2 + \
             [good_response] + [err_response] * 2
 

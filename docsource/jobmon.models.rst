@@ -1,8 +1,18 @@
 jobmon.models package
 =====================
 
+
+Subpackages
+-----------
+
+.. toctree::
+
+    jobmon.models.attributes
+
+
 Submodules
 ----------
+
 
 jobmon.models.database\_loaders module
 --------------------------------------
@@ -108,6 +118,13 @@ jobmon.models.workflow\_status module
     :undoc-members:
     :show-inheritance:
 
+jobmon.models.attributes module
+-------------------------------------
+
+.. automodule:: jobmon.models.attributes
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Module contents
 ---------------

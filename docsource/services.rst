@@ -134,6 +134,9 @@ http.10        8656        3860 release-0.8.6
 http.11        8756        3870 release-0.8.7
 http.12        8856        3880 release-0.8.8
 http.13        8956        3890 release-0.8.9
+http.14        9056        3900 release-0.9.0
+http.15        9056        3900 release-0.9.1
+http.16        9056        3900 release-0.9.2
 ========  ==== ===== ===== ==== =============
 
 The port numbers come in pairs, e.g. "3313:3306".
@@ -224,9 +227,9 @@ To deploy a centralized JobStateManager and JobQueryServer:
           Do `export PATH="~/bin:$PATH"` to use the bypass version.
 
 You'll be prompted for a slack bot token.
-Use the 'BotUserOathToken' from::
+Use the 'BotUserOathToken' from (you must be logged into Slack on your web browser, you'll find a prompt here: https://api.slack.com/apps )::
 
-  https://api.slack.com/apps/AA4BZNQH1/install-on-team
+  https://api.slack.com/apps/AA4BZNQH1/oauth?
 
 Press the Copy button on the 'Bot User OAuth Access Token' text box.
 The runserver.py script will not echo that Token when you paste it into the window because the python code is using the getpass input function.
@@ -234,7 +237,7 @@ The runserver.py script will also ask for two slack channels.
 There is a bug - you have to re-enter the default slack channel names, surrounded by single quotes.
 The script will run ``docker-compose up build``
 
-Notice that the most priviliged database passwords are randomly generated in runserver.py
+Notice that the most privileged database passwords are randomly generated in runserver.py
 They are then set as environment variables in the docker service container. To
 see them, connect to the docker container like this:
 ``docker exec -it jobmon071_jqs_1 bash``

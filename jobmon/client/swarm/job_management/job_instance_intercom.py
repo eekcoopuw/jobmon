@@ -19,8 +19,8 @@ class JobInstanceIntercom(object):
         Args:
             job_instance_id (int): the id of the job_instance_id that is
             reporting back
-            executor_class (str): string representing the type of executor that
-            was used for this job instance
+            executor_class (Executor): object representing the kind of
+            executor that was used for this job instance
             process_group_id (int): linux process_group_id that this
             job_instance is a part of
             hostname (str): hostname where this job_instance is running
@@ -43,6 +43,15 @@ class JobInstanceIntercom(object):
 
     def log_error(self, error_message):
         """Tell the JobStateManager that this job_instance has errored"""
+
+        # clip at 10k to avoid mysql has gone away errors when posting long
+        # messages
+        e_len = len(error_message)
+        if e_len >= 10000:
+            error_message = error_message[-10000:]
+            logger.info(f"Error_message is {e_len} which is more than the 10k "
+                        "character limit for error messages. Only the final "
+                        "10k will be captured by the database.")
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_error'
                        .format(self.job_instance_id)),
@@ -68,12 +77,23 @@ class JobInstanceIntercom(object):
             logger.warning("Usage stats not available for {} "
                            "executors".format(self.executor_class))
 
-    def log_running(self):
-        """Tell the JobStateManager that this job_instance is running"""
+    def log_running(self, next_report_increment):
+        """Tell the JobStateManager that this job_instance is running, and
+        update the report_by_date to be further in the future in case it gets
+        reconciled immediately"""
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_running'
                        .format(self.job_instance_id)),
             message={'nodename': socket.getfqdn(),
-                     'process_group_id': str(self.process_group_id)},
+                     'process_group_id': str(self.process_group_id),
+                     "next_report_increment": next_report_increment},
+            request_type='post')
+        return rc
+
+    def log_report_by(self, next_report_increment):
+        """Log the heartbeat to show that the job instance is still alive"""
+        rc, _ = self.requester.send_request(
+            app_route=(f'/job_instance/{self.job_instance_id}/log_report_by'),
+            message={"next_report_increment": next_report_increment},
             request_type='post')
         return rc
