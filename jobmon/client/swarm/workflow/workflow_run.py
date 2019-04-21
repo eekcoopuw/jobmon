@@ -120,13 +120,13 @@ class WorkflowRun(object):
             logger.info("Kill previous workflow runs: {}".format(wf_run['id']))
             if reset_running_jobs:
                 if wf_run['executor_class'] == "SequentialExecutor":
-                    from jobmon.executors.sequential import SequentialExecutor
+                    from jobmon.client.swarm.executors.sequential import SequentialExecutor
                     previous_executor = SequentialExecutor()
                 elif wf_run['executor_class'] == "SGEExecutor":
-                    from jobmon.executors.sequential import SGEExecutor
+                    from jobmon.client.swarm.executors.sge import SGEExecutor
                     previous_executor = SGEExecutor()
                 elif wf_run['executor_class'] == "DummyExecutor":
-                    from jobmon.executors.sequential import DummyExecutor
+                    from jobmon.client.swarm.executors.dummy import DummyExecutor
                     previous_executor = DummyExecutor()
                 else:
                     raise ValueError("{} is not supported by this version of "
