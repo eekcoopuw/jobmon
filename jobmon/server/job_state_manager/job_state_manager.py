@@ -196,8 +196,6 @@ def add_job_instance():
     DB.session.commit()
     ji_id = job_instance.job_instance_id
 
-    # TODO: Would prefer putting this in the model, but can't find the
-    # right post-create hook. Investigate.
     try:
         job_instance.job.transition(JobStatus.INSTANTIATED)
     except InvalidStateTransition:
@@ -205,8 +203,7 @@ def add_job_instance():
             msg = ("Caught InvalidStateTransition. Not transitioning job "
                    "{}'s job_instance_id {} from I to I"
                    .format(data['job_id'], ji_id))
-            warnings.warn(msg)
-            logger.debug(msg)
+            logger.warning(msg)
         else:
             raise
     finally:
