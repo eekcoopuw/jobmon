@@ -45,7 +45,6 @@ class SGEResource(object):
         Returns
             queue, slots, num_cores, mem_free_gb, max_runtime_secs
         """
-        # TODO: remove mem_free and slots when prod and dev clusters go offline
         self.slots = slots
         self.num_cores = num_cores
         self.queue = queue
