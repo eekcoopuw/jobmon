@@ -130,7 +130,7 @@ class JobInstance(DB.Model):
             msg += ". This is an untimely transition likely caused by a race "\
                    " condition between the UGE scheduler and the job instance"\
                    " factory which logs the UGE id on the job instance."
-            logger.warn(msg)
+            logger.warning(msg)
             return False
         else:
             return True
