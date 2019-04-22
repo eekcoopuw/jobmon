@@ -107,10 +107,6 @@ class Workflow(object):
         self.name = name
         self.description = description
 
-        # TODO: These parameters are only applicable to the SGE Executor
-        # case. Consider moving them to
-        # config instead of the param
-        # list.
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
