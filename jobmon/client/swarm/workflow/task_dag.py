@@ -29,7 +29,6 @@ class TaskDag(object):
         self.dag_id = None
         self.job_list_manager = None
 
-        # TODO: Scale test to 1M jobs
         self.name = name
 
         self.tasks = OrderedDict()  # {job_hash: ExecutableTask}
