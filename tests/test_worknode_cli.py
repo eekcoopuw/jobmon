@@ -14,6 +14,8 @@ class ExpectedException(Exception):
 
 
 def mock_kill_remote_process_group(a, b):
+    """mock the kill remote process group interface and raise an error to
+    signal that we entered the path we are trying to test"""
     raise ExpectedException(EXCEPTION_MSG)
 
 
@@ -41,8 +43,10 @@ class MockIntercom:
             raise ExpectedException
 
 
-def test_kill_remote_process_group(monkeypatch):
-
+def test_kill_remote_process_group_conditional(monkeypatch):
+    # this tests the code pathway in workernode.cli to make sure that we enter
+    # kill remote process group when we intend to. It does not test the kill
+    # remote process group function itself.
     monkeypatch.setattr(
         jobmon.client.worker_node.cli,
         "kill_remote_process_group",
