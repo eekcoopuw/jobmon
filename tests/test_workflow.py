@@ -797,7 +797,6 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
         max_sleep = 600  # 10 min max till test fails
         slept = 0
         while status != "R" and slept <= max_sleep:
-            print("job status is:", status)
             ji = session.query(JobInstance).one_or_none()
             session.commit()
             sleep(5)
@@ -825,11 +824,8 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
     max_sleep = 180  # 3 min max till test fails
     slept = 0
     ex_id_list = sge_utils.qstat("pr").job_id.tolist()
-    print(ex_id_list)
     while executor_id in ex_id_list and slept <= max_sleep:
         sleep(5)
         slept += 5
         ex_id_list = sge_utils.qstat("pr").job_id.tolist()
-    print(executor_id)
-    print(ex_id_list)
     assert executor_id not in ex_id_list
