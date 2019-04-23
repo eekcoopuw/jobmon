@@ -793,6 +793,7 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
     session = db_cfg["DB"].session
     with db_cfg["app"].app_context():
         status = ""
+        executor_id = None
         max_sleep = 600  # 10 min max till test fails
         slept = 0
         while status != "R" and slept <= max_sleep:
@@ -803,9 +804,11 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
             slept += 5
             if ji:
                 status = ji.status
-        executor_id = ji.executor_id
+        if ji:
+            executor_id = ji.executor_id
 
-    if slept >= max_sleep:
+    # qdel job if the test timed out
+    if slept >= max_sleep and executor_id:
         sge_utils.qdel(executor_id)
         return
 
