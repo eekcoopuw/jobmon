@@ -484,6 +484,7 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
     # these dummy dags will increment the ID of our dag-of-interest to
     # avoid the timing collisions
     app = db_cfg["app"]
+    app.config["SQLALCHEMY_ECHO"] = True
     DB = db_cfg["DB"]
     with app.app_context():
         for _ in range(5):
@@ -497,9 +498,17 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
 
     wfr = workflow.workflow_run
 
-    # give some time to make sure the dag's reconciliation process
-    # has actually started
-    sleep(20)
+    maxtries = 10
+    i = 0
+    while i < maxtries:
+        i += 1
+        with app.app_context():
+            row = DB.session.execute("select status from workflow_run where id = {}".format(wfr.id)).fetchone()
+            if row[0] == 'R':
+                break
+        sleep(2)
+    if i > maxtries:
+        raise Exception("The workflow failed to reconcile in 20 seconds.")
 
     from jobmon.server.health_monitor.health_monitor import \
         HealthMonitor
