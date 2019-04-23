@@ -3,6 +3,7 @@ from time import sleep
 import os
 import uuid
 import subprocess
+from multiprocessing import Process
 
 from jobmon import BashTask  # testing new style imports
 from jobmon import PythonTask
@@ -18,6 +19,7 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client import shared_requester as req
+from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     WorkflowAlreadyExists, ResumeStatus
@@ -758,11 +760,73 @@ def test_workflow_identical_args(real_jsm_jqs, db_cfg):
 
 
 def test_workflow_config_reconciliation():
-    task = BashTask("sleep 1", slots=1)
-    wf = Workflow(name="test_reconciliation_args", reconciliation_interval=3,
+    Workflow(name="test_reconciliation_args", reconciliation_interval=3,
                   heartbeat_interval=4, report_by_buffer=5.1)
     from jobmon.client import client_config
     assert client_config.report_by_buffer == 5.1
     assert client_config.heartbeat_interval == 4
     assert client_config.reconciliation_interval == 3
 
+
+def resumable_workflow():
+    from jobmon.client.swarm.workflow.bash_task import BashTask
+    from jobmon.client.swarm.workflow.workflow import Workflow
+    t1 = BashTask("sleep infinity", slots=1)
+    wfa = "my_simple_dag"
+    workflow = Workflow(wfa, interrupt_on_error=False, project="proj_tools",
+                        resume=True)
+    workflow.add_tasks([t1])
+    return workflow
+
+
+def run_workflow():
+    workflow = resumable_workflow()
+    workflow.execute()
+
+
+def test_resume_workflow(real_jsm_jqs, db_cfg):
+    # create a workflow in a separate process with 1 job that sleeps forever
+    p1 = Process(target=run_workflow)
+    p1.start()
+
+    # poll till we confirm that job is running
+    session = db_cfg["DB"].session
+    with db_cfg["app"].app_context():
+        status = ""
+        max_sleep = 600  # 10 min max till test fails
+        slept = 0
+        while status != "R" and slept <= max_sleep:
+            print("job status is:", status)
+            ji = session.query(JobInstance).one_or_none()
+            session.commit()
+            sleep(5)
+            slept += 5
+            if ji:
+                status = ji.status
+        executor_id = ji.executor_id
+
+    if slept >= max_sleep:
+        sge_utils.qdel(executor_id)
+        return
+
+    # now create an identical workflow which should kill the previous job
+    workflow = resumable_workflow()
+    workflow._bind()
+    workflow._create_workflow_run()
+
+    # process should be joinable because _create_workflow_run should kill it
+    p1.join()
+
+    # check qstat to make sure jobs isnt pending or running any more. there can
+    # be latency so wait at most 3 minutes for it's state to update in SGE
+    max_sleep = 180  # 3 min max till test fails
+    slept = 0
+    ex_id_list = sge_utils.qstat("pr").job_id.tolist()
+    print(ex_id_list)
+    while executor_id in ex_id_list and slept <= max_sleep:
+        sleep(5)
+        slept += 5
+        ex_id_list = sge_utils.qstat("pr").job_id.tolist()
+    print(executor_id)
+    print(ex_id_list)
+    assert executor_id not in ex_id_list
