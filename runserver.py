@@ -190,26 +190,26 @@ def main():
     else:
         push_to_registry = False
 
-    slack_token = input("Slack bot token (leave empty to skip): ") or None
+    slack_token = input(
+        "Slack bot token (leave empty to skip. no quotes please): ") or None
     while slack_token is not None:
         token_is_valid = validate_slack_token(slack_token)
         if token_is_valid:
             break
         else:
             slack_token = input(
-                "Slack bot token (leave empty to skip): ") or None
+                "Slack bot token (leave empty to skip. no quotes please): "
+            ) or None
 
     if slack_token:
-        wf_slack_channel = (
-            input(
-                "Slack notification channel for reporting lost workflow "
-                "runs ({}): ".format(DEFAULT_WF_SLACK_CHANNEL)) or
-            DEFAULT_WF_SLACK_CHANNEL)
-        node_slack_channel = (
-            input(
-                "Slack notification channel for reporting failing nodes "
-                "({}): ".format(DEFAULT_NODE_SLACK_CHANNEL)) or
-            DEFAULT_NODE_SLACK_CHANNEL)
+        wf_slack_channel = input(
+            "Slack notification channel for reporting lost workflow "
+            f"runs. Leave blank to use default ({DEFAULT_WF_SLACK_CHANNEL}). "
+            "No quotes please") or DEFAULT_WF_SLACK_CHANNEL
+        node_slack_channel = input(
+            "Slack notification channel for reporting failing nodes "
+            f". Leave blank to use default ({DEFAULT_NODE_SLACK_CHANNEL}). "
+            "No quotes please") or DEFAULT_NODE_SLACK_CHANNEL
 
         deployment = JobmonDeployment(slack_token=slack_token,
                                       wf_slack_channel=wf_slack_channel,
