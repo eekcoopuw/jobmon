@@ -529,15 +529,15 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
                              wf_notification_sink=mock_slack)
 
     # give some time for the reconciliation to fall behind
-    sleep(10)
     with app.app_context():
-
-        # the reconciliation heart rate is now > this monitor's threshold,
-        # so should be identified as lost
-        lost = hm_hyper._get_lost_workflow_runs(DB.session)
-        if not lost:
-            sleep(50)
+        maxtries = 6
+        i = 0
+        while i < maxtries:
+            sleep(10)
+            i += 1
             lost = hm_hyper._get_lost_workflow_runs(DB.session)
+            if lost:
+                break
         assert lost
 
         # register the run as lost...
