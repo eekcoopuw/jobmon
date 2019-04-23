@@ -12,8 +12,6 @@ from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
 
-# TODO: Redesign the scope of the try-catch blocks (return code 199)
-
 
 def unwrap():
 

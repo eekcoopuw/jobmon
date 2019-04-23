@@ -107,10 +107,6 @@ class Workflow(object):
         self.name = name
         self.description = description
 
-        # TODO: These parameters are only applicable to the SGE Executor
-        # case. Consider moving them to
-        # config instead of the param
-        # list.
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
@@ -278,14 +274,6 @@ class Workflow(object):
                 request_type='post')
             self.wf_dao = WorkflowDAO.from_wire(response['workflow_dct'])
         else:
-            # This case should never happen... we have application side
-            # protection against this, but we should probably force the
-            # validation down into the DB layer as well (i.e. make the
-            # dag_hash + workflow_args a unique tuple)
-            # TODO: Protect against
-            # duplicated
-            # dag+workflow_args at DB
-            # level
             raise RuntimeError("Multiple matching Workflows found {}. "
                                "Workflows should be unique on TaskDag and "
                                "WorkflowArgs".format(potential_wfs))

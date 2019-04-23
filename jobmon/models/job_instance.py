@@ -124,15 +124,13 @@ class JobInstance(DB.Model):
     def _is_timely_transition(self, new_state):
         """Check if the transition is invalid due to a race condition"""
 
-        # TODO: move the job instance factory into the job state manager to
-        # eliminate the race condition?
         if (self.status, new_state) in self.__class__.untimely_transitions:
             msg = str(InvalidStateTransition(
                 'JobInstance', self.job_instance_id, self.status, new_state))
             msg += ". This is an untimely transition likely caused by a race "\
                    " condition between the UGE scheduler and the job instance"\
                    " factory which logs the UGE id on the job instance."
-            logger.warn(msg)
+            logger.warning(msg)
             return False
         else:
             return True

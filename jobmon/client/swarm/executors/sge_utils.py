@@ -25,7 +25,6 @@ R_BINARY = "/usr/local/bin/R"
 DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
 
 
-# TODO Should this be two separate functions?
 def true_path(file_or_dir=None, executable=None):
     """Get true path to file or executable.
 
