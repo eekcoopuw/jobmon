@@ -476,22 +476,10 @@ def test_fail_fast(real_jsm_jqs, db_cfg):
 
 
 def test_heartbeat(db_cfg, real_jsm_jqs):
-
-    # TODO: Fix this awful hack... I believe the DAG fixtures above create
-    # reconcilers that will run for the duration of this module (since they
-    # are module level fixtures)... These will mess with the timings of
-    # our fresh heartbeat dag we're testing in this function. To get around it,
-    # these dummy dags will increment the ID of our dag-of-interest to
-    # avoid the timing collisions
     app = db_cfg["app"]
     app.config["SQLALCHEMY_ECHO"] = True
     DB = db_cfg["DB"]
-    with app.app_context():
-        for _ in range(5):
-            DB.session.add(TaskDagMeta())
-        DB.session.commit()
 
-    # ... now let's check out heartbeats
     workflow = Workflow("test_heartbeat", interrupt_on_error=False)
     workflow._bind()
     workflow._create_workflow_run()
@@ -530,7 +518,6 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
 
     # give some time for the reconciliation to fall behind
     with app.app_context():
-        maxtries = 6
         i = 0
         while i < maxtries:
             sleep(10)
