@@ -1,3 +1,4 @@
+import os
 from functools import partial
 
 import pytest
@@ -120,21 +121,6 @@ def test_invalid_runtime_by_queue_caught(no_daemon, runtime):
     assert 'Can only run for up to ' in exc.value.args[0]
 
 
-@pytest.mark.skip("erroring out before it gets to validation because of"
-                  " non-bool type")
-@pytest.mark.cluster
-def test_invalid_j_resource_caught(no_daemon):
-    # errors out way before SGEExecutor validation because it is not a
-    # boolean type
-    with pytest.raises(InvalidResponse) as exc:
-        job = no_daemon.bind_task(
-            Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-                 name="j_resource", mem_free='2G', num_cores=8,
-                 j_resource='Nope', queue='all.q', max_runtime_seconds=120))
-
-    assert 'Could not create_job' in exc.value.args[0]
-
-
 @pytest.mark.cluster
 def test_both_mem_free_error():
     expected_msg = ("Cannot pass both mem_free: 1G and m_mem_free: 1G when "
@@ -167,7 +153,8 @@ def test_no_queue_provided(no_daemon):
                                                   sge_executor.stdout,
                                                   sge_executor.project,
                                                   sge_executor.working_dir)
-    assert 'all.q' in qsub_cmd
+    if 'el7' in os.environ['SGE_ENV']:
+        assert 'all.q' in qsub_cmd
 
 
 
