@@ -24,8 +24,8 @@ class SGEResource(object):
         queue (str): queue of cluster nodes to submit this task to. Must be
             a valid queue, as defined by "qconf -sql"
         max_runtime_seconds (int): how long the job should be allowed to
-            run before the executor kills it. Not currently required by the
-            new cluster, but will be. Default is None, for indefinite.
+            run before the executor kills it. Currently required by the
+            new cluster. Default is None, for indefinite.
         j_resource (bool): whether or not the job will need the J drive
         max_runtime: max_runtime_seconds converted into h:m:s style for new
         cluster
@@ -39,7 +39,7 @@ class SGEResource(object):
              If mem_free is not in a valid range: 1GB to 1TB
              If m_mem_free is not in a valid range: 1GB to 1TB
              If mem_free and m_mem_free are both passed as arguments
-             If runtime isn't in the valid range for the associated queue
+             If max_runtime_seconds is not specified on the new cluster
              If j_resource isn't a bool
 
         Returns
@@ -133,40 +133,16 @@ class SGEResource(object):
         return str(self.max_runtime_seconds)
 
     def _validate_runtime(self):
-        """Ensure that max_runtime passed in fits on the queue requested"""
-        if self.max_runtime_seconds is None and "el7" in self._cluster:
-            # a max_runtime has to be provided for the fair cluster, so if none
-            #  is provided, set it to 5 minutes so that it fails quickly
-            logger.info("You did not specify a maximum runtime so it has "
-                         "been set to 5 minutes")
-            self.max_runtime_seconds = 300
-        elif self.max_runtime_seconds is not None:
-            if self.queue == "all.q":
-                if self.max_runtime_seconds > 3 * 86400:
-                    raise ValueError("Can only run for up to 3 days"
-                                     "(259200 sec)"
-                                     " on all.q, you requested {} seconds"
-                                     .format(self.max_runtime_seconds))
-            elif self.queue == "geospatial.q":
-                if self.max_runtime_seconds > 1555200:
-                    raise ValueError("Can only run for up to 18 days "
-                                     "(1555200 sec) on geospatial.q, you "
-                                     "requested {} seconds"
-                                     .format(self.max_runtime_seconds))
-            elif self.queue == "long.q" or self.queue == "profile.q":
-                if self.max_runtime_seconds > 604800:
-                    raise ValueError("Can only run for up to 1 week "
-                                     "(604800 sec) on {}, you requested {} "
-                                     "seconds"
-                                     .format(self.queue,
-                                             self.max_runtime_seconds))
-            elif self.max_runtime_seconds > 3 * 86400:
-                raise ValueError("You did not request all.q, profile.q, "
-                                 "geospatial.q, or long.q to run your jobs "
-                                 "so you must limit your runtime to under 3 "
-                                 "days")
-        else:
+        """Ensure that max_runtime is specified for the new cluster"""
+        unspecified_runtime = self.max_runtime_seconds is None
+        new_cluster = "el7" in self._cluster
+        if unspecified_runtime and new_cluster:
+            raise ValueError(
+                "max_runtime_seconds must be specified on the fair cluster")
+        elif unspecified_runtime and not new_cluster:
             self.max_runtime_seconds = 0
+        else:
+            pass
         self.max_runtime = self._transform_secs_to_hms()
 
     def _validate_j_resource(self):
@@ -187,8 +163,8 @@ class SGEResource(object):
             raise ValueError("Must pass one of [slots, num_cores]")
         if self.slots and not self.num_cores:
             logger.info("User Specified slots instead of num_cores, so we are"
-                         "converting it, but to run on the fair cluster they "
-                         "should specify num_cores")
+                        "converting it, but to run on the fair cluster they "
+                        "should specify num_cores")
             self.num_cores = self.slots
 
     def _validate_args_based_on_cluster(self):
