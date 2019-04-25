@@ -492,6 +492,7 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
         i += 1
         with app.app_context():
             row = DB.session.execute("select status from workflow_run where id = {}".format(wfr.id)).fetchone()
+            DB.session.commit()
             if row[0] == 'R':
                 break
         sleep(2)
