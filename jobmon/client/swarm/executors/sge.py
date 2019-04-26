@@ -41,12 +41,14 @@ class SGEExecutor(Executor):
                                                   self.working_dir)
             logger.debug(f"About to qsub {qsub_cmd}")
             resp = subprocess.check_output(qsub_cmd, shell=True)
+            logger.debug(f"Received from qsub {resp}")
+            # Hmm, Python 2 vs 3 bug? That byte marker?
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
             return sge_jid
 
         except Exception as e:
-            logger.error(e)
+            logger.error(f"Caught in qsub {e}")
             if isinstance(e, ValueError):
                 raise e
             return ERROR_SGE_JID
