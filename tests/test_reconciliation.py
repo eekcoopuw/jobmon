@@ -163,12 +163,23 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
     # Give the job_state_manager some time to process the error message
     # This test job just sleeps for 30s, so it should not be missing
     # DO NOT put in a while-True loop
-
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     app.app_context().push()
     sql = "SELECT status FROM job_instance"
-    for i in range(0, 12):
+    # Test should not fail in the first 30 seconds
+    for i in range(0, 15):
+        res = DB.session.execute(sql).fetchone()
+        DB.session.commit()
+        jir = job_list_manager_reconciliation.job_inst_reconciler
+        jir.reconcile()
+        job_list_manager_reconciliation._sync()
+        if res is not None:
+            assert res[0] != "E"
+        assert len(job_list_manager_reconciliation.all_error) == 0
+        sleep(2)
+    # Test the all_error changes after the task fail. Time out in five minutes
+    for i in range(0, 30):
         res = DB.session.execute(sql).fetchone()
         DB.session.commit()
         jir = job_list_manager_reconciliation.job_inst_reconciler
@@ -176,10 +187,15 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
         job_list_manager_reconciliation._sync()
         if res is not None:
             if res[0] == "E":
-                assert len(job_list_manager_reconciliation.all_error) > 0
+                if len(job_list_manager_reconciliation.all_error) == 0:
+                    # In rare cases, the error state has not be synced. Give it another try after a litter sleep.
+                    sleep(2)
+                    job_list_manager_reconciliation._sync()
+                break
             else:
                 assert len(job_list_manager_reconciliation.all_error) == 0
-        sleep(15)
+        sleep(10)
+    len(job_list_manager_reconciliation.all_error) > 0
 
 
 def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
