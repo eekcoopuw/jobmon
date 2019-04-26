@@ -29,7 +29,6 @@ class TaskDag(object):
         self.dag_id = None
         self.job_list_manager = None
 
-        # TODO: Scale test to 1M jobs
         self.name = name
 
         self.tasks = OrderedDict()  # {job_hash: ExecutableTask}
@@ -83,12 +82,6 @@ class TaskDag(object):
                 interrupt_on_error=self.interrupt_on_error,
                 job_instantiation_interval=self.job_instantiation_interval)
 
-            # Bind all the tasks to the job_list_manager... This has to be done
-            # before the reset happens. TODO: Investigate the sequencing,
-            # and at minimum push some error messaging down into
-            # job_list_manager if RESETTING without any bound tasks. Perhaps,
-            # we shouldn't allow most methods to be called until all job_ids
-            # are bound to tasks
             for _, task in self.tasks.items():
                 self.job_list_manager.bind_task(task)
 

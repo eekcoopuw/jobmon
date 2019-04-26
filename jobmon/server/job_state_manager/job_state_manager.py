@@ -196,8 +196,6 @@ def add_job_instance():
     DB.session.commit()
     ji_id = job_instance.job_instance_id
 
-    # TODO: Would prefer putting this in the model, but can't find the
-    # right post-create hook. Investigate.
     try:
         job_instance.job.transition(JobStatus.INSTANTIATED)
     except InvalidStateTransition:
@@ -205,8 +203,7 @@ def add_job_instance():
             msg = ("Caught InvalidStateTransition. Not transitioning job "
                    "{}'s job_instance_id {} from I to I"
                    .format(data['job_id'], ji_id))
-            warnings.warn(msg)
-            logger.debug(msg)
+            logger.warning(msg)
         else:
             raise
     finally:
@@ -747,11 +744,6 @@ def _update_job_instance_state(job_instance, status_id):
 
     job = job_instance.job
 
-    # TODO: Investigate moving this publish logic into some SQLAlchemy-
-    # event driven framework. Given the amount of code copying here, to
-    # ensure consistency with committed transactions it doesn't feel like
-    # the JobStateManager should be the responsible party on this one.
-    #
     # ... see tests/tests_job_state_manager.py for Event example
     if job.status in [JobStatus.DONE, JobStatus.ERROR_FATAL]:
         to_publish = mogrify(job.dag_id, (job.job_id, job.status))

@@ -117,8 +117,6 @@ class SGEExecutor(Executor):
         """Process the Job's context_args, which are assumed to be
         a json-serialized dictionary
         """
-        # TODO: Settle on a sensible way to pass and validate settings for the
-        # command's context (i.e. context = Executor, SGE/Sequential/Multiproc)
         resources = SGEResource(slots=job.slots, mem_free=job.mem_free,
                                 num_cores=job.num_cores, queue=job.queue,
                                 max_runtime_seconds=job.max_runtime_seconds,

@@ -135,10 +135,6 @@ class JobInstanceReconciler(object):
 
     def _get_timed_out_jobs(self):
         """Returns timed_out jobs as a list of JobInstances.
-
-        TODO: Explore whether there is any utility in in a
-        "from_wire_as_dataframe" utility method on JobInstance, similar to the
-        current "from_wire" utility.
         """
         try:
             rc, response = self.requester.send_request(
