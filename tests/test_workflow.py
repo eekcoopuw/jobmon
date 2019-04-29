@@ -478,30 +478,28 @@ def test_fail_fast(real_jsm_jqs, db_cfg):
 
 
 def test_heartbeat(db_cfg, real_jsm_jqs):
-
-    # TODO: Fix this awful hack... I believe the DAG fixtures above create
-    # reconcilers that will run for the duration of this module (since they
-    # are module level fixtures)... These will mess with the timings of
-    # our fresh heartbeat dag we're testing in this function. To get around it,
-    # these dummy dags will increment the ID of our dag-of-interest to
-    # avoid the timing collisions
     app = db_cfg["app"]
+    app.config["SQLALCHEMY_ECHO"] = True
     DB = db_cfg["DB"]
-    with app.app_context():
-        for _ in range(5):
-            DB.session.add(TaskDagMeta())
-        DB.session.commit()
 
-    # ... now let's check out heartbeats
     workflow = Workflow("test_heartbeat", interrupt_on_error=False)
     workflow._bind()
     workflow._create_workflow_run()
 
     wfr = workflow.workflow_run
 
-    # give some time to make sure the dag's reconciliation process
-    # has actually started
-    sleep(20)
+    maxtries = 10
+    i = 0
+    while i < maxtries:
+        i += 1
+        with app.app_context():
+            row = DB.session.execute("select status from workflow_run where id = {}".format(wfr.id)).fetchone()
+            DB.session.commit()
+            if row[0] == 'R':
+                break
+        sleep(2)
+    if i > maxtries:
+        raise Exception("The workflow failed to reconcile in 20 seconds.")
 
     from jobmon.server.health_monitor.health_monitor import \
         HealthMonitor
@@ -522,15 +520,14 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
                              wf_notification_sink=mock_slack)
 
     # give some time for the reconciliation to fall behind
-    sleep(10)
     with app.app_context():
-
-        # the reconciliation heart rate is now > this monitor's threshold,
-        # so should be identified as lost
-        lost = hm_hyper._get_lost_workflow_runs(DB.session)
-        if not lost:
-            sleep(50)
+        i = 0
+        while i < maxtries:
+            sleep(10)
+            i += 1
             lost = hm_hyper._get_lost_workflow_runs(DB.session)
+            if lost:
+                break
         assert lost
 
         # register the run as lost...
