@@ -81,12 +81,15 @@ class SGEExecutor(Executor):
         return executor_ids
 
     def terminate_job_instances(self, jiid_exid_tuples):
+        """Only terminate the job instances that are running, not going to
+        kill the jobs that are actually still in a waiting or transitioning
+        state"""
         to_df = pd.DataFrame(data=jiid_exid_tuples,
                              columns=["job_instance_id", "executor_id"])
         if len(to_df) == 0:
             return []
         sge_jobs = sge_utils.qstat()
-        sge_jobs = sge_jobs[~sge_jobs.status.isin(['hqw', 'qw'])]
+        sge_jobs = sge_jobs[~sge_jobs.status.isin(['hqw', 'qw', "hRwq", "t"])]
         to_df = to_df.merge(sge_jobs, left_on='executor_id', right_on='job_id')
         return_list = []
         if len(to_df) > 0:
