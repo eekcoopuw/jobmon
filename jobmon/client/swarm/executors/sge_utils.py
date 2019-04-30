@@ -9,7 +9,6 @@ import itertools
 import logging
 import os
 import re
-import requests
 import subprocess
 
 import pandas as pd
@@ -58,7 +57,7 @@ def get_project_limits(project):
     See /share/local/IT/scripts/cluster_projects_report_admin.sh
     The shell script only works on prod.
 
-    To get the fair cluster share for a given project go to:
+    To get the fair cluster share for a given project send a get request to:
     https://toolbox.ihme.washington.edu/cluster/fair/allocations
     these shares are not enforced if the cluster is free though
     """
