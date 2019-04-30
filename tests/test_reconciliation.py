@@ -44,6 +44,8 @@ def job_list_manager_reconciliation(real_dag_id):
     jlm.disconnect()
 
 
+@pytest.mark.skip(reason="ssh problems on buster or fixtures from other tests "
+                         "interfering, to be addressed in GBDSCI-1802")
 def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
                                           db_cfg):
     """ensures that if a job silently dies (so it doesn't throw an interrupt,

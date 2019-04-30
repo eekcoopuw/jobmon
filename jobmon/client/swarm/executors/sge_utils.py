@@ -9,6 +9,7 @@ import itertools
 import logging
 import os
 import re
+import requests
 import subprocess
 
 import pandas as pd
@@ -55,23 +56,29 @@ def get_project_limits(project):
     """This function uses the qconf call from the toolbox to get project_limits
     from the cluster.
     See /share/local/IT/scripts/cluster_projects_report_admin.sh
-
     The shell script only works on prod.
-    For fair, send a GET to https://toolbox.ihme.washington.edu/cluster/fair/allocations
-    see Jira GBDSCI-1723
+
+    To get the fair cluster share for a given project go to:
+    https://toolbox.ihme.washington.edu/cluster/fair/allocations
+    these shares are not enforced if the cluster is free though
     """
     if not project:
         project = 'ihme_general'
-    call = ("""qconf -srqs | egrep -A 1 -i "TRUE" | grep -i limit | grep """ +
-            project + """| sort | sed -e "s/^.*limit//" -e "s/projects//g" -e "s/users//" -e "s/to slots//g" -e "s/ =/:/g"| tr -s " " | awk -F':' '{printf "%5d", $2}' | sort -k 2 -n -r | pr -W 95 -T -t --columns 1""")
-    res = subprocess.check_output(call, shell=True)
+    if "el7" in os.environ["SGE_ENV"]:
+        """project limits are not enforced on the fair cluster if other 
+        projects are not using the resources so global limit is assigned"""
+        return 10000
+    else:
+        call = ("""qconf -srqs | egrep -A 1 -i "TRUE" | grep -i limit | grep """ +
+                project + """| sort | sed -e "s/^.*limit//" -e "s/projects//g" -e "s/users//" -e "s/to slots//g" -e "s/ =/:/g"| tr -s " " | awk -F':' '{printf "%5d", $2}' | sort -k 2 -n -r | pr -W 95 -T -t --columns 1""")
+        project_limit = subprocess.check_output(call, shell=True)
     try:
-        return int(res)
+        return int(project_limit)
     except ValueError as e:
-        logger.warning("Could not get project slot limits, if you are on the "
-                       "dev cluster this is fine because there are no set "
-                       "project limits. Res is {}. ValueError is {}"
-                       .format(res, e))
+        logger.info("Could not get project slot limits, if you are on the "
+                    "dev cluster this is fine because there are no set "
+                    "project limits. Res is {}. ValueError is {}"
+                    .format(project_limit, e))
     # enforces a default limit since dev does not have project limits
     return 200
 
