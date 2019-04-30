@@ -93,6 +93,7 @@ class WorkflowRun(object):
         status, wf_run = self.check_if_workflow_is_running()
         if not status:
             return
+        workflow_run_id = wf_run['id']
         if wf_run['user'] != getpass.getuser():
             msg = ("Workflow_run_id {} for this workflow_id is still in "
                    "running mode by user {}. Please ask this user to kill "
@@ -101,17 +102,17 @@ class WorkflowRun(object):
                    "restart this workflow prior to the other user killing "
                    "theirs, this error will not re-raise but you may be "
                    "creating orphaned processes and hard-to-find bugs"
-                   .format(wf_run['id'], wf_run['user']))
+                   .format(workflow_run_id, wf_run['user']))
             logger.error(msg)
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
-                message={'workflow_run_id': wf_run['id'],
+                message={'workflow_run_id': workflow_run_id,
                          'status': WorkflowRunStatus.STOPPED},
                 request_type='put')
             raise RuntimeError(msg)
         else:
             kill_remote_process(wf_run['hostname'], wf_run['pid'])
-            logger.info("Kill previous workflow runs: {}".format(wf_run['id']))
+            logger.info(f"Kill previous workflow runs: {workflow_run_id}")
             if reset_running_jobs:
                 if wf_run['executor_class'] == "SequentialExecutor":
                     from jobmon.client.swarm.executors.sequential import \
@@ -129,17 +130,18 @@ class WorkflowRun(object):
                                      "jobmon".format(wf_run['executor_class']))
                 # get job instances of workflow run
                 _, response = self.requester.send_request(
-                    app_route=('/workflow_run/<workflow_run_id>/job_instance'
-                               .format(wf_run['id'])),
+                    app_route=f'/workflow_run/{workflow_run_id}/job_instance',
                     message={},
                     request_type='get')
                 job_instances = [JobInstance.from_wire(ji)
                                  for ji in response['job_instances']]
+                jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
+                                    for ji in job_instances]
                 if job_instances:
-                    previous_executor.terminate_job_instances(job_instances)
+                    previous_executor.terminate_job_instances(jiid_exid_tuples)
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
-                message={'workflow_run_id': wf_run['id'],
+                message={'workflow_run_id': workflow_run_id,
                          'status': WorkflowRunStatus.STOPPED},
                 request_type='put')
 

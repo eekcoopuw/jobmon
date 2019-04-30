@@ -30,7 +30,6 @@ Table of Contents
     azure
     glossary
     design_notes
-    future_work
     API Reference <modules>
 
 
