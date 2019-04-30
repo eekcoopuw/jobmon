@@ -1,12 +1,12 @@
 import argparse
 from functools import partial
 import os
+from queue import Queue
 import subprocess
 import sys
 from threading import Thread
-import traceback
 from time import sleep, time
-from queue import Queue
+import traceback
 
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.swarm.job_management.job_instance_intercom import \
@@ -15,39 +15,27 @@ from jobmon.client.utils import kill_remote_process_group
 
 
 def enqueue_stderr(stderr, queue):
-    """reader that listens for new lines in a pipe and prints them. Will
-    terminate when pipe closes. puts each resulting line into a queue
+    """eagerly print 100 byte blocks to stderr so pipe doesn't fill up and
+    deadlock. Also collect blocks for reporting to db by putting them in a
+    queue to main thread
 
     Args:
         stderr: stderr pipe
+        queue: queue to communicate between listener thread and main thread
     """
-    # eagerly print each line to stderr so the pipe doesn't deadlock but also
-    # collect for later reportin to DB
-    line_accum = ""
 
     # read 100 bytes at a time so the pipe never deadlocks even if someone
     # tries to print a dataframe into stderr
     block_reader = partial(stderr.read, 100)
     for new_block in iter(block_reader, ''):
 
-        # concat the block we just read onto our line accumlator
-        line_accum = line_accum + new_block
-        lines = line_accum.splitlines()
-        if len(lines) > 1:
+        # push the block we just read to stderr and onto our queue to the main
+        # thread
+        sys.stderr.write(new_block)
+        queue.put(new_block)
 
-            # if we have multiple lines, eagerly print all to stderr except the
-            # last one because it should be incomplete
-            for line in lines[:-1]:
-                print(line, file=sys.stderr)
-                queue.put(line)
-            line_accum = lines[-1]
-
-    # print the final line block to stderr
-    print(line_accum, file=sys.stderr)
+    # cleanup
     stderr.close()
-
-    # return full to main thread
-    queue.put(line_accum)
 
 
 def unwrap():
@@ -127,10 +115,9 @@ def unwrap():
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
 
         # compile stderr to send to db
-        err_lines = []
+        stderr = ""
         while not err_q.empty():
-            err_lines.append(err_q.get())
-        stderr = "\n".join(err_lines)
+            stderr += err_q.get()
 
         returncode = proc.returncode
 

@@ -102,6 +102,9 @@ class MockIntercomLogHeartbeatToError(MockIntercom):
     def log_report_by(self, next_report_increment):
         print("logging report by in the middle", file=sys.stderr)
 
+    def log_error(self, error):
+        assert error == "a" * 2**10 * (2**8)
+
 
 def test_stderr_buffering(monkeypatch, capsys):
     # this test checks 2 things.
@@ -131,10 +134,15 @@ def test_stderr_buffering(monkeypatch, capsys):
     # this call should raise a SystemExit because we don't evaluate the
     # kill_remote_process_group block and hence won't raise any errors
     with patch.object(sys, 'argv', base_args):
-        with pytest.raises(SystemExit):
-            jobmon.client.worker_node.cli.unwrap()
+        with capsys.disabled():
+            with pytest.raises(SystemExit):
+                jobmon.client.worker_node.cli.unwrap()
     captured = capsys.readouterr()
+    members = captured.err.split("logging report by in the middle\n")
+    assert len(members) > 5  # should be report_bys in the middle of the aaaa's
 
-    members = captured.err.split("a" * 2**10 * 2**6)
-    assert "a" * 2**10 not in members[0]
-    assert "a" * 2**10 not in members[1]
+    # confirm we got all stderr from child
+    aaaa = ""
+    for block in members:
+        aaaa += block
+    assert aaaa == "a" * 2**10 * (2**8)
