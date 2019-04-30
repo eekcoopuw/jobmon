@@ -56,7 +56,10 @@ def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
     jif = job_list_manager_reconciliation.job_instance_factory
     jif.interrupt_on_error = True
 
-    task = BashTask(command="sleep 300", name="heartbeat_sleeper", slots=1,
+    task = BashTask(command="sleep 300", name="heartbeat_sleeper",
+                    num_cores=1,
+                    mem_free="2G",
+                    max_runtime_seconds='1000',
                     max_attempts=1)
 
     job = job_list_manager_reconciliation.bind_task(task)
