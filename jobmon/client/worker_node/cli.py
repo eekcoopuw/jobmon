@@ -1,11 +1,12 @@
 import argparse
-
+from functools import partial
 import os
 import subprocess
 import sys
+from threading import Thread
 import traceback
 from time import sleep, time
-
+from queue import Queue
 
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.swarm.job_management.job_instance_intercom import \
@@ -13,17 +14,47 @@ from jobmon.client.swarm.job_management.job_instance_intercom import \
 from jobmon.client.utils import kill_remote_process_group
 
 
+def enqueue_stderr(stderr, queue):
+    """reader that listens for new lines in a pipe and prints them. Will
+    terminate when pipe closes. puts each resulting line into a queue
+
+    Args:
+        stderr: stderr pipe
+    """
+    # eagerly print each line to stderr so the pipe doesn't deadlock but also
+    # collect for later reportin to DB
+    line_accum = ""
+
+    # read 100 bytes at a time so the pipe never deadlocks even if someone
+    # tries to print a dataframe into stderr
+    block_reader = partial(stderr.read, 100)
+    for new_block in iter(block_reader, ''):
+
+        # concat the block we just read onto our line accumlator
+        line_accum = line_accum + new_block
+        lines = line_accum.splitlines()
+        if len(lines) > 1:
+
+            # if we have multiple lines, eagerly print all to stderr except the
+            # last one because it should be incomplete
+            for line in lines[:-1]:
+                print(line, file=sys.stderr)
+                queue.put(line)
+            line_accum = lines[-1]
+
+    # print the final line block to stderr
+    print(line_accum, file=sys.stderr)
+    stderr.close()
+
+    # return full to main thread
+    queue.put(line_accum)
+
+
 def unwrap():
 
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
     # Similar to a stub or a container
-
-    def eprint(*args, **kwargs):
-        """Utility function for displaying stderr captured from subprocess
-        in stderr stream of parent process
-        """
-        print(*args, file=sys.stderr, **kwargs)
 
     # parse arguments
     parser = argparse.ArgumentParser()
@@ -77,10 +108,15 @@ def unwrap():
             args["command"],
             cwd=args["temp_dir"],
             env=os.environ.copy(),
-            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             shell=True,
             universal_newlines=True)
+
+        # open thread for reading stderr eagerly
+        err_q = Queue()  # open queues for returning stderr to main thread
+        err_thread = Thread(target=enqueue_stderr, args=(proc.stderr, err_q))
+        err_thread.daemon = True  # thread dies with the program
+        err_thread.start()
 
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
@@ -88,19 +124,20 @@ def unwrap():
                 ji_intercom.log_report_by(next_report_increment=(
                     args['heartbeat_interval'] * args['report_by_buffer']))
                 last_heartbeat_time = time()
+            sleep(0.5)  # don't thrash CPU by polling as fast as possible
 
-        # communicate the stdout and stderr
-        stdout, stderr = proc.communicate()
+        # compile stderr to send to db
+        err_lines = []
+        while not err_q.empty():
+            err_lines.append(err_q.get())
+        stderr = "\n".join(err_lines)
+
         returncode = proc.returncode
 
     except Exception as exc:
-        stdout = ""
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                      traceback.format_exc())
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
-
-    print(stdout)
-    eprint(stderr)
 
     # check return code
     if returncode != ReturnCodes.OK:
