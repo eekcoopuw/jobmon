@@ -29,8 +29,8 @@ def enqueue_stderr(stderr, queue):
     block_reader = partial(stderr.read, 100)
     for new_block in iter(block_reader, ''):
 
-        # push the block we just read to stderr and onto our queue to the main
-        # thread
+        # push the block we just read to stderr and onto the queue that's
+        # communicating w/ the main thread
         sys.stderr.write(new_block)
         queue.put(new_block)
 
