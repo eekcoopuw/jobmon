@@ -76,10 +76,28 @@ Deployment Tests
 The deployment tests can be run manually after a deployment.
 
 six_job_test.py is a simple little smoke test that runs a small application
-of six jobs.
+of six jobs. It should be used to confirm that communication between the client, services, and DB are configured properly. If it fails that indicates the services are not properly configured.
+
+Load Tests
+**********
+
+Load testing is a heuristic used to confirm that jobmon is hitting the performace benchmarks required to run large applications on IHME's cluster. Load testing is not covered by standard unit testing. It is not automated and requires a human participant.
+
+The general priciple is run a fake application on a fresh deployment of jobmon which mimics how a large application would interface with jobmon in order to confirm that jobmon can handle the load.
+
+Things to check
+^^^^^^^^^^^^^^^
+
+ 1) Run htop on the jobmon VM to confirm that cpu utilization doesn't get uncomfortably high while the application is running
+ 2) Run uwsgitop inside the jobmon service to make sure that work is evenly distributed accross workers. Also check that requests per second is a reasonable value (suggested: 150rps as of 0.9.3). To launch uwsgitop, log into the the VM and run ``docker exec -it jobmon{v}_jobmon_1 bash``. Once you are inside the jobmon service container, pip install uswgitop if it isn't already installed. To launch uwsgitop run ``uwsgitop /tmp/statsock``
+ 3) Analyze the server logs using the scripts found in '/homes/svcscicompci/scripts' to confirm that no queries are taking longer than ~.1 seconds or returning a payload that is too large (need a number here).
+ 4) Cluster configuration can affect job failure rate and we want to know when the cluster configuration has changed. Check the db to make sure that jobs aren't mysteriously, periodically failing.
 
 The main load test is three_phase_load_test.py.
 
 If we want to check the spike caused by many jobs being created at once then
 the simpler one_phase_load_test.py is adequate.
 
+Other load tests such as load_test_intermittent_exceptions.py can be used to load test error and retry routes.
+
+Most of all, if something seems fishy, investigate the smell.
