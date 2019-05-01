@@ -1,9 +1,10 @@
 import json
 import logging
 import os
-from typing import List
 import subprocess
+import sys
 from time import sleep
+from typing import List
 
 import pandas as pd
 
@@ -39,16 +40,17 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
-            logger.debug(f"About to qsub {qsub_cmd}")
             resp = subprocess.check_output(qsub_cmd, shell=True)
-            logger.debug(f"Received from qsub {resp}")
+            logger.debug(f"****** Received from qsub '{resp}'")
             # Hmm, Python 2 vs 3 bug? That byte marker?
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
             return sge_jid
 
         except Exception as e:
-            logger.error(f"Caught in qsub {e}")
+            (_, value, traceback) = sys.exc_info()
+            logger.error(f"*** Caught during qsub {e}")
+            logger.error(f"Traceback {traceback}")
             if isinstance(e, ValueError):
                 raise e
             return ERROR_SGE_JID

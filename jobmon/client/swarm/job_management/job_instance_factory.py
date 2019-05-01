@@ -1,7 +1,7 @@
-from builtins import str
 import _thread
 import logging
 import threading
+from builtins import str
 from time import sleep
 
 from jobmon.client import shared_requester, client_config
@@ -137,7 +137,7 @@ class JobInstanceFactory(object):
                 self.next_report_increment)
         else:
             logger.error(f"Did not receive an executor_id in "
-                       f"_create_job_instance")
+                         f"_create_job_instance")
         return job_instance, executor_id
 
     def _get_jobs_queued_for_instantiation(self):
