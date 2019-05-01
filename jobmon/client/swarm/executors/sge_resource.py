@@ -1,8 +1,13 @@
 import os
-import subprocess
-import datetime
 import logging
 logger = logging.getLogger(__name__)
+
+MIN_MEMORY_GB = 0.128
+MAX_MEMORY_GB = 512
+
+MAX_CORES = 56
+MAX_CORES_GEOSPATIAL = 64
+MAX_CORES_C2 = 100
 
 
 class SGEResource(object):
@@ -58,74 +63,81 @@ class SGEResource(object):
         """Ensure cores requested isn't more than available on that
         node, at this point slots have been converted to cores
         """
-        max_cores = 56
+        max_cores = MAX_CORES
         if self.queue is not None:
             if 'c2' in self.queue:
-                max_cores = 100
+                max_cores = MAX_CORES_C2
             elif self.queue == "geospatial.q":
-                max_cores = 64
+                max_cores = MAX_CORES_GEOSPATIAL
         if (self.num_cores is None or
             self.num_cores not in range(1, max_cores + 1)):
             raise ValueError("Got an invalid number of cores. Received {} "
                              "but the max_cores is {}"
                              .format(self.num_cores, max_cores))
 
-    def _transform_mem_to_gb(self):
-        # do we want upper and lowercase g, m, t options?
-        mem = self.mem_free
-        if mem[-1].lower() == "m":
-            mem = float(self.mem_free[:-1])
+    @staticmethod
+    def _transform_mem_to_gb(mem_str: str) -> float:
+        # we allow both upper and lowercase g, m, t options
+        # BUG g and G are not the same
+        if mem_str[-1].lower() == "m":
+            mem = float(mem_str[:-1])
             mem /= 1000
-        elif mem[-2:].lower() == "mb":
-            mem = float(mem[:-2])
+        elif mem_str[-2:].lower() == "mb":
+            mem = float(mem_str[:-2])
             mem /= 1000
-        elif mem[-1].lower() == "t":
-            mem = float(mem[:-1])
+        elif mem_str[-1].lower() == "t":
+            mem = float(mem_str[:-1])
             mem *= 1000
-        elif mem[-2:].lower() == "tb":
-            mem = float(mem[:-2])
+        elif mem_str[-2:].lower() == "tb":
+            mem = float(mem_str[:-2])
             mem *= 1000
-        elif mem[-1].lower() == "g":
-            mem = float(mem[:-1])
-        elif mem[-2:].lower() == "gb":
-            mem = float(mem[:-2])
+        elif mem_str[-1].lower() == "g":
+            mem = float(mem_str[:-1])
+        elif mem_str[-2:].lower() == "gb":
+            mem = float(mem_str[:-2])
         else:
             raise ValueError("Memory measure should be an int followed by M, "
                              "MB, m, mb, G, GB, g, gb, T, TB, t, "
-                             "or tb you gave {}".format(mem))
+                             "or tb you gave {}".format(mem_str))
         return mem
 
     def _validate_memory(self):
         """Ensure memory requested isn't more than available on any node"""
         if self.mem_free is not None:
-            self.mem_free = self._transform_mem_to_gb()
-            if int(self.mem_free) not in range(0, 512):
-                raise ValueError("Can only request mem_free_gb between "
-                                 "0 and 512GB (the limit on all.q and "
-                                 "profile.q). Got {}"
-                                 .format(self.mem_free))
+            self.mem_free = self._transform_mem_to_gb(self.mem_free)
+            if not (MIN_MEMORY_GB <= self.mem_free <= MAX_MEMORY_GB):
+                raise ValueError(f"Can only request mem_free_gb between "
+                                 f"{MIN_MEMORY_GB} and {MAX_MEMORY_GB}GB "
+                                 f"profile.q). Received {self.mem_free}")
         else:
             logger.info("You have not specified a memory amount so you have "
-                         "been given 1G, if you need more, add it is a "
-                         "parameter to your Task")
+                        "been given 1G, if you need more, add it is a "
+                        "parameter to your Task")
             self.mem_free = 1
 
     def _transform_secs_to_hms(self):
         """UGE will accept seconds. Do not use funky formatting with days"""
-        return str(self.max_runtime_seconds)
+        return
 
     def _validate_runtime(self):
         """Ensure that max_runtime is specified for the new cluster"""
         unspecified_runtime = self.max_runtime_seconds is None
         new_cluster = "el7" in self._cluster
         if unspecified_runtime and new_cluster:
-            raise ValueError(
-                "max_runtime_seconds must be specified on the fair cluster")
+            self.max_runtime_seconds = 24*60*60  # One day
+            logger.info(
+                f"max_runtime_seconds must be specified on the fair cluster,"
+                f"no value given so setting to 24 hours")
         elif unspecified_runtime and not new_cluster:
-            self.max_runtime_seconds = 0
+            self.max_runtime_seconds = 1
         else:
             pass
-        self.max_runtime = self._transform_secs_to_hms()
+
+        if self.max_runtime_seconds <= 0:
+            raise ValueError(f"Max runtime must be strictly positive"
+                             f"Received {self.max_runtime_seconds}")
+
+        self.max_runtime = str(self.max_runtime_seconds)
 
     def _validate_j_resource(self):
         if not(self.j_resource is True or self.j_resource is False):

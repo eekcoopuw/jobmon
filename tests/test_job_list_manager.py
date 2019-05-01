@@ -190,7 +190,7 @@ def test_sge_valid_command(job_list_manager_sge_no_daemons):
                                               name="sgefbb",
                                               num_cores=3,
                                               max_runtime_seconds='1000',
-                                              mem_free='6M'))
+                                              mem_free='600M'))
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
     job_list_manager_sge._sync()
