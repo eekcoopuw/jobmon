@@ -3,6 +3,7 @@ from time import sleep
 import os
 import uuid
 import subprocess
+from multiprocessing import Process
 
 from jobmon import BashTask  # testing new style imports
 from jobmon import PythonTask
@@ -18,6 +19,7 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client import shared_requester as req
+from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     WorkflowAlreadyExists, ResumeStatus
@@ -476,30 +478,28 @@ def test_fail_fast(real_jsm_jqs, db_cfg):
 
 
 def test_heartbeat(db_cfg, real_jsm_jqs):
-
-    # TODO: Fix this awful hack... I believe the DAG fixtures above create
-    # reconcilers that will run for the duration of this module (since they
-    # are module level fixtures)... These will mess with the timings of
-    # our fresh heartbeat dag we're testing in this function. To get around it,
-    # these dummy dags will increment the ID of our dag-of-interest to
-    # avoid the timing collisions
     app = db_cfg["app"]
+    app.config["SQLALCHEMY_ECHO"] = True
     DB = db_cfg["DB"]
-    with app.app_context():
-        for _ in range(5):
-            DB.session.add(TaskDagMeta())
-        DB.session.commit()
 
-    # ... now let's check out heartbeats
     workflow = Workflow("test_heartbeat", interrupt_on_error=False)
     workflow._bind()
     workflow._create_workflow_run()
 
     wfr = workflow.workflow_run
 
-    # give some time to make sure the dag's reconciliation process
-    # has actually started
-    sleep(20)
+    maxtries = 10
+    i = 0
+    while i < maxtries:
+        i += 1
+        with app.app_context():
+            row = DB.session.execute("select status from workflow_run where id = {}".format(wfr.id)).fetchone()
+            DB.session.commit()
+            if row[0] == 'R':
+                break
+        sleep(2)
+    if i > maxtries:
+        raise Exception("The workflow failed to reconcile in 20 seconds.")
 
     from jobmon.server.health_monitor.health_monitor import \
         HealthMonitor
@@ -520,15 +520,14 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
                              wf_notification_sink=mock_slack)
 
     # give some time for the reconciliation to fall behind
-    sleep(10)
     with app.app_context():
-
-        # the reconciliation heart rate is now > this monitor's threshold,
-        # so should be identified as lost
-        lost = hm_hyper._get_lost_workflow_runs(DB.session)
-        if not lost:
-            sleep(50)
+        i = 0
+        while i < maxtries:
+            sleep(10)
+            i += 1
             lost = hm_hyper._get_lost_workflow_runs(DB.session)
+            if lost:
+                break
         assert lost
 
         # register the run as lost...
@@ -758,11 +757,72 @@ def test_workflow_identical_args(real_jsm_jqs, db_cfg):
 
 
 def test_workflow_config_reconciliation():
-    task = BashTask("sleep 1", slots=1)
-    wf = Workflow(name="test_reconciliation_args", reconciliation_interval=3,
+    Workflow(name="test_reconciliation_args", reconciliation_interval=3,
                   heartbeat_interval=4, report_by_buffer=5.1)
     from jobmon.client import client_config
     assert client_config.report_by_buffer == 5.1
     assert client_config.heartbeat_interval == 4
     assert client_config.reconciliation_interval == 3
 
+
+def resumable_workflow():
+    from jobmon.client.swarm.workflow.bash_task import BashTask
+    from jobmon.client.swarm.workflow.workflow import Workflow
+    t1 = BashTask("sleep infinity", slots=1)
+    wfa = "my_simple_dag"
+    workflow = Workflow(wfa, interrupt_on_error=False, project="proj_tools",
+                        resume=True)
+    workflow.add_tasks([t1])
+    return workflow
+
+
+def run_workflow():
+    workflow = resumable_workflow()
+    workflow.execute()
+
+
+def test_resume_workflow(real_jsm_jqs, db_cfg):
+    # create a workflow in a separate process with 1 job that sleeps forever
+    p1 = Process(target=run_workflow)
+    p1.start()
+
+    # poll till we confirm that job is running
+    session = db_cfg["DB"].session
+    with db_cfg["app"].app_context():
+        status = ""
+        executor_id = None
+        max_sleep = 600  # 10 min max till test fails
+        slept = 0
+        while status != "R" and slept <= max_sleep:
+            ji = session.query(JobInstance).one_or_none()
+            session.commit()
+            sleep(5)
+            slept += 5
+            if ji:
+                status = ji.status
+        if ji:
+            executor_id = ji.executor_id
+
+    # qdel job if the test timed out
+    if slept >= max_sleep and executor_id:
+        sge_utils.qdel(executor_id)
+        return
+
+    # now create an identical workflow which should kill the previous job
+    workflow = resumable_workflow()
+    workflow._bind()
+    workflow._create_workflow_run()
+
+    # process should be joinable because _create_workflow_run should kill it
+    p1.join()
+
+    # check qstat to make sure jobs isnt pending or running any more. there can
+    # be latency so wait at most 3 minutes for it's state to update in SGE
+    max_sleep = 180  # 3 min max till test fails
+    slept = 0
+    ex_id_list = sge_utils.qstat("pr").job_id.tolist()
+    while executor_id in ex_id_list and slept <= max_sleep:
+        sleep(5)
+        slept += 5
+        ex_id_list = sge_utils.qstat("pr").job_id.tolist()
+    assert executor_id not in ex_id_list

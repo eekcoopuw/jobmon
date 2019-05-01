@@ -245,7 +245,7 @@ class Workflow(object):
                                         "sure the workflow args are unique or "
                                         "the task dag is unique ")
         elif len(potential_wfs) > 0 and self.resume:
-            logger.info("You're workflow args and task dag are identical to a "
+            logger.info("Your workflow args and task dag are identical to a "
                         "prior workflow, therefore you are RESUMING a "
                         "workflow, not starting a new workflow")
             self.wf_dao = potential_wfs[

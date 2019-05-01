@@ -56,7 +56,10 @@ def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
     jif = job_list_manager_reconciliation.job_instance_factory
     jif.interrupt_on_error = True
 
-    task = BashTask(command="sleep 300", name="heartbeat_sleeper", slots=1,
+    task = BashTask(command="sleep 300", name="heartbeat_sleeper",
+                    num_cores=1,
+                    mem_free="2G",
+                    max_runtime_seconds='1000',
                     max_attempts=1)
 
     job = job_list_manager_reconciliation.bind_task(task)
@@ -161,15 +164,15 @@ def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
     jir.reconcile()
     job_list_manager_reconciliation._sync()
     count = 0
-    while len(job_list_manager_reconciliation.all_done)<1 and count<10:
+    while len(job_list_manager_reconciliation.all_done) < 1 and count < 10:
         sleep(50)
         jir.reconcile()
         job_list_manager_reconciliation.last_sync = None
         job_list_manager_reconciliation._sync()
-        count+=1
+        count += 1
     assert job_list_manager_reconciliation.all_done
     job_id = job_list_manager_reconciliation.all_done.pop().job_id
-    app=db_cfg["app"]
+    app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
         query = """
@@ -179,7 +182,7 @@ def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
         res = DB.session.execute(query).fetchone()
         DB.session.commit()
     start, end = res
-    assert start < end # indicating at least one heartbeat got logged
+    assert start < end  # indicating at least one heartbeat got logged
 
 
 def test_reconciler_sge_timeout(job_list_manager_reconciliation):
@@ -323,4 +326,4 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
     assert len(select_jobs) == 3
     assert len(all_jobs) == 20
     for i in range(3):
-        assert select_jobs[i].job_id == (i+1)
+        assert select_jobs[i].job_id == (i + 1)

@@ -12,6 +12,7 @@ def test_valid_command(real_dag_id, job_list_manager_sge):
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="sge_valid_command", num_cores=2, mem_free='4G',
+             max_runtime_seconds='1000',
              max_attempts=1))
     job_list_manager_sge.queue_job(job)
 
@@ -40,6 +41,7 @@ def test_context_args(db_cfg, real_jsm_jqs, job_list_manager_sge):
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="test_context_args", slots=2, mem_free='4G', max_attempts=1,
+             max_runtime_seconds='1000',
              context_args={'sge_add_args': '-a {}'.format(delay_to)}))
     job_list_manager_sge.queue_job(job)
 

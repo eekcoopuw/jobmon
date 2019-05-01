@@ -107,6 +107,9 @@ class JobInstanceFactory(object):
                 to be the JobInstances executor_id, and will be registered
                 with the JobStateManager as such.
         """
+        # TODO: Add some validation that the passed object is callable and
+        # and follows the args/returns requirements of an executor. Potentially
+        # resuscitate the Executor abstract base class.
         self.executor = executor
 
     def _create_job_instance(self, job):
@@ -125,11 +128,16 @@ class JobInstanceFactory(object):
         except Exception as e:
             logger.error(e)
         logger.debug("Executing {}".format(job.command))
+        # The following call will always return a value.
+        # It catches exceptions internally and returns ERROR_SGE_JID
         executor_id = self.executor.execute(job_instance=job_instance)
         if executor_id:
             self._register_submission_to_batch_executor(
                 job_instance.job_instance_id, executor_id,
                 self.next_report_increment)
+        else:
+            logger.error(f"Did not receive an executor_id in "
+                       f"_create_job_instance")
         return job_instance, executor_id
 
     def _get_jobs_queued_for_instantiation(self):
