@@ -36,14 +36,12 @@ class SGEExecutor(Executor):
 
     def _execute_sge(self, job, job_instance_id):
         try:
-            logger.error(f"****** BEFORE qsub")
             qsub_cmd = self.build_wrapped_command(job, job_instance_id,
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
-            logger.error(f"****** About to qsub {qsub_cmd}")
             resp = subprocess.check_output(qsub_cmd, shell=True)
-            logger.error(f"****** Received from qsub {resp}")
+            logger.debug(f"****** Received from qsub '{resp}'")
             # Hmm, Python 2 vs 3 bug? That byte marker?
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
@@ -51,8 +49,8 @@ class SGEExecutor(Executor):
 
         except Exception as e:
             (_, value, traceback) = sys.exc_info()
-            logger.error(f"*** Caught in qsub {e}")
-            logger.error(f"traceback {traceback}")
+            logger.error(f"*** Caught during qsub {e}")
+            logger.error(f"Traceback {traceback}")
             if isinstance(e, ValueError):
                 raise e
             return ERROR_SGE_JID
