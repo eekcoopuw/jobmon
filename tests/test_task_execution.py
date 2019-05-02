@@ -116,6 +116,96 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
     assert sge_jobname == name
 
 
+def test_exceed_mem_task(db_cfg, dag_factory):
+    name = 'mem_task'
+    task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
+                      name=name, mem_free='130M', max_attempts=2, slots=1,
+                      max_runtime_seconds=40)
+
+    executor = SGEExecutor(project='proj_tools')
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
+
+    ret_vals = get_task_status(real_dag, task)
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
+        jid = [ji for ji in job.job_instances][0].executor_id
+        resp = check_output(f"qacct -j {jid} | grep exit_status", shell=True,
+                            universal_newlines=True)
+        assert '247' in resp
+        assert job.job_instances[0].status == 'E'
+        assert job.status == 'F'
+
+    sge_jobname = match_name_to_sge_name(jid)
+    assert sge_jobname == name
+
+
+def test_under_request_then_pass(db_cfg, dag_factory):
+    name = 'mem_task'
+    task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
+                      name=name, mem_free='600M', max_attempts=2, slots=1,
+                      max_runtime_seconds=40)
+
+    executor = SGEExecutor(project='proj_tools')
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
+
+    ret_vals = get_task_status(real_dag, task)
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
+        jid = [ji for ji in job.job_instances][0].executor_id
+        resp = check_output(f"qacct -j {jid} | grep exit_status", shell=True,
+                            universal_newlines=True)
+        assert '247' in resp
+        assert job.job_instances[0].status == 'E'
+        assert job.job_instances[1].status == 'D'
+        assert job.status == 'D'
+
+    sge_jobname = match_name_to_sge_name(jid)
+    assert sge_jobname == name
+
+
+def test_kill_self_task(db_cfg, dag_factory):
+    name = 'kill_self_task'
+    task = PythonTask(script=sge.true_path("tests/kill.py"),
+                      name=name, mem_free='130M', max_attempts=2, slots=1,
+                      max_runtime_seconds=40)
+
+    executor = SGEExecutor(project='proj_tools')
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
+
+    ret_vals = get_task_status(real_dag, task)
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
+        jid = [ji for ji in job.job_instances][0].executor_id
+        resp = check_output(f"qacct -j {jid} | grep exit_status", shell=True,
+                            universal_newlines=True)
+        assert '9' in resp
+        assert job.job_instances[0].status == 'E'
+        assert job.status == 'F'
+
+
+    sge_jobname = match_name_to_sge_name(jid)
+    assert sge_jobname == name
+
+
+
 @pytest.mark.qsubs_jobs
 def test_R_task(db_cfg, dag_factory, tmp_out_dir):
     """Execute an RTask"""
@@ -222,3 +312,4 @@ def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
         assert job.queue == 'all.q@@c2-nodes'
         jids = [ji.nodename for ji in job.job_instances]
         assert all(['c2' in nodename for nodename in jids])
+
