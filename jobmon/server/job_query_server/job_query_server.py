@@ -57,7 +57,12 @@ def get_time(session):
 
 @jqs.route('/workflow', methods=['GET'])
 def get_workflows_by_status():
-    """get all workflows with a given status"""
+    """get all workflows with a given status
+
+    Args:
+        status (list, None): list of valid statuses from WorkflowStatus. If
+            None, then all workflows are returned
+    """
     if request.args.get('status', None) is not None:
         workflows = DB.session.query(Workflow)\
             .filter(Workflow.status.in_(request.args.getlist('status')))\
