@@ -83,7 +83,7 @@ Load Tests
 
 Load testing is a heuristic used to confirm that jobmon is hitting the performace benchmarks required to run large applications on IHME's cluster. Load testing is not covered by standard unit testing. It is not automated and requires a human participant.
 
-The general priciple is run a fake application on a fresh deployment of jobmon which mimics how a large application would interface with jobmon in order to confirm that jobmon can handle the load.
+The general principle is run a fake application on a fresh deployment of jobmon which mimics how a large application would interface with jobmon in order to confirm that jobmon can handle the load.
 
 Things to check
 ^^^^^^^^^^^^^^^
