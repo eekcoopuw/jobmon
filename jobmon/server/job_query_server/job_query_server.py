@@ -55,6 +55,23 @@ def get_time(session):
     return time
 
 
+@jqs.route('/workflow', methods=['GET'])
+def get_workflows_by_status():
+    """get all workflows with a given status"""
+    if request.args.get('status', None) is not None:
+        workflows = DB.session.query(Workflow)\
+            .filter(Workflow.status.in_(request.args.getlist('status')))\
+            .all()
+    else:
+        workflows = DB.session.query(Workflow).all()
+
+    workflow_dcts = [w.to_wire() for w in workflows]
+    logger.info("workflow_dcts={}".format(workflow_dcts))
+    resp = jsonify(workflow_dcts=workflow_dcts)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/workflow/<workflow_id>/workflow_attribute', methods=['GET'])
 def get_workflow_attribute(workflow_id):
     """Get a particular attribute of a particular workflow
