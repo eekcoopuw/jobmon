@@ -102,7 +102,7 @@ def query_until_running(db_cfg, jid):
     return res
 
 
-def test_reconciler_dummy(job_list_manager_dummy):
+def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     """Creates a job instance, gets an executor id so it can be in submitted
     to the batch executor state, and then it will never be run (it will miss
     its report by date and the reconciler will kill it)"""
@@ -124,13 +124,38 @@ def test_reconciler_dummy(job_list_manager_dummy):
     # Since we are using the 'dummy' executor, we never actually do
     # any work. The job gets moved to error during reconciliation
     # because we only allow 1 attempt
-    sleep(10)
-    job_list_manager_dummy.job_inst_reconciler.reconcile()
-    job_list_manager_dummy._sync()
-    assert job_list_manager_dummy.all_error
+    state = ''
+    maxretries = 10
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    app.app_context().push()
+    sql = "SELECT status FROM job_instance"
+    i = 0
+    while i < maxretries:
+        i += 1
+        res = DB.session.execute(sql).fetchone()
+        DB.session.commit()
+        if res[0] == "B":
+            state = "B"
+            break
+        sleep(5)
+    if state != "B":
+        raise Exception("The init status failed to be set to B")
+
+    i = 0
+    while i <  maxretries:
+        job_list_manager_dummy.job_inst_reconciler.reconcile()
+        job_list_manager_dummy._sync()
+        i += 1
+        res = DB.session.execute(sql).fetchone()
+        DB.session.commit()
+        if res[0] == "E":
+            break
+        sleep(5)
+    assert len(job_list_manager_dummy.all_error) > 0
 
 
-def test_reconciler_sge(job_list_manager_reconciliation):
+def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_reconciliation.all_error = set()
 
@@ -141,14 +166,23 @@ def test_reconciler_sge(job_list_manager_reconciliation):
     job_list_manager_reconciliation.queue_job(job)
 
     # Give the job_state_manager some time to process the error message
-    # This test job just sleeps for 30s, so it should not be missing
+    # This test job just sleeps for 60s, so it should not be missing
     # DO NOT put in a while-True loop
-    sleep(10)
-    jir = job_list_manager_reconciliation.job_inst_reconciler
-    jir.reconcile()
-
-    job_list_manager_reconciliation._sync()
-    assert len(job_list_manager_reconciliation.all_error) == 0
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    app.app_context().push()
+    sql = "SELECT status FROM job_instance"
+    # Test should not fail in the first 60 seconds
+    for i in range(0, 30):
+        res = DB.session.execute(sql).fetchone()
+        DB.session.commit()
+        jir = job_list_manager_reconciliation.job_inst_reconciler
+        jir.reconcile()
+        job_list_manager_reconciliation._sync()
+        if res is not None:
+            assert res[0] != "E"
+        assert len(job_list_manager_reconciliation.all_error) == 0
+        sleep(2)
 
 
 def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
