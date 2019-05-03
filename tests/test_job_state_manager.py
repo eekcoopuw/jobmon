@@ -670,3 +670,48 @@ def test_set_flask_log_level_seperately(real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
+
+
+def test_job_resource(db_cfg, real_dag_id):
+
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id),
+                 'max_runtime_seconds': 600,
+                 'num_cores': 2,
+                 'mem_free': "128M",
+                 'max_attempts': '3'},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
+
+    # Create a couple of job instances
+    rc, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    ji1 = response['job_instance_id']
+    exec_id = 12345
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(ji1),
+        message={'executor_id': str(exec_id),
+                 'next_report_increment': 15},
+        request_type='post')
+
+    # Get system resource
+    _, response = req.send_request(
+                    app_route='/job/{}/get_resources'.format(exec_id),
+                    message={},
+                    request_type='get')
+    assert response['cores'] == 2
+    assert response['mem'] == "128M"
+    assert response['runtime'] == 600
+
+    

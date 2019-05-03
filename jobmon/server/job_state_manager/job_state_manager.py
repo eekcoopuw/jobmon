@@ -996,3 +996,88 @@ def setRootLoggerToDebug():
                        "action is irreversible.")
     resp.status_code = StatusCodes.OK
     return resp
+
+
+def _get_new_resource_value(mem: str, cores: int, runtime: int, scale: float):
+    """
+    Use the scale value to calculate the new resources for next retry
+
+    :param mem:
+    :param cores:
+    :param runtime:
+    :param scale:
+    :return:
+    """
+    if mem is not None:
+        if mem[-1] == "G" or mem[-1] == "M":
+            mem = str(int(int(mem[:-1]) * (1 + scale))) + mem[-1]
+        else:
+            mem = str(int(mem * (1 + scale)))
+    if cores is not None:
+        cores = int(cores * (1 + scale))
+    if runtime is not None:
+        runtime = int(runtime * (1 + scale))
+    return mem, cores, runtime
+
+
+@jsm.route('/job/increase_resources', methods=['PUT'])
+def increase_resources():
+    """This route is created to increase the resources of jobs failed with a 137 error on the fair cluster on tries.
+       The memory, runtime and threads should increase by a configurable amount (say 50%). 
+       The row in the job table should be modified with new values. men_free, num_cores, max_runtime_seconds.
+    Args:
+
+
+    """
+    logger.debug(logging.myself())
+    data = request.get_json()
+    msn = "Increase the resource for retry. \n"
+    params = {}
+    for key in ["increment_scale", "executor_ids"]:
+        params[key] = data[key]
+
+    scale = params["increment_scale"]
+    available_mem = params["available_mem_in_queue"]
+    available_cores = params["available_cores_in_queue"]
+    try:
+        scale = float(scale)
+    except:
+        # In case the client sent an invalid value, set the scale to 50%.
+        scale = 0.5
+    msn += "Increase the system resources by {}%. \n".format(int(scale * 100))
+    
+    if params["executor_ids"]:
+        for id in params["executor_ids"]:
+            query = f"select mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {id}"
+            res = DB.session.execute(query).fetchone()
+            mem = res[0]
+            cores = res[1]
+            runtime = res[2]
+            DB.session.commit()
+            mem, cores, runtime = _get_new_resource_value(mem, cores, runtime, scale)
+            if mem > available_mem or cores > available_cores:
+                # TODO: move to ERROR_FATAL
+                pass
+            else:
+                # TODO: update db with new resource values
+                pass
+
+    resp = jsonify(msn=msn)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+@jsm.route('/job/<execution_id>/get_resources', methods=['GET'])
+def get_resources(execution_id):
+    """
+    This route is created for testing purpose
+
+    :param execution_id:
+    :return:
+    """
+    logger.debug(logging.myself())
+    query = f"select mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {execution_id}"
+    res = DB.session.execute(query).fetchone()
+    DB.session.commit()
+    resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
+    resp.status_code = StatusCodes.OK
+    return resp

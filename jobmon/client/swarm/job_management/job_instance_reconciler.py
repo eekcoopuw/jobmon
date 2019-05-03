@@ -7,6 +7,8 @@ import traceback
 
 from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
+from jobmon.client.swarm.executors.sge_utils import qacct_executor_id
+from jobmon.client.swarm.executors.sge_utils import available_resource_in_queue
 from jobmon.models.job_instance_status import JobInstanceStatus
 
 
@@ -90,6 +92,13 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
+    def _get_killed_by_insufficient_resource_jobs(self, executor_ids_error):
+        executor_ids_kill = []
+        for id in executor_ids_error:
+            if qacct_executor_id(id) == 137 or qacct_executor_id(id) == 247:
+                executor_ids_kill.append(id)
+        return executor_ids_kill
+
     def reconcile(self):
         """Identifies submitted to batch and running jobs that have missed
         their report_by_date and reports their disappearance back to the
@@ -114,6 +123,32 @@ class JobInstanceReconciler(object):
             message={'executor_ids': actual,
                      'next_report_increment': next_report_increment},
             request_type='post')
+        # Get all failed execution_ids and check for 137
+        try:
+            rc, response = shared_requester.send_request(
+                app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
+                message={'status': [
+                    JobInstanceStatus.ERROR]},
+                request_type='get')
+            executor_ids_error = response['executor_id']
+        except:
+            executor_ids_error = []
+        executor_ids_kill = self._get_killed_by_insufficient_resource_jobs(executor_ids_error)
+        # Increase resources for those executions
+        if len(executor_ids_kill) > 0:
+            try:
+                (available_mem, available_cores) = available_resource_in_queue()
+                _, response = shared_requester.send_request(
+                    app_route='/job/increase_resources',
+                    message={'increment_scale': 0.5,
+                             'executor_ids': executor_ids_kill,
+                             'available_mem_in_queue': available_mem,
+                             'available_cores_in_queue': available_cores},
+                    request_type='put')
+                logger.warning("Increase the system resources for failed jobs.\n{}".format(response["msn"]))
+            except:
+                pass
+
 
     def terminate_timed_out_jobs(self):
         """Attempts to terminate jobs that have been in the "running"

@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 
 import pandas as pd
 import numpy as np
@@ -276,3 +277,23 @@ def qdel(job_ids):
     jids = [str(jid) for jid in np.atleast_1d(job_ids)]
     stdout = subprocess.check_output(['qdel'] + jids)
     return stdout
+
+
+def qacct_executor_id(jid: int)->int:
+    cmd = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid  #For strange reason f string or format does not work
+    print(cmd)
+    try:
+        return int(subprocess.check_output(cmd, shell=True).decode("utf-8").replace("\n",""))
+    except Exception as e:
+        # In case the command execution failed, log error and return -1
+        logger.error(str(e))
+        return -1
+
+
+def available_resource_in_queue(q="all.q"):
+    """
+    Todo: calculate the available resources in queue
+    :param q: queue
+    :return: (avaialbe_mem: int, available_cores: int)
+    """
+    return (sys.maxsize, sys.maxsize)
