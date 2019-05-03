@@ -1,9 +1,10 @@
 import json
 import logging
 import os
-from typing import List
 import subprocess
+import sys
 from time import sleep
+from typing import List
 
 import pandas as pd
 
@@ -39,16 +40,17 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
-            logger.debug(f"About to qsub {qsub_cmd}")
             resp = subprocess.check_output(qsub_cmd, shell=True)
-            logger.debug(f"Received from qsub {resp}")
+            logger.debug(f"****** Received from qsub '{resp}'")
             # Hmm, Python 2 vs 3 bug? That byte marker?
             idx = resp.split().index(b'job')
             sge_jid = int(resp.split()[idx + 1])
             return sge_jid
 
         except Exception as e:
-            logger.error(f"Caught in qsub {e}")
+            (_, value, traceback) = sys.exc_info()
+            logger.error(f"*** Caught during qsub {e}")
+            logger.error(f"Traceback {traceback}")
             if isinstance(e, ValueError):
                 raise e
             return ERROR_SGE_JID
@@ -81,12 +83,15 @@ class SGEExecutor(Executor):
         return executor_ids
 
     def terminate_job_instances(self, jiid_exid_tuples):
+        """Only terminate the job instances that are running, not going to
+        kill the jobs that are actually still in a waiting or transitioning
+        state"""
         to_df = pd.DataFrame(data=jiid_exid_tuples,
                              columns=["job_instance_id", "executor_id"])
         if len(to_df) == 0:
             return []
         sge_jobs = sge_utils.qstat()
-        sge_jobs = sge_jobs[~sge_jobs.status.isin(['hqw', 'qw'])]
+        sge_jobs = sge_jobs[~sge_jobs.status.isin(['hqw', 'qw', "hRwq", "t"])]
         to_df = to_df.merge(sge_jobs, left_on='executor_id', right_on='job_id')
         return_list = []
         if len(to_df) > 0:

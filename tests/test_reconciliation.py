@@ -46,6 +46,8 @@ def job_list_manager_reconciliation(real_dag_id):
     jlm.disconnect()
 
 
+@pytest.mark.skip(reason="ssh problems on buster or fixtures from other tests "
+                         "interfering, to be addressed in GBDSCI-1802")
 def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
                                           db_cfg):
     """ensures that if a job silently dies (so it doesn't throw an interrupt,
@@ -58,7 +60,10 @@ def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
     jif = job_list_manager_reconciliation.job_instance_factory
     jif.interrupt_on_error = True
 
-    task = BashTask(command="sleep 300", name="heartbeat_sleeper", slots=1,
+    task = BashTask(command="sleep 300", name="heartbeat_sleeper",
+                    num_cores=1,
+                    mem_free="2G",
+                    max_runtime_seconds='1000',
                     max_attempts=1)
 
     job = job_list_manager_reconciliation.bind_task(task)
@@ -163,14 +168,14 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
     job_list_manager_reconciliation.queue_job(job)
 
     # Give the job_state_manager some time to process the error message
-    # This test job just sleeps for 30s, so it should not be missing
+    # This test job just sleeps for 60s, so it should not be missing
     # DO NOT put in a while-True loop
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     app.app_context().push()
     sql = "SELECT status FROM job_instance"
-    # Test should not fail in the first 30 seconds
-    for i in range(0, 15):
+    # Test should not fail in the first 60 seconds
+    for i in range(0, 30):
         res = DB.session.execute(sql).fetchone()
         DB.session.commit()
         jir = job_list_manager_reconciliation.job_inst_reconciler
@@ -180,24 +185,6 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
             assert res[0] != "E"
         assert len(job_list_manager_reconciliation.all_error) == 0
         sleep(2)
-    # Test the all_error changes after the task fail. Time out in five minutes
-    for i in range(0, 30):
-        res = DB.session.execute(sql).fetchone()
-        DB.session.commit()
-        jir = job_list_manager_reconciliation.job_inst_reconciler
-        jir.reconcile()
-        job_list_manager_reconciliation._sync()
-        if res is not None:
-            if res[0] == "E":
-                if len(job_list_manager_reconciliation.all_error) == 0:
-                    # In rare cases, the error state has not be synced. Give it another try after a litter sleep.
-                    sleep(2)
-                    job_list_manager_reconciliation._sync()
-                break
-            else:
-                assert len(job_list_manager_reconciliation.all_error) == 0
-        sleep(10)
-    len(job_list_manager_reconciliation.all_error) > 0
 
 
 def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):

@@ -28,10 +28,12 @@ def test_true_path():
 def test_project_limits():
     project = 'ihme_general'
     limit = sge.get_project_limits(project)
-    if os.environ['SGE_CLUSTER_NAME'] == 'prod':
+    cluster_name = os.environ['SGE_CLUSTER_NAME']
+    if cluster_name == 'prod':
         assert limit == 250
+    elif cluster_name == 'cluster':
+        assert limit == 10000  # limit is global limit on the fair cluster
     else:
-        # dev and fair clusters do not have project limits
         assert limit == 200
 
 

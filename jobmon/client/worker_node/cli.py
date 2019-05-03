@@ -1,11 +1,12 @@
 import argparse
-
+from functools import partial
 import os
+from queue import Queue
 import subprocess
 import sys
-import traceback
+from threading import Thread
 from time import sleep, time
-
+import traceback
 
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.swarm.job_management.job_instance_intercom import \
@@ -13,17 +14,35 @@ from jobmon.client.swarm.job_management.job_instance_intercom import \
 from jobmon.client.utils import kill_remote_process_group
 
 
+def enqueue_stderr(stderr, queue):
+    """eagerly print 100 byte blocks to stderr so pipe doesn't fill up and
+    deadlock. Also collect blocks for reporting to db by putting them in a
+    queue to main thread
+
+    Args:
+        stderr: stderr pipe
+        queue: queue to communicate between listener thread and main thread
+    """
+
+    # read 100 bytes at a time so the pipe never deadlocks even if someone
+    # tries to print a dataframe into stderr
+    block_reader = partial(stderr.read, 100)
+    for new_block in iter(block_reader, ''):
+
+        # push the block we just read to stderr and onto the queue that's
+        # communicating w/ the main thread
+        sys.stderr.write(new_block)
+        queue.put(new_block)
+
+    # cleanup
+    stderr.close()
+
+
 def unwrap():
 
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
     # Similar to a stub or a container
-
-    def eprint(*args, **kwargs):
-        """Utility function for displaying stderr captured from subprocess
-        in stderr stream of parent process
-        """
-        print(*args, file=sys.stderr, **kwargs)
 
     # parse arguments
     parser = argparse.ArgumentParser()
@@ -77,10 +96,15 @@ def unwrap():
             args["command"],
             cwd=args["temp_dir"],
             env=os.environ.copy(),
-            stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             shell=True,
             universal_newlines=True)
+
+        # open thread for reading stderr eagerly
+        err_q = Queue()  # open queues for returning stderr to main thread
+        err_thread = Thread(target=enqueue_stderr, args=(proc.stderr, err_q))
+        err_thread.daemon = True  # thread dies with the program
+        err_thread.start()
 
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
@@ -88,20 +112,19 @@ def unwrap():
                 ji_intercom.log_report_by(next_report_increment=(
                     args['heartbeat_interval'] * args['report_by_buffer']))
                 last_heartbeat_time = time()
-            sleep(0.5)
+            sleep(0.5)  # don't thrash CPU by polling as fast as possible
 
-        # communicate the stdout and stderr
-        stdout, stderr = proc.communicate()
+        # compile stderr to send to db
+        stderr = ""
+        while not err_q.empty():
+            stderr += err_q.get()
+
         returncode = proc.returncode
 
     except Exception as exc:
-        stdout = ""
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                      traceback.format_exc())
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
-
-    print(stdout)
-    eprint(stderr)
 
     # check return code
     if returncode != ReturnCodes.OK:

@@ -10,7 +10,7 @@ The databases will probably have been moved to dev-tomflem.
 If the paper is accepted then this code should be revived,
 although this will never need to be production quality.
 
-Perhaps this could be the basis of KPI statstics generator.
+Perhaps this could be the basis of KPI statistics generator.
 
 The passwords have been removed.
 

@@ -9,13 +9,12 @@ from jobmon.client.swarm.executors.sge_resource import SGEResource
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.exceptions import InvalidResponse
 from tests.timeout_and_skip import timeout_and_skip
 
 
 @pytest.fixture
 def no_daemon(real_dag_id):
-    executor = SGEExecutor(project='proj_jenkins')
+    executor = SGEExecutor(project='proj_tools')
     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False,
                          interrupt_on_error=False)
     yield jlm
@@ -32,7 +31,7 @@ def valid_command_check(job_list_manager_sge):
 
 
 @pytest.mark.cluster
-@pytest.mark.parametrize('mem_free', ['6G', '6GB', '10MB', '10M'])
+@pytest.mark.parametrize('mem_free', ['6G', '6GB', '150MB', '200M'])
 @pytest.mark.parametrize('queue', ['all.q'])
 def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
                                      mem_free, queue):
@@ -50,18 +49,21 @@ def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
 
 
 @pytest.mark.cluster
-@pytest.mark.parametrize('mem', ['1TB', '1B', '513GB', '10gigabytes'])
+@pytest.mark.parametrize('mem', ['1TB', '1B', '513GB', '10gigabytes',
+                                 '125MB', '0GB'])
 def test_invalid_memory_caught(no_daemon, mem):
     job = no_daemon.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="invalid_memory", mem_free=mem, num_cores=8, j_resource=True,
+             name="invalid_memory", m_mem_free=mem, num_cores=8,
+             j_resource=True,
              queue='all.q', max_runtime_seconds=120))
     no_daemon.queue_job(job)
 
     jobs = no_daemon.job_instance_factory._get_jobs_queued_for_instantiation()
     with pytest.raises(ValueError) as exc:
         no_daemon.job_instance_factory._create_job_instance(jobs[0])
-    assert ('only request mem_free_gb between 0 and 512GB' in exc.value.args[0]
+    assert ('only request mem_free_gb between' in
+            exc.value.args[0]
             or 'measure should be an int' in exc.value.args[0])
 
 
@@ -70,8 +72,17 @@ def test_invalid_memory_caught(no_daemon, mem):
 def test_memory_transformed_correctly(mem):
     resource = SGEResource(mem_free=mem, num_cores=1, queue='all.q',
                            max_runtime_seconds=86400)
-    mem_free_gb = resource._transform_mem_to_gb()
+    mem_free_gb = resource._transform_mem_to_gb(resource.mem_free)
     assert mem_free_gb == 500
+
+
+@pytest.mark.cluster
+@pytest.mark.parametrize('mem', ['.129GB', '129MB'])
+def test_min_memory_transformed_correctly(mem):
+    resource = SGEResource(mem_free=mem, num_cores=1, queue='all.q',
+                           max_runtime_seconds=86400)
+    mem_free_gb = resource._transform_mem_to_gb(resource.mem_free)
+    assert mem_free_gb == 0.129
 
 
 @pytest.mark.cluster
@@ -88,6 +99,7 @@ def test_exclusive_args_both_slots_and_cores(no_daemon):
         no_daemon.job_instance_factory._create_job_instance(jobs[0])
     assert 'Cannot specify BOTH slots and num_cores' in exc.value.args[0]
 
+
 @pytest.mark.cluster
 def test_exclusive_args_no_slots_or_cores(no_daemon):
     job = no_daemon.bind_task(
@@ -102,24 +114,20 @@ def test_exclusive_args_no_slots_or_cores(no_daemon):
     assert 'Must pass one of [slots, num_cores]' in exc.value.args[0]
 
 
-@pytest.mark.skip("New cluster queues are not up yet")
 @pytest.mark.cluster
-@pytest.mark.parametrize('runtime', [(259300, 'all.q'), (604900, 'long.q'),
-                                     (604900, 'profile.q'),
-                                     (1555210, 'geospatial')])
-def test_invalid_runtime_by_queue_caught(no_daemon, runtime):
+@pytest.mark.parametrize('runtime', ['0', '-3'])
+def test_invalid_runtime_caught(no_daemon, runtime):
     job = no_daemon.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="invalid_runtime_{}".format(runtime[1]), mem_free='2G',
-             num_cores=8, j_resource=True, queue=runtime[1],
-             max_runtime_seconds=runtime[0]))
+             name="invalid_runtime", mem_free='2G',
+             num_cores=8, j_resource=True, queue="all.q",
+             max_runtime_seconds=runtime))
     no_daemon.queue_job(job)
 
     jobs = no_daemon.job_instance_factory._get_jobs_queued_for_instantiation()
     with pytest.raises(ValueError) as exc:
         no_daemon.job_instance_factory._create_job_instance(jobs[0])
-    assert 'Can only run for up to ' in exc.value.args[0]
-
+    assert 'Max runtime must be strictly positive' in exc.value.args[0]
 
 @pytest.mark.cluster
 def test_both_mem_free_error():
@@ -155,6 +163,3 @@ def test_no_queue_provided(no_daemon):
                                                   sge_executor.working_dir)
     if 'el7' in os.environ['SGE_ENV']:
         assert 'all.q' in qsub_cmd
-
-
-
