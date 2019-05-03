@@ -55,6 +55,54 @@ def get_time(session):
     return time
 
 
+@jqs.route('/job_status', methods=['GET'])
+def get_job_statuses():
+    """get job status metadata"""
+    job_statuses = DB.session.query(JobStatus).all()
+    DB.session.commit()
+    job_statuses_dict = [js.to_wire() for js in job_statuses]
+    resp = jsonify(job_statuses_dict=job_statuses_dict)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/workflow/<workflow_id>/job_display_details', methods=['GET'])
+def get_job_display_details_by_workflow(workflow_id):
+    logging.logParameter("workflow_id", workflow_id)
+    next_sync = get_time(DB.session)
+    DB.session.commit()
+    last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
+    display_vals_query = """
+    SELECT
+        job.job_id,
+        job.status,
+        job_attribute.value AS display_group
+    FROM
+        workflow
+    JOIN
+        job
+            ON workflow.dag_id = job.dag_id
+    LEFT JOIN
+        job_attribute
+            ON job.job_id = job_attribute.job_id AND attribute_type = 18
+    WHERE
+        workflow.id = :workflow_id
+        AND job.status_date >= :last_sync
+    ORDER BY job.job_id
+    """
+    res = DB.session.execute(
+        display_vals_query,
+        {"workflow_id": workflow_id, "last_sync": last_sync}).fetchall()
+
+    # unpack results, discarding the column name in the row_proxies for smaller
+    # payloads
+    res = [tuple(data[1] for data in row_proxy.items()) for row_proxy in res]
+    res = [("job_id", "status", "display_group")] + res
+    resp = jsonify(jobs=res, time=next_sync)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/workflow/<workflow_id>/workflow_attribute', methods=['GET'])
 def get_workflow_attribute(workflow_id):
     """Get a particular attribute of a particular workflow

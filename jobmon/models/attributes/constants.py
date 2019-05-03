@@ -48,6 +48,7 @@ job_attribute = AttributeDictionary({
     'IO': 15,
     'MAXRSS': 16,
     'USAGE_STR': 17,
+    'DISPLAY_GROUP': 18
 })
 
 deploy_attribute = AttributeDictionary({

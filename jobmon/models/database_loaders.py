@@ -13,7 +13,7 @@ from jobmon.models.job import Job
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.models.job_status import JobStatus
+from jobmon.models.job_status import JobStatus, _viz_label_mapping
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun
@@ -38,7 +38,9 @@ def load_default_statuses(db):
     statuses = []
     for status in ['REGISTERED', 'QUEUED_FOR_INSTANTIATION', 'INSTANTIATED',
                    'RUNNING', 'ERROR_RECOVERABLE', 'ERROR_FATAL', 'DONE']:
-        status_obj = JobStatus(id=getattr(JobStatus, status), label=status)
+        viz_label = _viz_label_mapping[status]
+        status_obj = JobStatus(id=getattr(JobStatus, status), label=status,
+                               viz_label=viz_label)
         statuses.append(status_obj)
     for status in ['INSTANTIATED', 'SUBMITTED_TO_BATCH_EXECUTOR', 'RUNNING',
                    'ERROR', 'DONE']:
