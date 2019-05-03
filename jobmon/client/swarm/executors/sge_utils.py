@@ -286,20 +286,33 @@ def qdel(job_ids):
 
 
 def qacct_executor_id(jid: int)->int:
-    cmd = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid  #For strange reason f string or format does not work
+    cmd1 = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid  #For strange reason f string or format does not work
+    cmd2 = "qacct -j %s |grep qname|awk \'{print $2}\'" % jid
     print(cmd)
     try:
-        return int(subprocess.check_output(cmd, shell=True).decode("utf-8").replace("\n",""))
+        return int(subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n","")), \
+               subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n", "")
     except Exception as e:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))
-        return -1
+        return -1, None
 
 
 def available_resource_in_queue(q="all.q"):
     """
     Todo: calculate the available resources in queue
+          for this release, just return the limits of each queue
+
+    Queue limit reference: https://docs.cluster.ihme.washington.edu/allocation-and-limits/queues/
+
     :param q: queue
-    :return: (avaialbe_mem: int, available_cores: int)
+    :return: (avaialbe_mem: int (in G), available_cores: int, max_runtime: int)
     """
-    return (sys.maxsize, sys.maxsize)
+
+    if q == "all.q":
+        return 512, 56, 259200
+    if q == "long.q":
+        return 512, 56, 1382400
+    if q == "geospatial.q":
+        return 1000, 64, 2160000
+    return sys.maxsize, sys.maxsize, sys.maxsize

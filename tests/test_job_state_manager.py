@@ -673,7 +673,6 @@ def test_set_flask_log_level_seperately(real_dag_id):
 
 
 def test_job_resource(db_cfg, real_dag_id):
-
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
@@ -714,4 +713,36 @@ def test_job_resource(db_cfg, real_dag_id):
     assert response['mem'] == "128M"
     assert response['runtime'] == 600
 
+    # Increase the system resource by 50%
+    req.send_request(
+        app_route='/job/increase_resources',
+        message={'increment_scale': 0.5,
+                 'executor_ids': [{"exec_id": exec_id, "queue": "long.q", "available_mem": 256, "available_cores": 10, "max_runtime": 3600}]
+                 },
+        request_type='put'
+    )
+    _, response = req.send_request(
+        app_route='/job/{}/get_resources'.format(exec_id),
+        message={},
+        request_type='get')
+    assert response['cores'] == 3
+    assert response['mem'] == "192M"
+    assert response['runtime'] == 900
+
+    # Resource should not change when exceeds limits
+    req.send_request(
+        app_route='/job/increase_resources',
+        message={'increment_scale': 0.5,
+                 'executor_ids': [{"exec_id": exec_id, "queue": "long.q", "available_mem": 256, "available_cores": 10,
+                                   "max_runtime": 1000}]
+                 },
+        request_type='put'
+    )
+    _, response = req.send_request(
+        app_route='/job/{}/get_resources'.format(exec_id),
+        message={},
+        request_type='get')
+    assert response['cores'] == 3
+    assert response['mem'] == "192M"
+    assert response['runtime'] == 900
     

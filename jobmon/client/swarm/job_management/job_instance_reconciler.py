@@ -95,8 +95,11 @@ class JobInstanceReconciler(object):
     def _get_killed_by_insufficient_resource_jobs(self, executor_ids_error):
         executor_ids_kill = []
         for id in executor_ids_error:
-            if qacct_executor_id(id) == 137 or qacct_executor_id(id) == 247:
-                executor_ids_kill.append(id)
+            error_code, queue = qacct_executor_id(id)
+            if error_code in (137, 247):
+                available_mem, available_cores, max_runtime = available_resource_in_queue(queue)
+                executor_ids_kill.append({"exec_id": id, "queue":queue, "available_mem": available_mem, 
+                                          "available_cores": available_cores, "max_runtime": max_runtime})
         return executor_ids_kill
 
     def reconcile(self):
@@ -141,9 +144,8 @@ class JobInstanceReconciler(object):
                 _, response = shared_requester.send_request(
                     app_route='/job/increase_resources',
                     message={'increment_scale': 0.5,
-                             'executor_ids': executor_ids_kill,
-                             'available_mem_in_queue': available_mem,
-                             'available_cores_in_queue': available_cores},
+                             'executor_ids': executor_ids_kill
+                             },
                     request_type='put')
                 logger.warning("Increase the system resources for failed jobs.\n{}".format(response["msn"]))
             except:

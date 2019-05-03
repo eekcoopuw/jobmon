@@ -1029,6 +1029,24 @@ def increase_resources():
 
 
     """
+    update_resource_query_template = """
+                        update job
+                        set mem_free="{mem}", 
+                            num_cores={cores}, 
+                            max_runtime_seconds={runtime}
+                        where job.job_id=
+                              (select job_id
+                               from job_instance
+                               where executor_id={id});
+                    """
+    update_satus_query_template = """
+                            update job
+                            set status="F"
+                            where job.job_id=
+                                  (select job_id
+                                   from job_instance
+                                   where executor_id={id});
+                        """
     logger.debug(logging.myself())
     data = request.get_json()
     msn = "Increase the resource for retry. \n"
@@ -1037,8 +1055,6 @@ def increase_resources():
         params[key] = data[key]
 
     scale = params["increment_scale"]
-    available_mem = params["available_mem_in_queue"]
-    available_cores = params["available_cores_in_queue"]
     try:
         scale = float(scale)
     except:
@@ -1047,20 +1063,36 @@ def increase_resources():
     msn += "Increase the system resources by {}%. \n".format(int(scale * 100))
     
     if params["executor_ids"]:
-        for id in params["executor_ids"]:
-            query = f"select mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {id}"
+        for item in params["executor_ids"]:
+            exec_id = item["exec_id"]
+            available_mem = item["available_mem"]
+            available_cores = item["available_cores"]
+            max_runtime = item["max_runtime"]
+            query = f"select mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {exec_id}"
             res = DB.session.execute(query).fetchone()
             mem = res[0]
             cores = res[1]
             runtime = res[2]
             DB.session.commit()
             mem, cores, runtime = _get_new_resource_value(mem, cores, runtime, scale)
-            if mem > available_mem or cores > available_cores:
-                # TODO: move to ERROR_FATAL
-                pass
+            # int mem in M
+            mem_in_M = int(mem[:-1]) if mem[-1] == "M" else int(mem[:-1]) * 1000 if mem[-1] == "G" else int(mem) * 1000
+            # available_mem should be in G
+            if mem_in_M > available_mem * 1000 or cores > available_cores or runtime > max_runtime:
+                # move to ERROR_FATAL
+                query = update_satus_query_template.format(id=exec_id)
+                DB.session.execute(query)
+                DB.session.commit()
             else:
                 # TODO: update db with new resource values
-                pass
+                query = update_resource_query_template.format(
+                         mem=mem if mem is not None else "null",
+                         cores=cores if cores is not None else "null",
+                         runtime=runtime if runtime is not None else "null",
+                         id=exec_id
+                )
+                DB.session.execute(query)
+                DB.session.commit()
 
     resp = jsonify(msn=msn)
     resp.status_code = StatusCodes.OK
