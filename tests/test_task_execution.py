@@ -117,6 +117,8 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
 
 
 def test_exceed_mem_task(db_cfg, dag_factory):
+    """test that when a job exceeds the requested amount of memory on the fair
+    cluster, it gets killed"""
     name = 'mem_task'
     task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
                       name=name, mem_free='130M', max_attempts=2, slots=1,
@@ -146,6 +148,9 @@ def test_exceed_mem_task(db_cfg, dag_factory):
 
 
 def test_under_request_then_pass(db_cfg, dag_factory):
+    """test that when a task gets killed due to under requested memory, it
+    succeeds on the second try with additional memory added"""
+
     name = 'mem_task'
     task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
                       name=name, mem_free='600M', max_attempts=2, slots=1,
@@ -176,6 +181,8 @@ def test_under_request_then_pass(db_cfg, dag_factory):
 
 
 def test_kill_self_task(db_cfg, dag_factory):
+    """test that when a task kills itself, it fails and the ji does not sit
+    in Batch or Running forever"""
     name = 'kill_self_task'
     task = PythonTask(script=sge.true_path("tests/kill.py"),
                       name=name, mem_free='130M', max_attempts=2, slots=1,

@@ -43,7 +43,6 @@ class SGEExecutor(Executor):
             resp = subprocess.check_output(qsub_cmd, shell=True,
                                            universal_newlines=True)
             logger.debug(f"****** Received from qsub '{resp}'")
-            # Hmm, Python 2 vs 3 bug? That byte marker?
             idx = resp.split().index('job')
             sge_jid = int(resp.split()[idx + 1])
             return sge_jid
