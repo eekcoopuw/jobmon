@@ -77,6 +77,7 @@ def unwrap():
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))
 
+    # get the executor id by checking the job id for the given qsub environment
     args["executor_id"] = os.environ.get('JOB_ID')
 
     # Any subprocesses spawned will have this parent process's PID as
