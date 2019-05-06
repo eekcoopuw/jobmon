@@ -77,6 +77,8 @@ def unwrap():
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))
 
+    args["executor_id"] = os.environ.get('JOB_ID')
+
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
@@ -85,7 +87,8 @@ def unwrap():
                                       process_group_id=os.getpid(),
                                       hostname=args['jm_host'])
     ji_intercom.log_running(next_report_increment=(
-        args['heartbeat_interval'] * args['report_by_buffer']))
+        args['heartbeat_interval'] * args['report_by_buffer']),
+        executor_id=args['executor_id'])
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
@@ -110,7 +113,8 @@ def unwrap():
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
                 ji_intercom.log_report_by(next_report_increment=(
-                    args['heartbeat_interval'] * args['report_by_buffer']))
+                    args['heartbeat_interval'] * args['report_by_buffer']),
+                    executor_id=args['executor_id'])
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
 
@@ -130,11 +134,12 @@ def unwrap():
     if returncode != ReturnCodes.OK:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
-        ji_intercom.log_error(str(stderr))
+        ji_intercom.log_error(error_message=str(stderr),
+                              executor_id=args['executor_id'])
     else:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
-        ji_intercom.log_done()
+        ji_intercom.log_done(executor_id=args['executor_id'])
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting
