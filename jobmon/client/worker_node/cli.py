@@ -1,5 +1,6 @@
 import argparse
 from functools import partial
+import logging
 import os
 from queue import Queue
 import subprocess
@@ -85,7 +86,8 @@ def unwrap():
                                       process_group_id=os.getpid(),
                                       hostname=args['jm_host'])
     ji_intercom.log_running(next_report_increment=(
-        args['heartbeat_interval'] * args['report_by_buffer']))
+        args['heartbeat_interval'] * args['report_by_buffer']),
+        executor_id=os.environ.get('JOB_ID'))
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
@@ -110,7 +112,8 @@ def unwrap():
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
                 ji_intercom.log_report_by(next_report_increment=(
-                    args['heartbeat_interval'] * args['report_by_buffer']))
+                    args['heartbeat_interval'] * args['report_by_buffer']),
+                    executor_id=os.environ.get('JOB_ID'))
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
 
@@ -130,11 +133,12 @@ def unwrap():
     if returncode != ReturnCodes.OK:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
-        ji_intercom.log_error(str(stderr))
+        ji_intercom.log_error(error_message=str(stderr),
+                              executor_id=os.environ.get('JOB_ID'))
     else:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
-        ji_intercom.log_done()
+        ji_intercom.log_done(executor_id=os.environ.get('JOB_ID'))
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting

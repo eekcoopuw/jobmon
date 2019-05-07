@@ -203,14 +203,17 @@ class JobInstanceReconciler(object):
             message={'nodename': hostname},
             request_type='post')
 
-    def _log_timeout_error(self, job_instance_id):
+    def _log_timeout_error(self, job_instance_id, executor_id=None):
         """Logs if a job has timed out
         Args:
             job_instance_id (int): id for the job_instance that has timed out
         """
+        message = {'error_message': "Timed out"}
+        if executor_id is not None:
+            message['executor_id'] = executor_id
         return self.requester.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
-            message={'error_message': "Timed out"},
+            message=message,
             request_type='post')
 
     def _request_permission_to_reconcile(self):

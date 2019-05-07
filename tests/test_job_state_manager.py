@@ -672,6 +672,77 @@ def test_set_flask_log_level_seperately(real_dag_id):
         request_type='post')
 
 
+def test_executor_id_logging(db_cfg, real_dag_id):
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
+
+    rc, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = response['job_instance_id']
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345),
+                 'next_report_increment': 15},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.getfqdn(),
+                 'process_group_id': str(os.getpid()),
+                 'next_report_increment': 120,
+                 'executor_id': str(54321)},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_usage'.format(job_instance_id),
+        message={'usage_str': 'used resources',
+                 'wallclock': '0',
+                 'maxrss': '1g',
+                 'cpu': '00:00:00',
+                 'io': '1'},
+        request_type='post')
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        ji = DB.session.query(JobInstance).filter(
+            JobInstance.job_instance_id == job_instance_id).first()
+        assert ji.nodename == socket.getfqdn()
+        assert ji.executor_id == 54321
+        DB.session.commit()
+    req.send_request(
+        app_route='/job_instance/{}/log_report_by'.format(job_instance_id),
+        message={'next_report_increment': 120,
+                 'executor_id': str(55555)},
+        request_type='post')
+    with app.app_context():
+        ji = DB.session.query(JobInstance).filter(
+            JobInstance.job_instance_id == job_instance_id).first()
+        assert ji.status == 'R'
+        assert ji.executor_id == 55555
+        DB.session.commit()
+    req.send_request(
+        app_route='/job_instance/{}/log_done'.format(job_instance_id),
+        message={'executor_id': str(98765)},
+        request_type='post')
+    with app.app_context():
+        ji = DB.session.query(JobInstance).filter(
+            JobInstance.job_instance_id == job_instance_id).first()
+        assert ji.status == 'D'
+        assert ji.executor_id == 98765
+        DB.session.commit()
+
+
 def test_job_resource(db_cfg, real_dag_id):
     _, response = req.send_request(
         app_route='/job',
@@ -706,9 +777,9 @@ def test_job_resource(db_cfg, real_dag_id):
 
     # Get system resource
     _, response = req.send_request(
-                    app_route='/job/{}/get_resources'.format(exec_id),
-                    message={},
-                    request_type='get')
+        app_route='/job/{}/get_resources'.format(exec_id),
+        message={},
+        request_type='get')
     assert response['cores'] == 2
     assert response['mem'] == "128M"
     assert response['runtime'] == 600
@@ -717,7 +788,8 @@ def test_job_resource(db_cfg, real_dag_id):
     req.send_request(
         app_route='/job/increase_resources',
         message={'increment_scale': 0.5,
-                 'executor_ids': [{"exec_id": exec_id, "queue": "long.q", "available_mem": 256, "available_cores": 10, "max_runtime": 3600}]
+                 'executor_ids': [{"exec_id": exec_id, "queue": "long.q", "available_mem": 256, "available_cores": 10,
+                                   "max_runtime": 3600}]
                  },
         request_type='put'
     )
