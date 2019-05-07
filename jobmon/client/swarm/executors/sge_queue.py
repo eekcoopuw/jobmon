@@ -1,3 +1,6 @@
+from typing import Dict
+
+
 class SGEQueue:
     """Each object in this class is the configuration of a queue on the
     cluster. It has the queue parameters that Jobmon is interested in.
@@ -22,7 +25,7 @@ class SGEQueue:
         self.max_runtime_seconds = max_runtime_seconds
 
 
-ONE_DAY = 24 * 24 * 60
+ONE_DAY = 24 * 60 * 60
 
 # The three queues
 
@@ -43,3 +46,10 @@ SGE_GEOSPATIAL_Q = SGEQueue(name="geospatial.q",
                             min_memory_gb=0.128, max_memory_gb=1024,
                             default_runtime_seconds=ONE_DAY,
                             max_runtime_seconds=25 * ONE_DAY)
+
+# Look them up by name
+queues_by_name: Dict[str, SGEQueue] = {
+    SGE_ALL_Q.name: SGE_ALL_Q,
+    SGE_LONG_Q.name: SGE_LONG_Q,
+    SGE_GEOSPATIAL_Q.name: SGE_GEOSPATIAL_Q
+}
