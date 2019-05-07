@@ -14,6 +14,9 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 
 logger = logging.getLogger(__name__)
 
+ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247)
+DEFAULT_INCREMENT_SCALE = 0.5
+
 
 class JobInstanceReconciler(object):
 
@@ -96,9 +99,9 @@ class JobInstanceReconciler(object):
         executor_ids_kill = []
         for id in executor_ids_error:
             error_code, queue = qacct_executor_id(id)
-            if error_code in (137, 247):
+            if error_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
                 available_mem, available_cores, max_runtime = available_resource_in_queue(queue)
-                executor_ids_kill.append({"exec_id": id, "queue":queue, "available_mem": available_mem, 
+                executor_ids_kill.append({"exec_id": id, "queue": queue, "available_mem": available_mem,
                                           "available_cores": available_cores, "max_runtime": max_runtime})
         return executor_ids_kill
 
@@ -126,7 +129,8 @@ class JobInstanceReconciler(object):
             message={'executor_ids': actual,
                      'next_report_increment': next_report_increment},
             request_type='post')
-        # Get all failed execution_ids and check for 137
+
+        # Get all failed execution_ids and check for ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES
         try:
             rc, response = shared_requester.send_request(
                 app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
@@ -143,7 +147,7 @@ class JobInstanceReconciler(object):
                 (available_mem, available_cores) = available_resource_in_queue()
                 _, response = shared_requester.send_request(
                     app_route='/job/increase_resources',
-                    message={'increment_scale': 0.5,
+                    message={'increment_scale': DEFAULT_INCREMENT_SCALE,
                              'executor_ids': executor_ids_kill
                              },
                     request_type='put')

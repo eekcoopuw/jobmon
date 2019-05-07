@@ -745,4 +745,3 @@ def test_job_resource(db_cfg, real_dag_id):
     assert response['cores'] == 3
     assert response['mem'] == "192M"
     assert response['runtime'] == 900
-    
