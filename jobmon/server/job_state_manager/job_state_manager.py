@@ -307,10 +307,13 @@ def log_done(job_instance_id):
 
         job_instance_id: id of the job_instance to log done
     """
+    data = request.get_json()
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     logger.debug("Log DONE for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
+    if data.get('executor_id', None) is not None:
+        ji.executor_id = data['executor_id']
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
@@ -334,6 +337,8 @@ def log_error(job_instance_id):
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
+    if data.get('executor_id', None) is not None:
+        ji.executor_id = data['executor_id']
     try:
         msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
         DB.session.commit()
@@ -414,15 +419,26 @@ def log_ji_report_by(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
 
+    data = request.get_json()
+    executor_id = data.get('executor_id', None)
     params = {}
-    params["next_report_increment"] = request.get_json()["next_report_increment"]
+    params["next_report_increment"] = data["next_report_increment"]
     params["job_instance_id"] = job_instance_id
 
-    query = """
-        UPDATE job_instance
-        SET report_by_date = ADDTIME(
-            UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-        WHERE job_instance_id = :job_instance_id"""
+    if executor_id is not None:
+        params["executor_id"] = executor_id
+        query = """
+                UPDATE job_instance
+                SET report_by_date = ADDTIME(
+                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)), 
+                    executor_id = :executor_id
+                WHERE job_instance_id = :job_instance_id"""
+    else:
+        query = """
+            UPDATE job_instance
+            SET report_by_date = ADDTIME(
+                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE job_instance_id = :job_instance_id"""
     DB.session.execute(query, params)
     DB.session.commit()
     resp = jsonify()
@@ -506,6 +522,8 @@ def log_running(job_instance_id):
     ji.process_group_id = data['process_group_id']
     ji.report_by_date = func.ADDTIME(
         func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
+    if data.get('executor_id', None) is not None:
+        ji.executor_id = data['executor_id']
     DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
