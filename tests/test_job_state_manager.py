@@ -552,7 +552,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
             attribute_entry_value = entry.value
             assert (dict_of_attributes[attribute_entry_type] ==
                     attribute_entry_value)
-        DB.session.commi()
+        DB.session.commit()
 
 
 testdata: dict = (
