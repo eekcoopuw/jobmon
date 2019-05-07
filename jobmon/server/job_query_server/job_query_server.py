@@ -259,8 +259,8 @@ def get_job_instance_executor_ids_by_filter(dag_id):
             options(contains_eager(JobInstance.job)).\
             filter(Job.max_runtime_seconds != None).\
             filter(
-                func.timediff(str(datetime.utcnow()), JobInstance.status_date
-                              ) > Job.max_runtime_seconds).\
+                func.timediff(func.UTC_TIMESTAMP(), JobInstance.status_date
+                              ) > func.SEC_TO_TIME(Job.max_runtime_seconds)).\
             with_entities(JobInstance.job_instance_id, JobInstance.executor_id
                           ).all()  # noqa: E711
     else:
