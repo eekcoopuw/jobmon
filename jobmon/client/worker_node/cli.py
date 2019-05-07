@@ -1,5 +1,6 @@
 import argparse
 from functools import partial
+import logging
 import os
 from queue import Queue
 import subprocess
@@ -77,9 +78,6 @@ def unwrap():
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))
 
-    # get the executor id by checking the job id for the given qsub environment
-    args["executor_id"] = os.environ.get('JOB_ID')
-
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
@@ -89,7 +87,7 @@ def unwrap():
                                       hostname=args['jm_host'])
     ji_intercom.log_running(next_report_increment=(
         args['heartbeat_interval'] * args['report_by_buffer']),
-        executor_id=args['executor_id'])
+        executor_id=os.environ.get('JOB_ID'))
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
@@ -115,7 +113,7 @@ def unwrap():
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
                 ji_intercom.log_report_by(next_report_increment=(
                     args['heartbeat_interval'] * args['report_by_buffer']),
-                    executor_id=args['executor_id'])
+                    executor_id=os.environ.get('JOB_ID'))
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
 
@@ -136,11 +134,11 @@ def unwrap():
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
         ji_intercom.log_error(error_message=str(stderr),
-                              executor_id=args['executor_id'])
+                              executor_id=os.environ.get('JOB_ID'))
     else:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
-        ji_intercom.log_done(executor_id=args['executor_id'])
+        ji_intercom.log_done(executor_id=os.environ.get('JOB_ID'))
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting

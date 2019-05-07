@@ -38,6 +38,8 @@ class JobInstanceIntercom(object):
         message = {}
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
+        else:
+            logger.info("No Job ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route='/job_instance/{}/log_done'.format(self.job_instance_id),
             message=message,
@@ -58,6 +60,8 @@ class JobInstanceIntercom(object):
         message = {'error_message': error_message}
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
+        else:
+            logger.info("No Job ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_error'
                        .format(self.job_instance_id)),
@@ -93,6 +97,8 @@ class JobInstanceIntercom(object):
         logger.debug(f'executor_id is {executor_id}')
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
+        else:
+            logger.info("No Job ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_running'
                        .format(self.job_instance_id)),
@@ -105,6 +111,8 @@ class JobInstanceIntercom(object):
         message = {"next_report_increment": next_report_increment}
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
+        else:
+            logger.info("No Job ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route=(f'/job_instance/{self.job_instance_id}/log_report_by'),
             message=message,
