@@ -634,6 +634,34 @@ def queue_job(job_id):
     return resp
 
 
+@jsm.route('/job/<job_id>/change_resources', methods=['PUT'])
+def change_job_resources(job_id):
+    """ Change the resources set for a given job, currently can change
+    mem_free, num_cores and max_runtime_seconds
+    Args:
+        job_id: id of the job for which resources will be changed
+        """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_id", job_id))
+    job = DB.session.query(Job).filter_by(job_id=job_id).first()
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    data = request.get_json()
+    if 'num_cores' in data:
+        job.num_cores = data['num_cores']
+        logger.debug(f"changed num_cores to {data['num_cores']}")
+    if 'max_runtime_seconds' in data:
+        job.max_runtime_seconds = data['max_runtime_seconds']
+        logger.debug(f"changed max_runtime_seconds to "
+                     f"{data['max_runtime_seconds']}")
+    if 'mem_free' in data:
+        job.mem_free = data['mem_free']
+        logger.debug(f"changed mem_free to {data['mem_free']}")
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jsm.route('/job/<job_id>/reset', methods=['POST'])
 def reset_job(job_id):
     """Reset a job and change its status
