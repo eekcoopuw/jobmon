@@ -1,14 +1,9 @@
 import getpass
 import os
 import os.path as path
-import subprocess
 
 import pytest
 
-# This import is needed for the monkeypatch
-import jobmon.client.swarm.executors
-
-from jobmon.client.swarm.executors.sge import SGEExecutor
 import jobmon.client.swarm.executors.sge_utils as sge_utils
 
 
@@ -58,20 +53,3 @@ def test_convert_wallclock_with_milleseconds():
     assert res == 123110.15
 
 
-class BadSGEExecutor():
-    """Mock the intercom interface for testing purposes, specifically
-    to raise exceptions"""
-
-    def get_usage_stats(self):
-        raise subprocess.CalledProcessError(
-            "No usage stats for you today laddy")
-
-
-def test_bad_qstat_call(monkeypatch):
-    monkeypatch.setattr(
-        jobmon.client.swarm.executors.sge,
-        "SGEExecutor",
-        BadSGEExecutor)
-    with pytest.raises(subprocess.CalledProcessError):
-        s = SGEExecutor()
-        s.get_usage_stats()
