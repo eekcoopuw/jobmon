@@ -1,5 +1,6 @@
 import logging
 import socket
+import sys
 
 from jobmon.client import shared_requester
 
@@ -86,6 +87,13 @@ class JobInstanceIntercom(object):
         except NotImplementedError:
             logger.warning("Usage stats not available for {} "
                            "executors".format(self.executor_class))
+        except Exception as e:
+            # subprocess.CalledProcessError is raised if qstat fails.
+            # Not a critical error, keep running and log and error
+            logger.error(f"Usage stats not available due to exception {e}")
+            (_, value, traceback) = sys.exc_info()
+            logger.error("Traceback {}").\
+                format(print(repr(traceback.format_tb(traceback))))
 
     def log_running(self, next_report_increment, executor_id):
         """Tell the JobStateManager that this job_instance is running, and
