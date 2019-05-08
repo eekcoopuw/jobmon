@@ -5,6 +5,7 @@ import os
 import socket
 import traceback
 import warnings
+import sys
 
 from flask import jsonify, request, Blueprint
 from sqlalchemy.sql import func, text
@@ -323,6 +324,93 @@ def log_done(job_instance_id):
     return resp
 
 
+def _available_resource_in_queue(q="all.q"):
+    """
+    Todo: calculate the available resources in queue
+          for this release, just return the limits of each queue
+
+    Queue limit reference: https://docs.cluster.ihme.washington.edu/allocation-and-limits/queues/
+
+    :param q: queue
+    :return: (avaialbe_mem: int (in G), available_cores: int, max_runtime: int)
+    """
+
+    if q == "all.q":
+        return 512, 56, 259200
+    if q == "long.q":
+        return 512, 56, 1382400
+    if q == "geospatial.q":
+        return 1000, 64, 2160000
+    return sys.maxsize, sys.maxsize, sys.maxsize
+
+
+def _increase_resources(exec_id, scale):
+    """This route is created to increase the resources of jobs failed with a 137 error on the fair cluster on tries.
+       The memory, runtime and threads should increase by a configurable amount (say 50%). 
+       The row in the job table should be modified with new values. men_free, num_cores, max_runtime_seconds.
+    Args:
+
+
+    """
+    update_resource_query_template = """
+                        update job
+                        set mem_free="{mem}", 
+                            num_cores={cores}, 
+                            max_runtime_seconds={runtime}
+                        where job.job_id=
+                              (select job_id
+                               from job_instance
+                               where executor_id={id});
+                    """
+    update_satus_query_template = """
+                            update job
+                            set status="F"
+                            where job.job_id=
+                                  (select job_id
+                                   from job_instance
+                                   where executor_id={id});
+                        """
+    logger.debug(logging.myself())
+
+    try:
+        scale = float(scale)
+    except:
+        # In case the client sent an invalid value, set the scale to 50%.
+        scale = 0.5
+
+    query = f"select mem_free, num_cores, max_runtime_seconds, queue from job_instance, job where job_instance.job_id=job.job_id and executor_id = {exec_id}"
+    res = DB.session.execute(query).fetchone()
+    mem = res[0]
+    cores = res[1]
+    runtime = res[2]
+    queue = res[3]
+    DB.session.commit()
+    available_mem, available_cores, max_runtime = _available_resource_in_queue(queue)
+    logger.debug(f"Current system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
+    mem, cores, runtime = _get_new_resource_value(mem, cores, runtime, scale)
+    # int mem in M
+    mem_in_M = int(mem[:-1]) if mem[-1] == "M" else int(mem[:-1]) * 1000 if mem[-1] == "G" else int(mem) * 1000
+    # available_mem should be in G
+    if mem_in_M > available_mem * 1000 or cores > available_cores or runtime > max_runtime:
+        # move to ERROR_FATAL
+        query = update_satus_query_template.format(id=exec_id)
+        DB.session.execute(query)
+        DB.session.commit()
+    else:
+        query = update_resource_query_template.format(
+                mem=mem if mem is not None else "null",
+                cores=cores if (cores is not None) or (cores != 0) else "null",
+                runtime=runtime if runtime is not None else "null",
+                id=exec_id
+                )
+        DB.session.execute(query)
+        DB.session.commit()
+        logger.debug(f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
+
+
+RESOURCE_LIMIT_KILL_CODES = (137, 247, 44)
+
+
 @jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
 def log_error(job_instance_id):
     """Log a job_instance as errored
@@ -331,6 +419,7 @@ def log_error(job_instance_id):
         job_instance_id (str): id of the job_instance to log done
         error_message (str): message to log as error
     """
+
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
@@ -348,6 +437,13 @@ def log_error(job_instance_id):
         DB.session.add(error)
         logger.debug(logging.logParameter("DB.session", DB.session))
         DB.session.commit()
+        # Check execute_statue to see if resource needs to be increased
+        exit_status = data["exit_status"]
+        logger.warning("**********************exit_status: " + str(exit_status))
+        if int(exit_status) in RESOURCE_LIMIT_KILL_CODES:
+            # increase resources
+            _increase_resources(data['executor_id'], data['scale'])
+
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.OK
     except InvalidStateTransition:
@@ -1031,90 +1127,20 @@ def _get_new_resource_value(mem: str, cores: int, runtime: int, scale: float):
             mem = str(int(int(mem[:-1]) * (1 + scale))) + mem[-1]
         else:
             mem = str(int(mem * (1 + scale)))
+    else:
+        # Although mem should not be None, make it 1G if it's None
+        mem = "1G"
     if cores is not None:
         cores = int(cores * (1 + scale))
+    else:
+        cores = 0
     if runtime is not None:
         runtime = int(runtime * (1 + scale))
+    else:
+        # Although runtime should not be None, make it 60 seconds if it's None
+        runtime = 60
     return mem, cores, runtime
 
-
-@jsm.route('/job/increase_resources', methods=['PUT'])
-def increase_resources():
-    """This route is created to increase the resources of jobs failed with a 137 error on the fair cluster on tries.
-       The memory, runtime and threads should increase by a configurable amount (say 50%). 
-       The row in the job table should be modified with new values. men_free, num_cores, max_runtime_seconds.
-    Args:
-
-
-    """
-    update_resource_query_template = """
-                        update job
-                        set mem_free="{mem}", 
-                            num_cores={cores}, 
-                            max_runtime_seconds={runtime}
-                        where job.job_id=
-                              (select job_id
-                               from job_instance
-                               where executor_id={id});
-                    """
-    update_satus_query_template = """
-                            update job
-                            set status="F"
-                            where job.job_id=
-                                  (select job_id
-                                   from job_instance
-                                   where executor_id={id});
-                        """
-    logger.debug(logging.myself())
-    data = request.get_json()
-    msn = "Increase the resource for retry. \n"
-    params = {}
-    for key in ["increment_scale", "executor_ids"]:
-        params[key] = data[key]
-
-    scale = params["increment_scale"]
-    try:
-        scale = float(scale)
-    except:
-        # In case the client sent an invalid value, set the scale to 50%.
-        scale = 0.5
-    msn += "Increase the system resources by {}%. \n".format(int(scale * 100))
-    
-    if params["executor_ids"]:
-        for item in params["executor_ids"]:
-            exec_id = item["exec_id"]
-            available_mem = item["available_mem"]
-            available_cores = item["available_cores"]
-            max_runtime = item["max_runtime"]
-            query = f"select mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {exec_id}"
-            res = DB.session.execute(query).fetchone()
-            mem = res[0]
-            cores = res[1]
-            runtime = res[2]
-            DB.session.commit()
-            mem, cores, runtime = _get_new_resource_value(mem, cores, runtime, scale)
-            # int mem in M
-            mem_in_M = int(mem[:-1]) if mem[-1] == "M" else int(mem[:-1]) * 1000 if mem[-1] == "G" else int(mem) * 1000
-            # available_mem should be in G
-            if mem_in_M > available_mem * 1000 or cores > available_cores or runtime > max_runtime:
-                # move to ERROR_FATAL
-                query = update_satus_query_template.format(id=exec_id)
-                DB.session.execute(query)
-                DB.session.commit()
-            else:
-                # TODO: update db with new resource values
-                query = update_resource_query_template.format(
-                         mem=mem if mem is not None else "null",
-                         cores=cores if cores is not None else "null",
-                         runtime=runtime if runtime is not None else "null",
-                         id=exec_id
-                )
-                DB.session.execute(query)
-                DB.session.commit()
-
-    resp = jsonify(msn=msn)
-    resp.status_code = StatusCodes.OK
-    return resp
 
 @jsm.route('/job/<execution_id>/get_resources', methods=['GET'])
 def get_resources(execution_id):

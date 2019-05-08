@@ -7,9 +7,8 @@ import traceback
 
 from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
-from jobmon.client.swarm.executors.sge_utils import qacct_executor_id
-from jobmon.client.swarm.executors.sge_utils import available_resource_in_queue
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
 
 logger = logging.getLogger(__name__)
@@ -130,21 +129,24 @@ class JobInstanceReconciler(object):
                      'next_report_increment': next_report_increment},
             request_type='post')
 
+        """
         # Get all failed execution_ids and check for ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES
         try:
+            logger.debug("****************************************************")
             rc, response = shared_requester.send_request(
                 app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
                 message={'status': [
                     JobInstanceStatus.ERROR]},
                 request_type='get')
-            executor_ids_error = response['executor_id']
+            executor_ids_error = [j[1] for j in response['jiid_exid_tuples']]
+            logger.debug("executor_ids_error: " + str(executor_ids_error))
         except:
             executor_ids_error = []
         executor_ids_kill = self._get_killed_by_insufficient_resource_jobs(executor_ids_error)
+        logger.debug("executor_ids_kill: " + str(executor_ids_kill))
         # Increase resources for those executions
         if len(executor_ids_kill) > 0:
             try:
-                (available_mem, available_cores) = available_resource_in_queue()
                 _, response = shared_requester.send_request(
                     app_route='/job/increase_resources',
                     message={'increment_scale': DEFAULT_INCREMENT_SCALE,
@@ -152,9 +154,10 @@ class JobInstanceReconciler(object):
                              },
                     request_type='put')
                 logger.warning("Increase the system resources for failed jobs.\n{}".format(response["msn"]))
-            except:
+            except Exception as e:
+                logger.debug(str(e))
                 pass
-
+        """
 
     def terminate_timed_out_jobs(self):
         """Attempts to terminate jobs that have been in the "running"
@@ -208,9 +211,11 @@ class JobInstanceReconciler(object):
         Args:
             job_instance_id (int): id for the job_instance that has timed out
         """
-        message = {'error_message': "Timed out"}
+        message = {'error_message': "Timed out", 'scale': 0.5}
         if executor_id is not None:
             message['executor_id'] = executor_id
+        exit_code = qacct_exit_status(executor_id)
+        message['exit_code'] = exit_code
         return self.requester.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message=message,

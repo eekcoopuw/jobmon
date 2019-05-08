@@ -13,6 +13,7 @@ from jobmon.exceptions import ReturnCodes
 from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
+from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
 
 def enqueue_stderr(stderr, queue):
@@ -133,8 +134,15 @@ def unwrap():
     if returncode != ReturnCodes.OK:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
+        jid = os.environ.get('JOB_ID')
+        # For reasons I don't understand sometime times exit_status and returncode doesn't match
+        exit_status = qacct_exit_status(jid)
+        r = exit_status if exit_status != -1 else returncode
         ji_intercom.log_error(error_message=str(stderr),
-                              executor_id=os.environ.get('JOB_ID'))
+                              executor_id=jid,
+                              exit_status=r,
+                              scale=0.5
+                              )
     else:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()

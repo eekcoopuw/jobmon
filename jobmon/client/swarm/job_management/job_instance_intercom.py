@@ -46,7 +46,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_error(self, error_message, executor_id):
+    def log_error(self, error_message, executor_id, exit_status, scale=0.5):
         """Tell the JobStateManager that this job_instance has errored"""
 
         # clip at 10k to avoid mysql has gone away errors when posting long
@@ -57,11 +57,13 @@ class JobInstanceIntercom(object):
             logger.info(f"Error_message is {e_len} which is more than the 10k "
                         "character limit for error messages. Only the final "
                         "10k will be captured by the database.")
-        message = {'error_message': error_message}
+        message = {'error_message': error_message, 'exit_status': exit_status, 'scale': scale}
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
             logger.info("No Job ID was found in the qsub env at this time")
+        import pdb
+        pdb.set_trace()
         rc, _ = self.requester.send_request(
             app_route=('/job_instance/{}/log_error'
                        .format(self.job_instance_id)),

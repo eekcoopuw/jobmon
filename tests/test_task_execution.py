@@ -139,7 +139,8 @@ def test_exceed_mem_task(db_cfg, dag_factory):
         jid = [ji for ji in job.job_instances][0].executor_id
         resp = check_output(f"qacct -j {jid} | grep exit_status", shell=True,
                             universal_newlines=True)
-        assert '247' in resp
+
+        assert ('247' in resp) or ('137' in resp)
         assert job.job_instances[0].status == 'E'
         assert job.status == 'F'
 
