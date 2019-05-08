@@ -147,13 +147,14 @@ def test_exceed_mem_task(db_cfg, dag_factory):
     assert sge_jobname == name
 
 
+@pytest.mark.skip("Not yet implemented")
 def test_under_request_then_pass(db_cfg, dag_factory):
     """test that when a task gets killed due to under requested memory, it
     succeeds on the second try with additional memory added"""
 
     name = 'mem_task'
     task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
-                      name=name, mem_free='600M', max_attempts=2, slots=1,
+                      name=name, m_mem_free='600M', max_attempts=2, slots=1,
                       max_runtime_seconds=40)
 
     executor = SGEExecutor(project='proj_tools')
