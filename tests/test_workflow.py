@@ -424,9 +424,13 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
                if ji.status == JobInstanceStatus.ERROR]
 
         # Make sure all their node names were recorded
-        nodenames = [ji.nodename for ji in jis if ji.nodename is not None]
-        # TODO Sometimes we just don't get all the nodenames, sometimes we do
-        assert nodenames and len(nodenames) >= 5
+        nodenames = [ji.nodename for ji in jis]
+        # TODO Thisi sa flakey test.
+        #  Sometimes we don't get all the nodenames, some are None.
+        # If we don't get the nodenames, then rerun just this test with
+        # the -s flag and check if the nodename is being passed on log_running
+        # and log_nodename, then debug.
+        assert nodenames and all(nodenames)
 
 
 def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
