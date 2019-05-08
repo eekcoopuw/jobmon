@@ -264,7 +264,9 @@ def add_update_workflow_run():
         stdout (str): where stdout should be directed
         project (str): sge project where this workflow_run should be run
         slack_channel (str): channel where this workflow_run should send
-        notifications
+            notifications
+        resource adjustment (float): rate at which the resources will be
+            increased if the jobs fail from under-requested resources
         any other Workflow attributes you want to set
     """
     logger.debug(logging.myself())
@@ -280,7 +282,8 @@ def add_update_workflow_run():
                              working_dir=data['working_dir'],
                              project=data['project'],
                              slack_channel=data['slack_channel'],
-                             executor_class=data['executor_class'])
+                             executor_class=data['executor_class'],
+                             resource_adjustment=data['resource_adjustment'])
         workflow = DB.session.query(Workflow).\
             filter(Workflow.id == data['workflow_id']).first()
         # Set all previous runs to STOPPED
