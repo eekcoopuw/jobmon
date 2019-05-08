@@ -11,11 +11,6 @@ import jobmon.client.swarm.executors
 from jobmon.client.swarm.executors.sge import SGEExecutor
 import jobmon.client.swarm.executors.sge_utils as sge_utils
 
-# try:
-#     from jobmon.client.swarm.executors import sge_utils as sge_utils
-# except KeyError:
-#     pass
-
 
 @pytest.mark.cluster
 def test_true_path():
@@ -80,4 +75,3 @@ def test_bad_qstat_call(monkeypatch):
     with pytest.raises(subprocess.CalledProcessError):
         s = SGEExecutor()
         s.get_usage_stats()
-    assert 1 == 1

@@ -89,7 +89,7 @@ class JobInstanceIntercom(object):
                            "executors".format(self.executor_class))
         except Exception as e:
             # subprocess.CalledProcessError is raised if qstat fails.
-            # Not a critical error, keep running and log and error
+            # Not a critical error, keep running and log an error.
             logger.error(f"Usage stats not available due to exception {e}")
             (_, value, traceback) = sys.exc_info()
             logger.error("Traceback {}").\
