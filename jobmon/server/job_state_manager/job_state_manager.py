@@ -426,7 +426,7 @@ def log_error(job_instance_id):
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
-    logger.warning("*******************************data:" + str(data))
+    logger.debug("data:" + str(data))
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
     try:

@@ -94,18 +94,6 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
-    """
-    def _get_killed_by_insufficient_resource_jobs(self, executor_ids_error):
-        executor_ids_kill = []
-        for id in executor_ids_error:
-            error_code, queue = qacct_exit_status(id)
-            if error_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
-                available_mem, available_cores, max_runtime = available_resource_in_queue(queue)
-                executor_ids_kill.append({"exec_id": id, "queue": queue, "available_mem": available_mem,
-                                          "available_cores": available_cores, "max_runtime": max_runtime})
-        return executor_ids_kill
-    """
-
     def reconcile(self):
         """Identifies submitted to batch and running jobs that have missed
         their report_by_date and reports their disappearance back to the
@@ -130,36 +118,6 @@ class JobInstanceReconciler(object):
             message={'executor_ids': actual,
                      'next_report_increment': next_report_increment},
             request_type='post')
-
-        """
-        # Get all failed execution_ids and check for ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES
-        try:
-            logger.debug("****************************************************")
-            rc, response = shared_requester.send_request(
-                app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
-                message={'status': [
-                    JobInstanceStatus.ERROR]},
-                request_type='get')
-            executor_ids_error = [j[1] for j in response['jiid_exid_tuples']]
-            logger.debug("executor_ids_error: " + str(executor_ids_error))
-        except:
-            executor_ids_error = []
-        executor_ids_kill = self._get_killed_by_insufficient_resource_jobs(executor_ids_error)
-        logger.debug("executor_ids_kill: " + str(executor_ids_kill))
-        # Increase resources for those executions
-        if len(executor_ids_kill) > 0:
-            try:
-                _, response = shared_requester.send_request(
-                    app_route='/job/increase_resources',
-                    message={'increment_scale': DEFAULT_INCREMENT_SCALE,
-                             'executor_ids': executor_ids_kill
-                             },
-                    request_type='put')
-                logger.warning("Increase the system resources for failed jobs.\n{}".format(response["msn"]))
-            except Exception as e:
-                logger.debug(str(e))
-                pass
-        """
 
     def terminate_timed_out_jobs(self):
         """Attempts to terminate jobs that have been in the "running"

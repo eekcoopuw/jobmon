@@ -137,9 +137,7 @@ def unwrap():
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
         jid = os.environ.get('JOB_ID')
-        logger.warning("*****************************************jid:" + str(jid))
-        cmd = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid
-        logger.warning(cmd)
+        logger.debug("jid:" + str(jid))
         ji_intercom.log_error(error_message=str(stderr),
                               executor_id=jid,
                               exit_status=returncode,
