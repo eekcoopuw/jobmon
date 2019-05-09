@@ -344,13 +344,15 @@ def _available_resource_in_queue(q="all.q"):
     return sys.maxsize, sys.maxsize, sys.maxsize
 
 
-def _increase_resources(exec_id, scale):
+def _increase_resources(exec_id: int, scale: int)->str:
     """This route is created to increase the resources of jobs failed with a 137 error on the fair cluster on tries.
        The memory, runtime and threads should increase by a configurable amount (say 50%). 
        The row in the job table should be modified with new values. men_free, num_cores, max_runtime_seconds.
     Args:
+        exec_id: excutor_id
+        scale: increase scale
 
-
+    Return: an result string to add to the return message
     """
     update_resource_query_template = """
                         update job
@@ -396,6 +398,8 @@ def _increase_resources(exec_id, scale):
         query = update_satus_query_template.format(id=exec_id)
         DB.session.execute(query)
         DB.session.commit()
+        logger.debug("Not enough system resources. Set the job status to F.")
+        return "Not enough system resources. Set the job status to F."
     else:
         query = update_resource_query_template.format(
                 mem=mem if mem is not None else "null",
@@ -406,6 +410,7 @@ def _increase_resources(exec_id, scale):
         DB.session.execute(query)
         DB.session.commit()
         logger.debug(f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
+        return f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}"
 
 
 RESOURCE_LIMIT_KILL_CODES = (137, 247, 44, -9)
@@ -447,7 +452,7 @@ def log_error(job_instance_id):
             scale = 0.5 #default value
             if data.get('scale', None) is not None:
                 scale = data['scale']
-            _increase_resources(data['executor_id'], scale)
+            msg += _increase_resources(data['executor_id'], scale)
 
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.OK
