@@ -94,15 +94,17 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
+    """
     def _get_killed_by_insufficient_resource_jobs(self, executor_ids_error):
         executor_ids_kill = []
         for id in executor_ids_error:
-            error_code, queue = qacct_executor_id(id)
+            error_code, queue = qacct_exit_status(id)
             if error_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
                 available_mem, available_cores, max_runtime = available_resource_in_queue(queue)
                 executor_ids_kill.append({"exec_id": id, "queue": queue, "available_mem": available_mem,
                                           "available_cores": available_cores, "max_runtime": max_runtime})
         return executor_ids_kill
+    """
 
     def reconcile(self):
         """Identifies submitted to batch and running jobs that have missed

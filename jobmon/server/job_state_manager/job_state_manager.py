@@ -408,7 +408,7 @@ def _increase_resources(exec_id, scale):
         logger.debug(f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
 
 
-RESOURCE_LIMIT_KILL_CODES = (137, 247, 44)
+RESOURCE_LIMIT_KILL_CODES = (137, 247, 44, -9)
 
 
 @jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
@@ -426,6 +426,7 @@ def log_error(job_instance_id):
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
+    logger.warning("*******************************data:" + str(data))
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
     try:
@@ -440,6 +441,7 @@ def log_error(job_instance_id):
         # Check execute_statue to see if resource needs to be increased
         exit_status = data["exit_status"]
         logger.warning("**********************exit_status: " + str(exit_status))
+
         if int(exit_status) in RESOURCE_LIMIT_KILL_CODES:
             # increase resources
             _increase_resources(data['executor_id'], data['scale'])

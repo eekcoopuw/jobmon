@@ -15,6 +15,7 @@ from jobmon.client.swarm.job_management.job_instance_intercom import \
 from jobmon.client.utils import kill_remote_process_group
 from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
+logger = logging.getLogger()
 
 def enqueue_stderr(stderr, queue):
     """eagerly print 100 byte blocks to stderr so pipe doesn't fill up and
@@ -128,6 +129,7 @@ def unwrap():
     except Exception as exc:
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                      traceback.format_exc())
+        logger.warning(stderr)
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
     # check return code
@@ -135,12 +137,12 @@ def unwrap():
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
         jid = os.environ.get('JOB_ID')
-        # For reasons I don't understand sometime times exit_status and returncode doesn't match
-        exit_status = qacct_exit_status(jid)
-        r = exit_status if exit_status != -1 else returncode
+        logger.warning("*****************************************jid:" + str(jid))
+        cmd = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid
+        logger.warning(cmd)
         ji_intercom.log_error(error_message=str(stderr),
                               executor_id=jid,
-                              exit_status=r,
+                              exit_status=returncode,
                               scale=0.5
                               )
     else:
