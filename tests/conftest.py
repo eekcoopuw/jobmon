@@ -398,7 +398,7 @@ def dag_factory(db_cfg, real_jsm_jqs, request):
 def execution_test_script_perms():
     executed_files = ['executor_args_check.py', 'simple_R_script.r',
                       'simple_stata_script.do', 'memory_usage_array.py',
-                      'remote_sleep_and_write.py']
+                      'remote_sleep_and_write.py', 'kill.py', 'exceed_mem.py']
     if sys.version_info.major == 3:
         perms = int("0o755", 8)
     else:

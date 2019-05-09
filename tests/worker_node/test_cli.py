@@ -5,6 +5,8 @@ from unittest.mock import patch
 import pytest
 
 import jobmon.client.worker_node.cli
+from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.models.job_instance import JobInstance
 
 
 EXCEPTION_MSG = "assert we took this path"
@@ -23,19 +25,19 @@ class MockIntercom:
                  hostname):
         pass
 
-    def log_running(self, next_report_increment):
+    def log_running(self, next_report_increment, executor_id):
         pass
 
-    def log_report_by(self, next_report_increment):
+    def log_report_by(self, next_report_increment, executor_id):
         pass
 
     def log_job_stats(self):
         pass
 
-    def log_done(self):
+    def log_done(self, executor_id):
         pass
 
-    def log_error(self, error):
+    def log_error(self, error_message, executor_id):
         pass
 
 
@@ -47,9 +49,24 @@ def mock_kill_remote_process_group(a, b):
 
 class MockIntercomRaiseInLogError(MockIntercom):
 
-    def log_error(self, error):
-        if EXCEPTION_MSG in error:
+    def log_error(self, error_message, executor_id):
+        if EXCEPTION_MSG in error_message:
             raise ExpectedException
+
+
+class MockIntercomCheckExecutorId(MockIntercom):
+
+    def log_running(self, next_report_increment, executor_id):
+        assert executor_id == '77777'
+
+    def log_report_by(self, next_report_increment, executor_id):
+        assert executor_id == '77777'
+
+    def log_done(self, executor_id):
+        assert executor_id == '77777'
+
+    def log_error(self, error_message, executor_id):
+        assert executor_id == '77777'
 
 
 def test_kill_remote_process_group_conditional(monkeypatch):
@@ -99,11 +116,11 @@ def test_kill_remote_process_group_conditional(monkeypatch):
 
 class MockIntercomLogHeartbeatToError(MockIntercom):
 
-    def log_report_by(self, next_report_increment):
+    def log_report_by(self, next_report_increment, executor_id):
         print("logging report by in the middle", file=sys.stderr)
 
-    def log_error(self, error):
-        assert error == ("a" * 2**10 + "\n") * (2**8)
+    def log_error(self, error_message, executor_id):
+        assert error_message == ("a" * 2**10 + "\n") * (2**8)
 
 
 def test_stderr_buffering(monkeypatch, capsys):
@@ -145,3 +162,34 @@ def test_stderr_buffering(monkeypatch, capsys):
     for block in members:
         aaaa += block
     assert aaaa == ("a" * 2**10 + "\n") * (2**8)
+
+
+def test_executor_id(monkeypatch, capsys):
+    """ this test is checking that the jobmon cli can access its own job id
+    to send in the routes it is logging"""
+    monkeypatch.setattr(
+        jobmon.client.worker_node.cli,
+        "JobInstanceIntercom",
+        MockIntercomCheckExecutorId)
+
+    monkeypatch.setenv("JOB_ID", '77777')
+
+    base_args = [
+        "executor_id",
+        "--command", "printenv",
+        "--job_instance_id", "1",
+        "--jm_host", "some.host.name",
+        "--jm_port", "2",
+        "--executor_class", "DummyExecutor",
+        "--heartbeat_interval", "1",
+        "--report_by_buffer", "3.1"
+    ]
+
+    with patch.object(sys, 'argv', base_args):
+        with pytest.raises(SystemExit):
+            jobmon.client.worker_node.cli.unwrap()
+
+
+
+
+
