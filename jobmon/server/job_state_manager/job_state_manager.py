@@ -337,6 +337,7 @@ def log_error(job_instance_id):
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(" +++++++  Reading nodename {}".format(ji.nodename))
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
     try:
@@ -519,7 +520,7 @@ def log_running(job_instance_id):
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
     ji.nodename = data['nodename']
-    logger.debug(" ************* nodename: {}".format(ji.nodename))
+    logger.debug(" ************* log-running nodename: {}".format(ji.nodename))
     ji.process_group_id = data['process_group_id']
     ji.report_by_date = func.ADDTIME(
         func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
@@ -545,7 +546,8 @@ def log_nodename(job_instance_id):
     logger.debug("Log nodename for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug(logging.logParameter("DB.session", DB.session))
-    logger.debug(" ************* nodename: {}".format(data['nodename']))
+    logger.debug(" ;;;;;;;;;;; log_nodename nodename: {}".format(data[
+                                                                  'nodename']))
     _update_job_instance(ji, nodename=data['nodename'])
     DB.session.commit()
     resp = jsonify(message='')
