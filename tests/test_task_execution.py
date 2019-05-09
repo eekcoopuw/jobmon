@@ -176,6 +176,9 @@ def test_under_request_then_pass(db_cfg, dag_factory):
         assert job.job_instances[0].status == 'E'
         assert job.job_instances[1].status == 'D'
         assert job.status == 'D'
+        # add checks for increased system resources
+        assert job.mem_free == '900M'
+        assert job.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name

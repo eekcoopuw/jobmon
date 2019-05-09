@@ -224,7 +224,9 @@ def test_jsm_valid_error(real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(job_instance_id),
-        message={'error_message': "this is an error message"},
+        message={'error_message': "this is an error message",
+                 'executor_id': str(12345),
+                 'exit_status': 2},
         request_type='post')
 
 
@@ -405,7 +407,9 @@ def test_job_reset(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji1),
-        message={'error_message': "error 1"},
+        message={'error_message': "error 1",
+                 'executor_id': str(12345),
+                 'exit_status': 1},
         request_type='post')
 
     # second job instance
@@ -428,7 +432,9 @@ def test_job_reset(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji2),
-        message={'error_message': "error 1"},
+        message={'error_message': "error 1",
+                 'executor_id': str(12345),
+                 'exit_status': 1},
         request_type='post')
 
     # third job instance

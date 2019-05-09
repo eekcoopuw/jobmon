@@ -440,11 +440,14 @@ def log_error(job_instance_id):
         DB.session.commit()
         # Check execute_statue to see if resource needs to be increased
         exit_status = data["exit_status"]
-        logger.warning("**********************exit_status: " + str(exit_status))
+        logger.debug("exit_status: " + str(exit_status))
 
         if int(exit_status) in RESOURCE_LIMIT_KILL_CODES:
             # increase resources
-            _increase_resources(data['executor_id'], data['scale'])
+            scale = 0.5 #default value
+            if data.get('scale', None) is not None:
+                scale = data['scale']
+            _increase_resources(data['executor_id'], scale)
 
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.OK

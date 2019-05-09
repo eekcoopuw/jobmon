@@ -171,7 +171,7 @@ class JobInstanceReconciler(object):
         Args:
             job_instance_id (int): id for the job_instance that has timed out
         """
-        message = {'error_message': "Timed out", 'scale': 0.5}
+        message = {'error_message': "Timed out"}
         if executor_id is not None:
             message['executor_id'] = executor_id
         exit_code = qacct_exit_status(executor_id)

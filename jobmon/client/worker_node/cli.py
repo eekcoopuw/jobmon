@@ -140,8 +140,7 @@ def unwrap():
         logger.debug("jid:" + str(jid))
         ji_intercom.log_error(error_message=str(stderr),
                               executor_id=jid,
-                              exit_status=returncode,
-                              scale=0.5
+                              exit_status=returncode
                               )
     else:
         if args["executor_class"] == "SGEExecutor":
