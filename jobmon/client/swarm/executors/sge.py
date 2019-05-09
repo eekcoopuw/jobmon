@@ -2,13 +2,14 @@ import json
 import logging
 import os
 import subprocess
-import sys
 from time import sleep
 from typing import List
+import traceback
 
 import pandas as pd
 
 from cluster_utils.io import makedirs_safely
+from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors import Executor
@@ -48,9 +49,16 @@ class SGEExecutor(Executor):
             return sge_jid
 
         except Exception as e:
-            (_, value, traceback) = sys.exc_info()
+            stack = traceback.format_exc()
             logger.error(f"*** Caught during qsub {e}")
-            logger.error(f"Traceback {traceback}")
+            logger.error(f"Traceback {stack}")
+            msg = (
+                f"Error in executor {self.__class__.__name__}, {str(self)} "
+                f"while submitting ji_id {job_instance_id}: \n{stack}")
+            shared_requester.send_request(
+                app_route="/error_logger",
+                message={"traceback": msg},
+                request_type="post")
             if isinstance(e, ValueError):
                 raise e
             return ERROR_SGE_JID

@@ -251,6 +251,15 @@ def add_update_workflow():
     return resp
 
 
+@jsm.route('/error_logger', methods=['POST'])
+def workflow_error_logger():
+    data = request.get_json()
+    logger.error(data["msg"])
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jsm.route('/workflow_run', methods=['POST', 'PUT'])
 def add_update_workflow_run():
     """Add a workflow to the database or update it (via PUT)
