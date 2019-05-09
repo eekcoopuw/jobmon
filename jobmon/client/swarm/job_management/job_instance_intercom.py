@@ -58,7 +58,7 @@ class JobInstanceIntercom(object):
                         "character limit for error messages. Only the final "
                         "10k will be captured by the database.")
 
-        message = {'error_message': error_message, 'exit_status': exit_status, 'scale': scale}
+        message = {'error_message': error_message, 'exit_status': exit_status, 'resource_adjustment': scale}
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:

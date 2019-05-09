@@ -450,8 +450,8 @@ def log_error(job_instance_id):
         if int(exit_status) in RESOURCE_LIMIT_KILL_CODES:
             # increase resources
             scale = 0.5 #default value
-            if data.get('scale', None) is not None:
-                scale = data['scale']
+            if data.get('resource_adjustment', None) is not None:
+                scale = data['resource_adjustment']
             msg += _increase_resources(data['executor_id'], scale)
 
         resp = jsonify(message=msg)
