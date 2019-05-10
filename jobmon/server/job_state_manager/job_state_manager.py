@@ -314,6 +314,7 @@ def log_done(job_instance_id):
     ji = _get_job_instance(DB.session, job_instance_id)
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
+    ji.nodename = data['nodename']
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
