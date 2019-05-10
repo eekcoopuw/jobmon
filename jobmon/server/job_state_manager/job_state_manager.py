@@ -254,7 +254,7 @@ def add_update_workflow():
 @jsm.route('/error_logger', methods=['POST'])
 def workflow_error_logger():
     data = request.get_json()
-    logger.error(data["msg"])
+    logger.error(data["traceback"])
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -439,7 +439,7 @@ def log_ji_report_by(job_instance_id):
         query = """
                 UPDATE job_instance
                 SET report_by_date = ADDTIME(
-                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)), 
+                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
                     executor_id = :executor_id
                 WHERE job_instance_id = :job_instance_id"""
     else:
