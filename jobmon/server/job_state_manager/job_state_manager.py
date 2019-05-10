@@ -358,6 +358,31 @@ def log_error(job_instance_id):
     return resp
 
 
+@jsm.route('/log_oom/<job_id>', methods=['POST'])
+def log_oom(job_id):
+    """Log instances where a job_instance is killed by an Out of Memory Kill
+    event
+    Args:
+
+        job_id (int): UGE job_id, in Jobmon parlance this is the executor_id
+        task_id (int): UGE task_id if the job was an array job (included as
+                       JSON in request)
+        message (str): Optional message (included as JSON in request)
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_id", job_id))
+    data = request.get_json()
+
+    job_instance = _get_job_instance_by_executor_id(job_id)
+
+    if 'task_id' in data:
+        task_id = data['task_id']
+    if 'message' in data:
+        message = data['message']
+
+    # log message including job_id and task_id and message
+
+
 @jsm.route('/job_instance/<job_instance_id>/log_executor_id', methods=['POST'])
 def log_executor_id(job_instance_id):
     """Log a job_instance's executor id
@@ -747,6 +772,22 @@ def _get_job_instance(session, job_instance_id):
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     job_instance = session.query(JobInstance).filter_by(
         job_instance_id=job_instance_id).first()
+    return job_instance
+
+
+def _get_job_instance_by_executor_id(session, executor_id):
+    """Return a JobInstance from the database
+
+    Args:
+
+        session: DB.session or Session object to use to connect to the db
+        executor_id (int): executor_id with which to query the database
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("session", session))
+    logger.debug(logging.logParameter("executor_id", executor_id))
+    job_instance = session.query(JobInstance).filter_by(
+        executor_id=executor_id).first()
     return job_instance
 
 
