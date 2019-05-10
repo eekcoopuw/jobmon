@@ -365,6 +365,7 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
         assert ji.cpu == '00:00:00'
         assert ji.io == '1'
         assert ji.nodename == socket.getfqdn()
+        DB.session.commit()
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
         message={},
@@ -480,6 +481,7 @@ def test_job_reset(db_cfg, real_dag_id):
         # jis... It's a little aggressive, but it's the safe way to ensure
         # job_instances don't hang around in unknown states upon RESET
         assert len(errors) == 5
+        DB.session.commit()
 
 
 def test_jsm_submit_job_attr(db_cfg, real_dag_id):
@@ -556,6 +558,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
             attribute_entry_value = entry.value
             assert (dict_of_attributes[attribute_entry_type] ==
                     attribute_entry_value)
+        DB.session.commit()
 
 
 testdata: dict = (
@@ -678,6 +681,54 @@ def test_set_flask_log_level_seperately(real_dag_id):
         request_type='post')
 
 
+
+def test_change_job_resources(db_cfg, real_dag_id):
+    """ test that resources can be set and then changed and show up properly
+    in the DB"""
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id),
+                 'max_attempts': '3'},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+    _, response = req.send_request(
+        app_route=f'/job/{job.job_id}/change_resources',
+        message={'num_cores': '3',
+                 'max_runtime_seconds': '20',
+                 'mem_free': '2G'},
+        request_type='put'
+    )
+    DB = db_cfg["DB"]
+    app = db_cfg["app"]
+    with app.app_context():
+        query = """SELECT max_runtime_seconds, mem_free, num_cores 
+                   FROM job 
+                   WHERE job_id={job_id}""".format(job_id=job.job_id)
+        runtime, mem, cores = DB.session.execute(query).fetchall()[0]
+        assert runtime == 20
+        assert mem == '2G'
+        assert cores == 3
+        DB.session.commit()
+
+    _, response = req.send_request(
+        app_route=f'/job/{job.job_id}/change_resources',
+        message={'num_cores': '2'},
+        request_type='put'
+    )
+    with app.app_context():
+        query = """SELECT max_runtime_seconds, mem_free, num_cores 
+                   FROM job 
+                   WHERE job_id={job_id}""".format(job_id=job.job_id)
+        runtime, mem, cores = DB.session.execute(query).fetchall()[0]
+        assert runtime == 20
+        assert mem == '2G'
+        assert cores == 2
+        DB.session.commit()
+        
+
 def test_executor_id_logging(db_cfg, real_dag_id):
     _, response = req.send_request(
         app_route='/job',
@@ -747,5 +798,4 @@ def test_executor_id_logging(db_cfg, real_dag_id):
         assert ji.status == 'D'
         assert ji.executor_id == 98765
         DB.session.commit()
-
 

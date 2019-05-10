@@ -16,9 +16,9 @@ from jobmon.client.swarm.executors.sge_resource import SGEResource
 
 logger = logging.getLogger(__name__)
 ERROR_SGE_JID = -99999
+ERROR_QSTAT_ID = - 9998
 
-
-ExectorIDs = List[int]
+ExecutorIDs = List[int]
 
 
 class SGEExecutor(Executor):
@@ -64,7 +64,7 @@ class SGEExecutor(Executor):
         usage = sge_utils.qstat_usage([sge_id])[int(sge_id)]
         return usage
 
-    def get_actual_submitted_or_running(self) -> ExectorIDs:
+    def get_actual_submitted_or_running(self) -> ExecutorIDs:
         qstat_out = sge_utils.qstat()
         executor_ids = list(qstat_out.job_id)
         executor_ids = [int(eid) for eid in executor_ids]

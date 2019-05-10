@@ -10,10 +10,11 @@ import logging
 import os
 import re
 import subprocess
-import sys
 
 import pandas as pd
 import numpy as np
+
+import jobmon.client.swarm.executors.sge as sge
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
@@ -293,6 +294,6 @@ def qacct_exit_status(jid: int)->int:
     except Exception as e:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))
-        return -1
+        return sge.ERROR_QSTAT_ID
 
 
