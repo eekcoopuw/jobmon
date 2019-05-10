@@ -1,19 +1,18 @@
-from builtins import str
-
-import os
-import pytest
-import pwd
-import requests
-import shutil
-import uuid
-import socket
 import logging
+import os
+import pwd
 import re
+import shutil
+import socket
 import sys
-
+import uuid
+from builtins import str
 from datetime import datetime
-from sqlalchemy.exc import ProgrammingError
 from time import sleep
+
+import pytest
+import requests
+from sqlalchemy.exc import ProgrammingError
 
 from cluster_utils.ephemerdb import create_ephemerdb
 
@@ -186,6 +185,13 @@ def real_jsm_jqs(test_session_config):
         raise TimeoutError(
             f"Out-of-process jsm and jqs services did not answer after "
             f"{count} attempts, probably failed to start.")
+
+    # These are tests, so set log level to  DEBUG
+    message = {}
+    requests.post('http://0.0.0.0:{port}/log_level/DEBUG'.
+                  format(port=test_session_config["JOBMON_PORT"]),
+                  json=message,
+                  headers={'Content-Type': 'application/json'})
     yield
 
     p1.terminate()
