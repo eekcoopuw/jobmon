@@ -424,9 +424,17 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
                if ji.status == JobInstanceStatus.ERROR]
 
         # Make sure all their node names were recorded
-        nodenames = [ji.nodename for ji in jis if ji.nodename is not None]
-        # TODO Sometimes we just don't get all the nodenames, sometimes we do
-        assert nodenames and len(nodenames) >= 5
+        nodenames = [ji.nodename for ji in jis]
+        # TODO This is a flakey test.
+        #  Sometimes we don't get all the nodenames, some are None.
+        # I am pretty sure it is an actual bug, a race between
+        # log_error (without a ndoename) and log_nodename.
+        # the messages and database transactions can arrive and commit such
+        # that the nodename in log_nodename is overwritten by the empty
+        # nodename in lofg_error. Add ndoename to all log_X routes,
+        # see GBDSCI-1829
+        # TODO check if all is false, if so print out what is missing
+        assert nodenames and all(nodenames)
 
 
 def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
