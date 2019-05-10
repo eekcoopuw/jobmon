@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#This rotates each log, so <jobmon>.log.2 becomes <jobmon>.log.3 etc
+#It then saves the last 24 hours as <jobmon>.log.0
+#Notice that the current oldest log <jobmon>.log.7 is lost.
+
 dir=$1
 jobmons=`docker ps |awk '{print $12}' |grep . |grep _jobmon_`
 for j in $jobmons; do
