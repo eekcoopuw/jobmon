@@ -39,6 +39,7 @@ def commit_hooked_jsm(jsm_jqs):
     from sqlalchemy import event
 
     sessionmaker = DB.create_session()
+
     @event.listens_for(sessionmaker, 'before_commit')
     def inspect_on_done_or_error(session):
         if any(session.dirty):
@@ -47,7 +48,7 @@ def commit_hooked_jsm(jsm_jqs):
                          j.status == JobStatus.DONE]
             done_jobs = [j for j in done_jobs
                          if not any([ji for ji in j.job_instances
-                                    if ji.executor_id < 0])]
+                                     if ji.executor_id < 0])]
             if any(done_jobs):
                 raise OperationalError("Test hook", "", "")
         if any(session.new):
@@ -564,6 +565,7 @@ testdata: dict = (
     ('whatever', 'NOTSET')
 )
 
+
 @pytest.mark.parametrize("level,expected", testdata)
 def test_dynamic_change_log_level(level: str, expected: str):
     # set log level to <level>
@@ -625,6 +627,16 @@ def test_syslog_parameter():
     assert response['syslog']
 
 
+def test_error_logger(real_jsm_jqs):
+    # assert route returns no errors
+    rc, response = req.send_request(
+        app_route='/error_logger',
+        message={"traceback": "foo bar baz"},
+        request_type='post'
+    )
+    assert rc == 200
+
+
 def test_set_flask_log_level_seperately(real_dag_id):
     print("----------------------------default------------------------")
     _, response = req.send_request(
@@ -675,7 +687,6 @@ def test_set_flask_log_level_seperately(real_dag_id):
         request_type='post')
 
 
-
 def test_change_job_resources(db_cfg, real_dag_id):
     """ test that resources can be set and then changed and show up properly
     in the DB"""
@@ -698,8 +709,8 @@ def test_change_job_resources(db_cfg, real_dag_id):
     DB = db_cfg["DB"]
     app = db_cfg["app"]
     with app.app_context():
-        query = """SELECT max_runtime_seconds, mem_free, num_cores 
-                   FROM job 
+        query = """SELECT max_runtime_seconds, mem_free, num_cores
+                   FROM job
                    WHERE job_id={job_id}""".format(job_id=job.job_id)
         runtime, mem, cores = DB.session.execute(query).fetchall()[0]
         assert runtime == 20
@@ -713,15 +724,15 @@ def test_change_job_resources(db_cfg, real_dag_id):
         request_type='put'
     )
     with app.app_context():
-        query = """SELECT max_runtime_seconds, mem_free, num_cores 
-                   FROM job 
+        query = """SELECT max_runtime_seconds, mem_free, num_cores
+                   FROM job
                    WHERE job_id={job_id}""".format(job_id=job.job_id)
         runtime, mem, cores = DB.session.execute(query).fetchall()[0]
         assert runtime == 20
         assert mem == '2G'
         assert cores == 2
         DB.session.commit()
-        
+
 
 def test_executor_id_logging(db_cfg, real_dag_id):
     _, response = req.send_request(

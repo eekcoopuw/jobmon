@@ -83,7 +83,15 @@ class JobInstanceReconciler(object):
                 stack = traceback.format_exc()
                 logger.error(stack)
                 # Also write to stdout because this is a serious problem
-                print(msg)
+                print(msg, stack)
+                # Also send to server
+                msg = (
+                    f"Error in {self.__class__.__name__}, {str(self)} "
+                    f"in reconcile_periodically: \n{stack}")
+                shared_requester.send_request(
+                    app_route="/error_logger",
+                    message={"traceback": msg},
+                    request_type="post")
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
                     self._stop_event.set()
