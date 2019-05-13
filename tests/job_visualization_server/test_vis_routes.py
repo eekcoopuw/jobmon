@@ -2,6 +2,8 @@ from jobmon import BashTask
 from jobmon import Workflow
 
 from jobmon.client import shared_requester as req
+from jobmon.server.job_visualization_server.job_visualization_server import (
+    _viz_label_mapping)
 
 
 def test_job_status(real_jsm_jqs, db_cfg):
@@ -10,6 +12,8 @@ def test_job_status(real_jsm_jqs, db_cfg):
         message={},
         request_type='get')
     assert len(resp["job_statuses_dict"]) > 0
+    for job_status in resp["job_statuses_dict"]:
+        assert job_status["label"] in _viz_label_mapping.values()
 
 
 def test_foo(real_jsm_jqs, db_cfg):
