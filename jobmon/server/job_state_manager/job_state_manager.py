@@ -323,6 +323,7 @@ def log_done(job_instance_id):
     ji = _get_job_instance(DB.session, job_instance_id)
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
+    ji.nodename = data['nodename']
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
@@ -346,7 +347,7 @@ def log_error(job_instance_id):
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
-    logger.debug(" +++++++  Reading nodename {}".format(ji.nodename))
+    ji.nodename = data['nodename']
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
     try:

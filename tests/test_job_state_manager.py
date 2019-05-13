@@ -181,7 +181,7 @@ def test_jsm_valid_done(real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
-        message={'job_instance_id': str(job_instance_id)},
+        message={'job_instance_id': str(job_instance_id), 'nodename': socket.getfqdn()},
         request_type='post')
 
 
@@ -225,7 +225,8 @@ def test_jsm_valid_error(real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(job_instance_id),
-        message={'error_message': "this is an error message"},
+        message={'error_message': "this is an error message",
+                 'nodename': socket.getfqdn()},
         request_type='post')
 
 
@@ -367,7 +368,7 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
         DB.session.commit()
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
-        message={},
+        message={'nodename': socket.getfqdn()},
         request_type='post')
 
 
@@ -407,7 +408,8 @@ def test_job_reset(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji1),
-        message={'error_message': "error 1"},
+        message={'error_message': "error 1",
+                 'nodename': socket.getfqdn()},
         request_type='post')
 
     # second job instance
@@ -430,7 +432,8 @@ def test_job_reset(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji2),
-        message={'error_message': "error 1"},
+        message={'error_message': "error 1",
+                 'nodename': socket.getfqdn()},
         request_type='post')
 
     # third job instance
@@ -531,7 +534,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
 
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(ji),
-        message={},
+        message={'nodename': socket.getfqdn()},
         request_type='post')
 
     app = db_cfg["app"]
@@ -795,7 +798,7 @@ def test_executor_id_logging(db_cfg, real_dag_id):
         DB.session.commit()
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
-        message={'executor_id': str(98765)},
+        message={'nodename': socket.getfqdn(), 'executor_id': str(98765)},
         request_type='post')
     with app.app_context():
         ji = DB.session.query(JobInstance).filter(

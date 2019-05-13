@@ -1,5 +1,6 @@
 from http import HTTPStatus as StatusCodes
 import logging
+import socket
 import threading
 import _thread
 from time import sleep
@@ -175,7 +176,7 @@ class JobInstanceReconciler(object):
         Args:
             job_instance_id (int): id for the job_instance that has timed out
         """
-        message = {'error_message': "Timed out"}
+        message = {'error_message': "Timed out", 'nodename': socket.getfqdn()}
         if executor_id is not None:
             message['executor_id'] = executor_id
         return self.requester.send_request(
