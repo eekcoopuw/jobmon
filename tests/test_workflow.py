@@ -425,6 +425,15 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
 
         # Make sure all their node names were recorded
         nodenames = [ji.nodename for ji in jis]
+        # TODO This is a flakey test.
+        #  Sometimes we don't get all the nodenames, some are None.
+        # I am pretty sure it is an actual bug, a race between
+        # log_error (without a ndoename) and log_nodename.
+        # the messages and database transactions can arrive and commit such
+        # that the nodename in log_nodename is overwritten by the empty
+        # nodename in lofg_error. Add ndoename to all log_X routes,
+        # see GBDSCI-1829
+        # TODO check if all is false, if so print out what is missing
         assert nodenames and all(nodenames)
 
 
@@ -471,8 +480,6 @@ def test_fail_fast(real_jsm_jqs, db_cfg):
                         interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3, t4, t5])
     workflow.execute()
-
-    # TODO Needs a while-check loop on t2 being in error
 
     assert len(workflow.task_dag.job_list_manager.all_error) == 1
     assert len(workflow.task_dag.job_list_manager.all_done) >= 2
@@ -817,7 +824,7 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
     # process should be joinable because _create_workflow_run should kill it
     p1.join()
 
-    # check qstat to make sure jobs isnt pending or running any more. there can
+    # check qstat to make sure jobs isn't pending or running any more. there can
     # be latency so wait at most 3 minutes for it's state to update in SGE
     max_sleep = 180  # 3 min max till test fails
     slept = 0

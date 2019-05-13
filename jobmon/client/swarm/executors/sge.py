@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 ERROR_SGE_JID = -99999
 
 
-ExectorIDs = List[int]
+ExecutorIDs = List[int]
 
 
 class SGEExecutor(Executor):
@@ -40,10 +40,10 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
-            resp = subprocess.check_output(qsub_cmd, shell=True)
+            resp = subprocess.check_output(qsub_cmd, shell=True,
+                                           universal_newlines=True)
             logger.debug(f"****** Received from qsub '{resp}'")
-            # Hmm, Python 2 vs 3 bug? That byte marker?
-            idx = resp.split().index(b'job')
+            idx = resp.split().index('job')
             sge_jid = int(resp.split()[idx + 1])
             return sge_jid
 
@@ -64,7 +64,7 @@ class SGEExecutor(Executor):
         usage = sge_utils.qstat_usage([sge_id])[int(sge_id)]
         return usage
 
-    def get_actual_submitted_or_running(self) -> ExectorIDs:
+    def get_actual_submitted_or_running(self) -> ExecutorIDs:
         qstat_out = sge_utils.qstat()
         executor_ids = list(qstat_out.job_id)
         executor_ids = [int(eid) for eid in executor_ids]

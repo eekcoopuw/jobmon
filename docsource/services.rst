@@ -83,6 +83,27 @@ On the cluster, run a command like the following:
   mysqldump -h jobmon-p01.ihme.washington.edu --port 3305 -u docker -p docker --database docker  > dbs_3305_dump.sql
 
 
+Spinning down a database
+************************
+
+1. SSH into the host machine, and use "docker ps" to find the container name that corresponds to the database to be spun down.
+2. Used "docker stop <container_id>" to stop the container.
+
+
+Removing a deprecated database
+******************************
+
+1. Copy the database to a backup location.
+2. Spin down the database container.
+3. Use " docker inspect -f '{{ .Mounts }}' <container_id>" to find the volume associated with the database. It is usually the first attribute of the value in the first element of the list. For example, volume "jobmon081_mysql-jobmon-emu":
+
+    [{jobmon081_mysql-jobmon-emu /var/lib/docker/volumes/jobmon081_mysql-jobmon-emu/_data /var/lib/mysql local z true rprivate}]
+
+Make sure the database has been copied/backed up before doing the next two steps!
+
+4. Run "docker rm <container_id>" to permanently remove the container from the host machine.
+5. Run "docker volume rm <volume_name>" to permanently remove the volume from the host machine.
+
 Version Control
 ***************
 
@@ -138,6 +159,8 @@ http.14        9056        3900 release-0.9.0
 http.15        9056        3900 release-0.9.1
 http.16        9056        3900 release-0.9.2
 http.17        9056        3900 release-0.9.3
+http.18        9056        3900 release-0.9.4
+http.19        9556        3950 release-0.9.5
 ========  ==== ===== ===== ==== =============
 
 The port numbers come in pairs, e.g. "3313:3306".

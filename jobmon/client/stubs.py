@@ -1,12 +1,11 @@
 from jobmon.models.job import Job
 
-"""
-This is a simplified Job object used on the RESTful API client side
-when only job_id, job_hash, and status are needed.
-"""
-
 
 class StubJob():
+    """
+    This is a simplified Job object used on the RESTful API client side
+    when only job_id, job_hash, and status are needed.
+    """
 
     def __init__(self, job: list):
         # Takes one row of the SQL query return

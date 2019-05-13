@@ -307,10 +307,13 @@ def log_done(job_instance_id):
 
         job_instance_id: id of the job_instance to log done
     """
+    data = request.get_json()
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     logger.debug("Log DONE for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
+    if data.get('executor_id', None) is not None:
+        ji.executor_id = data['executor_id']
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
@@ -334,6 +337,9 @@ def log_error(job_instance_id):
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(" +++++++  Reading nodename {}".format(ji.nodename))
+    if data.get('executor_id', None) is not None:
+        ji.executor_id = data['executor_id']
     try:
         msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
         DB.session.commit()
@@ -369,7 +375,7 @@ def log_executor_id(job_instance_id):
     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug(logging.logParameter("DB.session", DB.session))
-    logger.info("in log_executor_id, ji is {}".format(ji))
+    logger.info("in log_executor_id, ji is {}".format(repr(ji)))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     _update_job_instance(ji, executor_id=data['executor_id'],
@@ -414,15 +420,26 @@ def log_ji_report_by(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
 
+    data = request.get_json()
+    executor_id = data.get('executor_id', None)
     params = {}
-    params["next_report_increment"] = request.get_json()["next_report_increment"]
+    params["next_report_increment"] = data["next_report_increment"]
     params["job_instance_id"] = job_instance_id
 
-    query = """
-        UPDATE job_instance
-        SET report_by_date = ADDTIME(
-            UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-        WHERE job_instance_id = :job_instance_id"""
+    if executor_id is not None:
+        params["executor_id"] = executor_id
+        query = """
+                UPDATE job_instance
+                SET report_by_date = ADDTIME(
+                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)), 
+                    executor_id = :executor_id
+                WHERE job_instance_id = :job_instance_id"""
+    else:
+        query = """
+            UPDATE job_instance
+            SET report_by_date = ADDTIME(
+                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE job_instance_id = :job_instance_id"""
     DB.session.execute(query, params)
     DB.session.commit()
     resp = jsonify()
@@ -503,9 +520,12 @@ def log_running(job_instance_id):
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
     ji.nodename = data['nodename']
+    logger.debug(" ************* log-running nodename: {}".format(ji.nodename))
     ji.process_group_id = data['process_group_id']
     ji.report_by_date = func.ADDTIME(
         func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
+    if data.get('executor_id', None) is not None:
+        ji.executor_id = data['executor_id']
     DB.session.commit()
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
@@ -523,9 +543,11 @@ def log_nodename(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
-    logger.debug("Log USAGE for JI {}".format(job_instance_id))
+    logger.debug("Log nodename for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug(logging.logParameter("DB.session", DB.session))
+    logger.debug(" ;;;;;;;;;;; log_nodename nodename: {}".format(data[
+                                                                  'nodename']))
     _update_job_instance(ji, nodename=data['nodename'])
     DB.session.commit()
     resp = jsonify(message='')
@@ -608,6 +630,34 @@ def queue_job(job_id):
             logger.warning(msg)
         else:
             raise
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/job/<job_id>/change_resources', methods=['PUT'])
+def change_job_resources(job_id):
+    """ Change the resources set for a given job, currently can change
+    mem_free, num_cores and max_runtime_seconds
+    Args:
+        job_id: id of the job for which resources will be changed
+        """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_id", job_id))
+    job = DB.session.query(Job).filter_by(job_id=job_id).first()
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    data = request.get_json()
+    if 'num_cores' in data:
+        job.num_cores = data['num_cores']
+        logger.debug(f"changed num_cores to {data['num_cores']}")
+    if 'max_runtime_seconds' in data:
+        job.max_runtime_seconds = data['max_runtime_seconds']
+        logger.debug(f"changed max_runtime_seconds to "
+                     f"{data['max_runtime_seconds']}")
+    if 'mem_free' in data:
+        job.mem_free = data['mem_free']
+        logger.debug(f"changed mem_free to {data['mem_free']}")
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
