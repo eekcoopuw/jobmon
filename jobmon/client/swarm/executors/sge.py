@@ -183,7 +183,7 @@ class SGEExecutor(Executor):
         else:
             cpu_cmd = "-pe multi_slot {}".format(num_cores)
         if j_resource is True and not dev_or_prod:
-            j_cmd = "-l archive"
+            j_cmd = "-l archive=TRUE"
         else:
             j_cmd = ""
         if queue and not dev_or_prod:
