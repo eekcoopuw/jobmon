@@ -36,7 +36,7 @@ class JobInstanceIntercom(object):
 
     def log_done(self, executor_id):
         """Tell the JobStateManager that this job_instance is done"""
-        message = {}
+        message = {'nodename': socket.getfqdn()}
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
@@ -58,7 +58,8 @@ class JobInstanceIntercom(object):
             logger.info(f"Error_message is {e_len} which is more than the 10k "
                         "character limit for error messages. Only the final "
                         "10k will be captured by the database.")
-        message = {'error_message': error_message}
+        message = {'error_message': error_message,
+                   'nodename': socket.getfqdn()}
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
