@@ -2,3 +2,4 @@ R
 Flask
 mysqlclient
 cryptography
+PyTables
