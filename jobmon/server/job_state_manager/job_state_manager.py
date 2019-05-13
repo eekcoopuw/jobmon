@@ -251,6 +251,15 @@ def add_update_workflow():
     return resp
 
 
+@jsm.route('/error_logger', methods=['POST'])
+def workflow_error_logger():
+    data = request.get_json()
+    logger.error(data["traceback"])
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jsm.route('/workflow_run', methods=['POST', 'PUT'])
 def add_update_workflow_run():
     """Add a workflow to the database or update it (via PUT)
@@ -338,6 +347,7 @@ def log_error(job_instance_id):
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
+    ji.nodename = data['nodename']
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
     try:
@@ -375,7 +385,7 @@ def log_executor_id(job_instance_id):
     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug(logging.logParameter("DB.session", DB.session))
-    logger.info("in log_executor_id, ji is {}".format(ji))
+    logger.info("in log_executor_id, ji is {}".format(repr(ji)))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     _update_job_instance(ji, executor_id=data['executor_id'],
@@ -431,7 +441,7 @@ def log_ji_report_by(job_instance_id):
         query = """
                 UPDATE job_instance
                 SET report_by_date = ADDTIME(
-                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)), 
+                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
                     executor_id = :executor_id
                 WHERE job_instance_id = :job_instance_id"""
     else:
@@ -520,6 +530,7 @@ def log_running(job_instance_id):
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
     ji.nodename = data['nodename']
+    logger.debug(" ************* log-running nodename: {}".format(ji.nodename))
     ji.process_group_id = data['process_group_id']
     ji.report_by_date = func.ADDTIME(
         func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
@@ -542,9 +553,11 @@ def log_nodename(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
-    logger.debug("Log USAGE for JI {}".format(job_instance_id))
+    logger.debug("Log nodename for JI {}".format(job_instance_id))
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug(logging.logParameter("DB.session", DB.session))
+    logger.debug(" ;;;;;;;;;;; log_nodename nodename: {}".format(data[
+                                                                  'nodename']))
     _update_job_instance(ji, nodename=data['nodename'])
     DB.session.commit()
     resp = jsonify(message='')

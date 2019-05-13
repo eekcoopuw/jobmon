@@ -1,8 +1,9 @@
+from builtins import str
 import _thread
 import logging
-import threading
-from builtins import str
 from time import sleep
+import threading
+import traceback
 
 from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
@@ -72,8 +73,17 @@ class JobInstanceFactory(object):
             except Exception as e:
                 msg = "About to raise Keyboard Interrupt signal {}".format(e)
                 logger.error(msg)
+                stack = traceback.format_exc()
                 # Also write to stdout because this is a serious problem
-                print(msg)
+                print(msg, stack)
+                # Also send to server
+                msg = (
+                    f"Error in {self.__class__.__name__}, {str(self)} "
+                    f"in instantiate_queued_jobs_periodically: \n{stack}")
+                shared_requester.send_request(
+                    app_route="/error_logger",
+                    message={"traceback": msg},
+                    request_type="post")
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
                     self._stop_event.set()
@@ -127,6 +137,15 @@ class JobInstanceFactory(object):
                 job, executor_class.__name__)
         except Exception as e:
             logger.error(e)
+            stack = traceback.format_exc()
+            msg = (
+                f"Error while creating job instances {self.__class__.__name__}"
+                f", {str(self)} while submitting jid {job.job_id}: \n{stack}")
+            shared_requester.send_request(
+                app_route="/error_logger",
+                message={"traceback": stack},
+                request_type="post")
+
         logger.debug("Executing {}".format(job.command))
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
@@ -136,8 +155,13 @@ class JobInstanceFactory(object):
                 job_instance.job_instance_id, executor_id,
                 self.next_report_increment)
         else:
-            logger.error(f"Did not receive an executor_id in "
-                         f"_create_job_instance")
+            msg = ("Did not receive an executor_id in _create_job_instance")
+            logger.error(msg)
+            shared_requester.send_request(
+                app_route="/error_logger",
+                message={"traceback": msg},
+                request_type="post")
+
         return job_instance, executor_id
 
     def _get_jobs_queued_for_instantiation(self):

@@ -425,7 +425,6 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
 
         # Make sure all their node names were recorded
         nodenames = [ji.nodename for ji in jis]
-        print("nodenames: " + str(nodenames))
         assert nodenames and all(nodenames)
 
 
