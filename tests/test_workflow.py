@@ -788,11 +788,9 @@ def test_workflow_sge_args(db_cfg, real_jsm_jqs):
     t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
     wfa = "sge_args_dag"
-    stderr = f'/ihme/scratch/users/{getuser()}/jobmon_tests'
-    stdout = f'/ihme/scratch/users/{getuser()}/jobmon_tests'
     workflow = Workflow(workflow_args=wfa, project='proj_tools',
                         working_dir='/ihme/centralcomp/auto_test_data',
-                        stderr=stderr, stdout=stdout)
+                        stderr='/tmp', stdout='/tmp')
     workflow.add_tasks([t1, t2, t3])
     wf_status = workflow.execute()
 
@@ -804,8 +802,8 @@ def test_workflow_sge_args(db_cfg, real_jsm_jqs):
     assert workflow.workflow_run.project == 'proj_tools'
     assert workflow.workflow_run.working_dir == (
         '/ihme/centralcomp/auto_test_data')
-    assert workflow.workflow_run.stderr == stderr
-    assert workflow.workflow_run.stdout == stdout
+    assert workflow.workflow_run.stderr == '/tmp'
+    assert workflow.workflow_run.stdout == '/tmp'
     assert workflow.workflow_run.executor_class == 'SGEExecutor'
     if workflow.task_dag.job_list_manager:
         workflow.task_dag.job_list_manager.disconnect()
