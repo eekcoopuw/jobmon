@@ -1,181 +1,55 @@
-"""
-Tests of jobmon/sge.py
-"""
-import glob
-import logging
 import getpass
 import os
 import os.path as path
+
 import pytest
-import jobmon.sge as sge
+
+import jobmon.client.swarm.executors.sge_utils as sge_utils
 
 
-LOGGER = logging.getLogger("test_sge")
-
-
+@pytest.mark.cluster
 def test_true_path():
     with pytest.raises(ValueError) as exc_info:
-        sge.true_path()
+        sge_utils.true_path()
     assert "cannot both" in str(exc_info)
 
-    assert sge.true_path("") == os.getcwd()
-    assert getpass.getuser() in sge.true_path("~/bin")
-    assert sge.true_path("blah").endswith("/blah")
-    assert sge.true_path(file_or_dir="../tests")==path.abspath(".")
-
-    assert sge.true_path(executable="time")=="/usr/bin/time"
-
-
-def test_session_creation():
-    logging.basicConfig(level=logging.DEBUG)
-    s = sge._drmaa_session()
-    assert s is not None
-    assert s.drmsInfo is not None
-    LOGGER.debug(s.drmsInfo)
+    assert sge_utils.true_path("") == os.getcwd()
+    assert getpass.getuser() in sge_utils.true_path("~/bin")
+    assert sge_utils.true_path("blah").endswith("/blah")
+    assert sge_utils.true_path(file_or_dir=".") == path.abspath(".")
+    # the path differs based on the cluster but all are in /bin/time
+    # (some are in /usr/bin/time)
+    assert "/bin/time" in sge_utils.true_path(executable="time")
 
 
-@pytest.mark.slowtest
-def test_basic_submit():
-    logging.basicConfig(level=logging.DEBUG)
-    true_id = sge.qsub("/bin/true", "so true", memory=0)
-    assert true_id
-
-    mem_id = sge.qsub("/bin/true", "still true", slots=1,
-                      project="proj_forecasting", memory=1)
-    assert mem_id
-
-    sleep_id = sge.qsub("/bin/sleep", "wh#@$@&(*!",
-                        parameters=[50],
-                        stdout="whatsleep.o$JOB_ID")
-    wait_id_a = sge.qsub("/bin/true", "dsf897  ",
-                         holds=[sleep_id], jobtype="plain")
-    assert wait_id_a
-    wait_id_b = sge.qsub("/bin/true", "flou;nd  ",
-                         holds=[sleep_id])
-    assert wait_id_b
-    assert sge._wait_done([true_id, mem_id, sleep_id, wait_id_a, wait_id_b])
-    assert not glob.glob(os.path.expanduser("~/sotrue*{}".format(true_id)))
-    assert glob.glob(os.path.expanduser("~/whatsleep*{}".format(sleep_id)))
+@pytest.mark.cluster
+def test_project_limits():
+    project = 'ihme_general'
+    limit = sge_utils.get_project_limits(project)
+    cluster_name = os.environ['SGE_CLUSTER_NAME']
+    if cluster_name == 'prod':
+        assert limit == 250
+    elif cluster_name == 'cluster':
+        assert limit == 10000  # limit is global limit on the fair cluster
+    else:
+        assert limit == 200
 
 
-def example_job_args(tag):
-    for idx in range(4):
-        yield [tag, idx]
+def test_convert_wallclock():
+    wallclock_str = '10:11:50'
+    res = sge_utils.convert_wallclock_to_seconds(wallclock_str)
+    assert res == 36710.0
 
 
-@pytest.mark.slowtest
-def test_multi_submit():
-    logging.basicConfig(level=logging.DEBUG)
-    true_ids = sge.qsub("/bin/sleep", "howdy",
-                        parameters=[[1], [2], [1]])
-    assert len(true_ids)==3
-
-    gen_ids = sge.qsub("/bin/true", "generated",
-                       parameters=example_job_args("today"))
-    assert len(gen_ids)==4
-    assert sge._wait_done(true_ids + gen_ids)
+def test_convert_wallclock_with_days():
+    wallclock_str = '01:10:11:50'
+    res = sge_utils.convert_wallclock_to_seconds(wallclock_str)
+    assert res == 123110.0
 
 
-@pytest.mark.slowtest
-def test_path_manipulation():
-    """
-    Compares what happens when you specify a prepend_to_path versus
-        when you don't. Look at the output files and diff them to see.
-    """
-    logging.basicConfig(level=logging.DEBUG)
-    sort_a = sge.qsub(sge.true_path("env_vars.sh"), "env-a",
-                      slots=1, memory=0,
-                      stdout=os.path.abspath("env-a.out"))
-    sort_b = sge.qsub(sge.true_path("env_vars.sh"), "env-b",
-                      jobtype="shell", slots=1, memory=0,
-                      prepend_to_path="~/DonaldDuck",
-                      stdout=os.path.abspath("env-b.out"))
-    assert sge._wait_done([sort_a, sort_b])
-    assert "DonaldDuck" in open("env-b.out").read()
+def test_convert_wallclock_with_milleseconds():
+    wallclock_str = '01:10:11:50.15'
+    res = sge_utils.convert_wallclock_to_seconds(wallclock_str)
+    assert res == 123110.15
 
 
-@pytest.mark.slowtest
-def test_python_submit():
-    logging.basicConfig(level=logging.DEBUG)
-    py_id = sge.qsub(sge.true_path("waiter.py"), ".hum",
-                     parameters=[5], jobtype="python")
-    LOGGER.debug("returned job id {}".format(py_id))
-    assert py_id
-
-    env_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
-                      parameters=[3], stderr="env_id.e$JOB_ID",
-                      conda_env="fbd-0.1")
-    LOGGER.debug("returned job id {}".format(env_id))
-    assert env_id
-    abs_id = sge.qsub(sge.true_path("waiter.py"), "#bug",
-                      parameters=[3], stderr="abs_id.e$JOB_ID",
-                      conda_env="/ihme/forecasting/envs/fbd-0.1")
-    assert abs_id
-    dones = list()
-    for idx, v in enumerate([py_id, env_id, abs_id]):
-        LOGGER.debug("test_python_submit waiting for {}".format((idx, v)))
-        if not sge._wait_done([v]):
-            dones.append((idx, v))
-    if dones:
-        LOGGER.error("Not finished {}".format(dones))
-    assert not dones
-
-
-
-@pytest.mark.slowtest
-def test_r_submit():
-    logging.basicConfig(level=logging.DEBUG)
-    rscript_id = sge.qsub(sge.true_path("hi.R"), ".rstuff&*(",
-                          parameters=[5], jobtype="R")
-    notype_id = sge.qsub(sge.true_path("hi.R"), "##rb+@",
-                          parameters=[3])
-    assert sge._wait_done([rscript_id, notype_id])
-
-
-@pytest.mark.slowtest
-def test_sh_submit():
-    logging.basicConfig(level=logging.DEBUG)
-    rscript_id = sge.qsub(sge.true_path("env_vars.sh"), ".rstuff&*(",
-                          parameters=[5], jobtype="shell")
-    notype_id = sge.qsub(sge.true_path("env_vars.sh"), "##rb+@",
-                          parameters=[3])
-    assert sge._wait_done([rscript_id, notype_id])
-
-
-@pytest.mark.slowtest
-def test_sh_loop():
-    """
-    This demonstrates that when you submit a shell file DRMAA
-    doesn't copy the shell file. It uses a reference to the
-    file and runs from whatever file is currently on disk.
-    """
-    logging.basicConfig(level=logging.DEBUG)
-    jobs = list()
-    for modify_idx in range(5):
-        with open("modout.sh", "w") as shell_file:
-            shell_file.write("echo I am {}\n".format(modify_idx))
-        jobs.append(sge.qsub(sge.true_path("modout.sh"), "modshell",
-                             stdout="out{}.txt".format(modify_idx),
-                             stderr="err{}.txt".format(modify_idx)))
-    assert sge._wait_done(jobs)
-
-
-@pytest.mark.slowtest
-def test_sh_wrap():
-    logging.basicConfig(level=logging.DEBUG)
-    sh0_id = sge.qsub(sge.true_path("waiter.py"),
-                     shfile=sge.true_path("sample.sh"),
-                     stdout="shellwaitPython.txt",
-                     stderr="shellwaitererr.txt",
-                     jobname="shellwaiter")
-    sh1_id = sge.qsub(sge.true_path("waiter.R"),
-                     shfile=sge.true_path("sample.sh"),
-                     stdout="shellwaitR.txt",
-                     stderr="shellwaitererr.txt",
-                     jobname="shellwaiter")
-    sh2_id = sge.qsub(sge.true_path("waiter.do"),
-                     shfile=sge.true_path("sample.sh"),
-                     stdout="shellwaitStata.txt",
-                     stderr="shellwaitererr.txt",
-                     jobname="shellwaiter")
-    assert sge._wait_done([sh0_id, sh1_id, sh2_id])

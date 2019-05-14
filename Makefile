@@ -50,6 +50,7 @@ clean:
 
 .PHONY: html
 html:
+	sphinx-apidoc -o docsource jobmon
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
@@ -223,3 +224,9 @@ dummy:
 	$(SPHINXBUILD) -b dummy $(ALLSPHINXOPTS) $(BUILDDIR)/dummy
 	@echo
 	@echo "Build finished. Dummy builder generates no files."
+
+.PHONY: test
+test:
+	./build_env.sh
+	./run_tests.sh
+	./teardown_env.sh
