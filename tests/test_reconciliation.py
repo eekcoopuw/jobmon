@@ -1,6 +1,4 @@
-import os
 import pytest
-import signal
 import time
 from time import sleep
 
@@ -363,3 +361,5 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
     assert len(all_jobs) == 20
     for i in range(3):
         assert select_jobs[i].job_id == (i + 1)
+
+

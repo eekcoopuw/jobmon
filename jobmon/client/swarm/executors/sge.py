@@ -17,7 +17,7 @@ from jobmon.client.swarm.executors.sge_resource import SGEResource
 
 logger = logging.getLogger(__name__)
 ERROR_SGE_JID = -99999
-
+ERROR_QSTAT_ID = - 9998
 
 ExecutorIDs = List[int]
 

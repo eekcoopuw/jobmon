@@ -14,6 +14,8 @@ import subprocess
 import pandas as pd
 import numpy as np
 
+import jobmon.client.swarm.executors.sge as sge
+
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 
@@ -282,3 +284,16 @@ def qdel(job_ids):
     jids = [str(jid) for jid in np.atleast_1d(job_ids)]
     stdout = subprocess.check_output(['qdel'] + jids)
     return stdout
+
+
+def qacct_exit_status(jid: int)->int:
+    cmd1 = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid  #For strange reason f string or format does not work
+    logger.warning("**********************************************" + cmd1)
+    try:
+        return int(subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n",""))
+    except Exception as e:
+        # In case the command execution failed, log error and return -1
+        logger.error(str(e))
+        return sge.ERROR_QSTAT_ID
+
+
