@@ -9,9 +9,13 @@ import traceback
 from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
 
 logger = logging.getLogger(__name__)
+
+ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247)
+DEFAULT_INCREMENT_SCALE = 0.5
 
 
 class JobInstanceReconciler(object):
@@ -179,10 +183,13 @@ class JobInstanceReconciler(object):
         message = {'error_message': "Timed out", 'nodename': socket.getfqdn()}
         if executor_id is not None:
             message['executor_id'] = executor_id
+        exit_code = qacct_exit_status(executor_id)
+        message['exit_status'] = exit_code
         return self.requester.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message=message,
-            request_type='post')
+            request_type='post',
+            )
 
     def _request_permission_to_reconcile(self):
         """Syncs with the database and logs a heartbeat"""
