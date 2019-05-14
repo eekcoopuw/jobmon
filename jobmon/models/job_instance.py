@@ -86,15 +86,30 @@ class JobInstance(DB.Model):
         (JobInstanceStatus.INSTANTIATED,
          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
 
+        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.NO_EXEC_ID),
+
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
          JobInstanceStatus.RUNNING),
 
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+         JobInstanceStatus.LOST_TRACK),
+
+        (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
          JobInstanceStatus.ERROR),
+
+        (JobInstanceStatus.NO_EXEC_ID, JobInstanceStatus.LOST_TRACK),
+
+        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.ERROR),
 
         (JobInstanceStatus.RUNNING, JobInstanceStatus.ERROR),
 
-        (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.LOST_TRACK),
+
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.TIMED_OUT),
+
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE),
+
+        (JobInstanceStatus.TIMED_OUT, JobInstanceStatus.ERROR)]
 
     untimely_transitions = [
         (JobInstanceStatus.RUNNING,
