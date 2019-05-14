@@ -99,3 +99,16 @@ Conclusion
 ^^^^^^^^^^
 
 More granularity in the JobInstance state machine would be a big quality of life improvement for both users and developers.
+
+
+Executor Specific Timeouts
+--------------------------
+
+Improve timeout functionality by clarifying which classes are responsible for terminating timed out jobs.
+
+Backgroud
+^^^^^^^^^^
+
+One of jobmon's key features has been its ability to terminate job instances that exceed a max runtime. Initially, this was implemented by adding a timer inside the worker node which would terminate the job's command locally. This approach was abandoned because the worker node process can be accidentally killed which means those jobs would never time out.
+
+On cluster-prod
