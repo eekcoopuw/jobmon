@@ -212,10 +212,8 @@ def test_kill_self_task(db_cfg, dag_factory):
         assert job.job_instances[0].status == 'E'
         assert job.status == 'F'
 
-
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
-
 
 
 @pytest.mark.qsubs_jobs

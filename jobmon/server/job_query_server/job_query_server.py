@@ -360,3 +360,20 @@ def get_job_instances_of_workflow_run(workflow_run_id):
     resp = jsonify(job_instances=jis)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@jqs.route('/job/<execution_id>/get_resources', methods=['GET'])
+def get_resources(execution_id):
+    """
+    This route is created for testing purpose
+
+    :param execution_id:
+    :return:
+    """
+    logger.debug(logging.myself())
+    query = f"select mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {execution_id}"
+    res = DB.session.execute(query).fetchone()
+    DB.session.commit()
+    resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
+    resp.status_code = StatusCodes.OK
+    return resp

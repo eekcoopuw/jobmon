@@ -249,6 +249,15 @@ def add_update_workflow():
     return resp
 
 
+@jsm.route('/error_logger', methods=['POST'])
+def workflow_error_logger():
+    data = request.get_json()
+    logger.error(data["traceback"])
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jsm.route('/workflow_run', methods=['POST', 'PUT'])
 def add_update_workflow_run():
     """Add a workflow to the database or update it (via PUT)
@@ -312,6 +321,7 @@ def log_done(job_instance_id):
     ji = _get_job_instance(DB.session, job_instance_id)
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
+    ji.nodename = data['nodename']
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
@@ -430,6 +440,7 @@ def log_error(job_instance_id):
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug("data:" + str(data))
     logger.debug("Reading nodename {}".format(ji.nodename))
+    ji.nodename = data['nodename']
 
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
@@ -535,7 +546,7 @@ def log_ji_report_by(job_instance_id):
         query = """
                 UPDATE job_instance
                 SET report_by_date = ADDTIME(
-                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)), 
+                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
                     executor_id = :executor_id
                 WHERE job_instance_id = :job_instance_id"""
     else:
@@ -1182,18 +1193,3 @@ def _get_new_resource_value(mem: str, cores: int, runtime: int, scale: float):
     return mem, cores, runtime
 
 
-@jsm.route('/job/<execution_id>/get_resources', methods=['GET'])
-def get_resources(execution_id):
-    """
-    This route is created for testing purpose
-
-    :param execution_id:
-    :return:
-    """
-    logger.debug(logging.myself())
-    query = f"select mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {execution_id}"
-    res = DB.session.execute(query).fetchone()
-    DB.session.commit()
-    resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
-    resp.status_code = StatusCodes.OK
-    return resp
