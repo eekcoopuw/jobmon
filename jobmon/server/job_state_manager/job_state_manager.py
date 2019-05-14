@@ -331,7 +331,7 @@ def log_done(job_instance_id):
     return resp
 
 
-def _available_resource_in_queue(q="all.q"):
+def _available_resource_in_queue(q="all.q") -> (int, int, int):
     """
     Todo: calculate the available resources in queue
           for this release, just return the limits of each queue
@@ -343,15 +343,15 @@ def _available_resource_in_queue(q="all.q"):
     """
 
     if q == "all.q":
-        return 512, 56, 259200
+        return (512, 56, 259200)
     if q == "long.q":
-        return 512, 56, 1382400
+        return (512, 56, 1382400)
     if q == "geospatial.q":
-        return 1000, 64, 2160000
-    return sys.maxsize, sys.maxsize, sys.maxsize
+        return (1000, 64, 2160000)
+    return (sys.maxsize, sys.maxsize, sys.maxsize)
 
 
-def _increase_resources(exec_id: int, scale: int)->str:
+def _increase_resources(exec_id: int, scale: float)->str:
     """This route is created to increase the resources of jobs failed with a 137 error on the fair cluster on tries.
        The memory, runtime and threads should increase by a configurable amount (say 50%). 
        The row in the job table should be modified with new values. men_free, num_cores, max_runtime_seconds.
@@ -371,7 +371,7 @@ def _increase_resources(exec_id: int, scale: int)->str:
                                from job_instance
                                where executor_id={id});
                     """
-    update_satus_query_template = """
+    update_status_query_template = """
                             update job
                             set status="F"
                             where job.job_id=
@@ -394,7 +394,7 @@ def _increase_resources(exec_id: int, scale: int)->str:
     runtime = res[2]
     queue = res[3]
     DB.session.commit()
-    available_mem, available_cores, max_runtime = _available_resource_in_queue(queue)
+    (available_mem, available_cores, max_runtime) = _available_resource_in_queue(queue)
     logger.debug(f"Current system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
     mem, cores, runtime = _get_new_resource_value(mem, cores, runtime, scale)
     # int mem in M
@@ -402,7 +402,7 @@ def _increase_resources(exec_id: int, scale: int)->str:
     # available_mem should be in G
     if mem_in_M > available_mem * 1000 or cores > available_cores or runtime > max_runtime:
         # move to ERROR_FATAL
-        query = update_satus_query_template.format(id=exec_id)
+        query = update_status_query_template.format(id=exec_id)
         DB.session.execute(query)
         DB.session.commit()
         logger.debug("Not enough system resources. Set the job status to F.")
@@ -416,7 +416,7 @@ def _increase_resources(exec_id: int, scale: int)->str:
                 )
         DB.session.execute(query)
         DB.session.commit()
-        logger.debug(f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
+        logger.info(f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
         return f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}"
 
 
@@ -453,7 +453,7 @@ def log_error(job_instance_id):
         DB.session.add(error)
         logger.debug(logging.logParameter("DB.session", DB.session))
         DB.session.commit()
-        # Check execute_statue to see if resource needs to be increased
+        # Check exit_statue to see if resource needs to be increased
         exit_status = data["exit_status"]
         logger.debug("exit_status: " + str(exit_status))
 

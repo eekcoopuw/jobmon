@@ -362,8 +362,8 @@ def get_job_instances_of_workflow_run(workflow_run_id):
     return resp
 
 
-@jqs.route('/job/<execution_id>/get_resources', methods=['GET'])
-def get_resources(execution_id):
+@jqs.route('/job/<executor_id>/get_resources', methods=['GET'])
+def get_resources(executor_id):
     """
     This route is created for testing purpose
 

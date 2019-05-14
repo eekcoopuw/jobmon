@@ -184,11 +184,12 @@ class JobInstanceReconciler(object):
         if executor_id is not None:
             message['executor_id'] = executor_id
         exit_code = qacct_exit_status(executor_id)
-        message['exit_code'] = exit_code
+        message['exit_status'] = exit_code
         return self.requester.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message=message,
-            request_type='post')
+            request_type='post',
+            )
 
     def _request_permission_to_reconcile(self):
         """Syncs with the database and logs a heartbeat"""
