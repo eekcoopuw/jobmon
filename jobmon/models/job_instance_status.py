@@ -12,8 +12,12 @@ class JobInstanceStatus(DB.Model):
 
     __tablename__ = 'job_instance_status'
     INSTANTIATED = 'I'
+    NO_EXECUTOR_ID = 'W'
+    LOST_TRACK = 'L'
     SUBMITTED_TO_BATCH_EXECUTOR = 'B'
     RUNNING = 'R'
+    RESOURCE_ERROR = 'Z'
+    UNKNOWN_ERROR = 'U'
     ERROR = 'E'
     DONE = 'D'
 
