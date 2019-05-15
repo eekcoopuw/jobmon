@@ -268,7 +268,7 @@ def test_job_instance_qsub_error(job_list_manager_sge_no_daemons, db_cfg,
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        resp = DB.session.execute("SELECT * FROM job_instance").fetchall()
+        resp = DB.session.execute("""SELECT * FROM job_instance""").fetchall()
         DB.session.commit()
     assert resp[0].status == 'W'
     assert resp[0].executor_id is None
@@ -290,9 +290,11 @@ def test_job_instance_bad_qsub_parse(job_list_manager_sge_no_daemons, db_cfg,
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        resp = DB.session.execute("SELECT * FROM job_instance").fetchall()
+        resp = DB.session.execute("""SELECT * FROM job_instance""").fetchall()
+        job_info = DB.session.execute("""SELECT * FROM job""").fetchall()
         DB.session.commit()
     assert resp[0].status == 'W'
     assert resp[0].executor_id is None
+    assert job_info[0].status == 'F'
     assert "Got response from qsub but did not contain a valid job id " \
            "(-33333), moving to 'W' state" in caplog.text
