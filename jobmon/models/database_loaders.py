@@ -40,8 +40,9 @@ def load_default_statuses(db):
                    'RUNNING', 'ERROR_RECOVERABLE', 'ERROR_FATAL', 'DONE']:
         status_obj = JobStatus(id=getattr(JobStatus, status), label=status)
         statuses.append(status_obj)
-    for status in ['INSTANTIATED', 'SUBMITTED_TO_BATCH_EXECUTOR', 'RUNNING',
-                   'ERROR', 'DONE']:
+    for status in ['INSTANTIATED', 'NO_EXECUTOR_ID',
+                   'SUBMITTED_TO_BATCH_EXECUTOR', 'RUNNING', 'RESOURCE_ERROR',
+                   'UNKNOWN_ERROR', 'ERROR', 'DONE']:
         status_obj = JobInstanceStatus(id=getattr(JobInstanceStatus, status),
                                        label=status)
         statuses.append(status_obj)
