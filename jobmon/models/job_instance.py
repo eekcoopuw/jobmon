@@ -30,7 +30,6 @@ class JobInstance(DB.Model):
                                                  "%Y-%m-%dT%H:%M:%S"))
 
     def to_wire(self):
-        time_since_status = (datetime.utcnow() - self.status_date).seconds
         return {
             'job_instance_id': self.job_instance_id,
             'workflow_run_id': self.workflow_run_id,
@@ -41,7 +40,6 @@ class JobInstance(DB.Model):
             'nodename': self.nodename,
             'process_group_id': self.process_group_id,
             'status_date': self.status_date.strftime("%Y-%m-%dT%H:%M:%S"),
-            'time_since_status_update': time_since_status,
         }
 
     job_instance_id = DB.Column(DB.Integer, primary_key=True)
@@ -71,11 +69,9 @@ class JobInstance(DB.Model):
         DB.ForeignKey('job_instance_status.id'),
         default=JobInstanceStatus.INSTANTIATED,
         nullable=False)
-    submitted_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    report_by_date = DB.Column(
-        DB.DateTime,
-        default=func.UTC_TIMESTAMP())
+    submitted_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    report_by_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")

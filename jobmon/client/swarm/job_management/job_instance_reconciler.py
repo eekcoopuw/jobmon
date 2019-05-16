@@ -35,6 +35,7 @@ class JobInstanceReconciler(object):
         self.reconciliation_interval = client_config.reconciliation_interval
         self.report_by_buffer = client_config.report_by_buffer
         self.heartbeat_interval = client_config.heartbeat_interval
+        self.lost_job_instances = set()
 
         if executor:
             self.set_executor(executor)
@@ -74,8 +75,8 @@ class JobInstanceReconciler(object):
             try:
                 logging.debug(
                     f"Reconciling at interval {self.reconciliation_interval}s")
-                self.reconcile()
                 self.terminate_timed_out_jobs()
+                self.reconcile()
                 sleep(self.reconciliation_interval)
             except Exception as e:
                 msg = f"About to raise Keyboard Interrupt signal {e}"
@@ -90,14 +91,51 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
+    def terminate_timed_out_jobs(self):
+        """Attempts to terminate jobs that have been in the "running"
+        state for too long. From the SGE perspective, this might include
+        jobs that got stuck in "r" state but never called back to the
+        JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
+        SUBMITTED_TO_BATCH_EXECUTOR)
+        """
+        try:
+            rc, response = self.requester.send_request(
+                app_route=f'/dag/{self.dag_id}/get_timed_out_job_instances',
+                message={'status':
+                         [],
+                         'runtime': 'timed_out'},
+                request_type='get')
+            to_jobs = response['jiid_exid_tuples']
+            if rc != StatusCodes.OK:
+                to_jobs = []
+        except TypeError:
+            to_jobs = []
+        try:
+            self.executor.terminate_job_instances(to_jobs)
+        except NotImplementedError:
+            logger.warning("{} does not implement reconciliation methods"
+                           .format(self.executor.__class__.__name__))
+
     def reconcile(self):
         """Identifies submitted to batch and running jobs that have missed
         their report_by_date and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
         fatal errors
         """
+        self._log_dag_heartbeat()
+        self._log_executor_report_by()
+        self._transition_jobs_to_lost()
+        self._get_lost_job_instances()
+
+    def _log_dag_heartbeat(self):
+        """Logs a dag heartbeat"""
+        return self.requester.send_request(
+            app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
+            message={},
+            request_type='post')
+
+    def _log_executor_report_by(self):
         next_report_increment = self.heartbeat_interval * self.report_by_buffer
-        self._request_permission_to_reconcile()
         try:
             # qstat for pending jobs or running jobs
             actual = self.executor.get_actual_submitted_or_running()
@@ -110,71 +148,42 @@ class JobInstanceReconciler(object):
                 "moved to error state.")
             actual = []
         rc, response = self.requester.send_request(
-            app_route=f'/task_dag/{self.dag_id}/reconcile',
+            app_route=f'/task_dag/{self.dag_id}/log_executor_report_by',
             message={'executor_ids': actual,
                      'next_report_increment': next_report_increment},
             request_type='post')
 
-    def terminate_timed_out_jobs(self):
-        """Attempts to terminate jobs that have been in the "running"
-        state for too long. From the SGE perspective, this might include
-        jobs that got stuck in "r" state but never called back to the
-        JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
-        SUBMITTED_TO_BATCH_EXECUTOR)
-        """
-        to_jobs = self._get_timed_out_jobs()
-        try:
-            terminated_job_instances = self.executor.terminate_job_instances(
-                to_jobs)
-            for ji_id, hostname in terminated_job_instances:
-                self._log_timeout_error(int(ji_id))
-                self._log_timeout_hostname(int(ji_id), hostname)
-        except NotImplementedError:
-            logger.warning("{} does not implement reconciliation methods"
-                           .format(self.executor.__class__.__name__))
-
-    def _get_timed_out_jobs(self):
-        """Returns timed_out jobs as a list of JobInstances.
-        """
-        try:
-            rc, response = self.requester.send_request(
-                app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
-                message={'status': [
-                         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                         JobInstanceStatus.RUNNING],
-                         'runtime': 'timed_out'},
-                request_type='get')
-            jiid_exid_tuples = response['jiid_exid_tuples']
-            if rc != StatusCodes.OK:
-                jiid_exid_tuples = []
-        except TypeError:
-            jiid_exid_tuples = []
-        return jiid_exid_tuples
-
-    def _log_timeout_hostname(self, job_instance_id, hostname):
-        """Logs the hostname for any job that has timed out
-        Args:
-            job_instance_id (int): id for the job_instance that has timed out
-            hostname (str): host where the job_instance was running
-        """
+    def _transition_jobs_to_lost(self):
         return self.requester.send_request(
-            app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
-            message={'nodename': hostname},
-            request_type='post')
-
-    def _log_timeout_error(self, job_instance_id):
-        """Logs if a job has timed out
-        Args:
-            job_instance_id (int): id for the job_instance that has timed out
-        """
-        return self.requester.send_request(
-            app_route='/job_instance/{}/log_error'.format(job_instance_id),
-            message={'error_message': "Timed out"},
-            request_type='post')
-
-    def _request_permission_to_reconcile(self):
-        """Syncs with the database and logs a heartbeat"""
-        return self.requester.send_request(
-            app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
+            app_route=f'/task_dag/{self.dag_id}/transition_jobs_to_lost',
             message={},
             request_type='post')
+
+    def _get_lost_job_instances(self):
+        rc, response = self.requester.send_request(
+            app_route=f'/task_dag/{self.dag_id}/job_instances_by_status',
+            message={"status": [JobInstanceStatus.LOST_TRACK]},
+            request_type='post')
+        job_instances = [ji.from_wire() for ji in response["job_instances"]]
+
+
+    # def _log_timeout_hostname(self, job_instance_id, hostname):
+    #     """Logs the hostname for any job that has timed out
+    #     Args:
+    #         job_instance_id (int): id for the job_instance that has timed out
+    #         hostname (str): host where the job_instance was running
+    #     """
+    #     return self.requester.send_request(
+    #         app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
+    #         message={'nodename': hostname},
+    #         request_type='post')
+
+    # def _log_timeout_error(self, job_instance_id):
+    #     """Logs if a job has timed out
+    #     Args:
+    #         job_instance_id (int): id for the job_instance that has timed out
+    #     """
+    #     return self.requester.send_request(
+    #         app_route='/job_instance/{}/log_error'.format(job_instance_id),
+    #         message={'error_message': "Timed out"},
+    #         request_type='post')

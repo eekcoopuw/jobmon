@@ -6,7 +6,7 @@ when only job_id, job_hash, and status are needed.
 """
 
 
-class StubJob():
+class StubJob:
 
     def __init__(self, job: list):
         # Takes one row of the SQL query return
@@ -37,3 +37,6 @@ class StubJob():
                 'job_hash': self.job_hash,
                 'status': self.status,
                 }
+
+
+class StubJobInstance
