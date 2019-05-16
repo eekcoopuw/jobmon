@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-import jobmon.client.worker_node.cli
+import jobmon.client.worker_node.execution_wrapper
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.models.job_instance import JobInstance
 
@@ -74,12 +74,12 @@ def test_kill_remote_process_group_conditional(monkeypatch):
     # kill remote process group when we intend to. It does not test the kill
     # remote process group function itself.
     monkeypatch.setattr(
-        jobmon.client.worker_node.cli,
+        jobmon.client.worker_node.execution_wrapper,
         "kill_remote_process_group",
         mock_kill_remote_process_group)
     monkeypatch.setattr(
-        jobmon.client.worker_node.cli,
-        "JobInstanceIntercom",
+        jobmon.client.worker_node.execution_wrapper,
+        "WorkerNodeIntercom",
         MockIntercomRaiseInLogError)
 
     # arguments in the structure that jobmon.client.worker_node.cli.unwrap()
@@ -99,7 +99,7 @@ def test_kill_remote_process_group_conditional(monkeypatch):
     # kill_remote_process_group block and hence won't raise any errors
     with patch.object(sys, 'argv', base_args):
         with pytest.raises(SystemExit):
-            jobmon.client.worker_node.cli.unwrap()
+            jobmon.client.worker_node.execution_wrapper.unwrap()
 
     # this call to unwrap() should raise a TestException because we patched the
     # old kill_remote_process_group with a fake one that raises an exception
@@ -111,7 +111,7 @@ def test_kill_remote_process_group_conditional(monkeypatch):
     ]
     with patch.object(sys, 'argv', base_args + process_group_args):
         with pytest.raises(ExpectedException):
-            jobmon.client.worker_node.cli.unwrap()
+            jobmon.client.worker_node.execution_wrapper.unwrap()
 
 
 class MockIntercomLogHeartbeatToError(MockIntercom):
@@ -132,7 +132,7 @@ def test_stderr_buffering(monkeypatch, capsys):
     # to sdterr
 
     monkeypatch.setattr(
-        jobmon.client.worker_node.cli, "JobInstanceIntercom",
+        jobmon.client.worker_node.execution_wrapper, "WorkerNodeIntercom",
         MockIntercomLogHeartbeatToError)
 
     # arguments in the structure that jobmon.client.worker_node.cli.unwrap()
@@ -152,7 +152,7 @@ def test_stderr_buffering(monkeypatch, capsys):
     # kill_remote_process_group block and hence won't raise any errors
     with patch.object(sys, 'argv', base_args):
         with pytest.raises(SystemExit):
-            jobmon.client.worker_node.cli.unwrap()
+            jobmon.client.worker_node.execution_wrapper.unwrap()
     captured = capsys.readouterr()
     members = captured.err.split("logging report by in the middle\n")
     assert len(members) > 5  # should be report_bys in the middle of the aaaa's
@@ -168,8 +168,8 @@ def test_executor_id(monkeypatch, capsys):
     """ this test is checking that the jobmon cli can access its own job id
     to send in the routes it is logging"""
     monkeypatch.setattr(
-        jobmon.client.worker_node.cli,
-        "JobInstanceIntercom",
+        jobmon.client.worker_node.execution_wrapper,
+        "WorkerNodeIntercom",
         MockIntercomCheckExecutorId)
 
     monkeypatch.setenv("JOB_ID", '77777')
@@ -187,7 +187,7 @@ def test_executor_id(monkeypatch, capsys):
 
     with patch.object(sys, 'argv', base_args):
         with pytest.raises(SystemExit):
-            jobmon.client.worker_node.cli.unwrap()
+            jobmon.client.worker_node.execution_wrapper.unwrap()
 
 
 
