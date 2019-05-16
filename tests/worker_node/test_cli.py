@@ -5,9 +5,6 @@ from unittest.mock import patch
 import pytest
 
 import jobmon.client.worker_node.execution_wrapper
-from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.models.job_instance import JobInstance
-
 
 EXCEPTION_MSG = "assert we took this path"
 
@@ -188,8 +185,3 @@ def test_executor_id(monkeypatch, capsys):
     with patch.object(sys, 'argv', base_args):
         with pytest.raises(SystemExit):
             jobmon.client.worker_node.execution_wrapper.unwrap()
-
-
-
-
-
