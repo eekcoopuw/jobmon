@@ -2,13 +2,14 @@ import json
 import logging
 import os
 import subprocess
-import sys
 from time import sleep
 from typing import List
+import traceback
 
 import pandas as pd
 
 from cluster_utils.io import makedirs_safely
+from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors import Executor
@@ -16,9 +17,9 @@ from jobmon.client.swarm.executors.sge_resource import SGEResource
 
 logger = logging.getLogger(__name__)
 ERROR_SGE_JID = -99999
+ERROR_QSTAT_ID = - 9998
 
-
-ExectorIDs = List[int]
+ExecutorIDs = List[int]
 
 
 class SGEExecutor(Executor):
@@ -40,17 +41,24 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
-            resp = subprocess.check_output(qsub_cmd, shell=True)
+            resp = subprocess.check_output(qsub_cmd, shell=True,
+                                           universal_newlines=True)
             logger.debug(f"****** Received from qsub '{resp}'")
-            # Hmm, Python 2 vs 3 bug? That byte marker?
-            idx = resp.split().index(b'job')
+            idx = resp.split().index('job')
             sge_jid = int(resp.split()[idx + 1])
             return sge_jid
 
         except Exception as e:
-            (_, value, traceback) = sys.exc_info()
+            stack = traceback.format_exc()
             logger.error(f"*** Caught during qsub {e}")
-            logger.error(f"Traceback {traceback}")
+            logger.error(f"Traceback {stack}")
+            msg = (
+                f"Error in executor {self.__class__.__name__}, {str(self)} "
+                f"while submitting ji_id {job_instance_id}: \n{stack}")
+            shared_requester.send_request(
+                app_route="/error_logger",
+                message={"traceback": msg},
+                request_type="post")
             if isinstance(e, ValueError):
                 raise e
             return ERROR_SGE_JID
@@ -64,7 +72,7 @@ class SGEExecutor(Executor):
         usage = sge_utils.qstat_usage([sge_id])[int(sge_id)]
         return usage
 
-    def get_actual_submitted_or_running(self) -> ExectorIDs:
+    def get_actual_submitted_or_running(self) -> ExecutorIDs:
         qstat_out = sge_utils.qstat()
         executor_ids = list(qstat_out.job_id)
         executor_ids = [int(eid) for eid in executor_ids]
@@ -175,7 +183,7 @@ class SGEExecutor(Executor):
         else:
             cpu_cmd = "-pe multi_slot {}".format(num_cores)
         if j_resource is True and not dev_or_prod:
-            j_cmd = "-l archive"
+            j_cmd = "-l archive=TRUE"
         else:
             j_cmd = ""
         if queue and not dev_or_prod:

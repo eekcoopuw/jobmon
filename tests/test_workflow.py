@@ -815,7 +815,7 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
     # process should be joinable because _create_workflow_run should kill it
     p1.join()
 
-    # check qstat to make sure jobs isnt pending or running any more. there can
+    # check qstat to make sure jobs isn't pending or running any more. there can
     # be latency so wait at most 3 minutes for it's state to update in SGE
     max_sleep = 180  # 3 min max till test fails
     slept = 0
@@ -825,3 +825,35 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
         slept += 5
         ex_id_list = sge_utils.qstat("pr").job_id.tolist()
     assert executor_id not in ex_id_list
+
+
+def test_workflow_resource_adjustment(simple_workflow_w_errors, db_cfg):
+    workflow = simple_workflow_w_errors
+
+    assert workflow.workflow_run.resource_adjustment == 0.5
+
+    wf_id = workflow.id
+    workflow.resource_adjustment = 0.3
+    workflow.resume = ResumeStatus.RESUME
+    workflow.execute()
+
+    assert workflow.workflow_run.resource_adjustment == 0.3
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """SELECT resource_adjustment
+                   FROM workflow_run
+                   WHERE workflow_id = {}""".format(wf_id)
+        resp = DB.session.execute(query).fetchall()
+        DB.session.commit()
+
+    assert len(resp) == 2
+    assert resp[0][0] == 0.5
+    assert resp[1][0] == 0.3
+
+
+
+
+
+

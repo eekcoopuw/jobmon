@@ -1,5 +1,6 @@
 import argparse
 from functools import partial
+import logging
 import os
 from queue import Queue
 import subprocess
@@ -12,7 +13,9 @@ from jobmon.exceptions import ReturnCodes
 from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
+from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
+logger = logging.getLogger()
 
 def enqueue_stderr(stderr, queue):
     """eagerly print 100 byte blocks to stderr so pipe doesn't fill up and
@@ -85,7 +88,8 @@ def unwrap():
                                       process_group_id=os.getpid(),
                                       hostname=args['jm_host'])
     ji_intercom.log_running(next_report_increment=(
-        args['heartbeat_interval'] * args['report_by_buffer']))
+        args['heartbeat_interval'] * args['report_by_buffer']),
+        executor_id=os.environ.get('JOB_ID'))
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
@@ -110,7 +114,8 @@ def unwrap():
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
                 ji_intercom.log_report_by(next_report_increment=(
-                    args['heartbeat_interval'] * args['report_by_buffer']))
+                    args['heartbeat_interval'] * args['report_by_buffer']),
+                    executor_id=os.environ.get('JOB_ID'))
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
 
@@ -124,17 +129,23 @@ def unwrap():
     except Exception as exc:
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                      traceback.format_exc())
+        logger.warning(stderr)
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
     # check return code
     if returncode != ReturnCodes.OK:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
-        ji_intercom.log_error(str(stderr))
+        jid = os.environ.get('JOB_ID')
+        logger.debug("jid:" + str(jid))
+        ji_intercom.log_error(error_message=str(stderr),
+                              executor_id=jid,
+                              exit_status=returncode
+                              )
     else:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
-        ji_intercom.log_done()
+        ji_intercom.log_done(executor_id=os.environ.get('JOB_ID'))
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting

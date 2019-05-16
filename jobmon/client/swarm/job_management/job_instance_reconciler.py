@@ -1,5 +1,6 @@
 from http import HTTPStatus as StatusCodes
 import logging
+import socket
 import threading
 import _thread
 from time import sleep
@@ -8,9 +9,13 @@ import traceback
 from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
 
 logger = logging.getLogger(__name__)
+
+ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247)
+DEFAULT_INCREMENT_SCALE = 0.5
 
 
 class JobInstanceReconciler(object):
@@ -84,7 +89,15 @@ class JobInstanceReconciler(object):
                 stack = traceback.format_exc()
                 logger.error(stack)
                 # Also write to stdout because this is a serious problem
-                print(msg)
+                print(msg, stack)
+                # Also send to server
+                msg = (
+                    f"Error in {self.__class__.__name__}, {str(self)} "
+                    f"in reconcile_periodically: \n{stack}")
+                shared_requester.send_request(
+                    app_route="/error_logger",
+                    message={"traceback": msg},
+                    request_type="post")
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
                     self._stop_event.set()
@@ -167,6 +180,42 @@ class JobInstanceReconciler(object):
         job_instances = [ji.from_wire() for ji in response["job_instances"]]
 
 
+    # def terminate_timed_out_jobs(self):
+    #     """Attempts to terminate jobs that have been in the "running"
+    #     state for too long. From the SGE perspective, this might include
+    #     jobs that got stuck in "r" state but never called back to the
+    #     JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
+    #     SUBMITTED_TO_BATCH_EXECUTOR)
+    #     """
+    #     to_jobs = self._get_timed_out_jobs()
+    #     try:
+    #         terminated_job_instances = self.executor.terminate_job_instances(
+    #             to_jobs)
+    #         for ji_id, hostname in terminated_job_instances:
+    #             self._log_timeout_error(int(ji_id))
+    #             self._log_timeout_hostname(int(ji_id), hostname)
+    #     except NotImplementedError:
+    #         logger.warning("{} does not implement reconciliation methods"
+    #                        .format(self.executor.__class__.__name__))
+
+    # def _get_timed_out_jobs(self):
+    #     """Returns timed_out jobs as a list of JobInstances.
+    #     """
+    #     try:
+    #         rc, response = self.requester.send_request(
+    #             app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
+    #             message={'status': [
+    #                      JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+    #                      JobInstanceStatus.RUNNING],
+    #                      'runtime': 'timed_out'},
+    #             request_type='get')
+    #         jiid_exid_tuples = response['jiid_exid_tuples']
+    #         if rc != StatusCodes.OK:
+    #             jiid_exid_tuples = []
+    #     except TypeError:
+    #         jiid_exid_tuples = []
+    #     return jiid_exid_tuples
+
     # def _log_timeout_hostname(self, job_instance_id, hostname):
     #     """Logs the hostname for any job that has timed out
     #     Args:
@@ -178,12 +227,18 @@ class JobInstanceReconciler(object):
     #         message={'nodename': hostname},
     #         request_type='post')
 
-    # def _log_timeout_error(self, job_instance_id):
+    # def _log_timeout_error(self, job_instance_id, executor_id=None):
     #     """Logs if a job has timed out
     #     Args:
     #         job_instance_id (int): id for the job_instance that has timed out
     #     """
+    #     message = {'error_message': "Timed out", 'nodename': socket.getfqdn()}
+    #     if executor_id is not None:
+    #         message['executor_id'] = executor_id
+    #     exit_code = qacct_exit_status(executor_id)
+    #     message['exit_status'] = exit_code
     #     return self.requester.send_request(
     #         app_route='/job_instance/{}/log_error'.format(job_instance_id),
-    #         message={'error_message': "Timed out"},
-    #         request_type='post')
+    #         message=message,
+    #         request_type='post',
+    #         )

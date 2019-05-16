@@ -39,6 +39,7 @@ def commit_hooked_jsm(jsm_jqs):
     from sqlalchemy import event
 
     sessionmaker = DB.create_session()
+
     @event.listens_for(sessionmaker, 'before_commit')
     def inspect_on_done_or_error(session):
         if any(session.dirty):
@@ -47,7 +48,7 @@ def commit_hooked_jsm(jsm_jqs):
                          j.status == JobStatus.DONE]
             done_jobs = [j for j in done_jobs
                          if not any([ji for ji in j.job_instances
-                                    if ji.executor_id < 0])]
+                                     if ji.executor_id < 0])]
             if any(done_jobs):
                 raise OperationalError("Test hook", "", "")
         if any(session.new):
@@ -99,7 +100,8 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
                  'project': 'proj_tools',
                  'slack_channel': "",
                  'executor_class': 'SGEExecutor',
-                 'working_dir': ""},
+                 'working_dir': "",
++                'resource_adjustment': "0.5"},
         request_type='post')
     wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that
@@ -180,7 +182,7 @@ def test_jsm_valid_done(real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
-        message={'job_instance_id': str(job_instance_id)},
+        message={'job_instance_id': str(job_instance_id), 'nodename': socket.getfqdn()},
         request_type='post')
 
 
@@ -224,7 +226,10 @@ def test_jsm_valid_error(real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(job_instance_id),
-        message={'error_message': "this is an error message"},
+        message={'error_message': "this is an error message",
+                 'executor_id': str(12345),
+                 'exit_status': 2,
+                 'nodename': socket.getfqdn()},
         request_type='post')
 
 
@@ -363,9 +368,10 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
         assert ji.cpu == '00:00:00'
         assert ji.io == '1'
         assert ji.nodename == socket.getfqdn()
+        DB.session.commit()
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
-        message={},
+        message={'nodename': socket.getfqdn()},
         request_type='post')
 
 
@@ -405,7 +411,10 @@ def test_job_reset(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji1),
-        message={'error_message': "error 1"},
+        message={'error_message': "error 1",
+                 'executor_id': str(12345),
+                 'exit_status': 1,
+                 'nodename': socket.getfqdn()},
         request_type='post')
 
     # second job instance
@@ -428,7 +437,10 @@ def test_job_reset(db_cfg, real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji2),
-        message={'error_message': "error 1"},
+        message={'error_message': "error 1",
+                 'executor_id': str(12345),
+                 'exit_status': 1,
+                 'nodename': socket.getfqdn()},
         request_type='post')
 
     # third job instance
@@ -474,6 +486,7 @@ def test_job_reset(db_cfg, real_dag_id):
         # jis... It's a little aggressive, but it's the safe way to ensure
         # job_instances don't hang around in unknown states upon RESET
         assert len(errors) == 5
+        DB.session.commit()
 
 
 def test_jsm_submit_job_attr(db_cfg, real_dag_id):
@@ -528,7 +541,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
 
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(ji),
-        message={},
+        message={'nodename': socket.getfqdn()},
         request_type='post')
 
     app = db_cfg["app"]
@@ -550,6 +563,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
             attribute_entry_value = entry.value
             assert (dict_of_attributes[attribute_entry_type] ==
                     attribute_entry_value)
+        DB.session.commit()
 
 
 testdata: dict = (
@@ -560,6 +574,7 @@ testdata: dict = (
     ('DEBUg', 'DEBUG'),
     ('whatever', 'NOTSET')
 )
+
 
 @pytest.mark.parametrize("level,expected", testdata)
 def test_dynamic_change_log_level(level: str, expected: str):
@@ -622,6 +637,16 @@ def test_syslog_parameter():
     assert response['syslog']
 
 
+def test_error_logger(real_jsm_jqs):
+    # assert route returns no errors
+    rc, response = req.send_request(
+        app_route='/error_logger',
+        message={"traceback": "foo bar baz"},
+        request_type='post'
+    )
+    assert rc == 200
+
+
 def test_set_flask_log_level_seperately(real_dag_id):
     print("----------------------------default------------------------")
     _, response = req.send_request(
@@ -670,3 +695,122 @@ def test_set_flask_log_level_seperately(real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
+
+
+def test_change_job_resources(db_cfg, real_dag_id):
+    """ test that resources can be set and then changed and show up properly
+    in the DB"""
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id),
+                 'max_attempts': '3'},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+    _, response = req.send_request(
+        app_route=f'/job/{job.job_id}/change_resources',
+        message={'num_cores': '3',
+                 'max_runtime_seconds': '20',
+                 'mem_free': '2G'},
+        request_type='put'
+    )
+    DB = db_cfg["DB"]
+    app = db_cfg["app"]
+    with app.app_context():
+        query = """SELECT max_runtime_seconds, mem_free, num_cores
+                   FROM job
+                   WHERE job_id={job_id}""".format(job_id=job.job_id)
+        runtime, mem, cores = DB.session.execute(query).fetchall()[0]
+        assert runtime == 20
+        assert mem == '2G'
+        assert cores == 3
+        DB.session.commit()
+
+    _, response = req.send_request(
+        app_route=f'/job/{job.job_id}/change_resources',
+        message={'num_cores': '2'},
+        request_type='put'
+    )
+    with app.app_context():
+        query = """SELECT max_runtime_seconds, mem_free, num_cores
+                   FROM job
+                   WHERE job_id={job_id}""".format(job_id=job.job_id)
+        runtime, mem, cores = DB.session.execute(query).fetchall()[0]
+        assert runtime == 20
+        assert mem == '2G'
+        assert cores == 2
+        DB.session.commit()
+
+
+def test_executor_id_logging(db_cfg, real_dag_id):
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
+
+    rc, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = response['job_instance_id']
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345),
+                 'next_report_increment': 15},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.getfqdn(),
+                 'process_group_id': str(os.getpid()),
+                 'next_report_increment': 120,
+                 'executor_id': str(54321)},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_usage'.format(job_instance_id),
+        message={'usage_str': 'used resources',
+                 'wallclock': '0',
+                 'maxrss': '1g',
+                 'cpu': '00:00:00',
+                 'io': '1'},
+        request_type='post')
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        ji = DB.session.query(JobInstance).filter(
+            JobInstance.job_instance_id == job_instance_id).first()
+        assert ji.nodename == socket.getfqdn()
+        assert ji.executor_id == 54321
+        DB.session.commit()
+    req.send_request(
+        app_route='/job_instance/{}/log_report_by'.format(job_instance_id),
+        message={'next_report_increment': 120,
+                 'executor_id': str(55555)},
+        request_type='post')
+    with app.app_context():
+        ji = DB.session.query(JobInstance).filter(
+            JobInstance.job_instance_id == job_instance_id).first()
+        assert ji.status == 'R'
+        assert ji.executor_id == 55555
+        DB.session.commit()
+    req.send_request(
+        app_route='/job_instance/{}/log_done'.format(job_instance_id),
+        message={'nodename': socket.getfqdn(), 'executor_id': str(98765)},
+        request_type='post')
+    with app.app_context():
+        ji = DB.session.query(JobInstance).filter(
+            JobInstance.job_instance_id == job_instance_id).first()
+        assert ji.status == 'D'
+        assert ji.executor_id == 98765
+        DB.session.commit()
+

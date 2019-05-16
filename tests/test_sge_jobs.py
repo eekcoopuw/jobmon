@@ -13,6 +13,7 @@ def test_valid_command(real_dag_id, job_list_manager_sge):
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
              name="sge_valid_command", num_cores=2, mem_free='4G',
              max_runtime_seconds='1000',
+             j_resource=True,
              max_attempts=1))
     job_list_manager_sge.queue_job(job)
 
