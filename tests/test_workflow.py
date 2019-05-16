@@ -59,6 +59,16 @@ def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
     assert success
 
 
+def cleanup_jlm(workflow):
+    """If a dag is not completed properly and all threads are disconnected,
+    a new job list manager will access old job instance factory/reconciler
+    threads instead of creating new ones. So we need to make sure threads get
+    cleand up at the end"""
+
+    if workflow.task_dag.job_list_manager:
+        workflow.task_dag.job_list_manager.disconnect()
+
+
 @pytest.mark.qsubs_jobs
 def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Create identical dags
@@ -89,10 +99,8 @@ def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Make sure the second Workflow has a distinct set of Jobs
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
-    if wf1.task_dag.job_list_manager:
-        wf1.task_dag.job_list_manager.disconnect()
-    if wf2.task_dag.job_list_manager:
-        wf2.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(wf1)
+    cleanup_jlm(wf2)
 
 
 @pytest.mark.qsubs_jobs
@@ -109,8 +117,7 @@ def test_resource_arguments(real_jsm_jqs, db_cfg):
     wf.add_tasks([t1])
     return_code = wf.execute()
     assert return_code == DagExecutionStatus.SUCCEEDED
-    if wf.task_dag.job_list_manager:
-        wf.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(wf)
 
 
 @pytest.mark.qsubs_jobs
@@ -145,10 +152,8 @@ def test_dag_update(real_jsm_jqs, db_cfg):
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
-    if wf1.task_dag.job_list_manager:
-        wf1.task_dag.job_list_manager.disconnect()
-    if wf2.task_dag.job_list_manager:
-        wf2.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(wf1)
+    cleanup_jlm(wf2)
 
 
 @pytest.mark.qsubs_jobs
@@ -182,10 +187,8 @@ def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
     # Make sure the second Workflow has a distinct set of Jobs
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
-    if wf1.task_dag.job_list_manager:
-        wf1.task_dag.job_list_manager.disconnect()
-    if wf2.task_dag.job_list_manager:
-        wf2.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(wf1)
+    cleanup_jlm(wf2)
 
 
 @pytest.mark.qsubs_jobs
@@ -270,10 +273,8 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     jlm = workflow.task_dag.job_list_manager
     for _, task in workflow.task_dag.tasks.items():
         assert jlm.status_from_task(task) == JobStatus.DONE
-    if workflow.task_dag.job_list_manager:
-        workflow.task_dag.job_list_manager.disconnect()
-    if stopped_wf.task_dag.job_list_manager:
-        stopped_wf.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(workflow)
+    cleanup_jlm(stopped_wf)
 
 
 @pytest.mark.qsubs_jobs
@@ -367,11 +368,8 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
         # WorkflowRuns..
         assert other_wfr.status == WorkflowRunStatus.STOPPED
         DB.session.commit()
-
-    if workflow.task_dag.job_list_manager:
-        workflow.task_dag.job_list_manager.disconnect()
-    if stopped_wf.task_dag.job_list_manager:
-        stopped_wf.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(workflow)
+    cleanup_jlm(stopped_wf)
 
 
 @pytest.mark.qsubs_jobs
@@ -391,8 +389,7 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
 
     with pytest.raises(WorkflowAlreadyComplete):
         workflow.execute()
-    if workflow.task_dag.job_list_manager:
-        workflow.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(workflow)
 
 
 def test_force_new_workflow_instead_of_resume(simple_workflow):
@@ -439,9 +436,7 @@ def test_dag_reset(db_cfg, simple_workflow_w_errors):
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
         DB.session.commit()
-
-    if err_wf.task_dag.job_list_manager:
-        err_wf.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(err_wf)
 
 
 def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
@@ -461,11 +456,9 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
         DB.session.commit()
 
         # Make sure all their node names were recorded
-        nodenames = [ji.nodename for ji in jis if ji.nodename is not None]
-        # TODO Sometimes we just don't get all the nodenames, sometimes we do
-        assert nodenames and len(nodenames) >= 5
-    if err_wf.task_dag.job_list_manager:
-        err_wf.task_dag.job_list_manager.disconnect()
+        nodenames = [ji.nodename for ji in jis]
+        assert nodenames and all(nodenames)
+    cleanup_jlm(err_wf)
 
 
 def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
@@ -498,8 +491,7 @@ def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
 
     # exit status should not be a success, expect failure
     assert exit_status != 0
-    if err_wf.task_dag.job_list_manager:
-        err_wf.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(err_wf)
 
 
 @pytest.mark.qsubs_jobs
@@ -517,8 +509,7 @@ def test_fail_fast(real_jsm_jqs, db_cfg):
 
     assert len(workflow.task_dag.job_list_manager.all_error) == 1
     assert len(workflow.task_dag.job_list_manager.all_done) >= 2
-    if workflow.task_dag.job_list_manager:
-        workflow.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(workflow)
 
 
 def test_heartbeat(db_cfg, real_jsm_jqs):
@@ -586,8 +577,7 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
         assert wfr.id not in [w.id for w in active]
         DB.session.commit()
 
-    if workflow.task_dag.job_list_manager:
-        workflow.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(workflow)
 
 
 def test_timeout(real_jsm_jqs, db_cfg):
@@ -606,8 +596,7 @@ def test_timeout(real_jsm_jqs, db_cfg):
                     "timeout length (3 seconds). Submitted tasks will still"
                     " run, but the workflow will need to be restarted.")
     assert expected_msg == str(error.value)
-    if wf1.task_dag.job_list_manager:
-        wf1.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(wf1)
 
 
 def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
@@ -679,8 +668,7 @@ def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
         DB.session.commit()
         failing_nodes = hm._calculate_node_failure_rate(DB.session, active_wfrs)
         assert 'new_fake_node.ihme.washington.edu' not in failing_nodes
-        if workflow.task_dag.job_list_manager:
-            workflow.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(workflow)
 
 
 def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
@@ -704,8 +692,7 @@ def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
             all()
         assert all(t.status == 'D' for t in j)
         DB.session.commit()
-    if workflow.task_dag.job_list_manager:
-        workflow.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(workflow)
 
 
 def test_anonymous_workflow(db_cfg, real_jsm_jqs):
@@ -748,10 +735,8 @@ def test_anonymous_workflow(db_cfg, real_jsm_jqs):
 
     # Make sure it's the same workflow
     assert workflow.id == new_workflow.id
-    if workflow.task_dag.job_list_manager:
-        workflow.task_dag.job_list_manager.disconnect()
-    if new_workflow.task_dag.job_list_manager:
-        new_workflow.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(workflow)
+    cleanup_jlm(new_workflow)
 
 
 def test_workflow_status_dates(db_cfg, simple_workflow):
@@ -767,8 +752,7 @@ def test_workflow_status_dates(db_cfg, simple_workflow):
         for wfr in wf_runs:
             assert wfr.created_date != wfr.status_date
         DB.session.commit()
-    if simple_workflow.task_dag.job_list_manager:
-        simple_workflow.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(simple_workflow)
 
 
 @pytest.mark.qsubs_jobs
@@ -805,8 +789,7 @@ def test_workflow_sge_args(db_cfg, real_jsm_jqs):
     assert workflow.workflow_run.stderr == '/tmp'
     assert workflow.workflow_run.stdout == '/tmp'
     assert workflow.workflow_run.executor_class == 'SGEExecutor'
-    if workflow.task_dag.job_list_manager:
-        workflow.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(workflow)
 
 
 def test_workflow_identical_args(real_jsm_jqs, db_cfg):
@@ -828,13 +811,9 @@ def test_workflow_identical_args(real_jsm_jqs, db_cfg):
     wf3.add_task(task)
     with pytest.raises(WorkflowAlreadyComplete):
         wf3.execute()
-
-    if wf1.task_dag.job_list_manager:
-        wf1.task_dag.job_list_manager.disconnect()
-    if wf2.task_dag.job_list_manager:
-        wf2.task_dag.job_list_manager.disconnect()
-    if wf3.task_dag.job_list_manager:
-        wf3.task_dag.job_list_manager.disconnect()
+    cleanup_jlm(wf1)
+    cleanup_jlm(wf2)
+    cleanup_jlm(wf3)
 
 
 def test_workflow_config_reconciliation():
@@ -906,3 +885,36 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
         slept += 5
         ex_id_list = sge_utils.qstat("pr").job_id.tolist()
     assert executor_id not in ex_id_list
+
+
+def test_workflow_resource_adjustment(simple_workflow_w_errors, db_cfg):
+    workflow = simple_workflow_w_errors
+
+    assert workflow.workflow_run.resource_adjustment == 0.5
+
+    wf_id = workflow.id
+    workflow.resource_adjustment = 0.3
+    workflow.resume = ResumeStatus.RESUME
+    workflow.execute()
+
+    assert workflow.workflow_run.resource_adjustment == 0.3
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """SELECT resource_adjustment
+                   FROM workflow_run
+                   WHERE workflow_id = {}""".format(wf_id)
+        resp = DB.session.execute(query).fetchall()
+        DB.session.commit()
+
+    assert len(resp) == 2
+    assert resp[0][0] == 0.5
+    assert resp[1][0] == 0.3
+    cleanup_jlm(workflow)
+
+
+
+
+
+

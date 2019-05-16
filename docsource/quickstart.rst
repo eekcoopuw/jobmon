@@ -80,6 +80,9 @@ Constructing a Workflow and adding a few Tasks is simple::
 .. note::
     Errors with a return code of 199 indicate an issue occurring within Jobmon itself.
 
+.. note::
+    If you want to define the rate at which resources are adjusted in case a job failes because it did not request enough resources (exit code 137), then you can adjust the resource_adjustment parameter defined in the workflow object (otherwise the default is 0.5 or 50% increase after each failure)
+
 Restart Tasks and Resume Workflows
 =======================================
 

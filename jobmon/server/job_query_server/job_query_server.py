@@ -1,4 +1,3 @@
-from datetime import datetime
 from http import HTTPStatus as StatusCodes
 import os
 from typing import Dict
@@ -358,5 +357,22 @@ def get_job_instances_of_workflow_run(workflow_run_id):
     jis = [ji.to_wire() for ji in jis]
     DB.session.commit()
     resp = jsonify(job_instances=jis)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/job/<executor_id>/get_resources', methods=['GET'])
+def get_resources(executor_id):
+    """
+    This route is created for testing purpose
+
+    :param execution_id:
+    :return:
+    """
+    logger.debug(logging.myself())
+    query = f"select mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {execution_id}"
+    res = DB.session.execute(query).fetchone()
+    DB.session.commit()
+    resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
     resp.status_code = StatusCodes.OK
     return resp
