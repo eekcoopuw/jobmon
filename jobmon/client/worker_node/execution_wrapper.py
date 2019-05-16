@@ -3,6 +3,7 @@ from functools import partial
 import logging
 import os
 from queue import Queue
+import socket
 import subprocess
 import sys
 from threading import Thread
@@ -10,12 +11,11 @@ from time import sleep, time
 import traceback
 
 from jobmon.exceptions import ReturnCodes
-from jobmon.client.swarm.job_management.job_instance_intercom import \
-    JobInstanceIntercom
+from jobmon.client.worker_node.worker_node_intercom import WorkerNodeIntercom
 from jobmon.client.utils import kill_remote_process_group
-from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
 logger = logging.getLogger()
+
 
 def enqueue_stderr(stderr, queue):
     """eagerly print 100 byte blocks to stderr so pipe doesn't fill up and
@@ -79,17 +79,17 @@ def unwrap():
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))
+    executor = ExecutorClass()
 
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
-    ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
-                                      executor_class=ExecutorClass,
-                                      process_group_id=os.getpid(),
-                                      hostname=args['jm_host'])
-    ji_intercom.log_running(next_report_increment=(
-        args['heartbeat_interval'] * args['report_by_buffer']),
-        executor_id=os.environ.get('JOB_ID'))
+    worker_node_intercom = WorkerNodeIntercom(
+        job_instance_id=args["job_instance_id"],
+        executor_id=os.environ.get('JOB_ID'),
+        executor=executor)
+    worker_node_intercom.log_running(next_report_increment=(
+        args['heartbeat_interval'] * args['report_by_buffer']))
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
@@ -113,9 +113,8 @@ def unwrap():
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
-                ji_intercom.log_report_by(next_report_increment=(
-                    args['heartbeat_interval'] * args['report_by_buffer']),
-                    executor_id=os.environ.get('JOB_ID'))
+                worker_node_intercom.log_report_by(next_report_increment=(
+                    args['heartbeat_interval'] * args['report_by_buffer']))
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
 
@@ -132,20 +131,16 @@ def unwrap():
         logger.warning(stderr)
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
+    # post stats usage
+    if args["executor_class"] == "SGEExecutor":
+        worker_node_intercom.log_job_stats()
+
     # check return code
     if returncode != ReturnCodes.OK:
-        if args["executor_class"] == "SGEExecutor":
-            ji_intercom.log_job_stats()
-        jid = os.environ.get('JOB_ID')
-        logger.debug("jid:" + str(jid))
-        ji_intercom.log_error(error_message=str(stderr),
-                              executor_id=jid,
-                              exit_status=returncode
-                              )
+        worker_node_intercom.log_error(error_message=str(stderr),
+                                       exit_status=returncode)
     else:
-        if args["executor_class"] == "SGEExecutor":
-            ji_intercom.log_job_stats()
-        ji_intercom.log_done(executor_id=os.environ.get('JOB_ID'))
+        worker_node_intercom.log_done()
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting

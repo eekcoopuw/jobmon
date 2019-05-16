@@ -139,6 +139,7 @@ class JobInstanceReconciler(object):
         self._log_executor_report_by()
         self._transition_jobs_to_lost()
         self._get_lost_job_instances()
+        self._account_for_lost_jobs()
 
     def _log_dag_heartbeat(self):
         """Logs a dag heartbeat"""
