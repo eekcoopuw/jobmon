@@ -44,6 +44,7 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
+            logger.debug(f"Qsub command is: {qsub_cmd}")
             resp = subprocess.check_output(qsub_cmd, shell=True,
                                            universal_newlines=True)
             logger.debug(f"****** Received from qsub '{resp}'")
