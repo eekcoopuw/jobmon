@@ -108,12 +108,12 @@ class JobInstanceIntercom(object):
             message['executor_id'] = str(executor_id)
         else:
             logger.info("No Job ID was found in the qsub env at this time")
-        rc, _ = self.requester.send_request(
+        rc, resp = self.requester.send_request(
             app_route=('/job_instance/{}/log_running'
                        .format(self.job_instance_id)),
             message=message,
             request_type='post')
-        return rc
+        return rc, resp
 
     def log_report_by(self, next_report_increment, executor_id):
         """Log the heartbeat to show that the job instance is still alive"""
@@ -127,3 +127,14 @@ class JobInstanceIntercom(object):
             message=message,
             request_type='post')
         return rc
+
+    def in_kill_self_state(self):
+        rc, resp = self.requester.send_request(
+            app_route=(f'job_instance/{self.job_instance_id}/'
+                       f'job_instance_status'),
+            message={},
+            request_type='get')
+        if resp['kill_self'] == 'True':
+            return True
+        else:
+            return False

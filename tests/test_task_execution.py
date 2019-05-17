@@ -14,6 +14,7 @@ from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.client.swarm.workflow.r_task import RTask
 from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
+from jobmon.client.swarm.job_management.job_instance_factory import JobInstanceFactory
 
 
 def match_name_to_sge_name(jid):
@@ -318,4 +319,47 @@ def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
         assert job.queue == 'all.q@@c2-nodes'
         jids = [ji.nodename for ji in job.job_instances]
         assert all(['c2' in nodename for nodename in jids])
+
+
+class MockJIF(JobInstanceFactory):
+    """mock so that when a normal job goes registers in batch it actually
+       goes to W state"""
+    def _register_submission_to_batch_executor(self, job_instance_id,
+                                               executor_id,
+                                               next_report_increment):
+        # redirecting the normal route of going to B state with W state
+        self.requester.send_request(
+            app_route=f'/job_instance/{job_instance_id}/log_no_exec_id',
+            message={'executor_id': executor_id},
+            request_type='post')
+
+
+def test_job_in_w_logs(dag_factory, monkeypatch, caplog, db_cfg):
+    import jobmon.client.swarm.job_management.job_instance_factory
+    """mocks a case where a job enters W state instead of B or R and then
+    tries to log running"""
+    monkeypatch.setattr(
+        jobmon.client.swarm.job_management.job_instance_factory.JobInstanceFactory,
+        "_register_submission_to_batch_executor",
+        MockJIF._register_submission_to_batch_executor)
+    name = 'task_no_exec_id'
+    task = BashTask(command="ls", name=name, mem_free='130M', max_attempts=2,
+                    slots=1, max_runtime_seconds=20)
+
+    executor = SGEExecutor(project='proj_tools')
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
+    assert rc == DagExecutionStatus.SUCCEEDED
+
+
+def test_job_in_l(dag_factory, db_cfg):
+    name = 'task_to_L'
+    task = BashTask(command="sleep 100", name=name, mem_free='130M',
+                    max_attempts = 1, slots=1, max_runtimte_seconds=150)
+
+    executor = SGEExecutor(project='proj_tools')
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
 

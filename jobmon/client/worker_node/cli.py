@@ -1,8 +1,8 @@
 import argparse
 from functools import partial
-import logging
 import os
 from queue import Queue
+import signal
 import subprocess
 import sys
 from threading import Thread
@@ -37,6 +37,14 @@ def enqueue_stderr(stderr, queue):
 
     # cleanup
     stderr.close()
+
+
+def kill_self(child_process: subprocess.Popen=None):
+    """If the worker has received a signal to kill itself, kill the child
+    processes and then self"""
+    if child_process:
+        child_process.kill()
+    sys.exit(999)
 
 
 def unwrap():
@@ -85,9 +93,11 @@ def unwrap():
                                       executor_class=ExecutorClass,
                                       process_group_id=os.getpid(),
                                       hostname=args['jm_host'])
-    ji_intercom.log_running(next_report_increment=(
+    rc, kill = ji_intercom.log_running(next_report_increment=(
         args['heartbeat_interval'] * args['report_by_buffer']),
         executor_id=os.environ.get('JOB_ID'))
+    if kill:
+        kill_self()
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
@@ -111,9 +121,13 @@ def unwrap():
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
-                ji_intercom.log_report_by(next_report_increment=(
-                    args['heartbeat_interval'] * args['report_by_buffer']),
-                    executor_id=os.environ.get('JOB_ID'))
+                if ji_intercom.in_kill_self_state():
+                    kill_self(child_process=proc)
+                else:
+                    ji_intercom.log_report_by(
+                        next_report_increment=(args['heartbeat_interval'] *
+                                               args['report_by_buffer']),
+                        executor_id=os.environ.get('JOB_ID'))
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
 

@@ -806,3 +806,47 @@ def test_executor_id_logging(db_cfg, real_dag_id):
         assert ji.status == 'D'
         assert ji.executor_id == 98765
         DB.session.commit()
+
+
+def test_on_transition_get_kill(real_dag_id, db_cfg):
+    # add job
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
+
+    # add job instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = response['job_instance_id']
+
+    DB = db_cfg["DB"]
+    app = db_cfg["app"]
+    with app.app_context():
+        DB.session.execute("""UPDATE job_instance 
+                              SET job_instance.status='W'
+                              WHERE job_instance_id = {}""".format(job_instance_id))
+        DB.session.commit()
+
+    # the job does not get registered properly and is set to 'W', then it
+    # tries to log running and gets a message to kill itself
+    _, resp = req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.getfqdn(),
+                 'process_group_id': str(os.getpid()),
+                 'next_report_increment': 120},
+        request_type='post')
+    assert resp['message'] == 'kill self'

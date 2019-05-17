@@ -10,6 +10,7 @@ from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
+from jobmon.client.swarm.job_management.job_instance_intercom import JobInstanceIntercom
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -298,3 +299,46 @@ def test_job_instance_bad_qsub_parse(job_list_manager_sge_no_daemons, db_cfg,
     assert job_info[0].status == 'F'
     assert "Got response from qsub but did not contain a valid job id " \
            "(-33333), moving to 'W' state" in caplog.text
+
+
+class MockIntercom(JobInstanceIntercom):
+
+    def in_kill_self_state(self):
+        raise Exception("Attempted Log Report By")
+
+
+def test_ji_u_state(job_list_manager_sge_no_daemons, db_cfg,
+                                 ephemera_conn_str, monkeypatch, caplog):
+    """should try to log a report by date after being set to the L state and
+    fail"""
+    jlm = job_list_manager_sge_no_daemons
+    jif = jlm.job_instance_factory
+    job = jlm.bind_task(Task(command="sleep 100", name="lost_task",
+                             num_cores=3, max_runtime_seconds='1000',
+                             mem_free='600M'))
+    jlm.queue_job(job)
+    jids = jif.instantiate_queued_jobs()
+    jlm._sync()
+    resp = query_till_running(db_cfg)
+    while resp.status != 'R':
+        resp = query_till_running(db_cfg)
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        DB.session.execute("""UPDATE job_instance 
+        SET status = 'U' 
+        WHERE job_instance_id = {}""".format(jids[0].job_instance_id))
+        DB.session.commit()
+    jlm._sync()
+    exec_id = resp.executor_id
+    import pdb
+    pdb.set_trace()
+
+
+def query_till_running(db_cfg):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        resp = DB.session.execute("""SELECT status, executor_id FROM job_instance""").fetchall()[0]
+        DB.session.commit()
+    return resp
