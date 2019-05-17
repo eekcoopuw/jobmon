@@ -19,5 +19,16 @@ class JobStatus(DB.Model):
     ERROR_FATAL = 'F'
     DONE = 'D'
 
+    @classmethod
+    def from_wire(cls, dct):
+        return cls(id=dct['id'],
+                   label=dct['label'])
+
+    def to_wire(self):
+        return {
+            'id': self.id,
+            'label': self.label
+        }
+
     id = DB.Column(DB.String(1), primary_key=True)
     label = DB.Column(DB.String(150), nullable=False)

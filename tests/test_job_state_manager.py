@@ -100,7 +100,8 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
                  'project': 'proj_tools',
                  'slack_channel': "",
                  'executor_class': 'SGEExecutor',
-                 'working_dir': ""},
+                 'working_dir': "",
++                'resource_adjustment': "0.5"},
         request_type='post')
     wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that
@@ -226,6 +227,8 @@ def test_jsm_valid_error(real_dag_id):
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(job_instance_id),
         message={'error_message': "this is an error message",
+                 'executor_id': str(12345),
+                 'exit_status': 2,
                  'nodename': socket.getfqdn()},
         request_type='post')
 
@@ -409,6 +412,8 @@ def test_job_reset(db_cfg, real_dag_id):
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji1),
         message={'error_message': "error 1",
+                 'executor_id': str(12345),
+                 'exit_status': 1,
                  'nodename': socket.getfqdn()},
         request_type='post')
 
@@ -433,6 +438,8 @@ def test_job_reset(db_cfg, real_dag_id):
     req.send_request(
         app_route='/job_instance/{}/log_error'.format(ji2),
         message={'error_message': "error 1",
+                 'executor_id': str(12345),
+                 'exit_status': 1,
                  'nodename': socket.getfqdn()},
         request_type='post')
 
@@ -806,3 +813,4 @@ def test_executor_id_logging(db_cfg, real_dag_id):
         assert ji.status == 'D'
         assert ji.executor_id == 98765
         DB.session.commit()
+
