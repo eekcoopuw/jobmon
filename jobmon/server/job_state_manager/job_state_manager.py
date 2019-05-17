@@ -366,8 +366,8 @@ def _increase_resources(exec_id: int, scale: float)->str:
     """
     update_resource_query_template = """
                         update job
-                        set mem_free="{mem}", 
-                            num_cores={cores}, 
+                        set mem_free="{mem}",
+                            num_cores={cores},
                             max_runtime_seconds={runtime}
                         where job.job_id=
                               (select job_id
@@ -548,8 +548,8 @@ def log_executor_report_by(dag_id):
     return resp
 
 
-@jsm.route('/task_dag/<dag_id>/transition_jobs_to_lost', methods=['POST'])
-def transition_jobs_to_lost(dag_id):
+@jsm.route('/task_dag/<dag_id>/transition_jis_to_lost', methods=['POST'])
+def _transition_job_instances_to_lost(dag_id):
 
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.

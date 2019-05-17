@@ -9,6 +9,8 @@ import traceback
 import pandas as pd
 
 from cluster_utils.io import makedirs_safely
+
+from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import sge_utils
@@ -18,6 +20,7 @@ from jobmon.client.swarm.executors.sge_resource import SGEResource
 logger = logging.getLogger(__name__)
 ERROR_SGE_JID = -99999
 ERROR_QSTAT_ID = - 9998
+ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247)
 
 ExecutorIDs = List[int]
 
@@ -126,6 +129,18 @@ class SGEExecutor(Executor):
                                    "executor_ids {} to disappear from qstat "
                                    "but they still exist. Timing out."
                                    .format(lagging_jobs.job_id.unique()))
+
+    def get_exit_info(self, executor_id):
+        exit_code = sge_utils.qacct_exit_status(executor_id)
+        """return the exit state associated with a given exit code"""
+        if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
+            msg = ("Insufficient resources requested. Job was lost. "
+                   f"{self.__class__.__name__} accounting discovered exit code"
+                   f":{exit_code}.")
+            return JobInstanceStatus.RESOURCE_ERROR, msg
+        else:
+            msg = ("Unknow error caused job to be lost")
+            return JobInstanceStatus.UNKNOWN_ERROR, msg
 
     def build_wrapped_command(self, job, job_instance_id, stderr=None,
                               stdout=None, project=None, working_dir=None):

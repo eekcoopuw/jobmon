@@ -8,7 +8,7 @@ from jobmon.client import shared_requester
 logger = logging.getLogger(__name__)
 
 
-class WorkerNodeIntercom(object):
+class WorkerNodeJobInstance:
 
     def __init__(self, job_instance_id, executor_id, executor, nodename=None,
                  process_group_id=None, requester=shared_requester):

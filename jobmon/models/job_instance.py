@@ -105,8 +105,7 @@ class JobInstance(DB.Model):
 
         (JobInstanceStatus.RUNNING, JobInstanceStatus.LOST_TRACK),
 
-        (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE),
-]
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
 
     untimely_transitions = [
         (JobInstanceStatus.RUNNING,
