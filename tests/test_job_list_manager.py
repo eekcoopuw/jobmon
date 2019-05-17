@@ -1,4 +1,5 @@
 import pytest
+from subprocess import check_output
 from time import sleep
 from unittest import mock
 
@@ -331,8 +332,15 @@ def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg,
         DB.session.commit()
     jlm._sync()
     exec_id = resp.executor_id
-    import pdb
-    pdb.set_trace()
+    done = False
+    while not done:
+        try:
+            exit_code = check_output(f"qacct -j {exec_id} | grep exit_status",
+                             shell=True, universal_newlines=True)
+            assert '1' in exit_code
+            done = True
+        except:
+            done = False
 
 
 def query_till_running(db_cfg):
