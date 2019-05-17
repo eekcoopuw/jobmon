@@ -307,7 +307,7 @@ class MockIntercom(JobInstanceIntercom):
         raise Exception("Attempted Log Report By")
 
 
-def test_ji_u_state(job_list_manager_sge_no_daemons, db_cfg,
+def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg,
                                  ephemera_conn_str, monkeypatch, caplog):
     """should try to log a report by date after being set to the L state and
     fail"""

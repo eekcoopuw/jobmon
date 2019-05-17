@@ -44,7 +44,7 @@ def kill_self(child_process: subprocess.Popen=None):
     processes and then self"""
     if child_process:
         child_process.kill()
-    sys.exit(999)
+    os.kill(signal.SIGKILL)
 
 
 def unwrap():
