@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-import subprocess
+from subprocess import check_output
 from time import sleep
 from typing import List
 import traceback
@@ -14,9 +14,9 @@ from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.executors.sge_resource import SGEResource
+from jobmon.models.attributes.constants import qsub_attribute
 
 logger = logging.getLogger(__name__)
-ERROR_SGE_JID = -99999
 
 
 ExecutorIDs = List[int]
@@ -41,11 +41,16 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
-            resp = subprocess.check_output(qsub_cmd, shell=True,
-                                           universal_newlines=True)
+            resp = check_output(qsub_cmd, shell=True, universal_newlines=True)
             logger.debug(f"****** Received from qsub '{resp}'")
-            idx = resp.split().index('job')
-            sge_jid = int(resp.split()[idx + 1])
+            if 'job' in resp:
+                idx = resp.split().index('job')
+                sge_jid = int(resp.split()[idx + 1])
+            else:
+                logger.error(f"The qsub was successfully submitted, but the "
+                             f"job id could not be parsed from the response: "
+                             f"{resp}")
+                sge_jid = qsub_attribute.UNPARSABLE
             return sge_jid
 
         except Exception as e:
@@ -61,7 +66,7 @@ class SGEExecutor(Executor):
                 request_type="post")
             if isinstance(e, ValueError):
                 raise e
-            return ERROR_SGE_JID
+            return qsub_attribute.NO_EXEC_ID
 
     def execute(self, job_instance):
         return self._execute_sge(job_instance.job,

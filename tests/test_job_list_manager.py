@@ -2,6 +2,7 @@ import pytest
 from time import sleep
 from unittest import mock
 
+import jobmon.client.swarm.executors.sge
 from tenacity import stop_after_attempt
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance_status import JobInstanceStatus
@@ -239,3 +240,61 @@ def test_server_502(job_list_manager):
         with pytest.raises(RuntimeError, match='Status code was 502'):
             retrier.stop = stop_after_attempt(1)
             job_list_manager.get_job_statuses()
+
+
+class ExpectedException(Exception):
+    pass
+
+
+def mock_qsub_error(cmd, shell=False, universal_newlines=True):
+    raise ExpectedException("qsub didnt work")
+
+
+def mock_parse_qsub_resp_error(cmd, shell=False, universal_newlines=True):
+    return ("NO executor id here")
+
+
+def test_job_instance_qsub_error(job_list_manager_sge_no_daemons, db_cfg,
+                                 monkeypatch, caplog):
+    monkeypatch.setattr(jobmon.client.swarm.executors.sge,
+                        "check_output", mock_qsub_error)
+    jlm = job_list_manager_sge_no_daemons
+    jif = jlm.job_instance_factory
+    job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
+                             max_runtime_seconds='1000', mem_free='600M'))
+    jlm.queue_job(job)
+    jids = jif.instantiate_queued_jobs()
+    jlm._sync()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        resp = DB.session.execute("""SELECT * FROM job_instance""").fetchall()
+        DB.session.commit()
+    assert resp[0].status == 'W'
+    assert resp[0].executor_id is None
+    assert "Received -99999 meaning the job did not qsub properly, moving " \
+           "to 'W' state" in caplog.text
+
+
+def test_job_instance_bad_qsub_parse(job_list_manager_sge_no_daemons, db_cfg,
+                                 monkeypatch, caplog):
+    monkeypatch.setattr(jobmon.client.swarm.executors.sge,
+                        "check_output", mock_parse_qsub_resp_error)
+    jlm = job_list_manager_sge_no_daemons
+    jif = jlm.job_instance_factory
+    job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
+                             max_runtime_seconds='1000', mem_free='600M'))
+    jlm.queue_job(job)
+    jids = jif.instantiate_queued_jobs()
+    jlm._sync()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        resp = DB.session.execute("""SELECT * FROM job_instance""").fetchall()
+        job_info = DB.session.execute("""SELECT * FROM job""").fetchall()
+        DB.session.commit()
+    assert resp[0].status == 'W'
+    assert resp[0].executor_id is None
+    assert job_info[0].status == 'F'
+    assert "Got response from qsub but did not contain a valid job id " \
+           "(-33333), moving to 'W' state" in caplog.text

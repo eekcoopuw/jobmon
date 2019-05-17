@@ -9,6 +9,7 @@ from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job import Job
 from jobmon.models.job_instance import JobInstance
+from jobmon.models.attributes.constants import qsub_attribute
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,21 @@ class JobInstanceFactory(object):
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
         executor_id = self.executor.execute(job_instance=job_instance)
-        if executor_id:
+        if executor_id == qsub_attribute.NO_EXEC_ID:
+            if executor_id == qsub_attribute.NO_EXEC_ID:
+                logger.debug(f"Received {qsub_attribute.NO_EXEC_ID} meaning "
+                             f"the job did not qsub properly, moving "
+                             f"to 'W' state")
+                self._register_no_exec_id(job_instance.job_instance_id,
+                                          exec_id=qsub_attribute.NO_EXEC_ID)
+        elif executor_id == qsub_attribute.UNPARSABLE:
+                logger.debug(f"Got response from qsub but did not contain a "
+                             f"valid job id "
+                             f"({qsub_attribute.UNPARSABLE}), "
+                             f"moving to 'W' state")
+                self._register_no_exec_id(job_instance.job_instance_id,
+                                          exec_id=qsub_attribute.UNPARSABLE)
+        elif executor_id:
             self._register_submission_to_batch_executor(
                 job_instance.job_instance_id, executor_id,
                 self.next_report_increment)
@@ -196,3 +211,10 @@ class JobInstanceFactory(object):
             message={'executor_id': str(executor_id),
                      'next_report_increment': next_report_increment},
             request_type='post')
+
+    def _register_no_exec_id(self, job_instance_id, exec_id):
+        self.requester.send_request(
+            app_route=f'/job_instance/{job_instance_id}/log_no_exec_id',
+            message={'executor_id': exec_id},
+            request_type='post')
+
