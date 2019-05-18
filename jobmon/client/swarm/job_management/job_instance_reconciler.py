@@ -140,8 +140,8 @@ class JobInstanceReconciler(object):
             terminated_job_instances = self.executor.terminate_job_instances(
                 to_jobs)
             for ji_id, hostname in terminated_job_instances:
-                self._log_timeout_error(int(ji_id))
                 self._log_timeout_hostname(int(ji_id), hostname)
+                self._log_timeout_error(int(ji_id))
         except NotImplementedError:
             logger.warning("{} does not implement reconciliation methods"
                            .format(self.executor.__class__.__name__))

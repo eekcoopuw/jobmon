@@ -321,6 +321,7 @@ def log_done(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     logger.debug("Log DONE for JI {}".format(job_instance_id))
+    logger.debug("Data: " + str(data))
     ji = _get_job_instance(DB.session, job_instance_id)
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
@@ -438,6 +439,7 @@ def log_error(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
+    logger.debug("Data: " + str(data))
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
     ji = _get_job_instance(DB.session, job_instance_id)
