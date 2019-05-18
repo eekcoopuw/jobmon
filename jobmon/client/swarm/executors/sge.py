@@ -112,27 +112,12 @@ class SGEExecutor(Executor):
                 ji_id = row.job_instance_id
                 hostname = row.hostname
                 return_list.append((int(ji_id), hostname))
-        self._poll_for_lagging_jobs(list(to_df.executor_id))
         return return_list
 
-    def _poll_for_lagging_jobs(self, executor_ids):
-        lagging_jobs = sge_utils.qstat(jids=executor_ids)
-        logger.info("Qdelling executor_ids {} from a previous workflow run, "
-                    "and polling to ensure they disappear from qstat"
-                    .format(executor_ids))
-        seconds = 0
-        while seconds <= 60 and len(lagging_jobs) > 0:
-            seconds += 5
-            sleep(5)
-            lagging_jobs = sge_utils.qstat(jids=executor_ids)
-            if seconds == 60 and len(lagging_jobs) > 0:
-                raise RuntimeError("Polled for 60 seconds waiting for qdel-ed "
-                                   "executor_ids {} to disappear from qstat "
-                                   "but they still exist. Timing out."
-                                   .format(lagging_jobs.job_id.unique()))
+    def get_exit_status(self, executor_id):
+        return sge_utils.qacct_exit_status(executor_id)
 
-    def get_exit_info(self, executor_id):
-        exit_code = sge_utils.qacct_exit_status(executor_id)
+    def get_exit_info(self, exit_code):
         """return the exit state associated with a given exit code"""
         if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
             msg = ("Insufficient resources requested. Job was lost. "

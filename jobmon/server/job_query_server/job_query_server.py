@@ -236,7 +236,7 @@ def get_jobs_by_status_only(dag_id):
 
 @jqs.route('/dag/<dag_id>/get_timed_out_executor_ids', methods=['GET'])
 def get_timed_out_executor_ids(dag_id):
-    executor_ids = DB.session.query(JobInstance). \
+    jiid_exid_tuples = DB.session.query(JobInstance). \
         filter_by(dag_id=dag_id).\
         filter([JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
                 JobInstanceStatus.RUNNING]).\
@@ -246,10 +246,10 @@ def get_timed_out_executor_ids(dag_id):
         filter(
             func.timediff(func.UTC_TIMESTAMP(), JobInstance.status_date) >
             func.SEC_TO_TIME(Job.max_runtime_seconds)).\
-        with_entities(JobInstance.executor_id).\
+        with_entities(JobInstance.job_instance_id, JobInstance.executor_id).\
         all()  # noqa: E711
     DB.session.commit()
-    resp = jsonify(executor_ids=executor_ids)
+    resp = jsonify(jiid_exid_tuples=jiid_exid_tuples)
     resp.status_code = StatusCodes.OK
     return resp
 
