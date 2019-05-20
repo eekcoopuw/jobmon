@@ -13,7 +13,7 @@ class ReturnCodes(object):
     NO_RESULTS = 5
     UNKNOWN_EXIT_STATE = 99
     WORKER_NODE_CLI_FAILURE = 199
-
+    KILL_SELF_GRACEFULLY = 299
 
 class ServerRunning(Exception):
     pass

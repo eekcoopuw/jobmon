@@ -96,7 +96,7 @@ class JobInstanceIntercom(object):
             logger.error("Traceback {}".
                          format(print(repr(traceback.format_tb(e_traceback)))))
 
-    def log_running(self, next_report_increment, executor_id):
+    def log_running(self, next_report_increment, executor_id=None):
         """Tell the JobStateManager that this job_instance is running, and
         update the report_by_date to be further in the future in case it gets
         reconciled immediately"""
@@ -116,7 +116,7 @@ class JobInstanceIntercom(object):
         logger.debug(f"Response from log_running was: {resp}")
         return rc, resp
 
-    def log_report_by(self, next_report_increment, executor_id):
+    def log_report_by(self, next_report_increment, executor_id=None):
         """Log the heartbeat to show that the job instance is still alive"""
         message = {"next_report_increment": next_report_increment}
         if executor_id is not None:
@@ -131,12 +131,15 @@ class JobInstanceIntercom(object):
 
     def in_kill_self_state(self):
         rc, resp = self.requester.send_request(
-            app_route=(f'job_instance/{self.job_instance_id}/'
-                       f'job_instance_status'),
+            app_route=f'/job_instance/{self.job_instance_id}/job_instance_'
+                      f'status',
             message={},
             request_type='get')
-        if resp['kill_self'] == 'True':
-            logger.debug("job_instance is in a state that indicates it needs to kill itself")
+        if resp.get('should_kill'):
+            logger.debug("job_instance is in a state that indicates it needs "
+                         "to kill itself")
             return True
         else:
+            logger.debug("job instance does not need to kill itself")
             return False
+

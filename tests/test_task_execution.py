@@ -1,6 +1,6 @@
 import os
 import pytest
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 from time import sleep
 
 from cluster_utils.io import makedirs_safely
@@ -332,9 +332,10 @@ class MockJIF(JobInstanceFactory):
             app_route=f'/job_instance/{job_instance_id}/log_no_exec_id',
             message={'executor_id': executor_id},
             request_type='post')
+        print(f"REAL EXEC ID is: {executor_id}")
 
 
-def test_job_in_w_logs(dag_factory, monkeypatch, caplog, db_cfg):
+def test_job_in_w_logs(dag_factory, monkeypatch, capsys, db_cfg):
     import jobmon.client.swarm.job_management.job_instance_factory
     """mocks a case where a job enters W state instead of B or R and then
     tries to log running"""
@@ -351,15 +352,19 @@ def test_job_in_w_logs(dag_factory, monkeypatch, caplog, db_cfg):
     real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
         real_dag._execute())
-    assert rc == DagExecutionStatus.SUCCEEDED
+    captured = capsys.readouterr()
+    exec_ids = captured.out.split("REAL EXEC ID is: ")[1:]
+    for el in exec_ids:
+        exec_id = el.split()[0]
+        status = None
+        tries = 0
+        while status is None and tries < 10:
+            try:
+                status = check_output(f'qacct -j {exec_id} | grep exit_status',
+                                      shell=True, universal_newlines=True)
+                assert '9' in status
+            except CalledProcessError as e:
+                sleep(5)
+                tries += 1
 
-
-def test_job_in_l(dag_factory, db_cfg):
-    name = 'task_to_L'
-    task = BashTask(command="sleep 100", name=name, mem_free='130M',
-                    max_attempts = 1, slots=1, max_runtimte_seconds=150)
-
-    executor = SGEExecutor(project='proj_tools')
-    real_dag = dag_factory(executor)
-    real_dag.add_task(task)
 

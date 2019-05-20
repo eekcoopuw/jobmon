@@ -816,7 +816,8 @@ def _update_job_instance_state(job_instance, status_id):
             logger.error(msg)
             print(msg)
     except KillSelfTransition:
-        msg = "kill self, cannot transition"
+        msg = f"kill self, cannot transition " \
+              f"jid={job_instance.job_instance_id}"
         logger.warning(msg)
         print(msg)
         response = "kill self"

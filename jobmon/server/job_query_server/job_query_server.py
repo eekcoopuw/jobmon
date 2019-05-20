@@ -373,10 +373,11 @@ def get_ji_status_for_kill_self(job_instance_id):
     should_kill = DB.session.query(JobInstance).\
         filter_by(job_instance_id=job_instance_id).\
         filter(JobInstance.status.in_(kill_statuses)).first()
-    if not should_kill:
-        resp = jsonify(should_kill=False)
-    else:
+    if should_kill:
         resp = jsonify(should_kill=True)
+    else:
+        resp = jsonify()
     resp.status_code = StatusCodes.OK
+    logger.debug(resp)
     return resp
 

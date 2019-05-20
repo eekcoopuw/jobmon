@@ -41,10 +41,10 @@ def enqueue_stderr(stderr, queue):
 
 def kill_self(child_process: subprocess.Popen=None):
     """If the worker has received a signal to kill itself, kill the child
-    processes and then self, will show up as an exit code 1 in qacct"""
+    processes and then self, will show up as an exit code 299 in qacct"""
     if child_process:
         child_process.kill()
-    os.kill(signal.SIGKILL)
+    sys.exit(signal.SIGKILL)
 
 
 def unwrap():
@@ -96,9 +96,9 @@ def unwrap():
 
     # if it logs running and is in the 'W' or 'U' state then it will go
     # through the full process of trying to change states and receive a
-    # special kind of exception
-    rc, kill = ji_intercom.log_running(next_report_increment=(
-        args['heartbeat_interval'] * args['report_by_buffer']),
+    # special exception to signal that it can't run and should kill itself
+    rc, kill = ji_intercom.log_running(
+        next_report_increment=(args['heartbeat_interval'] * args['report_by_buffer']),
         executor_id=os.environ.get('JOB_ID'))
     if kill == 'True':
         kill_self()
