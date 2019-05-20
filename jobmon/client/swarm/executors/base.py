@@ -3,6 +3,7 @@ import os
 import shutil
 
 from jobmon.client import client_config
+from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 
 logger = logging.getLogger(__name__)
@@ -44,8 +45,8 @@ class Executor(object):
         """
         raise NotImplementedError
 
-    def get_remote_exit_info(self):
-        raise NotImplementedError
+    def get_remote_exit_info(self, executor_id):
+        raise RemoteExitInfoNotAvailable
 
     def get_actual_submitted_or_running(self):
         raise NotImplementedError

@@ -9,13 +9,15 @@ import pandas as pd
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors import Executor, ExecutorWorkerNode
 from jobmon.client.swarm.executors.sge_resource import SGEResource
+from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
+
 
 logger = logging.getLogger(__name__)
 
@@ -128,8 +130,7 @@ class SGEExecutor(Executor):
                    f":{exit_code}.")
             return JobInstanceStatus.RESOURCE_ERROR, msg
         else:
-            msg = ("Unknow error caused job to be lost")
-            return JobInstanceStatus.UNKNOWN_ERROR, msg
+            raise RemoteExitInfoNotAvailable
 
     def build_wrapped_command(self, job, job_instance_id, stderr=None,
                               stdout=None, project=None, working_dir=None):

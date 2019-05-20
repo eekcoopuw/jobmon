@@ -175,9 +175,9 @@ class JobInstanceReconciler(object):
 
     def _account_for_lost_job_instances(self):
         rc, response = self.requester.send_request(
-            app_route=f'/task_dag/{self.dag_id}/job_instances_by_status',
+            app_route=f'/dag/{self.dag_id}/get_job_instances_by_status',
             message={"status": [JobInstanceStatus.LOST_TRACK]},
-            request_type='post')
+            request_type='get')
         if rc != StatusCodes.OK:
             lost_job_instances = []
         else:

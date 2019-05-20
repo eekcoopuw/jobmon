@@ -101,7 +101,7 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
                  'slack_channel': "",
                  'executor_class': 'SGEExecutor',
                  'working_dir': "",
-+                'resource_adjustment': "0.5"},
+                 'resource_adjustment': "0.5"},
         request_type='post')
     wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that
@@ -182,7 +182,8 @@ def test_jsm_valid_done(real_dag_id):
         request_type='post')
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
-        message={'job_instance_id': str(job_instance_id), 'nodename': socket.getfqdn()},
+        message={'job_instance_id': str(job_instance_id),
+                 'nodename': socket.getfqdn()},
         request_type='post')
 
 
@@ -228,7 +229,7 @@ def test_jsm_valid_error(real_dag_id):
         app_route='/job_instance/{}/log_error'.format(job_instance_id),
         message={'error_message': "this is an error message",
                  'executor_id': str(12345),
-                 'exit_status': 2,
+                 'error_state': JobInstanceStatus.ERROR,
                  'nodename': socket.getfqdn()},
         request_type='post')
 
@@ -413,7 +414,7 @@ def test_job_reset(db_cfg, real_dag_id):
         app_route='/job_instance/{}/log_error'.format(ji1),
         message={'error_message': "error 1",
                  'executor_id': str(12345),
-                 'exit_status': 1,
+                 'error_state': JobInstanceStatus.ERROR,
                  'nodename': socket.getfqdn()},
         request_type='post')
 
@@ -439,7 +440,7 @@ def test_job_reset(db_cfg, real_dag_id):
         app_route='/job_instance/{}/log_error'.format(ji2),
         message={'error_message': "error 1",
                  'executor_id': str(12345),
-                 'exit_status': 1,
+                 'error_state': JobInstanceStatus.ERROR,
                  'nodename': socket.getfqdn()},
         request_type='post')
 

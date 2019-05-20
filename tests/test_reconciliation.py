@@ -2,17 +2,18 @@ import pytest
 import time
 from time import sleep
 
+from jobmon.client import client_config
 from jobmon.client.swarm.executors import sge_utils as sge
-from jobmon.models.job import Job
-from jobmon.models.job_status import JobStatus
 from jobmon.client import shared_requester as req
 from jobmon.client.swarm.executors.dummy import DummyExecutor
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.server.jobmonLogging import jobmonLogging as logging
 from jobmon.client.utils import kill_remote_process
+from jobmon.models.job import Job
+from jobmon.models.job_status import JobStatus
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 from tests.timeout_and_skip import timeout_and_skip
 from functools import partial
@@ -25,11 +26,17 @@ def job_list_manager_dummy(real_dag_id):
     # We don't want this queueing jobs in conflict with the SGE daemons...
     # but we do need it to subscribe to status updates for reconciliation
     # tests. Start this thread manually.
+    old_heartbeat_interval = client_config.heartbeat_interval
+    old_lost_track_timeout = client_config.lost_track_timeout
+    client_config.heartbeat_interval = 5
+    client_config.lost_track_timeout = 5
     executor = DummyExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
                          start_daemons=False, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
+    client_config.heartbeat_interval = old_heartbeat_interval
+    client_config.lost_track_timeout = old_lost_track_timeout
 
 
 @pytest.fixture(scope='function')
@@ -113,6 +120,7 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     job = job_list_manager_dummy.bind_task(task)
     job_list_manager_dummy.queue_job(job)
     jif = job_list_manager_dummy.job_instance_factory
+    jir = job_list_manager_dummy.job_inst_reconciler
 
     # How long we wait for a JI to report it is running before reconciler moves
     # it to error state.
@@ -120,8 +128,7 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     job_list_manager_dummy.job_instance_factory.instantiate_queued_jobs()
 
     # Since we are using the 'dummy' executor, we never actually do
-    # any work. The job gets moved to error during reconciliation
-    # because we only allow 1 attempt
+    # any work. The job gets moved to lost_track during reconciliation
     state = ''
     maxretries = 10
     app = db_cfg["app"]
@@ -140,16 +147,34 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     if state != "B":
         raise Exception("The init status failed to be set to B")
 
+    # job will move into lost track because it never logs a heartbeat
     i = 0
-    while i <  maxretries:
-        job_list_manager_dummy.job_inst_reconciler.reconcile()
-        job_list_manager_dummy._sync()
+    while i < maxretries:
+        jir._transition_job_instances_to_lost()
         i += 1
         res = DB.session.execute(sql).fetchone()
         DB.session.commit()
-        if res[0] == "E":
+        if res[0] != "B":
             break
         sleep(5)
+    assert res[0] == "L"
+
+    # job instance logs an unknown error during rbecause dummy has no method:
+    # get_remote_exit_info
+    i = 0
+    while i < maxretries:
+        jir._account_for_lost_job_instances()
+        i += 1
+        res = DB.session.execute(sql).fetchone()
+        DB.session.commit()
+        if res[0] != "L":
+            break
+        sleep(5)
+    assert res[0] == "U"
+
+    # because we only allow 1 attempt job will move to E after job instance
+    # moves to U
+    job_list_manager_dummy._sync()
     assert len(job_list_manager_dummy.all_error) > 0
 
 
@@ -183,7 +208,8 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
         sleep(2)
 
 
-def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
+def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg
+                                       ):
     """ensures that the jobs have logged new heartbeats while running"""
     job_list_manager_reconciliation.all_error = set()
     jir = job_list_manager_reconciliation.job_inst_reconciler

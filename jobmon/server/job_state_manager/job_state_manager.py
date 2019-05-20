@@ -401,7 +401,7 @@ def _increase_resources(exec_id: int, scale: float)->str:
         job_instance, job
     where
         job_instance.job_id=job.job_id and executor_id = {exec_id}
-    """.format(exec_id)
+    """.format(exec_id=exec_id)
     res = DB.session.execute(query).fetchone()
     mem = res[0]
     cores = res[1]

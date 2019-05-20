@@ -1,21 +1,24 @@
-import datetime
+from datetime import datetime
 
+from jobmon.client import client_config, shared_requester
+from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.client import client_config
 
 
 class SwarmJobInstance:
 
     def __init__(self, job_instance_id, executor_id, executor,
                  workflow_run_id=None, nodename=None, process_group_id=None,
-                 job_id=None, dag_id=None, status=None, status_date=None):
+                 job_id=None, dag_id=None, status=None, status_date=None,
+                 requester=shared_requester):
 
         # job_instance_id should be immutable so make it private
         self.job_instance_id = job_instance_id
         self.executor_id = executor_id
 
-        # interface to the executor
+        # interfaces to the executor and server
         self.executor = executor
+        self.requester = shared_requester
 
         # these attributes do not affect any current functionality but are
         # returned from the job_query_service
@@ -41,11 +44,17 @@ class SwarmJobInstance:
                    status_date=datetime.strptime(dct['status_date'],
                                                  "%Y-%m-%dT%H:%M:%S"))
 
+    @property
     def time_since_status(self):
         return (datetime.utcnow() - self.status_date).seconds
 
     def log_error(self):
-        error_state, msg = self.executor.get_remote_exit_info(self.executor_id)
+        try:
+            error_state, msg = self.executor.get_remote_exit_info(
+                self.executor_id)
+        except RemoteExitInfoNotAvailable:
+            msg = ("Unknow error caused job to be lost")
+            error_state = JobInstanceStatus.UNKNOWN_ERROR
 
         # this is the 'happy' path. The executor gives us a concrete error for
         # the lost job

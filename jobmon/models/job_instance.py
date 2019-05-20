@@ -128,6 +128,10 @@ class JobInstance(DB.Model):
                 self.job.transition_to_error()
             elif new_state == JobInstanceStatus.NO_EXECUTOR_ID:
                 self.job.transition_to_error()
+            elif new_state == JobInstanceStatus.LOST_TRACK:
+                self.job.transition_to_error()
+            elif new_state == JobInstanceStatus.RESOURCE_ERROR:
+                self.job.transition_to_error()
 
     def _validate_transition(self, new_state):
         """Ensure the JobInstance status transition is valid"""
