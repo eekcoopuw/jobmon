@@ -141,6 +141,7 @@ def test_valid_command(job_list_manager):
     assert len(job_list_manager.all_done) > 0
 
 
+
 def test_daemon_invalid_command(job_list_manager_d):
     job = job_list_manager_d.bind_task(Task(command="some new job",
                                             name="foobar", num_cores=1))
@@ -312,10 +313,15 @@ def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg,
                                  ephemera_conn_str, monkeypatch, caplog):
     """should try to log a report by date after being set to the L state and
     fail"""
+    # import jobmon.client.swarm.job_management.job_instance_intercom
+    # monkeypatch.setattr(
+    #     jobmon.client.swarm.job_management.job_instance_intercom,
+    #     "JobInstanceIntercom",
+    #     MockIntercom)
     jlm = job_list_manager_sge_no_daemons
     jif = jlm.job_instance_factory
-    job = jlm.bind_task(Task(command="sleep 100", name="lost_task",
-                             num_cores=3, max_runtime_seconds='1000',
+    job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
+                             num_cores=3, max_runtime_seconds='70',
                              mem_free='600M'))
     jlm.queue_job(job)
     jids = jif.instantiate_queued_jobs()
@@ -330,17 +336,17 @@ def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg,
         SET status = 'U' 
         WHERE job_instance_id = {}""".format(jids[0].job_instance_id))
         DB.session.commit()
-    jlm._sync()
     exec_id = resp.executor_id
-    done = False
-    while not done:
+    exit_status = None
+    tries = 1
+    while exit_status is None and tries < 10:
         try:
-            exit_code = check_output(f"qacct -j {exec_id} | grep exit_status",
+            exit_status = check_output(f"qacct -j {exec_id} | grep exit_status",
                              shell=True, universal_newlines=True)
-            assert '1' in exit_code
-            done = True
         except:
-            done = False
+            tries += 1
+            sleep(3)
+    assert '9' in exit_status
 
 
 def query_till_running(db_cfg):
