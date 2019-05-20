@@ -36,7 +36,7 @@ class JobInstanceIntercom(object):
 
     def log_done(self, executor_id):
         """Tell the JobStateManager that this job_instance is done"""
-        message = {}
+        message = {'nodename': socket.getfqdn()}
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
@@ -47,7 +47,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_error(self, error_message, executor_id):
+    def log_error(self, error_message, executor_id, exit_status, scale=0.5):
         """Tell the JobStateManager that this job_instance has errored"""
 
         # clip at 10k to avoid mysql has gone away errors when posting long
@@ -58,7 +58,12 @@ class JobInstanceIntercom(object):
             logger.info(f"Error_message is {e_len} which is more than the 10k "
                         "character limit for error messages. Only the final "
                         "10k will be captured by the database.")
-        message = {'error_message': error_message}
+
+        message = {'error_message': error_message,
+                   'exit_status': exit_status,
+                   'resource_adjustment': scale,
+                   'nodename': socket.getfqdn()}
+
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:

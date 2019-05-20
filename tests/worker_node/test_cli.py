@@ -37,7 +37,7 @@ class MockIntercom:
     def log_done(self, executor_id):
         pass
 
-    def log_error(self, error_message, executor_id):
+    def log_error(self, error_message, executor_id, exit_status):
         pass
 
 
@@ -49,7 +49,7 @@ def mock_kill_remote_process_group(a, b):
 
 class MockIntercomRaiseInLogError(MockIntercom):
 
-    def log_error(self, error_message, executor_id):
+    def log_error(self, error_message, executor_id, exit_status):
         if EXCEPTION_MSG in error_message:
             raise ExpectedException
 
@@ -65,7 +65,7 @@ class MockIntercomCheckExecutorId(MockIntercom):
     def log_done(self, executor_id):
         assert executor_id == '77777'
 
-    def log_error(self, error_message, executor_id):
+    def log_error(self, error_message, executor_id, exit_status):
         assert executor_id == '77777'
 
 
@@ -119,7 +119,7 @@ class MockIntercomLogHeartbeatToError(MockIntercom):
     def log_report_by(self, next_report_increment, executor_id):
         print("logging report by in the middle", file=sys.stderr)
 
-    def log_error(self, error_message, executor_id):
+    def log_error(self, error_message, executor_id, exit_status):
         assert error_message == ("a" * 2**10 + "\n") * (2**8)
 
 

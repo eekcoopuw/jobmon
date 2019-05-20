@@ -4,6 +4,7 @@ import os
 import uuid
 import subprocess
 from multiprocessing import Process
+from getpass import getuser
 
 from jobmon import BashTask  # testing new style imports
 from jobmon import PythonTask
@@ -58,6 +59,16 @@ def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
     assert success
 
 
+def cleanup_jlm(workflow):
+    """If a dag is not completed properly and all threads are disconnected,
+    a new job list manager will access old job instance factory/reconciler
+    threads instead of creating new ones. So we need to make sure threads get
+    cleand up at the end"""
+
+    if workflow.task_dag.job_list_manager:
+        workflow.task_dag.job_list_manager.disconnect()
+
+
 @pytest.mark.qsubs_jobs
 def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Create identical dags
@@ -88,6 +99,8 @@ def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Make sure the second Workflow has a distinct set of Jobs
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
+    cleanup_jlm(wf1)
+    cleanup_jlm(wf2)
 
 
 @pytest.mark.qsubs_jobs
@@ -104,6 +117,7 @@ def test_resource_arguments(real_jsm_jqs, db_cfg):
     wf.add_tasks([t1])
     return_code = wf.execute()
     assert return_code == DagExecutionStatus.SUCCEEDED
+    cleanup_jlm(wf)
 
 
 @pytest.mark.qsubs_jobs
@@ -138,6 +152,9 @@ def test_dag_update(real_jsm_jqs, db_cfg):
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
+    cleanup_jlm(wf1)
+    cleanup_jlm(wf2)
+
 
 @pytest.mark.qsubs_jobs
 def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
@@ -170,6 +187,8 @@ def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
     # Make sure the second Workflow has a distinct set of Jobs
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
+    cleanup_jlm(wf1)
+    cleanup_jlm(wf2)
 
 
 @pytest.mark.qsubs_jobs
@@ -241,6 +260,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
             workflow_run_id=stopped_wf.workflow_run.id).all()
         assert all(job.status != JobInstanceStatus.RUNNING
                    for job in wf_run_jobs)
+        DB.session.commit()
 
     # Validate that a new WorkflowRun has different logdirs and project
     assert workflow.workflow_run.stderr != stopped_wf.workflow_run.stderr
@@ -253,6 +273,8 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     jlm = workflow.task_dag.job_list_manager
     for _, task in workflow.task_dag.tasks.items():
         assert jlm.status_from_task(task) == JobStatus.DONE
+    cleanup_jlm(workflow)
+    cleanup_jlm(stopped_wf)
 
 
 @pytest.mark.qsubs_jobs
@@ -312,6 +334,7 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
         assert jobDAO.max_attempts == 3
         assert jobDAO.num_attempts == 0
         assert jobDAO.status == JobStatus.REGISTERED
+        DB.session.commit()
 
     workflow.execute()
 
@@ -323,6 +346,7 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
         assert jobDAO.max_attempts == 3
         assert jobDAO.num_attempts == 1
         assert jobDAO.status == JobStatus.DONE
+        DB.session.commit()
 
     # Validate that a new WorkflowRun was created and is DONE
     assert workflow.workflow_run.id != stopped_wf.workflow_run.id
@@ -343,6 +367,9 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
         # TODO: Improve design for STOPPED/ERROR states for both Workflows and
         # WorkflowRuns..
         assert other_wfr.status == WorkflowRunStatus.STOPPED
+        DB.session.commit()
+    cleanup_jlm(workflow)
+    cleanup_jlm(stopped_wf)
 
 
 @pytest.mark.qsubs_jobs
@@ -362,6 +389,7 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
 
     with pytest.raises(WorkflowAlreadyComplete):
         workflow.execute()
+    cleanup_jlm(workflow)
 
 
 def test_force_new_workflow_instead_of_resume(simple_workflow):
@@ -391,6 +419,7 @@ def test_dag_reset(db_cfg, simple_workflow_w_errors):
                      JobStatus.ERROR_FATAL, JobStatus.REGISTERED]
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
+        DB.session.commit()
 
     # Now RESET and make sure all the jobs that aren't "DONE" flip back to
     # REGISTERED
@@ -406,6 +435,8 @@ def test_dag_reset(db_cfg, simple_workflow_w_errors):
                      JobStatus.REGISTERED, JobStatus.REGISTERED]
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
+        DB.session.commit()
+    cleanup_jlm(err_wf)
 
 
 def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
@@ -422,11 +453,12 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
         jobs = [j for j in jobs if j.status == JobStatus.ERROR_FATAL]
         jis = [ji for job in jobs for ji in job.job_instances
                if ji.status == JobInstanceStatus.ERROR]
+        DB.session.commit()
 
         # Make sure all their node names were recorded
-        nodenames = [ji.nodename for ji in jis if ji.nodename is not None]
-        # TODO Sometimes we just don't get all the nodenames, sometimes we do
-        assert nodenames and len(nodenames) >= 5
+        nodenames = [ji.nodename for ji in jis]
+        assert nodenames and all(nodenames)
+    cleanup_jlm(err_wf)
 
 
 def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
@@ -448,6 +480,7 @@ def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
             f"job_instance WHERE dag_id = {int(err_wf.dag_id)}")
 
         errored_job_id = DB.session.execute(query).first()[0]
+        DB.session.commit()
     qacct_output = subprocess.check_output(
         args=['qacct', '-j', f'{errored_job_id}'],
         encoding='UTF-8').strip()
@@ -458,6 +491,7 @@ def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
 
     # exit status should not be a success, expect failure
     assert exit_status != 0
+    cleanup_jlm(err_wf)
 
 
 @pytest.mark.qsubs_jobs
@@ -475,6 +509,7 @@ def test_fail_fast(real_jsm_jqs, db_cfg):
 
     assert len(workflow.task_dag.job_list_manager.all_error) == 1
     assert len(workflow.task_dag.job_list_manager.all_done) >= 2
+    cleanup_jlm(workflow)
 
 
 def test_heartbeat(db_cfg, real_jsm_jqs):
@@ -514,6 +549,7 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
         # rate is << than the health monitor's loss_threshold (5min)
         lost = hm._get_lost_workflow_runs(DB.session)
         assert not lost
+        DB.session.commit()
 
     # Setup monitor with a very short loss threshold (~3s = 1min/20)
     hm_hyper = HealthMonitor(loss_threshold=1 / 20.,
@@ -526,6 +562,7 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
             sleep(10)
             i += 1
             lost = hm_hyper._get_lost_workflow_runs(DB.session)
+            DB.session.commit()
             if lost:
                 break
         assert lost
@@ -538,6 +575,9 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
     with app.app_context():
         active = hm_hyper._get_active_workflow_runs(DB.session)
         assert wfr.id not in [w.id for w in active]
+        DB.session.commit()
+
+    cleanup_jlm(workflow)
 
 
 def test_timeout(real_jsm_jqs, db_cfg):
@@ -556,6 +596,7 @@ def test_timeout(real_jsm_jqs, db_cfg):
                     "timeout length (3 seconds). Submitted tasks will still"
                     " run, but the workflow will need to be restarted.")
     assert expected_msg == str(error.value)
+    cleanup_jlm(wf1)
 
 
 def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
@@ -627,6 +668,7 @@ def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
         DB.session.commit()
         failing_nodes = hm._calculate_node_failure_rate(DB.session, active_wfrs)
         assert 'new_fake_node.ihme.washington.edu' not in failing_nodes
+    cleanup_jlm(workflow)
 
 
 def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
@@ -649,6 +691,8 @@ def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
             filter_by(dag_id=workflow.task_dag.dag_id).\
             all()
         assert all(t.status == 'D' for t in j)
+        DB.session.commit()
+    cleanup_jlm(workflow)
 
 
 def test_anonymous_workflow(db_cfg, real_jsm_jqs):
@@ -691,6 +735,8 @@ def test_anonymous_workflow(db_cfg, real_jsm_jqs):
 
     # Make sure it's the same workflow
     assert workflow.id == new_workflow.id
+    cleanup_jlm(workflow)
+    cleanup_jlm(new_workflow)
 
 
 def test_workflow_status_dates(db_cfg, simple_workflow):
@@ -705,20 +751,30 @@ def test_workflow_status_dates(db_cfg, simple_workflow):
         wf_runs = wf_dao.workflow_runs
         for wfr in wf_runs:
             assert wfr.created_date != wfr.status_date
+        DB.session.commit()
+    cleanup_jlm(simple_workflow)
 
 
 @pytest.mark.qsubs_jobs
-def test_workflow_sge_args(real_jsm_jqs, db_cfg):
-    t1 = PythonTask(script='{}/executor_args_check.py'.format(
-        os.path.dirname(os.path.realpath(__file__))), slots=1)
+def test_workflow_sge_args(db_cfg, real_jsm_jqs):
+    """Test to make sure that the correct information is available to the
+     worker cli. For some reason, there are times when this fails and whatever
+     executor this workflow is pointing at has a working directory configured,
+     but the executor that is actually qsubbing does not have a working
+     directory configured. Is this because of the jqs and jsm interfering or a
+     problem with the job instance reconcilers not accessing the correct
+     executor somehow? """
+    t1 = PythonTask(name="check_env",
+                    script='{}/executor_args_check.py'
+                    .format(os.path.dirname(os.path.realpath(__file__))),
+                    slots=1, max_attempts=1)
     t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
     t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
 
-    wfa = "my_simple_dag"
+    wfa = "sge_args_dag"
     workflow = Workflow(workflow_args=wfa, project='proj_tools',
                         working_dir='/ihme/centralcomp/auto_test_data',
-                        stderr='/tmp',
-                        stdout='/tmp')
+                        stderr='/tmp', stdout='/tmp')
     workflow.add_tasks([t1, t2, t3])
     wf_status = workflow.execute()
 
@@ -733,6 +789,7 @@ def test_workflow_sge_args(real_jsm_jqs, db_cfg):
     assert workflow.workflow_run.stderr == '/tmp'
     assert workflow.workflow_run.stdout == '/tmp'
     assert workflow.workflow_run.executor_class == 'SGEExecutor'
+    cleanup_jlm(workflow)
 
 
 def test_workflow_identical_args(real_jsm_jqs, db_cfg):
@@ -754,6 +811,9 @@ def test_workflow_identical_args(real_jsm_jqs, db_cfg):
     wf3.add_task(task)
     with pytest.raises(WorkflowAlreadyComplete):
         wf3.execute()
+    cleanup_jlm(wf1)
+    cleanup_jlm(wf2)
+    cleanup_jlm(wf3)
 
 
 def test_workflow_config_reconciliation():
@@ -795,7 +855,6 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
         slept = 0
         while status != "R" and slept <= max_sleep:
             ji = session.query(JobInstance).one_or_none()
-            session.commit()
             sleep(5)
             slept += 5
             if ji:
@@ -826,3 +885,36 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
         slept += 5
         ex_id_list = sge_utils.qstat("pr").job_id.tolist()
     assert executor_id not in ex_id_list
+
+
+def test_workflow_resource_adjustment(simple_workflow_w_errors, db_cfg):
+    workflow = simple_workflow_w_errors
+
+    assert workflow.workflow_run.resource_adjustment == 0.5
+
+    wf_id = workflow.id
+    workflow.resource_adjustment = 0.3
+    workflow.resume = ResumeStatus.RESUME
+    workflow.execute()
+
+    assert workflow.workflow_run.resource_adjustment == 0.3
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """SELECT resource_adjustment
+                   FROM workflow_run
+                   WHERE workflow_id = {}""".format(wf_id)
+        resp = DB.session.execute(query).fetchall()
+        DB.session.commit()
+
+    assert len(resp) == 2
+    assert resp[0][0] == 0.5
+    assert resp[1][0] == 0.3
+    cleanup_jlm(workflow)
+
+
+
+
+
+

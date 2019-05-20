@@ -1,5 +1,6 @@
 from http import HTTPStatus as StatusCodes
 import logging
+import socket
 import threading
 import _thread
 from time import sleep
@@ -8,9 +9,13 @@ import traceback
 from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
 
 logger = logging.getLogger(__name__)
+
+ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247)
+DEFAULT_INCREMENT_SCALE = 0.5
 
 
 class JobInstanceReconciler(object):
@@ -83,7 +88,15 @@ class JobInstanceReconciler(object):
                 stack = traceback.format_exc()
                 logger.error(stack)
                 # Also write to stdout because this is a serious problem
-                print(msg)
+                print(msg, stack)
+                # Also send to server
+                msg = (
+                    f"Error in {self.__class__.__name__}, {str(self)} "
+                    f"in reconcile_periodically: \n{stack}")
+                shared_requester.send_request(
+                    app_route="/error_logger",
+                    message={"traceback": msg},
+                    request_type="post")
                 if self.interrupt_on_error:
                     _thread.interrupt_main()
                     self._stop_event.set()
@@ -167,13 +180,16 @@ class JobInstanceReconciler(object):
         Args:
             job_instance_id (int): id for the job_instance that has timed out
         """
-        message = {'error_message': "Timed out"}
+        message = {'error_message': "Timed out", 'nodename': socket.getfqdn()}
         if executor_id is not None:
             message['executor_id'] = executor_id
+        exit_code = qacct_exit_status(executor_id)
+        message['exit_status'] = exit_code
         return self.requester.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message=message,
-            request_type='post')
+            request_type='post',
+            )
 
     def _request_permission_to_reconcile(self):
         """Syncs with the database and logs a heartbeat"""
