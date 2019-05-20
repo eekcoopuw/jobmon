@@ -440,7 +440,7 @@ def log_error(job_instance_id):
     data = request.get_json()
     logger.debug("Log ERROR for JI {}, message={}".format(
         job_instance_id, data['error_message']))
-    ji = _get_job_instance(DB.session, job_instance_id)
+    ji = _get_job_instance(DB.session, int(job_instance_id))
     logger.debug("data:" + str(data))
     logger.debug("Reading nodename {}".format(ji.nodename))
     ji.nodename = data['nodename']
@@ -456,13 +456,13 @@ def log_error(job_instance_id):
         DB.session.add(error)
         logger.debug(logging.logParameter("DB.session", DB.session))
         DB.session.commit()
-        # Check exit_statue to see if resource needs to be increased
+        # Check exit_status to see if resource needs to be increased
         exit_status = data["exit_status"]
         logger.debug("exit_status: " + str(exit_status))
 
         if int(exit_status) in RESOURCE_LIMIT_KILL_CODES:
             # increase resources
-            scale = 0.5 #default value
+            scale = 0.5  # default value
             if data.get('resource_adjustment', None) is not None:
                 scale = data['resource_adjustment']
             msg += _increase_resources(data['executor_id'], scale)
@@ -477,8 +477,15 @@ def log_error(job_instance_id):
     return resp
 
 
+def _log_error(job_instance: JobInstance, error_message: str,
+               request: object) -> None:
+    """"""
+    job_instance_id = job_instance.job_instance_id
+
+
+
 @jsm.route('/log_oom/<executor_id>', methods=['POST'])
-def log_oom(executor_id):
+def log_oom(executor_id: int):
     """Log instances where a job_instance is killed by an Out of Memory Kill
     event TODO: factor log_error out as a function and use it for both log_oom and log_error
     Args:
@@ -486,7 +493,8 @@ def log_oom(executor_id):
         executor_id (int): A UGE job_id
         task_id (int): UGE task_id if the job was an array job (included as
                        JSON in request)
-        message (str): Optional message (included as JSON in request)
+        error_message (str): Optional message to log as an error (included as
+                           JSON in request)
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_id", executor_id))
