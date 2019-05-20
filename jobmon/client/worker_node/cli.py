@@ -41,7 +41,7 @@ def enqueue_stderr(stderr, queue):
 
 def kill_self(child_process: subprocess.Popen=None):
     """If the worker has received a signal to kill itself, kill the child
-    processes and then self"""
+    processes and then self, will show up as an exit code 1 in qacct"""
     if child_process:
         child_process.kill()
     os.kill(signal.SIGKILL)
@@ -93,10 +93,14 @@ def unwrap():
                                       executor_class=ExecutorClass,
                                       process_group_id=os.getpid(),
                                       hostname=args['jm_host'])
+
+    # if it logs running and is in the 'W' or 'U' state then it will go
+    # through the full process of trying to change states and receive a
+    # special kind of exception
     rc, kill = ji_intercom.log_running(next_report_increment=(
         args['heartbeat_interval'] * args['report_by_buffer']),
         executor_id=os.environ.get('JOB_ID'))
-    if kill:
+    if kill == 'True':
         kill_self()
 
     try:
@@ -121,6 +125,10 @@ def unwrap():
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
+                # since the report by is not a state transition, it will not
+                #  get the error that the log running route gets, so just
+                # check the database and kill if its status means it should
+                #  be killed
                 if ji_intercom.in_kill_self_state():
                     kill_self(child_process=proc)
                 else:

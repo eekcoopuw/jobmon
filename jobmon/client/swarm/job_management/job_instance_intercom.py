@@ -113,6 +113,7 @@ class JobInstanceIntercom(object):
                        .format(self.job_instance_id)),
             message=message,
             request_type='post')
+        logger.debug(f"Response from log_running was: {resp}")
         return rc, resp
 
     def log_report_by(self, next_report_increment, executor_id):
@@ -135,6 +136,7 @@ class JobInstanceIntercom(object):
             message={},
             request_type='get')
         if resp['kill_self'] == 'True':
+            logger.debug("job_instance is in a state that indicates it needs to kill itself")
             return True
         else:
             return False
