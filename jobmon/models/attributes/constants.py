@@ -58,3 +58,8 @@ deploy_attribute = AttributeDictionary({
     'SERVICE_PORT': 9556,
     'SLACK_API_URL': 'https://slack.com/api/chat.postMessage',
 })
+
+qsub_attribute = AttributeDictionary({
+    'NO_EXEC_ID': -99999,
+    'UNPARSABLE': -33333
+})

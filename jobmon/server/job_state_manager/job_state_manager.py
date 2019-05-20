@@ -9,7 +9,7 @@ import traceback
 import warnings
 
 from jobmon.models import DB
-from jobmon.models.attributes.constants import job_attribute
+from jobmon.models.attributes.constants import job_attribute, qsub_attribute
 from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.attributes.workflow_run_attribute import \
@@ -494,6 +494,27 @@ def log_error(job_instance_id):
         warnings.warn(log_msg)
         logger.debug(log_msg)
         raise
+    return resp
+
+
+@jsm.route('/job_instance/<job_instance_id>/log_no_exec_id', methods=['POST'])
+def log_no_exec_id(job_instance_id):
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    logger.debug(f"Log NO EXECUTOR ID for JI {job_instance_id}")
+    data = request.get_json()
+    if data['executor_id'] == qsub_attribute.NO_EXEC_ID:
+        logger.info("Qsub was unsuccessful and caused an exception")
+    else:
+        logger.info("Qsub may have run, but the job id could not be parsed "
+                    "from the qsub response so no executor id can be assigned"
+                    " at this time")
+    ji = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    msg = _update_job_instance_state(ji, JobInstanceStatus.NO_EXECUTOR_ID)
+    DB.session.commit()
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
     return resp
 
 

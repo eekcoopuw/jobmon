@@ -105,7 +105,8 @@ class JobInstance(DB.Model):
 
         (JobInstanceStatus.RUNNING, JobInstanceStatus.LOST_TRACK),
 
-        (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)
+    ]
 
     untimely_transitions = [
         (JobInstanceStatus.RUNNING,
@@ -124,6 +125,8 @@ class JobInstance(DB.Model):
             elif new_state == JobInstanceStatus.DONE:
                 self.job.transition(JobStatus.DONE)
             elif new_state == JobInstanceStatus.ERROR:
+                self.job.transition_to_error()
+            elif new_state == JobInstanceStatus.NO_EXECUTOR_ID:
                 self.job.transition_to_error()
 
     def _validate_transition(self, new_state):
