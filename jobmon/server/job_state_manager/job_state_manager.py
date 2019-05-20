@@ -358,22 +358,22 @@ def log_error(job_instance_id):
     return resp
 
 
-@jsm.route('/log_oom/<job_id>', methods=['POST'])
-def log_oom(job_id):
+@jsm.route('/log_oom/<executor_id>', methods=['POST'])
+def log_oom(executor_id):
     """Log instances where a job_instance is killed by an Out of Memory Kill
-    event
+    event TODO: factor log_error out as a function and use it for both log_oom and log_error
     Args:
 
-        job_id (int): UGE job_id, in Jobmon parlance this is the executor_id
+        executor_id (int): A UGE job_id
         task_id (int): UGE task_id if the job was an array job (included as
                        JSON in request)
         message (str): Optional message (included as JSON in request)
     """
     logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_id", job_id))
+    logger.debug(logging.logParameter("job_id", executor_id))
     data = request.get_json()
 
-    job_instance = _get_job_instance_by_executor_id(job_id)
+    job_instance = _get_job_instance_by_executor_id(executor_id)
 
     if 'task_id' in data:
         task_id = data['task_id']
