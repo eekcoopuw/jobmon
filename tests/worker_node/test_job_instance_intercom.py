@@ -1,14 +1,14 @@
 import subprocess
 
 # This import is needed for the monkeypatch
-import jobmon.client.swarm.executors
-from jobmon.client.swarm.executors.sge import SGEExecutor
-from jobmon.client.worker_node.worker_node_intercom import WorkerNodeIntercom
+from jobmon.client.swarm.executors.sge import SGEExecutorWorkerNode
+from jobmon.client.worker_node.worker_node_job_instance import (
+    WorkerNodeJobInstance)
 
 error_raised = False
 
 
-class BadSGEExecutor(SGEExecutor):
+class BadSGEExecutor(SGEExecutorWorkerNode):
     """Mock the intercom interface for testing purposes, specifically
     to raise exceptions"""
 
@@ -19,15 +19,10 @@ class BadSGEExecutor(SGEExecutor):
 
 
 def test_bad_qstat_call(monkeypatch):
-    monkeypatch.setattr(
-        jobmon.client.swarm.executors.sge,
-        "SGEExecutor",
-        BadSGEExecutor)
-
-    ji_intercom = WorkerNodeIntercom(job_instance_id=12345,
-                                     executor_class=BadSGEExecutor,
-                                     process_group_id=9,
-                                     nodename='fake_host')
+    ji_intercom = WorkerNodeJobInstance(job_instance_id=12345,
+                                        executor=BadSGEExecutor(),
+                                        process_group_id=9,
+                                        nodename='fake_host')
 
     # The following should not throw
     ji_intercom.log_job_stats()

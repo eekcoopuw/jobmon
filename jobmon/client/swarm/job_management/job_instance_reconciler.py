@@ -185,8 +185,8 @@ class JobInstanceReconciler(object):
                 SwarmJobInstance.from_wire(ji, self.executor)
                 for ji in response["job_instances"]
             ]
-        for lost_job_instance in lost_job_instances:
-            lost_job_instance.log_error()
+        for swarm_job_instance in lost_job_instances:
+            swarm_job_instance.log_error()
 
     def _log_timeout_hostname(self, job_instance_id, hostname):
         """Logs the hostname for any job that has timed out

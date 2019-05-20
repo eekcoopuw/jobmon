@@ -1,9 +1,5 @@
 """Interface to the dynamic resource manager (DRM), aka the scheduler."""
 
-try:
-    from collections.abc import Sequence
-except ImportError:
-    from collections import Sequence
 from datetime import datetime
 import itertools
 import logging
@@ -14,7 +10,6 @@ import subprocess
 import pandas as pd
 import numpy as np
 
-import jobmon.client.swarm.executors.sge as sge
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
@@ -25,6 +20,7 @@ UGE_NAME_POLICY = re.compile(
 STATA_BINARY = "/usr/local/bin/stata-mp"
 R_BINARY = "/usr/local/bin/R"
 DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
+ERROR_QSTAT_ID = - 9998
 
 
 def true_path(file_or_dir=None, executable=None):
@@ -296,4 +292,4 @@ def qacct_exit_status(jid: int)->int:
     except Exception as e:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))
-        return sge.ERROR_QSTAT_ID
+        return ERROR_QSTAT_ID

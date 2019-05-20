@@ -37,7 +37,7 @@ class WorkerNodeJobInstance:
     @property
     def executor_id(self):
         if self._executor_id is None:
-            self._executor_id = os.environ.get('JOB_ID')
+            self.executor_id = self.executor.executor_id
         return self._executor_id
 
     @property
@@ -77,8 +77,11 @@ class WorkerNodeJobInstance:
                         "character limit for error messages. Only the final "
                         "10k will be captured by the database.")
 
-        message = {'error_message': error_message,
-                   'exit_status': exit_status,
+        error_state, msg = self.executor.get_exit_info(exit_status,
+                                                       error_message)
+
+        message = {'error_message': msg,
+                   'error_state': error_state,
                    'resource_adjustment': scale,
                    'nodename': self.nodename}
 

@@ -44,13 +44,10 @@ class Executor(object):
         """
         raise NotImplementedError
 
-    def get_usage_stats(self):
+    def get_remote_exit_info(self):
         raise NotImplementedError
 
     def get_actual_submitted_or_running(self):
-        raise NotImplementedError
-
-    def get_actual_submitted_to_executor(self):
         raise NotImplementedError
 
     def terminate_job_instances(self, job_instance_list):
@@ -97,3 +94,16 @@ class Executor(object):
     def set_temp_dir(self, temp_dir):
         self.temp_dir = temp_dir
         os.environ["JOBMON_TEMP_DIR"] = self.temp_dir
+
+
+class ExecutorWorkerNode:
+
+    @property
+    def executor_id(self):
+        raise NotImplementedError
+
+    def get_usage_stats(self):
+        raise NotImplementedError
+
+    def get_exit_info(self, exit_code, error_msg):
+        return NotImplementedError

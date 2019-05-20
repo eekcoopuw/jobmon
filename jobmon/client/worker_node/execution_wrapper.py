@@ -3,7 +3,6 @@ from functools import partial
 import logging
 import os
 from queue import Queue
-import socket
 import subprocess
 import sys
 from threading import Thread
@@ -11,7 +10,8 @@ from time import sleep, time
 import traceback
 
 from jobmon.exceptions import ReturnCodes
-from jobmon.client.worker_node.worker_node_intercom import WorkerNodeIntercom
+from jobmon.client.worker_node.worker_node_job_instance import (
+    WorkerNodeJobInstance)
 from jobmon.client.utils import kill_remote_process_group
 
 logger = logging.getLogger()
@@ -69,9 +69,9 @@ def unwrap():
     # identify executor class
     if args["executor_class"] == "SequentialExecutor":
         from jobmon.client.swarm.executors.sequential import \
-            SequentialExecutor as ExecutorClass
+            SequentialExecutorWorkerNode as ExecutorClass
     elif args["executor_class"] == "SGEExecutor":
-        from jobmon.client.swarm.executors.sge import SGEExecutor \
+        from jobmon.client.swarm.executors.sge import SGEExecutorWorkerNode \
             as ExecutorClass
     elif args["executor_class"] == "DummyExecutor":
         from jobmon.client.swarm.executors.dummy import DummyExecutor \
@@ -84,11 +84,11 @@ def unwrap():
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
-    worker_node_intercom = WorkerNodeIntercom(
+    worker_node_job_instance = WorkerNodeJobInstance(
         job_instance_id=args["job_instance_id"],
         executor_id=os.environ.get('JOB_ID'),
         executor=executor)
-    worker_node_intercom.log_running(next_report_increment=(
+    worker_node_job_instance.log_running(next_report_increment=(
         args['heartbeat_interval'] * args['report_by_buffer']))
 
     try:
@@ -113,7 +113,7 @@ def unwrap():
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
-                worker_node_intercom.log_report_by(next_report_increment=(
+                worker_node_job_instance.log_report_by(next_report_increment=(
                     args['heartbeat_interval'] * args['report_by_buffer']))
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
@@ -133,14 +133,14 @@ def unwrap():
 
     # post stats usage
     if args["executor_class"] == "SGEExecutor":
-        worker_node_intercom.log_job_stats()
+        worker_node_job_instance.log_job_stats()
 
     # check return code
     if returncode != ReturnCodes.OK:
-        worker_node_intercom.log_error(error_message=str(stderr),
-                                       exit_status=returncode)
+        worker_node_job_instance.log_error(error_message=str(stderr),
+                                           exit_status=returncode)
     else:
-        worker_node_intercom.log_done()
+        worker_node_job_instance.log_done()
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting

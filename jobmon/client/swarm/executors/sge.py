@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import subprocess
-from time import sleep
 from typing import List
 import traceback
 
@@ -14,13 +13,12 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import sge_utils
-from jobmon.client.swarm.executors import Executor
+from jobmon.client.swarm.executors import Executor, ExecutorWorkerNode
 from jobmon.client.swarm.executors.sge_resource import SGEResource
 
 logger = logging.getLogger(__name__)
 ERROR_SGE_JID = -99999
-ERROR_QSTAT_ID = - 9998
-ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247)
+ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, 44, -9)
 
 ExecutorIDs = List[int]
 
@@ -114,11 +112,9 @@ class SGEExecutor(Executor):
                 return_list.append((int(ji_id), hostname))
         return return_list
 
-    def get_exit_status(self, executor_id):
-        return sge_utils.qacct_exit_status(executor_id)
-
-    def get_exit_info(self, exit_code):
+    def get_remote_exit_info(self, executor_id):
         """return the exit state associated with a given exit code"""
+        exit_code = sge_utils.qacct_exit_status(executor_id)
         if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
             msg = ("Insufficient resources requested. Job was lost. "
                    f"{self.__class__.__name__} accounting discovered exit code"
@@ -228,3 +224,26 @@ class SGEExecutor(Executor):
                         stderr=stderr_cmd,
                         stdout=stdout_cmd))
         return qsub_cmd
+
+
+class SGEExecutorWorkerNode(ExecutorWorkerNode):
+
+    def __init__(self):
+        self._executor_id = os.environ.get('JOB_ID')
+
+    def executor_id(self):
+        if self._executor_id is None:
+            self._executor_id = os.environ.get('JOB_ID')
+        return self._executor_id
+
+    def get_usage_stats(self):
+        return sge_utils.qstat_usage([self.executor_id])[int(self.executor_id)]
+
+    def get_exit_info(self, exit_code, error_msg):
+        if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
+            msg = (f"Insufficient resources requested. Found exit code: "
+                   f"{exit_code}. Application returned error message:\n" +
+                   error_msg)
+            return JobInstanceStatus.RESOURCE_ERROR, msg
+        else:
+            return JobInstanceStatus.ERROR, error_msg

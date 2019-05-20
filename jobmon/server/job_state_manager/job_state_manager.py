@@ -446,9 +446,6 @@ def _increase_resources(exec_id: int, scale: float)->str:
         return msg
 
 
-RESOURCE_LIMIT_KILL_CODES = (137, 247, 44, -9)
-
-
 @jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
 def log_error(job_instance_id):
     """Log a job_instance as errored
@@ -472,25 +469,23 @@ def log_error(job_instance_id):
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
 
+    # increase resources on job first to eliminate a theoretical race condition
+    if data["error_state"] == JobInstanceStatus.RESOURCE_ERROR:
+        scale = 0.5  # default value
+        if data.get('resource_adjustment', None) is not None:
+            scale = data['resource_adjustment']
+        msg = _increase_resources(data['executor_id'], scale)
+    else:
+        msg = ""
+
     try:
-        msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
+        msg += _update_job_instance_state(ji, data["error_state"])
         DB.session.commit()
         error = JobInstanceErrorLog(
             job_instance_id=job_instance_id,
             description=data['error_message'])
         DB.session.add(error)
-        logger.debug(logging.logParameter("DB.session", DB.session))
         DB.session.commit()
-        # Check exit_statue to see if resource needs to be increased
-        exit_status = data["exit_status"]
-        logger.debug("exit_status: " + str(exit_status))
-
-        if int(exit_status) in RESOURCE_LIMIT_KILL_CODES:
-            # increase resources
-            scale = 0.5  # default value
-            if data.get('resource_adjustment', None) is not None:
-                scale = data['resource_adjustment']
-            msg += _increase_resources(data['executor_id'], scale)
 
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.OK
@@ -574,7 +569,7 @@ def log_executor_report_by(dag_id):
 
 
 @jsm.route('/task_dag/<dag_id>/transition_jis_to_lost', methods=['POST'])
-def _transition_job_instances_to_lost(dag_id):
+def transition_job_instances_to_lost(dag_id):
 
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
