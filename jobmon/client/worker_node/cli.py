@@ -13,7 +13,9 @@ from jobmon.exceptions import ReturnCodes
 from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
+from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
+logger = logging.getLogger()
 
 def enqueue_stderr(stderr, queue):
     """eagerly print 100 byte blocks to stderr so pipe doesn't fill up and
@@ -149,14 +151,19 @@ def unwrap():
     except Exception as exc:
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
                                      traceback.format_exc())
+        logger.warning(stderr)
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
     # check return code
     if returncode != ReturnCodes.OK:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
+        jid = os.environ.get('JOB_ID')
+        logger.debug("jid:" + str(jid))
         ji_intercom.log_error(error_message=str(stderr),
-                              executor_id=os.environ.get('JOB_ID'))
+                              executor_id=jid,
+                              exit_status=returncode
+                              )
     else:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()

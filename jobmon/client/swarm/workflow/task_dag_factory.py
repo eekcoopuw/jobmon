@@ -34,5 +34,6 @@ class TaskDagMetaFactory(object):
             request_type='post')
         tdm = TaskDagMeta(dag_id=response['dag_id'], name=name,
                           created_date=datetime.utcnow())
-        logger.debug("New TaskDag created {}".format(tdm))
+        logger.debug("New TaskDag created {}, dag ID {}".format(tdm,
+                                                                tdm.dag_id))
         return tdm

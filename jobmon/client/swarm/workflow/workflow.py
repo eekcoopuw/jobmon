@@ -70,7 +70,7 @@ class Workflow(object):
                  interrupt_on_error=False, requester=shared_requester,
                  seconds_until_timeout=36000, resume=ResumeStatus.DONT_RESUME,
                  reconciliation_interval=None, heartbeat_interval=None,
-                 report_by_buffer=None):
+                 report_by_buffer=None, resource_adjustment=0.5):
         """
         Args:
             workflow_args (str): unique identifier of a workflow
@@ -102,6 +102,9 @@ class Workflow(object):
                 report_by_date (default = 3.1) so a job in qw can miss 3
                 reconciliations or a running job can miss 3 worker heartbeats,
                 and then we will register that it as lost
+            resource_adjustment (float): The rate at which a resource will be
+                increased if it fails from resource under requesting (value
+                between 0 and 1)
         """
         self.wf_dao = None
         self.name = name
@@ -152,6 +155,13 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
+
+        if 0 < resource_adjustment <= 1:
+            self.resource_adjustment = resource_adjustment
+        else:
+            logger.debug("You may only request a resource adjustment value "
+                         "between 0 and 1")
+            self.resource_adjustment = 0.5
 
     def set_executor(self, executor_class):
         """Set which executor to use to run the tasks.
@@ -299,7 +309,8 @@ class Workflow(object):
             self.id, self.stderr, self.stdout, self.project,
             executor_class=self.executor_class,
             reset_running_jobs=self.reset_running_jobs,
-            working_dir=self.working_dir)
+            working_dir=self.working_dir,
+            resource_adjustment=self.resource_adjustment)
 
     def _error(self):
         """Update the workflow as errored"""

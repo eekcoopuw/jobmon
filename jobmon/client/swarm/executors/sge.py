@@ -18,6 +18,8 @@ from jobmon.models.attributes.constants import qsub_attribute
 
 logger = logging.getLogger(__name__)
 
+ERROR_SGE_JID = -99999
+ERROR_QSTAT_ID = - 9998
 
 ExecutorIDs = List[int]
 
@@ -41,6 +43,7 @@ class SGEExecutor(Executor):
                                                   self.stderr, self.stdout,
                                                   self.project,
                                                   self.working_dir)
+            logger.debug(f"Qsub command is: {qsub_cmd}")
             resp = check_output(qsub_cmd, shell=True, universal_newlines=True)
             logger.debug(f"****** Received from qsub '{resp}'")
             if 'job' in resp:
