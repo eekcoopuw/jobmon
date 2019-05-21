@@ -427,28 +427,49 @@ RESOURCE_LIMIT_KILL_CODES = (137, 247, 44, -9)
 
 
 @jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
-def log_error(job_instance_id):
-    """Log a job_instance as errored
+def log_error(job_instance_id: str) -> object:
+    """Route to log a job_instance as errored
     Args:
-
         job_instance_id (str): id of the job_instance to log done
         error_message (str): message to log as error
     """
+    data = request.get_json()
+    ji = _get_job_instance(DB.session, int(job_instance_id))
+
+    return _log_error(job_instance=ji, data=data)
+
+
+def _log_error(job_instance: JobInstance, data: dict,
+               oom_killed: bool = False) -> object:
+    """Log a job_instance as errored
+    Args:
+        job_instance:
+        data:
+        oom_killed: whether or not given job errored due to an oom-kill event
+    """
+    job_instance_id = job_instance.job_instance_id
 
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-    data = request.get_json()
-    logger.debug("Log ERROR for JI {}, message={}".format(
-        job_instance_id, data['error_message']))
-    ji = _get_job_instance(DB.session, int(job_instance_id))
+
+    if oom_killed:
+        if 'task_id' not in data:
+            data['task_id'] = 'No task_id given'
+        if 'error_message' not in data:
+            data['error_message'] = 'No error message given'
+        logger.debug("Log OOM-Killed for JI {}, message={}, task_id={}".format(
+            job_instance_id, data['error_message'], data['task_id']))
+    else:
+        logger.debug("Log ERROR for JI {}, message={}".format(
+            job_instance_id, data['error_message']))
     logger.debug("data:" + str(data))
-    logger.debug("Reading nodename {}".format(ji.nodename))
-    ji.nodename = data['nodename']
+    logger.debug("Reading nodename {}".format(job_instance.nodename))
+    job_instance.nodename = data['nodename']
 
     if data.get('executor_id', None) is not None:
-        ji.executor_id = data['executor_id']
+        job_instance.executor_id = data['executor_id']
     try:
-        msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
+        msg = _update_job_instance_state(job_instance, JobInstanceStatus.ERROR)
         DB.session.commit()
         error = JobInstanceErrorLog(
             job_instance_id=job_instance_id,
@@ -477,37 +498,21 @@ def log_error(job_instance_id):
     return resp
 
 
-def _log_error(job_instance: JobInstance, error_message: str,
-               request: object) -> None:
-    """"""
-    job_instance_id = job_instance.job_instance_id
-
-
-
 @jsm.route('/log_oom/<executor_id>', methods=['POST'])
-def log_oom(executor_id: int):
+def log_oom(executor_id: str):
     """Log instances where a job_instance is killed by an Out of Memory Kill
     event TODO: factor log_error out as a function and use it for both log_oom and log_error
     Args:
-
         executor_id (int): A UGE job_id
         task_id (int): UGE task_id if the job was an array job (included as
                        JSON in request)
-        error_message (str): Optional message to log as an error (included as
-                           JSON in request)
+        error_message (str): Optional message to log (included as JSON in
+                             request)
     """
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_id", executor_id))
     data = request.get_json()
+    job_instance = _get_job_instance_by_executor_id(int(executor_id))
 
-    job_instance = _get_job_instance_by_executor_id(executor_id)
-
-    if 'task_id' in data:
-        task_id = data['task_id']
-    if 'message' in data:
-        message = data['message']
-
-    # log message including job_id and task_id and message
+    return _log_error(job_instance=job_instance, data=data, oom_killed=True)
 
 
 @jsm.route('/job_instance/<job_instance_id>/log_executor_id', methods=['POST'])
