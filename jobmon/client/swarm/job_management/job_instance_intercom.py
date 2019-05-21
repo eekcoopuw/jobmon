@@ -55,7 +55,7 @@ class JobInstanceIntercom(object):
             message['nodename'] = response['nodename'] if rc == StatusCodes.OK and response['nodename'] is not None else qacct_hostname(executor_id)
         else:
             message['nodename'] = nodename
-            
+
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:

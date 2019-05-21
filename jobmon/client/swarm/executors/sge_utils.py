@@ -300,7 +300,7 @@ def qacct_hostname(jid: int)->str:
     if jid is None:
         return None
     cmd1 = "qacct -j %s |grep hostname|awk \'{print $2}\'" % jid  # For strange reason f string or format does not work
-    logger.warning("**********************************************" + cmd1)
+    logger.debug(cmd1)
     try:
         return subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n", "")
     except Exception as e:
@@ -313,7 +313,7 @@ def qstat_hostname(jid: int)->str:
     if jid is None:
         return None
     cmd1 = " qstat -j %s |grep exec_host_list | awk -F \':\' \'{print $2}\'" % jid  # For strange reason f string or format does not work
-    logger.warning("**********************************************" + cmd1)
+    logger.debug(cmd1)
     try:
         return subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n", "").strip()
     except Exception as e:

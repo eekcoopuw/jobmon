@@ -86,11 +86,10 @@ def unwrap():
     ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
                                       executor_class=ExecutorClass,
                                       process_group_id=os.getpid(),
-                                      hostname=args['jm_host'])
-    ji_intercom.log_running(next_report_increment=(
-        args['heartbeat_interval'] * args['report_by_buffer']),
-        executor_id=os.environ.get('JOB_ID'),
-        nodename=args['last_nodename'])
+                                      hostname=args['last_nodename'])
+    ji_intercom.log_running(next_report_increment=(args['heartbeat_interval'] * args['report_by_buffer']),
+                            executor_id=os.environ.get('JOB_ID'),
+                            nodename=args['last_nodename'])
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
