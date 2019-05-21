@@ -261,3 +261,7 @@ class JobListManager(object):
 
     def disconnect(self):
         self._stop_event.set()
+
+    def connect(self):
+        self._stop_event = Event()
+        self._start_job_instance_manager()
