@@ -116,10 +116,10 @@ class JobInstance(DB.Model):
         (JobInstanceStatus.RUNNING,
          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     ]
-    kill_self_transitions = [
-        (JobInstanceStatus.NO_EXECUTOR_ID, JobInstanceStatus.RUNNING),
-        (JobInstanceStatus.UNKNOWN_ERROR, JobInstanceStatus.RUNNING)
-    ]
+
+    kill_self_states = [JobInstanceStatus.NO_EXECUTOR_ID,
+                        JobInstanceStatus.UNKNOWN_ERROR,
+                        JobInstanceStatus.RESOURCE_ERROR]
 
     def transition(self, new_state):
         """Transition the JobInstance status"""
@@ -139,7 +139,8 @@ class JobInstance(DB.Model):
 
     def _validate_transition(self, new_state):
         """Ensure the JobInstance status transition is valid"""
-        if (self.status, new_state) in self.__class__.kill_self_transitions:
+        if self.status in self.__class__.kill_self_states and \
+                new_state is JobInstanceStatus.RUNNING:
             raise KillSelfTransition('JobInstance', self.job_instance_id,
                                      self.status, new_state)
         if (self.status, new_state) not in self.__class__.valid_transitions:
