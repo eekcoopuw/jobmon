@@ -3,7 +3,6 @@ from functools import partial
 import logging
 import os
 from queue import Queue
-import socket
 import subprocess
 import sys
 from threading import Thread
@@ -11,6 +10,7 @@ from time import sleep, time
 import traceback
 
 from jobmon.exceptions import ReturnCodes
+from jobmon.client.swarm.executors.sge_utils import qstat_hostname
 from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
@@ -90,7 +90,8 @@ def unwrap():
                                       hostname=args['jm_host'])
     ji_intercom.log_running(next_report_increment=(
         args['heartbeat_interval'] * args['report_by_buffer']),
-        executor_id=os.environ.get('JOB_ID'))
+        executor_id=os.environ.get('JOB_ID'),
+        nodename=args['last_nodename'] if args['last_nodename'] is not None else qstat_hostname(os.environ.get('JOB_ID')))
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
@@ -139,14 +140,16 @@ def unwrap():
             ji_intercom.log_job_stats()
         jid = os.environ.get('JOB_ID')
         logger.debug("jid:" + str(jid))
+
         ji_intercom.log_error(error_message=str(stderr),
                               executor_id=jid,
-                              exit_status=returncode
+                              exit_status=returncode,
+                              nodename=args['last_nodename']
                               )
     else:
         if args["executor_class"] == "SGEExecutor":
             ji_intercom.log_job_stats()
-        ji_intercom.log_done(executor_id=os.environ.get('JOB_ID'))
+        ji_intercom.log_done(executor_id=os.environ.get('JOB_ID'), nodename=args['last_nodename'])
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting

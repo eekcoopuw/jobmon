@@ -377,3 +377,47 @@ def get_resources(executor_id):
     resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@jqs.route('/job_instance/<job_instance_id>/get_executor_id', methods=['GET'])
+def get_executor_id(job_instance_id: int):
+    """
+    This route is to get the executor id by job_instance_id
+
+    :param job_instance_id:
+    :return: executor_id
+    """
+    logger.debug(logging.myself())
+    sql = "select executor_id from job_instance where job_instance_id={}".format(job_instance_id)
+    try:
+        res = DB.session.execute(sql).fetchone()
+        DB.session.commit()
+        resp = jsonify({"executor_id": res[0]})
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        resp = jsonify({'msg': str(e)})
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+        return resp
+
+
+@jqs.route('/job_instance/<job_instance_id>/get_nodename', methods=['GET'])
+def get_nodename(job_instance_id: int):
+    """
+    This route is to get the nodename by job_instance_id
+
+    :param job_instance_id:
+    :return: nodename
+    """
+    logger.debug(logging.myself())
+    sql = "select nodename from job_instance where job_instance_id={}".format(job_instance_id)
+    try:
+        res = DB.session.execute(sql).fetchone()
+        DB.session.commit()
+        resp = jsonify({"nodename": res[0]})
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        resp = jsonify({'msg': str(e)})
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+        return resp

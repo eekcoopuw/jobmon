@@ -1,9 +1,10 @@
+from http import HTTPStatus as StatusCodes
 import logging
-import socket
 import sys
 import traceback
 
 from jobmon.client import shared_requester
+from jobmon.client.swarm.executors.sge_utils import qacct_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +35,19 @@ class JobInstanceIntercom(object):
         self.executor = executor_class()
         logger.debug("Instantiated JobInstanceIntercom")
 
-    def log_done(self, executor_id):
+    def log_done(self, executor_id, nodename):
         """Tell the JobStateManager that this job_instance is done"""
-        message = {'nodename': socket.getfqdn()}
+        message = dict()
+        if nodename is None:
+            # Use the hostname logged by log_running
+            rc, response = self.requester.send_request(
+                app_route='/job_instance/{}/get_nodename'.format(self.job_instance_id),
+                message={},
+                request_type='get'
+            )
+            message['nodename'] = response['nodename'] if rc == StatusCodes.OK and response['nodename'] is not None else qacct_hostname(executor_id)
+        else:
+            message['nodename'] = nodename
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
@@ -47,7 +58,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_error(self, error_message, executor_id, exit_status):
+    def log_error(self, error_message, executor_id, exit_status, nodename):
         """Tell the JobStateManager that this job_instance has errored"""
 
         # clip at 10k to avoid mysql has gone away errors when posting long
@@ -60,9 +71,18 @@ class JobInstanceIntercom(object):
                         "10k will be captured by the database.")
 
         message = {'error_message': error_message,
-                   'exit_status': exit_status,
-                   'nodename': socket.getfqdn()}
-
+                   'exit_status': exit_status
+                   }
+        if nodename is None:
+            # Use the hostname logged by log_running
+            rc, response = self.requester.send_request(
+                app_route='/job_instance/{}/get_nodename'.format(self.job_instance_id),
+                message={},
+                request_type='get'
+            )
+            message['nodename'] = response['nodename'] if rc == StatusCodes.OK and response['nodename'] is not None else qacct_hostname(executor_id)
+        else:
+            message['nodename'] = nodename
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
@@ -82,7 +102,6 @@ class JobInstanceIntercom(object):
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io']
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
-            msg['nodename'] = socket.getfqdn()
             rc, _ = self.requester.send_request(
                 app_route=('/job_instance/{}/log_usage'
                            .format(self.job_instance_id)),
@@ -100,11 +119,11 @@ class JobInstanceIntercom(object):
             logger.error("Traceback {}".
                          format(print(repr(traceback.format_tb(e_traceback)))))
 
-    def log_running(self, next_report_increment, executor_id):
+    def log_running(self, next_report_increment, executor_id, nodename):
         """Tell the JobStateManager that this job_instance is running, and
         update the report_by_date to be further in the future in case it gets
         reconciled immediately"""
-        message = {'nodename': socket.getfqdn(),
+        message = {'nodename': nodename,
                    'process_group_id': str(self.process_group_id),
                    'next_report_increment': next_report_increment}
         logger.debug(f'executor_id is {executor_id}')

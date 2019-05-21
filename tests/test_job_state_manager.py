@@ -814,3 +814,125 @@ def test_executor_id_logging(db_cfg, real_dag_id):
         assert ji.executor_id == 98765
         DB.session.commit()
 
+
+def test_get_executor_id(real_dag_id):
+    # add job
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
+
+    # add job instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = response['job_instance_id']
+
+    # do job logging
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345),
+                 'next_report_increment': 15},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.getfqdn(),
+                 'process_group_id': str(os.getpid()),
+                 'next_report_increment': 120},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_usage'.format(job_instance_id),
+        message={'usage_str': 'used resources',
+                 'wallclock': '0',
+                 'maxvmem': '1g',
+                 'cpu': '00:00:00',
+                 'io': '1'},
+        request_type='post')
+
+    req.send_request(
+        app_route='/job_instance/{}/log_done'.format(job_instance_id),
+        message={'job_instance_id': str(job_instance_id), 'nodename': socket.getfqdn()},
+        request_type='post')
+
+    # Check executor_id
+    rc, response = req.send_request(
+        app_route='/job_instance/{}/get_executor_id'.format(job_instance_id),
+        message={},
+        request_type='get'
+    )
+    assert rc == 200
+    assert int(response['executor_id']) == 12345
+
+
+def test_get_nodename(real_dag_id):
+    # add job
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
+
+    # add job instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = response['job_instance_id']
+
+    # do job logging
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345),
+                 'next_report_increment': 15},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': "mimi.ilovecat.org",
+                 'process_group_id': str(os.getpid()),
+                 'next_report_increment': 120},
+        request_type='post')
+
+    req.send_request(
+        app_route='/job_instance/{}/log_usage'.format(job_instance_id),
+        message={'usage_str': 'used resources',
+                 'wallclock': '0',
+                 'maxvmem': '1g',
+                 'cpu': '00:00:00',
+                 'io': '1'},
+        request_type='post')
+
+    req.send_request(
+        app_route='/job_instance/{}/log_done'.format(job_instance_id),
+        message={'job_instance_id': str(job_instance_id)},
+        request_type='post')
+
+    # Check nodename
+    rc, response = req.send_request(
+        app_route='/job_instance/{}/get_nodename'.format(job_instance_id),
+        message={},
+        request_type='get'
+    )
+    assert rc == 200
+    assert response['nodename'] == "mimi.ilovecat.org"
