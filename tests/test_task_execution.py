@@ -141,7 +141,7 @@ def test_exceed_mem_task(db_cfg, dag_factory):
                             universal_newlines=True)
 
         assert ('247' in resp) or ('137' in resp)
-        assert job.job_instances[0].status == 'E'
+        assert job.job_instances[0].status == 'Z'
         assert job.status == 'F'
 
     sge_jobname = match_name_to_sge_name(jid)

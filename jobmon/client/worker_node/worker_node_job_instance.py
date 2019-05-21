@@ -37,7 +37,7 @@ class WorkerNodeJobInstance:
     @property
     def executor_id(self):
         if self._executor_id is None:
-            self.executor_id = self.executor.executor_id
+            self._executor_id = self.executor.executor_id
         return self._executor_id
 
     @property

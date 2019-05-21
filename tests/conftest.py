@@ -371,7 +371,8 @@ def real_dag(db_cfg, real_jsm_jqs, request):
     """
     from jobmon.client.swarm.executors.sge import SGEExecutor
     from jobmon.client.swarm.workflow.task_dag import TaskDag
-    executor = SGEExecutor()
+
+    executor = SGEExecutor(project='proj_tools')
     dag = TaskDag(name=request.node.name, executor=executor,
                   interrupt_on_error=False)
     yield dag

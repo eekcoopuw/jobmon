@@ -22,7 +22,7 @@ from jobmon.models.attributes.constants import qsub_attribute
 logger = logging.getLogger(__name__)
 
 ERROR_SGE_JID = -99999
-ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, 44, -9)
+ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
 
 ExecutorIDs = List[int]
 
@@ -239,6 +239,7 @@ class SGEExecutorWorkerNode(ExecutorWorkerNode):
     def __init__(self):
         self._executor_id = os.environ.get('JOB_ID')
 
+    @property
     def executor_id(self):
         if self._executor_id is None:
             self._executor_id = os.environ.get('JOB_ID')
