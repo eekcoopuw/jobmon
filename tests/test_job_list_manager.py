@@ -303,21 +303,9 @@ def test_job_instance_bad_qsub_parse(job_list_manager_sge_no_daemons, db_cfg,
            "(-33333), moving to 'W' state" in caplog.text
 
 
-class MockIntercom(JobInstanceIntercom):
-
-    def in_kill_self_state(self):
-        raise Exception("Attempted Log Report By")
-
-
-def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg,
-                                 ephemera_conn_str, monkeypatch, caplog):
+def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg):
     """should try to log a report by date after being set to the L state and
     fail"""
-    # import jobmon.client.swarm.job_management.job_instance_intercom
-    # monkeypatch.setattr(
-    #     jobmon.client.swarm.job_management.job_instance_intercom,
-    #     "JobInstanceIntercom",
-    #     MockIntercom)
     jlm = job_list_manager_sge_no_daemons
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
@@ -341,11 +329,12 @@ def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg,
     tries = 1
     while exit_status is None and tries < 10:
         try:
-            exit_status = check_output(f"qacct -j {exec_id} | grep exit_status",
-                             shell=True, universal_newlines=True)
+            exit_status=check_output(f"qacct -j {exec_id} | grep exit_status",
+                                     shell=True, universal_newlines=True)
         except:
             tries += 1
             sleep(3)
+    # 9 indicates sigkill signal was sent as expected
     assert '9' in exit_status
 
 
@@ -353,6 +342,7 @@ def query_till_running(db_cfg):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        resp = DB.session.execute("""SELECT status, executor_id FROM job_instance""").fetchall()[0]
+        resp = DB.session.execute(
+            """SELECT status, executor_id FROM job_instance""").fetchall()[0]
         DB.session.commit()
     return resp
