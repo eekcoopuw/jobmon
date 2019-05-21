@@ -1,6 +1,6 @@
 import os
 import pytest
-from subprocess import check_output
+from subprocess import check_output, CalledProcessError
 from time import sleep
 
 from cluster_utils.io import makedirs_safely
@@ -14,6 +14,7 @@ from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.client.swarm.workflow.r_task import RTask
 from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
+from jobmon.client.swarm.job_management.job_instance_factory import JobInstanceFactory
 
 
 def match_name_to_sge_name(jid):
@@ -322,4 +323,52 @@ def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
         assert job.queue == 'all.q@@c2-nodes'
         jids = [ji.nodename for ji in job.job_instances]
         assert all(['c2' in nodename for nodename in jids])
+
+
+class MockJIF(JobInstanceFactory):
+    """mock so that when a normal job goes registers in batch it actually
+       goes to W state"""
+    def _register_submission_to_batch_executor(self, job_instance_id,
+                                               executor_id,
+                                               next_report_increment):
+        # redirecting the normal route of going to B state with W state
+        self.requester.send_request(
+            app_route=f'/job_instance/{job_instance_id}/log_no_exec_id',
+            message={'executor_id': executor_id},
+            request_type='post')
+        print(f"REAL EXEC ID is: {executor_id}")
+
+
+def test_job_in_w_logs(dag_factory, monkeypatch, capsys, db_cfg):
+    import jobmon.client.swarm.job_management.job_instance_factory
+    """mocks a case where a job enters W state instead of B or R and then
+    tries to log running"""
+    monkeypatch.setattr(
+        jobmon.client.swarm.job_management.job_instance_factory.JobInstanceFactory,
+        "_register_submission_to_batch_executor",
+        MockJIF._register_submission_to_batch_executor)
+    name = 'task_no_exec_id'
+    task = BashTask(command="ls", name=name, mem_free='130M', max_attempts=2,
+                    slots=1, max_runtime_seconds=20)
+
+    executor = SGEExecutor(project='proj_tools')
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
+    captured = capsys.readouterr()
+    exec_ids = captured.out.split("REAL EXEC ID is: ")[1:]
+    for el in exec_ids:
+        exec_id = el.split()[0]
+        status = None
+        tries = 0
+        while status is None and tries < 10:
+            try:
+                status = check_output(f'qacct -j {exec_id} | grep exit_status',
+                                      shell=True, universal_newlines=True)
+                assert '9' in status
+            except CalledProcessError as e:
+                sleep(5)
+                tries += 1
+
 

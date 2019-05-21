@@ -1,8 +1,9 @@
 import argparse
-from functools import partial
 import logging
+from functools import partial
 import os
 from queue import Queue
+import signal
 import subprocess
 import sys
 from threading import Thread
@@ -39,6 +40,14 @@ def enqueue_stderr(stderr, queue):
 
     # cleanup
     stderr.close()
+
+
+def kill_self(child_process: subprocess.Popen=None):
+    """If the worker has received a signal to kill itself, kill the child
+    processes and then self, will show up as an exit code 299 in qacct"""
+    if child_process:
+        child_process.kill()
+    sys.exit(signal.SIGKILL)
 
 
 def unwrap():
@@ -87,9 +96,15 @@ def unwrap():
                                       executor_class=ExecutorClass,
                                       process_group_id=os.getpid(),
                                       hostname=args['jm_host'])
-    ji_intercom.log_running(next_report_increment=(
-        args['heartbeat_interval'] * args['report_by_buffer']),
+
+    # if it logs running and is in the 'W' or 'U' state then it will go
+    # through the full process of trying to change states and receive a
+    # special exception to signal that it can't run and should kill itself
+    rc, kill = ji_intercom.log_running(
+        next_report_increment=(args['heartbeat_interval'] * args['report_by_buffer']),
         executor_id=os.environ.get('JOB_ID'))
+    if kill == 'True':
+        kill_self()
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
@@ -113,9 +128,17 @@ def unwrap():
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
-                ji_intercom.log_report_by(next_report_increment=(
-                    args['heartbeat_interval'] * args['report_by_buffer']),
-                    executor_id=os.environ.get('JOB_ID'))
+                # since the report by is not a state transition, it will not
+                #  get the error that the log running route gets, so just
+                # check the database and kill if its status means it should
+                #  be killed
+                if ji_intercom.in_kill_self_state():
+                    kill_self(child_process=proc)
+                else:
+                    ji_intercom.log_report_by(
+                        next_report_increment=(args['heartbeat_interval'] *
+                                               args['report_by_buffer']),
+                        executor_id=os.environ.get('JOB_ID'))
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
 

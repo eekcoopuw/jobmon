@@ -100,7 +100,7 @@ class JobInstanceIntercom(object):
             logger.error("Traceback {}".
                          format(print(repr(traceback.format_tb(e_traceback)))))
 
-    def log_running(self, next_report_increment, executor_id):
+    def log_running(self, next_report_increment, executor_id=None):
         """Tell the JobStateManager that this job_instance is running, and
         update the report_by_date to be further in the future in case it gets
         reconciled immediately"""
@@ -112,14 +112,15 @@ class JobInstanceIntercom(object):
             message['executor_id'] = str(executor_id)
         else:
             logger.info("No Job ID was found in the qsub env at this time")
-        rc, _ = self.requester.send_request(
+        rc, resp = self.requester.send_request(
             app_route=('/job_instance/{}/log_running'
                        .format(self.job_instance_id)),
             message=message,
             request_type='post')
-        return rc
+        logger.debug(f"Response from log_running was: {resp}")
+        return rc, resp
 
-    def log_report_by(self, next_report_increment, executor_id):
+    def log_report_by(self, next_report_increment, executor_id=None):
         """Log the heartbeat to show that the job instance is still alive"""
         message = {"next_report_increment": next_report_increment}
         if executor_id is not None:
@@ -131,3 +132,17 @@ class JobInstanceIntercom(object):
             message=message,
             request_type='post')
         return rc
+
+    def in_kill_self_state(self):
+        rc, resp = self.requester.send_request(
+            app_route=f'/job_instance/{self.job_instance_id}/kill_self',
+            message={},
+            request_type='get')
+        if resp.get('should_kill'):
+            logger.debug("job_instance is in a state that indicates it needs "
+                         "to kill itself")
+            return True
+        else:
+            logger.debug("job instance does not need to kill itself")
+            return False
+

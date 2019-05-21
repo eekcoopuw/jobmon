@@ -12,6 +12,7 @@ from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
@@ -358,6 +359,25 @@ def get_job_instances_of_workflow_run(workflow_run_id):
     DB.session.commit()
     resp = jsonify(job_instances=jis)
     resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/job_instance/<job_instance_id>/kill_self', methods=['GET'])
+def kill_self(job_instance_id):
+    """Check a job instance's status to see if it needs to kill itself
+    (state W, or L)"""
+    kill_statuses = JobInstance.kill_self_states
+    logger.debug(logging.myself())
+    logging.logParameter("job_instance_id", job_instance_id)
+    should_kill = DB.session.query(JobInstance).\
+        filter_by(job_instance_id=job_instance_id).\
+        filter(JobInstance.status.in_(kill_statuses)).first()
+    if should_kill:
+        resp = jsonify(should_kill=True)
+    else:
+        resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    logger.debug(resp)
     return resp
 
 
