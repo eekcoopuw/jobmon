@@ -327,6 +327,7 @@ def log_done(job_instance_id):
         ji.executor_id = data['executor_id']
     if data.get('nodename', None) is not None:
         ji.nodename = data['nodename']
+    logger.debug("log_done nodename: {}".format(ji.nodename))
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
@@ -447,7 +448,7 @@ def log_error(job_instance_id):
     logger.debug("data:" + str(data))
     if data.get('nodename', None) is not None:
         ji.nodename = data['nodename']
-    logger.debug("Reading nodename {}".format(ji.nodename))
+    logger.debug("log_error nodename {}".format(ji.nodename))
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
     try:
@@ -653,7 +654,7 @@ def log_running(job_instance_id):
     msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
     if data.get('nodename', None) is not None:
         ji.nodename = data['nodename']
-    logger.debug(" ************* log-running nodename: {}".format(ji.nodename))
+    logger.debug("log_running nodename: {}".format(ji.nodename))
     ji.process_group_id = data['process_group_id']
     ji.report_by_date = func.ADDTIME(
         func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
@@ -661,29 +662,6 @@ def log_running(job_instance_id):
         ji.executor_id = data['executor_id']
     DB.session.commit()
     resp = jsonify(message=msg)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jsm.route('/job_instance/<job_instance_id>/log_nodename', methods=['POST'])
-def log_nodename(job_instance_id):
-    """Log a job_instance's nodename'
-    Args:
-
-        job_instance_id: id of the job_instance to log done
-        nodename (str): name of the node on which the job_instance is running
-    """
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-    data = request.get_json()
-    logger.debug("Log nodename for JI {}".format(job_instance_id))
-    ji = _get_job_instance(DB.session, job_instance_id)
-    logger.debug(logging.logParameter("DB.session", DB.session))
-    logger.debug(" ;;;;;;;;;;; log_nodename nodename: {}".format(data[
-                                                                  'nodename']))
-    _update_job_instance(ji, nodename=data['nodename'])
-    DB.session.commit()
-    resp = jsonify(message='')
     resp.status_code = StatusCodes.OK
     return resp
 

@@ -123,10 +123,11 @@ class JobInstanceIntercom(object):
         """Tell the JobStateManager that this job_instance is running, and
         update the report_by_date to be further in the future in case it gets
         reconciled immediately"""
-        message = {'nodename': nodename,
-                   'process_group_id': str(self.process_group_id),
+        message = {'process_group_id': str(self.process_group_id),
                    'next_report_increment': next_report_increment}
         logger.debug(f'executor_id is {executor_id}')
+        if nodename is not None:
+            message['nodename'] = nodename
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
