@@ -18,23 +18,24 @@ class ExpectedException(Exception):
 class MockIntercom:
     """Mock the intercom interface for testing purposes"""
 
-    def __init__(self, job_instance_id, executor_class, process_group_id,
-                 hostname):
+    def __init__(self, job_instance_id, executor_id, executor):
+        self.job_instance_id = job_instance_id
+        self.executor_id = executor_id
+        self.executor = executor
+
+    def log_running(self, next_report_increment):
         pass
 
-    def log_running(self, next_report_increment, executor_id):
-        pass
-
-    def log_report_by(self, next_report_increment, executor_id):
+    def log_report_by(self, next_report_increment):
         pass
 
     def log_job_stats(self):
         pass
 
-    def log_done(self, executor_id):
+    def log_done(self):
         pass
 
-    def log_error(self, error_message, executor_id, exit_status):
+    def log_error(self, error_message, exit_status):
         pass
 
 
@@ -46,24 +47,24 @@ def mock_kill_remote_process_group(a, b):
 
 class MockIntercomRaiseInLogError(MockIntercom):
 
-    def log_error(self, error_message, executor_id, exit_status):
+    def log_error(self, error_message, exit_status):
         if EXCEPTION_MSG in error_message:
             raise ExpectedException
 
 
 class MockIntercomCheckExecutorId(MockIntercom):
 
-    def log_running(self, next_report_increment, executor_id):
-        assert executor_id == '77777'
+    def log_running(self, next_report_increment):
+        assert self.executor_id == '77777'
 
-    def log_report_by(self, next_report_increment, executor_id):
-        assert executor_id == '77777'
+    def log_report_by(self, next_report_increment):
+        assert self.executor_id == '77777'
 
-    def log_done(self, executor_id):
-        assert executor_id == '77777'
+    def log_done(self):
+        assert self.executor_id == '77777'
 
-    def log_error(self, error_message, executor_id, exit_status):
-        assert executor_id == '77777'
+    def log_error(self, error_message, exit_status):
+        assert self.executor_id == '77777'
 
 
 def test_kill_remote_process_group_conditional(monkeypatch):
@@ -76,7 +77,7 @@ def test_kill_remote_process_group_conditional(monkeypatch):
         mock_kill_remote_process_group)
     monkeypatch.setattr(
         jobmon.client.worker_node.execution_wrapper,
-        "WorkerNodeIntercom",
+        "WorkerNodeJobInstance",
         MockIntercomRaiseInLogError)
 
     # arguments in the structure that jobmon.client.worker_node.cli.unwrap()
@@ -113,10 +114,10 @@ def test_kill_remote_process_group_conditional(monkeypatch):
 
 class MockIntercomLogHeartbeatToError(MockIntercom):
 
-    def log_report_by(self, next_report_increment, executor_id):
+    def log_report_by(self, next_report_increment):
         print("logging report by in the middle", file=sys.stderr)
 
-    def log_error(self, error_message, executor_id, exit_status):
+    def log_error(self, error_message, exit_status):
         assert error_message == ("a" * 2**10 + "\n") * (2**8)
 
 
@@ -129,7 +130,7 @@ def test_stderr_buffering(monkeypatch, capsys):
     # to sdterr
 
     monkeypatch.setattr(
-        jobmon.client.worker_node.execution_wrapper, "WorkerNodeIntercom",
+        jobmon.client.worker_node.execution_wrapper, "WorkerNodeJobInstance",
         MockIntercomLogHeartbeatToError)
 
     # arguments in the structure that jobmon.client.worker_node.cli.unwrap()
@@ -166,7 +167,7 @@ def test_executor_id(monkeypatch, capsys):
     to send in the routes it is logging"""
     monkeypatch.setattr(
         jobmon.client.worker_node.execution_wrapper,
-        "WorkerNodeIntercom",
+        "WorkerNodeJobInstance",
         MockIntercomCheckExecutorId)
 
     monkeypatch.setenv("JOB_ID", '77777')
