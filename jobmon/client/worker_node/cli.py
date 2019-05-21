@@ -10,7 +10,6 @@ from time import sleep, time
 import traceback
 
 from jobmon.exceptions import ReturnCodes
-from jobmon.client.swarm.executors.sge_utils import qstat_hostname
 from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
@@ -91,7 +90,7 @@ def unwrap():
     ji_intercom.log_running(next_report_increment=(
         args['heartbeat_interval'] * args['report_by_buffer']),
         executor_id=os.environ.get('JOB_ID'),
-        nodename=args['last_nodename'] if args['last_nodename'] is not None else qstat_hostname(os.environ.get('JOB_ID')))
+        nodename=args['last_nodename'])
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:

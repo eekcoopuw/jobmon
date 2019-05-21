@@ -122,7 +122,7 @@ class JobInstanceReconciler(object):
                 f"{next_report_increment}s the job instance will be "
                 "moved to error state.")
             actual = []
-        rc, response = self.requester.send_request(
+        _, response = self.requester.send_request(
             app_route=f'/task_dag/{self.dag_id}/reconcile',
             message={'executor_ids': actual,
                      'next_report_increment': next_report_increment},
@@ -179,14 +179,14 @@ class JobInstanceReconciler(object):
             executor_id = response['executor_id']
             message['executor_id'] = int(executor_id)
             exit_code = qacct_exit_status(executor_id)
-            # If hostname is not passed in, see if it has been set before; otherwise, get it using qacct
+            # If nodename is not passed in, see if it has been set before; otherwise, get it using qacct
             if nodename is None or len(nodename.strip()) == 0:
                 rc, response = self.requester.send_request(
                     app_route='/job_instance/{}/get_nodename'.format(job_instance_id),
                     message={},
                     request_type='get'
                 )
-                hostname = response["nodename"] if rc == StatusCodes.OK and response["nodename"]  is not None else qacct_hostname(job_instance_id)
+                nodename = response["nodename"] if rc == StatusCodes.OK and response["nodename"] is not None else qacct_hostname(job_instance_id)
         else:
             exit_code = sge.ERROR_QSTAT_ID
         logger.debug("log_imeout_error nodename: {}".format(nodename))

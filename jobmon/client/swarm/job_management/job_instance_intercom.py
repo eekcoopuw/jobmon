@@ -4,7 +4,7 @@ import sys
 import traceback
 
 from jobmon.client import shared_requester
-from jobmon.client.swarm.executors.sge_utils import qacct_hostname
+from jobmon.client.swarm.executors.sge_utils import qacct_hostname, qstat_hostname
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,15 @@ class JobInstanceIntercom(object):
     def log_done(self, executor_id, nodename):
         """Tell the JobStateManager that this job_instance is done"""
         message = dict()
+        # The logic to get the nodename is:
+        # if <node name is passed in>
+        #     use it
+        # else
+        #     if <node name has been set>
+        #         keep it
+        #     else
+        #         get it using qacct
         if nodename is None:
-            # Use the hostname logged by log_running
             rc, response = self.requester.send_request(
                 app_route='/job_instance/{}/get_nodename'.format(self.job_instance_id),
                 message={},
@@ -48,6 +55,7 @@ class JobInstanceIntercom(object):
             message['nodename'] = response['nodename'] if rc == StatusCodes.OK and response['nodename'] is not None else qacct_hostname(executor_id)
         else:
             message['nodename'] = nodename
+            
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
@@ -73,8 +81,15 @@ class JobInstanceIntercom(object):
         message = {'error_message': error_message,
                    'exit_status': exit_status
                    }
+        # The logic to get the nodename is:
+        # if <node name is passed in>
+        #     use it
+        # else
+        #     if <node name has been set>
+        #         keep it
+        #     else
+        #         get it using qacct
         if nodename is None:
-            # Use the hostname logged by log_running
             rc, response = self.requester.send_request(
                 app_route='/job_instance/{}/get_nodename'.format(self.job_instance_id),
                 message={},
@@ -83,6 +98,7 @@ class JobInstanceIntercom(object):
             message['nodename'] = response['nodename'] if rc == StatusCodes.OK and response['nodename'] is not None else qacct_hostname(executor_id)
         else:
             message['nodename'] = nodename
+
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
@@ -126,8 +142,7 @@ class JobInstanceIntercom(object):
         message = {'process_group_id': str(self.process_group_id),
                    'next_report_increment': next_report_increment}
         logger.debug(f'executor_id is {executor_id}')
-        if nodename is not None:
-            message['nodename'] = nodename
+        message['nodename'] = nodename if nodename is not None else qstat_hostname(executor_id)
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
