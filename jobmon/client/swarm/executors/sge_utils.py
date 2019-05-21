@@ -304,7 +304,7 @@ def qacct_hostname(jid: int)->str:
     try:
         return subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n", "")
     except Exception as e:
-        # In case the command execution failed, log error and return -1
+        # In case the command execution failed, log error and return None
         logger.error(str(e))
         return None
 
