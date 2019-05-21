@@ -135,8 +135,7 @@ class JobInstanceIntercom(object):
 
     def in_kill_self_state(self):
         rc, resp = self.requester.send_request(
-            app_route=f'/job_instance/{self.job_instance_id}/job_instance_'
-                      f'status',
+            app_route=f'/job_instance/{self.job_instance_id}/kill_self',
             message={},
             request_type='get')
         if resp.get('should_kill'):
