@@ -4,6 +4,7 @@ import sys
 import traceback
 
 from jobmon.client import shared_requester
+import jobmon.client.swarm.executors.sge as sge
 from jobmon.client.swarm.executors.sge_utils import qacct_hostname, qstat_hostname
 
 logger = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class JobInstanceIntercom(object):
         self.executor = executor_class()
         logger.debug("Instantiated JobInstanceIntercom")
 
-    def log_done(self, executor_id, nodename):
+    def log_done(self, executor_id=None, nodename=None):
         """Tell the JobStateManager that this job_instance is done"""
         message = dict()
         # The logic to get the nodename is:
@@ -66,7 +67,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_error(self, error_message, executor_id, exit_status, nodename):
+    def log_error(self, error_message, executor_id=None, exit_status=sge.ERROR_QSTAT_ID, nodename=None):
         """Tell the JobStateManager that this job_instance has errored"""
 
         # clip at 10k to avoid mysql has gone away errors when posting long
@@ -135,7 +136,7 @@ class JobInstanceIntercom(object):
             logger.error("Traceback {}".
                          format(print(repr(traceback.format_tb(e_traceback)))))
 
-    def log_running(self, next_report_increment, executor_id, nodename):
+    def log_running(self, next_report_increment, executor_id=None, nodename=None):
         """Tell the JobStateManager that this job_instance is running, and
         update the report_by_date to be further in the future in case it gets
         reconciled immediately"""
@@ -154,7 +155,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_report_by(self, next_report_increment, executor_id):
+    def log_report_by(self, next_report_increment, executor_id=None):
         """Log the heartbeat to show that the job instance is still alive"""
         message = {"next_report_increment": next_report_increment}
         if executor_id is not None:
