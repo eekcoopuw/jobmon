@@ -24,7 +24,7 @@ class MockIntercom:
         self.executor = executor
 
     def log_running(self, next_report_increment):
-        pass
+        return 200, False
 
     def log_report_by(self, next_report_increment):
         pass
@@ -37,6 +37,9 @@ class MockIntercom:
 
     def log_error(self, error_message, exit_status):
         pass
+
+    def in_kill_self_state(self):
+        return False
 
 
 def mock_kill_remote_process_group(a, b):
@@ -56,6 +59,7 @@ class MockIntercomCheckExecutorId(MockIntercom):
 
     def log_running(self, next_report_increment):
         assert self.executor_id == '77777'
+        return 200, False
 
     def log_report_by(self, next_report_increment):
         assert self.executor_id == '77777'

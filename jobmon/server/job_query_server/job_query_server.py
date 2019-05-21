@@ -366,6 +366,25 @@ def get_job_instances_of_workflow_run(workflow_run_id):
     return resp
 
 
+@jqs.route('/job_instance/<job_instance_id>/kill_self', methods=['GET'])
+def kill_self(job_instance_id):
+    """Check a job instance's status to see if it needs to kill itself
+    (state W, or L)"""
+    kill_statuses = JobInstance.kill_self_states
+    logger.debug(logging.myself())
+    logging.logParameter("job_instance_id", job_instance_id)
+    should_kill = DB.session.query(JobInstance).\
+        filter_by(job_instance_id=job_instance_id).\
+        filter(JobInstance.status.in_(kill_statuses)).first()
+    if should_kill:
+        resp = jsonify(should_kill=True)
+    else:
+        resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    logger.debug(resp)
+    return resp
+
+
 @jqs.route('/job/<executor_id>/get_resources', methods=['GET'])
 def get_resources(executor_id):
     """

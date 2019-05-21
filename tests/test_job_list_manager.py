@@ -1,4 +1,5 @@
 import pytest
+from subprocess import check_output
 from time import sleep
 from unittest import mock
 
@@ -10,6 +11,7 @@ from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
+from jobmon.client.swarm.job_management.job_instance_intercom import JobInstanceIntercom
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -137,6 +139,7 @@ def test_valid_command(job_list_manager):
     sleep(35)
     job_list_manager._sync()
     assert len(job_list_manager.all_done) > 0
+
 
 
 def test_daemon_invalid_command(job_list_manager_d):
@@ -298,3 +301,48 @@ def test_job_instance_bad_qsub_parse(job_list_manager_sge_no_daemons, db_cfg,
     assert job_info[0].status == 'F'
     assert "Got response from qsub but did not contain a valid job id " \
            "(-33333), moving to 'W' state" in caplog.text
+
+
+def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg):
+    """should try to log a report by date after being set to the L state and
+    fail"""
+    jlm = job_list_manager_sge_no_daemons
+    jif = jlm.job_instance_factory
+    job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
+                             num_cores=3, max_runtime_seconds='70',
+                             mem_free='600M'))
+    jlm.queue_job(job)
+    jids = jif.instantiate_queued_jobs()
+    jlm._sync()
+    resp = query_till_running(db_cfg)
+    while resp.status != 'R':
+        resp = query_till_running(db_cfg)
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        DB.session.execute("""UPDATE job_instance 
+        SET status = 'U' 
+        WHERE job_instance_id = {}""".format(jids[0].job_instance_id))
+        DB.session.commit()
+    exec_id = resp.executor_id
+    exit_status = None
+    tries = 1
+    while exit_status is None and tries < 10:
+        try:
+            exit_status=check_output(f"qacct -j {exec_id} | grep exit_status",
+                                     shell=True, universal_newlines=True)
+        except:
+            tries += 1
+            sleep(3)
+    # 9 indicates sigkill signal was sent as expected
+    assert '9' in exit_status
+
+
+def query_till_running(db_cfg):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        resp = DB.session.execute(
+            """SELECT status, executor_id FROM job_instance""").fetchall()[0]
+        DB.session.commit()
+    return resp

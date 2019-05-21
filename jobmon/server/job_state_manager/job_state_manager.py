@@ -14,7 +14,7 @@ from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
-from jobmon.models.exceptions import InvalidStateTransition
+from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
@@ -629,13 +629,10 @@ def log_ji_report_by(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
-
-    data = request.get_json()
     executor_id = data.get('executor_id', None)
     params = {}
     params["next_report_increment"] = data["next_report_increment"]
     params["job_instance_id"] = job_instance_id
-
     if executor_id is not None:
         params["executor_id"] = executor_id
         query = """
@@ -974,6 +971,7 @@ def _update_job_instance_state(job_instance, status_id):
     """
     logger.debug(logging.myself())
     logger.debug(f"Update JI state {status_id} for {job_instance}")
+    response = ""
     try:
         job_instance.transition(status_id)
     except InvalidStateTransition:
@@ -994,6 +992,12 @@ def _update_job_instance_state(job_instance, status_id):
             # log_and_raise(msg, logger)
             logger.error(msg)
             print(msg)
+    except KillSelfTransition:
+        msg = f"kill self, cannot transition " \
+              f"jid={job_instance.job_instance_id}"
+        logger.warning(msg)
+        print(msg)
+        response = "kill self"
     except Exception as e:
         msg = f"General exception in _update_job_instance_state, " \
             f"jid {job_instance}, transitioning to {job_instance}. " \
@@ -1008,7 +1012,7 @@ def _update_job_instance_state(job_instance, status_id):
         to_publish = mogrify(job.dag_id, (job.job_id, job.status))
         return to_publish
     else:
-        return ""
+        return response
 
 
 def _update_job_instance(job_instance, **kwargs):

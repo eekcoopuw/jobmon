@@ -129,11 +129,12 @@ class WorkerNodeJobInstance:
             message['executor_id'] = str(self.executor_id)
         else:
             logger.info("No Job ID was found in the qsub env at this time")
-        rc, _ = self.requester.send_request(
+        rc, resp = self.requester.send_request(
             app_route=(f'/job_instance/{self.job_instance_id}/log_running'),
             message=message,
             request_type='post')
-        return rc
+        logger.debug(f"Response from log_running was: {resp}")
+        return rc, resp
 
     def log_report_by(self, next_report_increment):
         """Log the heartbeat to show that the job instance is still alive"""
@@ -147,3 +148,16 @@ class WorkerNodeJobInstance:
             message=message,
             request_type='post')
         return rc
+
+    def in_kill_self_state(self):
+        rc, resp = self.requester.send_request(
+            app_route=f'/job_instance/{self.job_instance_id}/kill_self',
+            message={},
+            request_type='get')
+        if resp.get('should_kill'):
+            logger.debug("job_instance is in a state that indicates it needs "
+                         "to kill itself")
+            return True
+        else:
+            logger.debug("job instance does not need to kill itself")
+            return False

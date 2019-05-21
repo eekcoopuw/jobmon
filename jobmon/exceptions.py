@@ -14,7 +14,6 @@ class ReturnCodes(object):
     UNKNOWN_EXIT_STATE = 99
     WORKER_NODE_CLI_FAILURE = 199
 
-
 class ServerRunning(Exception):
     pass
 
