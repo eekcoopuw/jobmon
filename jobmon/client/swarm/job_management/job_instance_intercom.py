@@ -47,7 +47,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_error(self, error_message, executor_id, exit_status, scale=0.5):
+    def log_error(self, error_message, executor_id, exit_status):
         """Tell the JobStateManager that this job_instance has errored"""
 
         # clip at 10k to avoid mysql has gone away errors when posting long
@@ -61,7 +61,6 @@ class JobInstanceIntercom(object):
 
         message = {'error_message': error_message,
                    'exit_status': exit_status,
-                   'resource_adjustment': scale,
                    'nodename': socket.getfqdn()}
 
         if executor_id is not None:
@@ -83,6 +82,7 @@ class JobInstanceIntercom(object):
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io']
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
+            msg['nodename'] = socket.getfqdn()
             rc, _ = self.requester.send_request(
                 app_route=('/job_instance/{}/log_usage'
                            .format(self.job_instance_id)),

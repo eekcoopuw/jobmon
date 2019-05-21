@@ -440,7 +440,6 @@ def test_dag_reset(db_cfg, simple_workflow_w_errors):
 
 
 def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
-
     err_wf = simple_workflow_w_errors
     dag_id = err_wf.task_dag.dag_id
 

@@ -5,6 +5,7 @@ from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
+from jobmon import Workflow
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.models.job import Job
@@ -148,24 +149,27 @@ def test_exceed_mem_task(db_cfg, dag_factory):
     assert sge_jobname == name
 
 
-@pytest.mark.skip("Not yet implemented")
-def test_under_request_then_pass(db_cfg, dag_factory):
+test_data = [('Scale_Not_set', None, '900M', 60, 'D', 'D'),# Invalide scale, use default value that is 0.5
+             ('Negative_scale', -1, '900M', 60, 'D', 'D'),# Invalide scale, use default value that is 0.5
+             ('Too_big_scale', 2.0, '900M', 60, 'D', 'D'),# Invalide scale, use default value that is 0.5
+             ('Default_scale', 0.5, '900M', 60, 'D', 'D'),
+             ('Valid_scale', 0.6, '960M', 64, 'D', 'D'),
+             ('Left_conner_case', 0, '600M', 40, 'E', 'F'),
+             ('Right_conner_case', 1, '1200M', 80, 'D', 'D')
+             ]
+@pytest.mark.parametrize("name, scale, mem, runtime, ji_result, j_result", test_data)
+def test_resource_adjustment(db_cfg, dag_factory, name, scale, mem, runtime, ji_result, j_result):
     """test that when a task gets killed due to under requested memory, it
     succeeds on the second try with additional memory added"""
 
-    name = 'mem_task'
     task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
                       name=name, m_mem_free='600M', max_attempts=2, slots=1,
                       max_runtime_seconds=40)
-
-    executor = SGEExecutor(project='proj_tools')
-    real_dag = dag_factory(executor)
-    real_dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (
-        real_dag._execute())
-
-    ret_vals = get_task_status(real_dag, task)
-
+    workflow = Workflow(name, interrupt_on_error=False, project='proj_tools')
+    workflow.add_tasks([task])
+    if scale is not None:
+        workflow.resource_adjustment = scale
+    workflow.execute()
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
@@ -175,11 +179,11 @@ def test_under_request_then_pass(db_cfg, dag_factory):
                             universal_newlines=True)
         assert '247' in resp
         assert job.job_instances[0].status == 'E'
-        assert job.job_instances[1].status == 'D'
-        assert job.status == 'D'
+        assert job.job_instances[1].status == ji_result
+        assert job.status == j_result
         # add checks for increased system resources
-        assert job.mem_free == '900M'
-        assert job.max_runtime_seconds == 60
+        assert job.mem_free == mem
+        assert job.max_runtime_seconds == runtime
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
