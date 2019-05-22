@@ -5,8 +5,6 @@ from unittest.mock import patch
 import pytest
 
 import jobmon.client.worker_node.cli
-from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.models.job_instance import JobInstance
 
 
 EXCEPTION_MSG = "assert we took this path"
