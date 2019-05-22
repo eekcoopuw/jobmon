@@ -44,10 +44,8 @@ def test_sge_cli(real_jsm_jqs, db_cfg):
 
     # check stderr
     # Be careful, it can take a little while to appear
-    num_tries = 0
     stderr_name = os.path.join(log_dir, f"{job_name}.e{executor_id}")
     wait_for_file(stderr_name)
-
     with open(stderr_name, "r") as f:
         content = f.read()
     assert content == ("a" * 2**10 + "\n") * (2**8)
