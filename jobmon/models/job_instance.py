@@ -77,40 +77,92 @@ class JobInstance(DB.Model):
                              back_populates="job_instance")
 
     valid_transitions = [
-        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
-
+        # job instance is submitted normally (happy path)
         (JobInstanceStatus.INSTANTIATED,
          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
 
+        # job instance logs running before submitted due to race condition
+        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
+
+        # job instance submission hit weird bug and didn't get an executor_id
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.NO_EXECUTOR_ID),
 
+        # job instance logs running after submission to batch (happy path)
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
          JobInstanceStatus.RUNNING),
 
+        # job instance disappeared from executor heartbeat and never logged
+        # running
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
          JobInstanceStatus.LOST_TRACK),
 
+        # job instance missed logging running and went straight to error. This
+        # seems impossible but is valid for the purposes of the finite state
+        # machine
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
          JobInstanceStatus.ERROR),
 
-        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.ERROR),
+        # job instane stopped logging heartbeats from the executor but started
+        # running before reconciliation gave up on it
+        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.RUNNING),
 
-        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.UNKNOWN_ERROR),
-
-        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.RESOURCE_ERROR),
-
+        # job instance stopped logging heartbeats but finished gracefully. This
+        # seems highly unlikely but is valid for the purposes of the finite
+        # state machine
         (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.DONE),
 
+        # job instance stopped logging heartbeats but gracefully exited with
+        # an application error. This seems unlikely but is valid for the
+        # purposes of the finite state machine
+        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.ERROR),
+
+        # job instance stopped logging heartbeats and the executor does not
+        # know why it died
+        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.UNKNOWN_ERROR),
+
+        # job instance stopped logging heartbeats and the executor determines
+        # it died because it hit resource limits
+        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.RESOURCE_ERROR),
+
+        # job instance hits an application error (happy path)
         (JobInstanceStatus.RUNNING, JobInstanceStatus.ERROR),
 
+        # job instance stops logging heartbeats. reconciler is now attempting
+        # to detemine exit status
         (JobInstanceStatus.RUNNING, JobInstanceStatus.LOST_TRACK),
 
+        # job instance finishes normally (happy path)
         (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)
     ]
 
     untimely_transitions = [
+
+        # job instance logs running before the executor logs submitted due to
+        # race condition. this is unlikely but happens and is valid for the
+        # purposes of the FSM
         (JobInstanceStatus.RUNNING,
-         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
+         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
+
+        # job instance stopped logging executor heartbeats and moved to lost.
+        # It then got scheduled and logged running. The reconciliation loop
+        # still thought it was lost, but couldn't find out what its exit status
+        # was so attempts to move it to unknown error, but the job is now
+        # running normally
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.UNKNOWN_ERROR),
+
+        # job instance was lost from reconciliation's point of view and
+        # executor can't find its exit status. The worker finishes gracefully
+        (JobInstanceStatus.DONE, JobInstanceStatus.UNKNOWN_ERROR),
+
+        # job instance stops logging heartbeats and reconciler can't find exit
+        # status. Worker tries to finish gracefully but it's too late
+        (JobInstanceStatus.UNKNOWN_ERROR, JobInstanceStatus.DONE),
+
+        # job instance stops logging heartbeats and reconciler can't find exit
+        # status. Worker tries to report an application error but cant' because
+        # the job could be running again alread and we don't want to update job
+        # state
+        (JobInstanceStatus.UNKNOWN_ERROR, JobInstanceStatus.ERROR),
     ]
 
     kill_self_states = [JobInstanceStatus.NO_EXECUTOR_ID,
@@ -132,7 +184,7 @@ class JobInstance(DB.Model):
                 self.job.transition_to_error()
             elif new_state == JobInstanceStatus.NO_EXECUTOR_ID:
                 self.job.transition_to_error()
-            elif new_state == JobInstanceStatus.LOST_TRACK:
+            elif new_state == JobInstanceStatus.UNKNOWN_ERROR:
                 self.job.transition_to_error()
             elif new_state == JobInstanceStatus.RESOURCE_ERROR:
                 self.job.transition_to_error()
