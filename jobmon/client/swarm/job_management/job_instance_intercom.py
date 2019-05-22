@@ -4,8 +4,8 @@ import sys
 import traceback
 
 from jobmon.client import shared_requester
-import jobmon.client.swarm.executors.sge as sge
-from jobmon.client.swarm.executors.sge_utils import qacct_hostname, qstat_hostname
+
+from jobmon.client.swarm.executors.sge_utils import qacct_hostname, qstat_hostname, SGE_UNKNOWN_ERROR
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_error(self, error_message, executor_id=None, exit_status=sge.ERROR_QSTAT_ID, nodename=None):
+    def log_error(self, error_message, executor_id=None, exit_status=SGE_UNKNOWN_ERROR, nodename=None):
         """Tell the JobStateManager that this job_instance has errored"""
 
         # clip at 10k to avoid mysql has gone away errors when posting long

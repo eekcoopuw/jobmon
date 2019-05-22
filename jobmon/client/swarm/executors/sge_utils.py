@@ -25,6 +25,7 @@ UGE_NAME_POLICY = re.compile(
 STATA_BINARY = "/usr/local/bin/stata-mp"
 R_BINARY = "/usr/local/bin/R"
 DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
+SGE_UNKNOWN_ERROR = - 9998
 
 
 def true_path(file_or_dir=None, executable=None):
@@ -293,7 +294,7 @@ def qacct_exit_status(jid: int)->int:
     except Exception as e:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))
-        return sge.ERROR_QSTAT_ID
+        return SGE_UNKNOWN_ERROR
 
 
 def qacct_hostname(jid: int)->str:

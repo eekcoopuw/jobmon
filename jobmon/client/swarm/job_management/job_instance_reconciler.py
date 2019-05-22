@@ -8,8 +8,7 @@ import traceback
 from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance_status import JobInstanceStatus
-import jobmon.client.swarm.executors.sge as sge
-from jobmon.client.swarm.executors.sge_utils import qacct_exit_status, qacct_hostname
+from jobmon.client.swarm.executors.sge_utils import qacct_exit_status, qacct_hostname, SGE_UNKNOWN_ERROR
 
 
 logger = logging.getLogger(__name__)
@@ -188,7 +187,7 @@ class JobInstanceReconciler(object):
                 )
                 nodename = response["nodename"] if rc == StatusCodes.OK and response["nodename"] is not None else qacct_hostname(job_instance_id)
         else:
-            exit_code = sge.ERROR_QSTAT_ID
+            exit_code = SGE_UNKNOWN_ERROR
         logger.debug("log_imeout_error nodename: {}".format(nodename))
         message["nodename"] = nodename
         message['exit_status'] = exit_code
