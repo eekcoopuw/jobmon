@@ -36,9 +36,7 @@ class JobInstanceIntercom(object):
         self.executor = executor_class()
         logger.debug("Instantiated JobInstanceIntercom")
 
-    def log_done(self, executor_id=None, nodename=None):
-        """Tell the JobStateManager that this job_instance is done"""
-        message = dict()
+    def _get_node_name(self, executor_id, nodename):
         # The logic to get the nodename is:
         # if <node name is passed in>
         #     use it
@@ -53,9 +51,15 @@ class JobInstanceIntercom(object):
                 message={},
                 request_type='get'
             )
-            message['nodename'] = response['nodename'] if rc == StatusCodes.OK and response['nodename'] is not None else qacct_hostname(executor_id)
+            return response['nodename'] if rc == StatusCodes.OK and response[
+                'nodename'] is not None else qacct_hostname(executor_id)
         else:
-            message['nodename'] = nodename
+            return nodename
+
+    def log_done(self, executor_id=None, nodename=None):
+        """Tell the JobStateManager that this job_instance is done"""
+        message = dict()
+        message['nodename'] = self._get_node_name(executor_id, nodename)
 
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
@@ -79,26 +83,8 @@ class JobInstanceIntercom(object):
                         "character limit for error messages. Only the final "
                         "10k will be captured by the database.")
 
-        message = {'error_message': error_message,
-                   'exit_status': exit_status
-                   }
-        # The logic to get the nodename is:
-        # if <node name is passed in>
-        #     use it
-        # else
-        #     if <node name has been set>
-        #         keep it
-        #     else
-        #         get it using qacct
-        if nodename is None:
-            rc, response = self.requester.send_request(
-                app_route='/job_instance/{}/get_nodename'.format(self.job_instance_id),
-                message={},
-                request_type='get'
-            )
-            message['nodename'] = response['nodename'] if rc == StatusCodes.OK and response['nodename'] is not None else qacct_hostname(executor_id)
-        else:
-            message['nodename'] = nodename
+        message = {'error_message': error_message, 'exit_status': exit_status}
+        message['nodename'] = self._get_node_name(executor_id, nodename)
 
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
