@@ -226,7 +226,7 @@ def test_jsm_valid_error(real_dag_id):
                  'next_report_increment': 120},
         request_type='post')
     req.send_request(
-        app_route='/job_instance/{}/log_error'.format(job_instance_id),
+        app_route=f'/job_instance/{job_instance_id}/log_error_worker_node',
         message={'error_message': "this is an error message",
                  'executor_id': str(12345),
                  'error_state': JobInstanceStatus.ERROR,
@@ -411,7 +411,7 @@ def test_job_reset(db_cfg, real_dag_id):
                  'next_report_increment': 120},
         request_type='post')
     req.send_request(
-        app_route='/job_instance/{}/log_error'.format(ji1),
+        app_route='/job_instance/{}/log_error_worker_node'.format(ji1),
         message={'error_message': "error 1",
                  'executor_id': str(12345),
                  'error_state': JobInstanceStatus.ERROR,
@@ -437,7 +437,7 @@ def test_job_reset(db_cfg, real_dag_id):
                  'next_report_increment': 120},
         request_type='post')
     req.send_request(
-        app_route='/job_instance/{}/log_error'.format(ji2),
+        app_route='/job_instance/{}/log_error_worker_node'.format(ji2),
         message={'error_message': "error 1",
                  'executor_id': str(12345),
                  'error_state': JobInstanceStatus.ERROR,
