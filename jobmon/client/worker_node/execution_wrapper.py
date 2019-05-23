@@ -1,6 +1,7 @@
 import argparse
 import logging
 from functools import partial
+from io import TextIOBase
 import os
 from queue import Queue
 import signal
@@ -18,7 +19,7 @@ from jobmon.client.utils import kill_remote_process_group
 logger = logging.getLogger()
 
 
-def enqueue_stderr(stderr, queue):
+def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
     """eagerly print 100 byte blocks to stderr so pipe doesn't fill up and
     deadlock. Also collect blocks for reporting to db by putting them in a
     queue to main thread
@@ -78,25 +79,21 @@ def unwrap():
     # identify executor class
     if args["executor_class"] == "SequentialExecutor":
         from jobmon.client.swarm.executors.sequential import \
-            SequentialExecutorWorkerNode as ExecutorClass
+            JobInstanceSequentialInfo as JobInstanceExecutorInfo
     elif args["executor_class"] == "SGEExecutor":
-        from jobmon.client.swarm.executors.sge import SGEExecutorWorkerNode \
-            as ExecutorClass
-    elif args["executor_class"] == "DummyExecutor":
-        from jobmon.client.swarm.executors.dummy import DummyExecutor \
-            as ExecutorClass
+        from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo \
+            as JobInstanceExecutorInfo
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))
-    executor = ExecutorClass()
+    ji_executor_info = JobInstanceExecutorInfo()
 
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
     worker_node_job_instance = WorkerNodeJobInstance(
         job_instance_id=args["job_instance_id"],
-        executor_id=os.environ.get('JOB_ID'),
-        executor=executor)
+        job_instance_executor_info=ji_executor_info)
 
     # if it logs running and is in the 'W' or 'U' state then it will go
     # through the full process of trying to change states and receive a
@@ -157,8 +154,10 @@ def unwrap():
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
     # post stats usage
-    if args["executor_class"] == "SGEExecutor":
+    try:
         worker_node_job_instance.log_job_stats()
+    except NotImplementedError:
+        pass
 
     # check return code
     if returncode != ReturnCodes.OK:

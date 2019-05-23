@@ -1,18 +1,51 @@
 from datetime import datetime
+from typing import Optional
 
-from jobmon.client import client_config, shared_requester
+from jobmon.client import shared_requester
+from jobmon.client.requester import Requester
+from jobmon.client.swarm.executors import Executor
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
 
 
 class SwarmJobInstance:
 
-    def __init__(self, job_instance_id, executor_id, executor,
-                 workflow_run_id=None, nodename=None, process_group_id=None,
-                 job_id=None, dag_id=None, status=None, status_date=None,
-                 requester=shared_requester):
+    def __init__(self,
+                 job_instance_id: int,
+                 executor_id: int,
+                 executor: Executor,
+                 workflow_run_id: Optional[int]=None,
+                 nodename: Optional[str]=None,
+                 process_group_id: Optional[int]=None,
+                 job_id: Optional[int]=None,
+                 dag_id: Optional[int]=None,
+                 status: Optional[int]=None,
+                 status_date: Optional[datetime]=None,
+                 requester: Requester=shared_requester):
+        """Object used for communicating with JSM from the swarm node
 
-        # job_instance_id should be immutable so make it private
+        Args:
+            job_instance_id (int): a job_instance_id
+            executor_id (int): an executor_id associated with this job_instance
+            executor (Executor): an instance of an Executor or a subclass
+            workflow_run_id (int, optional): a workflow_run_id associated with
+                this job instance. default is None
+            nodename (str, optional): the nodename that this job instance is
+                running on. default is None
+            process_group_id (int, optional): the process group id that this
+                job instance was running under on the remote host. default is
+                None
+            job_id (int, optional): the job_id associated with this job
+                instance. default is None
+            dag_id (int, optional): the dag_id associated with this job
+                instance. default is None
+            status (int, optional): the status of this job. default is None
+            status_date (int, optional): the timestamp when the status was last
+                updated. default is None
+            requester (Requester, optional): a requester to communicate with
+                the JSM. default is shared requester
+        """
+
         self.job_instance_id = job_instance_id
         self.executor_id = executor_id
 
@@ -44,11 +77,8 @@ class SwarmJobInstance:
                    status_date=datetime.strptime(dct['status_date'],
                                                  "%Y-%m-%dT%H:%M:%S"))
 
-    @property
-    def time_since_status(self):
-        return (datetime.utcnow() - self.status_date).seconds
-
-    def log_error(self):
+    def log_error(self) -> None:
+        """Log an error from the swarm node"""
         try:
             error_state, msg = self.executor.get_remote_exit_info(
                 self.executor_id)
@@ -66,16 +96,13 @@ class SwarmJobInstance:
             }
         # this is the 'unhappy' path. We are giving up discovering the exit
         # state and moving the job into unknown error state
-        elif self.time_since_status > client_config.lost_track_timeout:
+        else:
             message = {
                 "error_message": msg,
                 "error_state": error_state
             }
-        # this is the do nothing path. We want to wait longer to see if the
-        # executor discovers the real exit state before giving up on the job
-        else:
-            return
         self.requester.send_request(
-            app_route=f'/job_instance/{self.job_instance_id}/log_error',
+            app_route=(
+                f'/job_instance/{self.job_instance_id}/log_error_reconciler'),
             message=message,
             request_type='post')

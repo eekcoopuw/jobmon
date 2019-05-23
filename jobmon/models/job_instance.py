@@ -81,55 +81,38 @@ class JobInstance(DB.Model):
         (JobInstanceStatus.INSTANTIATED,
          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
 
-        # job instance logs running before submitted due to race condition
-        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
-
         # job instance submission hit weird bug and didn't get an executor_id
         (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.NO_EXECUTOR_ID),
+
+        # job instance logs running before submitted due to race condition
+        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
 
         # job instance logs running after submission to batch (happy path)
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
          JobInstanceStatus.RUNNING),
 
         # job instance disappeared from executor heartbeat and never logged
-        # running
+        # running. The executor has no accounting of why it died
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-         JobInstanceStatus.LOST_TRACK),
+         JobInstanceStatus.UNKNOWN_ERROR),
 
-        # job instance missed logging running and went straight to error. This
-        # seems impossible but is valid for the purposes of the finite state
-        # machine
+        # job instance disappeared from executor heartbeat and never logged
+        # running. The executor discovered a resource error exit status.
+        # This seems unlikely but is valid for the purposes of the FSM
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-         JobInstanceStatus.ERROR),
-
-        # job instane stopped logging heartbeats from the executor but started
-        # running before reconciliation gave up on it
-        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.RUNNING),
-
-        # job instance stopped logging heartbeats but finished gracefully. This
-        # seems highly unlikely but is valid for the purposes of the finite
-        # state machine
-        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.DONE),
-
-        # job instance stopped logging heartbeats but gracefully exited with
-        # an application error. This seems unlikely but is valid for the
-        # purposes of the finite state machine
-        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.ERROR),
-
-        # job instance stopped logging heartbeats and the executor does not
-        # know why it died
-        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.UNKNOWN_ERROR),
-
-        # job instance stopped logging heartbeats and the executor determines
-        # it died because it hit resource limits
-        (JobInstanceStatus.LOST_TRACK, JobInstanceStatus.RESOURCE_ERROR),
+         JobInstanceStatus.RESOURCE_ERROR),
 
         # job instance hits an application error (happy path)
         (JobInstanceStatus.RUNNING, JobInstanceStatus.ERROR),
 
-        # job instance stops logging heartbeats. reconciler is now attempting
-        # to detemine exit status
-        (JobInstanceStatus.RUNNING, JobInstanceStatus.LOST_TRACK),
+        # job instance stops logging heartbeats. reconciler can't find an exit
+        # status
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.UNKNOWN_ERROR),
+
+        # 1) job instance stops logging heartbeats. reconciler discovers a
+        # resource error.
+        # 2) worker node detects a resource error
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.RESOURCE_ERROR),
 
         # job instance finishes normally (happy path)
         (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)
@@ -143,19 +126,14 @@ class JobInstance(DB.Model):
         (JobInstanceStatus.RUNNING,
          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
 
-        # job instance stopped logging executor heartbeats and moved to lost.
-        # It then got scheduled and logged running. The reconciliation loop
-        # still thought it was lost, but couldn't find out what its exit status
-        # was so attempts to move it to unknown error, but the job is now
-        # running normally
-        (JobInstanceStatus.RUNNING, JobInstanceStatus.UNKNOWN_ERROR),
-
-        # job instance was lost from reconciliation's point of view and
-        # executor can't find its exit status. The worker finishes gracefully
-        (JobInstanceStatus.DONE, JobInstanceStatus.UNKNOWN_ERROR),
+        # job instance stops logging heartbeats and reconciler is looking for
+        # remote exit status but can't find it so logs an unknown error.
+        # Job finishes with an application error. We can't update state because
+        # the job may already be running again due to a race with the JIF
+        (JobInstanceStatus.ERROR, JobInstanceStatus.UNKNOWN_ERROR),
 
         # job instance stops logging heartbeats and reconciler can't find exit
-        # status. Worker tries to finish gracefully but it's too late
+        # status. Worker tries to finish gracefully but reconciler won the race
         (JobInstanceStatus.UNKNOWN_ERROR, JobInstanceStatus.DONE),
 
         # job instance stops logging heartbeats and reconciler can't find exit
@@ -163,6 +141,23 @@ class JobInstance(DB.Model):
         # the job could be running again alread and we don't want to update job
         # state
         (JobInstanceStatus.UNKNOWN_ERROR, JobInstanceStatus.ERROR),
+
+        # job instance stops logging heartbeats and reconciler can't find exit
+        # status. Worker tries to report a resource error but cant' because
+        # the job could be running again alread and we don't want to update job
+        # state
+        (JobInstanceStatus.UNKNOWN_ERROR, JobInstanceStatus.RESOURCE_ERROR),
+
+        # job instance stops logging heartbeats and reconciler can't find exit
+        # status. Worker reports a resource error before reconciler logs an
+        # unknown error.
+        (JobInstanceStatus.RESOURCE_ERROR, JobInstanceStatus.UNKNOWN_ERROR),
+
+        # job instance stops logging heartbeats and reconciler is looking for
+        # remote exit status but can't find it so logs an unknown error.
+        # The worker finishes gracefully before reconciler can log an unknown
+        # error
+        (JobInstanceStatus.DONE, JobInstanceStatus.UNKNOWN_ERROR)
     ]
 
     kill_self_states = [JobInstanceStatus.NO_EXECUTOR_ID,

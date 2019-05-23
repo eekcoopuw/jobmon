@@ -2,16 +2,23 @@ import logging
 import os
 import socket
 import traceback
+from typing import Optional, Union, Tuple, Dict
 
 from jobmon.client import shared_requester
+from jobmon.client.requester import Requester
+from jobmon.client.swarm.executors import JobInstanceExecutorInfo
 
 logger = logging.getLogger(__name__)
 
 
 class WorkerNodeJobInstance:
 
-    def __init__(self, job_instance_id, executor_id, executor, nodename=None,
-                 process_group_id=None, requester=shared_requester):
+    def __init__(self,
+                 job_instance_id: int,
+                 job_instance_executor_info: JobInstanceExecutorInfo,
+                 nodename: Optional[str]=None,
+                 process_group_id: Optional[int]=None,
+                 requester: Requester=shared_requester):
         """
         The JobInstanceIntercom is a mechanism whereby a running job_instance
         can communicate back to the JobStateManager to log its status, errors,
@@ -20,39 +27,39 @@ class WorkerNodeJobInstance:
         Args:
             job_instance_id (int): the id of the job_instance_id that is
                 reporting back
-            executor (Executor): instance of executor that was used for this
-                job instance
+            job_instance_executor_info (JobInstanceExecutorInfo): instance of
+                executor that was used for this job instance
             nodename (str): hostname where this job_instance is running
             process_group_id (int): linux process_group_id that this
                 job_instance is a part of
         """
         self.job_instance_id = job_instance_id
-        self._executor_id = executor_id
+        self._executor_id: Optional[int] = None
         self._nodename = nodename
         self._process_group_id = process_group_id
-        self.executor = executor
+        self.executor = job_instance_executor_info
         self.requester = shared_requester
         logger.debug("Instantiated JobInstanceIntercom")
 
     @property
-    def executor_id(self):
-        if self._executor_id is None:
+    def executor_id(self) -> Optional[int]:
+        if self._executor_id is None and self.executor.executor_id is not None:
             self._executor_id = self.executor.executor_id
         return self._executor_id
 
     @property
-    def nodename(self):
+    def nodename(self) -> str:
         if self._nodename is None:
             self._nodename = socket.getfqdn()
         return self._nodename
 
     @property
-    def process_group_id(self):
+    def process_group_id(self) -> int:
         if self._process_group_id is None:
             self._process_group_id = os.getpid()
         return self._process_group_id
 
-    def log_done(self):
+    def log_done(self) -> int:
         """Tell the JobStateManager that this job_instance is done"""
         message = {'nodename': self.nodename}
         if self.executor_id is not None:
@@ -65,7 +72,7 @@ class WorkerNodeJobInstance:
             request_type='post')
         return rc
 
-    def log_error(self, error_message, exit_status, scale=0.5):
+    def log_error(self, error_message: str, exit_status: int) -> int:
         """Tell the JobStateManager that this job_instance has errored"""
 
         # clip at 10k to avoid mysql has gone away errors when posting long
@@ -82,7 +89,6 @@ class WorkerNodeJobInstance:
 
         message = {'error_message': msg,
                    'error_state': error_state,
-                   'resource_adjustment': scale,
                    'nodename': self.nodename}
 
         if self.executor_id is not None:
@@ -90,12 +96,13 @@ class WorkerNodeJobInstance:
         else:
             logger.info("No Job ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=f'/job_instance/{self.job_instance_id}/log_error',
+            app_route=(
+                f'/job_instance/{self.job_instance_id}/log_error_worker_node'),
             message=message,
             request_type='post')
         return rc
 
-    def log_job_stats(self):
+    def log_job_stats(self) -> None:
         """Tell the JobStateManager all the applicable job_stats for this
         job_instance
         """
@@ -117,7 +124,8 @@ class WorkerNodeJobInstance:
             logger.error(f"Usage stats not available due to exception {e}")
             logger.error(f"Traceback {traceback.format_exc()}")
 
-    def log_running(self, next_report_increment):
+    def log_running(self, next_report_increment: Union[int, float]
+                    ) -> Tuple[int, str]:
         """Tell the JobStateManager that this job_instance is running, and
         update the report_by_date to be further in the future in case it gets
         reconciled immediately"""
@@ -136,9 +144,9 @@ class WorkerNodeJobInstance:
         logger.debug(f"Response from log_running was: {resp}")
         return rc, resp
 
-    def log_report_by(self, next_report_increment):
+    def log_report_by(self, next_report_increment: Union[int, float]) -> int:
         """Log the heartbeat to show that the job instance is still alive"""
-        message = {"next_report_increment": next_report_increment}
+        message: Dict = {"next_report_increment": next_report_increment}
         if self.executor_id is not None:
             message['executor_id'] = str(self.executor_id)
         else:
@@ -149,7 +157,7 @@ class WorkerNodeJobInstance:
             request_type='post')
         return rc
 
-    def in_kill_self_state(self):
+    def in_kill_self_state(self) -> bool:
         rc, resp = self.requester.send_request(
             app_route=f'/job_instance/{self.job_instance_id}/kill_self',
             message={},

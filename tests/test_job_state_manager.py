@@ -1,12 +1,12 @@
+from datetime import datetime
 import getpass
 import hashlib
 import os
-import pytest
 import random
 import socket
-
+from time import sleep
+import pytest
 from sqlalchemy.exc import OperationalError
-from datetime import datetime
 
 from jobmon.client import shared_requester as req
 from jobmon.models.job import Job
@@ -548,16 +548,17 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        job_attribute_query = DB.session.execute("""
-                                                SELECT job_attribute.id,
-                                                       job_attribute.job_id,
-                                                       job_attribute.attribute_type,
-                                                       job_attribute.value
-                                                FROM job_attribute
-                                                JOIN job
-                                                ON job_attribute.job_id=job.job_id
-                                                WHERE job_attribute.job_id={id}
-                                                """.format(id=job.job_id))
+        job_attribute_query = DB.session.execute(
+            """
+            SELECT job_attribute.id,
+                   job_attribute.job_id,
+                   job_attribute.attribute_type,
+                   job_attribute.value
+            FROM job_attribute
+            JOIN job
+            ON job_attribute.job_id=job.job_id
+            WHERE job_attribute.job_id={id}
+            """.format(id=job.job_id))
         attribute_entries = job_attribute_query.fetchall()
         for entry in attribute_entries:
             attribute_entry_type = entry.attribute_type
@@ -844,7 +845,7 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
     DB = db_cfg["DB"]
     app = db_cfg["app"]
     with app.app_context():
-        DB.session.execute("""UPDATE job_instance 
+        DB.session.execute("""UPDATE job_instance
                               SET job_instance.status='W'
                               WHERE job_instance_id = {}""".format(job_instance_id))
         DB.session.commit()
@@ -859,3 +860,68 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
         request_type='post')
     assert resp['message'] == 'kill self'
 
+
+def test_log_error_reconciler(db_cfg, real_dag_id):
+    next_report_increment = 10
+    # add job
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    job = Job.from_wire(response['job_dct'])
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(job.job_id),
+        message={},
+        request_type='post')
+
+    # add job instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = response['job_instance_id']
+    req.send_request(
+        app_route=f'/job_instance/{job_instance_id}/log_executor_id',
+        message={'executor_id': str(12345),
+                 'next_report_increment': next_report_increment},
+        request_type='post')
+
+    # try to log unknown immediately. Should do nothing because we aren't
+    # beyond the report_by date: utcnow() + 'next_report_increment'
+    req.send_request(
+        app_route=f'/job_instance/{job_instance_id}/log_error_reconciler',
+        message={
+            "error_message": "foo",
+            "error_state": JobInstanceStatus.UNKNOWN_ERROR
+        },
+        request_type='post')
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job_instance = DB.session.query(JobInstance).filter(
+            JobInstance.job_instance_id == job_instance_id).first()
+        assert job_instance.status == (
+            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
+
+    # sleep till we are passed the next report increment then try again
+    sleep(next_report_increment)
+    req.send_request(
+        app_route=f'/job_instance/{job_instance_id}/log_error_reconciler',
+        message={
+            "error_message": "foo",
+            "error_state": JobInstanceStatus.UNKNOWN_ERROR
+        },
+        request_type='post')
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job_instance = DB.session.query(JobInstance).filter(
+            JobInstance.job_instance_id == job_instance_id).first()
+        assert job_instance.status == (
+            JobInstanceStatus.UNKNOWN_ERROR)

@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import jsonify, request, Blueprint
 from http import HTTPStatus as StatusCodes
 import json
@@ -6,6 +7,7 @@ import socket
 from sqlalchemy.sql import func, text
 import sys
 import traceback
+from typing import Tuple, Optional
 import warnings
 
 from jobmon.models import DB
@@ -334,7 +336,7 @@ def log_done(job_instance_id):
     return resp
 
 
-def _available_resource_in_queue(q="all.q") -> (int, int, int):
+def _available_resource_in_queue(q="all.q") -> Tuple[int, int, int]:
     """
     Todo: calculate the available resources in queue
           for this release, just return the limits of each queue
@@ -446,44 +448,35 @@ def _increase_resources(exec_id: int, scale: float)->str:
         return msg
 
 
-@jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
-def log_error(job_instance_id):
-    """Log a job_instance as errored
-    Args:
-
-        job_instance_id (str): id of the job_instance to log done
-        error_message (str): message to log as error
-    """
-
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-    data = request.get_json()
-    logger.debug("Log ERROR for JI {}, message={}".format(
-        job_instance_id, data['error_message']))
-    ji = _get_job_instance(DB.session, job_instance_id)
-    logger.debug("data:" + str(data))
-    logger.debug("Reading nodename {}".format(ji.nodename))
-
-    if data.get("nodename", None) is not None:
-        ji.nodename = data['nodename']
-    if data.get('executor_id', None) is not None:
-        ji.executor_id = data['executor_id']
+def _log_error(ji: JobInstance,
+               error_state: int,
+               error_msg: str,
+               executor_id: Optional[int]=None,
+               nodename: Optional[str]=None
+               ):
+    if nodename is not None:
+        ji.nodename = nodename
+    if executor_id is not None:
+        ji.executor_id = executor_id
 
     # increase resources on job first to eliminate a theoretical race condition
-    if data["error_state"] == JobInstanceStatus.RESOURCE_ERROR:
+    if error_state == JobInstanceStatus.RESOURCE_ERROR:
         scale = 0.5  # default value
-        if data.get('resource_adjustment', None) is not None:
-            scale = data['resource_adjustment']
-        msg = _increase_resources(data['executor_id'], scale)
+        if executor_id is not None:
+            msg = _increase_resources(executor_id, scale)
+        else:
+            raise ValueError(
+                "Invalid value in _log_error for job_instance_id"
+                f" {ji.job_instance_id}. executor_id cannot be None if"
+                "error_state is Z")
     else:
         msg = ""
 
     try:
-        msg += _update_job_instance_state(ji, data["error_state"])
+        msg += _update_job_instance_state(ji, error_state)
         DB.session.commit()
-        error = JobInstanceErrorLog(
-            job_instance_id=job_instance_id,
-            description=data['error_message'])
+        error = JobInstanceErrorLog(job_instance_id=ji.job_instance_id,
+                                    description=error_msg)
         DB.session.add(error)
         DB.session.commit()
 
@@ -494,6 +487,64 @@ def log_error(job_instance_id):
         warnings.warn(log_msg)
         logger.debug(log_msg)
         raise
+
+    return resp
+
+
+@jsm.route('/job_instance/<job_instance_id>/log_error_worker_node',
+           methods=['POST'])
+def log_error_worker_node(job_instance_id: int):
+    """Log a job_instance as errored
+    Args:
+
+        job_instance_id (str): id of the job_instance to log done
+        error_message (str): message to log as error
+    """
+
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    data = request.get_json()
+    error_state = data["error_state"]
+    error_message = data["error_message"]
+    executor_id = data.get('executor_id', None)
+    nodename = data.get("nodename", None)
+    logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
+    logger.debug("data:" + str(data))
+
+    ji = _get_job_instance(DB.session, job_instance_id)
+    resp = _log_error(ji, error_state, error_message, executor_id, nodename)
+    return resp
+
+
+@jsm.route('/job_instance/<job_instance_id>/log_error_reconciler',
+           methods=['POST'])
+def log_error_reconciler(job_instance_id: int):
+    """Log a job_instance as errored
+    Args:
+
+        job_instance_id (str): id of the job_instance to log done
+        error_message (str): message to log as error
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    data = request.get_json()
+    error_state = data["error_state"]
+    error_message = data["error_message"]
+    executor_id = data.get('executor_id', None)
+    nodename = data.get("nodename", None)
+    logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
+    logger.debug("data:" + str(data))
+
+    ji = _get_job_instance(DB.session, job_instance_id)
+
+    # make sure the job hasn't logged a new heartbeat since we began
+    # reconciliation
+    if ji.report_by_date <= datetime.utcnow():
+        resp = _log_error(ji, error_state, error_message, executor_id,
+                          nodename)
+    else:
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
     return resp
 
 

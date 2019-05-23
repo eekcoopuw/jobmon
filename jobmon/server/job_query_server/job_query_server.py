@@ -280,6 +280,28 @@ def get_job_instances_by_status(dag_id):
     return resp
 
 
+@jqs.route('/dag/<dag_id>/get_suspicious_job_instances', methods=['GET'])
+def get_suspicious_job_instances(dag_id):
+
+    # query all job instances that are submitted to executor or running which
+    # haven't reported as alive in the allocated time.
+    # ignore job instances created after heartbeat began. We'll reconcile them
+    # during the next reconciliation loop.
+    job_instances = DB.session.query(JobInstance).\
+        join(TaskDagMeta).\
+        filter_by(dag_id=dag_id).\
+        filter(JobInstance.status.in_([
+            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+            JobInstanceStatus.RUNNING])).\
+        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
+        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
+    DB.session.commit()
+
+    resp = jsonify(job_instances=[ji.to_wire() for ji in job_instances])
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/dag', methods=['GET'])
 def get_dags_by_inputs():
     """

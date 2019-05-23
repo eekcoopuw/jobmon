@@ -42,16 +42,11 @@ class ClientConfig(object):
         if "REPORT_BY_BUFFER" in os.environ:
             DEFAULT_CLIENT_CONFIG["report_by_buffer"] = (
                 float(os.environ["REPORT_BY_BUFFER"]))
-        if "LOST_TRACK_TIMEOUT" in os.environ:
-            DEFAULT_CLIENT_CONFIG["lost_track_timeout"] = (
-                float(os.environ["LOST_TRACK_TIMEOUT"]))
-        # and finally override using CLI args (if passed)
-        # TBD
 
         return cls(**DEFAULT_CLIENT_CONFIG)
 
     def __init__(self, host, port, jobmon_command, reconciliation_interval,
-                 heartbeat_interval, report_by_buffer, lost_track_timeout):
+                 heartbeat_interval, report_by_buffer):
 
         self._host = host
         self._port = port
@@ -64,4 +59,3 @@ class ClientConfig(object):
         self.reconciliation_interval = reconciliation_interval
         self.heartbeat_interval = heartbeat_interval
         self.report_by_buffer = report_by_buffer
-        self.lost_track_timeout = lost_track_timeout

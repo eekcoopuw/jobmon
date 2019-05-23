@@ -4,23 +4,27 @@ import threading
 import _thread
 from time import sleep
 import traceback
+from typing import Optional, List
 
 from jobmon.client import shared_requester, client_config
+from jobmon.client.requester import Requester
+from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.client.swarm.job_management.swarm_job_instance import (
     SwarmJobInstance)
-from jobmon.models.job_instance_status import JobInstanceStatus
 
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_INCREMENT_SCALE = 0.5
-
 
 class JobInstanceReconciler(object):
 
-    def __init__(self, dag_id, executor=None, interrupt_on_error=True,
-                 stop_event=None, requester=shared_requester):
+    def __init__(self,
+                 dag_id: int,
+                 executor: Optional[Executor]=None,
+                 interrupt_on_error: Optional[bool]=True,
+                 stop_event: Optional[threading.Event]=None,
+                 requester: Requester=shared_requester) -> None:
         """The JobInstanceReconciler is a mechanism by which the
         JobStateManager and JobQueryServer make sure the database in sync with
         jobs in qstat
@@ -51,7 +55,7 @@ class JobInstanceReconciler(object):
         else:
             self._stop_event = stop_event
 
-    def set_executor(self, executor):
+    def set_executor(self, executor: Executor) -> None:
         """
         Sets the executor that will be used for all jobs queued downstream
         of the set event.
@@ -64,7 +68,7 @@ class JobInstanceReconciler(object):
         """
         self.executor = executor
 
-    def reconcile_periodically(self):
+    def reconcile_periodically(self) -> None:
         """Running in a thread, this function allows the JobInstanceReconciler
         to periodically reconcile all jobs against 'qstat'
         """
@@ -102,7 +106,7 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
-    def terminate_timed_out_jobs(self):
+    def terminate_timed_out_jobs(self) -> None:
         """Attempts to terminate jobs that have been in the "running"
         state for too long. From the SGE perspective, this might include
         jobs that got stuck in "r" state but never called back to the
@@ -130,7 +134,7 @@ class JobInstanceReconciler(object):
         for job_instance_id, hostname in terminated:
             self._log_timeout_hostname(job_instance_id, hostname)
 
-    def reconcile(self):
+    def reconcile(self) -> None:
         """Identifies submitted to batch and running jobs that have missed
         their report_by_date and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
@@ -138,17 +142,16 @@ class JobInstanceReconciler(object):
         """
         self._log_dag_heartbeat()
         self._log_executor_report_by()
-        self._transition_job_instances_to_lost()
         self._account_for_lost_job_instances()
 
-    def _log_dag_heartbeat(self):
+    def _log_dag_heartbeat(self) -> None:
         """Logs a dag heartbeat"""
         return self.requester.send_request(
             app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
             message={},
             request_type='post')
 
-    def _log_executor_report_by(self):
+    def _log_executor_report_by(self) -> None:
         next_report_increment = self.heartbeat_interval * self.report_by_buffer
         try:
             # qstat for pending jobs or running jobs
@@ -167,19 +170,13 @@ class JobInstanceReconciler(object):
                      'next_report_increment': next_report_increment},
             request_type='post')
 
-    def _transition_job_instances_to_lost(self):
-        return self.requester.send_request(
-            app_route=f'/task_dag/{self.dag_id}/transition_jis_to_lost',
-            message={},
-            request_type='post')
-
-    def _account_for_lost_job_instances(self):
+    def _account_for_lost_job_instances(self) -> None:
         rc, response = self.requester.send_request(
-            app_route=f'/dag/{self.dag_id}/get_job_instances_by_status',
-            message={"status": [JobInstanceStatus.LOST_TRACK]},
+            app_route=f'/dag/{self.dag_id}/get_suspicious_job_instances',
+            message={},
             request_type='get')
         if rc != StatusCodes.OK:
-            lost_job_instances = []
+            lost_job_instances: List[SwarmJobInstance] = []
         else:
             lost_job_instances = [
                 SwarmJobInstance.from_wire(ji, self.executor)
@@ -188,7 +185,7 @@ class JobInstanceReconciler(object):
         for swarm_job_instance in lost_job_instances:
             swarm_job_instance.log_error()
 
-    def _log_timeout_hostname(self, job_instance_id, hostname):
+    def _log_timeout_hostname(self, job_instance_id: int, hostname: str):
         """Logs the hostname for any job that has timed out
         Args:
             job_instance_id (int): id for the job_instance that has timed out

@@ -27,21 +27,18 @@ def job_list_manager_dummy(real_dag_id):
     # but we do need it to subscribe to status updates for reconciliation
     # tests. Start this thread manually.
     old_heartbeat_interval = client_config.heartbeat_interval
-    old_lost_track_timeout = client_config.lost_track_timeout
     client_config.heartbeat_interval = 5
-    client_config.lost_track_timeout = 5
     executor = DummyExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
                          start_daemons=False, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
     client_config.heartbeat_interval = old_heartbeat_interval
-    client_config.lost_track_timeout = old_lost_track_timeout
 
 
 @pytest.fixture(scope='function')
 def job_list_manager_reconciliation(real_dag_id):
-    executor = SGEExecutor()
+    executor = SGEExecutor(project="proj_tools")
     jlm = JobListManager(real_dag_id, executor=executor,
                          start_daemons=True,
                          interrupt_on_error=False)
@@ -150,24 +147,11 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     # job will move into lost track because it never logs a heartbeat
     i = 0
     while i < maxretries:
-        jir._transition_job_instances_to_lost()
+        jir.reconcile()
         i += 1
         res = DB.session.execute(sql).fetchone()
         DB.session.commit()
         if res[0] != "B":
-            break
-        sleep(5)
-    assert res[0] == "L"
-
-    # job instance logs an unknown error during rbecause dummy has no method:
-    # get_remote_exit_info
-    i = 0
-    while i < maxretries:
-        jir._account_for_lost_job_instances()
-        i += 1
-        res = DB.session.execute(sql).fetchone()
-        DB.session.commit()
-        if res[0] != "L":
             break
         sleep(5)
     assert res[0] == "U"

@@ -1,14 +1,14 @@
 import subprocess
 
 # This import is needed for the monkeypatch
-from jobmon.client.swarm.executors.sge import SGEExecutorWorkerNode
+from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo
 from jobmon.client.worker_node.worker_node_job_instance import (
     WorkerNodeJobInstance)
 
 error_raised = False
 
 
-class BadSGEExecutor(SGEExecutorWorkerNode):
+class BadSGEExecutor(JobInstanceSGEInfo):
     """Mock the intercom interface for testing purposes, specifically
     to raise exceptions"""
 

@@ -27,6 +27,5 @@ DEFAULT_CLIENT_CONFIG = {
     "jobmon_command": derive_jobmon_command_from_env(),
     "reconciliation_interval": 10,
     "heartbeat_interval": 90,
-    "report_by_buffer": 3.1,
-    "lost_track_timeout": 60
+    "report_by_buffer": 3.1
 }
