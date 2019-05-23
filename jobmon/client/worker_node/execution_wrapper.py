@@ -83,6 +83,9 @@ def unwrap():
     elif args["executor_class"] == "SGEExecutor":
         from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo \
             as JobInstanceExecutorInfo
+    elif args["executor_class"] == "DummyExecutor":
+        from jobmon.client.swarm.executors import JobInstanceExecutorInfo \
+            as JobInstanceExecutorInfo
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))

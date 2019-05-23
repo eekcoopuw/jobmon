@@ -18,10 +18,14 @@ class ExpectedException(Exception):
 class MockIntercom:
     """Mock the intercom interface for testing purposes"""
 
-    def __init__(self, job_instance_id, executor_id, executor):
+    def __init__(self, job_instance_id, job_instance_executor_info
+                 ):
         self.job_instance_id = job_instance_id
-        self.executor_id = executor_id
-        self.executor = executor
+        self.executor = job_instance_executor_info
+
+    @property
+    def executor_id(self):
+        return self.executor.executor_id
 
     def log_running(self, next_report_increment):
         return 200, False
@@ -58,17 +62,17 @@ class MockIntercomRaiseInLogError(MockIntercom):
 class MockIntercomCheckExecutorId(MockIntercom):
 
     def log_running(self, next_report_increment):
-        assert self.executor_id == '77777'
+        assert self.executor_id == 77777
         return 200, False
 
     def log_report_by(self, next_report_increment):
-        assert self.executor_id == '77777'
+        assert self.executor_id == 77777
 
     def log_done(self):
-        assert self.executor_id == '77777'
+        assert self.executor_id == 77777
 
     def log_error(self, error_message, exit_status):
-        assert self.executor_id == '77777'
+        assert self.executor_id == 77777
 
 
 def test_kill_remote_process_group_conditional(monkeypatch):
@@ -92,7 +96,7 @@ def test_kill_remote_process_group_conditional(monkeypatch):
         "--job_instance_id", "1",
         "--jm_host", "some.host.name",
         "--jm_port", "2",
-        "--executor_class", "DummyExecutor",
+        "--executor_class", "SequentialExecutor",
         "--heartbeat_interval", "90",
         "--report_by_buffer", "3.1"
     ]
@@ -145,7 +149,7 @@ def test_stderr_buffering(monkeypatch, capsys):
         "--job_instance_id", "1",
         "--jm_host", "some.host.name",
         "--jm_port", "2",
-        "--executor_class", "DummyExecutor",
+        "--executor_class", "SequentialExecutor",
         "--heartbeat_interval", "1",
         "--report_by_buffer", "3.1"
     ]
@@ -182,7 +186,7 @@ def test_executor_id(monkeypatch, capsys):
         "--job_instance_id", "1",
         "--jm_host", "some.host.name",
         "--jm_port", "2",
-        "--executor_class", "DummyExecutor",
+        "--executor_class", "SequentialExecutor",
         "--heartbeat_interval", "1",
         "--report_by_buffer", "3.1"
     ]
