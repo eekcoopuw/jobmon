@@ -1,9 +1,5 @@
 """Interface to the dynamic resource manager (DRM), aka the scheduler."""
 
-try:
-    from collections.abc import Sequence
-except ImportError:
-    from collections import Sequence
 from datetime import datetime
 import itertools
 import logging
@@ -14,7 +10,6 @@ import subprocess
 import pandas as pd
 import numpy as np
 
-import jobmon.client.swarm.executors.sge as sge
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
@@ -25,6 +20,7 @@ UGE_NAME_POLICY = re.compile(
 STATA_BINARY = "/usr/local/bin/stata-mp"
 R_BINARY = "/usr/local/bin/R"
 DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
+ERROR_QSTAT_ID = - 9998
 
 
 def true_path(file_or_dir=None, executable=None):
@@ -66,7 +62,7 @@ def get_project_limits(project):
     if not project:
         project = 'ihme_general'
     if "el7" in os.environ["SGE_ENV"]:
-        """project limits are not enforced on the fair cluster if other 
+        """project limits are not enforced on the fair cluster if other
         projects are not using the resources so global limit is assigned"""
         return 10000
     else:
@@ -287,13 +283,13 @@ def qdel(job_ids):
 
 
 def qacct_exit_status(jid: int)->int:
-    cmd1 = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid  #For strange reason f string or format does not work
+    # For strange reason f string or format does not work
+    cmd1 = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid
     logger.warning("**********************************************" + cmd1)
     try:
-        return int(subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n",""))
+        res = subprocess.check_output(cmd1, shell=True)
+        return int(res.decode("utf-8").replace("\n", ""))
     except Exception as e:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))
-        return sge.ERROR_QSTAT_ID
-
-
+        return ERROR_QSTAT_ID

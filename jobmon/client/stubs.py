@@ -1,7 +1,7 @@
 from jobmon.models.job import Job
 
 
-class StubJob():
+class StubJob:
     """
     This is a simplified Job object used on the RESTful API client side
     when only job_id, job_hash, and status are needed.

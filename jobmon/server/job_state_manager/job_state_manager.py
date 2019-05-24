@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import jsonify, request, Blueprint
 from http import HTTPStatus as StatusCodes
 import json
@@ -6,6 +7,7 @@ import socket
 from sqlalchemy.sql import func, text
 import sys
 import traceback
+from typing import Tuple, Optional
 import warnings
 
 from jobmon.models import DB
@@ -334,12 +336,13 @@ def log_done(job_instance_id):
     return resp
 
 
-def _available_resource_in_queue(q="all.q") -> (int, int, int):
+def _available_resource_in_queue(q="all.q") -> Tuple[int, int, int]:
     """
     Todo: calculate the available resources in queue
           for this release, just return the limits of each queue
 
-    Queue limit reference: https://docs.cluster.ihme.washington.edu/allocation-and-limits/queues/
+    Queue limit reference:
+        https://docs.cluster.ihme.washington.edu/allocation-and-limits/queues/
 
     :param q: queue
     :return: (avaialbe_mem: int (in G), available_cores: int, max_runtime: int)
@@ -355,9 +358,12 @@ def _available_resource_in_queue(q="all.q") -> (int, int, int):
 
 
 def _increase_resources(exec_id: int, scale: float)->str:
-    """This route is created to increase the resources of jobs failed with a 137 error on the fair cluster on tries.
-       The memory, runtime and threads should increase by a configurable amount (say 50%). 
-       The row in the job table should be modified with new values. men_free, num_cores, max_runtime_seconds.
+    """This route is created to increase the resources of jobs failed with a
+    137 error on the fair cluster on tries. The memory, runtime and threads
+    should increase by a configurable amount (say 50%). The row in the job
+    table should be modified with new values. men_free, num_cores,
+    max_runtime_seconds.
+
     Args:
         exec_id: excutor_id
         scale: increase scale
@@ -365,45 +371,61 @@ def _increase_resources(exec_id: int, scale: float)->str:
     Return: an result string to add to the return message
     """
     update_resource_query_template = """
-                        update job
-                        set mem_free="{mem}", 
-                            num_cores={cores}, 
-                            max_runtime_seconds={runtime}
-                        where job.job_id=
-                              (select job_id
-                               from job_instance
-                               where executor_id={id});
-                    """
+        update job
+        set mem_free="{mem}",
+            num_cores={cores},
+            max_runtime_seconds={runtime}
+        where job.job_id=
+              (select job_id
+               from job_instance
+               where executor_id={id});
+        """
     update_status_query_template = """
-                            update job
-                            set status="F"
-                            where job.job_id=
-                                  (select job_id
-                                   from job_instance
-                                   where executor_id={id});
-                        """
+        update job
+        set status="F"
+        where job.job_id=
+              (select job_id
+               from job_instance
+               where executor_id={id});
+        """
     logger.debug(logging.myself())
 
     try:
         scale = float(scale)
-    except:
+    except Exception:
         # In case the client sent an invalid value, set the scale to 50%.
         scale = 0.5
 
-    query = f"select mem_free, num_cores, max_runtime_seconds, queue from job_instance, job where job_instance.job_id=job.job_id and executor_id = {exec_id}"
+    query = """
+    select
+        mem_free, num_cores, max_runtime_seconds, queue
+    from
+        job_instance, job
+    where
+        job_instance.job_id=job.job_id and executor_id = {exec_id}
+    """.format(exec_id=exec_id)
     res = DB.session.execute(query).fetchone()
     mem = res[0]
     cores = res[1]
     runtime = res[2]
     queue = res[3]
     DB.session.commit()
-    (available_mem, available_cores, max_runtime) = _available_resource_in_queue(queue)
-    logger.debug(f"Current system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
+    (available_mem, available_cores, max_runtime
+     ) = _available_resource_in_queue(queue)
+    logger.debug(
+        f"Current system resources set to mem: {mem}, cores: {cores},"
+        f"runtime: {runtime}")
     mem, cores, runtime = _get_new_resource_value(mem, cores, runtime, scale)
     # int mem in M
-    mem_in_M = int(mem[:-1]) if mem[-1] == "M" else int(mem[:-1]) * 1000 if mem[-1] == "G" else int(mem) * 1000
+    mem_in_M = (
+        int(mem[:-1]) if mem[-1] == "M" else
+        int(mem[:-1]) * 1000 if mem[-1] == "G" else
+        int(mem) * 1000)
     # available_mem should be in G
-    if mem_in_M > available_mem * 1000 or cores > available_cores or runtime > max_runtime:
+    if (
+            mem_in_M > available_mem * 1000 or
+            cores > available_cores or
+            runtime > max_runtime):
         # move to ERROR_FATAL
         query = update_status_query_template.format(id=exec_id)
         DB.session.execute(query)
@@ -412,22 +434,66 @@ def _increase_resources(exec_id: int, scale: float)->str:
         return "Not enough system resources. Set the job status to F."
     else:
         query = update_resource_query_template.format(
-                mem=mem if mem is not None else "null",
-                cores=cores if (cores is not None) or (cores != 0) else "null",
-                runtime=runtime if runtime is not None else "null",
-                id=exec_id
-                )
+            mem=mem if mem is not None else "null",
+            cores=cores if (cores is not None) or (cores != 0) else "null",
+            runtime=runtime if runtime is not None else "null",
+            id=exec_id
+        )
         DB.session.execute(query)
         DB.session.commit()
-        logger.info(f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
-        return f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}"
+        msg = (
+            f"New system resources set to mem: {mem}, cores: {cores},"
+            f" runtime: {runtime}")
+        logger.info(msg)
+        return msg
 
 
-RESOURCE_LIMIT_KILL_CODES = (137, 247, 44, -9)
+def _log_error(ji: JobInstance,
+               error_state: int,
+               error_msg: str,
+               executor_id: Optional[int]=None,
+               nodename: Optional[str]=None
+               ):
+    if nodename is not None:
+        ji.nodename = nodename
+    if executor_id is not None:
+        ji.executor_id = executor_id
+
+    # increase resources on job first to eliminate a theoretical race condition
+    if error_state == JobInstanceStatus.RESOURCE_ERROR:
+        scale = 0.5  # default value
+        if executor_id is not None:
+            msg = _increase_resources(executor_id, scale)
+        else:
+            raise ValueError(
+                "Invalid value in _log_error for job_instance_id"
+                f" {ji.job_instance_id}. executor_id cannot be None if"
+                "error_state is Z")
+    else:
+        msg = ""
+
+    try:
+        msg += _update_job_instance_state(ji, error_state)
+        DB.session.commit()
+        error = JobInstanceErrorLog(job_instance_id=ji.job_instance_id,
+                                    description=error_msg)
+        DB.session.add(error)
+        DB.session.commit()
+
+        resp = jsonify(message=msg)
+        resp.status_code = StatusCodes.OK
+    except InvalidStateTransition:
+        log_msg = f"JSM::log_error(), reason={msg}"
+        warnings.warn(log_msg)
+        logger.debug(log_msg)
+        raise
+
+    return resp
 
 
-@jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
-def log_error(job_instance_id):
+@jsm.route('/job_instance/<job_instance_id>/log_error_worker_node',
+           methods=['POST'])
+def log_error_worker_node(job_instance_id: int):
     """Log a job_instance as errored
     Args:
 
@@ -438,42 +504,47 @@ def log_error(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
-    logger.debug("Log ERROR for JI {}, message={}".format(
-        job_instance_id, data['error_message']))
-    ji = _get_job_instance(DB.session, job_instance_id)
+    error_state = data["error_state"]
+    error_message = data["error_message"]
+    executor_id = data.get('executor_id', None)
+    nodename = data.get("nodename", None)
+    logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
     logger.debug("data:" + str(data))
-    logger.debug("Reading nodename {}".format(ji.nodename))
-    ji.nodename = data['nodename']
 
-    if data.get('executor_id', None) is not None:
-        ji.executor_id = data['executor_id']
-    try:
-        msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
-        DB.session.commit()
-        error = JobInstanceErrorLog(
-            job_instance_id=job_instance_id,
-            description=data['error_message'])
-        DB.session.add(error)
-        logger.debug(logging.logParameter("DB.session", DB.session))
-        DB.session.commit()
-        # Check exit_statue to see if resource needs to be increased
-        exit_status = data["exit_status"]
-        logger.debug("exit_status: " + str(exit_status))
+    ji = _get_job_instance(DB.session, job_instance_id)
+    resp = _log_error(ji, error_state, error_message, executor_id, nodename)
+    return resp
 
-        if int(exit_status) in RESOURCE_LIMIT_KILL_CODES:
-            # increase resources
-            scale = 0.5 #default value
-            if data.get('resource_adjustment', None) is not None:
-                scale = data['resource_adjustment']
-            msg += _increase_resources(data['executor_id'], scale)
 
-        resp = jsonify(message=msg)
+@jsm.route('/job_instance/<job_instance_id>/log_error_reconciler',
+           methods=['POST'])
+def log_error_reconciler(job_instance_id: int):
+    """Log a job_instance as errored
+    Args:
+
+        job_instance_id (str): id of the job_instance to log done
+        error_message (str): message to log as error
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    data = request.get_json()
+    error_state = data["error_state"]
+    error_message = data["error_message"]
+    executor_id = data.get('executor_id', None)
+    nodename = data.get("nodename", None)
+    logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
+    logger.debug("data:" + str(data))
+
+    ji = _get_job_instance(DB.session, job_instance_id)
+
+    # make sure the job hasn't logged a new heartbeat since we began
+    # reconciliation
+    if ji.report_by_date <= datetime.utcnow():
+        resp = _log_error(ji, error_state, error_message, executor_id,
+                          nodename)
+    else:
+        resp = jsonify()
         resp.status_code = StatusCodes.OK
-    except InvalidStateTransition:
-        log_msg = f"JSM::log_error(), reason={msg}"
-        warnings.warn(log_msg)
-        logger.debug(log_msg)
-        raise
     return resp
 
 
@@ -540,6 +611,56 @@ def log_dag_heartbeat(dag_id):
         # set to database time not web app time
         dag.heartbeat_date = func.UTC_TIMESTAMP()
     DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/task_dag/<dag_id>/log_executor_report_by', methods=['POST'])
+def log_executor_report_by(dag_id):
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("dag_id", dag_id))
+    data = request.get_json()
+
+    params = {}
+    for key in ["next_report_increment", "executor_ids"]:
+        params[key] = data[key]
+
+    if params["executor_ids"]:
+        query = """
+            UPDATE job_instance
+            SET report_by_date = ADDTIME(
+                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE executor_id in :executor_ids"""
+        DB.session.execute(query, params)
+        DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/task_dag/<dag_id>/transition_jis_to_lost', methods=['POST'])
+def transition_job_instances_to_lost(dag_id):
+
+    # query all job instances that are submitted to executor or running which
+    # haven't reported as alive in the allocated time.
+    # ignore job instances created after heartbeat began. We'll reconcile them
+    # during the next reconciliation loop.
+    instances = DB.session.query(JobInstance).\
+        join(TaskDagMeta).\
+        filter_by(dag_id=dag_id).\
+        filter(JobInstance.status.in_([
+            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+            JobInstanceStatus.RUNNING])).\
+        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
+        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
+    DB.session.commit()
+
+    for ji in instances:
+        _update_job_instance_state(ji, JobInstanceStatus.LOST_TRACK)
+        DB.session.commit()
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -619,10 +740,9 @@ def reconcile(dag_id):
     instances = DB.session.query(JobInstance).\
         join(TaskDagMeta).\
         filter_by(dag_id=dag_id).\
-        filter(
-            JobInstance.status.in_([
-                JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                JobInstanceStatus.RUNNING])).\
+        filter(JobInstance.status.in_([
+            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+            JobInstanceStatus.RUNNING])).\
         filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
         filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
     DB.session.commit()
@@ -684,7 +804,7 @@ def log_nodename(job_instance_id):
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug(logging.logParameter("DB.session", DB.session))
     logger.debug(" ;;;;;;;;;;; log_nodename nodename: {}".format(data[
-                                                                  'nodename']))
+        'nodename']))
     _update_job_instance(ji, nodename=data['nodename'])
     DB.session.commit()
     resp = jsonify(message='')
@@ -1220,5 +1340,3 @@ def _get_new_resource_value(mem: str, cores: int, runtime: int, scale: float):
         # Although runtime should not be None, make it 60 seconds if it's None
         runtime = 60
     return mem, cores, runtime
-
-

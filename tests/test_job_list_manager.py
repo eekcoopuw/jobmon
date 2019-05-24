@@ -11,7 +11,6 @@ from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
-from jobmon.client.swarm.job_management.job_instance_intercom import JobInstanceIntercom
 
 from tests.timeout_and_skip import timeout_and_skip
 
@@ -60,12 +59,12 @@ def job_list_manager_sge_no_daemons(real_dag_id):
 def get_presumed_submitted_or_running(dag_id):
     try:
         rc, response = shared_requester.send_request(
-            app_route=f'/dag/{dag_id}/job_instance_executor_ids',
+            app_route=f'/dag/{dag_id}/get_job_instances_by_status',
             message={'status': [
                 JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
                 JobInstanceStatus.RUNNING]},
             request_type='get')
-        job_instances = response['jiid_exid_tuples']
+        job_instances = response['job_instances']
     except TypeError:
         job_instances = []
     return job_instances
@@ -139,7 +138,6 @@ def test_valid_command(job_list_manager):
     sleep(35)
     job_list_manager._sync()
     assert len(job_list_manager.all_done) > 0
-
 
 
 def test_daemon_invalid_command(job_list_manager_d):
@@ -266,7 +264,7 @@ def test_job_instance_qsub_error(job_list_manager_sge_no_daemons, db_cfg,
     job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
                              max_runtime_seconds='1000', mem_free='600M'))
     jlm.queue_job(job)
-    jids = jif.instantiate_queued_jobs()
+    jif.instantiate_queued_jobs()
     jlm._sync()
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -280,7 +278,7 @@ def test_job_instance_qsub_error(job_list_manager_sge_no_daemons, db_cfg,
 
 
 def test_job_instance_bad_qsub_parse(job_list_manager_sge_no_daemons, db_cfg,
-                                 monkeypatch, caplog):
+                                     monkeypatch, caplog):
     monkeypatch.setattr(jobmon.client.swarm.executors.sge,
                         "check_output", mock_parse_qsub_resp_error)
     jlm = job_list_manager_sge_no_daemons
@@ -288,7 +286,7 @@ def test_job_instance_bad_qsub_parse(job_list_manager_sge_no_daemons, db_cfg,
     job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
                              max_runtime_seconds='1000', mem_free='600M'))
     jlm.queue_job(job)
-    jids = jif.instantiate_queued_jobs()
+    jif.instantiate_queued_jobs()
     jlm._sync()
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -320,8 +318,8 @@ def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        DB.session.execute("""UPDATE job_instance 
-        SET status = 'U' 
+        DB.session.execute("""UPDATE job_instance
+        SET status = 'U'
         WHERE job_instance_id = {}""".format(jids[0].job_instance_id))
         DB.session.commit()
     exec_id = resp.executor_id
@@ -329,9 +327,10 @@ def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg):
     tries = 1
     while exit_status is None and tries < 10:
         try:
-            exit_status=check_output(f"qacct -j {exec_id} | grep exit_status",
-                                     shell=True, universal_newlines=True)
-        except:
+            exit_status = check_output(
+                f"qacct -j {exec_id} | grep exit_status",
+                shell=True, universal_newlines=True)
+        except Exception:
             tries += 1
             sleep(3)
     # 9 indicates sigkill signal was sent as expected
