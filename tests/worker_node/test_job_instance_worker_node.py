@@ -20,7 +20,6 @@ class BadSGEExecutor(JobInstanceSGEInfo):
 
 def test_bad_qstat_call(monkeypatch):
     ji_intercom = WorkerNodeJobInstance(job_instance_id=12345,
-                                        executor_id=456,
                                         executor=BadSGEExecutor())
 
     # The following should not throw

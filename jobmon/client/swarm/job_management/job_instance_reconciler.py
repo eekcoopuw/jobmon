@@ -31,11 +31,11 @@ class JobInstanceReconciler(object):
 
         Args:
             dag_id (int): the id for the dag to run
-            executor (obj, default SequentialExecutor): obj of type
-            equentialExecutor, DummyExecutor or SGEExecutor
+            executor (Executor, default SequentialExecutor): obj of type
+                Executor
             interrupt_on_error (bool, default True): whether or not to
-            interrupt the thread if there's an error
-            stop_event (obj, default None): Object of type threading.Event
+                interrupt the thread if there's an error
+            stop_event (threading.Event, default None): stop signal
         """
         self.dag_id = dag_id
         self.requester = requester
@@ -61,7 +61,7 @@ class JobInstanceReconciler(object):
         of the set event.
 
         Args:
-            executor (callable): Any callable that takes a Job and returns
+            executor (Executor): Any callable that takes a Job and returns
                 either None or an Int. If Int is returned, this is assumed
                 to be the JobInstances executor_id, and will be registered
                 with the JobStateManager as such.

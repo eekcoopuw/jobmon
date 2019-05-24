@@ -9,6 +9,29 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 
 
 class SwarmJobInstance:
+    """Object used for communicating with JSM from the swarm node
+
+    Args:
+        job_instance_id (int): a job_instance_id
+        executor_id (int): an executor_id associated with this job_instance
+        executor (Executor): an instance of an Executor or a subclass
+        workflow_run_id (int, optional): a workflow_run_id associated with
+            this job instance. default is None
+        nodename (str, optional): the nodename that this job instance is
+            running on. default is None
+        process_group_id (int, optional): the process group id that this
+            job instance was running under on the remote host. default is
+            None
+        job_id (int, optional): the job_id associated with this job
+            instance. default is None
+        dag_id (int, optional): the dag_id associated with this job
+            instance. default is None
+        status (int, optional): the status of this job. default is None
+        status_date (int, optional): the timestamp when the status was last
+            updated. default is None
+        requester (Requester, optional): a requester to communicate with
+            the JSM. default is shared requester
+    """
 
     def __init__(self,
                  job_instance_id: int,
@@ -22,29 +45,6 @@ class SwarmJobInstance:
                  status: Optional[int]=None,
                  status_date: Optional[datetime]=None,
                  requester: Requester=shared_requester):
-        """Object used for communicating with JSM from the swarm node
-
-        Args:
-            job_instance_id (int): a job_instance_id
-            executor_id (int): an executor_id associated with this job_instance
-            executor (Executor): an instance of an Executor or a subclass
-            workflow_run_id (int, optional): a workflow_run_id associated with
-                this job instance. default is None
-            nodename (str, optional): the nodename that this job instance is
-                running on. default is None
-            process_group_id (int, optional): the process group id that this
-                job instance was running under on the remote host. default is
-                None
-            job_id (int, optional): the job_id associated with this job
-                instance. default is None
-            dag_id (int, optional): the dag_id associated with this job
-                instance. default is None
-            status (int, optional): the status of this job. default is None
-            status_date (int, optional): the timestamp when the status was last
-                updated. default is None
-            requester (Requester, optional): a requester to communicate with
-                the JSM. default is shared requester
-        """
 
         self.job_instance_id = job_instance_id
         self.executor_id = executor_id
@@ -65,6 +65,7 @@ class SwarmJobInstance:
 
     @classmethod
     def from_wire(cls, dct, executor):
+        """create an instance from json that the JQS returns"""
         return cls(job_instance_id=dct['job_instance_id'],
                    executor=executor,
                    workflow_run_id=dct['workflow_run_id'],
