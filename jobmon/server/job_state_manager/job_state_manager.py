@@ -321,6 +321,7 @@ def log_done(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     logger.debug("Log DONE for JI {}".format(job_instance_id))
+    logger.debug("Data: " + str(data))
     ji = _get_job_instance(DB.session, job_instance_id)
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
@@ -426,19 +427,6 @@ def _increase_resources(exec_id: int, scale: float)->str:
 RESOURCE_LIMIT_KILL_CODES = (137, 247, 44, -9)
 
 
-@jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
-def log_error(job_instance_id: str) -> object:
-    """Route to log a job_instance as errored
-    Args:
-        job_instance_id (str): id of the job_instance to log done
-        error_message (str): message to log as error
-    """
-    data = request.get_json()
-    ji = _get_job_instance(DB.session, int(job_instance_id))
-
-    return _log_error(job_instance=ji, data=data)
-
-
 def _log_error(job_instance: JobInstance, data: dict,
                oom_killed: bool = False) -> object:
     """Log a job_instance as errored
@@ -462,7 +450,8 @@ def _log_error(job_instance: JobInstance, data: dict,
     else:
         logger.debug("Log ERROR for JI {}, message={}".format(
             job_instance_id, data['error_message']))
-    logger.debug("data:" + str(data))
+
+    logger.debug("Data:" + str(data))
     logger.debug("Reading nodename {}".format(job_instance.nodename))
     job_instance.nodename = data['nodename']
 
@@ -483,9 +472,20 @@ def _log_error(job_instance: JobInstance, data: dict,
 
         if int(exit_status) in RESOURCE_LIMIT_KILL_CODES:
             # increase resources
-            scale = 0.5  # default value
-            if data.get('resource_adjustment', None) is not None:
-                scale = data['resource_adjustment']
+            scale = 0.5 #default value
+            try:
+                sql = "select resource_adjustment from job, job_instance, workflow, workflow_run " \
+                      "where workflow_run.workflow_id=workflow.id and workflow.dag_id=job.dag_id " \
+                      "and job.job_id=job_instance.job_id and job_instance.executor_id={}".format(job_instance.executor_id)
+                res = DB.session.execute(sql).fetchone()
+                DB.session.commit()
+                scale = res[0]
+                # Use the default value when the scale value is not valid
+                if scale is None or scale < 0 or scale > 1:
+                    scale = 0.5
+            except Exception as e:
+                logger.debug(str(e))
+                pass
             msg += _increase_resources(data['executor_id'], scale)
 
         resp = jsonify(message=msg)
@@ -496,6 +496,19 @@ def _log_error(job_instance: JobInstance, data: dict,
         logger.debug(log_msg)
         raise
     return resp
+
+
+@jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
+def log_error(job_instance_id: str) -> object:
+    """Route to log a job_instance as errored
+    Args:
+        job_instance_id (str): id of the job_instance to log done
+        error_message (str): message to log as error
+    """
+    data = request.get_json()
+    ji = _get_job_instance(DB.session, int(job_instance_id))
+
+    return _log_error(job_instance=ji, data=data)
 
 
 @jsm.route('/log_oom/<executor_id>', methods=['POST'])
