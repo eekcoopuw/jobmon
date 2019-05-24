@@ -70,7 +70,7 @@ class ExecutableTask(object):
         Args
         command: the unique command for this Task, also readable by humans.
             Should include all parameters.
-            Two Tasks are equal (__eq__) iff they have the same command
+            Two Tasks are equal (__eq__) if they have the same command
         upstream_tasks (list): Task objects that must be run prior to this
         env_variables (dict): any environment variable that should be set
                 for this job, in the form of a key: value pair.
