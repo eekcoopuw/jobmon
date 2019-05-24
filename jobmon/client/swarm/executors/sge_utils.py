@@ -25,7 +25,7 @@ UGE_NAME_POLICY = re.compile(
 STATA_BINARY = "/usr/local/bin/stata-mp"
 R_BINARY = "/usr/local/bin/R"
 DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
-SGE_UNKNOWN_ERROR = - 9998
+SGE_UNKNOWN_ERROR = -9998
 
 
 def true_path(file_or_dir=None, executable=None):
