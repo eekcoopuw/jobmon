@@ -640,32 +640,6 @@ def log_executor_report_by(dag_id):
     return resp
 
 
-@jsm.route('/task_dag/<dag_id>/transition_jis_to_lost', methods=['POST'])
-def transition_job_instances_to_lost(dag_id):
-
-    # query all job instances that are submitted to executor or running which
-    # haven't reported as alive in the allocated time.
-    # ignore job instances created after heartbeat began. We'll reconcile them
-    # during the next reconciliation loop.
-    instances = DB.session.query(JobInstance).\
-        join(TaskDagMeta).\
-        filter_by(dag_id=dag_id).\
-        filter(JobInstance.status.in_([
-            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-            JobInstanceStatus.RUNNING])).\
-        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
-        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
-    DB.session.commit()
-
-    for ji in instances:
-        _update_job_instance_state(ji, JobInstanceStatus.LOST_TRACK)
-        DB.session.commit()
-
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jsm.route('/job_instance/<job_instance_id>/log_report_by', methods=['POST'])
 def log_ji_report_by(job_instance_id):
     """Log a job_instance as being responsive with a new report_by_date, this
