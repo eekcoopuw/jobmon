@@ -25,6 +25,15 @@ from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     WorkflowAlreadyExists, ResumeStatus
 
 
+def cleanup_jlm(workflow):
+    """If a dag is not completed properly and all threads are disconnected,
+    a new job list manager will access old job instance factory/reconciler
+    threads instead of creating new ones. So we need to make sure threads get
+    cleand up at the end"""
+
+    if workflow.task_dag.job_list_manager:
+        workflow.task_dag.job_list_manager.disconnect()
+
 @pytest.fixture
 def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
     t1 = BashTask("sleep 1", num_cores=1, mem_free='2G', queue="all.q",
@@ -502,7 +511,7 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
         i += 1
         with app.app_context():
             row = DB.session.execute(
-                "select status from workflow_run where id = {}".
+                "SELECT status FROM workflow_run WHERE id = {}".
                     format(wfr.id)).fetchone()
             DB.session.commit()
             if row[0] == 'R':
@@ -551,6 +560,9 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
         active = hm_hyper._get_active_workflow_runs(DB.session)
         assert wfr.id not in [w.id for w in active]
         DB.session.commit()
+
+    # Must manully clean this one up because it was not executed.
+    cleanup_jlm(workflow)
 
 
 def test_timeout(real_jsm_jqs, db_cfg):
@@ -745,19 +757,22 @@ def test_workflow_sge_args(db_cfg, real_jsm_jqs):
     workflow.add_tasks([t1, t2, t3])
     wf_status = workflow.execute()
 
+    # TODO Grab a ref to the executor
+
     # If the working directory is not set correctly then executor_args_check.py
     # will fail and write its error message into the job_instance_error_log
     # table.
-    # This test is flakey. Gather more information by printing
-    print(">>>>>> FLAKEY TEST test_workflow_sge_args FAILED <<<<<<<<<<<<<")
+    # This test is flakey. Gather more information by printing out the error.
+    # TODO this was added in May 2019, if the test has ceased to be flakey
+    # by July then remove this extra logging.
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     if wf_status != DagExecutionStatus.SUCCEEDED:
+        print(">>>>>> FLAKEY TEST test_workflow_sge_args FAILED <<<<<<<<<<<<<")
         with app.app_context():
             query = (
                 "SELECT job_instance_id, description  "
                 "FROM job_instance_error_log ")
-
             results = DB.session.execute(query)
             for row in results:
                 print("Error: jid {}, description {}".format(row[0], row[1]))

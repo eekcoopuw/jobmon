@@ -282,7 +282,7 @@ class TaskDag(object):
 
     def reconnect(self) -> None:
         if self.job_list_manager:
-            self.job_list_manager.disconnect()
+            self.job_list_manager.connect()
 
     def propagate_results(self, task):
         """
