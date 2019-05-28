@@ -1,3 +1,4 @@
+from http import HTTPStatus as StatusCodes
 import json
 import logging
 
@@ -6,13 +7,6 @@ from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job import Job
 
-try:  # Python 3.5+
-    from http import HTTPStatus as StatusCodes
-except ImportError:
-    try:  # Python 3
-        from http import client as StatusCodes
-    except ImportError:  # Python 2
-        import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
 

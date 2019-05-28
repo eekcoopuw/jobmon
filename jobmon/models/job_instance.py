@@ -57,13 +57,13 @@ class JobInstance(DB.Model):
         index=True,
         nullable=False)
     dag = DB.relationship("TaskDagMeta")
-    usage_str = DB.Column(DB.String(250))
-    nodename = DB.Column(DB.String(50))
+
+    # execution host and process group
+    nodename = DB.Column(DB.String(50), default=None)
     process_group_id = DB.Column(DB.Integer)
-    wallclock = DB.Column(DB.String(50))
-    maxrss = DB.Column(DB.String(50))
-    cpu = DB.Column(DB.String(50))
-    io = DB.Column(DB.String(50))
+
+    # wallclock = DB.Column(DB.String(50))
+    # maxrss = DB.Column(DB.String(50))
     status = DB.Column(
         DB.String(1),
         DB.ForeignKey('job_instance_status.id'),

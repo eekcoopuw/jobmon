@@ -23,7 +23,8 @@ class Job(DB.Model):
                    job_hash=int(dct['job_hash']), name=dct['name'],
                    tag=dct['tag'], command=dct['command'], slots=dct['slots'],
                    mem_free=dct['mem_free'], num_cores=dct['num_cores'],
-                   status=dct['status'], max_runtime_seconds=dct['max_runtime_seconds'],
+                   status=dct['status'],
+                   max_runtime_seconds=dct['max_runtime_seconds'],
                    num_attempts=dct['num_attempts'],
                    max_attempts=dct['max_attempts'],
                    context_args=dct['context_args'],
@@ -48,6 +49,7 @@ class Job(DB.Model):
 
     job_id = DB.Column(DB.Integer, primary_key=True)
     job_instances = DB.relationship("JobInstance", back_populates="job")
+
     dag_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('task_dag.dag_id'))
@@ -55,13 +57,10 @@ class Job(DB.Model):
     name = DB.Column(DB.String(255))
     tag = DB.Column(DB.String(255))
     command = DB.Column(DB.Text)
-    context_args = DB.Column(DB.String(1000))
-    queue = DB.Column(DB.String(255))
-    slots = DB.Column(DB.Integer, default=None)
-    mem_free = DB.Column(DB.String(255))
-    num_cores = DB.Column(DB.Integer, default=None)
-    j_resource = DB.Column(DB.Boolean, default=False)
-    max_runtime_seconds = DB.Column(DB.Integer, default=None)
+    executor_parameters_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('executor_parameters.id'),
+        default=None)
     num_attempts = DB.Column(DB.Integer, default=0)
     max_attempts = DB.Column(DB.Integer, default=1)
     status = DB.Column(

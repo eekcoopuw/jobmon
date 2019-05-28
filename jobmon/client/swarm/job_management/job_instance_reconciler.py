@@ -18,6 +18,18 @@ logger = logging.getLogger(__name__)
 
 
 class JobInstanceReconciler(object):
+    """The JobInstanceReconciler is a mechanism by which the
+    JobStateManager and JobQueryServer make sure the database in sync with
+    jobs in qstat
+
+    Args:
+        dag_id (int): the id for the dag to run
+        executor (Executor, default SequentialExecutor): obj of type
+            Executor
+        interrupt_on_error (bool, default True): whether or not to
+            interrupt the thread if there's an error
+        stop_event (threading.Event, default None): stop signal
+    """
 
     def __init__(self,
                  dag_id: int,
@@ -25,18 +37,7 @@ class JobInstanceReconciler(object):
                  interrupt_on_error: Optional[bool]=True,
                  stop_event: Optional[threading.Event]=None,
                  requester: Requester=shared_requester) -> None:
-        """The JobInstanceReconciler is a mechanism by which the
-        JobStateManager and JobQueryServer make sure the database in sync with
-        jobs in qstat
 
-        Args:
-            dag_id (int): the id for the dag to run
-            executor (Executor, default SequentialExecutor): obj of type
-                Executor
-            interrupt_on_error (bool, default True): whether or not to
-                interrupt the thread if there's an error
-            stop_event (threading.Event, default None): stop signal
-        """
         self.dag_id = dag_id
         self.requester = requester
         self.interrupt_on_error = interrupt_on_error
