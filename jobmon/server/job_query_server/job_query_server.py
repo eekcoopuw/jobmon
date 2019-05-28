@@ -234,14 +234,35 @@ def get_jobs_by_status_only(dag_id):
     return resp
 
 
-@jqs.route('/dag/<dag_id>/job_instance_executor_ids', methods=['GET'])
-def get_job_instance_executor_ids_by_filter(dag_id):
+@jqs.route('/dag/<dag_id>/get_timed_out_executor_ids', methods=['GET'])
+def get_timed_out_executor_ids(dag_id):
+    jiid_exid_tuples = DB.session.query(JobInstance). \
+        filter_by(dag_id=dag_id).\
+        filter(JobInstance.status.in_(
+            [JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+             JobInstanceStatus.RUNNING])).\
+        join(Job).\
+        options(contains_eager(JobInstance.job)).\
+        filter(Job.max_runtime_seconds != None).\
+        filter(
+            func.timediff(func.UTC_TIMESTAMP(), JobInstance.status_date) >
+            func.SEC_TO_TIME(Job.max_runtime_seconds)).\
+        with_entities(JobInstance.job_instance_id, JobInstance.executor_id).\
+        all()  # noqa: E711
+    DB.session.commit()
+    resp = jsonify(jiid_exid_tuples=jiid_exid_tuples)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/dag/<dag_id>/get_job_instances_by_status', methods=['GET'])
+def get_job_instances_by_status(dag_id):
     """Returns all job_instances in the database that have the specified filter
 
     Args:
         dag_id (int): dag_id to which the job_instances are attached
         status (list): list of statuses to query for
-        runtime (str, optional, option: 'timed_out'): if specified, will only
+
 
     Return:
         list of tuples (job_instance_id, executor_id) whose runtime is above
@@ -249,29 +270,34 @@ def get_job_instance_executor_ids_by_filter(dag_id):
     """
     logger.debug(logging.myself())
     logging.logParameter("dag_id", dag_id)
-    if request.args.get('runtime', None) is not None:
-
-        instances = DB.session.query(JobInstance). \
-            filter_by(dag_id=dag_id).\
-            filter(
-                JobInstance.status.in_(request.args.getlist('status'))).\
-            join(Job).\
-            options(contains_eager(JobInstance.job)).\
-            filter(Job.max_runtime_seconds != None).\
-            filter(
-                func.timediff(func.UTC_TIMESTAMP(), JobInstance.status_date
-                              ) > func.SEC_TO_TIME(Job.max_runtime_seconds)).\
-            with_entities(JobInstance.job_instance_id, JobInstance.executor_id
-                          ).all()  # noqa: E711
-    else:
-        instances = DB.session.query(JobInstance). \
-            filter_by(dag_id=dag_id).\
-            filter(
-                JobInstance.status.in_(request.args.getlist('status'))).\
-            with_entities(JobInstance.job_instance_id, JobInstance.executor_id
-                          ).all()  # noqa: E711
+    job_instances = DB.session.query(JobInstance).\
+        filter_by(dag_id=dag_id).\
+        filter(JobInstance.status.in_(request.args.getlist('status'))).\
+        all()  # noqa: E711
     DB.session.commit()
-    resp = jsonify(jiid_exid_tuples=instances)
+    resp = jsonify(job_instances=[ji.to_wire() for ji in job_instances])
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/dag/<dag_id>/get_suspicious_job_instances', methods=['GET'])
+def get_suspicious_job_instances(dag_id):
+
+    # query all job instances that are submitted to executor or running which
+    # haven't reported as alive in the allocated time.
+    # ignore job instances created after heartbeat began. We'll reconcile them
+    # during the next reconciliation loop.
+    job_instances = DB.session.query(JobInstance).\
+        join(TaskDagMeta).\
+        filter_by(dag_id=dag_id).\
+        filter(JobInstance.status.in_([
+            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+            JobInstanceStatus.RUNNING])).\
+        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
+        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
+    DB.session.commit()
+
+    resp = jsonify(job_instances=[ji.to_wire() for ji in job_instances])
     resp.status_code = StatusCodes.OK
     return resp
 

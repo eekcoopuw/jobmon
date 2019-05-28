@@ -1,17 +1,24 @@
 import logging
+import os
 import socket
-import sys
 import traceback
+from typing import Optional, Union, Tuple, Dict
 
 from jobmon.client import shared_requester
+from jobmon.client.requester import Requester
+from jobmon.client.swarm.executors import JobInstanceExecutorInfo
 
 logger = logging.getLogger(__name__)
 
 
-class JobInstanceIntercom(object):
+class WorkerNodeJobInstance:
 
-    def __init__(self, job_instance_id, executor_class, process_group_id,
-                 hostname, requester=shared_requester):
+    def __init__(self,
+                 job_instance_id: int,
+                 job_instance_executor_info: JobInstanceExecutorInfo,
+                 nodename: Optional[str]=None,
+                 process_group_id: Optional[int]=None,
+                 requester: Requester=shared_requester):
         """
         The JobInstanceIntercom is a mechanism whereby a running job_instance
         can communicate back to the JobStateManager to log its status, errors,
@@ -19,35 +26,53 @@ class JobInstanceIntercom(object):
 
         Args:
             job_instance_id (int): the id of the job_instance_id that is
-            reporting back
-            executor_class (Executor): object representing the kind of
-            executor that was used for this job instance
+                reporting back
+            job_instance_executor_info (JobInstanceExecutorInfo): instance of
+                executor that was used for this job instance
+            nodename (str): hostname where this job_instance is running
             process_group_id (int): linux process_group_id that this
-            job_instance is a part of
-            hostname (str): hostname where this job_instance is running
+                job_instance is a part of
         """
         self.job_instance_id = job_instance_id
-        self.process_group_id = process_group_id
-        self.hostname = hostname
+        self._executor_id: Optional[int] = None
+        self._nodename = nodename
+        self._process_group_id = process_group_id
+        self.executor = job_instance_executor_info
         self.requester = shared_requester
-        self.executor_class = executor_class
-        self.executor = executor_class()
         logger.debug("Instantiated JobInstanceIntercom")
 
-    def log_done(self, executor_id):
+    @property
+    def executor_id(self) -> Optional[int]:
+        if self._executor_id is None and self.executor.executor_id is not None:
+            self._executor_id = self.executor.executor_id
+        return self._executor_id
+
+    @property
+    def nodename(self) -> str:
+        if self._nodename is None:
+            self._nodename = socket.getfqdn()
+        return self._nodename
+
+    @property
+    def process_group_id(self) -> int:
+        if self._process_group_id is None:
+            self._process_group_id = os.getpid()
+        return self._process_group_id
+
+    def log_done(self) -> int:
         """Tell the JobStateManager that this job_instance is done"""
-        message = {'nodename': socket.getfqdn()}
-        if executor_id is not None:
-            message['executor_id'] = str(executor_id)
+        message = {'nodename': self.nodename}
+        if self.executor_id is not None:
+            message['executor_id'] = str(self.executor_id)
         else:
             logger.info("No Job ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route='/job_instance/{}/log_done'.format(self.job_instance_id),
+            app_route=f'/job_instance/{self.job_instance_id}/log_done',
             message=message,
             request_type='post')
         return rc
 
-    def log_error(self, error_message, executor_id, exit_status, scale=0.5):
+    def log_error(self, error_message: str, exit_status: int) -> int:
         """Tell the JobStateManager that this job_instance has errored"""
 
         # clip at 10k to avoid mysql has gone away errors when posting long
@@ -59,23 +84,25 @@ class JobInstanceIntercom(object):
                         "character limit for error messages. Only the final "
                         "10k will be captured by the database.")
 
-        message = {'error_message': error_message,
-                   'exit_status': exit_status,
-                   'resource_adjustment': scale,
-                   'nodename': socket.getfqdn()}
+        error_state, msg = self.executor.get_exit_info(exit_status,
+                                                       error_message)
 
-        if executor_id is not None:
-            message['executor_id'] = str(executor_id)
+        message = {'error_message': msg,
+                   'error_state': error_state,
+                   'nodename': self.nodename}
+
+        if self.executor_id is not None:
+            message['executor_id'] = str(self.executor_id)
         else:
             logger.info("No Job ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=('/job_instance/{}/log_error'
-                       .format(self.job_instance_id)),
+            app_route=(
+                f'/job_instance/{self.job_instance_id}/log_error_worker_node'),
             message=message,
             request_type='post')
         return rc
 
-    def log_job_stats(self):
+    def log_job_stats(self) -> None:
         """Tell the JobStateManager all the applicable job_stats for this
         job_instance
         """
@@ -84,47 +111,44 @@ class JobInstanceIntercom(object):
             dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io']
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
             rc, _ = self.requester.send_request(
-                app_route=('/job_instance/{}/log_usage'
-                           .format(self.job_instance_id)),
+                app_route=f'/job_instance/{self.job_instance_id}/log_usage',
                 message=msg,
                 request_type='post')
             return rc
         except NotImplementedError:
-            logger.warning("Usage stats not available for {} "
-                           "executors".format(self.executor_class))
+            logger.warning("Usage stats not available for "
+                           f"{self.executor.__class__.__name__} executors")
         except Exception as e:
             # subprocess.CalledProcessError is raised if qstat fails.
             # Not a critical error, keep running and log an error.
             logger.error(f"Usage stats not available due to exception {e}")
-            (e_type, e_value, e_traceback) = sys.exc_info()
-            logger.error("Traceback {}".
-                         format(print(repr(traceback.format_tb(e_traceback)))))
+            logger.error(f"Traceback {traceback.format_exc()}")
 
-    def log_running(self, next_report_increment, executor_id=None):
+    def log_running(self, next_report_increment: Union[int, float]
+                    ) -> Tuple[int, str]:
         """Tell the JobStateManager that this job_instance is running, and
         update the report_by_date to be further in the future in case it gets
         reconciled immediately"""
-        message = {'nodename': socket.getfqdn(),
+        message = {'nodename': self.nodename,
                    'process_group_id': str(self.process_group_id),
                    'next_report_increment': next_report_increment}
-        logger.debug(f'executor_id is {executor_id}')
-        if executor_id is not None:
-            message['executor_id'] = str(executor_id)
+        logger.debug(f'executor_id is {self.executor_id}')
+        if self.executor_id is not None:
+            message['executor_id'] = str(self.executor_id)
         else:
             logger.info("No Job ID was found in the qsub env at this time")
         rc, resp = self.requester.send_request(
-            app_route=('/job_instance/{}/log_running'
-                       .format(self.job_instance_id)),
+            app_route=(f'/job_instance/{self.job_instance_id}/log_running'),
             message=message,
             request_type='post')
         logger.debug(f"Response from log_running was: {resp}")
         return rc, resp
 
-    def log_report_by(self, next_report_increment, executor_id=None):
+    def log_report_by(self, next_report_increment: Union[int, float]) -> int:
         """Log the heartbeat to show that the job instance is still alive"""
-        message = {"next_report_increment": next_report_increment}
-        if executor_id is not None:
-            message['executor_id'] = str(executor_id)
+        message: Dict = {"next_report_increment": next_report_increment}
+        if self.executor_id is not None:
+            message['executor_id'] = str(self.executor_id)
         else:
             logger.info("No Job ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
@@ -133,7 +157,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def in_kill_self_state(self):
+    def in_kill_self_state(self) -> bool:
         rc, resp = self.requester.send_request(
             app_route=f'/job_instance/{self.job_instance_id}/kill_self',
             message={},
@@ -145,4 +169,3 @@ class JobInstanceIntercom(object):
         else:
             logger.debug("job instance does not need to kill itself")
             return False
-

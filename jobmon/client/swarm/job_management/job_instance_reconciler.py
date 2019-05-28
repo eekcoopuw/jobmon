@@ -1,38 +1,41 @@
 from http import HTTPStatus as StatusCodes
 import logging
-import socket
 import threading
 import _thread
 from time import sleep
 import traceback
+from typing import Optional, List
 
 from jobmon.client import shared_requester, client_config
+from jobmon.client.requester import Requester
+from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
-from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
+from jobmon.client.swarm.job_management.swarm_job_instance import (
+    SwarmJobInstance)
 
 
 logger = logging.getLogger(__name__)
 
-ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247)
-DEFAULT_INCREMENT_SCALE = 0.5
-
 
 class JobInstanceReconciler(object):
 
-    def __init__(self, dag_id, executor=None, interrupt_on_error=True,
-                 stop_event=None, requester=shared_requester):
+    def __init__(self,
+                 dag_id: int,
+                 executor: Optional[Executor]=None,
+                 interrupt_on_error: Optional[bool]=True,
+                 stop_event: Optional[threading.Event]=None,
+                 requester: Requester=shared_requester) -> None:
         """The JobInstanceReconciler is a mechanism by which the
         JobStateManager and JobQueryServer make sure the database in sync with
         jobs in qstat
 
         Args:
             dag_id (int): the id for the dag to run
-            executor (obj, default SequentialExecutor): obj of type
-            equentialExecutor, DummyExecutor or SGEExecutor
+            executor (Executor, default SequentialExecutor): obj of type
+                Executor
             interrupt_on_error (bool, default True): whether or not to
-            interrupt the thread if there's an error
-            stop_event (obj, default None): Object of type threading.Event
+                interrupt the thread if there's an error
+            stop_event (threading.Event, default None): stop signal
         """
         self.dag_id = dag_id
         self.requester = requester
@@ -52,20 +55,20 @@ class JobInstanceReconciler(object):
         else:
             self._stop_event = stop_event
 
-    def set_executor(self, executor):
+    def set_executor(self, executor: Executor) -> None:
         """
         Sets the executor that will be used for all jobs queued downstream
         of the set event.
 
         Args:
-            executor (callable): Any callable that takes a Job and returns
+            executor (Executor): Any callable that takes a Job and returns
                 either None or an Int. If Int is returned, this is assumed
                 to be the JobInstances executor_id, and will be registered
                 with the JobStateManager as such.
         """
         self.executor = executor
 
-    def reconcile_periodically(self):
+    def reconcile_periodically(self) -> None:
         """Running in a thread, this function allows the JobInstanceReconciler
         to periodically reconcile all jobs against 'qstat'
         """
@@ -79,8 +82,8 @@ class JobInstanceReconciler(object):
             try:
                 logging.debug(
                     f"Reconciling at interval {self.reconciliation_interval}s")
-                self.reconcile()
                 self.terminate_timed_out_jobs()
+                self.reconcile()
                 sleep(self.reconciliation_interval)
             except Exception as e:
                 msg = f"About to raise Keyboard Interrupt signal {e}"
@@ -103,14 +106,53 @@ class JobInstanceReconciler(object):
                 else:
                     raise
 
-    def reconcile(self):
+    def terminate_timed_out_jobs(self) -> None:
+        """Attempts to terminate jobs that have been in the "running"
+        state for too long. From the SGE perspective, this might include
+        jobs that got stuck in "r" state but never called back to the
+        JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
+        SUBMITTED_TO_BATCH_EXECUTOR)
+        """
+        try:
+            rc, response = self.requester.send_request(
+                app_route=f'/dag/{self.dag_id}/get_timed_out_executor_ids',
+                message={},
+                request_type='get')
+            to_jobs = response['jiid_exid_tuples']
+            if rc != StatusCodes.OK:
+                to_jobs = []
+        except TypeError:
+            to_jobs = []
+        try:
+            terminated = self.executor.terminate_job_instances(to_jobs)
+        except NotImplementedError:
+            logger.warning("{} does not implement reconciliation methods"
+                           .format(self.executor.__class__.__name__))
+            terminated = []
+
+        # log the hostname in case we need to terminate it remotely later
+        for job_instance_id, hostname in terminated:
+            self._log_timeout_hostname(job_instance_id, hostname)
+
+    def reconcile(self) -> None:
         """Identifies submitted to batch and running jobs that have missed
         their report_by_date and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
         fatal errors
         """
+        self._log_dag_heartbeat()
+        self._log_executor_report_by()
+        self._account_for_lost_job_instances()
+
+    def _log_dag_heartbeat(self) -> None:
+        """Logs a dag heartbeat"""
+        return self.requester.send_request(
+            app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
+            message={},
+            request_type='post')
+
+    def _log_executor_report_by(self) -> None:
         next_report_increment = self.heartbeat_interval * self.report_by_buffer
-        self._request_permission_to_reconcile()
         try:
             # qstat for pending jobs or running jobs
             actual = self.executor.get_actual_submitted_or_running()
@@ -123,77 +165,33 @@ class JobInstanceReconciler(object):
                 "moved to error state.")
             actual = []
         rc, response = self.requester.send_request(
-            app_route=f'/task_dag/{self.dag_id}/reconcile',
+            app_route=f'/task_dag/{self.dag_id}/log_executor_report_by',
             message={'executor_ids': actual,
                      'next_report_increment': next_report_increment},
             request_type='post')
 
-    def terminate_timed_out_jobs(self):
-        """Attempts to terminate jobs that have been in the "running"
-        state for too long. From the SGE perspective, this might include
-        jobs that got stuck in "r" state but never called back to the
-        JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
-        SUBMITTED_TO_BATCH_EXECUTOR)
-        """
-        to_jobs = self._get_timed_out_jobs()
-        try:
-            terminated_job_instances = self.executor.terminate_job_instances(
-                to_jobs)
-            for ji_id, hostname in terminated_job_instances:
-                self._log_timeout_error(int(ji_id))
-                self._log_timeout_hostname(int(ji_id), hostname)
-        except NotImplementedError:
-            logger.warning("{} does not implement reconciliation methods"
-                           .format(self.executor.__class__.__name__))
+    def _account_for_lost_job_instances(self) -> None:
+        rc, response = self.requester.send_request(
+            app_route=f'/dag/{self.dag_id}/get_suspicious_job_instances',
+            message={},
+            request_type='get')
+        if rc != StatusCodes.OK:
+            lost_job_instances: List[SwarmJobInstance] = []
+        else:
+            lost_job_instances = [
+                SwarmJobInstance.from_wire(ji, self.executor)
+                for ji in response["job_instances"]
+            ]
+        for swarm_job_instance in lost_job_instances:
+            swarm_job_instance.log_error()
 
-    def _get_timed_out_jobs(self):
-        """Returns timed_out jobs as a list of JobInstances.
-        """
-        try:
-            rc, response = self.requester.send_request(
-                app_route=f'/dag/{self.dag_id}/job_instance_executor_ids',
-                message={'status': [
-                         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                         JobInstanceStatus.RUNNING],
-                         'runtime': 'timed_out'},
-                request_type='get')
-            jiid_exid_tuples = response['jiid_exid_tuples']
-            if rc != StatusCodes.OK:
-                jiid_exid_tuples = []
-        except TypeError:
-            jiid_exid_tuples = []
-        return jiid_exid_tuples
-
-    def _log_timeout_hostname(self, job_instance_id, hostname):
+    def _log_timeout_hostname(self, job_instance_id: int, hostname: str):
         """Logs the hostname for any job that has timed out
         Args:
             job_instance_id (int): id for the job_instance that has timed out
             hostname (str): host where the job_instance was running
         """
         return self.requester.send_request(
-            app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
+            app_route=f'/job_instance/{job_instance_id}/log_nodename',
             message={'nodename': hostname},
-            request_type='post')
-
-    def _log_timeout_error(self, job_instance_id, executor_id=None):
-        """Logs if a job has timed out
-        Args:
-            job_instance_id (int): id for the job_instance that has timed out
-        """
-        message = {'error_message': "Timed out", 'nodename': socket.getfqdn()}
-        if executor_id is not None:
-            message['executor_id'] = executor_id
-        exit_code = qacct_exit_status(executor_id)
-        message['exit_status'] = exit_code
-        return self.requester.send_request(
-            app_route='/job_instance/{}/log_error'.format(job_instance_id),
-            message=message,
-            request_type='post',
-            )
-
-    def _request_permission_to_reconcile(self):
-        """Syncs with the database and logs a heartbeat"""
-        return self.requester.send_request(
-            app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
-            message={},
             request_type='post')
