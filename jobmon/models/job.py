@@ -1,6 +1,8 @@
 import logging
 from datetime import datetime
 
+from sqlalchemy.sql import func
+
 from jobmon.models import DB
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance_status import JobInstanceStatus
@@ -47,30 +49,40 @@ class Job(DB.Model):
                 'last_nodename': lnode,
                 'last_process_group_id': lpgid}
 
+    # identifiers
     job_id = DB.Column(DB.Integer, primary_key=True)
-    job_instances = DB.relationship("JobInstance", back_populates="job")
-
     dag_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('task_dag.dag_id'))
     job_hash = DB.Column(DB.String(255), nullable=False)
     name = DB.Column(DB.String(255))
     tag = DB.Column(DB.String(255))
+
+    # execution info
     command = DB.Column(DB.Text)
     executor_parameters_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('executor_parameters.id'),
         default=None)
+
+    # status/state
     num_attempts = DB.Column(DB.Integer, default=0)
     max_attempts = DB.Column(DB.Integer, default=1)
     status = DB.Column(
         DB.String(1),
         DB.ForeignKey('job_status.id'),
         nullable=False)
-    submitted_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    status_date = DB.Column(DB.DateTime, default=datetime.utcnow,
+    submitted_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP(),
                             index=True)
 
+    # ORM relationships
+    job_instances = DB.relationship("JobInstance", back_populates="job")
+    executor_parameters = DB.relationship(
+        "ExecutorParameters", foreign_keys=[executor_parameters_id])  # 1:1
+
+    # Materialized attributes, derived during to_wire() only. Not represented
+    # in the database model
     last_nodename = None
     last_process_group_id = None
 

@@ -15,7 +15,7 @@ class ExecutorParameters(DB.Model):
     job_id = DB.Column(DB.Integer, DB.ForeignKey('job.job_id'), nullable=False)
 
     # enforce runtime limit if executor implements terminate_timed_out_jobs
-    runtime_seconds = DB.Column(DB.Integer, default=None)
+    max_runtime_seconds = DB.Column(DB.Integer, default=None)
 
     # free text field of arguments passed unadultered to executor
     context_args = DB.Column(DB.String(1000), default=None)
@@ -27,12 +27,8 @@ class ExecutorParameters(DB.Model):
     sge_j_resource = DB.Column(DB.Boolean, default=None)
     sge_project = DB.Column(DB.String(25), default=None)
 
-    # sge specific usage
-    sge_cpu_usage = DB.Column(DB.String(50), default=None)
-    sge_io_usage = DB.Column(DB.String(50), default=None)
-
     # ORM relationships
-    job = DB.relationship("Job")
+    job = DB.relationship("Job", foreign_keys=[job_id])
 
     def activate(self):
         self.job.executor_parameters_id = self.id

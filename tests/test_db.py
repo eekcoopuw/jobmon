@@ -7,6 +7,7 @@ from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.models.executor_parameters import ExecutorParameters
 
 
 def test_job_submit_times(db_cfg):
@@ -86,3 +87,49 @@ def test_job_submit_times(db_cfg):
         assert len(set([wf.created_date for wf in wfs])) == 2
         assert len(set([wfr.created_date for wfr in wfrs])) == 2
         assert len(set([j.submitted_date for j in jobs])) == 3
+
+
+def test_job_executor_params_relationship(db_cfg):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
+    with app.app_context():
+
+        # Create dag
+        dag = TaskDagMeta(dag_hash='abcd', name='foo', user='bar')
+        DB.session.add(dag)
+        DB.session.commit()
+
+        # Create a job
+        job1 = Job(dag_id=dag.dag_id, name='test1', job_hash=1,
+                   status=JobStatus.REGISTERED)
+        DB.session.add(job1)
+        DB.session.commit()
+        job_id = job1.job_id
+
+        # create executor_paramteres
+        exec_params = ExecutorParameters(job_id=job_id,
+                                         max_runtime_seconds=10)
+        DB.session.add(exec_params)
+        DB.session.flush()
+        exec_params.activate()
+        DB.session.commit()
+
+    # assert that job picks up the newly added executor parameters
+    with app.app_context():
+        job = DB.session.query(Job).one()
+        assert job.executor_parameters.max_runtime_seconds == 10
+
+    # add a new one and ensure the relationship picks it up properly
+    with app.app_context():
+
+        # create new executor_paramteres
+        exec_params = ExecutorParameters(job_id=job_id,
+                                         max_runtime_seconds=100)
+        DB.session.add(exec_params)
+        DB.session.flush()
+        exec_params.activate()
+        DB.session.commit()
+
+        job = DB.session.query(Job).one()
+        assert job.executor_parameters.max_runtime_seconds == 100

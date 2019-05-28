@@ -50,20 +50,22 @@ class JobInstance(DB.Model):
         DB.Integer,
         DB.ForeignKey('job.job_id'),
         nullable=False)
-    job = DB.relationship("Job", back_populates="job_instances")
     dag_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('task_dag.dag_id'),
         index=True,
         nullable=False)
-    dag = DB.relationship("TaskDagMeta")
 
-    # execution host and process group
-    nodename = DB.Column(DB.String(50), default=None)
+    # usage
+    usage_str = DB.Column(DB.String(250))
+    nodename = DB.Column(DB.String(50))
     process_group_id = DB.Column(DB.Integer)
+    wallclock = DB.Column(DB.String(50))
+    maxpss = DB.Column(DB.String(50))
+    cpu = DB.Column(DB.String(50))
+    io = DB.Column(DB.String(50))
 
-    # wallclock = DB.Column(DB.String(50))
-    # maxrss = DB.Column(DB.String(50))
+    # status/state
     status = DB.Column(
         DB.String(1),
         DB.ForeignKey('job_instance_status.id'),
@@ -73,9 +75,13 @@ class JobInstance(DB.Model):
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     report_by_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
+    # ORM relationships
+    job = DB.relationship("Job", back_populates="job_instances")
+    dag = DB.relationship("TaskDagMeta")
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
 
+    # finite state machine transition information
     valid_transitions = [
         # job instance is submitted normally (happy path)
         (JobInstanceStatus.INSTANTIATED,
