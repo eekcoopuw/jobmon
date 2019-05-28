@@ -523,7 +523,8 @@ def log_oom(executor_id: str):
                              request)
     """
     data = request.get_json()
-    job_instance = _get_job_instance_by_executor_id(int(executor_id))
+    job_instance = _get_job_instance_by_executor_id(DB.session,
+                                                    int(executor_id))
 
     return _log_error(job_instance=job_instance, data=data, oom_killed=True)
 

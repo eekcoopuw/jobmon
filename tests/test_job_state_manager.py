@@ -211,7 +211,7 @@ def test_jsm_valid_error(real_dag_id):
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']
-    executor_id = response['executor_id']
+    # import pdb; pdb.set_trace()
 
     # do job logging
     req.send_request(
@@ -233,9 +233,9 @@ def test_jsm_valid_error(real_dag_id):
                  'nodename': socket.getfqdn()},
         request_type='post')
     req.send_request(
-        app_route='/log_oom/{}'.format(executor_id),
+        app_route='/log_oom/{}'.format(str(12345)),
         message={'error_message': "this is an error message",
-                 'executor_id': str(12345),
+                 'task_id': str(123),
                  'exit_status': 2,
                  'nodename': socket.getfqdn()},
         request_type='post')
