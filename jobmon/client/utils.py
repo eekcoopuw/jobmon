@@ -3,6 +3,7 @@ import os
 import signal
 import subprocess
 import logging
+from typing import Tuple
 
 from paramiko.client import SSHClient, WarningPolicy
 
@@ -83,17 +84,21 @@ def _get_ssh_permission_dict():
     return ssh_safety_lookup
 
 
-def _run_remote_command(hostname, command):
+def _run_remote_command(hostname: str, command: str) -> Tuple[int, str, str]:
+    """
+    Runs the command on that host, using paramiko/ssh.
+    Uses byte conversion on stdout stderr so that it return strings
+    """
     keyfile = _setup_keyfile()
     client = SSHClient()
     client.set_missing_host_key_policy(WarningPolicy)
     client.connect(hostname, look_for_keys=False, key_filename=keyfile)
     _, stdout, stderr = client.exec_command(command)
     exit_code = stdout.channel.recv_exit_status()
-    stdout_str = stdout.read()
-    stderr_str = stderr.read()
+    stdout_str = stdout.read().decode("utf-8")
+    stderr_str = stderr.read().decode("utf-8")
     client.close()
-    return (exit_code, stdout_str, stderr_str)
+    return exit_code, stdout_str, stderr_str
 
 
 def _setup_keyfile():
