@@ -896,7 +896,6 @@ def _get_job_instance(session, job_instance_id):
     """Return a JobInstance from the database
 
     Args:
-
         session: DB.session or Session object to use to connect to the db
         job_instance_id (int): job_instance_id with which to query the database
     """
@@ -912,7 +911,6 @@ def _get_job_instance_by_executor_id(session, executor_id):
     """Return a JobInstance from the database
 
     Args:
-
         session: DB.session or Session object to use to connect to the db
         executor_id (int): executor_id with which to query the database
     """
