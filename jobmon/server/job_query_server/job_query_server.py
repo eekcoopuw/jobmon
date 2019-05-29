@@ -18,7 +18,6 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.jobmonLogging import jobmonLogging as logging
-from jobmon.client.stubs import StubJob
 
 
 jqs = Blueprint("job_query_server", __name__)
@@ -144,33 +143,33 @@ def get_job_attribute(job_id):
     return resp
 
 
-@jqs.route('/dag/<dag_id>/job', methods=['GET'])
-def get_jobs_by_status(dag_id):
-    """Returns all jobs in the database that have the specified status
+# @jqs.route('/dag/<dag_id>/job', methods=['GET'])
+# def get_jobs_by_status(dag_id):
+#     """Returns all jobs in the database that have the specified status
 
-    Args:
-        status (str): status to query for
-        last_sync (datetime): time since when to get jobs
-    """
-    logger.debug(logging.myself())
-    logging.logParameter("dag_id", dag_id)
-    last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
-    time = get_time(DB.session)
-    if request.args.get('status', None) is not None:
-        jobs = DB.session.query(Job).filter(
-            Job.dag_id == dag_id,
-            Job.status == request.args['status'],
-            Job.status_date >= last_sync).all()
-    else:
-        jobs = DB.session.query(Job).filter(
-            Job.dag_id == dag_id,
-            Job.status_date >= last_sync).all()
-    DB.session.commit()
-    job_dcts = [j.to_wire() for j in jobs]
-    logger.info("job_attr_dct={}".format(job_dcts))
-    resp = jsonify(job_dcts=job_dcts, time=time)
-    resp.status_code = StatusCodes.OK
-    return resp
+#     Args:
+#         status (str): status to query for
+#         last_sync (datetime): time since when to get jobs
+#     """
+#     logger.debug(logging.myself())
+#     logging.logParameter("dag_id", dag_id)
+#     last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
+#     time = get_time(DB.session)
+#     if request.args.get('status', None) is not None:
+#         jobs = DB.session.query(Job).filter(
+#             Job.dag_id == dag_id,
+#             Job.status == request.args['status'],
+#             Job.status_date >= last_sync).all()
+#     else:
+#         jobs = DB.session.query(Job).filter(
+#             Job.dag_id == dag_id,
+#             Job.status_date >= last_sync).all()
+#     DB.session.commit()
+#     job_dcts = [j.to_wire() for j in jobs]
+#     logger.info("job_attr_dct={}".format(job_dcts))
+#     resp = jsonify(job_dcts=job_dcts, time=time)
+#     resp.status_code = StatusCodes.OK
+#     return resp
 
 
 @jqs.route('/dag/<dag_id>/queued_jobs/<n_queued_jobs>', methods=['GET'])
@@ -190,7 +189,7 @@ def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
         Job.status_date >= last_sync).order_by(Job.job_id)\
         .limit(n_queued_jobs)
     DB.session.commit()
-    job_dcts = [j.to_wire() for j in jobs]
+    job_dcts = [j.to_wire_as_executor_job() for j in jobs]
     resp = jsonify(job_dcts=job_dcts, time=time)
     resp.status_code = StatusCodes.OK
     return resp
@@ -216,18 +215,19 @@ def get_jobs_by_status_only(dag_id):
         # docker.job where  docker.job.status="G" and docker.job.dag_id=1;
         # 0.000 sec vs 0.015 sec (result from MySQL WorkBench)
         # Thus move the dag_id in front of status in the filter
-        jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status,
+        rows = DB.session.query(Job).with_entities(Job.job_id, Job.status,
                                                    Job.job_hash).filter(
             Job.dag_id == dag_id,
             Job.status == request.args['status'],
             Job.status_date >= last_sync).all()
     else:
-        jobs = DB.session.query(Job).with_entities(Job.job_id, Job.status,
+        rows = DB.session.query(Job).with_entities(Job.job_id, Job.status,
                                                    Job.job_hash).filter(
             Job.dag_id == dag_id,
             Job.status_date >= last_sync).all()
     DB.session.commit()
-    job_dcts = [StubJob(j).to_wire() for j in jobs]
+    job_dcts = [Job(row[0], row[1], row[2]).to_wire_as_swarm_job()
+                for row in rows]
     logger.info("job_attr_dct={}".format(job_dcts))
     resp = jsonify(job_dcts=job_dcts, time=time)
     resp.status_code = StatusCodes.OK
@@ -287,17 +287,21 @@ def get_suspicious_job_instances(dag_id):
     # haven't reported as alive in the allocated time.
     # ignore job instances created after heartbeat began. We'll reconcile them
     # during the next reconciliation loop.
-    job_instances = DB.session.query(JobInstance).\
+    rows = DB.session.query(JobInstance).\
         join(TaskDagMeta).\
         filter_by(dag_id=dag_id).\
         filter(JobInstance.status.in_([
             JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
             JobInstanceStatus.RUNNING])).\
         filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
-        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
+        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).\
+        with_entities(JobInstance.job_instance_id, JobInstance.executor_id).\
+        all()
     DB.session.commit()
-
-    resp = jsonify(job_instances=[ji.to_wire() for ji in job_instances])
+    job_instances = [JobInstance(job_instance_id=row[0], executor_id=row[1])
+                     for row in rows]
+    resp = jsonify(job_instances=[ji.to_wire_as_executor_job_instance()
+                                  for ji in job_instances])
     resp.status_code = StatusCodes.OK
     return resp
 

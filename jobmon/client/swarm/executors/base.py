@@ -4,9 +4,9 @@ import shutil
 from typing import List, Tuple, Dict, Optional
 
 from jobmon.client import client_config
-from jobmon.models.job import Job
-from jobmon.models.job_instance import JobInstance
+from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.models.job_instance_status import JobInstanceStatus
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ class Executor:
         self.temp_dir: Optional[str] = None
         logger.info("Initializing {}".format(self.__class__.__name__))
 
-    def execute(self, job_instance: JobInstance) -> int:
+    def execute(self, job: ExecutorJob, job_instance_id: int) -> int:
         """SUBCLASSES ARE REQUIRED TO IMPLEMENT THIS METHOD.
 
         It is recommended that subclasses use build_wrapped_command() to
@@ -58,7 +58,8 @@ class Executor:
         """
         raise NotImplementedError
 
-    def build_wrapped_command(self, job: Job, job_instance_id: int) -> str:
+    def build_wrapped_command(self, job: ExecutorJob, job_instance_id: int
+                              ) -> str:
         """Build a command that can be executed by the shell and can be
         unwrapped by jobmon itself to setup proper communication channels to
         the monitor server.

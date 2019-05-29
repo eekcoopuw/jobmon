@@ -19,35 +19,30 @@ class Job(DB.Model):
     __table_args__ = (
         DB.Index("ix_dag_id_status_date", "dag_id", "status_date"),)
 
-    @classmethod
-    def from_wire(cls, dct):
-        return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
-                   job_hash=int(dct['job_hash']), name=dct['name'],
-                   tag=dct['tag'], command=dct['command'], slots=dct['slots'],
-                   mem_free=dct['mem_free'], num_cores=dct['num_cores'],
-                   status=dct['status'],
-                   max_runtime_seconds=dct['max_runtime_seconds'],
-                   num_attempts=dct['num_attempts'],
-                   max_attempts=dct['max_attempts'],
-                   context_args=dct['context_args'],
-                   queue=dct['queue'], j_resource=dct['j_resource'],
-                   last_nodename=dct['last_nodename'],
-                   last_process_group_id=dct['last_process_group_id'])
-
-    def to_wire(self):
+    def to_wire_as_executor_job(self):
         lnode, lpgid = self._last_instance_procinfo()
-        return {'dag_id': self.dag_id, 'job_id': self.job_id,
-                'name': self.name, 'tag': self.tag, 'job_hash': self.job_hash,
-                'command': self.command, 'status': self.status,
-                'slots': self.slots, 'mem_free': self.mem_free,
-                'num_cores': self.num_cores,
-                'max_runtime_seconds': self.max_runtime_seconds,
-                'num_attempts': self.num_attempts,
-                'max_attempts': self.max_attempts,
-                'context_args': self.context_args,
-                'queue': self.queue, 'j_resource': self.j_resource,
+        return {'dag_id': self.dag_id,
+                'job_id': self.job_id,
+                'name': self.name,
+                'job_hash': self.job_hash,
+                'command': self.command,
+                'status': self.status,
+
+                'max_runtime_seconds': (
+                    self.executor_parameter_set.max_runtime_seconds),
+                'context_args': self.executor_parameter_set.context_args,
+                'queue': self.executor_parameter_set.queue,
+                'num_cores': self.executor_parameter_set.num_cores,
+                'm_mem_free': self.executor_parameter_set.mem_free,
+                'j_resource': self.executor_parameter_set.j_resource,
+
                 'last_nodename': lnode,
                 'last_process_group_id': lpgid}
+
+    def to_wire_as_swarm_job(self):
+        return {'job_id': self.job_id,
+                'job_hash': self.job_hash,
+                'status': self.status}
 
     # identifiers
     job_id = DB.Column(DB.Integer, primary_key=True)
@@ -60,9 +55,9 @@ class Job(DB.Model):
 
     # execution info
     command = DB.Column(DB.Text)
-    executor_parameters_id = DB.Column(
+    executor_parameter_set_id = DB.Column(
         DB.Integer,
-        DB.ForeignKey('executor_parameters.id'),
+        DB.ForeignKey('executor_parameter_set.id'),
         default=None)
 
     # status/state
@@ -78,8 +73,8 @@ class Job(DB.Model):
 
     # ORM relationships
     job_instances = DB.relationship("JobInstance", back_populates="job")
-    executor_parameters = DB.relationship(
-        "ExecutorParameters", foreign_keys=[executor_parameters_id])  # 1:1
+    executor_parameter_set = DB.relationship(
+        "ExecutorParameterSet", foreign_keys=[executor_parameter_set_id])
 
     # Materialized attributes, derived during to_wire() only. Not represented
     # in the database model

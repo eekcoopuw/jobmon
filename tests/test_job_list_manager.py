@@ -67,6 +67,11 @@ def get_presumed_submitted_or_running(dag_id):
         job_instances = response['job_instances']
     except TypeError:
         job_instances = []
+    # job_instances = DB.session.query(JobInstance).\
+    #     filter_by(dag_id=dag_id).\
+    #     filter(JobInstance.status.in_(request.args.getlist('status'))).\
+    #     all()  # noqa: E711
+    # DB.session.commit()
     return job_instances
 
 

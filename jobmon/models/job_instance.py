@@ -16,19 +16,14 @@ class JobInstance(DB.Model):
 
     __tablename__ = 'job_instance'
 
-    @classmethod
-    def from_wire(cls, dct):
-        return cls(job_instance_id=dct['job_instance_id'],
-                   workflow_run_id=dct['workflow_run_id'],
-                   executor_id=dct['executor_id'],
-                   nodename=dct['nodename'],
-                   process_group_id=dct['process_group_id'],
-                   job_id=dct['job_id'],
-                   dag_id=dct['dag_id'],
-                   status=dct['status'],
-                   status_date=datetime.strptime(dct['status_date'],
-                                                 "%Y-%m-%dT%H:%M:%S"))
+    def to_wire_as_executor_job_instance(self):
+        return {
+            'job_instance_id': self.job_instance_id,
+            'executor_id': self.executor_id
+        }
 
+    # TODO: figure out what should be passed to workflow_run when called during
+    # resume
     def to_wire(self):
         return {
             'job_instance_id': self.job_instance_id,

@@ -10,8 +10,8 @@ from jobmon.client import shared_requester, client_config
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
-from jobmon.client.swarm.job_management.swarm_job_instance import (
-    SwarmJobInstance)
+from jobmon.client.swarm.job_management.executor_job_instance import (
+    ExecutorJobInstance)
 
 
 logger = logging.getLogger(__name__)
@@ -177,14 +177,14 @@ class JobInstanceReconciler(object):
             message={},
             request_type='get')
         if rc != StatusCodes.OK:
-            lost_job_instances: List[SwarmJobInstance] = []
+            lost_job_instances: List[ExecutorJobInstance] = []
         else:
             lost_job_instances = [
-                SwarmJobInstance.from_wire(ji, self.executor)
+                ExecutorJobInstance.from_wire(ji, self.executor)
                 for ji in response["job_instances"]
             ]
-        for swarm_job_instance in lost_job_instances:
-            swarm_job_instance.log_error()
+        for executor_job_instance in lost_job_instances:
+            executor_job_instance.log_error()
 
     def _log_timeout_hostname(self, job_instance_id: int, hostname: str):
         """Logs the hostname for any job that has timed out

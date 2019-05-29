@@ -7,7 +7,7 @@ from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.models.executor_parameters import ExecutorParameters
+from jobmon.models.executor_parameter_set import ExecutorParameterSet
 
 
 def test_job_submit_times(db_cfg):
@@ -108,8 +108,9 @@ def test_job_executor_params_relationship(db_cfg):
         job_id = job1.job_id
 
         # create executor_paramteres
-        exec_params = ExecutorParameters(job_id=job_id,
-                                         max_runtime_seconds=10)
+        exec_params = ExecutorParameterSet(job_id=job_id,
+                                           max_runtime_seconds=10,
+                                           parameter_set_type="O")
         DB.session.add(exec_params)
         DB.session.flush()
         exec_params.activate()
@@ -118,18 +119,19 @@ def test_job_executor_params_relationship(db_cfg):
     # assert that job picks up the newly added executor parameters
     with app.app_context():
         job = DB.session.query(Job).one()
-        assert job.executor_parameters.max_runtime_seconds == 10
+        assert job.executor_parameter_set.max_runtime_seconds == 10
 
     # add a new one and ensure the relationship picks it up properly
     with app.app_context():
 
         # create new executor_paramteres
-        exec_params = ExecutorParameters(job_id=job_id,
-                                         max_runtime_seconds=100)
+        exec_params = ExecutorParameterSet(job_id=job_id,
+                                           max_runtime_seconds=100,
+                                           parameter_set_type="A")
         DB.session.add(exec_params)
         DB.session.flush()
         exec_params.activate()
         DB.session.commit()
 
         job = DB.session.query(Job).one()
-        assert job.executor_parameters.max_runtime_seconds == 100
+        assert job.executor_parameter_set.max_runtime_seconds == 100
