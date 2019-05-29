@@ -4,7 +4,7 @@ import time
 
 # The amount ofg time it will sleep if it causes a timeout.
 # Successful jobs should sleep for less than this
-SLEEP_TOO_LONG = 25
+SLEEP_TOO_LONG = 45
 
 def main():
     """

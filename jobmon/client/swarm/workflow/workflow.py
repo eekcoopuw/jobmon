@@ -389,7 +389,7 @@ class Workflow(object):
         self.executor.set_temp_dir(
             tmp_dir)
 
-    def execute(self):
+    def execute(self) -> int:
         """Run this workflow"""
         # add_jobmon_file_logger('jobmon', logging.DEBUG,
         #                        '{}/jobmon.log'.format(os.getcwd()))

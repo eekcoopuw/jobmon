@@ -6,15 +6,15 @@ import uuid
 from datetime import datetime
 from typing import List
 
-from jobmon.client.swarm.workflow.workflow import Workflow
-
-from deployment_tests.sleep_and_error import SLEEP_TOO_LONG
 from deployment_tests.mock_load_test_task import MockLoadTestTask
+from deployment_tests.sleep_and_error import SLEEP_TOO_LONG
+from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
+from jobmon.client.swarm.workflow.workflow import Workflow
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 script = os.path.join(thisdir, "sleep_and_error.py")
 
-SAFE_RUNTIME_SECONDS = SLEEP_TOO_LONG - 5
+SAFE_RUNTIME_SECONDS = SLEEP_TOO_LONG - 10
 
 
 def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
@@ -28,7 +28,7 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
 
     tier1 = []
     for i in range(n_jobs):
-        sleep = random.randint(5, SAFE_RUNTIME_SECONDS - 3)
+        sleep = sleep_range()
         cs = f"{script} --uid tier1_{uuid.uuid4()}"
         task = MockLoadTestTask(
             command=f"python {cs} --sleep_secs {sleep}",
@@ -44,7 +44,7 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
         tier2 = []
         # Second Tier, depend on 1 tier 1 task
         for i in range(n_jobs * 3):
-            sleep = random.randint(20, 31)
+            sleep = sleep_range()
             cs = f"{script} --uid tier2_{uuid.uuid4()}"
             task = MockLoadTestTask(
                 command=f"python {cs} --sleep_secs {sleep}",
@@ -59,7 +59,7 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
         tier3 = []
         # Third Tier, depend on 3 tier 2 tasks
         for i in range(n_jobs):
-            sleep = random.randint(20, 31)
+            sleep = sleep_range()
             cs = f"{script} --uid tier3_{uuid.uuid4()}"
             task = MockLoadTestTask(
                 command=f"python {cs} --sleep_secs {sleep}",
@@ -72,11 +72,19 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
         wf.add_tasks(tier2 + tier3)
 
     time = datetime.now().strftime("%m/%d/%Y_%H:%M:%S")
-    print(f"{time}: Beginning the workflow id, there are {num_tasks} "
+    print(f"{time}: Beginning the workflow, there are {num_tasks} "
           "tasks in this DAG")
-    wf.execute()
+    status = wf.execute()
     time = datetime.now().strftime("%m/%d/%Y/_%H:%M:%S")
-    print(f"{time}: Workflow complete!  workflow_id is {wf.id}")
+    status_string = "Succeeded" \
+        if status == DagExecutionStatus.SUCCEEDED \
+        else "Failed"
+    print(f"{time}: Workflow {status_string}!  workflow_id is {wf.id}")
+
+
+def sleep_range() -> int:
+    """Returns a runtime within the safe zone, won't be killed by timeout"""
+    return random.randint(5, SAFE_RUNTIME_SECONDS - 10)
 
 
 def add_random_timeouts(task_list: List, n_exceptions: int,
