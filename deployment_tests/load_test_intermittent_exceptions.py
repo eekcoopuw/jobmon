@@ -6,10 +6,10 @@ import uuid
 from datetime import datetime
 from typing import List
 
+from deployment_tests.mock_sleep_and_write_task import \
+    SleepAndWriteFileMockTask
 
 from jobmon.client.swarm.workflow.workflow import Workflow
-from mock_sleep_and_write_task import SleepAndWriteFileMockTask
-
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 script = os.path.join(thisdir, "sleep_and_err.py")
@@ -69,11 +69,11 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
         wf.add_tasks(tier2 + tier3)
 
     time = datetime.now().strftime("%m/%d/%Y_%H:%M:%S")
-    print(f"{time}: Beginning the workflow, there are {num_tasks} tasks in "
-          f"this DAG")
+    print(f"{time}: Beginning the workflow id, there are {num_tasks} "
+          "tasks in this DAG")
     wf.execute()
     time = datetime.now().strftime("%m/%d/%Y/_%H:%M:%S")
-    print(f"{time}: Workflow complete!")
+    print(f"{time}: Workflow complete!  workflow_id is {wf.id}")
 
 
 def add_random_timeouts(task_list: List, n_exceptions: int,
@@ -96,9 +96,10 @@ def add_random_timeouts(task_list: List, n_exceptions: int,
 
 if __name__ == "__main__":
     """
-    ex. call ' python deployment-tests/load_test_with_failures.py 1 0
+    E.g. call 'python deployment_tests/load_test_intermittent_exceptions.py
+    --n_jobs 2 --n_exceptions 1
     --all_phases'
-     to run three tiers 1 job, 3 jobs, 1 job, without any raising exceptions
+     to run three tiers, 2 job, 6 jobs, 2 job, 1 exception per every 2 jobs
     """
     parser = argparse.ArgumentParser(description='load test')
     parser.add_argument('--n_jobs', type=int, default=1, action='store',
@@ -121,8 +122,8 @@ if __name__ == "__main__":
         f"Please provide an integer greater than 0 for the number of jobs: " \
         f"{args.n_jobs}"
     assert (0 <= args.n_exceptions <= args.n_jobs), \
-            "Please provide a value for the number of jobs that will error " \
-            "out that is less than or equal to the number of jobs and not " \
-            "negative"
+        "Please provide a value for the number of jobs that will error " \
+        "out that is less than or equal to the number of jobs and not " \
+        "negative"
     load_test_with_timeouts(args.n_jobs, args.n_exceptions, args.sleep_timeout,
                             args.all_phases)

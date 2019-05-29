@@ -7,8 +7,7 @@ from datetime import datetime
 
 
 from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.client.swarm.executors import sge_utils as sge
-from mock_sleep_and_write_task import SleepAndWriteFileMockTask
+from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
@@ -94,7 +93,7 @@ def add_random_err(task_list, n_ex):
 
 if __name__ == "__main__":
     """
-    ex. call ' python deployment-tests/load_test_with_failures.py 1 0
+    ex. call ' python deployment_tests/load_test_with_failures.py 1 0
     --all_phases'
      to run three tiers 1 job, 3 jobs, 1 job, without any raising exceptions
     """

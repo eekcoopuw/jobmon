@@ -17,7 +17,7 @@ thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 def three_phase_load_test(n_jobs: int) -> None:
     """
     Creates and runs one workflow with n jobs and another 3n jobs that have
-    dependencies to the previous n jobsm then a final tier that has n jobs
+    dependencies to the previous n jobs, then a final tier that has n jobs
     with multiple dependencies on the 3n job tier. This can test how jobmon
     will respond when there is a large load of connections and communication
     to and from the db (like when dismod or codcorrect run)
