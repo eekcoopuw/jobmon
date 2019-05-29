@@ -66,7 +66,9 @@ class TaskDag(object):
             return False
 
     def bind_to_db(self, dag_id=None, reset_running_jobs=True):
-        """Binds the dag to the database and starts Job Management services.
+        """
+        Binds the dag to the database and starts Job Management services.
+        The Job_List_Manger is stopped and discarded in _clean_up_after_run
 
         Args:
             dag_id (int): Defaults to None, in which case a new dag_id is
@@ -268,6 +270,19 @@ class TaskDag(object):
                             len(self.job_list_manager.all_done), None, None)
                 else:
                     print("Continuing jobmon execution...")
+            finally:
+                # In a finally block so clean up always occurs
+                self._clean_up_after_run()
+
+    def _clean_up_after_run(self) -> None:
+        """
+        Make sure all the threads are stopped. The JLM is created in bind_db
+        """
+        self.job_list_manager.disconnect()
+
+    def reconnect(self) -> None:
+        if self.job_list_manager:
+            self.job_list_manager.connect()
 
     def propagate_results(self, task):
         """

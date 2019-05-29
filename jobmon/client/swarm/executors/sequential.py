@@ -1,15 +1,22 @@
 import logging
-import traceback
 import subprocess
+import traceback
 
-from jobmon.client.swarm.executors import Executor
 from jobmon.client import shared_requester
-
+from jobmon.client.swarm.executors import Executor
 
 logger = logging.getLogger(__name__)
 
 
 class SequentialExecutor(Executor):
+
+    def __init__(self, stderr=None, stdout=None, project=None,
+                 working_dir=None, *args, **kwargs):
+        self.stderr = stderr
+        self.stdout = stdout
+        self.project = project
+        self.working_dir = working_dir
+        super().__init__(*args, **kwargs)
 
     def execute(self, job_instance):
         try:

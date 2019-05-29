@@ -1,9 +1,11 @@
+from http import HTTPStatus as StatusCodes
 import logging
-import socket
 import sys
 import traceback
 
 from jobmon.client import shared_requester
+
+from jobmon.client.swarm.executors.sge_utils import qacct_hostname, qstat_hostname, SGE_UNKNOWN_ERROR
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +36,31 @@ class JobInstanceIntercom(object):
         self.executor = executor_class()
         logger.debug("Instantiated JobInstanceIntercom")
 
-    def log_done(self, executor_id):
+    def _get_node_name(self, executor_id, nodename):
+        # The logic to get the nodename is:
+        # if <node name is passed in>
+        #     use it
+        # else
+        #     if <node name has been set>
+        #         keep it
+        #     else
+        #         get it using qacct
+        if nodename is None:
+            rc, response = self.requester.send_request(
+                app_route='/job_instance/{}/get_nodename'.format(self.job_instance_id),
+                message={},
+                request_type='get'
+            )
+            return response['nodename'] if rc == StatusCodes.OK and response[
+                'nodename'] is not None else qacct_hostname(executor_id)
+        else:
+            return nodename
+
+    def log_done(self, executor_id=None, nodename=None):
         """Tell the JobStateManager that this job_instance is done"""
-        message = {'nodename': socket.getfqdn()}
+        message = dict()
+        message['nodename'] = self._get_node_name(executor_id, nodename)
+
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
@@ -47,7 +71,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_error(self, error_message, executor_id, exit_status):
+    def log_error(self, error_message, executor_id=None, exit_status=SGE_UNKNOWN_ERROR, nodename=None):
         """Tell the JobStateManager that this job_instance has errored"""
 
         # clip at 10k to avoid mysql has gone away errors when posting long
@@ -59,9 +83,8 @@ class JobInstanceIntercom(object):
                         "character limit for error messages. Only the final "
                         "10k will be captured by the database.")
 
-        message = {'error_message': error_message,
-                   'exit_status': exit_status,
-                   'nodename': socket.getfqdn()}
+        message = {'error_message': error_message, 'exit_status': exit_status}
+        message['nodename'] = self._get_node_name(executor_id, nodename)
 
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
@@ -82,7 +105,6 @@ class JobInstanceIntercom(object):
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io']
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
-            msg['nodename'] = socket.getfqdn()
             rc, _ = self.requester.send_request(
                 app_route=('/job_instance/{}/log_usage'
                            .format(self.job_instance_id)),
@@ -100,14 +122,14 @@ class JobInstanceIntercom(object):
             logger.error("Traceback {}".
                          format(print(repr(traceback.format_tb(e_traceback)))))
 
-    def log_running(self, next_report_increment, executor_id):
+    def log_running(self, next_report_increment, executor_id=None, nodename=None):
         """Tell the JobStateManager that this job_instance is running, and
         update the report_by_date to be further in the future in case it gets
         reconciled immediately"""
-        message = {'nodename': socket.getfqdn(),
-                   'process_group_id': str(self.process_group_id),
+        message = {'process_group_id': str(self.process_group_id),
                    'next_report_increment': next_report_increment}
         logger.debug(f'executor_id is {executor_id}')
+        message['nodename'] = nodename if nodename is not None else qstat_hostname(executor_id)
         if executor_id is not None:
             message['executor_id'] = str(executor_id)
         else:
@@ -119,7 +141,7 @@ class JobInstanceIntercom(object):
             request_type='post')
         return rc
 
-    def log_report_by(self, next_report_increment, executor_id):
+    def log_report_by(self, next_report_increment, executor_id=None):
         """Log the heartbeat to show that the job instance is still alive"""
         message = {"next_report_increment": next_report_increment}
         if executor_id is not None:

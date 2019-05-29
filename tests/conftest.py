@@ -371,6 +371,8 @@ def real_dag(db_cfg, real_jsm_jqs, request):
     """
     from jobmon.client.swarm.executors.sge import SGEExecutor
     from jobmon.client.swarm.workflow.task_dag import TaskDag
+    # The workflow creates the executor, not the workflow.
+    # Hence we must create one here and pass it in
     executor = SGEExecutor()
     dag = TaskDag(name=request.node.name, executor=executor,
                   interrupt_on_error=False)
@@ -423,6 +425,3 @@ def execution_test_script_perms():
             os.chmod(f'{path}/{file}', perms)
         except Exception as e:
             raise e
-
-
-

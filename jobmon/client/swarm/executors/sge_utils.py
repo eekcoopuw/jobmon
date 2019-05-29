@@ -25,6 +25,7 @@ UGE_NAME_POLICY = re.compile(
 STATA_BINARY = "/usr/local/bin/stata-mp"
 R_BINARY = "/usr/local/bin/R"
 DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
+SGE_UNKNOWN_ERROR = -9998
 
 
 def true_path(file_or_dir=None, executable=None):
@@ -288,12 +289,35 @@ def qdel(job_ids):
 
 def qacct_exit_status(jid: int)->int:
     cmd1 = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid  #For strange reason f string or format does not work
-    logger.warning("**********************************************" + cmd1)
     try:
         return int(subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n",""))
     except Exception as e:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))
-        return sge.ERROR_QSTAT_ID
+        return SGE_UNKNOWN_ERROR
 
 
+def qacct_hostname(jid: int)->str:
+    if jid is None:
+        return None
+    cmd1 = "qacct -j %s |grep hostname|awk \'{print $2}\'" % jid  # For strange reason f string or format does not work
+    logger.debug(cmd1)
+    try:
+        return subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n", "")
+    except Exception as e:
+        # In case the command execution failed, log error and return None
+        logger.error(str(e))
+        return None
+
+
+def qstat_hostname(jid: int)->str:
+    if jid is None:
+        return None
+    cmd1 = " qstat -j %s |grep exec_host_list | awk -F \':\' \'{print $2}\'" % jid  # For strange reason f string or format does not work
+    logger.debug(cmd1)
+    try:
+        return subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n", "").strip()
+    except Exception as e:
+        # In case the command execution failed, log error and return -1
+        logger.error(str(e))
+        return None
