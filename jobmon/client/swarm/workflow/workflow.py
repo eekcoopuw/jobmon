@@ -244,7 +244,14 @@ class Workflow(object):
         self.task_dag.add_tasks(tasks)
 
     def _bind(self):
-        """Bind the database and all of its tasks to the database"""
+        """
+        Bind the database and all of its tasks to the database.
+        Also ensure that the task dag starts its threads, if this is the
+        second or subsequent execution they will have been stopped.
+        """
+        if self.is_bound:
+            self.task_dag.reconnect()
+
         potential_wfs = self._matching_workflows()
         if len(potential_wfs) > 0 and not self.resume:
             raise WorkflowAlreadyExists("This workflow and task dag already "
