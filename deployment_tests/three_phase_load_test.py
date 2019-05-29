@@ -69,7 +69,7 @@ def three_phase_load_test(n_jobs: int) -> None:
           f"this DAG")
     wf.execute()
     time = datetime.now().strftime("%m/%d/%Y/_%H:%M:%S")
-    print(f"{time}: Workflow complete!")
+    print(f"{time}: Workflow complete!  workflow_id is {wf.id}")
 
 
 if __name__ == "__main__":

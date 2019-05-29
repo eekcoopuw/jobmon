@@ -6,17 +6,19 @@ import uuid
 from datetime import datetime
 from typing import List
 
-from deployment_tests.mock_sleep_and_write_task import \
-    SleepAndWriteFileMockTask
-
 from jobmon.client.swarm.workflow.workflow import Workflow
 
+from deployment_tests.sleep_and_error import SLEEP_TOO_LONG
+from deployment_tests.mock_load_test_task import MockLoadTestTask
+
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
-script = os.path.join(thisdir, "sleep_and_err.py")
+script = os.path.join(thisdir, "sleep_and_error.py")
+
+SAFE_RUNTIME_SECONDS = SLEEP_TOO_LONG - 5
 
 
 def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
-                            sleep_timeout: bool, all_phases: bool)-> None:
+                            sleep_timeout: bool, all_phases: bool) -> None:
     wfid = uuid.uuid4()
     user = getpass.getuser()
     wf = Workflow(f"load-test-{wfid}", "load_test_with_timeouts",
@@ -26,11 +28,11 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
 
     tier1 = []
     for i in range(n_jobs):
-        sleep = random.randint(20, 31)
+        sleep = random.randint(5, SAFE_RUNTIME_SECONDS - 3)
         cs = f"{script} --uid tier1_{uuid.uuid4()}"
-        task = SleepAndWriteFileMockTask(
+        task = MockLoadTestTask(
             command=f"python {cs} --sleep_secs {sleep}",
-            max_runtime_seconds=40)
+            max_runtime_seconds=SAFE_RUNTIME_SECONDS)
         tier1.append(task)
 
     add_random_timeouts(tier1, n_exceptions, sleep_timeout)
@@ -44,9 +46,10 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
         for i in range(n_jobs * 3):
             sleep = random.randint(20, 31)
             cs = f"{script} --uid tier2_{uuid.uuid4()}"
-            task = SleepAndWriteFileMockTask(
+            task = MockLoadTestTask(
                 command=f"python {cs} --sleep_secs {sleep}",
-                upstream_tasks=[tier1[(i % n_jobs)]], max_runtime_seconds=40)
+                upstream_tasks=[tier1[(i % n_jobs)]],
+                max_runtime_seconds=SAFE_RUNTIME_SECONDS)
             tier2.append(task)
         # if you run all tasks all first tier tasks will run smoothly, then
         # tier 2 tasks will start, and some will error out which will cause
@@ -58,11 +61,11 @@ def load_test_with_timeouts(n_jobs: int, n_exceptions: int,
         for i in range(n_jobs):
             sleep = random.randint(20, 31)
             cs = f"{script} --uid tier3_{uuid.uuid4()}"
-            task = SleepAndWriteFileMockTask(
+            task = MockLoadTestTask(
                 command=f"python {cs} --sleep_secs {sleep}",
                 upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
                                 tier2[(i + (2 * n_jobs))]],
-                max_runtime_seconds=40)
+                max_runtime_seconds=SAFE_RUNTIME_SECONDS)
             tier3.append(task)
 
         add_random_timeouts(tier3, n_exceptions, sleep_timeout)

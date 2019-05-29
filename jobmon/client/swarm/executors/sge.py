@@ -53,6 +53,7 @@ class SGEExecutor(Executor):
             stack = traceback.format_exc()
             logger.error(f"*** Caught during qsub {e}")
             logger.error(f"Traceback {stack}")
+            print("XXXXX {resp}")
             msg = (
                 f"Error in executor {self.__class__.__name__}, {str(self)} "
                 f"while submitting ji_id {job_instance_id}: \n{stack}")
