@@ -211,7 +211,6 @@ def test_jsm_valid_error(real_dag_id):
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']
-    # import pdb; pdb.set_trace()
 
     # do job logging
     req.send_request(
