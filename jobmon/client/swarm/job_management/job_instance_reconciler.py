@@ -1,6 +1,5 @@
 from http import HTTPStatus as StatusCodes
 import logging
-import socket
 import threading
 import _thread
 from time import sleep
@@ -9,7 +8,7 @@ import traceback
 from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
+from jobmon.client.swarm.executors.sge_utils import qacct_exit_status, qacct_hostname, SGE_UNKNOWN_ERROR
 
 
 logger = logging.getLogger(__name__)
@@ -122,7 +121,7 @@ class JobInstanceReconciler(object):
                 f"{next_report_increment}s the job instance will be "
                 "moved to error state.")
             actual = []
-        rc, response = self.requester.send_request(
+        _, response = self.requester.send_request(
             app_route=f'/task_dag/{self.dag_id}/reconcile',
             message={'executor_ids': actual,
                      'next_report_increment': next_report_increment},
@@ -140,8 +139,7 @@ class JobInstanceReconciler(object):
             terminated_job_instances = self.executor.terminate_job_instances(
                 to_jobs)
             for ji_id, hostname in terminated_job_instances:
-                self._log_timeout_hostname(int(ji_id), hostname)
-                self._log_timeout_error(int(ji_id))
+                self._log_timeout_error(int(ji_id), nodename=hostname)
         except NotImplementedError:
             logger.warning("{} does not implement reconciliation methods"
                            .format(self.executor.__class__.__name__))
@@ -164,31 +162,39 @@ class JobInstanceReconciler(object):
             jiid_exid_tuples = []
         return jiid_exid_tuples
 
-    def _log_timeout_hostname(self, job_instance_id, hostname):
-        """Logs the hostname for any job that has timed out
-        Args:
-            job_instance_id (int): id for the job_instance that has timed out
-            hostname (str): host where the job_instance was running
-        """
-        return self.requester.send_request(
-            app_route='/job_instance/{}/log_nodename'.format(job_instance_id),
-            message={'nodename': hostname},
-            request_type='post')
 
-    def _log_timeout_error(self, job_instance_id, executor_id=None):
+    def _log_timeout_error(self, job_instance_id, nodename=None):
         """Logs if a job has timed out
         Args:
             job_instance_id (int): id for the job_instance that has timed out
         """
-        message = {'error_message': "Timed out", 'nodename': socket.getfqdn()}
-        if executor_id is not None:
-            message['executor_id'] = executor_id
-        exit_code = qacct_exit_status(executor_id)
+        message = {'error_message': "Timed out"}
+        rc, response = self.requester.send_request(
+            app_route='/job_instance/{}/get_executor_id'.format(job_instance_id),
+            message={},
+            request_type='get'
+        )
+        if rc == StatusCodes.OK:
+            executor_id = response['executor_id']
+            message['executor_id'] = int(executor_id)
+            exit_code = qacct_exit_status(executor_id)
+            # If nodename is not passed in, see if it has been set before; otherwise, get it using qacct
+            if nodename is None or len(nodename.strip()) == 0:
+                rc, response = self.requester.send_request(
+                    app_route='/job_instance/{}/get_nodename'.format(job_instance_id),
+                    message={},
+                    request_type='get'
+                )
+                nodename = response["nodename"] if rc == StatusCodes.OK and response["nodename"] is not None else qacct_hostname(job_instance_id)
+        else:
+            exit_code = SGE_UNKNOWN_ERROR
+        logger.debug("log_imeout_error nodename: {}".format(nodename))
+        message["nodename"] = nodename
         message['exit_status'] = exit_code
         return self.requester.send_request(
             app_route='/job_instance/{}/log_error'.format(job_instance_id),
             message=message,
-            request_type='post',
+            request_type='post'
             )
 
     def _request_permission_to_reconcile(self):

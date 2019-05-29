@@ -1,7 +1,6 @@
 from builtins import str
 import _thread
 import logging
-import socket
 from time import sleep
 import threading
 import traceback
@@ -184,7 +183,7 @@ class JobInstanceFactory(object):
             app_route='/job_instance',
             message={'job_id': str(job.job_id),
                      'executor_type': executor_type,
-                     'nodename': socket.getfqdn()},
+                     },
             request_type='post')
         job_instance_id = response['job_instance_id']
         return job_instance_id
