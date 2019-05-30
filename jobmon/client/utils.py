@@ -56,10 +56,9 @@ def kill_remote_process(hostname, pid, signal_number=signal.SIGKILL):
         remote_resp = _run_remote_command(hostname, kill_cmd)
         return remote_resp
     except Exception as e:
-        logger.warning(f"Caught exception: {e} remote check to ensure qdel "
-                       f"worked threw an exception,"
-                       f" because this was a safety check execution will "
-                       f"continue")
+        logger.warning(f"Caught exception: {e} during _run_remote_command to"
+                       f" kill job instances from within their host node, "
+                       f"execution will continue")
 
 
 def kill_remote_process_group(hostname, pgid, signal_number=signal.SIGKILL):
@@ -68,10 +67,9 @@ def kill_remote_process_group(hostname, pgid, signal_number=signal.SIGKILL):
         remote_resp = _run_remote_command(hostname, kill_cmd)
         return remote_resp
     except Exception as e:
-        logger.warning(f"Caught exception: {e} remote check to ensure qdel "
-                       f"worked threw an exception,"
-                       f" because this was a safety check execution will "
-                       f"continue")
+        logger.warning(f"Caught exception: {e} during _run_remote_command to"
+                       f" kill job instances from within their host node, "
+                       f"execution will continue")
 
 
 def _get_ssh_permission_dict():
