@@ -63,8 +63,8 @@ def test_invalid_memory_caught(no_daemon, mem):
     with pytest.raises(ValueError) as exc:
         no_daemon.job_instance_factory._create_job_instance(jobs[0])
     assert ('only request mem_free_gb between' in
-            exc.value.args[0]
-            or 'measure should be an int' in exc.value.args[0])
+            exc.value.args[0] or
+            'measure should be an int' in exc.value.args[0])
 
 
 @pytest.mark.cluster
@@ -83,21 +83,6 @@ def test_min_memory_transformed_correctly(mem):
                            max_runtime_seconds=86400)
     mem_free_gb = resource._transform_mem_to_gb(resource.mem_free)
     assert mem_free_gb == 0.129
-
-
-@pytest.mark.cluster
-def test_exclusive_args_both_slots_and_cores(no_daemon):
-    job = no_daemon.bind_task(Task(
-            command=sge.true_path("tests/shellfiles/jmtest.sh"),
-            name="exclusive_args_both", mem_free='2G', slots=8,
-            num_cores=8, j_resource=True, queue='all.q',
-            max_runtime_seconds=120))
-    no_daemon.queue_job(job)
-
-    jobs = no_daemon.job_instance_factory._get_jobs_queued_for_instantiation()
-    with pytest.raises(ValueError) as exc:
-        no_daemon.job_instance_factory._create_job_instance(jobs[0])
-    assert 'Cannot specify BOTH slots and num_cores' in exc.value.args[0]
 
 
 @pytest.mark.cluster
@@ -129,6 +114,7 @@ def test_invalid_runtime_caught(no_daemon, runtime):
         no_daemon.job_instance_factory._create_job_instance(jobs[0])
     assert 'Max runtime must be strictly positive' in exc.value.args[0]
 
+
 @pytest.mark.cluster
 def test_both_mem_free_error():
     expected_msg = ("Cannot pass both mem_free: 1G and m_mem_free: 1G when "
@@ -138,7 +124,7 @@ def test_both_mem_free_error():
     with pytest.raises(ValueError) as error:
         test = BashTask(command="sleep 10", name='test_mem_args',
                         mem_free='1G', m_mem_free='1G', max_attempts=2,
-                        slots=1, max_runtime_seconds=60)
+                        num_cores=1, max_runtime_seconds=60)
 
     assert expected_msg == str(error.value)
 

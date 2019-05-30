@@ -50,13 +50,17 @@ class JobInstance(DB.Model):
         DB.ForeignKey('task_dag.dag_id'),
         index=True,
         nullable=False)
+    executor_parameter_set_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('executor_parameter_set.id'),
+        nullable=False)
 
     # usage
     usage_str = DB.Column(DB.String(250))
     nodename = DB.Column(DB.String(50))
     process_group_id = DB.Column(DB.Integer)
     wallclock = DB.Column(DB.String(50))
-    maxpss = DB.Column(DB.String(50))
+    maxrss = DB.Column(DB.String(50))
     cpu = DB.Column(DB.String(50))
     io = DB.Column(DB.String(50))
 
@@ -75,6 +79,7 @@ class JobInstance(DB.Model):
     dag = DB.relationship("TaskDagMeta")
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
+    executor_parameter_set = DB.relationship("ExecutorParameterSet")
 
     # finite state machine transition information
     valid_transitions = [

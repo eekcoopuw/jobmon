@@ -11,7 +11,7 @@ from jobmon.client.swarm.job_management.job_instance_reconciler import \
     JobInstanceReconciler
 from jobmon.client.swarm.workflow.executable_task import (BoundTask,
                                                           ExecutableTask)
-from jobmon.client.swarm.job_management.swarm_stubs import SwarmJob
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 
 
 logger = logging.getLogger(__name__)

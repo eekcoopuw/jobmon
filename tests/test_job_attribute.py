@@ -89,13 +89,13 @@ def test_job_attributes(db_cfg, job_list_manager_sge):
 
 
 def test_usage_job_attribute_error(job_list_manager_sge):
-    task = BashTask("sleep 1", slots=1)
+    task = BashTask("sleep 1", num_cores=1)
     # Try to add a usage attribute, this should cause an error because this is
     # configured with usage stats, not with user assigned values
     with pytest.raises(ValueError) as exc:
         task.add_job_attribute(job_attribute.WALLCLOCK, "10")
     assert "Invalid attribute configuration" in str(exc.value)
-    
+
 
 def check_job_attribute(workflow: Workflow, job_id: int):
     return_code, resp = workflow.requester.send_request(

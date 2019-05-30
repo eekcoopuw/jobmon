@@ -9,6 +9,7 @@ from sqlalchemy.sql import func
 from jobmon.models import DB
 from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
+from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
@@ -226,8 +227,8 @@ def get_jobs_by_status_only(dag_id):
             Job.dag_id == dag_id,
             Job.status_date >= last_sync).all()
     DB.session.commit()
-    job_dcts = [Job(row[0], row[1], row[2]).to_wire_as_swarm_job()
-                for row in rows]
+    job_dcts = [Job(job_id=row[0], status=row[1], job_hash=row[2]
+                    ).to_wire_as_swarm_job() for row in rows]
     logger.info("job_attr_dct={}".format(job_dcts))
     resp = jsonify(job_dcts=job_dcts, time=time)
     resp.status_code = StatusCodes.OK
@@ -241,15 +242,17 @@ def get_timed_out_executor_ids(dag_id):
         filter(JobInstance.status.in_(
             [JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
              JobInstanceStatus.RUNNING])).\
-        join(Job).\
-        options(contains_eager(JobInstance.job)).\
-        filter(Job.max_runtime_seconds != None).\
+        join(ExecutorParameterSet).\
+        options(contains_eager(JobInstance.executor_parameter_set)).\
+        filter(ExecutorParameterSet.max_runtime_seconds != None).\
         filter(
             func.timediff(func.UTC_TIMESTAMP(), JobInstance.status_date) >
-            func.SEC_TO_TIME(Job.max_runtime_seconds)).\
+            func.SEC_TO_TIME(ExecutorParameterSet.max_runtime_seconds)).\
         with_entities(JobInstance.job_instance_id, JobInstance.executor_id).\
         all()  # noqa: E711
     DB.session.commit()
+
+    # TODO: convert to executor_job_instance wire format
     resp = jsonify(jiid_exid_tuples=jiid_exid_tuples)
     resp.status_code = StatusCodes.OK
     return resp
@@ -262,7 +265,6 @@ def get_job_instances_by_status(dag_id):
     Args:
         dag_id (int): dag_id to which the job_instances are attached
         status (list): list of statuses to query for
-
 
     Return:
         list of tuples (job_instance_id, executor_id) whose runtime is above

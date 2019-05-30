@@ -33,7 +33,7 @@ class Job(DB.Model):
                 'context_args': self.executor_parameter_set.context_args,
                 'queue': self.executor_parameter_set.queue,
                 'num_cores': self.executor_parameter_set.num_cores,
-                'm_mem_free': self.executor_parameter_set.mem_free,
+                'm_mem_free': self.executor_parameter_set.m_mem_free,
                 'j_resource': self.executor_parameter_set.j_resource,
 
                 'last_nodename': lnode,

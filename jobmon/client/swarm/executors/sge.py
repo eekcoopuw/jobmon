@@ -129,7 +129,7 @@ class SGEExecutor(Executor):
         a json-serialized dictionary
         """
         resources = SGEResource(
-            slots=job.num_cores,
+            slots=None,
             mem_free=job.m_mem_free,
             num_cores=job.num_cores,
             queue=job.queue,

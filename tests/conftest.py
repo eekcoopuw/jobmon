@@ -258,9 +258,9 @@ def simple_workflow(real_jsm_jqs, db_cfg):
     from jobmon.client.swarm.workflow.bash_task import BashTask
     from jobmon.client.swarm.workflow.workflow import Workflow
 
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False)

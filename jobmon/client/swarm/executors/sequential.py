@@ -7,7 +7,7 @@ from typing import Optional
 from jobmon.client.swarm.executors import Executor, JobInstanceExecutorInfo
 from jobmon.client import shared_requester
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
-
+from jobmon.models.job_instance_status import JobInstanceStatus
 
 logger = logging.getLogger(__name__)
 

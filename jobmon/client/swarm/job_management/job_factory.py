@@ -5,7 +5,7 @@ import logging
 from jobmon.client import shared_requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import job_attribute
-from jobmon.client.swarm.job_management.swarm_stubs import SwarmJob
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 
 
 logger = logging.getLogger(__name__)

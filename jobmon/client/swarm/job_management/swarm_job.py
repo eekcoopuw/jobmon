@@ -14,4 +14,4 @@ class SwarmJob:
 
     @classmethod
     def from_wire(cls, dct):
-        return cls(dct["job_id"], dct["status"], dct["job_hash"])
+        return cls(dct["job_id"], dct["status"], int(dct["job_hash"]))
