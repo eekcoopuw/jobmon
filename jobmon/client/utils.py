@@ -5,6 +5,7 @@ import subprocess
 import logging
 
 from paramiko.client import SSHClient, WarningPolicy
+from paramiko.ssh_exception import SSHException
 
 from cluster_utils.io import check_permissions, InvalidPermissions
 
@@ -51,12 +52,24 @@ def confirm_correct_perms(perm_dict=None):
 
 def kill_remote_process(hostname, pid, signal_number=signal.SIGKILL):
     kill_cmd = 'kill -{sn} {pid}'.format(sn=signal_number, pid=pid)
-    return _run_remote_command(hostname, kill_cmd)
+    try:
+        remote_resp = _run_remote_command(hostname, kill_cmd)
+        return remote_resp
+    except SSHException:
+        logger.warning("remote check to ensure qdel worked threw an exception,"
+                       " because this was a safety check execution will "
+                       "continue")
 
 
 def kill_remote_process_group(hostname, pgid, signal_number=signal.SIGKILL):
     kill_cmd = 'kill -{sn} -{pgid}'.format(sn=signal_number, pgid=pgid)
-    return _run_remote_command(hostname, kill_cmd)
+    try:
+        remote_resp = _run_remote_command(hostname, kill_cmd)
+        return remote_resp
+    except SSHException:
+        logger.warning("remote check to ensure qdel worked threw an exception,"
+                       " because this was a safety check execution will "
+                       "continue")
 
 
 def _get_ssh_permission_dict():
