@@ -488,7 +488,7 @@ def _log_error(job_instance: JobInstance, data: dict,
             except Exception as e:
                 logger.debug(str(e))
                 pass
-            msg += _increase_resources(ji.executor_id, scale)
+            msg += _increase_resources(job_instance.executor_id, scale)
 
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.OK
@@ -518,7 +518,7 @@ def log_error(job_instance_id: str) -> object:
 
 
 @jsm.route('/log_oom/<executor_id>', methods=['POST'])
-def log_oom(executor_id: str):
+def log_oom(executor_id: str) -> object:
     """Log instances where a job_instance is killed by an Out of Memory Kill
     event TODO: factor log_error out as a function and use it for both log_oom and log_error
     Args:

@@ -44,7 +44,6 @@ install_requires = [
     'cluster_utils',
     'requests',
     'paramiko',
-    'graphviz',
     'tenacity'
 ]
 
