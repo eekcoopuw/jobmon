@@ -55,10 +55,11 @@ def kill_remote_process(hostname, pid, signal_number=signal.SIGKILL):
     try:
         remote_resp = _run_remote_command(hostname, kill_cmd)
         return remote_resp
-    except SSHException:
-        logger.warning("remote check to ensure qdel worked threw an exception,"
-                       " because this was a safety check execution will "
-                       "continue")
+    except Exception as e:
+        logger.warning(f"Caught exception: {e} remote check to ensure qdel "
+                       f"worked threw an exception,"
+                       f" because this was a safety check execution will "
+                       f"continue")
 
 
 def kill_remote_process_group(hostname, pgid, signal_number=signal.SIGKILL):
@@ -66,10 +67,11 @@ def kill_remote_process_group(hostname, pgid, signal_number=signal.SIGKILL):
     try:
         remote_resp = _run_remote_command(hostname, kill_cmd)
         return remote_resp
-    except SSHException:
-        logger.warning("remote check to ensure qdel worked threw an exception,"
-                       " because this was a safety check execution will "
-                       "continue")
+    except Exception as e:
+        logger.warning(f"Caught exception: {e} remote check to ensure qdel "
+                       f"worked threw an exception,"
+                       f" because this was a safety check execution will "
+                       f"continue")
 
 
 def _get_ssh_permission_dict():
