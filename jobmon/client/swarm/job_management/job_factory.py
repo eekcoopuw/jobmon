@@ -24,7 +24,7 @@ class JobFactory(object):
         self.requester = requester
 
     def create_job(self, command, jobname, job_hash, slots=None,
-                   num_cores=None, mem_free=2, max_attempts=1,
+                   num_cores=None, m_mem_free=2, max_attempts=1,
                    max_runtime_seconds=None, context_args=None, tag=None,
                    queue=None, j_resource=False):
         """
@@ -35,7 +35,7 @@ class JobFactory(object):
             jobname (str): name of the job
             job_hash (str): hash of the job
             slots (int): Number of slots to request from SGE
-            mem_free (int): Number of GB of memory to request from SGE
+            m_mem_free (int): Number of GB of memory to request from SGE
             max_attempts (int): Maximum # of attempts before sending the job to
                 ERROR_FATAL state
             max_runtime_seconds (int): Maximum runtime in seconds of a single
@@ -60,7 +60,7 @@ class JobFactory(object):
                      'context_args': context_args,
                      'slots': slots,
                      'num_cores': num_cores,
-                     'mem_free': mem_free,
+                     'm_mem_free': m_mem_free,
                      'max_attempts': max_attempts,
                      'max_runtime_seconds': max_runtime_seconds,
                      'tag': tag,

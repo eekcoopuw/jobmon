@@ -11,9 +11,7 @@ import pandas as pd
 from cluster_utils.io import makedirs_safely
 from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
-from jobmon.client.swarm.executors import sge_utils
-from jobmon.client.swarm.executors import Executor
-from jobmon.client.swarm.executors.sge_resource import SGEResource
+from jobmon.client.swarm.executors import Executor, sge_utils
 from jobmon.models.attributes.constants import qsub_attribute
 
 logger = logging.getLogger(__name__)
@@ -140,20 +138,16 @@ class SGEExecutor(Executor):
         """Process the Job's context_args, which are assumed to be
         a json-serialized dictionary
         """
-        resources = SGEResource(slots=job.slots, mem_free=job.mem_free,
-                                num_cores=job.num_cores, queue=job.queue,
-                                max_runtime_seconds=job.max_runtime_seconds,
-                                j_resource=job.j_resource)
+        mem = job.m_mem_free
+        cores = job.num_cores
+        queue = job.queue
+        runtime = job.max_runtime_seconds
+        j = job.j_resource
 
-        # if the job is configured for the fair cluster, but is being run on
-        # dev/prod we need to make sure it formats its qsub to work on dev/prod
         dev_or_prod = False
         # el6 means it's dev or prod
         if "el6" in os.environ['SGE_ENV']:
             dev_or_prod = True
-
-        (mem_free, num_cores, queue, max_runtime,
-         j_resource) = resources.return_valid_resources()
 
         ctx_args = json.loads(job.context_args)
         if 'sge_add_args' in ctx_args:
@@ -161,41 +155,41 @@ class SGEExecutor(Executor):
         else:
             sge_add_args = ""
         if project:
-            project_cmd = "-P {}".format(project)
+            project_cmd = f"-P {project}"
         elif not dev_or_prod and not project:
             project_cmd = "-P ihme_general"
         else:
             project_cmd = ""
         if stderr:
-            stderr_cmd = "-e {}".format(stderr)
+            stderr_cmd = f"-e {stderr}"
             makedirs_safely(stderr)
         else:
             stderr_cmd = ""
         if stdout:
-            stdout_cmd = "-o {}".format(stdout)
+            stdout_cmd = f"-o {stdout}"
             makedirs_safely(stdout)
         else:
             stdout_cmd = ""
         if working_dir:
-            wd_cmd = "-wd {}".format(working_dir)
+            wd_cmd = f"-wd {working_dir}"
         else:
             wd_cmd = ""
-        if mem_free and not dev_or_prod:
-            mem_cmd = "-l m_mem_free={}G".format(mem_free)
-        elif mem_free:
-            mem_cmd = "-l mem_free={}G".format(mem_free)
+        if mem and not dev_or_prod:
+            mem_cmd = f"-l m_mem_free={mem}G"
+        elif mem:
+            mem_cmd = f"-l mem_free={mem}G"
         else:
             mem_cmd = ""
-        if num_cores and not dev_or_prod:
-            cpu_cmd = "-l fthread={}".format(num_cores)
+        if cores and not dev_or_prod:
+            cpu_cmd = f"-l fthread={cores}"
         else:
-            cpu_cmd = "-pe multi_slot {}".format(num_cores)
-        if j_resource is True and not dev_or_prod:
+            cpu_cmd = f"-pe multi_slot {cores}"
+        if j is True and not dev_or_prod:
             j_cmd = "-l archive=TRUE"
         else:
             j_cmd = ""
         if queue and not dev_or_prod:
-            q_cmd = "-q '{}'".format(queue)
+            q_cmd = f"-q '{queue}'"
         elif not dev_or_prod and queue is None:
             # The 'new' cluster requires a queue name be passed
             # explicitly, so in the event the user does not supply one we just
@@ -203,8 +197,8 @@ class SGEExecutor(Executor):
             q_cmd = "-q all.q"
         else:
             q_cmd = ""
-        if max_runtime and not dev_or_prod:
-            time_cmd = "-l h_rt={}".format(max_runtime)
+        if runtime and not dev_or_prod:
+            time_cmd = f"-l h_rt={runtime}"
         else:
             time_cmd = ""
 

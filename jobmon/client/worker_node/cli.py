@@ -14,7 +14,6 @@ from jobmon.exceptions import ReturnCodes
 from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
-from jobmon.client.swarm.executors.sge_utils import qacct_exit_status
 
 logger = logging.getLogger()
 

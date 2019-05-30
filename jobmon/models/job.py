@@ -22,7 +22,7 @@ class Job(DB.Model):
         return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
                    job_hash=int(dct['job_hash']), name=dct['name'],
                    tag=dct['tag'], command=dct['command'], slots=dct['slots'],
-                   mem_free=dct['mem_free'], num_cores=dct['num_cores'],
+                   m_mem_free=dct['m_mem_free'], num_cores=dct['num_cores'],
                    status=dct['status'], max_runtime_seconds=dct['max_runtime_seconds'],
                    num_attempts=dct['num_attempts'],
                    max_attempts=dct['max_attempts'],
@@ -36,7 +36,7 @@ class Job(DB.Model):
         return {'dag_id': self.dag_id, 'job_id': self.job_id,
                 'name': self.name, 'tag': self.tag, 'job_hash': self.job_hash,
                 'command': self.command, 'status': self.status,
-                'slots': self.slots, 'mem_free': self.mem_free,
+                'slots': self.slots, 'm_mem_free': self.m_mem_free,
                 'num_cores': self.num_cores,
                 'max_runtime_seconds': self.max_runtime_seconds,
                 'num_attempts': self.num_attempts,
@@ -58,7 +58,7 @@ class Job(DB.Model):
     context_args = DB.Column(DB.String(1000))
     queue = DB.Column(DB.String(255))
     slots = DB.Column(DB.Integer, default=None)
-    mem_free = DB.Column(DB.String(255))
+    m_mem_free = DB.Column(DB.String(255))
     num_cores = DB.Column(DB.Integer, default=None)
     j_resource = DB.Column(DB.Boolean, default=False)
     max_runtime_seconds = DB.Column(DB.Integer, default=None)

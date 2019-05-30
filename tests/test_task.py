@@ -77,15 +77,14 @@ def test_bash_task_args(db_cfg, job_list_manager_sge):
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
         slots = job[0].slots
-        mem_free = job[0].mem_free
+        m_mem_free = job[0].m_mem_free
         max_attempts = job[0].max_attempts
         max_runtime_seconds = job[0].max_runtime_seconds
         DB.session.commit()
         # check all job args
         assert slots == 1
-        assert mem_free == '2G'
+        assert m_mem_free == '2'
         assert max_attempts == 1
-        assert not max_runtime_seconds
 
 
 def test_python_task_equality():
@@ -102,14 +101,14 @@ def test_python_task_args(db_cfg, job_list_manager_sge):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
-                   slots=1, mem_free='2G', max_attempts=1)
+                   slots=1, m_mem_free='2G', max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
         command = job[0].command
         slots = job[0].slots
-        mem_free = job[0].mem_free
+        m_mem_free = job[0].m_mem_free
         max_attempts = job[0].max_attempts
         max_runtime_seconds = job[0].max_runtime_seconds
         DB.session.commit()
@@ -117,9 +116,8 @@ def test_python_task_args(db_cfg, job_list_manager_sge):
         assert command == 'OP_NUM_THREADS=1 {} ~/runme.py'.format(
             sys.executable)
         assert slots == 1
-        assert mem_free == '2G'
+        assert m_mem_free == '2'
         assert max_attempts == 1
-        assert not max_runtime_seconds
 
 
 def test_r_task_args(db_cfg, job_list_manager_sge):
@@ -127,14 +125,14 @@ def test_r_task_args(db_cfg, job_list_manager_sge):
     DB = db_cfg["DB"]
     a = RTask(script=sge.true_path("tests/simple_R_script.r"),
               env_variables={'OP_NUM_THREADS': 1},
-              slots=1, mem_free='2G', max_attempts=1)
+              slots=1, m_mem_free='2G', max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
         command = job[0].command
         slots = job[0].slots
-        mem_free = job[0].mem_free
+        m_mem_free = job[0].m_mem_free
         max_attempts = job[0].max_attempts
         max_runtime_seconds = job[0].max_runtime_seconds
         DB.session.commit()
@@ -142,9 +140,8 @@ def test_r_task_args(db_cfg, job_list_manager_sge):
         assert command == ('OP_NUM_THREADS=1 Rscript {}'
                            .format(sge.true_path("tests/simple_R_script.r")))
         assert slots == 1
-        assert mem_free == '2G'
+        assert m_mem_free == '2'
         assert max_attempts == 1
-        assert not max_runtime_seconds
 
 
 def test_stata_task_args(db_cfg, job_list_manager_sge):
@@ -152,20 +149,19 @@ def test_stata_task_args(db_cfg, job_list_manager_sge):
     DB = db_cfg["DB"]
     a = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
                   env_variables={'OP_NUM_THREADS': 1},
-                  slots=1, mem_free='2G', max_attempts=1)
+                  slots=1, m_mem_free='2G', max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
         command = job[0].command
         slots = job[0].slots
-        mem_free = job[0].mem_free
+        m_mem_free = job[0].m_mem_free
         max_attempts = job[0].max_attempts
         max_runtime_seconds = job[0].max_runtime_seconds
         DB.session.commit()
         # check all job args
         assert command.startswith('OP_NUM_THREADS=1 ')
         assert slots == 1
-        assert mem_free == '2G'
+        assert m_mem_free == '2'
         assert max_attempts == 1
-        assert not max_runtime_seconds

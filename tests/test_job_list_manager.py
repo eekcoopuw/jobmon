@@ -11,7 +11,6 @@ from jobmon.client import shared_requester
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
-from jobmon.client.swarm.job_management.job_instance_intercom import JobInstanceIntercom
 
 from tests.timeout_and_skip import timeout_and_skip
 

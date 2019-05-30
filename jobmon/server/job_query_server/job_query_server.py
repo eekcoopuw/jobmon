@@ -390,7 +390,7 @@ def get_resources(executor_id):
     :return:
     """
     logger.debug(logging.myself())
-    query = f"select mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {execution_id}"
+    query = f"select m_mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {execution_id}"
     res = DB.session.execute(query).fetchone()
     DB.session.commit()
     resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})

@@ -4,7 +4,6 @@ import os
 import uuid
 import subprocess
 from multiprocessing import Process
-from getpass import getuser
 
 from jobmon import BashTask  # testing new style imports
 from jobmon import PythonTask

@@ -14,7 +14,7 @@ class PythonTask(ExecutableTask):
                  args=None, upstream_tasks=None, env_variables={}, name=None,
                  slots=None, num_cores=None, mem_free=None, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None,
-                 j_resource=False, m_mem_free=None):
+                 j_resource=False, m_mem_free=None, executor_param_obj=None):
         """
         Args:
             path_to_python_binary (str): the python install that should be used
@@ -45,7 +45,8 @@ class PythonTask(ExecutableTask):
             queue (str): queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
             j_resource (bool): Whether or not this task uses the j_drive
-
+            executor_param_obj(ExecutorParameters): the set of executor
+                specific parameters for the given task
         """
         self.command = PythonTask.make_cmd(path_to_python_binary, script,
                                            args)
@@ -54,7 +55,8 @@ class PythonTask(ExecutableTask):
             upstream_tasks=upstream_tasks, name=name, slots=slots,
             num_cores=num_cores, mem_free=mem_free, max_attempts=max_attempts,
             max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
-            j_resource=j_resource, m_mem_free=m_mem_free)
+            j_resource=j_resource, m_mem_free=m_mem_free,
+            executor_param_obj=executor_param_obj)
 
     @staticmethod
     def make_cmd(path_to_python_binary, script, args):

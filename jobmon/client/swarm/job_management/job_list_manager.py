@@ -74,6 +74,9 @@ class JobListManager(object):
         Args:
             task (obj): obj of a type inherited from ExecutableTask
         """
+        # bind original parameters and validated parameters to the db
+        params = task.executor_param_objects['validated']
+
 
         if task.hash in self.hash_job_map:
             job = self.hash_job_map[task.hash]
@@ -83,14 +86,14 @@ class JobListManager(object):
                 job_hash=task.hash,
                 command=task.command,
                 tag=task.tag,
-                slots=task.slots,
-                num_cores=task.num_cores,
-                mem_free=task.mem_free,
+                slots=params.num_cores, # need to refactor out
+                num_cores=params.num_cores,
+                m_mem_free=params.m_mem_free,
                 max_attempts=task.max_attempts,
-                max_runtime_seconds=task.max_runtime_seconds,
+                max_runtime_seconds=params.max_runtime_seconds,
                 context_args=task.context_args,
-                queue=task.queue,
-                j_resource=task.j_resource
+                queue=params.queue,
+                j_resource=params.j_resource
             )
 
         # adding the attributes to the job now that there is a job_id

@@ -3,6 +3,7 @@ import os
 import shutil
 
 from jobmon.client import client_config
+from jobmon.client.swarm.executors.executor_parameters import ExecutorParameters
 
 
 logger = logging.getLogger(__name__)
