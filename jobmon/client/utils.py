@@ -5,7 +5,6 @@ import subprocess
 import logging
 
 from paramiko.client import SSHClient, WarningPolicy
-from paramiko.ssh_exception import SSHException
 
 from cluster_utils.io import check_permissions, InvalidPermissions
 
