@@ -17,6 +17,7 @@ from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
+from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
@@ -82,7 +83,6 @@ def add_job():
         job_hash: unique hash for the job
         command: job's command
         dag_id: dag_id to which this job is attached
-        slots: number of slots requested
         num_cores: number of cores requested
         m_mem_free: number of Gigs of memory requested
         max_attempts: how many times the job should be attempted
@@ -96,24 +96,31 @@ def add_job():
     data = request.get_json()
     logger.debug(data)
     job = Job(
+        dag_id=data['dag_id'],
         name=data['name'],
+        tag=data.get('tag', None),
         job_hash=data['job_hash'],
         command=data['command'],
-        dag_id=data['dag_id'],
-        slots=data.get('slots', None),
-        num_cores=data.get('num_cores', None),
-        m_mem_free=data.get('m_mem_free', 2),
         max_attempts=data.get('max_attempts', 1),
-        max_runtime_seconds=data.get('max_runtime_seconds', None),
-        context_args=data.get('context_args', "{}"),
-        tag=data.get('tag', None),
-        queue=data.get('queue', None),
-        j_resource=data.get('j_resource', False),
         status=JobStatus.REGISTERED)
     DB.session.add(job)
-    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
-    job_dct = job.to_wire()
+
+    exec_params = ExecutorParameterSet(
+        job_id=job.job_id,
+        parameter_set_type="O",
+        max_runtime_seconds=data.get('max_runtime_seconds', None),
+        context_args=data.get('context_args', "{}"),
+        queue=data.get('queue', None),
+        num_cores=data.get('num_cores', None),
+        m_mem_free=data.get('mem_free', 2),
+        j_resource=data.get('j_resource', False))
+    DB.session.add(exec_params)
+    DB.session.flush()
+    exec_params.activate()
+    DB.session.commit()
+
+    job_dct = job.to_wire_as_swarm_job()
     resp = jsonify(job_dct=job_dct)
     resp.status_code = StatusCodes.OK
     return resp
@@ -144,12 +151,10 @@ def add_task_dag():
     return resp
 
 
-def _get_workflow_run_id(job_id):
+def _get_workflow_run_id(job):
     """Return the workflow_run_id by job_id"""
     logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_id", job_id))
-    job = DB.session.query(Job).filter_by(job_id=job_id).first()
-    logger.debug(logging.logParameter("DB.session", DB.session))
+    logger.debug(logging.logParameter("job_id", job.job_id))
     wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
     if not wf:
         DB.session.commit()
@@ -160,16 +165,6 @@ def _get_workflow_run_id(job_id):
     wf_run_id = wf_run.id
     DB.session.commit()
     return wf_run_id
-
-
-def _get_dag_id(job_id):
-    """Return the workflow_run_id by job_id"""
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_id", job_id))
-    job = DB.session.query(Job).filter_by(job_id=job_id).first()
-    logger.debug(logging.logParameter("DB.session", DB.session))
-    DB.session.commit()
-    return job.dag_id
 
 
 @jsm.route('/job_instance', methods=['POST'])
@@ -184,13 +179,18 @@ def add_job_instance():
     data = request.get_json()
     logger.debug(data)
     logger.debug("Add JI for job {}".format(data['job_id']))
-    workflow_run_id = _get_workflow_run_id(data['job_id'])
-    dag_id = _get_dag_id(data['job_id'])
+
+    # query job
+    job = DB.session.query(Job).filter_by(job_id=data['job_id']).first()
+    DB.session.commit()
+
+    # create job_instance from job parameters
     job_instance = JobInstance(
         executor_type=data['executor_type'],
         job_id=data['job_id'],
-        dag_id=dag_id,
-        workflow_run_id=workflow_run_id)
+        dag_id=job.dag_id,
+        workflow_run_id=_get_workflow_run_id(job),
+        executor_parameter_set_id=job.executor_parameter_set_id)
     DB.session.add(job_instance)
     logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
@@ -865,6 +865,8 @@ def change_job_resources(job_id):
     Args:
         job_id: id of the job for which resources will be changed
         """
+
+    # TODO: fix this functionality to work with new model
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_id", job_id))
     job = DB.session.query(Job).filter_by(job_id=job_id).first()

@@ -16,19 +16,14 @@ class JobInstance(DB.Model):
 
     __tablename__ = 'job_instance'
 
-    @classmethod
-    def from_wire(cls, dct):
-        return cls(job_instance_id=dct['job_instance_id'],
-                   workflow_run_id=dct['workflow_run_id'],
-                   executor_id=dct['executor_id'],
-                   nodename=dct['nodename'],
-                   process_group_id=dct['process_group_id'],
-                   job_id=dct['job_id'],
-                   dag_id=dct['dag_id'],
-                   status=dct['status'],
-                   status_date=datetime.strptime(dct['status_date'],
-                                                 "%Y-%m-%dT%H:%M:%S"))
+    def to_wire_as_executor_job_instance(self):
+        return {
+            'job_instance_id': self.job_instance_id,
+            'executor_id': self.executor_id
+        }
 
+    # TODO: figure out what should be passed to workflow_run when called during
+    # resume
     def to_wire(self):
         return {
             'job_instance_id': self.job_instance_id,
@@ -50,13 +45,17 @@ class JobInstance(DB.Model):
         DB.Integer,
         DB.ForeignKey('job.job_id'),
         nullable=False)
-    job = DB.relationship("Job", back_populates="job_instances")
     dag_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('task_dag.dag_id'),
         index=True,
         nullable=False)
-    dag = DB.relationship("TaskDagMeta")
+    executor_parameter_set_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('executor_parameter_set.id'),
+        nullable=False)
+
+    # usage
     usage_str = DB.Column(DB.String(250))
     nodename = DB.Column(DB.String(50))
     process_group_id = DB.Column(DB.Integer)
@@ -64,6 +63,8 @@ class JobInstance(DB.Model):
     maxrss = DB.Column(DB.String(50))
     cpu = DB.Column(DB.String(50))
     io = DB.Column(DB.String(50))
+
+    # status/state
     status = DB.Column(
         DB.String(1),
         DB.ForeignKey('job_instance_status.id'),
@@ -73,9 +74,14 @@ class JobInstance(DB.Model):
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     report_by_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
+    # ORM relationships
+    job = DB.relationship("Job", back_populates="job_instances")
+    dag = DB.relationship("TaskDagMeta")
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
+    executor_parameter_set = DB.relationship("ExecutorParameterSet")
 
+    # finite state machine transition information
     valid_transitions = [
         # job instance is submitted normally (happy path)
         (JobInstanceStatus.INSTANTIATED,

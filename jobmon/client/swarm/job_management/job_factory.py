@@ -1,18 +1,12 @@
+from http import HTTPStatus as StatusCodes
 import json
 import logging
 
 from jobmon.client import shared_requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import job_attribute
-from jobmon.models.job import Job
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 
-try:  # Python 3.5+
-    from http import HTTPStatus as StatusCodes
-except ImportError:
-    try:  # Python 3
-        from http import client as StatusCodes
-    except ImportError:  # Python 2
-        import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +65,8 @@ class JobFactory(object):
         if rc != StatusCodes.OK:
             raise InvalidResponse(
                 "{rc}: Could not create_job {e}".format(rc=rc, e=jobname))
-        return Job.from_wire(response['job_dct'])
+
+        return SwarmJob.from_wire(response['job_dct'])
 
     def queue_job(self, job_id):
         """Transition a job to the Queued for Instantiation status in the db

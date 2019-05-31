@@ -3,7 +3,7 @@ import logging
 import os
 from subprocess import check_output
 import traceback
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, TYPE_CHECKING
 
 import pandas as pd
 
@@ -13,12 +13,11 @@ from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import Executor, JobInstanceExecutorInfo,\
     sge_utils
+from jobmon.client.swarm.executors.sge_resource import SGEResource
+from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.models.job import Job
-from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
-
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +42,7 @@ class SGEExecutor(Executor):
 
         confirm_correct_perms()
 
-    def _execute_sge(self, job: Job, job_instance_id: int) -> int:
+    def _execute_sge(self, job: ExecutorJob, job_instance_id: int) -> int:
         try:
             qsub_cmd = self.build_wrapped_command(job, job_instance_id,
                                                   self.stderr, self.stdout,
@@ -77,9 +76,8 @@ class SGEExecutor(Executor):
                 raise e
             return qsub_attribute.NO_EXEC_ID
 
-    def execute(self, job_instance: JobInstance) -> int:
-        return self._execute_sge(job_instance.job,
-                                 job_instance.job_instance_id)
+    def execute(self, job: ExecutorJob, job_instance_id: int) -> int:
+        return self._execute_sge(job, job_instance_id)
 
     def get_actual_submitted_or_running(self) -> List[int]:
         qstat_out = sge_utils.qstat()
@@ -120,7 +118,7 @@ class SGEExecutor(Executor):
             raise RemoteExitInfoNotAvailable
 
     def build_wrapped_command(self,
-                              job: Job,
+                              job: ExecutorJob,
                               job_instance_id: int,
                               stderr: Optional[str]=None,
                               stdout: Optional[str]=None,

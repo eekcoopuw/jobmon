@@ -21,7 +21,7 @@ class SGEParameters(ExecutorParameters):
 
     def __init__(self, slots=None, mem_free=None, num_cores=None,
                  queue=None, max_runtime_seconds=None, j_resource=False,
-                 m_mem_free=None):
+                 m_mem_free=None, context_args=None):
         """
         Args
         slots (int): slots to request on the cluster
@@ -39,12 +39,14 @@ class SGEParameters(ExecutorParameters):
         j_resource (bool): whether or not the job will need the J drive
         max_runtime (int): max_runtime_seconds converted into h:m:s style for
             new cluster
+        context_args (str):
         """
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
         self.j_resource = j_resource
         self.max_runtime = None
         self._cluster = os.environ['SGE_ENV']  # el7 in SGE_ENV is fair cluster
+        self.context_args = context_args
         self.num_cores, self.m_mem_free = self._backward_compatible_resources(
             slots, num_cores, mem_free, m_mem_free)
 
@@ -89,7 +91,7 @@ class SGEParameters(ExecutorParameters):
         j_msg, j = self._validate_j_resource()
         q_msg, queue = self._validate_queue()
         validated_params = {'cores': cores, 'mem': mem, 'runtime': runtime,
-                            'queue': queue, 'j': j}
+                            'queue': queue, 'j': j, 'args': self.context_args}
         if cores_msg or mem_msg or runtime_msg or j_msg or q_msg:
             return False, validated_params, \
                    f"You have one or more resource errors that was adjusted " \
@@ -104,7 +106,8 @@ class SGEParameters(ExecutorParameters):
                    m_mem_free=validated_params['mem'],
                    max_runtime_seconds=validated_params['runtime'],
                    queue=validated_params['queue'],
-                   j_resource=validated_params['j'])
+                   j_resource=validated_params['j'],
+                   context_args=validated_params['args'])
 
     def return_adjusted(self, cores_adjustment: float=None,
                         mem_adjustment: float=None, runtime_adjustment:

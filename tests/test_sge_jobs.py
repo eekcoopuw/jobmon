@@ -41,7 +41,8 @@ def test_context_args(db_cfg, real_jsm_jqs, job_list_manager_sge):
     delay_to = (datetime.now() + timedelta(hours=5)).strftime("%m%d%H%M")
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-             name="test_context_args", slots=2, mem_free='4G', max_attempts=1,
+             name="test_context_args", num_cores=2, mem_free='4G',
+             max_attempts=1,
              max_runtime_seconds='1000',
              context_args={'sge_add_args': '-a {}'.format(delay_to)}))
     job_list_manager_sge.queue_job(job)

@@ -258,7 +258,6 @@ def simple_workflow(real_jsm_jqs, db_cfg):
     from jobmon.client.swarm.executors.sge_parameters import SGEParameters
     from jobmon.client.swarm.workflow.bash_task import BashTask
     from jobmon.client.swarm.workflow.workflow import Workflow
-
     params = SGEParameters(num_cores=1, m_mem_free='1G')
 
     t1 = BashTask("sleep 1", executor_param_obj=params)

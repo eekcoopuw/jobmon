@@ -126,6 +126,7 @@ def test_invalid_runtime_caught(no_daemon, runtime):
                 name="invalid_runtime", executor_param_obj=sge_params)
     assert task.executor_param_objects['validated'].max_runtime_seconds == (24*60*60)
 
+
 @pytest.mark.cluster
 def test_both_mem_free_error():
     sge_params = SGEParameters(mem_free='3G', m_mem_free='2G', slots=1,
