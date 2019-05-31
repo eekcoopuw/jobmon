@@ -60,3 +60,7 @@ class SGENotAvailable(Exception):
 
 class UnsafeSSHDirectory(Exception):
     pass
+
+
+class RemoteExitInfoNotAvailable(Exception):
+    pass

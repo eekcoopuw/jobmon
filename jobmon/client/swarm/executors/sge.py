@@ -2,30 +2,38 @@ import json
 import logging
 import os
 from subprocess import check_output
-from time import sleep
-from typing import List
 import traceback
+from typing import List, Tuple, Dict, Optional
 
 import pandas as pd
 
 from cluster_utils.io import makedirs_safely
+
 from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
-from jobmon.client.swarm.executors import Executor, sge_utils
+from jobmon.client.swarm.executors import Executor, JobInstanceExecutorInfo,\
+    sge_utils
+from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.models.job import Job
+from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
+
 
 logger = logging.getLogger(__name__)
 
 ERROR_SGE_JID = -99999
-ERROR_QSTAT_ID = - 9998
-
-ExecutorIDs = List[int]
+ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
 
 
 class SGEExecutor(Executor):
 
-    def __init__(self, stderr=None, stdout=None, project=None,
-                 working_dir=None, *args, **kwargs):
+    def __init__(self,
+                 stderr: Optional[str]=None,
+                 stdout: Optional[str]=None,
+                 project: Optional[str]=None,
+                 working_dir: Optional[str]=None,
+                 *args, **kwargs):
         self.stderr = stderr
         self.stdout = stdout
         self.project = project
@@ -35,7 +43,7 @@ class SGEExecutor(Executor):
 
         confirm_correct_perms()
 
-    def _execute_sge(self, job, job_instance_id):
+    def _execute_sge(self, job: Job, job_instance_id: int) -> int:
         try:
             qsub_cmd = self.build_wrapped_command(job, job_instance_id,
                                                   self.stderr, self.stdout,
@@ -69,34 +77,18 @@ class SGEExecutor(Executor):
                 raise e
             return qsub_attribute.NO_EXEC_ID
 
-    def execute(self, job_instance):
+    def execute(self, job_instance: JobInstance) -> int:
         return self._execute_sge(job_instance.job,
                                  job_instance.job_instance_id)
 
-    def get_usage_stats(self):
-        sge_id = os.environ.get('JOB_ID')
-        usage = sge_utils.qstat_usage([sge_id])[int(sge_id)]
-        return usage
-
-    def get_actual_submitted_or_running(self) -> ExecutorIDs:
+    def get_actual_submitted_or_running(self) -> List[int]:
         qstat_out = sge_utils.qstat()
         executor_ids = list(qstat_out.job_id)
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids
 
-    def get_actual_submitted_to_executor(self):
-        """get jobs that qstat thinks are submitted but not yet running."""
-
-        # jobs returned by this function may well be actually running or done,
-        # but those state transitions are handled by the worker node/heartbeat.
-        qstat_out = sge_utils.qstat(status='pr')
-        qstat_out = qstat_out[
-            qstat_out.status.isin(["qw", "hqw", "hRwq", "t"])]
-        executor_ids = list(qstat_out.job_id)
-        executor_ids = [int(eid) for eid in executor_ids]
-        return executor_ids
-
-    def terminate_job_instances(self, jiid_exid_tuples):
+    def terminate_job_instances(self, jiid_exid_tuples: List[Tuple[int, int]]
+                                ) -> List[Tuple[int, str]]:
         """Only terminate the job instances that are running, not going to
         kill the jobs that are actually still in a waiting or transitioning
         state"""
@@ -114,27 +106,27 @@ class SGEExecutor(Executor):
                 ji_id = row.job_instance_id
                 hostname = row.hostname
                 return_list.append((int(ji_id), hostname))
-        self._poll_for_lagging_jobs(list(to_df.executor_id))
         return return_list
 
-    def _poll_for_lagging_jobs(self, executor_ids):
-        lagging_jobs = sge_utils.qstat(jids=executor_ids)
-        logger.info("Qdelling executor_ids {} from a previous workflow run, "
-                    "and polling to ensure they disappear from qstat"
-                    .format(executor_ids))
-        seconds = 0
-        while seconds <= 60 and len(lagging_jobs) > 0:
-            seconds += 5
-            sleep(5)
-            lagging_jobs = sge_utils.qstat(jids=executor_ids)
-            if seconds == 60 and len(lagging_jobs) > 0:
-                raise RuntimeError("Polled for 60 seconds waiting for qdel-ed "
-                                   "executor_ids {} to disappear from qstat "
-                                   "but they still exist. Timing out."
-                                   .format(lagging_jobs.job_id.unique()))
+    def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
+        """return the exit state associated with a given exit code"""
+        exit_code = sge_utils.qacct_exit_status(executor_id)
+        if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
+            msg = ("Insufficient resources requested. Job was lost. "
+                   f"{self.__class__.__name__} accounting discovered exit code"
+                   f":{exit_code}.")
+            return JobInstanceStatus.RESOURCE_ERROR, msg
+        else:
+            raise RemoteExitInfoNotAvailable
 
-    def build_wrapped_command(self, job, job_instance_id, stderr=None,
-                              stdout=None, project=None, working_dir=None):
+    def build_wrapped_command(self,
+                              job: Job,
+                              job_instance_id: int,
+                              stderr: Optional[str]=None,
+                              stdout: Optional[str]=None,
+                              project: Optional[str]=None,
+                              working_dir: Optional[str]=None
+                              ) -> str:
         """Process the Job's context_args, which are assumed to be
         a json-serialized dictionary
         """
@@ -229,3 +221,29 @@ class SGEExecutor(Executor):
                         stderr=stderr_cmd,
                         stdout=stdout_cmd))
         return qsub_cmd
+
+
+class JobInstanceSGEInfo(JobInstanceExecutorInfo):
+
+    def __init__(self) -> None:
+        self._executor_id: Optional[int] = None
+
+    @property
+    def executor_id(self) -> Optional[int]:
+        if self._executor_id is None:
+            jid = os.environ.get('JOB_ID')
+            if jid:
+                self._executor_id = int(jid)
+        return self._executor_id
+
+    def get_usage_stats(self) -> Dict:
+        return sge_utils.qstat_usage([self.executor_id])[self.executor_id]
+
+    def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
+        if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
+            msg = (f"Insufficient resources requested. Found exit code: "
+                   f"{exit_code}. Application returned error message:\n" +
+                   error_msg)
+            return JobInstanceStatus.RESOURCE_ERROR, msg
+        else:
+            return JobInstanceStatus.ERROR, error_msg

@@ -35,16 +35,13 @@ class ClientConfig(object):
                 os.environ["JOBMON_COMMAND"])
         if "RECONCILIATION_INTERVAL" in os.environ:
             DEFAULT_CLIENT_CONFIG["reconciliation_interval"] = (
-               int(os.environ["RECONCILIATION_INTERVAL"]))
+                int(os.environ["RECONCILIATION_INTERVAL"]))
         if "HEARTBEAT_INTERVAL" in os.environ:
             DEFAULT_CLIENT_CONFIG["heartbeat_interval"] = (
                 int(os.environ["HEARTBEAT_INTERVAL"]))
         if "REPORT_BY_BUFFER" in os.environ:
             DEFAULT_CLIENT_CONFIG["report_by_buffer"] = (
-                float(os.environ["report_by_buffer"]))
-
-        # and finally override using CLI args (if passed)
-        # TBD
+                float(os.environ["REPORT_BY_BUFFER"]))
 
         return cls(**DEFAULT_CLIENT_CONFIG)
 
@@ -62,4 +59,3 @@ class ClientConfig(object):
         self.reconciliation_interval = reconciliation_interval
         self.heartbeat_interval = heartbeat_interval
         self.report_by_buffer = report_by_buffer
-

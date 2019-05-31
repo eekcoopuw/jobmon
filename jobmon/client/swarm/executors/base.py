@@ -1,22 +1,22 @@
 import logging
 import os
 import shutil
+from typing import List, Tuple, Dict, Optional
 
 from jobmon.client import client_config
-from jobmon.client.swarm.executors.executor_parameters import ExecutorParameters
+from jobmon.models.job import Job
+from jobmon.models.job_instance import JobInstance
+from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 
 logger = logging.getLogger(__name__)
 
 
-class Executor(object):
+class Executor:
     """Base class for executors. Subclasses are required to implement an
     execute() method that takes a JobInstance, constructs a
     jobmon-interpretable executable command (typically using this base class's
     build_wrapped_command()), and optionally returns an executor_id.
-
-    While not required, implementing get_usage_stats() will allow collection
-    of CPU/memory utilization stats for each job.
 
     Also optional, get_actual_submitted_or_running() and
     terminate_job_instances() are recommended in case jobs fail in ways
@@ -25,11 +25,11 @@ class Executor(object):
     and retry them.
     """
 
-    def __init__(self, *args, **kwargs):
-        self.temp_dir = None
+    def __init__(self, *args, **kwargs) -> None:
+        self.temp_dir: Optional[str] = None
         logger.info("Initializing {}".format(self.__class__.__name__))
 
-    def execute(self, job_instance):
+    def execute(self, job_instance: JobInstance) -> int:
         """SUBCLASSES ARE REQUIRED TO IMPLEMENT THIS METHOD.
 
         It is recommended that subclasses use build_wrapped_command() to
@@ -45,22 +45,20 @@ class Executor(object):
         """
         raise NotImplementedError
 
-    def get_usage_stats(self):
+    def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
+        raise RemoteExitInfoNotAvailable
+
+    def get_actual_submitted_or_running(self) -> List[int]:
         raise NotImplementedError
 
-    def get_actual_submitted_or_running(self):
-        raise NotImplementedError
-
-    def get_actual_submitted_to_executor(self):
-        raise NotImplementedError
-
-    def terminate_job_instances(self, job_instance_list):
+    def terminate_job_instances(self, jiid_exid_tuples: List[Tuple[int, int]]
+                                ) -> List[Tuple[int, str]]:
         """If implemented, return a list of (job_instance_id, hostname) tuples
         for any job_instances that are terminated
         """
         raise NotImplementedError
 
-    def build_wrapped_command(self, job, job_instance_id):
+    def build_wrapped_command(self, job: Job, job_instance_id: int) -> str:
         """Build a command that can be executed by the shell and can be
         unwrapped by jobmon itself to setup proper communication channels to
         the monitor server.
@@ -91,10 +89,32 @@ class Executor(object):
             wrapped_cmd.extend(["--last_nodename", job.last_nodename])
         if job.last_process_group_id:
             wrapped_cmd.extend(["--last_pgid", job.last_process_group_id])
-        wrapped_cmd = " ".join([str(i) for i in wrapped_cmd])
-        logger.debug(wrapped_cmd)
-        return wrapped_cmd
+        str_cmd = " ".join([str(i) for i in wrapped_cmd])
+        logger.debug(str_cmd)
+        return str_cmd
 
-    def set_temp_dir(self, temp_dir):
+    def set_temp_dir(self, temp_dir: str) -> None:
         self.temp_dir = temp_dir
         os.environ["JOBMON_TEMP_DIR"] = self.temp_dir
+
+
+class JobInstanceExecutorInfo:
+    """Base class defining interface for gathering executor specific info
+    in the execution_wrapper.
+
+    While not required, implementing get_usage_stats() will allow collection
+    of CPU/memory utilization stats for each job.
+
+    Get exit info is used to determine the error type if the job hits a
+    system error of some variety.
+    """
+
+    @property
+    def executor_id(self) -> Optional[int]:
+        raise NotImplementedError
+
+    def get_usage_stats(self) -> Dict:
+        raise NotImplementedError
+
+    def get_exit_info(self, exit_code, error_msg) -> Tuple[str, str]:
+        raise NotImplementedError
