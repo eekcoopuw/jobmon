@@ -3,6 +3,7 @@ import logging
 from typing import Tuple, Union, Dict
 
 from jobmon.client.swarm.executors.executor_parameters import ExecutorParameters
+from jobmon.client.swarm.executors.sge_utils import get_project_limits
 logger = logging.getLogger(__name__)
 
 MIN_MEMORY_GB = 0.128
@@ -36,23 +37,8 @@ class SGEParameters(ExecutorParameters):
             run before the executor kills it. Currently required by the
             new cluster. Default is None, for indefinite.
         j_resource (bool): whether or not the job will need the J drive
-        max_runtime: max_runtime_seconds converted into h:m:s style for new
-        cluster
-
-         Raises:
-            ValueError:
-             If not all required args are specified for the type of cluster
-             If BOTH slots and cores are specified or neither are
-             If the queue isn't a valid queue in qconf -sql
-             If cores or slots aren't in a valid range: 1 to 48 or 100
-             If mem_free is not in a valid range: 1GB to 1TB
-             If m_mem_free is not in a valid range: 1GB to 1TB
-             If mem_free and m_mem_free are both passed as arguments
-             If max_runtime_seconds is not specified on the new cluster
-             If j_resource isn't a bool
-
-        Returns
-            queue, slots, num_cores, mem_free_gb, max_runtime_secs
+        max_runtime (int): max_runtime_seconds converted into h:m:s style for
+            new cluster
         """
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
@@ -235,5 +221,5 @@ class SGEParameters(ExecutorParameters):
 
     def _validate_queue(self) -> Tuple[str, Union[str, None]]:
         if self.queue is None and "el7" in self._cluster:
-            return f"no queue was provided", 'all.q'
+            return f"no queue was provided, setting to all.q", 'all.q'
         return "", self.queue

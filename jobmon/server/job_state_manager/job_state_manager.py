@@ -1299,6 +1299,6 @@ def _get_new_resource_value(mem: str, cores: int, runtime: int, scale: float):
     if runtime is not None:
         runtime = int(int(runtime) * (1 + scale))
     else:
-        # Although runtime should not be None, make it 60 seconds if it's None
-        runtime = 60
+        # Although runtime should not be None, make it 24 hours if it is None
+        runtime = (24*60*60)
     return mem, cores, runtime
