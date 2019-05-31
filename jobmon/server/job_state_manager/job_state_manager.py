@@ -4,7 +4,7 @@ from http import HTTPStatus as StatusCodes
 import json
 import os
 import socket
-from sqlalchemy.sql import func, text
+from sqlalchemy.sql import func
 import sys
 import traceback
 from typing import Tuple, Optional
@@ -357,7 +357,7 @@ def _available_resource_in_queue(q="all.q") -> Tuple[int, int, int]:
     return (sys.maxsize, sys.maxsize, sys.maxsize)
 
 
-def _increase_resources(exec_id: int, scale: float)->str:
+def _increase_resources(exec_id: int, scale: float) -> str:
     """This route is created to increase the resources of jobs failed with a
     137 error on the fair cluster on tries. The memory, runtime and threads
     should increase by a configurable amount (say 50%). The row in the job
@@ -451,8 +451,8 @@ def _increase_resources(exec_id: int, scale: float)->str:
 def _log_error(ji: JobInstance,
                error_state: int,
                error_msg: str,
-               executor_id: Optional[int]=None,
-               nodename: Optional[str]=None
+               executor_id: Optional[int] = None,
+               nodename: Optional[str] = None
                ):
     if nodename is not None:
         ji.nodename = nodename
@@ -705,63 +705,6 @@ def log_ji_report_by(job_instance_id):
     return resp
 
 
-@jsm.route('/task_dag/<dag_id>/reconcile', methods=['POST'])
-def reconcile(dag_id):
-    """Ensure all jobs that we thought were active continue to log heartbeats,
-    and update all jobs submitted to batch executor with a new report_by_date.
-    Since they are not running jobs, we still have to use qstat and update
-    their report_by_date from the reconciler, therefore they are updated
-    at the reconciliation rate
-    Args:
-
-        job_instance_id: id of the job_instance to log
-    """
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("dag_id", dag_id))
-    data = request.get_json()
-
-    params = {}
-    for key in ["next_report_increment", "executor_ids"]:
-        params[key] = data[key]
-
-    if params["executor_ids"]:
-        query = """
-            UPDATE job_instance
-            SET report_by_date = ADDTIME(
-                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-            WHERE executor_id in :executor_ids"""
-        DB.session.execute(query, params)
-        DB.session.commit()
-
-    # query all job instances that are submitted to executor or running which
-    # haven't reported as alive in the allocated time.
-    # ignore job instances created after heartbeat began. We'll reconcile them
-    # during the next reconciliation loop.
-    instances = DB.session.query(JobInstance).\
-        join(TaskDagMeta).\
-        filter_by(dag_id=dag_id).\
-        filter(JobInstance.status.in_([
-            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-            JobInstanceStatus.RUNNING])).\
-        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
-        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
-    DB.session.commit()
-
-    for ji in instances:
-        _update_job_instance_state(ji, JobInstanceStatus.ERROR)
-        msg = ("Job no longer visible in qstat, check qacct or jobmon "
-               f"database for executor_id {ji.executor_id} and "
-               f"job_instance_id {ji.job_instance_id}")
-        error = JobInstanceErrorLog(job_instance_id=ji.job_instance_id,
-                                    description=msg)
-        DB.session.add(error)
-        DB.session.commit()
-
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jsm.route('/job_instance/<job_instance_id>/log_running', methods=['POST'])
 def log_running(job_instance_id):
     """Log a job_instance as running
@@ -893,31 +836,43 @@ def queue_job(job_id):
     return resp
 
 
-@jsm.route('/job/<job_id>/change_resources', methods=['PUT'])
+@jsm.route('/job/<job_id>/change_resources', methods=['POST'])
 def change_job_resources(job_id):
-    """ Change the resources set for a given job, currently can change
-    mem_free, num_cores and max_runtime_seconds
-    Args:
-        job_id: id of the job for which resources will be changed
-        """
+    """ Change the resources set for a given job
 
-    # TODO: fix this functionality to work with new model
+    Args:
+        job_id (int): id of the job for which resources will be changed
+        parameter_set_type (str): parameter set type for this job
+        max_runtime_seconds (int, optional): amount of time job is allowed to
+            run for
+        context_args (dict, optional): unstructured parameters to pass to
+            executor
+        queue (str, optional): sge queue to submit jobs to
+        num_cores (int, optional): how many cores to get from sge
+        m_mem_free ():
+        j_resource (bool, optional): whether to request access to the j drive
+    """
+
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_id", job_id))
-    job = DB.session.query(Job).filter_by(job_id=job_id).first()
-    logger.debug(logging.logParameter("DB.session", DB.session))
+
     data = request.get_json()
-    if 'num_cores' in data:
-        job.num_cores = data['num_cores']
-        logger.debug(f"changed num_cores to {data['num_cores']}")
-    if 'max_runtime_seconds' in data:
-        job.max_runtime_seconds = data['max_runtime_seconds']
-        logger.debug(f"changed max_runtime_seconds to "
-                     f"{data['max_runtime_seconds']}")
-    if 'mem_free' in data:
-        job.mem_free = data['mem_free']
-        logger.debug(f"changed mem_free to {data['mem_free']}")
+    parameter_set_type = data["parameter_set_type"]
+
+    exec_params = ExecutorParameterSet(
+        job_id=job_id,
+        parameter_set_type=parameter_set_type,
+        max_runtime_seconds=data.get('max_runtime_seconds', None),
+        context_args=data.get('context_args', "{}"),
+        queue=data.get('queue', None),
+        num_cores=data.get('num_cores', None),
+        m_mem_free=data.get('m_mem_free', 2),
+        j_resource=data.get('j_resource', False))
+    DB.session.add(exec_params)
+    DB.session.flush()  # get auto increment
+    exec_params.activate()
     DB.session.commit()
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp

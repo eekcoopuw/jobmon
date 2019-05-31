@@ -1,3 +1,4 @@
+from jobmon.serializers import SerializeSwarmJob
 
 
 class SwarmJob:
@@ -13,5 +14,5 @@ class SwarmJob:
         self.job_hash = job_hash
 
     @classmethod
-    def from_wire(cls, dct):
-        return cls(dct["job_id"], dct["status"], int(dct["job_hash"]))
+    def from_wire(cls, wire_tuple: tuple):
+        return cls(**SerializeSwarmJob.kwargs_from_wire(wire_tuple))

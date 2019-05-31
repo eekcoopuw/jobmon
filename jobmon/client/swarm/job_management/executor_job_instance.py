@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
@@ -6,6 +6,7 @@ from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jombon.serializers import SerializeExecutorJobInstance
 
 
 class ExecutorJobInstance:
@@ -25,9 +26,9 @@ class ExecutorJobInstance:
     def __init__(self,
                  job_instance_id: int,
                  executor: Executor,
-                 executor_id: Optional[int]=None,
-                 job: Optional[ExecutorJob]=None,
-                 requester: Requester=shared_requester):
+                 executor_id: Optional[int] = None,
+                 job: Optional[ExecutorJob] = None,
+                 requester: Requester = shared_requester):
 
         self.job_instance_id = job_instance_id
         self._executor_id = executor_id
@@ -38,11 +39,10 @@ class ExecutorJobInstance:
         self.requester = shared_requester
 
     @classmethod
-    def from_wire(cls, dct: Dict, executor: Executor):
+    def from_wire(cls, wire_tuple: tuple, executor: Executor):
         """create an instance from json that the JQS returns"""
-        return cls(job_instance_id=dct['job_instance_id'],
-                   executor_id=dct['executor_id'],
-                   executor=executor)
+        return cls(executor=executor,
+                   **SerializeExecutorJobInstance.kwargs_from_wire(wire_tuple))
 
     @classmethod
     def register_job_instance(cls, job: ExecutorJob, executor: Executor):

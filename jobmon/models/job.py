@@ -8,6 +8,7 @@ from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.exceptions import InvalidStateTransition
+from jobmon.serializers import SerializeExecutorJob, SerializeSwarmJob
 
 logger = logging.getLogger(__name__)
 
@@ -21,28 +22,30 @@ class Job(DB.Model):
 
     def to_wire_as_executor_job(self):
         lnode, lpgid = self._last_instance_procinfo()
-        return {'dag_id': self.dag_id,
-                'job_id': self.job_id,
-                'name': self.name,
-                'job_hash': self.job_hash,
-                'command': self.command,
-                'status': self.status,
-
-                'max_runtime_seconds': (
-                    self.executor_parameter_set.max_runtime_seconds),
-                'context_args': self.executor_parameter_set.context_args,
-                'queue': self.executor_parameter_set.queue,
-                'num_cores': self.executor_parameter_set.num_cores,
-                'm_mem_free': self.executor_parameter_set.m_mem_free,
-                'j_resource': self.executor_parameter_set.j_resource,
-
-                'last_nodename': lnode,
-                'last_process_group_id': lpgid}
+        serialized = SerializeExecutorJob.to_wire(
+            dag_id=self.dag_id,
+            job_id=self.job_id,
+            name=self.name,
+            job_hash=self.job_hash,
+            command=self.command,
+            status=self.status,
+            max_runtime_seconds=(
+                self.executor_parameter_set.max_runtime_seconds),
+            context_args=self.executor_parameter_set.context_args,
+            queue=self.executor_parameter_set.queue,
+            num_cores=self.executor_parameter_set.num_cores,
+            m_mem_free=self.executor_parameter_set.m_mem_free,
+            j_resource=self.executor_parameter_set.j_resource,
+            last_nodename=lnode,
+            last_process_group_id=lpgid)
+        return serialized
 
     def to_wire_as_swarm_job(self):
-        return {'job_id': self.job_id,
-                'job_hash': self.job_hash,
-                'status': self.status}
+        serialized = SerializeSwarmJob.to_wire(
+            job_id=self.job_id,
+            job_hash=self.job_hash,
+            status=self.status)
+        return serialized
 
     # identifiers
     job_id = DB.Column(DB.Integer, primary_key=True)
@@ -100,15 +103,18 @@ class Job(DB.Model):
             new_error = JobInstanceErrorLog(description="Job RESET requested")
             ji.errors.append(new_error)
 
-    def transition_to_error(self):
+    def transition_after_job_instance_error(self, job_instance_error_state):
         """Transition the Job to an error state"""
         self.transition(JobStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
             logger.debug("ZZZ GIVING UP Job {}".format(self.job_id))
             self.transition(JobStatus.ERROR_FATAL)
         else:
-            logger.debug("ZZZ retrying Job {}".format(self.job_id))
-            self.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
+            if job_instance_error_state == JobInstanceStatus.RESOURCE_ERROR:
+                self.transition(JobStatus.ADJUSTING_RESOURCES)
+            else:
+                logger.debug("ZZZ retrying Job {}".format(self.job_id))
+                self.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
 
     def transition(self, new_state):
         """Transition the Job to a new state"""
