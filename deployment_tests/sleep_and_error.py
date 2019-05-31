@@ -2,12 +2,13 @@ import argparse
 import os
 import time
 
-from getpass import getuser
-
+# The amount ofg time it will sleep if it causes a timeout.
+# Successful jobs should sleep for less than this
+SLEEP_TOO_LONG = 45
 
 def main():
     """
-    The remote script that MockSleepAndWrite calls
+    The remote script that MockLoadTestTask calls
     """
 
     parser = argparse.ArgumentParser(description='mock job')
@@ -66,7 +67,7 @@ def main():
             fp.write("{}\n".format(count_so_far))
             fp.close()
             if args.sleep_timeout:
-                time.sleep(45)  # set to sleep longer than the max runtime
+                time.sleep(SLEEP_TOO_LONG)  # set to sleep longer than the max runtime
             else:
                 raise ValueError(f"Programmed intermittent failures, total "
                                  f"failures so far: {count_so_far}")

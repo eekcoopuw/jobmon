@@ -7,12 +7,11 @@ from datetime import datetime
 
 
 from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.client.swarm.executors import sge_utils as sge
-from mock_sleep_and_write_task import SleepAndWriteFileMockTask
+from .mock_load_test_task import MockLoadTestTask
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
-script = os.path.join(thisdir, "sleep_and_err.py")
+script = os.path.join(thisdir, "sleep_and_error.py")
 
 
 def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
@@ -35,7 +34,7 @@ def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
     for i in range(n_jobs):
         sleep = random.randint(30, 41)
         cs = f"{script} --uid tier1_{uuid.uuid4()}"
-        task = SleepAndWriteFileMockTask(
+        task = MockLoadTestTask(
             command=f"python {cs} --sleep_secs {sleep}")
         tier1.append(task)
 
@@ -48,7 +47,7 @@ def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
         for i in range(n_jobs * 3):
             sleep = random.randint(30, 41)
             cs = f"{script} --uid tier2_{uuid.uuid4()}"
-            task = SleepAndWriteFileMockTask(
+            task = MockLoadTestTask(
                 command=f"python {cs} --sleep_secs {sleep}",
                 upstream_tasks=[tier1[(i % n_jobs)]])
             tier2.append(task)
@@ -62,7 +61,7 @@ def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
         for i in range(n_jobs):
             sleep = random.randint(30, 41)
             cs = f"{script} --uid tier3_{uuid.uuid4()}"
-            task = SleepAndWriteFileMockTask(
+            task = MockLoadTestTask(
                 command=f"python {cs} --sleep_secs {sleep}",
                 upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
                                 tier2[(i + (2 * n_jobs))]])
@@ -80,7 +79,7 @@ def load_test_with_exceptions(n_jobs: int, n_ex: int, all_phases: bool=False)\
           f"this DAG")
     wf.execute()
     time = datetime.now().strftime("%m/%d/%Y/_%H:%M:%S")
-    print(f"{time}: Workflow complete!")
+    print(f"{time}: Workflow complete!  workflow_id is {wf.id}")
 
 
 def add_random_err(task_list, n_ex):
@@ -94,7 +93,7 @@ def add_random_err(task_list, n_ex):
 
 if __name__ == "__main__":
     """
-    ex. call ' python deployment-tests/load_test_with_failures.py 1 0
+    ex. call ' python deployment_tests/load_test_with_failures.py 1 0
     --all_phases'
      to run three tiers 1 job, 3 jobs, 1 job, without any raising exceptions
     """
