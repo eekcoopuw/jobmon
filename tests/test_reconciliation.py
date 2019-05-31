@@ -8,6 +8,7 @@ from jobmon.client import shared_requester as req
 from jobmon.client.swarm.executors.dummy import DummyExecutor
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.utils import kill_remote_process
@@ -168,7 +169,7 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
 
     # Queue a job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
-                name="sleepyjob_pass", slots=1)
+                name="sleepyjob_pass", num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
 
@@ -199,7 +200,7 @@ def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg
     jir = job_list_manager_reconciliation.job_inst_reconciler
     jif = job_list_manager_reconciliation.job_instance_factory
 
-    task = BashTask(command="sleep 5", name="heartbeat_sleeper", slots=1,
+    task = BashTask(command="sleep 5", name="heartbeat_sleeper", num_cores=1,
                     max_runtime_seconds=500)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
@@ -236,7 +237,7 @@ def test_reconciler_sge_timeout(job_list_manager_reconciliation):
     # Queue a test job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
                 name="sleepyjob_fail", max_attempts=3, max_runtime_seconds=3,
-                slots=1)
+                num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
 
@@ -282,7 +283,7 @@ def test_ignore_qw_in_timeouts(job_list_manager_reconciliation):
     # TBD I don't think that has been implemented.
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
                 name="sleepyjob", max_attempts=3, max_runtime_seconds=3,
-                slots=1)
+                num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
 
@@ -347,29 +348,22 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
 
     tasks = []
     for i in range(20):
-        task = BashTask(command=f"sleep {i}", slots=1)
+        task = BashTask(command=f"sleep {i}", num_cores=1)
         tasks.append(task)
         job = sge_jlm_for_queues.bind_task(task)
         sge_jlm_for_queues.queue_job(job)
 
     # comparing results and times of old query vs new query
-    time_a = time.time()
     rc, response = test_jif.requester.send_request(
-        app_route=f'/dag/{test_jif.dag_id}/job',
-        message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
+        app_route=f'/dag/{test_jif.dag_id}/queued_jobs/1000',
+        message={},
         request_type='get')
-    all_jobs = [Job.from_wire(j) for j in response['job_dcts']]
-    time_b = time.time()
+    all_jobs = [ExecutorJob.from_wire(j) for j in response['job_dcts']]
 
     # now new query that should only return 3 jobs
     select_jobs = test_jif._get_jobs_queued_for_instantiation()
-    time_c = time.time()
-    first_query = time_b - time_a
-    new_query = time_c - time_b
 
     assert len(select_jobs) == 3
     assert len(all_jobs) == 20
     for i in range(3):
         assert select_jobs[i].job_id == (i + 1)
-
-

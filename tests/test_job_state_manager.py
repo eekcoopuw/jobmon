@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy.exc import OperationalError
 
 from jobmon.client import shared_requester as req
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.models.job import Job
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
@@ -73,7 +74,7 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     # add workflow
     _, response = req.send_request(
@@ -107,8 +108,11 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
     # make sure that the wf run that was just created matches the one that
     # jsm._get_workflow_run_id gets
     app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
     with app.app_context():
-        assert wf_run_id == _get_workflow_run_id(job.job_id)
+        job = DB.session.query(Job).filter_by(job_id=swarm_job.job_id).first()
+        assert wf_run_id == _get_workflow_run_id(job)
 
 
 def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):
@@ -129,10 +133,13 @@ def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):
                  'command': 'baz',
                  'dag_id': str(dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
     app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
     with app.app_context():
-        assert not _get_workflow_run_id(job.job_id)
+        job = DB.session.query(Job).filter_by(job_id=swarm_job.job_id).first()
+        assert not _get_workflow_run_id(job)
 
 
 def test_jsm_valid_done(real_dag_id):
@@ -144,18 +151,18 @@ def test_jsm_valid_done(real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     # queue job
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     # add job instance
     _, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']
@@ -197,18 +204,18 @@ def test_jsm_valid_error(real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     # queue job
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     # add job instance
     _, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']
@@ -253,14 +260,14 @@ def test_invalid_transition(dag_id):
                  'command': 'baz',
                  'dag_id': str(dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     # InvalidStateTransition gets raised cuz the orig ji was Instantiated
     # and then this command tries to transition it's state backwards to G
     with pytest.raises(InvalidStateTransition):
         rc, response = req.send_request(
             app_route='/job_instance',
-            message={'job_id': str(job.job_id),
+            message={'job_id': str(swarm_job.job_id),
                      'executor_type': 'dummy_exec'},
             request_type='post')
 
@@ -277,18 +284,18 @@ def test_untimely_transition(real_dag_id, db_cfg):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     # queue job
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     # add job instance
     _, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']
@@ -326,15 +333,15 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     rc, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']
@@ -386,16 +393,16 @@ def test_job_reset(db_cfg, real_dag_id):
                  'dag_id': str(real_dag_id),
                  'max_attempts': '3'},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     # Create a couple of job instances
     rc, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     ji1 = response['job_instance_id']
@@ -421,7 +428,7 @@ def test_job_reset(db_cfg, real_dag_id):
     # second job instance
     rc, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     ji2 = response['job_instance_id']
@@ -447,7 +454,7 @@ def test_job_reset(db_cfg, real_dag_id):
     # third job instance
     rc, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     ji3 = response['job_instance_id']
@@ -465,7 +472,7 @@ def test_job_reset(db_cfg, real_dag_id):
 
     # Reset the job to REGISTERED
     req.send_request(
-        app_route='/job/{}/reset'.format(job.job_id),
+        app_route='/job/{}/reset'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
@@ -473,7 +480,7 @@ def test_job_reset(db_cfg, real_dag_id):
     DB = db_cfg["DB"]
     with app.app_context():
         jobs = DB.session.query(Job).filter_by(dag_id=real_dag_id,
-                                               job_id=job.job_id).all()
+                                               job_id=swarm_job.job_id).all()
         assert len(jobs) == 1
         job = jobs[0]
         assert job.status == JobStatus.REGISTERED
@@ -499,16 +506,16 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     # Create a job instance
     rc, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     ji = response['job_instance_id']
@@ -558,7 +565,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
             JOIN job
             ON job_attribute.job_id=job.job_id
             WHERE job_attribute.job_id={id}
-            """.format(id=job.job_id))
+            """.format(id=swarm_job.job_id))
         attribute_entries = job_attribute_query.fetchall()
         for entry in attribute_entries:
             attribute_entry_type = entry.attribute_type
@@ -710,9 +717,9 @@ def test_change_job_resources(db_cfg, real_dag_id):
                  'dag_id': str(real_dag_id),
                  'max_attempts': '3'},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
     _, response = req.send_request(
-        app_route=f'/job/{job.job_id}/change_resources',
+        app_route=f'/job/{swarm_job.job_id}/change_resources',
         message={'num_cores': '3',
                  'max_runtime_seconds': '20',
                  'mem_free': '2G'},
@@ -723,7 +730,7 @@ def test_change_job_resources(db_cfg, real_dag_id):
     with app.app_context():
         query = """SELECT max_runtime_seconds, mem_free, num_cores
                    FROM job
-                   WHERE job_id={job_id}""".format(job_id=job.job_id)
+                   WHERE job_id={job_id}""".format(job_id=swarm_job.job_id)
         runtime, mem, cores = DB.session.execute(query).fetchall()[0]
         assert runtime == 20
         assert mem == '2G'
@@ -731,14 +738,14 @@ def test_change_job_resources(db_cfg, real_dag_id):
         DB.session.commit()
 
     _, response = req.send_request(
-        app_route=f'/job/{job.job_id}/change_resources',
+        app_route=f'/job/{swarm_job.job_id}/change_resources',
         message={'num_cores': '2'},
         request_type='put'
     )
     with app.app_context():
         query = """SELECT max_runtime_seconds, mem_free, num_cores
                    FROM job
-                   WHERE job_id={job_id}""".format(job_id=job.job_id)
+                   WHERE job_id={job_id}""".format(job_id=swarm_job.job_id)
         runtime, mem, cores = DB.session.execute(query).fetchall()[0]
         assert runtime == 20
         assert mem == '2G'
@@ -754,15 +761,15 @@ def test_executor_id_logging(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     rc, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']
@@ -826,18 +833,18 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     # queue job
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     # add job instance
     _, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']
@@ -845,9 +852,10 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
     DB = db_cfg["DB"]
     app = db_cfg["app"]
     with app.app_context():
-        DB.session.execute("""UPDATE job_instance
-                              SET job_instance.status='W'
-                              WHERE job_instance_id = {}""".format(job_instance_id))
+        DB.session.execute("""
+            UPDATE job_instance
+            SET job_instance.status='W'
+            WHERE job_instance_id = {}""".format(job_instance_id))
         DB.session.commit()
 
     # the job does not get registered properly and is set to 'W', then it
@@ -871,18 +879,18 @@ def test_log_error_reconciler(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     # queue job
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     # add job instance
     _, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
     job_instance_id = response['job_instance_id']

@@ -3,7 +3,7 @@ import hashlib
 
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
-from jobmon.client.stubs import StubJob
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +184,7 @@ class ExecutableTask(object):
             raise ValueError(
                 "Invalid attribute configuration for {} with name: {}, "
                 "user input not used to configure attribute value".format(
-                attribute_type, type(attribute_type).__name__))
+                    attribute_type, type(attribute_type).__name__))
         elif not isinstance(attribute_type, int):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
@@ -232,7 +232,7 @@ class ExecutableTask(object):
 class BoundTask(object):
     """The class that bridges the gap between a task and it's bound Job"""
 
-    def __init__(self, task, job: StubJob, job_list_manager):
+    def __init__(self, task, job: SwarmJob, job_list_manager):
         """
         Link task and job
 

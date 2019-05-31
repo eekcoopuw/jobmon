@@ -6,7 +6,7 @@ from typing import Optional
 
 from jobmon.client.swarm.executors import Executor, JobInstanceExecutorInfo
 from jobmon.client import shared_requester
-from jobmon.models.job_instance import JobInstance
+from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.models.job_instance_status import JobInstanceStatus
 
 logger = logging.getLogger(__name__)
@@ -18,10 +18,9 @@ class SequentialExecutor(Executor):
         super().__init__(*args, **kwargs)
         self._next_executor_id = 1
 
-    def execute(self, job_instance: JobInstance) -> int:
+    def execute(self, job: ExecutorJob, job_instance_id: int) -> int:
         try:
-            cmd = self.build_wrapped_command(job_instance.job,
-                                             job_instance.job_instance_id)
+            cmd = self.build_wrapped_command(job, job_instance_id)
             logger.debug(cmd)
 
             # add an executor id to the environment
@@ -37,7 +36,7 @@ class SequentialExecutor(Executor):
             stack = traceback.format_exc()
             msg = (
                 f"Error in {self.__class__.__name__}, {str(self)} "
-                f"while submitting ji_id {job_instance.job_instance_id}:"
+                f"while submitting ji_id {job_instance_id}:"
                 f"\n{stack}")
             shared_requester.send_request(
                 app_route="/error_logger",

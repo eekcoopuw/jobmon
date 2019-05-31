@@ -6,9 +6,10 @@ import threading
 import traceback
 
 from jobmon.client import shared_requester, client_config
+from jobmon.client.swarm.job_management.executor_job import ExecutorJob
+from jobmon.client.swarm.job_management.executor_job_instance import (
+    ExecutorJobInstance)
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
-from jobmon.models.job import Job
-from jobmon.models.job_instance import JobInstance
 from jobmon.models.attributes.constants import qsub_attribute
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ class JobInstanceFactory(object):
         self.interrupt_on_error = interrupt_on_error
         self.n_queued_jobs = n_queued_jobs
         self.next_report_increment = client_config.heartbeat_interval * \
-                                     client_config.report_by_buffer
+            client_config.report_by_buffer
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they
@@ -123,7 +124,7 @@ class JobInstanceFactory(object):
         # resuscitate the Executor abstract base class.
         self.executor = executor
 
-    def _create_job_instance(self, job):
+    def _create_job_instance(self, job: ExecutorJob):
         """
         Creates a JobInstance based on the parameters of Job and tells the
         JobStateManager to react accordingly.
@@ -131,44 +132,52 @@ class JobInstanceFactory(object):
         Args:
             job (Job): A Job that we want to execute
         """
-        try:
-            job_instance = JobInstance(job=job)
-            executor_class = self.executor.__class__
-            job_instance.job_instance_id = self._register_job_instance(
-                job, executor_class.__name__)
-        except Exception as e:
-            logger.error(e)
-            stack = traceback.format_exc()
-            msg = (
-                f"Error while creating job instances {self.__class__.__name__}"
-                f", {str(self)} while submitting jid {job.job_id}: \n{stack}")
-            shared_requester.send_request(
-                app_route="/error_logger",
-                message={"traceback": stack},
-                request_type="post")
+        # try:
+        job_instance = ExecutorJobInstance.register_job_instance(
+            job, self.executor)
+        # except Exception as e:
+        #     logger.error(e)
+        #     stack = traceback.format_exc()
+        #     msg = (
+        #         f"Error while creating job instances {self.__class__.__name__}"
+        #         f", {str(self)} while submitting jid {job.job_id}: \n{stack}")
+        #     shared_requester.send_request(
+        #         app_route="/error_logger",
+        #         message={"traceback": stack},
+        #         request_type="post")
+        #     # we can't do anything more at this point so must return Nones
+        #     return (None, None)
 
         logger.debug("Executing {}".format(job.command))
+
+        # TODO: consider pushing the execute command down into
+        # ExecutorJobInstance
+
+        # TODO: unify qsub IDS to be meaningful across executor types
+
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
-        executor_id = self.executor.execute(job_instance=job_instance)
+        print(job.command)
+        executor_id = self.executor.execute(
+            job, job_instance_id=job_instance.job_instance_id)
+        print(executor_id)
         if executor_id == qsub_attribute.NO_EXEC_ID:
             if executor_id == qsub_attribute.NO_EXEC_ID:
                 logger.debug(f"Received {qsub_attribute.NO_EXEC_ID} meaning "
                              f"the job did not qsub properly, moving "
                              f"to 'W' state")
-                self._register_no_exec_id(job_instance.job_instance_id,
-                                          exec_id=qsub_attribute.NO_EXEC_ID)
+                job_instance.register_no_exec_id(
+                    executor_id=qsub_attribute.NO_EXEC_ID)
         elif executor_id == qsub_attribute.UNPARSABLE:
-                logger.debug(f"Got response from qsub but did not contain a "
-                             f"valid job id "
-                             f"({qsub_attribute.UNPARSABLE}), "
-                             f"moving to 'W' state")
-                self._register_no_exec_id(job_instance.job_instance_id,
-                                          exec_id=qsub_attribute.UNPARSABLE)
+            logger.debug(f"Got response from qsub but did not contain a "
+                         f"valid job id "
+                         f"({qsub_attribute.UNPARSABLE}), "
+                         f"moving to 'W' state")
+            job_instance.register_no_exec_id(
+                executor_id=qsub_attribute.UNPARSABLE)
         elif executor_id:
-            self._register_submission_to_batch_executor(
-                job_instance.job_instance_id, executor_id,
-                self.next_report_increment)
+            job_instance.register_submission_to_batch_executor(
+                executor_id, self.next_report_increment)
         else:
             msg = ("Did not receive an executor_id in _create_job_instance")
             logger.error(msg)
@@ -182,39 +191,14 @@ class JobInstanceFactory(object):
     def _get_jobs_queued_for_instantiation(self):
         try:
             rc, response = self.requester.send_request(
-                app_route=f'/dag/{self.dag_id}/queued_jobs/{self.n_queued_jobs}',
+                app_route=(
+                    f'/dag/{self.dag_id}/queued_jobs/{self.n_queued_jobs}'),
                 message={},
                 request_type='get')
-            jobs = [Job.from_wire(j) for j in response['job_dcts']]
+            jobs = [ExecutorJob.from_wire(j) for j in response['job_dcts']]
 
         except TypeError:
             # Ignore, it indicates that there are no jobs queued
             jobs = []
 
         return jobs
-
-    def _register_job_instance(self, job, executor_type):
-        rc, response = self.requester.send_request(
-            app_route='/job_instance',
-            message={'job_id': str(job.job_id),
-                     'executor_type': executor_type},
-            request_type='post')
-        job_instance_id = response['job_instance_id']
-        return job_instance_id
-
-    def _register_submission_to_batch_executor(self, job_instance_id,
-                                               executor_id,
-                                               next_report_increment):
-        self.requester.send_request(
-            app_route=('/job_instance/{}/log_executor_id'
-                       .format(job_instance_id)),
-            message={'executor_id': str(executor_id),
-                     'next_report_increment': next_report_increment},
-            request_type='post')
-
-    def _register_no_exec_id(self, job_instance_id, exec_id):
-        self.requester.send_request(
-            app_route=f'/job_instance/{job_instance_id}/log_no_exec_id',
-            message={'executor_id': exec_id},
-            request_type='post')
-

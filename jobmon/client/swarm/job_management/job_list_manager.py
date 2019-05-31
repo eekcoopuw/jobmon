@@ -9,8 +9,9 @@ from jobmon.client.swarm.job_management.job_instance_factory import \
     JobInstanceFactory
 from jobmon.client.swarm.job_management.job_instance_reconciler import \
     JobInstanceReconciler
-from jobmon.client.swarm.workflow.executable_task import BoundTask
-from jobmon.client.stubs import StubJob
+from jobmon.client.swarm.workflow.executable_task import (BoundTask,
+                                                          ExecutableTask)
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 
 
 logger = logging.getLogger(__name__)
@@ -69,7 +70,7 @@ class JobListManager(object):
                                        JobStatus.DONE,
                                        JobStatus.ERROR_FATAL]]
 
-    def bind_task(self, task):
+    def bind_task(self, task: ExecutableTask):
         """Bind a task to the database, making it a job
         Args:
             task (obj): obj of a type inherited from ExecutableTask
@@ -119,7 +120,7 @@ class JobListManager(object):
         utcnow = response['time']
         self.last_sync = utcnow
 
-        jobs = StubJob.from_wire(response['job_dcts'])
+        jobs = [SwarmJob.from_wire(job) for job in response['job_dcts']]
         for job in jobs:
             if job.job_id in self.bound_tasks.keys():
                 self.bound_tasks[job.job_id].status = job.status
@@ -193,8 +194,7 @@ class JobListManager(object):
         """Create a job by passing the job args/kwargs through to the
         JobFactory
         """
-        j = self.job_factory.create_job(*args, **kwargs)
-        job = StubJob.job_to_stub(j)
+        job = self.job_factory.create_job(*args, **kwargs)
         self.hash_job_map[job.job_hash] = job
         self.job_hash_map[job.job_id] = job.job_hash
         return job

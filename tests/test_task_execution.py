@@ -14,7 +14,8 @@ from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.client.swarm.workflow.r_task import RTask
 from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
-from jobmon.client.swarm.job_management.job_instance_factory import JobInstanceFactory
+from jobmon.client.swarm.job_management.job_instance_factory import (
+    JobInstanceFactory)
 
 
 def match_name_to_sge_name(jid):
@@ -26,13 +27,13 @@ def match_name_to_sge_name(jid):
                 "qacct -j {} | grep jobname".format(jid),
                 shell=True).decode()
             break
-        except:
+        except Exception:
             try:
                 sge_jobname = check_output(
                     "qstat -j {} | grep job_name".format(jid),
                     shell=True).decode()
                 break
-            except:
+            except Exception:
                 pass
             sleep(10 - retries)
             retries = retries - 1
@@ -53,8 +54,8 @@ def get_task_status(real_dag, task):
 def test_bash_task(db_cfg, dag_factory):
     """Create a dag with one very simple BashTask and execute it"""
     name = 'bash_task'
-    task = BashTask(command="date", name=name, mem_free='1G', max_attempts=2,
-                    slots=1, max_runtime_seconds=60)
+    task = BashTask(command="date", name=name, m_mem_free='1G', max_attempts=2,
+                    num_cores=1, max_runtime_seconds=60)
     executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
     real_dag.add_task(task)
@@ -70,9 +71,9 @@ def test_bash_task(db_cfg, dag_factory):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.mem_free == '1G'
+        assert job.executor_parameter_set.m_mem_free == '1G'
         assert job.max_attempts == 2
-        assert job.max_runtime_seconds == 60
+        assert job.executor_parameter_set.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
@@ -91,7 +92,7 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
                       args=["--sleep_secs", "1",
                             "--output_file_path", output_file_name,
                             "--name", name],
-                      name=name, mem_free='1G', max_attempts=2, slots=1,
+                      name=name, m_mem_free='1G', max_attempts=2, num_cores=1,
                       max_runtime_seconds=60)
 
     executor = SGEExecutor(project='proj_tools')
@@ -109,9 +110,9 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.mem_free == '1G'
+        assert job.executor_parameter_set.m_mem_free == '1G'
         assert job.max_attempts == 2
-        assert job.max_runtime_seconds == 60
+        assert job.executor_parameter_set.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
@@ -122,7 +123,8 @@ def test_exceed_mem_task(db_cfg, dag_factory):
     cluster, it gets killed"""
     name = 'mem_task'
     task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
-                      name=name, mem_free='130M', max_attempts=2, slots=1,
+                      name=name, m_mem_free='130M', max_attempts=2,
+                      num_cores=1,
                       max_runtime_seconds=40)
 
     executor = SGEExecutor(project='proj_tools')
@@ -156,7 +158,7 @@ def test_under_request_then_pass(db_cfg, dag_factory):
 
     name = 'mem_task'
     task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
-                      name=name, m_mem_free='600M', max_attempts=2, slots=1,
+                      name=name, m_mem_free='600M', max_attempts=2, num_cores=1,
                       max_runtime_seconds=40)
 
     executor = SGEExecutor(project='proj_tools')
@@ -179,7 +181,7 @@ def test_under_request_then_pass(db_cfg, dag_factory):
         assert job.job_instances[1].status == 'D'
         assert job.status == 'D'
         # add checks for increased system resources
-        assert job.mem_free == '900M'
+        assert job.executor_parameter_set.m_mem_free == '900M'
         assert job.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
@@ -191,8 +193,8 @@ def test_kill_self_task(db_cfg, dag_factory):
     in Batch or Running forever"""
     name = 'kill_self_task'
     task = PythonTask(script=sge.true_path("tests/kill.py"),
-                      name=name, mem_free='130M', max_attempts=2, slots=1,
-                      max_runtime_seconds=40)
+                      name=name, m_mem_free='130M', max_attempts=2,
+                      num_cores=1, max_runtime_seconds=40)
 
     executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
@@ -226,8 +228,8 @@ def test_R_task(db_cfg, dag_factory, tmp_out_dir):
     makedirs_safely(root_out_dir)
 
     task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name,
-                 mem_free='1G', max_attempts=2, max_runtime_seconds=60,
-                 slots=1)
+                 m_mem_free='1G', max_attempts=2, max_runtime_seconds=60,
+                 num_cores=1)
     executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
     real_dag.add_task(task)
@@ -243,9 +245,9 @@ def test_R_task(db_cfg, dag_factory, tmp_out_dir):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.mem_free == '1G'
+        assert job.executor_parameter_set.m_mem_free == '1G'
         assert job.max_attempts == 2
-        assert job.max_runtime_seconds == 60
+        assert job.executor_parameter_set.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
@@ -260,7 +262,7 @@ def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
 
     task = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
                      name=name, mem_free='1G', max_attempts=2,
-                     max_runtime_seconds=60, slots=1)
+                     max_runtime_seconds=60, num_cores=1)
     executor = SGEExecutor(project='proj_tools')
     executor.set_temp_dir(root_out_dir)
     dag = dag_factory(executor)
@@ -277,9 +279,9 @@ def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
         job = DB.session.query(Job).filter_by(name=name).first()
         sge_id = [ji for ji in job.job_instances][0].executor_id
         job_instance_id = [ji for ji in job.job_instances][0].job_instance_id
-        assert job.mem_free == '1G'
+        assert job.executor_parameter_set.m_mem_free == '1G'
         assert job.max_attempts == 2
-        assert job.max_runtime_seconds == 60
+        assert job.executor_parameter_set.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(sge_id)
     assert sge_jobname == name
@@ -305,7 +307,7 @@ def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
                       args=["--sleep_secs", "1",
                             "--output_file_path", output_file_name,
                             "--name", name],
-                      name=name, mem_free='1G', max_attempts=2,
+                      name=name, m_mem_free='1G', max_attempts=2,
                       max_runtime_seconds=60, queue='all.q@@c2-nodes')
     executor = SGEExecutor(project='proj_tools')
     dag = dag_factory(executor)
@@ -348,8 +350,8 @@ def test_job_in_w_logs(dag_factory, monkeypatch, capsys, db_cfg):
         "_register_submission_to_batch_executor",
         MockJIF._register_submission_to_batch_executor)
     name = 'task_no_exec_id'
-    task = BashTask(command="ls", name=name, mem_free='130M', max_attempts=2,
-                    slots=1, max_runtime_seconds=20)
+    task = BashTask(command="ls", name=name, m_mem_free='130M', max_attempts=2,
+                    num_cores=1, max_runtime_seconds=20)
 
     executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
