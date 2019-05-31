@@ -5,13 +5,13 @@ import jobmon.client.swarm.workflow.executable_task as etk
 logger = logging.getLogger(__name__)
 
 
-class SleepAndWriteFileMockTask(etk.ExecutableTask):
+class MockLoadTestTask(etk.ExecutableTask):
     """
     A simple task that sleeps for a configured number of seconds, then writes a
     File. It can also be command to always fail (by raising ValueError), or
     fail a certain number of times and then succeed.
 
-    The actual SGE command is remote_sleep_and_write.py
+    The actual SGE command is sleep_and_error.py
     """
 
     def __init__(self,

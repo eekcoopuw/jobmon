@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # objects in memory and test that they work. The objects are created in the
 # database, but testing that round-trip is not an explicit goal of these tests.
 
-# These tests all use SleepAndWriteFileMockTask (which calls
+# These tests all use MockLoadTestTask (which calls
 # remote_sleep_and_write remotely)
 
 
