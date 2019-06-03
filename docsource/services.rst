@@ -104,10 +104,10 @@ Make sure the database has been copied/backed up before doing the next two steps
 4. Run "docker rm <container_id>" to permanently remove the container from the host machine.
 5. Run "docker volume rm <volume_name>" to permanently remove the volume from the host machine.
 
-Version Control
-***************
+Accessing the Database
+**********************
 
-For testing purposes, you can then access the jobmon database on that server
+For testing purposes, you can access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
@@ -118,8 +118,48 @@ from your favorite DB browser (e.g. Sequel Pro) using the credentials::
     or host: jobmon-docker-cont-p01.hosts.ihme.washington.edu (depending on the version)
 
 
-Each new version of jobmon increments the ports and the db port reflects the
-release number (0.8.0 = 3800), so for example:
+Version Naming System
+*********************
+
+As of version 1.0.0, Jobmon follows the `Semantic Versioning 2.0.0`_ naming system:
+
+    Given a version number MAJOR.MINOR.PATCH, increment the:
+
+    1. MAJOR version when you make incompatible API changes,
+    2. MINOR version when you add functionality in a backwards-compatible manner, and
+    3. PATCH version when you make backwards-compatible bug fixes.
+
+Because ports are tied directly to the version number, versions will increment regardless of the rules above if a PATCH release increments past 99 or if a MINOR release increments past 9.
+
+.. _Semantic Versioning 2.0.0: https://semver.org/
+
+Port Assignment Convention
+**************************
+
+As of version 1.0.0, Jobmon ports reflect MAJOR, MINOR, (if a server side change is made) PATCH, and its service (DBs, JQS, etc.).
+
+======================== ======
+Service                  Number
+======================== ======
+Database                 0
+Job Query Service        1
+Job State Manager        2
+Job Visualization Server 3
+======================== ======
+
+For example:
+
+    Given port ABCDE, A = MAJOR, B = MINOR, CD = PATCH, and E = service and release 1.0.12, ports would be the following:
+
+    1. Database: 10120
+    2. JQS: 10121
+    3. JSM: 10122
+    4. JVS: 10123
+
+If a client-side only PATCH (1.0.13) was released, the release would still refer to the above ports
+
+Jobmon Version Record
+*********************
 
 jobmon-p01.ihme.washington.edu
 
@@ -172,7 +212,6 @@ https://docs.docker.com/compose/networking/
 Note that Docker does "NATing" (Network Address Translation) so that the
 mysql database is listening on port 3306 within its contained, but docker
 maps it to a different port externally.
-
 
 Updates before a new version can be deployed
 ********************************************
