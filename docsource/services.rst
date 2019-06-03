@@ -104,8 +104,8 @@ Make sure the database has been copied/backed up before doing the next two steps
 4. Run "docker rm <container_id>" to permanently remove the container from the host machine.
 5. Run "docker volume rm <volume_name>" to permanently remove the volume from the host machine.
 
-Accessing the Database
-**********************
+Accessing a Database
+********************
 
 For testing purposes, you can access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
@@ -156,7 +156,7 @@ For example:
     3. JSM: 10122
     4. JVS: 10123
 
-If a client-side only PATCH (1.0.13) was released, the release would still refer to the above ports
+If a client-side only PATCH (1.0.13) was released, the release would still refer to the above ports.
 
 Jobmon Version Record
 *********************
