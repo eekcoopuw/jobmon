@@ -119,7 +119,6 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         output = output.decode('utf-8')
 
     lines = output.splitlines()
-
     job_ids = []
     job_users = []
     job_names = []
@@ -171,6 +170,22 @@ def qstat(status=None, pattern=None, user=None, jids=None):
             lintype = "--"
             continue
 
+    # assuming that all arrays are the same length
+    jobs = {}
+    for index in range(len(job_ids)):
+        job = {'job_id': job_ids[index],
+               'hostname': job_hosts[index],
+               'name': job_names[index],
+               'user': job_users[index],
+               'slots': job_slots[index],
+               'status': job_statuses[index],
+               'status_start': job_datetimes[index],
+               'runtime': job_runtime_strs[index],
+               'runtime_seconds': job_runtimes[index]}
+        jobs[job_ids[index]] = job
+    import pdb
+    pdb.set_trace()
+
     df = pd.DataFrame({
         'job_id': job_ids,
         'hostname': job_hosts,
@@ -182,11 +197,15 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         'runtime': job_runtime_strs,
         'runtime_seconds': job_runtimes})
     if pattern is not None:
+        # qstat_dict = qstat_dict[qstat_dict.keys.str.contains(pattern)]
         df = df[df.name.str.contains(pattern)]
     if jids is not None:
+        unwanted_jids = set(jobs) - set(jids)
+        for jid in unwanted_jids:
+            del jobs[jid]
         df = df[df.job_id.isin(jids)]
     return df[['job_id', 'hostname', 'name', 'slots', 'user', 'status',
-               'status_start', 'runtime', 'runtime_seconds']]
+               'status_start', 'runtime', 'runtime_seconds']], jobs
 
 
 def qstat_details(jids):

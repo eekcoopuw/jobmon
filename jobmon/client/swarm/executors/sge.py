@@ -83,8 +83,10 @@ class SGEExecutor(Executor):
                                  job_instance.job_instance_id)
 
     def get_actual_submitted_or_running(self) -> List[int]:
-        qstat_out = sge_utils.qstat()
-        executor_ids = list(qstat_out.job_id)
+        qstat_out, qstat_dict = sge_utils.qstat()
+        import pdb
+        pdb.set_trace()
+        executor_ids = list(qstat_dict.keys())
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids
 
