@@ -722,18 +722,18 @@ def test_change_job_resources(db_cfg, real_dag_id):
         app_route=f'/job/{swarm_job.job_id}/change_resources',
         message={'num_cores': '3',
                  'max_runtime_seconds': '20',
-                 'mem_free': '2G'},
+                 'm_mem_free': '2'},
         request_type='put'
     )
     DB = db_cfg["DB"]
     app = db_cfg["app"]
     with app.app_context():
-        query = """SELECT max_runtime_seconds, mem_free, num_cores
+        query = """SELECT max_runtime_seconds, m_mem_free, num_cores
                    FROM job
                    WHERE job_id={job_id}""".format(job_id=swarm_job.job_id)
         runtime, mem, cores = DB.session.execute(query).fetchall()[0]
         assert runtime == 20
-        assert mem == '2G'
+        assert mem == '2'
         assert cores == 3
         DB.session.commit()
 
@@ -743,12 +743,12 @@ def test_change_job_resources(db_cfg, real_dag_id):
         request_type='put'
     )
     with app.app_context():
-        query = """SELECT max_runtime_seconds, mem_free, num_cores
+        query = """SELECT max_runtime_seconds, m_mem_free, num_cores
                    FROM job
                    WHERE job_id={job_id}""".format(job_id=swarm_job.job_id)
         runtime, mem, cores = DB.session.execute(query).fetchall()[0]
         assert runtime == 20
-        assert mem == '2G'
+        assert mem == '2'
         assert cores == 2
         DB.session.commit()
 

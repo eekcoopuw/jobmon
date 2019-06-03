@@ -71,7 +71,7 @@ def test_bash_task(db_cfg, dag_factory):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.executor_parameter_set.m_mem_free == '1G'
+        assert job.executor_parameter_set.m_mem_free == '1'
         assert job.max_attempts == 2
         assert job.executor_parameter_set.max_runtime_seconds == 60
 
@@ -110,7 +110,7 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.executor_parameter_set.m_mem_free == '1G'
+        assert job.executor_parameter_set.m_mem_free == '1'
         assert job.max_attempts == 2
         assert job.executor_parameter_set.max_runtime_seconds == 60
 
@@ -124,8 +124,7 @@ def test_exceed_mem_task(db_cfg, dag_factory):
     name = 'mem_task'
     task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
                       name=name, m_mem_free='130M', max_attempts=2,
-                      num_cores=1,
-                      max_runtime_seconds=40)
+                      num_cores=1, max_runtime_seconds=40)
 
     executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
@@ -181,7 +180,7 @@ def test_under_request_then_pass(db_cfg, dag_factory):
         assert job.job_instances[1].status == 'D'
         assert job.status == 'D'
         # add checks for increased system resources
-        assert job.executor_parameter_set.m_mem_free == '900M'
+        assert job.executor_parameter_set.m_mem_free == '0.9'
         assert job.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
@@ -245,7 +244,7 @@ def test_R_task(db_cfg, dag_factory, tmp_out_dir):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.executor_parameter_set.m_mem_free == '1G'
+        assert job.executor_parameter_set.m_mem_free == '1'
         assert job.max_attempts == 2
         assert job.executor_parameter_set.max_runtime_seconds == 60
 
@@ -279,7 +278,7 @@ def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
         job = DB.session.query(Job).filter_by(name=name).first()
         sge_id = [ji for ji in job.job_instances][0].executor_id
         job_instance_id = [ji for ji in job.job_instances][0].job_instance_id
-        assert job.executor_parameter_set.m_mem_free == '1G'
+        assert job.executor_parameter_set.m_mem_free == '1'
         assert job.max_attempts == 2
         assert job.executor_parameter_set.max_runtime_seconds == 60
 

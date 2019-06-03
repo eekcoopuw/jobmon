@@ -84,7 +84,7 @@ def add_job():
         command: job's command
         dag_id: dag_id to which this job is attached
         num_cores: number of cores requested
-        mem_free: number of Gigs of memory requested
+        m_mem_free: number of Gigs of memory requested
         max_attempts: how many times the job should be attempted
         max_runtime_seconds: how long the job should be allowed to run
         context_args: any other args that should be passed to the executor
@@ -398,7 +398,7 @@ def _increase_resources(exec_id: int, scale: float) -> str:
 
     query = """
     select
-        mem_free, num_cores, max_runtime_seconds, queue
+        m_mem_free, num_cores, max_runtime_seconds, queue
     from
         job_instance, job
     where
@@ -412,20 +412,11 @@ def _increase_resources(exec_id: int, scale: float) -> str:
     DB.session.commit()
     (available_mem, available_cores, max_runtime
      ) = _available_resource_in_queue(queue)
-    logger.debug(
-        f"Current system resources set to mem: {mem}, cores: {cores},"
-        f"runtime: {runtime}")
+    logger.debug(f"Current system resources set to mem: {mem}G, "
+                 f"cores: {cores}, runtime: {runtime}")
     mem, cores, runtime = _get_new_resource_value(mem, cores, runtime, scale)
-    # int mem in M
-    mem_in_M = (
-        int(mem[:-1]) if mem[-1] == "M" else
-        int(mem[:-1]) * 1000 if mem[-1] == "G" else
-        int(mem) * 1000)
     # available_mem should be in G
-    if (
-            mem_in_M > available_mem * 1000 or
-            cores > available_cores or
-            runtime > max_runtime):
+    if mem > available_mem or cores > available_cores or runtime > max_runtime:
         # move to ERROR_FATAL
         query = update_status_query_template.format(id=exec_id)
         DB.session.execute(query)
@@ -441,9 +432,8 @@ def _increase_resources(exec_id: int, scale: float) -> str:
         )
         DB.session.execute(query)
         DB.session.commit()
-        msg = (
-            f"New system resources set to mem: {mem}, cores: {cores},"
-            f" runtime: {runtime}")
+        msg = (f"New system resources set to mem: {mem}G, cores: {cores},"
+               f" runtime: {runtime}")
         logger.info(msg)
         return msg
 
@@ -633,32 +623,6 @@ def log_executor_report_by(dag_id):
                 UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
             WHERE executor_id in :executor_ids"""
         DB.session.execute(query, params)
-        DB.session.commit()
-
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jsm.route('/task_dag/<dag_id>/transition_jis_to_lost', methods=['POST'])
-def transition_job_instances_to_lost(dag_id):
-
-    # query all job instances that are submitted to executor or running which
-    # haven't reported as alive in the allocated time.
-    # ignore job instances created after heartbeat began. We'll reconcile them
-    # during the next reconciliation loop.
-    instances = DB.session.query(JobInstance).\
-        join(TaskDagMeta).\
-        filter_by(dag_id=dag_id).\
-        filter(JobInstance.status.in_([
-            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-            JobInstanceStatus.RUNNING])).\
-        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
-        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
-    DB.session.commit()
-
-    for ji in instances:
-        _update_job_instance_state(ji, JobInstanceStatus.LOST_TRACK)
         DB.session.commit()
 
     resp = jsonify()
@@ -1280,20 +1244,17 @@ def _get_new_resource_value(mem: str, cores: int, runtime: int, scale: float):
     :return:
     """
     if mem is not None:
-        if mem[-1] == "G" or mem[-1] == "M":
-            mem = str(int(int(mem[:-1]) * (1 + scale))) + mem[-1]
-        else:
-            mem = str(int(mem * (1 + scale)))
+        mem = float(mem) * (1 + scale)
     else:
         # Although mem should not be None, make it 1G if it's None
-        mem = "1G"
+        mem = 1
     if cores is not None:
-        cores = int(cores * (1 + scale))
+        cores = int(int(cores) * (1 + scale))
     else:
         cores = 0
     if runtime is not None:
-        runtime = int(runtime * (1 + scale))
+        runtime = int(int(runtime) * (1 + scale))
     else:
-        # Although runtime should not be None, make it 60 seconds if it's None
-        runtime = 60
+        # Although runtime should not be None, make it 24 hours if it is None
+        runtime = (24*60*60)
     return mem, cores, runtime
