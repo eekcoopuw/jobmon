@@ -3,7 +3,7 @@ import logging
 import os
 from subprocess import check_output
 import traceback
-from typing import List, Tuple, Dict, Optional, TYPE_CHECKING
+from typing import List, Tuple, Dict, Optional
 
 import pandas as pd
 
@@ -28,10 +28,10 @@ ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
 class SGEExecutor(Executor):
 
     def __init__(self,
-                 stderr: Optional[str]=None,
-                 stdout: Optional[str]=None,
-                 project: Optional[str]=None,
-                 working_dir: Optional[str]=None,
+                 stderr: Optional[str] = None,
+                 stdout: Optional[str] = None,
+                 project: Optional[str] = None,
+                 working_dir: Optional[str] = None,
                  *args, **kwargs):
         self.stderr = stderr
         self.stdout = stdout
@@ -120,10 +120,10 @@ class SGEExecutor(Executor):
     def build_wrapped_command(self,
                               job: ExecutorJob,
                               job_instance_id: int,
-                              stderr: Optional[str]=None,
-                              stdout: Optional[str]=None,
-                              project: Optional[str]=None,
-                              working_dir: Optional[str]=None
+                              stderr: Optional[str] = None,
+                              stdout: Optional[str] = None,
+                              project: Optional[str] = None,
+                              working_dir: Optional[str] = None
                               ) -> str:
         """Process the Job's context_args, which are assumed to be
         a json-serialized dictionary

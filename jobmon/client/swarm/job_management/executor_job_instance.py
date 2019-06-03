@@ -3,7 +3,6 @@ from typing import Optional
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import Executor
-from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jombon.serializers import SerializeExecutorJobInstance
@@ -17,8 +16,6 @@ class ExecutorJobInstance:
         executor (Executor): an instance of an Executor or a subclass
         executor_id (int, optional): the executor_id associated with this
             job_instance
-        job (ExecutorJob, optional): the executor_job stub associated with this
-            job_instance
         requester (Requester, optional): a requester to communicate with
             the JSM. default is shared requester
     """
@@ -27,33 +24,31 @@ class ExecutorJobInstance:
                  job_instance_id: int,
                  executor: Executor,
                  executor_id: Optional[int] = None,
-                 job: Optional[ExecutorJob] = None,
                  requester: Requester = shared_requester):
 
         self.job_instance_id = job_instance_id
         self._executor_id = executor_id
-        self.job = job
 
         # interfaces to the executor and server
         self.executor = executor
         self.requester = shared_requester
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, executor: Executor):
+    def from_wire(cls, wire_tuple: tuple, executor: Executor,
+                  requester: Requester = shared_requester):
         """create an instance from json that the JQS returns"""
         return cls(executor=executor,
                    **SerializeExecutorJobInstance.kwargs_from_wire(wire_tuple))
 
     @classmethod
-    def register_job_instance(cls, job: ExecutorJob, executor: Executor):
+    def register_job_instance(cls, job_id, executor: Executor):
         rc, response = shared_requester.send_request(
             app_route='/job_instance',
-            message={'job_id': str(job.job_id),
+            message={'job_id': job_id,
                      'executor_type': executor.__class__.__name__},
             request_type='post')
         job_instance_id = response['job_instance_id']
-        return cls(job_instance_id=job_instance_id, executor=executor,
-                   job=job)
+        return cls(job_instance_id=job_instance_id, executor=executor)
 
     def register_no_exec_id(self, executor_id: int):
         self._executor_id = executor_id

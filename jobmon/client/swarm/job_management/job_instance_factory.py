@@ -132,35 +132,30 @@ class JobInstanceFactory(object):
         Args:
             job (Job): A Job that we want to execute
         """
-        # try:
-        job_instance = ExecutorJobInstance.register_job_instance(
-            job, self.executor)
-        # except Exception as e:
-        #     logger.error(e)
-        #     stack = traceback.format_exc()
-        #     msg = (
-        #         f"Error while creating job instances {self.__class__.__name__}"
-        #         f", {str(self)} while submitting jid {job.job_id}: \n{stack}")
-        #     shared_requester.send_request(
-        #         app_route="/error_logger",
-        #         message={"traceback": stack},
-        #         request_type="post")
-        #     # we can't do anything more at this point so must return Nones
-        #     return (None, None)
+        try:
+            job_instance = ExecutorJobInstance.register_job_instance(
+                job.job_id, self.executor)
+        except Exception as e:
+            logger.error(e)
+            stack = traceback.format_exc()
+            msg = (
+                f"Error while creating job instances {self.__class__.__name__}"
+                f", {str(self)} while submitting jid {job.job_id}: \n{stack}")
+            shared_requester.send_request(
+                app_route="/error_logger",
+                message={"traceback": stack},
+                request_type="post")
+            # we can't do anything more at this point so must return Nones
+            return (None, None)
 
         logger.debug("Executing {}".format(job.command))
-
-        # TODO: consider pushing the execute command down into
-        # ExecutorJobInstance
 
         # TODO: unify qsub IDS to be meaningful across executor types
 
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
-        print(job.command)
-        executor_id = self.executor.execute(
+        executor_id = job_instance.executor.execute(
             job, job_instance_id=job_instance.job_instance_id)
-        print(executor_id)
         if executor_id == qsub_attribute.NO_EXEC_ID:
             if executor_id == qsub_attribute.NO_EXEC_ID:
                 logger.debug(f"Received {qsub_attribute.NO_EXEC_ID} meaning "

@@ -6,7 +6,6 @@ from typing import List, Tuple, Dict, Optional
 from jobmon.client import client_config
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.models.job_instance_status import JobInstanceStatus
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +57,9 @@ class Executor:
         """
         raise NotImplementedError
 
-    def build_wrapped_command(self, job: ExecutorJob, job_instance_id: int
+    def build_wrapped_command(self, command: str, job_instance_id: int,
+                              last_nodename: Optional[str] = None,
+                              last_process_group_id: Optional[int] = None
                               ) -> str:
         """Build a command that can be executed by the shell and can be
         unwrapped by jobmon itself to setup proper communication channels to
@@ -76,7 +77,7 @@ class Executor:
             jobmon_command = shutil.which("jobmon_command")
         wrapped_cmd = [
             jobmon_command,
-            "--command", "'{}'".format(job.command),
+            "--command", f"'{command}'",
             "--job_instance_id", job_instance_id,
             "--jm_host", client_config.jm_conn.host,
             "--jm_port", client_config.jm_conn.port,
@@ -84,12 +85,12 @@ class Executor:
             "--heartbeat_interval", client_config.heartbeat_interval,
             "--report_by_buffer", client_config.report_by_buffer
         ]
-        if self.temp_dir and 'stata' in job.command:
+        if self.temp_dir and 'stata' in command:
             wrapped_cmd.extend(["--temp_dir", self.temp_dir])
-        if job.last_nodename:
-            wrapped_cmd.extend(["--last_nodename", job.last_nodename])
-        if job.last_process_group_id:
-            wrapped_cmd.extend(["--last_pgid", job.last_process_group_id])
+        if last_nodename:
+            wrapped_cmd.extend(["--last_nodename", last_nodename])
+        if last_process_group_id:
+            wrapped_cmd.extend(["--last_pgid", last_process_group_id])
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         logger.debug(str_cmd)
         return str_cmd

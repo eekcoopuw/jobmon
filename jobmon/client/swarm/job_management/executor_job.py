@@ -31,10 +31,11 @@ class ExecutorJob:
         self.last_process_group_id = last_process_group_id
 
         self.requester = requester
+        self.job_instace = None
 
     @classmethod
     def from_wire(cls, wire_tuple: tuple,
-                  requester: Requester = shared_requester):
+                  requester: Requester = shared_requester) -> "ExecutorJob":
         return cls(requester=requester,
                    **SerializableExecutorJob.kwargs_from_wire(wire_tuple))
 
