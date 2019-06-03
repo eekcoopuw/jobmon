@@ -84,7 +84,7 @@ def add_job():
         command: job's command
         dag_id: dag_id to which this job is attached
         num_cores: number of cores requested
-        mem_free: number of Gigs of memory requested
+        m_mem_free: number of Gigs of memory requested
         max_attempts: how many times the job should be attempted
         max_runtime_seconds: how long the job should be allowed to run
         context_args: any other args that should be passed to the executor
@@ -371,15 +371,16 @@ def _increase_resources(exec_id: int, scale: float)->str:
     Return: an result string to add to the return message
     """
     update_resource_query_template = """
-        update job
-        set mem_free="{mem}",
-            num_cores={cores},
-            max_runtime_seconds={runtime}
-        where job.job_id=
-              (select job_id
-               from job_instance
-               where executor_id={id});
-        """
+                        update job
+                        set m_mem_free="{mem}", 
+                            num_cores={cores}, 
+                            max_runtime_seconds={runtime}
+                        where job.job_id=
+                              (select job_id
+                               from job_instance
+                               where executor_id={id});
+                    """
+
     update_status_query_template = """
         update job
         set status="F"
@@ -398,7 +399,7 @@ def _increase_resources(exec_id: int, scale: float)->str:
 
     query = """
     select
-        mem_free, num_cores, max_runtime_seconds, queue
+        m_mem_free, num_cores, max_runtime_seconds, queue
     from
         job_instance, job
     where
@@ -412,20 +413,11 @@ def _increase_resources(exec_id: int, scale: float)->str:
     DB.session.commit()
     (available_mem, available_cores, max_runtime
      ) = _available_resource_in_queue(queue)
-    logger.debug(
-        f"Current system resources set to mem: {mem}, cores: {cores},"
-        f"runtime: {runtime}")
+    logger.debug(f"Current system resources set to mem: {mem}G, "
+                 f"cores: {cores}, runtime: {runtime}")
     mem, cores, runtime = _get_new_resource_value(mem, cores, runtime, scale)
-    # int mem in M
-    mem_in_M = (
-        int(mem[:-1]) if mem[-1] == "M" else
-        int(mem[:-1]) * 1000 if mem[-1] == "G" else
-        int(mem) * 1000)
     # available_mem should be in G
-    if (
-            mem_in_M > available_mem * 1000 or
-            cores > available_cores or
-            runtime > max_runtime):
+    if mem > available_mem or cores > available_cores or runtime > max_runtime:
         # move to ERROR_FATAL
         query = update_status_query_template.format(id=exec_id)
         DB.session.execute(query)
@@ -441,9 +433,8 @@ def _increase_resources(exec_id: int, scale: float)->str:
         )
         DB.session.execute(query)
         DB.session.commit()
-        msg = (
-            f"New system resources set to mem: {mem}, cores: {cores},"
-            f" runtime: {runtime}")
+        msg = (f"New system resources set to mem: {mem}G, cores: {cores},"
+               f" runtime: {runtime}")
         logger.info(msg)
         return msg
 
@@ -870,7 +861,7 @@ def queue_job(job_id):
 @jsm.route('/job/<job_id>/change_resources', methods=['PUT'])
 def change_job_resources(job_id):
     """ Change the resources set for a given job, currently can change
-    mem_free, num_cores and max_runtime_seconds
+    m_mem_free, num_cores and max_runtime_seconds
     Args:
         job_id: id of the job for which resources will be changed
         """
@@ -888,9 +879,9 @@ def change_job_resources(job_id):
         job.max_runtime_seconds = data['max_runtime_seconds']
         logger.debug(f"changed max_runtime_seconds to "
                      f"{data['max_runtime_seconds']}")
-    if 'mem_free' in data:
-        job.mem_free = data['mem_free']
-        logger.debug(f"changed mem_free to {data['mem_free']}")
+    if 'm_mem_free' in data:
+        job.m_mem_free = data['m_mem_free']
+        logger.debug(f"changed m_mem_free to {data['m_mem_free']}")
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -1299,20 +1290,17 @@ def _get_new_resource_value(mem: str, cores: int, runtime: int, scale: float):
     :return:
     """
     if mem is not None:
-        if mem[-1] == "G" or mem[-1] == "M":
-            mem = str(int(int(mem[:-1]) * (1 + scale))) + mem[-1]
-        else:
-            mem = str(int(mem * (1 + scale)))
+        mem = float(mem) * (1 + scale)
     else:
         # Although mem should not be None, make it 1G if it's None
-        mem = "1G"
+        mem = 1
     if cores is not None:
-        cores = int(cores * (1 + scale))
+        cores = int(int(cores) * (1 + scale))
     else:
         cores = 0
     if runtime is not None:
-        runtime = int(runtime * (1 + scale))
+        runtime = int(int(runtime) * (1 + scale))
     else:
-        # Although runtime should not be None, make it 60 seconds if it's None
-        runtime = 60
+        # Although runtime should not be None, make it 24 hours if it is None
+        runtime = (24*60*60)
     return mem, cores, runtime

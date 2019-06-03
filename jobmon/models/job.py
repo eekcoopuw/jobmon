@@ -27,7 +27,6 @@ class Job(DB.Model):
                 'job_hash': self.job_hash,
                 'command': self.command,
                 'status': self.status,
-
                 'max_runtime_seconds': (
                     self.executor_parameter_set.max_runtime_seconds),
                 'context_args': self.executor_parameter_set.context_args,
@@ -35,7 +34,6 @@ class Job(DB.Model):
                 'num_cores': self.executor_parameter_set.num_cores,
                 'm_mem_free': self.executor_parameter_set.m_mem_free,
                 'j_resource': self.executor_parameter_set.j_resource,
-
                 'last_nodename': lnode,
                 'last_process_group_id': lpgid}
 
