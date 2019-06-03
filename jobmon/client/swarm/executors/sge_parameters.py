@@ -220,7 +220,7 @@ class SGEParameters(ExecutorParameters):
     def _validate_j_resource(self) -> Tuple[str, bool]:
         if not(self.j_resource is True or self.j_resource is False):
             return f"j_resource is a bool arg. Got {self.j_resource}", False
-        return "", True
+        return "", self.j_resource
 
     def _validate_queue(self) -> Tuple[str, Union[str, None]]:
         if self.queue is None and "el7" in self._cluster:

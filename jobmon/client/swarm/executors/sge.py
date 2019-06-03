@@ -13,7 +13,6 @@ from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import Executor, JobInstanceExecutorInfo,\
     sge_utils
-from jobmon.client.swarm.executors.sge_resource import SGEResource
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus

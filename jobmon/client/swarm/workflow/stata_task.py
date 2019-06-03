@@ -61,7 +61,7 @@ class StataTask(ExecutableTask):
             num_cores=num_cores, mem_free=mem_free, max_attempts=max_attempts,
             max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
             j_resource=j_resource, m_mem_free=m_mem_free,
-            executor_param_obj=executor_param_obj, context_args=None
+            executor_param_obj=executor_param_obj, context_args=None)
 
     @staticmethod
     def make_cmd(path_to_stata_binary, script, args):

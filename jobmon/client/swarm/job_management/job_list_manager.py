@@ -78,7 +78,6 @@ class JobListManager(object):
         # bind original parameters and validated parameters to the db
         params = task.executor_param_objects['validated']
 
-
         if task.hash in self.hash_job_map:
             job = self.hash_job_map[task.hash]
         else:
@@ -87,12 +86,11 @@ class JobListManager(object):
                 job_hash=task.hash,
                 command=task.command,
                 tag=task.tag,
-                slots=params.num_cores, # need to refactor out
                 num_cores=params.num_cores,
                 m_mem_free=params.m_mem_free,
                 max_attempts=task.max_attempts,
                 max_runtime_seconds=params.max_runtime_seconds,
-                context_args=task.context_args,
+                context_args=params.context_args,
                 queue=params.queue,
                 j_resource=params.j_resource
             )
