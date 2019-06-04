@@ -113,7 +113,7 @@ def add_job():
         context_args=data.get('context_args', "{}"),
         queue=data.get('queue', None),
         num_cores=data.get('num_cores', None),
-        m_mem_free=data.get('mem_free', 2),
+        m_mem_free=data.get('m_mem_free', 2),
         j_resource=data.get('j_resource', False))
     DB.session.add(exec_params)
     DB.session.flush()
