@@ -78,7 +78,9 @@ def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
     hostname = res.nodename
     # wait until it starts running, and then silently kill it
     exit_code, out, err = kill_remote_process(hostname=hostname, pid=pid)
-    assert 'heartbeat_sleeper' not in sge.qstat().name.all()
+    qstat_out = sge.qstat()
+    for jid in qstat_out.keys():
+        assert 'heartbeat_sleeper' not in qstat_out[jid]['name']
 
     # job should not log a heartbeat so it should error out eventually
     count = 0

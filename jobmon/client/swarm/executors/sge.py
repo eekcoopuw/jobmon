@@ -83,9 +83,7 @@ class SGEExecutor(Executor):
                                  job_instance.job_instance_id)
 
     def get_actual_submitted_or_running(self) -> List[int]:
-        qstat_out, qstat_dict = sge_utils.qstat()
-        import pdb
-        pdb.set_trace()
+        qstat_dict, df = sge_utils.qstat()
         executor_ids = list(qstat_dict.keys())
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids
@@ -99,12 +97,16 @@ class SGEExecutor(Executor):
                              columns=["job_instance_id", "executor_id"])
         if len(to_df) == 0:
             return []
-        sge_jobs = sge_utils.qstat()
-        sge_jobs = sge_jobs[~sge_jobs.status.isin(['hqw', 'qw', "hRwq", "t"])]
-        to_df = to_df.merge(sge_jobs, left_on='executor_id', right_on='job_id')
+        sge_jobs, df = sge_utils.qstat()
+        exec_ids = []
+        for jid in sge_jobs.keys():
+            if sge_jobs[jid]['status'] not in ['hqw', 'qw', 'hRwq', 't']:
+                exec_ids.append(jid)
+        df = df[~df.status.isin(['hqw', 'qw', "hRwq", "t"])]
+        to_df = to_df.merge(df, left_on='executor_id', right_on='job_id')
         return_list = []
-        if len(to_df) > 0:
-            sge_utils.qdel(list(to_df.executor_id))
+        if len(exec_ids) > 0:
+            sge_utils.qdel(exec_ids) # compare to list(to_df.executor_id)
             for _, row in to_df.iterrows():
                 ji_id = row.job_instance_id
                 hostname = row.hostname

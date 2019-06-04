@@ -880,8 +880,6 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
     max_sleep = 180  # 3 min max till test fails
     slept = 0
     ex_id_list, qstat_dict = sge_utils.qstat("pr").job_id.tolist()
-    import pdb
-    pdb.set_trace()
     while executor_id in ex_id_list and slept <= max_sleep:
         sleep(5)
         slept += 5

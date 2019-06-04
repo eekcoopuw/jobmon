@@ -183,9 +183,6 @@ def qstat(status=None, pattern=None, user=None, jids=None):
                'runtime': job_runtime_strs[index],
                'runtime_seconds': job_runtimes[index]}
         jobs[job_ids[index]] = job
-    import pdb
-    pdb.set_trace()
-
     df = pd.DataFrame({
         'job_id': job_ids,
         'hostname': job_hosts,
@@ -204,8 +201,8 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         for jid in unwanted_jids:
             del jobs[jid]
         df = df[df.job_id.isin(jids)]
-    return df[['job_id', 'hostname', 'name', 'slots', 'user', 'status',
-               'status_start', 'runtime', 'runtime_seconds']], jobs
+    return jobs, df[['job_id', 'hostname', 'name', 'slots', 'user', 'status',
+                     'status_start', 'runtime', 'runtime_seconds']]
 
 
 def qstat_details(jids):

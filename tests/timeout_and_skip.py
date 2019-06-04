@@ -42,11 +42,17 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
             # Probe qstat and count the number of qw states.
             # If we aren't making progress then dynamically skip the test.
             # Do this first so that qw_count is correct
-            qstat_out = sge_utils.qstat()
-            job_row = qstat_out.loc[qstat_out['name'] == job_name]
-            if len(job_row) > 0:
+            qstat_out, df = sge_utils.qstat()
+            jid = None
+            job_status = None
+            import pdb
+            pdb.set_trace()
+            for id in qstat_out.keys():
+                if qstat_out[id]['name'] == job_name:
+                    jid = id
+                    job_status = qstat_out[id]['status']
+            if jid:
                 # Make sure that job exists
-                job_status = job_row['status'].iloc[0]
                 if job_status == "qw":
                     qw_count += 1
 
@@ -56,7 +62,7 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
                     pytest.skip("Skipping test, saw too many ({}) qw states"
                                 .format(max_qw))
                 else:
-                    qstat_msg = sge_utils.qstat()
+                    qstat_msg, df = sge_utils.qstat()
                     assert False, \
                         f"timed out "\
                         f"qwait count {qw_count}, " \
