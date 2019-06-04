@@ -5,7 +5,7 @@ from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import Executor
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jombon.serializers import SerializeExecutorJobInstance
+from jobmon.serializers import SerializeExecutorJobInstance
 
 
 class ExecutorJobInstance:
@@ -47,8 +47,7 @@ class ExecutorJobInstance:
             message={'job_id': job_id,
                      'executor_type': executor.__class__.__name__},
             request_type='post')
-        job_instance_id = response['job_instance_id']
-        return cls(job_instance_id=job_instance_id, executor=executor)
+        return cls.from_wire(response['job_instance'], executor=executor)
 
     def register_no_exec_id(self, executor_id: int):
         self._executor_id = executor_id

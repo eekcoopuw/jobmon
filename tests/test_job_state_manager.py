@@ -19,7 +19,7 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow import Workflow
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.server.jobmonLogging import jobmonLogging as logging
-
+from jobmon.serializers import SerializeExecutorJobInstance
 
 HASH = 12345
 SECOND_HASH = 12346
@@ -165,7 +165,8 @@ def test_jsm_valid_done(real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = response['job_instance_id']
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
 
     # do job logging
     req.send_request(
@@ -218,7 +219,8 @@ def test_jsm_valid_error(real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = response['job_instance_id']
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
 
     # do job logging
     req.send_request(
@@ -298,7 +300,8 @@ def test_untimely_transition(real_dag_id, db_cfg):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = response['job_instance_id']
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
 
     # the job hits a race and reports running before the executor logs
     # the UGE id
@@ -344,7 +347,9 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = response['job_instance_id']
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
         message={'executor_id': str(12345),
@@ -405,7 +410,8 @@ def test_job_reset(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    ji1 = response['job_instance_id']
+    ji1 = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji1),
         message={'executor_id': str(12345),
@@ -431,7 +437,8 @@ def test_job_reset(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    ji2 = response['job_instance_id']
+    ji2 = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji2),
         message={'executor_id': str(12345),
@@ -457,7 +464,8 @@ def test_job_reset(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    ji3 = response['job_instance_id']
+    ji3 = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji3),
         message={'executor_id': str(12345),
@@ -518,7 +526,8 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    ji = response['job_instance_id']
+    ji = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji),
         message={'executor_id': str(12345),
@@ -772,7 +781,8 @@ def test_executor_id_logging(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = response['job_instance_id']
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
         message={'executor_id': str(12345),
@@ -847,7 +857,8 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = response['job_instance_id']
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
 
     DB = db_cfg["DB"]
     app = db_cfg["app"]
@@ -893,7 +904,8 @@ def test_log_error_reconciler(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = response['job_instance_id']
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route=f'/job_instance/{job_instance_id}/log_executor_id',
         message={'executor_id': str(12345),

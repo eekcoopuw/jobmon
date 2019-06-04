@@ -37,7 +37,7 @@ def load_default_statuses(db):
     """Load all default statuses into the database"""
     statuses = []
     for status in ['REGISTERED', 'QUEUED_FOR_INSTANTIATION', 'INSTANTIATED',
-                   'RUNNING', 'ERROR_RECOVERABLE', 'ADJUSTING_RESOURCES'
+                   'RUNNING', 'ERROR_RECOVERABLE', 'ADJUSTING_RESOURCES',
                    'ERROR_FATAL', 'DONE']:
         status_obj = JobStatus(id=getattr(JobStatus, status), label=status)
         statuses.append(status_obj)

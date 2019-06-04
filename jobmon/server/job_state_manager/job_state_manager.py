@@ -192,9 +192,7 @@ def add_job_instance():
         workflow_run_id=_get_workflow_run_id(job),
         executor_parameter_set_id=job.executor_parameter_set_id)
     DB.session.add(job_instance)
-    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
-    ji_id = job_instance.job_instance_id
 
     try:
         job_instance.job.transition(JobStatus.INSTANTIATED)
@@ -202,13 +200,14 @@ def add_job_instance():
         if job_instance.job.status == JobStatus.INSTANTIATED:
             msg = ("Caught InvalidStateTransition. Not transitioning job "
                    "{}'s job_instance_id {} from I to I"
-                   .format(data['job_id'], ji_id))
+                   .format(data['job_id'], job_instance.job_instance_id))
             logger.warning(msg)
         else:
             raise
     finally:
         DB.session.commit()
-    resp = jsonify(job_instance_id=ji_id)
+    resp = jsonify(
+        job_instance=job_instance.to_wire_as_executor_job_instance())
     resp.status_code = StatusCodes.OK
     return resp
 

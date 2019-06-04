@@ -101,8 +101,8 @@ class JobInstanceFactory(object):
         logger.debug("JIF: Found {} Queued Jobs".format(len(jobs)))
         job_instance_ids = []
         for job in jobs:
-            job_instance_id, _ = self._create_job_instance(job)
-            job_instance_ids.append(job_instance_id)
+            job_instance = self._create_job_instance(job)
+            job_instance_ids.append(job_instance.job_instance_id)
 
         logger.debug("JIF: Returning {} Instantiated Jobs".format(
             len(job_instance_ids)))
@@ -130,7 +130,7 @@ class JobInstanceFactory(object):
         JobStateManager to react accordingly.
 
         Args:
-            job (Job): A Job that we want to execute
+            job (ExecutorJob): A Job that we want to execute
         """
         try:
             job_instance = ExecutorJobInstance.register_job_instance(
@@ -146,30 +146,33 @@ class JobInstanceFactory(object):
                 message={"traceback": stack},
                 request_type="post")
             # we can't do anything more at this point so must return Nones
-            return (None, None)
 
         logger.debug("Executing {}".format(job.command))
 
         # TODO: unify qsub IDS to be meaningful across executor types
 
+        command = job_instance.executor.build_wrapped_command(
+            command=job.command,
+            job_instance_id=job_instance.job_instance_id,
+            last_nodename=job.last_nodename,
+            last_process_group_id=job.last_process_group_id)
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
         executor_id = job_instance.executor.execute(
-            job, job_instance_id=job_instance.job_instance_id)
+            command=command,
+            name=job.name,
+            executor_parameters=job.executor_parameters)
         if executor_id == qsub_attribute.NO_EXEC_ID:
             if executor_id == qsub_attribute.NO_EXEC_ID:
                 logger.debug(f"Received {qsub_attribute.NO_EXEC_ID} meaning "
                              f"the job did not qsub properly, moving "
                              f"to 'W' state")
-                job_instance.register_no_exec_id(
-                    executor_id=qsub_attribute.NO_EXEC_ID)
+                job_instance.register_no_exec_id(executor_id=executor_id)
         elif executor_id == qsub_attribute.UNPARSABLE:
             logger.debug(f"Got response from qsub but did not contain a "
-                         f"valid job id "
-                         f"({qsub_attribute.UNPARSABLE}), "
+                         f"valid executor_id. Using ({executor_id}), and "
                          f"moving to 'W' state")
-            job_instance.register_no_exec_id(
-                executor_id=qsub_attribute.UNPARSABLE)
+            job_instance.register_no_exec_id(executor_id=executor_id)
         elif executor_id:
             job_instance.register_submission_to_batch_executor(
                 executor_id, self.next_report_increment)
@@ -181,19 +184,20 @@ class JobInstanceFactory(object):
                 message={"traceback": msg},
                 request_type="post")
 
-        return job_instance, executor_id
+        return job_instance
 
     def _get_jobs_queued_for_instantiation(self):
-        try:
-            rc, response = self.requester.send_request(
-                app_route=(
-                    f'/dag/{self.dag_id}/queued_jobs/{self.n_queued_jobs}'),
-                message={},
-                request_type='get')
-            jobs = [ExecutorJob.from_wire(j) for j in response['job_dcts']]
-
-        except TypeError:
-            # Ignore, it indicates that there are no jobs queued
+        app_route = f"/dag/{self.dag_id}/queued_jobs/{self.n_queued_jobs}"
+        rc, response = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type='get')
+        if rc != 200:
+            logger.error(f"error in {app_route}")
             jobs = []
+        else:
+            jobs = [
+                ExecutorJob.from_wire(j, self.executor.ExecutorParameters_cls)
+                for j in response['job_dcts']]
 
         return jobs

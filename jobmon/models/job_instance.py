@@ -6,7 +6,7 @@ from jobmon.models import DB
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
-from jombon.serializers import SerializeExecutorJobInstance
+from jobmon.serializers import SerializeExecutorJobInstance
 
 logger = logging.getLogger(__name__)
 
@@ -17,9 +17,8 @@ class JobInstance(DB.Model):
     __tablename__ = 'job_instance'
 
     def to_wire_as_executor_job_instance(self):
-        return SerializeExecutorJobInstance(
-            self.job_instance_id,
-            self.executor_id).to_wire()
+        return SerializeExecutorJobInstance.to_wire(self.job_instance_id,
+                                                    self.executor_id)
 
     # TODO: figure out what should be passed to workflow_run when called during
     # resume

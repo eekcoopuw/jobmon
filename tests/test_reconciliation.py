@@ -358,7 +358,9 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
         app_route=f'/dag/{test_jif.dag_id}/queued_jobs/1000',
         message={},
         request_type='get')
-    all_jobs = [ExecutorJob.from_wire(j) for j in response['job_dcts']]
+    all_jobs = [
+        ExecutorJob.from_wire(j, test_jif.executor.ExecutorParameters_cls)
+        for j in response['job_dcts']]
 
     # now new query that should only return 3 jobs
     select_jobs = test_jif._get_jobs_queued_for_instantiation()

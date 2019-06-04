@@ -1,6 +1,14 @@
+import inspect
+import logging
+from typing import Type, Optional, Dict, Tuple
+
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
-from jobmon.serializers import SerializableExecutorJob
+from jobmon.client.swarm.executors import ExecutorParameters
+from jobmon.serializers import SerializeExecutorJob
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExecutorJob:
@@ -10,10 +18,9 @@ class ExecutorJob:
     """
 
     def __init__(self, dag_id: int, job_id: int, name: str, job_hash: int,
-                 command: str, status: str, max_runtime_seconds: int,
-                 context_args: str, queue: str, num_cores: int,
-                 m_mem_free: str, j_resource: str, last_nodename: str,
-                 last_process_group_id: int,
+                 command: str, status: str, last_nodename: Optional[str],
+                 last_process_group_id: Optional[int],
+                 executor_parameters: ExecutorParameters,
                  requester: Requester = shared_requester):
         self.dag_id = dag_id
         self.job_id = job_id
@@ -21,32 +28,53 @@ class ExecutorJob:
         self.job_hash = job_hash
         self.command = command
         self.status = status
-        self.max_runtime_seconds = max_runtime_seconds
-        self.context_args = context_args
-        self.queue = queue
-        self.num_cores = num_cores
-        self.m_mem_free = m_mem_free
-        self.j_resource = j_resource
         self.last_nodename = last_nodename
         self.last_process_group_id = last_process_group_id
 
+        self.executor_parameters = executor_parameters
+
         self.requester = requester
-        self.job_instace = None
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple,
-                  requester: Requester = shared_requester) -> "ExecutorJob":
-        return cls(requester=requester,
-                   **SerializableExecutorJob.kwargs_from_wire(wire_tuple))
+    def parse_constructor_kwargs(cls, kwarg_dict: Dict) -> Tuple[Dict, Dict]:
+        argspec = inspect.getfullargspec(cls.__init__)
+        constructor_kwargs = {}
+        for arg in argspec.args:
+            if arg in kwarg_dict:
+                constructor_kwargs[arg] = kwarg_dict.pop(arg)
+        return kwarg_dict, constructor_kwargs
+
+    @classmethod
+    def from_wire(
+            cls, wire_tuple: tuple,
+            ExecutorParameters_cls: Type[ExecutorParameters],
+            requester: Requester = shared_requester) -> "ExecutorJob":
+        """construct instance from wire format"""
+        # convert wire tuple into dictionary of kwargs
+        kwargs = SerializeExecutorJob.kwargs_from_wire(wire_tuple)
+
+        # separates the kwargs we recieved from the wire used for constructing
+        # ExecutorJob
+        kwargs, executor_job_kwargs = cls.parse_constructor_kwargs(kwargs)
+
+        # separate the executor parameter kwargs from the leftover wire kwargs
+        kwargs, executor_parameter_kwargs = (
+            ExecutorParameters_cls.parse_constructor_kwargs(kwargs))
+
+        # now build the classes we need
+        logger.debug(
+            f"some wire args were not used in constructing {cls}: {kwargs}")
+        executor_job = cls(
+            requester=requester,
+            executor_parameters=ExecutorParameters_cls(
+                **executor_parameter_kwargs),
+            **executor_job_kwargs)
+        return executor_job
 
     def update_executor_parameter_set(self, parameter_set_type: str) -> None:
+        msg = {'parameter_set_type': parameter_set_type}
+        msg.update(self.executor_parameters.to_wire())
         self.requester.send_request(
             app_route=f'/job/{self.job_id}/change_resources',
-            message={'parameter_set_type': parameter_set_type,
-                     'max_runtime_seconds': self.max_runtime_seconds,
-                     'context_args': self.context_args,
-                     'queue': self.queue,
-                     'num_cores': self.num_cores,
-                     'm_mem_free': self.m_mem_free,
-                     'j_resource': self.j_resource},
+            message=msg,
             request_type='post')

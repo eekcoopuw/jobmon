@@ -2,8 +2,7 @@ import os
 import logging
 from typing import Tuple, Union, Dict
 
-from jobmon.client.swarm.executors.executor_parameters import ExecutorParameters
-from jobmon.client.swarm.executors.sge_utils import get_project_limits
+from jobmon.client.swarm.executors import ExecutorParameters
 logger = logging.getLogger(__name__)
 
 MIN_MEMORY_GB = 0.128
@@ -17,7 +16,8 @@ MAX_CORES_C2 = 100
 class SGEParameters(ExecutorParameters):
     """Manages the SGE specific parameters requested for a given job, it will
     create an entry for what was requested if they are valid values
-    It will then determine if that will run on the requested cluster and adjust accordingly"""
+    It will then determine if that will run on the requested cluster and adjust
+    accordingly"""
 
     def __init__(self, slots=None, mem_free=None, num_cores=None,
                  queue=None, max_runtime_seconds=None, j_resource=False,
@@ -51,7 +51,7 @@ class SGEParameters(ExecutorParameters):
             slots, num_cores, mem_free, m_mem_free)
 
     def _backward_compatible_resources(self, slots, num_cores, mem_free,
-                                        m_mem_free):
+                                       m_mem_free):
         """
         Ensure there are no conflicting or missing arguments for memory and
         cores since we are allowing old cluster syntax and new cluster syntax
@@ -73,7 +73,7 @@ class SGEParameters(ExecutorParameters):
                            f"{mem_free}G mem_free and {m_mem_free} "
                            f"m_mem_free, defaults to m_mem_free value")
         elif mem_free and not m_mem_free:
-             m_mem_free = mem_free
+            m_mem_free = mem_free
         elif not mem_free and not m_mem_free:
             logger.warning("Must pass one of [mem_free, m_mem_free], will set "
                            "to default 1G for this run")
@@ -94,10 +94,10 @@ class SGEParameters(ExecutorParameters):
                             'queue': queue, 'j': j, 'args': self.context_args}
         if cores_msg or mem_msg or runtime_msg or j_msg or q_msg:
             return False, validated_params, \
-                   f"You have one or more resource errors that was adjusted " \
-                   f"for:\n Cores: {cores_msg}, \n Memory: {mem_msg},\n" \
-                   f" Runtime: {runtime_msg}, \n J-Drive: {j_msg}, \n " \
-                   f"Queue: {q_msg}"
+                f"You have one or more resource errors that was adjusted " \
+                f"for:\n Cores: {cores_msg}, \n Memory: {mem_msg},\n" \
+                f" Runtime: {runtime_msg}, \n J-Drive: {j_msg}, \n " \
+                f"Queue: {q_msg}"
         return True, validated_params, None
 
     @classmethod
@@ -109,9 +109,9 @@ class SGEParameters(ExecutorParameters):
                    j_resource=validated_params['j'],
                    context_args=validated_params['args'])
 
-    def return_adjusted(self, cores_adjustment: float=None,
-                        mem_adjustment: float=None, runtime_adjustment:
-                        float=None) -> 'SGEParameters':
+    def return_adjusted(self, cores_adjustment: float = None,
+                        mem_adjustment: float = None, runtime_adjustment:
+                        float = None) -> 'SGEParameters':
         """
             If the parameters need to be adjusted then create and return a new
             object, otherwise None
@@ -129,6 +129,15 @@ class SGEParameters(ExecutorParameters):
         adjusted_params = {'cores': cores, 'mem': mem, 'runtime': runtime,
                            'queue': self.queue, 'j': self.j_resource}
         return adjusted_params
+
+    def to_wire(self):
+        return {
+            'max_runtime_seconds': self.max_runtime_seconds,
+            'context_args': self.context_args,
+            'queue': self.queue,
+            'num_cores': self.num_cores,
+            'm_mem_free': self.m_mem_free,
+            'j_resource': self.j_resource}
 
     def _validate_num_cores(self) -> Tuple[str, int]:
         """Ensure cores requested isn't more than available on that
@@ -148,9 +157,8 @@ class SGEParameters(ExecutorParameters):
         return "", self.num_cores
 
     def _adjust_num_cores(self, cores_adjustment: float) -> int:
-        return int(self.num_cores+(self.num_cores*cores_adjustment))
+        return int(self.num_cores + (self.num_cores * cores_adjustment))
         # validate that still in the allowed range
-
 
     @staticmethod
     def _transform_mem_to_gb(mem_str: str) -> float:
@@ -181,9 +189,10 @@ class SGEParameters(ExecutorParameters):
         if isinstance(mem, str):
             if mem[-1].lower() not in ["m", "g", "t"] and \
                     mem[-2:].lower() not in ["mb", "gb", "tb"]:
-                return f"Memory measure should be an int followed by M, MB, m," \
-                       f" mb, G, GB, g, gb, T, TB, t, or tb you gave " \
-                       f"{mem}, setting to 1G", 1
+                return (
+                    "Memory measure should be an int followed by M, MB, m,"
+                    " mb, G, GB, g, gb, T, TB, t, or tb you gave "
+                    f"{mem}, setting to 1G", 1)
             mem = self._transform_mem_to_gb(mem)
         if mem is None:
             mem = 1  # set to 1G
@@ -204,18 +213,18 @@ class SGEParameters(ExecutorParameters):
         """Ensure that max_runtime is specified for the new cluster"""
         new_cluster = "el7" in self._cluster
         if self.max_runtime_seconds is None and new_cluster:
-            return "no runtime specified, setting to 24 hours", (24*60*60)
+            return "no runtime specified, setting to 24 hours", (24 * 60 * 60)
         elif isinstance(self.max_runtime_seconds, str):
             self.max_runtime_seconds = int(self.max_runtime_seconds)
         if self.max_runtime_seconds <= 0:
             return f"Max runtime must be strictly positive." \
                    f" Received {self.max_runtime_seconds}, " \
-                   f"setting to 24 hours", (24*60*60)
+                   f"setting to 24 hours", (24 * 60 * 60)
         return "", self.max_runtime_seconds
 
     def _adjust_runtime(self, runtime_adjustment: float) -> float:
-        return self.max_runtime_seconds + (self.max_runtime_seconds
-                                           * runtime_adjustment)
+        return self.max_runtime_seconds + (self.max_runtime_seconds *
+                                           runtime_adjustment)
 
     def _validate_j_resource(self) -> Tuple[str, bool]:
         if not(self.j_resource is True or self.j_resource is False):
