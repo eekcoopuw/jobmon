@@ -429,30 +429,38 @@ def _increase_resources(exec_id: int, scale: float)->str:
 RESOURCE_LIMIT_KILL_CODES = (137, 247, 44, -9)
 
 
-@jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
-def log_error(job_instance_id):
+def _log_error(job_instance: JobInstance, data: dict,
+               oom_killed: bool = False) -> object:
     """Log a job_instance as errored
     Args:
-
-        job_instance_id (str): id of the job_instance to log done
-        error_message (str): message to log as error
+        job_instance:
+        data:
+        oom_killed: whether or not given job errored due to an oom-kill event
     """
+    job_instance_id = job_instance.job_instance_id
 
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-    data = request.get_json()
-    logger.debug("Data: " + str(data))
-    logger.debug("Log ERROR for JI {}, message={}".format(
-        job_instance_id, data['error_message']))
-    ji = _get_job_instance(DB.session, job_instance_id)
-    logger.debug("data:" + str(data))
-    if data.get('nodename', None) is not None:
-        ji.nodename = data['nodename']
-    logger.debug("log_error nodename {}".format(ji.nodename))
+
+    if oom_killed:
+        if 'task_id' not in data:
+            data['task_id'] = 'No task_id given'
+        if 'error_message' not in data:
+            data['error_message'] = 'No error message given'
+        logger.debug("Log OOM-Killed for JI {}, message={}, task_id={}".format(
+            job_instance_id, data['error_message'], data['task_id']))
+    else:
+        logger.debug("Log ERROR for JI {}, message={}".format(
+            job_instance_id, data['error_message']))
+
+    logger.debug("Data:" + str(data))
+    logger.debug("Reading nodename {}".format(job_instance.nodename))
+    job_instance.nodename = data['nodename']
+
     if data.get('executor_id', None) is not None:
-        ji.executor_id = data['executor_id']
+        job_instance.executor_id = data['executor_id']
     try:
-        msg = _update_job_instance_state(ji, JobInstanceStatus.ERROR)
+        msg = _update_job_instance_state(job_instance, JobInstanceStatus.ERROR)
         DB.session.commit()
         error = JobInstanceErrorLog(
             job_instance_id=job_instance_id,
@@ -460,7 +468,7 @@ def log_error(job_instance_id):
         DB.session.add(error)
         logger.debug(logging.logParameter("DB.session", DB.session))
         DB.session.commit()
-        # Check exit_statue to see if resource needs to be increased
+        # Check exit_status to see if resource needs to be increased
         exit_status = data["exit_status"]
         logger.debug("exit_status: " + str(exit_status))
 
@@ -470,7 +478,7 @@ def log_error(job_instance_id):
             try:
                 sql = "select resource_adjustment from job, job_instance, workflow, workflow_run " \
                       "where workflow_run.workflow_id=workflow.id and workflow.dag_id=job.dag_id " \
-                      "and job.job_id=job_instance.job_id and job_instance.executor_id={}".format(ji.executor_id)
+                      "and job.job_id=job_instance.job_id and job_instance.executor_id={}".format(job_instance.executor_id)
                 res = DB.session.execute(sql).fetchone()
                 DB.session.commit()
                 scale = res[0]
@@ -480,7 +488,7 @@ def log_error(job_instance_id):
             except Exception as e:
                 logger.debug(str(e))
                 pass
-            msg += _increase_resources(ji.executor_id, scale)
+            msg += _increase_resources(job_instance.executor_id, scale)
 
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.OK
@@ -490,6 +498,41 @@ def log_error(job_instance_id):
         logger.debug(log_msg)
         raise
     return resp
+
+
+@jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
+def log_error(job_instance_id: str) -> object:
+    """Route to log a job_instance as errored
+    Args:
+        job_instance_id (str): id of the job_instance to log done
+        error_message (str): message to log as error
+    """
+    data = request.get_json()
+    ji = _get_job_instance(DB.session, int(job_instance_id))
+
+    if data.get('nodename', None) is not None:
+        ji.nodename = data['nodename']
+    logger.debug("log_error nodename {}".format(ji.nodename))
+
+    return _log_error(job_instance=ji, data=data)
+
+
+@jsm.route('/log_oom/<executor_id>', methods=['POST'])
+def log_oom(executor_id: str) -> object:
+    """Log instances where a job_instance is killed by an Out of Memory Kill
+    event TODO: factor log_error out as a function and use it for both log_oom and log_error
+    Args:
+        executor_id (int): A UGE job_id
+        task_id (int): UGE task_id if the job was an array job (included as
+                       JSON in request)
+        error_message (str): Optional message to log (included as JSON in
+                             request)
+    """
+    data = request.get_json()
+    job_instance = _get_job_instance_by_executor_id(DB.session,
+                                                    int(executor_id))
+
+    return _log_error(job_instance=job_instance, data=data, oom_killed=True)
 
 
 @jsm.route('/job_instance/<job_instance_id>/log_executor_id', methods=['POST'])
@@ -853,7 +896,6 @@ def _get_job_instance(session, job_instance_id):
     """Return a JobInstance from the database
 
     Args:
-
         session: DB.session or Session object to use to connect to the db
         job_instance_id (int): job_instance_id with which to query the database
     """
@@ -862,6 +904,21 @@ def _get_job_instance(session, job_instance_id):
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     job_instance = session.query(JobInstance).filter_by(
         job_instance_id=job_instance_id).first()
+    return job_instance
+
+
+def _get_job_instance_by_executor_id(session, executor_id):
+    """Return a JobInstance from the database
+
+    Args:
+        session: DB.session or Session object to use to connect to the db
+        executor_id (int): executor_id with which to query the database
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("session", session))
+    logger.debug(logging.logParameter("executor_id", executor_id))
+    job_instance = session.query(JobInstance).filter_by(
+        executor_id=executor_id).first()
     return job_instance
 
 

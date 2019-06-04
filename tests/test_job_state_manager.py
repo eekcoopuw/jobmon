@@ -231,6 +231,13 @@ def test_jsm_valid_error(real_dag_id):
                  'exit_status': 2,
                  'nodename': socket.getfqdn()},
         request_type='post')
+    req.send_request(
+        app_route='/log_oom/{}'.format(str(12345)),
+        message={'error_message': "this is an error message",
+                 'task_id': str(123),
+                 'exit_status': 2,
+                 'nodename': socket.getfqdn()},
+        request_type='post')
 
 
 def test_invalid_transition(dag_id):
