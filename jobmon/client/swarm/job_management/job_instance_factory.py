@@ -1,9 +1,11 @@
 from builtins import str
-import _thread
+from http import HTTPStatus as StatusCodes
 import logging
-from time import sleep
 import threading
+from time import sleep
 import traceback
+from typing import Optional
+import _thread
 
 from jobmon.client import shared_requester, client_config
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
@@ -11,6 +13,7 @@ from jobmon.client.swarm.job_management.executor_job_instance import (
     ExecutorJobInstance)
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.models.attributes.constants import qsub_attribute
+from jobmon.models.job_status import JobStatus
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +104,13 @@ class JobInstanceFactory(object):
         logger.debug("JIF: Found {} Queued Jobs".format(len(jobs)))
         job_instance_ids = []
         for job in jobs:
+            if job.status == JobStatus.ADJUSTING_RESOURCES:
+                job = self._adjust_job_resources(job)
+                job = self._queue_job(job)
+
             job_instance = self._create_job_instance(job)
-            job_instance_ids.append(job_instance.job_instance_id)
+            if job_instance:
+                job_instance_ids.append(job_instance.job_instance_id)
 
         logger.debug("JIF: Returning {} Instantiated Jobs".format(
             len(job_instance_ids)))
@@ -124,7 +132,16 @@ class JobInstanceFactory(object):
         # resuscitate the Executor abstract base class.
         self.executor = executor
 
-    def _create_job_instance(self, job: ExecutorJob):
+    def _adjust_job_resources(self, job: ExecutorJob) -> ExecutorJob:
+        job.update_executor_parameter_set("A")
+        return job
+
+    def _queue_job(self, job: ExecutorJob) -> ExecutorJob:
+        job.queue_job()
+        return job
+
+    def _create_job_instance(self, job: ExecutorJob
+                             ) -> Optional[ExecutorJobInstance]:
         """
         Creates a JobInstance based on the parameters of Job and tells the
         JobStateManager to react accordingly.
@@ -145,7 +162,8 @@ class JobInstanceFactory(object):
                 app_route="/error_logger",
                 message={"traceback": stack},
                 request_type="post")
-            # we can't do anything more at this point so must return Nones
+            # we can't do anything more at this point so must return None
+            return None
 
         logger.debug("Executing {}".format(job.command))
 
@@ -192,7 +210,7 @@ class JobInstanceFactory(object):
             app_route=app_route,
             message={},
             request_type='get')
-        if rc != 200:
+        if rc != StatusCodes.OK:
             logger.error(f"error in {app_route}")
             jobs = []
         else:

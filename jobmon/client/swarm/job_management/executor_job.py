@@ -5,6 +5,7 @@ from typing import Type, Optional, Dict, Tuple
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import ExecutorParameters
+from jobmon.models.job_status import JobStatus
 from jobmon.serializers import SerializeExecutorJob
 
 
@@ -72,9 +73,32 @@ class ExecutorJob:
         return executor_job
 
     def update_executor_parameter_set(self, parameter_set_type: str) -> None:
+        # TODO: refactor for common API between executor parameter types
+
+        # adjust parameters
+        adjustment_factor = 0.5
+        adjusted_params = self.executor_parameters.return_adjusted(
+            cores_adjustment=adjustment_factor,
+            mem_adjustment=adjustment_factor,
+            runtime_adjustment=adjustment_factor)
+        self.executor_parameters = adjusted_params
+
         msg = {'parameter_set_type': parameter_set_type}
         msg.update(self.executor_parameters.to_wire())
         self.requester.send_request(
             app_route=f'/job/{self.job_id}/change_resources',
             message=msg,
             request_type='post')
+
+    def queue_job(self):
+        """Transition a job to the Queued for Instantiation status in the db
+
+        Args:
+            job (ExecutorJob): the id of the job to be queued
+        """
+        app_route = f"/job/{self.job_id}/queue"
+        rc, _ = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type='post')
+        self.status == JobStatus.QUEUED_FOR_INSTANTIATION

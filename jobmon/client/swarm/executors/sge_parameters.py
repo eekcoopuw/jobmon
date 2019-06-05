@@ -116,7 +116,6 @@ class SGEParameters(ExecutorParameters):
             If the parameters need to be adjusted then create and return a new
             object, otherwise None
         """
-        super().return_adjusted()
         cores = self.num_cores
         mem = self.m_mem_free
         runtime = self.max_runtime_seconds
@@ -128,7 +127,7 @@ class SGEParameters(ExecutorParameters):
             runtime = self._adjust_runtime(runtime_adjustment)
         adjusted_params = {'cores': cores, 'mem': mem, 'runtime': runtime,
                            'queue': self.queue, 'j': self.j_resource}
-        return adjusted_params
+        return self.__class__(**adjusted_params)
 
     def to_wire(self):
         return {

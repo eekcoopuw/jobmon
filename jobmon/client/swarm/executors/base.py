@@ -21,7 +21,7 @@ class ExecutorParameters:
     def __init__(self, *args, **kwargs):
         logger.info("Initializing Base Class ExecutorParameters")
 
-    def return_adjusted(self) -> Union['ExecutorParameters', None]:
+    def return_adjusted(self) -> 'ExecutorParameters':
         """
         If the parameters need to be adjusted then create and return a new
         object, otherwise None
