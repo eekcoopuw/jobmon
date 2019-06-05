@@ -1,14 +1,12 @@
 import itertools
-import os
-import signal
-import subprocess
 import logging
+import os
+import subprocess
 from typing import Tuple
 
 from paramiko.client import SSHClient, WarningPolicy
 
 from cluster_utils.io import check_permissions, InvalidPermissions
-
 from jobmon.exceptions import UnsafeSSHDirectory
 
 logger = logging.getLogger(__name__)
@@ -50,14 +48,37 @@ def confirm_correct_perms(perm_dict=None):
         raise UnsafeSSHDirectory(errors)
 
 
-def kill_remote_process(hostname, pid, signal_number=signal.SIGKILL):
-    kill_cmd = 'kill -{sn} {pid}'.format(sn=signal_number, pid=pid)
-    return _run_remote_command(hostname, kill_cmd)
+def gently_kill_command(id: int) -> str:
+    """
+    Best to use SIGTERM because it gives well-behaved processes a chance
+    to clean up their child processes before the hard kill. This is less
+    likely to leave orphans:
+      kill SIGTERM; sleep 5; kill SIGKILL
+    """
+    return f'kill -SIGTERM {id}; sleep 10; kill -SIGKILL {id}'
 
 
-def kill_remote_process_group(hostname, pgid, signal_number=signal.SIGKILL):
-    kill_cmd = 'kill -{sn} -{pgid}'.format(sn=signal_number, pgid=pgid)
-    return _run_remote_command(hostname, kill_cmd)
+def kill_remote_process(hostname: str, pid: int) -> Tuple[int, str, str]:
+    """
+    Used during RESUME, not during RETRY.
+
+    :param hostname: the host on which to kill
+    :param pid: Process id
+    :return: exit_code, stdout_str, stderr_str
+    """
+    return _run_remote_command(hostname, gently_kill_command(pid))
+
+
+def kill_remote_process_group(hostname: str, pgid: int) ->\
+        Tuple[int, str, str]:
+    """
+    Now only used during RETRY on prod
+    :param hostname: the host on which to kill
+    :param pgid: process group id
+
+    :return: exit_code, stdout_str, stderr_str
+    """
+    return _run_remote_command(hostname, gently_kill_command(pgid))
 
 
 def _get_ssh_permission_dict():
@@ -88,6 +109,8 @@ def _run_remote_command(hostname: str, command: str) -> Tuple[int, str, str]:
     """
     Runs the command on that host, using paramiko/ssh.
     Uses byte conversion on stdout stderr so that it return strings
+
+    :returns exit_code, stdout_str, stderr_str
     """
     keyfile = _setup_keyfile()
     client = SSHClient()

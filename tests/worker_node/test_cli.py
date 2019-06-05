@@ -6,7 +6,6 @@ import pytest
 
 import jobmon.client.worker_node.cli
 
-
 EXCEPTION_MSG = "assert we took this path"
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
@@ -39,10 +38,23 @@ class MockIntercom:
         pass
 
 
-def mock_kill_remote_process_group(a, b):
+def mock_run_remote_command(hostname: str, command: str):
     """mock the kill remote process group interface and raise an error to
     signal that we entered the path we are trying to test"""
-    raise ExpectedException(EXCEPTION_MSG)
+    raise ExpectedException(f"{EXCEPTION_MSG}; {hostname}: {command}")
+
+
+on_prod = True
+
+
+def set_on_prod( b: bool) -> None:
+    global on_prod
+    on_prod = b
+
+
+def mock_is_on_prod() -> bool:
+    """We are on prod"""
+    return on_prod
 
 
 class MockIntercomRaiseInLogError(MockIntercom):
@@ -69,19 +81,24 @@ class MockIntercomCheckExecutorId(MockIntercom):
 
 def test_kill_remote_process_group_conditional(monkeypatch):
     # this tests the code pathway in workernode.cli to make sure that we enter
-    # kill remote process group when we intend to. It does not test the kill
-    # remote process group function itself.
+    # kill remote process group when we intend to and generates the correct
+    # command if we are on prod.
+    # It does not test the kill remote process group function itself.
     monkeypatch.setattr(
-        jobmon.client.worker_node.cli,
-        "kill_remote_process_group",
-        mock_kill_remote_process_group)
+        jobmon.client.utils,
+        "_run_remote_command",
+        mock_run_remote_command)
     monkeypatch.setattr(
         jobmon.client.worker_node.cli,
         "JobInstanceIntercom",
         MockIntercomRaiseInLogError)
+    monkeypatch.setattr(
+        jobmon.client.worker_node.cli,
+        "is_on_prod",
+        mock_is_on_prod)
 
     # arguments in the structure that jobmon.client.worker_node.cli.unwrap()
-    # usually recieves from the command line
+    # usually receives from the command line
     base_args = [
         "fakescript",
         "--command", "ls",
@@ -108,8 +125,20 @@ def test_kill_remote_process_group_conditional(monkeypatch):
         "--last_pgid", "3"
     ]
     with patch.object(sys, 'argv', base_args + process_group_args):
-        with pytest.raises(ExpectedException):
+        with pytest.raises(ExpectedException) as e:
             jobmon.client.worker_node.cli.unwrap()
+            m = e.message
+            assert "kill" in m and \
+                   "other.fake.host" in m and \
+                   EXCEPTION_MSG in m
+
+    # But it won't do the process-group kill on fair
+    set_on_prod(False)
+    with patch.object(sys, 'argv', base_args):
+        with pytest.raises(SystemExit):
+            jobmon.client.worker_node.cli.unwrap()
+    # set on_prod back again for the next test
+    set_on_prod(True)
 
 
 class MockIntercomLogHeartbeatToError(MockIntercom):
@@ -186,8 +215,3 @@ def test_executor_id(monkeypatch, capsys):
     with patch.object(sys, 'argv', base_args):
         with pytest.raises(SystemExit):
             jobmon.client.worker_node.cli.unwrap()
-
-
-
-
-

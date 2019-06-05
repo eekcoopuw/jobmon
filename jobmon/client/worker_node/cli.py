@@ -1,20 +1,18 @@
 import argparse
-from functools import partial
 import logging
 import os
-from queue import Queue
-import socket
 import subprocess
 import sys
+import traceback
+from functools import partial
+from queue import Queue
 from threading import Thread
 from time import sleep, time
-import traceback
 
-from jobmon.exceptions import ReturnCodes
 from jobmon.client.swarm.job_management.job_instance_intercom import \
     JobInstanceIntercom
 from jobmon.client.utils import kill_remote_process_group
-
+from jobmon.exceptions import ReturnCodes
 
 logger = logging.getLogger()
 
@@ -40,6 +38,15 @@ def enqueue_stderr(stderr, queue):
 
     # cleanup
     stderr.close()
+
+
+def is_on_prod() -> bool:
+    """
+    A wrapper to hide the dirty way we determine which cluster we are on
+    Useful to have this be a function because it can be monkey patched in test.
+    :return:  True if we are on prod
+    """
+    return "el6" in os.environ['SGE_ENV']
 
 
 def unwrap():
@@ -93,7 +100,13 @@ def unwrap():
         executor_id=os.environ.get('JOB_ID'))
 
     try:
-        if args['last_nodename'] is not None and args['last_pgid'] is not None:
+        # SGE on prod & dev did not kill orphan processes following
+        # an OOM kill, so if this is a retry job instance it must go
+        # kill any remaining processes on the last node.
+        # Not necessary on fair/buster.
+        if args['last_nodename'] is not None and \
+                args['last_pgid'] is not None and \
+                is_on_prod():
             kill_remote_process_group(args['last_nodename'], args['last_pgid'])
 
         # open subprocess using a process group so any children are also killed
