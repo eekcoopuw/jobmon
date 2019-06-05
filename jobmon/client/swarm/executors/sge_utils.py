@@ -6,8 +6,8 @@ import logging
 import os
 import re
 import subprocess
+from typing import List, Dict
 
-import pandas as pd
 import numpy as np
 
 
@@ -80,20 +80,22 @@ def get_project_limits(project):
     return 200
 
 
-def qstat(status=None, pattern=None, user=None, jids=None):
-    """parse sge qstat information into DataFrame
+def qstat(status: str=None, pattern: str=None, user: str=None,
+          jids: List[int]=None) -> Dict:
+    """parse sge qstat information into a Dictionary keyed by executor_id
 
     Args:
         status (string, optional): status filter to use when running qstat
-            command
+            command for job statuses
         pattern (string, optional): pattern filter to use when running qstat
-            command
-        user (string, optional): user filter to use when running qstat command
+            command for certain qstat job names
+        user (string, optional): user filter to use when running qstat
+            command for job users
         jids (list, optional): list of job ids to use when running qstat
             command
 
     Returns:
-        DataFrame of qstat return values
+        Dictionary of qstat return values keyed by sge_job_id aka executor_id
     """
     cmd = ["qstat", "-r"]
     if status is not None:
@@ -167,7 +169,6 @@ def qstat(status=None, pattern=None, user=None, jids=None):
                 continue
             host = line.split()[2].split("@")[1]
             job_hosts.append(host)
-            lintype = "--"
             continue
 
     # assuming that all arrays are the same length
@@ -183,29 +184,27 @@ def qstat(status=None, pattern=None, user=None, jids=None):
                'runtime': job_runtime_strs[index],
                'runtime_seconds': job_runtimes[index]}
         jobs[job_ids[index]] = job
-    df = pd.DataFrame({
-        'job_id': job_ids,
-        'hostname': job_hosts,
-        'name': job_names,
-        'user': job_users,
-        'slots': job_slots,
-        'status': job_statuses,
-        'status_start': job_datetimes,
-        'runtime': job_runtime_strs,
-        'runtime_seconds': job_runtimes})
     if pattern is not None:
-        # qstat_dict = qstat_dict[qstat_dict.keys.str.contains(pattern)]
-        df = df[df.name.str.contains(pattern)]
+        for jid in jobs:
+            if pattern not in jobs[jid]['name']:
+                del jobs[jid]
+    if status is not None:
+        for jid in jobs:
+            if jobs[jid]['status'] != status:
+                del jobs[jid]
+    if user is not None:
+        for jid in jobs:
+            if jobs[jid]['user'] != user:
+                del jobs[jid]
     if jids is not None:
         unwanted_jids = set(jobs) - set(jids)
         for jid in unwanted_jids:
             del jobs[jid]
-        df = df[df.job_id.isin(jids)]
-    return jobs, df[['job_id', 'hostname', 'name', 'slots', 'user', 'status',
-                     'status_start', 'runtime', 'runtime_seconds']]
+    logger.debug(f"Lines: {lines}, Jobs: {jobs}")
+    return jobs
 
 
-def qstat_details(jids):
+def qstat_details(jids: List[int]):
     """get more detailed qstat information
 
     Args:
@@ -292,9 +291,11 @@ def qstat_usage(jids):
     return usage
 
 
-def qdel(job_ids):
-    jids = [str(jid) for jid in np.atleast_1d(job_ids)]
+def qdel(job_ids: List[int]) -> str:
+    jids = [str(jid) for jid in job_ids]
+    logger.debug(f"About to qdel {jids}")
     stdout = subprocess.check_output(['qdel'] + jids)
+    logger.debug(f"stdout from qdel: {stdout}")
     return stdout
 
 
@@ -304,6 +305,7 @@ def qacct_exit_status(jid: int)->int:
     logger.warning("**********************************************" + cmd1)
     try:
         res = subprocess.check_output(cmd1, shell=True)
+        logger.debug(f"Exit code response: {res}")
         return int(res.decode("utf-8").replace("\n", ""))
     except Exception as e:
         # In case the command execution failed, log error and return -1
