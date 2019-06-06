@@ -137,20 +137,21 @@ class ExecutableTask(object):
         if self.executor_param_obj is None:
             logger.debug("You did not specify executor parameters, "
                          "assigning SGEParameters")
-            self.executor_param_obj = SGEParameters(slots=slots,
-                                                    num_cores=num_cores,
-                                                    mem_free=mem_free,
-                                                    m_mem_free=m_mem_free,
-                                                    max_runtime_seconds=
-                                                    max_runtime_seconds,
-                                                    queue=queue,
-                                                    j_resource=j_resource,
-                                                    context_args=context_args)
+            self.executor_param_obj = SGEParameters(
+                slots=slots,
+                num_cores=num_cores,
+                mem_free=mem_free,
+                m_mem_free=m_mem_free,
+                max_runtime_seconds=max_runtime_seconds,
+                queue=queue,
+                j_resource=j_resource,
+                context_args=context_args)
         self.executor_param_objects = {'original': self.executor_param_obj}
         valid, valid_params, msg = self.executor_param_obj.is_valid()
         if not valid:
             logger.debug(msg)
-        self.executor_param_objects['validated'] = self.executor_param_obj.return_validated(valid_params)
+        self.executor_param_objects['validated'] = (
+            self.executor_param_obj.return_validated(valid_params))
 
     def add_upstream(self, ancestor):
         """

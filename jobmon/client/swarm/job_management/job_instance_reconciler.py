@@ -33,10 +33,10 @@ class JobInstanceReconciler(object):
 
     def __init__(self,
                  dag_id: int,
-                 executor: Optional[Executor]=None,
-                 interrupt_on_error: Optional[bool]=True,
-                 stop_event: Optional[threading.Event]=None,
-                 requester: Requester=shared_requester) -> None:
+                 executor: Optional[Executor] = None,
+                 interrupt_on_error: Optional[bool] = True,
+                 stop_event: Optional[threading.Event] = None,
+                 requester: Requester = shared_requester) -> None:
 
         self.dag_id = dag_id
         self.requester = requester

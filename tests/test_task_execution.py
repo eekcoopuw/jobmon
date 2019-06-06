@@ -14,8 +14,8 @@ from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.client.swarm.workflow.r_task import RTask
 from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
-from jobmon.client.swarm.job_management.job_instance_factory import (
-    JobInstanceFactory)
+from jobmon.client.swarm.job_management.executor_job_instance import (
+    ExecutorJobInstance)
 
 
 def match_name_to_sge_name(jid):
@@ -118,6 +118,7 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
     assert sge_jobname == name
 
 
+@pytest.mark.skip()
 def test_exceed_mem_task(db_cfg, dag_factory):
     """test that when a job exceeds the requested amount of memory on the fair
     cluster, it gets killed"""
@@ -326,17 +327,14 @@ def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
         assert all(['c2' in nodename for nodename in jids])
 
 
-class MockJIF(JobInstanceFactory):
+class MockExecutorJobInstance(ExecutorJobInstance):
     """mock so that when a normal job goes registers in batch it actually
        goes to W state"""
-    def _register_submission_to_batch_executor(self, job_instance_id,
-                                               executor_id,
-                                               next_report_increment):
+
+    def register_submission_to_batch_executor(self, executor_id,
+                                              next_report_increment):
         # redirecting the normal route of going to B state with W state
-        self.requester.send_request(
-            app_route=f'/job_instance/{job_instance_id}/log_no_exec_id',
-            message={'executor_id': executor_id},
-            request_type='post')
+        self.register_no_exec_id(-33333)
         print(f"REAL EXEC ID is: {executor_id}")
 
 
@@ -345,9 +343,9 @@ def test_job_in_w_logs(dag_factory, monkeypatch, capsys, db_cfg):
     """mocks a case where a job enters W state instead of B or R and then
     tries to log running"""
     monkeypatch.setattr(
-        jobmon.client.swarm.job_management.job_instance_factory.JobInstanceFactory,
-        "_register_submission_to_batch_executor",
-        MockJIF._register_submission_to_batch_executor)
+        jobmon.client.swarm.job_management.job_instance_factory,
+        "ExecutorJobInstance",
+        MockExecutorJobInstance)
     name = 'task_no_exec_id'
     task = BashTask(command="ls", name=name, m_mem_free='130M', max_attempts=2,
                     num_cores=1, max_runtime_seconds=20)
@@ -368,8 +366,6 @@ def test_job_in_w_logs(dag_factory, monkeypatch, capsys, db_cfg):
                 status = check_output(f'qacct -j {exec_id} | grep exit_status',
                                       shell=True, universal_newlines=True)
                 assert '9' in status
-            except CalledProcessError as e:
+            except CalledProcessError:
                 sleep(5)
                 tries += 1
-
-

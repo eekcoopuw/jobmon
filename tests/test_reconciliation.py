@@ -230,7 +230,7 @@ def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg
     assert start < end  # indicating at least one heartbeat got logged
 
 
-def test_reconciler_sge_timeout(job_list_manager_reconciliation):
+def test_reconciler_sge_timeout(job_list_manager_reconciliation, db_cfg):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_reconciliation.all_error = set()
 
@@ -250,30 +250,31 @@ def test_reconciler_sge_timeout(job_list_manager_reconciliation):
         reconciler_sge_timeout_check,
         job_list_manager_reconciliation=job_list_manager_reconciliation,
         dag_id=job_list_manager_reconciliation.dag_id,
-        job_id=job.job_id))
+        job_id=job.job_id,
+        db_cfg=db_cfg))
 
 
 def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
-                                 job_id):
+                                 job_id, db_cfg):
     job_list_manager_reconciliation._sync()
     if len(job_list_manager_reconciliation.all_error) == 1:
         assert job_id in [
             j.job_id for j in job_list_manager_reconciliation.all_error]
 
         # The job should have been tried 3 times...
-        _, response = req.send_request(
-            app_route='/dag/{}/job'.format(dag_id),
-            message={},
-            request_type='get')
-        jobs = [Job.from_wire(j) for j in response['job_dcts']]
-        this_job = [j for j in jobs if j.job_id == job_id][0]
-        assert this_job.num_attempts == 3
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
+        with app.app_context():
+            query = f"select num_attempts from job where job_id = {job_id}"
+            res = DB.session.execute(query).fetchone()
+            DB.session.commit()
+        assert res[0] == 3
         return True
     else:
         return False
 
 
-def test_ignore_qw_in_timeouts(job_list_manager_reconciliation):
+def test_ignore_qw_in_timeouts(job_list_manager_reconciliation, db_cfg):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_reconciliation.all_error = set()
 
@@ -296,24 +297,25 @@ def test_ignore_qw_in_timeouts(job_list_manager_reconciliation):
         ignore_qw_in_timeouts_check,
         job_list_manager_reconciliation=job_list_manager_reconciliation,
         dag_id=job_list_manager_reconciliation.dag_id,
-        job_id=job.job_id))
+        job_id=job.job_id,
+        db_cfg=db_cfg))
 
 
-def ignore_qw_in_timeouts_check(job_list_manager_reconciliation, dag_id, job_id
-                                ):
+def ignore_qw_in_timeouts_check(job_list_manager_reconciliation, dag_id,
+                                job_id, db_cfg):
     job_list_manager_reconciliation._sync()
     if len(job_list_manager_reconciliation.all_error) == 1:
         assert job_id in [
             j.job_id for j in job_list_manager_reconciliation.all_error]
 
         # The job should have been tried 3 times...
-        _, response = req.send_request(
-            app_route='/dag/{}/job'.format(dag_id),
-            message={},
-            request_type='get')
-        jobs = [Job.from_wire(j) for j in response['job_dcts']]
-        this_job = [j for j in jobs if j.job_id == job_id][0]
-        assert this_job.num_attempts == 3
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
+        with app.app_context():
+            query = f"select num_attempts from job where job_id = {job_id}"
+            res = DB.session.execute(query).fetchone()
+            DB.session.commit()
+        assert res[0] == 3
         return True
     else:
         return False
@@ -358,7 +360,9 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
         app_route=f'/dag/{test_jif.dag_id}/queued_jobs/1000',
         message={},
         request_type='get')
-    all_jobs = [ExecutorJob.from_wire(j) for j in response['job_dcts']]
+    all_jobs = [
+        ExecutorJob.from_wire(j, test_jif.executor.ExecutorParameters_cls)
+        for j in response['job_dcts']]
 
     # now new query that should only return 3 jobs
     select_jobs = test_jif._get_jobs_queued_for_instantiation()

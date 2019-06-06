@@ -184,11 +184,14 @@ def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
     """
     last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
     time = get_time(DB.session)
-    jobs = DB.session.query(Job).filter(
-        Job.dag_id == dag_id,
-        Job.status == JobStatus.QUEUED_FOR_INSTANTIATION,
-        Job.status_date >= last_sync).order_by(Job.job_id)\
-        .limit(n_queued_jobs)
+    jobs = DB.session.query(Job).\
+        filter(
+            Job.dag_id == dag_id,
+            Job.status.in_([JobStatus.QUEUED_FOR_INSTANTIATION,
+                            JobStatus.ADJUSTING_RESOURCES]),
+            Job.status_date >= last_sync).\
+        order_by(Job.job_id).\
+        limit(n_queued_jobs)
     DB.session.commit()
     job_dcts = [j.to_wire_as_executor_job() for j in jobs]
     resp = jsonify(job_dcts=job_dcts, time=time)
