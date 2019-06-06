@@ -732,7 +732,7 @@ def test_change_job_resources(db_cfg, real_dag_id):
         message={'parameter_set_type': 'A',
                  'num_cores': '3',
                  'max_runtime_seconds': '20',
-                 'm_mem_free': '2'},
+                 'm_mem_free': 2},
         request_type='post'
     )
     DB = db_cfg["DB"]
@@ -744,7 +744,7 @@ def test_change_job_resources(db_cfg, real_dag_id):
                    WHERE job.job_id={job_id}""".format(job_id=swarm_job.job_id)
         runtime, mem, cores = DB.session.execute(query).fetchall()[0]
         assert runtime == 20
-        assert mem == '2'
+        assert mem == 2
         assert cores == 3
         DB.session.commit()
 

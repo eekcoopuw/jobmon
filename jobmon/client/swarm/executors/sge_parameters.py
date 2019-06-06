@@ -125,8 +125,11 @@ class SGEParameters(ExecutorParameters):
             mem = self._adjust_memory(mem_adjustment)
         if runtime_adjustment:
             runtime = self._adjust_runtime(runtime_adjustment)
-        adjusted_params = {'cores': cores, 'mem': mem, 'runtime': runtime,
-                           'queue': self.queue, 'j': self.j_resource}
+        adjusted_params = {'num_cores': cores, 'm_mem_free': mem,
+                           'max_runtime_seconds': runtime,
+                           'queue': self.queue, 'j_resource': self.j_resource,
+                           'context_args': self.context_args
+                           }
         return self.__class__(**adjusted_params)
 
     def to_wire(self):

@@ -15,7 +15,12 @@ class SerializeExecutorJob:
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple):
+        # coerce types for all nullables that are cast
+        context_args = wire_tuple[7] if wire_tuple[7] else None
+        num_cores = int(wire_tuple[9]) if int(wire_tuple[9]) else None
+        m_mem_free = float(wire_tuple[10]) if wire_tuple[10] else None
         last_process_group_id = int(wire_tuple[13]) if wire_tuple[13] else None
+
         return {"dag_id": int(wire_tuple[0]),
                 "job_id": int(wire_tuple[1]),
                 "name": wire_tuple[2],
@@ -23,10 +28,10 @@ class SerializeExecutorJob:
                 "command": wire_tuple[4],
                 "status": wire_tuple[5],
                 "max_runtime_seconds": int(wire_tuple[6]),
-                "context_args": wire_tuple[7],
+                "context_args": context_args,
                 "queue": wire_tuple[8],
-                "num_cores": int(wire_tuple[9]),
-                "m_mem_free": wire_tuple[10],
+                "num_cores": num_cores,
+                "m_mem_free": m_mem_free,
                 "j_resource": wire_tuple[11],
                 "last_nodename": wire_tuple[12],
                 "last_process_group_id": last_process_group_id}
