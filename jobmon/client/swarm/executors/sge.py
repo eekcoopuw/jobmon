@@ -12,9 +12,7 @@ from cluster_utils.io import makedirs_safely
 from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
-                                           ExecutorParameters, sge_utils)
-from jobmon.client.swarm.executors.sge_parameters import SGEParameters
-from jobmon.client.swarm.job_management.executor_job import ExecutorJob
+                                           sge_utils, ExecutorParameters)
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
@@ -26,9 +24,6 @@ ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
 
 
 class SGEExecutor(Executor):
-
-    ExecutorParameters_cls = SGEParameters
-
     def __init__(self,
                  stderr: Optional[str] = None,
                  stdout: Optional[str] = None,
@@ -76,16 +71,22 @@ class SGEExecutor(Executor):
             return qsub_attribute.NO_EXEC_ID
 
     def execute(self, command: str, name: str,
-                executor_parameters: SGEParameters) -> int:
+                executor_parameters: ExecutorParameters) -> int:
+        logger.debug(f"PARAMS: {executor_parameters.params.m_mem_free}, "
+                     f"{executor_parameters.params.num_cores}, "
+                     f"{executor_parameters.params.queue},"
+                     f" {executor_parameters.params.max_runtime_seconds}, "
+                     f"{executor_parameters.params.j_resource},"
+                     f" {executor_parameters.params.context_args}")
         qsub_command = self._build_qsub_command(
             base_cmd=command,
             name=name,
-            mem=executor_parameters.m_mem_free,
-            cores=executor_parameters.num_cores,
-            queue=executor_parameters.queue,
-            runtime=executor_parameters.max_runtime_seconds,
-            j=executor_parameters.j_resource,
-            context_args=executor_parameters.context_args,
+            mem=executor_parameters.params.m_mem_free,
+            cores=executor_parameters.params.num_cores,
+            queue=executor_parameters.params.queue,
+            runtime=executor_parameters.params.max_runtime_seconds,
+            j=executor_parameters.params.j_resource,
+            context_args=executor_parameters.params.context_args,
             stderr=self.stderr,
             stdout=self.stdout,
             project=self.project,
@@ -153,11 +154,12 @@ class SGEExecutor(Executor):
         if "el6" in os.environ['SGE_ENV']:
             dev_or_prod = True
 
-        ctx_args = json.loads(context_args)
-        if 'sge_add_args' in ctx_args:
-            sge_add_args = ctx_args['sge_add_args']
-        else:
-            sge_add_args = ""
+        sge_add_args = ""
+        if context_args:
+            ctx_args = json.loads(context_args)
+            if 'sge_add_args' in ctx_args:
+                sge_add_args = ctx_args['sge_add_args']
+
         if project:
             project_cmd = f"-P {project}"
         elif not dev_or_prod and not project:

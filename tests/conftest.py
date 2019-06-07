@@ -258,11 +258,10 @@ def simple_workflow(real_jsm_jqs, db_cfg):
     from jobmon.client.swarm.executors.sge_parameters import SGEParameters
     from jobmon.client.swarm.workflow.bash_task import BashTask
     from jobmon.client.swarm.workflow.workflow import Workflow
-    params = SGEParameters(num_cores=1, m_mem_free='1G')
 
-    t1 = BashTask("sleep 1", executor_param_obj=params)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], executor_param_obj=params)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], executor_param_obj=params)
+    t1 = BashTask("sleep 1", num_cores=1, m_mem_free='1G')
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1, m_mem_free='1G')
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1, m_mem_free='1G')
 
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False)

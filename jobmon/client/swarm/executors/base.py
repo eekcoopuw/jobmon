@@ -5,6 +5,7 @@ import shutil
 from typing import List, Tuple, Dict, Optional, Type, Union
 
 from jobmon.client import client_config
+from jobmon.client.swarm.executors.sge_parameters import SGEParameters
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 
@@ -15,39 +16,47 @@ class ExecutorParameters:
     """Base parameter class for executors, each executor has specific '
     parameters and must validate them accordingly"""
 
-    # TODO: consider converting this into a stragegy based class instead of an
-    # abstract base class
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, executor_class: str = 'SGEExecutor',
+                 from_original: bool = True, *args, **kwargs):
         logger.info("Initializing Base Class ExecutorParameters")
-
-    def return_adjusted(self) -> 'ExecutorParameters':
-        """
-        If the parameters need to be adjusted then create and return a new
-        object, otherwise None
-        """
-        raise NotImplementedError
-
-    def is_valid(self) -> Tuple[bool, Dict, Union[str, None]]:
-        """
-        If the object is valid, return (True, None), otherwise
-        (False, error_message), deliberately does not throw so it can be used
-        where the client does not want an exception
-        """
-        return True, {}, None
-
-    def return_validated(self, params) -> 'ExecutorParameters':
-        return self
-
-    def is_valid_throw(self) -> Tuple[bool, 'ExecutorParameters']:
-        """
-        Calls is_valid and converts a False result into an exception
-        """
-        valid, obj, message = self.is_valid()
-        if valid:
-            return True, obj
+        self.executor_class = executor_class
+        if executor_class is 'SGEExecutor':
+            kwargs, sge_params = SGEParameters.parse_constructor_kwargs(kwargs)
+            if from_original:
+                self.original = SGEParameters(**sge_params)
+                self.params = self.original
+            else:
+                self.params = SGEParameters(**sge_params)
         else:
-            raise ValueError(message)
+            raise ValueError(f"This type of executor {executor_class} "
+                             f"is not supported")
+        self.is_valid = False
+
+    def adjust_params(self, **kwargs) -> None:
+        """
+        Create a new parameter object with adjusted params, kwargs map any
+        """
+        self.params = self.params.adjusted(**kwargs)
+
+    def is_valid(self) -> bool:
+        """
+        If the parameters have been validated
+        """
+        return self.is_valid
+
+    def validate_params(self):
+        self.is_valid = True
+        self.params, msg = self.params.validated()
+        if msg:
+            logger.debug(msg)
+
+    def validate_and_throw(self):
+        """
+        Calls validate and converts a False result into an exception
+        """
+        self.params, msg = self.params.validated()
+        if msg:
+            raise ValueError(msg)
 
     @classmethod
     def parse_constructor_kwargs(cls, kwarg_dict: Dict) -> Tuple[Dict, Dict]:

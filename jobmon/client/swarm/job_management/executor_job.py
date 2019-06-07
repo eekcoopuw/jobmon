@@ -47,9 +47,8 @@ class ExecutorJob:
 
     @classmethod
     def from_wire(
-            cls, wire_tuple: tuple,
-            ExecutorParameters_cls: Type[ExecutorParameters],
-            requester: Requester = shared_requester) -> "ExecutorJob":
+            cls, wire_tuple: tuple, executor_class: str,
+            requester: Requester = shared_requester) -> 'ExecutorJob':
         """construct instance from wire format"""
         # convert wire tuple into dictionary of kwargs
         kwargs = SerializeExecutorJob.kwargs_from_wire(wire_tuple)
@@ -58,17 +57,10 @@ class ExecutorJob:
         # ExecutorJob
         kwargs, executor_job_kwargs = cls.parse_constructor_kwargs(kwargs)
 
-        # separate the executor parameter kwargs from the leftover wire kwargs
-        kwargs, executor_parameter_kwargs = (
-            ExecutorParameters_cls.parse_constructor_kwargs(kwargs))
-
-        # now build the classes we need
-        logger.debug(
-            f"some wire args were not used in constructing {cls}: {kwargs}")
         executor_job = cls(
             requester=requester,
-            executor_parameters=ExecutorParameters_cls(
-                **executor_parameter_kwargs),
+            executor_parameters=ExecutorParameters(
+                executor_class=executor_class, from_original=False, **kwargs),
             **executor_job_kwargs)
         return executor_job
 
@@ -77,16 +69,16 @@ class ExecutorJob:
 
         # adjust parameters
         adjustment_factor = 0.5
-        adjusted_params = self.executor_parameters.return_adjusted(
-            cores_adjustment=adjustment_factor,
-            mem_adjustment=adjustment_factor,
-            runtime_adjustment=adjustment_factor)
+        param_adjustment = {'num_cores': adjustment_factor,
+                            'm_mem_free': adjustment_factor,
+                            'max_runtime_seconds': adjustment_factor}
+        adjusted_params = self.executor_parameters.get_adjusted(param_adjustment)
         self.executor_parameters = adjusted_params
 
         msg = {'parameter_set_type': parameter_set_type}
         msg.update(self.executor_parameters.to_wire())
         self.requester.send_request(
-            app_route=f'/job/{self.job_id}/change_resources',
+            app_route=f'/job/{self.job_id}/update_resources',
             message=msg,
             request_type='post')
 

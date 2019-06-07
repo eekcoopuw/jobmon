@@ -76,7 +76,7 @@ class JobListManager(object):
             task (obj): obj of a type inherited from ExecutableTask
         """
         # bind original parameters and validated parameters to the db
-        params = task.executor_param_objects['validated']
+        o_params = task.executor_parameter_obj.original
 
         if task.hash in self.hash_job_map:
             job = self.hash_job_map[task.hash]
@@ -86,14 +86,16 @@ class JobListManager(object):
                 job_hash=task.hash,
                 command=task.command,
                 tag=task.tag,
-                num_cores=params.num_cores,
-                m_mem_free=params.m_mem_free,
+                num_cores=o_params.num_cores,
+                m_mem_free=o_params.m_mem_free,
                 max_attempts=task.max_attempts,
-                max_runtime_seconds=params.max_runtime_seconds,
-                context_args=params.context_args,
-                queue=params.queue,
-                j_resource=params.j_resource
+                max_runtime_seconds=o_params.max_runtime_seconds,
+                context_args=o_params.context_args,
+                queue=o_params.queue,
+                j_resource=o_params.j_resource
             )
+        self._add_validated_parameters(job.job_id,
+                                       task.executor_parameter_obj.params)
 
         # adding the attributes to the job now that there is a job_id
         for attribute in task.job_attributes:
@@ -103,6 +105,21 @@ class JobListManager(object):
         bound_task = BoundTask(task=task, job=job, job_list_manager=self)
         self.bound_tasks[job.job_id] = bound_task
         return bound_task
+
+    def _add_validated_parameters(self, job_id, parameters):
+        """Add an entry for the validated parameters to the database and
+        activate them"""
+        msg = {'parameter_set_type': 'V',
+               'max_runtime_seconds': parameters.max_runtime_seconds,
+               'context_args': parameters.context_args,
+               'queue': parameters.queue,
+               'num_cores': parameters.num_cores,
+               'm_mem_free': parameters.m_mem_free,
+               'j_resource': parameters.j_resource}
+        self.requester.send_request(
+            app_route=f'/job/{job_id}/update_resources',
+            message=msg,
+            request_type='post')
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""
