@@ -24,7 +24,7 @@ class ExecutorParameterSet(DB.Model):
     # sge specific parameters
     queue = DB.Column(DB.String(255), default=None)
     num_cores = DB.Column(DB.Integer, default=None)
-    m_mem_free = DB.Column(DB.String(255), default=None)
+    m_mem_free = DB.Column(DB.Float, default=None)
     j_resource = DB.Column(DB.Boolean, default=None)
 
     # ORM relationships

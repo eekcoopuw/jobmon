@@ -71,7 +71,7 @@ def test_bash_task(db_cfg, dag_factory):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.executor_parameter_set.m_mem_free == '1'
+        assert job.executor_parameter_set.m_mem_free == 1
         assert job.max_attempts == 2
         assert job.executor_parameter_set.max_runtime_seconds == 60
 
@@ -110,7 +110,7 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.executor_parameter_set.m_mem_free == '1'
+        assert job.executor_parameter_set.m_mem_free == 1
         assert job.max_attempts == 2
         assert job.executor_parameter_set.max_runtime_seconds == 60
 
@@ -118,7 +118,6 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
     assert sge_jobname == name
 
 
-@pytest.mark.skip()
 def test_exceed_mem_task(db_cfg, dag_factory):
     """test that when a job exceeds the requested amount of memory on the fair
     cluster, it gets killed"""
@@ -132,8 +131,6 @@ def test_exceed_mem_task(db_cfg, dag_factory):
     real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
         real_dag._execute())
-
-    ret_vals = get_task_status(real_dag, task)
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -151,23 +148,20 @@ def test_exceed_mem_task(db_cfg, dag_factory):
     assert sge_jobname == name
 
 
-@pytest.mark.skip("Not yet implemented")
-def test_under_request_then_pass(db_cfg, dag_factory):
+def test_under_request_then_scale_resources(db_cfg, dag_factory):
     """test that when a task gets killed due to under requested memory, it
-    succeeds on the second try with additional memory added"""
+    tries again with additional memory added"""
 
     name = 'mem_task'
     task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
-                      name=name, m_mem_free='600M', max_attempts=2, num_cores=1,
-                      max_runtime_seconds=40)
+                      name=name, m_mem_free='600M', max_attempts=2,
+                      num_cores=1, max_runtime_seconds=40)
 
     executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
     real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
         real_dag._execute())
-
-    ret_vals = get_task_status(real_dag, task)
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -177,12 +171,12 @@ def test_under_request_then_pass(db_cfg, dag_factory):
         resp = check_output(f"qacct -j {jid} | grep exit_status", shell=True,
                             universal_newlines=True)
         assert '247' in resp
-        assert job.job_instances[0].status == 'E'
-        assert job.job_instances[1].status == 'D'
-        assert job.status == 'D'
+        assert job.job_instances[0].status == 'Z'
+        assert job.job_instances[1].status == 'Z'
+        assert job.status == 'F'
         # add checks for increased system resources
-        assert job.executor_parameter_set.m_mem_free == '0.9'
-        assert job.max_runtime_seconds == 60
+        assert job.executor_parameter_set.m_mem_free == 0.9
+        assert job.executor_parameter_set.max_runtime_seconds == 60
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
@@ -245,7 +239,7 @@ def test_R_task(db_cfg, dag_factory, tmp_out_dir):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        assert job.executor_parameter_set.m_mem_free == '1'
+        assert job.executor_parameter_set.m_mem_free == 1
         assert job.max_attempts == 2
         assert job.executor_parameter_set.max_runtime_seconds == 60
 
@@ -279,7 +273,7 @@ def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
         job = DB.session.query(Job).filter_by(name=name).first()
         sge_id = [ji for ji in job.job_instances][0].executor_id
         job_instance_id = [ji for ji in job.job_instances][0].job_instance_id
-        assert job.executor_parameter_set.m_mem_free == '1'
+        assert job.executor_parameter_set.m_mem_free == 1
         assert job.max_attempts == 2
         assert job.executor_parameter_set.max_runtime_seconds == 60
 

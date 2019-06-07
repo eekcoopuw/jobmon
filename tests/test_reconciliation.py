@@ -1,10 +1,8 @@
 import pytest
-import time
 from time import sleep
 
 from jobmon.client import client_config
 from jobmon.client.swarm.executors import sge_utils as sge
-from jobmon.client import shared_requester as req
 from jobmon.client.swarm.executors.dummy import DummyExecutor
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
@@ -12,8 +10,6 @@ from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.utils import kill_remote_process
-from jobmon.models.job import Job
-from jobmon.models.job_status import JobStatus
 from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 from tests.timeout_and_skip import timeout_and_skip
@@ -246,7 +242,7 @@ def test_reconciler_sge_timeout(job_list_manager_reconciliation, db_cfg):
     # The sleepy job tries to sleep for 60 seconds, but times out after 3
     # seconds (well, when the reconciler runs, typically every 10 seconds)
     # 60
-    timeout_and_skip(20, 100, 1, "sleepyjob_fail", partial(
+    timeout_and_skip(20, 200, 1, "sleepyjob_fail", partial(
         reconciler_sge_timeout_check,
         job_list_manager_reconciliation=job_list_manager_reconciliation,
         dag_id=job_list_manager_reconciliation.dag_id,
@@ -293,7 +289,7 @@ def test_ignore_qw_in_timeouts(job_list_manager_reconciliation, db_cfg):
     # The sleepy job tries to sleep for 60 seconds, but times out after 3
     # seconds
 
-    timeout_and_skip(10, 90, 1, "sleepyjob", partial(
+    timeout_and_skip(10, 200, 1, "sleepyjob", partial(
         ignore_qw_in_timeouts_check,
         job_list_manager_reconciliation=job_list_manager_reconciliation,
         dag_id=job_list_manager_reconciliation.dag_id,
