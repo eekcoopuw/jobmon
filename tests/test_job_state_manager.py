@@ -728,7 +728,7 @@ def test_change_job_resources(db_cfg, real_dag_id):
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
     _, response = req.send_request(
-        app_route=f'/job/{swarm_job.job_id}/change_resources',
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
         message={'parameter_set_type': 'A',
                  'num_cores': '3',
                  'max_runtime_seconds': '20',
