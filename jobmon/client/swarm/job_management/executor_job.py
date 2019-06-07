@@ -47,8 +47,7 @@ class ExecutorJob:
 
     @classmethod
     def from_wire(
-            cls, wire_tuple: tuple,
-            ExecutorParameters_cls: Type[ExecutorParameters],
+            cls, wire_tuple: tuple, executor_class: str,
             requester: Requester = shared_requester) -> "ExecutorJob":
         """construct instance from wire format"""
         # convert wire tuple into dictionary of kwargs
@@ -58,17 +57,10 @@ class ExecutorJob:
         # ExecutorJob
         kwargs, executor_job_kwargs = cls.parse_constructor_kwargs(kwargs)
 
-        # separate the executor parameter kwargs from the leftover wire kwargs
-        kwargs, executor_parameter_kwargs = (
-            ExecutorParameters_cls.parse_constructor_kwargs(kwargs))
-
-        # now build the classes we need
-        logger.debug(
-            f"some wire args were not used in constructing {cls}: {kwargs}")
         executor_job = cls(
             requester=requester,
-            executor_parameters=ExecutorParameters_cls(
-                **executor_parameter_kwargs),
+            executor_parameters=ExecutorParameters(
+                executor_class=executor_class, from_original=False, **kwargs),
             **executor_job_kwargs)
         return executor_job
 

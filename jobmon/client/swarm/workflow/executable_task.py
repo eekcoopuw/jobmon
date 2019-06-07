@@ -147,7 +147,8 @@ class ExecutableTask(object):
                                    'queue': queue, 'j_resource': j_resource,
                                    'context_args': context_args}
         self.executor_parameter_obj = ExecutorParameters(
-            executor_class=executor_class, **executor_parameters)
+            executor_class=executor_class, from_original=True,
+            **executor_parameters)
         self.executor_parameter_obj.validate_params()
 
     def add_upstream(self, ancestor):

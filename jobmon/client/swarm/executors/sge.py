@@ -12,7 +12,7 @@ from cluster_utils.io import makedirs_safely
 from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
-                                           sge_utils)
+                                           sge_utils, ExecutorParameters)
 from jobmon.client.swarm.executors.sge_parameters import SGEParameters
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.exceptions import RemoteExitInfoNotAvailable
@@ -26,9 +26,6 @@ ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
 
 
 class SGEExecutor(Executor):
-
-    ExecutorParameters_cls = SGEParameters
-
     def __init__(self,
                  stderr: Optional[str] = None,
                  stdout: Optional[str] = None,
@@ -76,16 +73,22 @@ class SGEExecutor(Executor):
             return qsub_attribute.NO_EXEC_ID
 
     def execute(self, command: str, name: str,
-                params: SGEParameters) -> int:
+                executor_parameters: ExecutorParameters) -> int:
+        logger.debug(f"PARAMS: {executor_parameters.params.m_mem_free}, "
+                     f"{executor_parameters.params.num_cores}, "
+                     f"{executor_parameters.params.queue},"
+                     f" {executor_parameters.params.max_runtime_seconds}, "
+                     f"{executor_parameters.params.j_resource},"
+                     f" {executor_parameters.params.context_args}")
         qsub_command = self._build_qsub_command(
             base_cmd=command,
             name=name,
-            mem=params.m_mem_free,
-            cores=params.num_cores,
-            queue=params.queue,
-            runtime=params.max_runtime_seconds,
-            j=params.j_resource,
-            context_args=params.context_args,
+            mem=executor_parameters.params.m_mem_free,
+            cores=executor_parameters.params.num_cores,
+            queue=executor_parameters.params.queue,
+            runtime=executor_parameters.params.max_runtime_seconds,
+            j=executor_parameters.params.j_resource,
+            context_args=executor_parameters.params.context_args,
             stderr=self.stderr,
             stdout=self.stdout,
             project=self.project,

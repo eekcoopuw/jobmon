@@ -25,7 +25,7 @@ class SGEParameters:
                  max_runtime_seconds: Optional[int] = None,
                  j_resource: bool = False,
                  m_mem_free: Optional[Union[str, float]] = None,
-                 context_args: Optional[Dict] = None):
+                 context_args: Optional[Dict] = {}):
         """
         Args
         slots (int): slots to request on the cluster
@@ -136,9 +136,11 @@ class SGEParameters:
         mem = self.m_mem_free * (1+float(kwargs.get('m_mem_free', 0)))
         runtime = int(self.max_runtime_seconds
                       * (1+float(kwargs.get('max_runtime_seconds', 0))))
-        adjusted_params = {'cores': cores, 'mem': mem, 'runtime': runtime,
-                           'queue': self.queue, 'j': self.j_resource, 'args':
-                               self.context_args}
+        adjusted_params = {'num_cores': cores, 'm_mem_free': mem,
+                           'max_runtime_seconds': runtime,
+                           'queue': self.queue, 'j_resource': self.j_resource,
+                           'context_args': self.context_args
+                           }
         return self.__class__(**adjusted_params)
 
     def to_wire(self):

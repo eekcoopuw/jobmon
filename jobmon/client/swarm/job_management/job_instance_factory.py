@@ -176,6 +176,7 @@ class JobInstanceFactory(object):
             last_process_group_id=job.last_process_group_id)
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
+        logger.debug("Using the following parameters in execution: {job.executor_parameters}")
         executor_id = job_instance.executor.execute(
             command=command,
             name=job.name,
@@ -215,7 +216,7 @@ class JobInstanceFactory(object):
             jobs = []
         else:
             jobs = [
-                ExecutorJob.from_wire(j, self.executor.ExecutorParameters_cls)
+                ExecutorJob.from_wire(j, self.executor.__class__.__name__)
                 for j in response['job_dcts']]
 
         return jobs

@@ -16,19 +16,25 @@ class ExecutorParameters:
     """Base parameter class for executors, each executor has specific '
     parameters and must validate them accordingly"""
 
-    def __init__(self, executor_class: str='SGEExecutor', *args, **kwargs):
+    def __init__(self, executor_class: str = 'SGEExecutor',
+                 from_original: bool = True, *args, **kwargs):
         logger.info("Initializing Base Class ExecutorParameters")
+        self.executor_class = executor_class
         if executor_class is 'SGEExecutor':
             kwargs, sge_params = SGEParameters.parse_constructor_kwargs(kwargs)
-            self.original = SGEParameters(**sge_params)
+            if from_original:
+                self.original = SGEParameters(**sge_params)
+                self.params = self.original
+            else:
+                self.params = SGEParameters(**sge_params)
         else:
-            raise ValueError(f"This type of executor {type} is not supported")
+            raise ValueError(f"This type of executor {executor_class} "
+                             f"is not supported")
         self.is_valid = False
-        self.params = self.original
 
     def adjust_params(self, **kwargs):
         """
-        Create a new parameter object with adjusted params
+        Create a new parameter object with adjusted params, kwargs map any
         """
         self.params = self.params.adjusted(**kwargs)
 
@@ -84,7 +90,7 @@ class Executor:
         logger.info("Initializing {}".format(self.__class__.__name__))
 
     def execute(self, command: str, name: str,
-                params: ExecutorParameters) -> int:
+                executor_parameters: ExecutorParameters) -> int:
         """SUBCLASSES ARE REQUIRED TO IMPLEMENT THIS METHOD.
 
         It is recommended that subclasses use build_wrapped_command() to

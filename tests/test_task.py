@@ -79,11 +79,10 @@ def test_bash_task_args(db_cfg, job_list_manager_sge):
         num_cores = job[0].executor_parameter_set.num_cores
         m_mem_free = job[0].executor_parameter_set.m_mem_free
         max_attempts = job[0].max_attempts
-        max_runtime_seconds = job[0].executor_parameter_set.max_runtime_seconds
         DB.session.commit()
         # check all job args
         assert num_cores == 1
-        assert m_mem_free == '2'
+        assert m_mem_free == 2
         assert max_attempts == 1
 
 
@@ -110,13 +109,12 @@ def test_python_task_args(db_cfg, job_list_manager_sge):
         num_cores = job[0].executor_parameter_set.num_cores
         m_mem_free = job[0].executor_parameter_set.m_mem_free
         max_attempts = job[0].max_attempts
-        max_runtime_seconds = job[0].executor_parameter_set.max_runtime_seconds
         DB.session.commit()
         # check all job args
         assert command == 'OP_NUM_THREADS=1 {} ~/runme.py'.format(
             sys.executable)
         assert num_cores == 1
-        assert m_mem_free == '2'
+        assert m_mem_free == 2
         assert max_attempts == 1
 
 
@@ -134,13 +132,12 @@ def test_r_task_args(db_cfg, job_list_manager_sge):
         num_cores = job[0].executor_parameter_set.num_cores
         m_mem_free = job[0].executor_parameter_set.m_mem_free
         max_attempts = job[0].max_attempts
-        max_runtime_seconds = job[0].executor_parameter_set.max_runtime_seconds
         DB.session.commit()
         # check all job args
         assert command == ('OP_NUM_THREADS=1 Rscript {}'
                            .format(sge.true_path("tests/simple_R_script.r")))
         assert num_cores == 1
-        assert m_mem_free == '2'
+        assert m_mem_free == 2
         assert max_attempts == 1
 
 
@@ -158,10 +155,9 @@ def test_stata_task_args(db_cfg, job_list_manager_sge):
         num_cores = job[0].executor_parameter_set.num_cores
         m_mem_free = job[0].executor_parameter_set.m_mem_free
         max_attempts = job[0].max_attempts
-        max_runtime_seconds = job[0].executor_parameter_set.max_runtime_seconds
         DB.session.commit()
         # check all job args
         assert command.startswith('OP_NUM_THREADS=1 ')
         assert num_cores == 1
-        assert m_mem_free == '2'
+        assert m_mem_free == 2
         assert max_attempts == 1
