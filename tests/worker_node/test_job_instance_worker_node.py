@@ -19,8 +19,8 @@ class BadSGEExecutor(JobInstanceSGEInfo):
 
 
 def test_bad_qstat_call(monkeypatch):
-    ji_intercom = WorkerNodeJobInstance(job_instance_id=12345,
-                                        executor=BadSGEExecutor())
+    ji_intercom = WorkerNodeJobInstance(
+        job_instance_id=12345, job_instance_executor_info=BadSGEExecutor())
 
     # The following should not throw
     ji_intercom.log_job_stats()

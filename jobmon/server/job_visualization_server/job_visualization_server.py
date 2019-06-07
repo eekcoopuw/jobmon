@@ -26,6 +26,7 @@ _viz_label_mapping = {
     "INSTANTIATED": "PENDING",
     "RUNNING": "RUNNING",
     "ERROR_RECOVERABLE": "RECOVERING",
+    "ADJUSTING_RESOURCES": "PENDING",
     "ERROR_FATAL": "FATAL",
     "DONE": "DONE",
 }
