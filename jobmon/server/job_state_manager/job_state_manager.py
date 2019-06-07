@@ -106,18 +106,19 @@ def add_job():
     DB.session.add(job)
     DB.session.commit()
 
-    exec_params = ExecutorParameterSet(
+    original_exec_params = ExecutorParameterSet(
         job_id=job.job_id,
         parameter_set_type="O",
         max_runtime_seconds=data.get('max_runtime_seconds', None),
-        context_args=data.get('context_args', "{}"),
+        context_args=data.get('context_args',"{}"),
         queue=data.get('queue', None),
         num_cores=data.get('num_cores', None),
         m_mem_free=data.get('m_mem_free', 2),
-        j_resource=data.get('j_resource', False))
-    DB.session.add(exec_params)
+        j_resource=data.get('j_resource', False)
+    )
+    DB.session.add(original_exec_params)
     DB.session.flush()
-    exec_params.activate()
+    original_exec_params.activate()
     DB.session.commit()
 
     job_dct = job.to_wire_as_swarm_job()
@@ -684,8 +685,8 @@ def queue_job(job_id):
     return resp
 
 
-@jsm.route('/job/<job_id>/change_resources', methods=['POST'])
-def change_job_resources(job_id):
+@jsm.route('/job/<job_id>/update_resources', methods=['POST'])
+def update_job_resources(job_id):
     """ Change the resources set for a given job
 
     Args:

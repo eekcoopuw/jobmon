@@ -77,16 +77,16 @@ class ExecutorJob:
 
         # adjust parameters
         adjustment_factor = 0.5
-        adjusted_params = self.executor_parameters.return_adjusted(
-            cores_adjustment=adjustment_factor,
-            mem_adjustment=adjustment_factor,
-            runtime_adjustment=adjustment_factor)
+        param_adjustment = {'num_cores': adjustment_factor,
+                            'm_mem_free': adjustment_factor,
+                            'max_runtime_seconds': adjustment_factor}
+        adjusted_params = self.executor_parameters.get_adjusted(param_adjustment)
         self.executor_parameters = adjusted_params
 
         msg = {'parameter_set_type': parameter_set_type}
         msg.update(self.executor_parameters.to_wire())
         self.requester.send_request(
-            app_route=f'/job/{self.job_id}/change_resources',
+            app_route=f'/job/{self.job_id}/update_resources',
             message=msg,
             request_type='post')
 
