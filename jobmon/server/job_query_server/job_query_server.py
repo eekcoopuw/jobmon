@@ -390,7 +390,7 @@ def get_job_instances_of_workflow_run(workflow_run_id):
     logging.logParameter("workflow_run_id", workflow_run_id)
     jis = DB.session.query(JobInstance).filter_by(
         workflow_run_id=workflow_run_id).all()
-    jis = [ji.to_wire() for ji in jis]
+    jis = [ji.to_wire_as_executor_job_instance() for ji in jis]
     DB.session.commit()
     resp = jsonify(job_instances=jis)
     resp.status_code = StatusCodes.OK
