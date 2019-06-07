@@ -44,9 +44,9 @@ class StataTask(ExecutableTask):
                 and prod clusters are taken offline
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 3
-            max_runtime_seconds (int, seconds): how long the job should be allowed to
-                run before the executor kills it. Default is None, for
-                indefinite.
+            max_runtime_seconds (int, seconds): how long the job should be
+                allowed to run before the executor kills it. Default is None,
+                for indefinite.
             tag (str): a group identifier. Currently just used for
                 visualization. All tasks with the same tag will be colored the
                 same in a TaskDagViz instance. Default is None.
