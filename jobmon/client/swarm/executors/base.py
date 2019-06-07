@@ -84,7 +84,7 @@ class Executor:
         logger.info("Initializing {}".format(self.__class__.__name__))
 
     def execute(self, command: str, name: str,
-                executor_parameters: ExecutorParameters) -> int:
+                params: ExecutorParameters) -> int:
         """SUBCLASSES ARE REQUIRED TO IMPLEMENT THIS METHOD.
 
         It is recommended that subclasses use build_wrapped_command() to

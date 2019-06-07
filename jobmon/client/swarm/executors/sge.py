@@ -12,7 +12,7 @@ from cluster_utils.io import makedirs_safely
 from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
-                                           ExecutorParameters, sge_utils)
+                                           sge_utils)
 from jobmon.client.swarm.executors.sge_parameters import SGEParameters
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.exceptions import RemoteExitInfoNotAvailable
@@ -76,16 +76,16 @@ class SGEExecutor(Executor):
             return qsub_attribute.NO_EXEC_ID
 
     def execute(self, command: str, name: str,
-                executor_parameters: ExecutorParameters) -> int:
+                params: SGEParameters) -> int:
         qsub_command = self._build_qsub_command(
             base_cmd=command,
             name=name,
-            mem=executor_parameters.params.m_mem_free,
-            cores=executor_parameters.params.num_cores,
-            queue=executor_parameters.params.queue,
-            runtime=executor_parameters.params.max_runtime_seconds,
-            j=executor_parameters.params.j_resource,
-            context_args=executor_parameters.params.context_args,
+            mem=params.m_mem_free,
+            cores=params.num_cores,
+            queue=params.queue,
+            runtime=params.max_runtime_seconds,
+            j=params.j_resource,
+            context_args=params.context_args,
             stderr=self.stderr,
             stdout=self.stdout,
             project=self.project,
