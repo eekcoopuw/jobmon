@@ -32,7 +32,7 @@ class ExecutorParameters:
                              f"is not supported")
         self.is_valid = False
 
-    def adjust_params(self, **kwargs):
+    def adjust_params(self, **kwargs) -> None:
         """
         Create a new parameter object with adjusted params, kwargs map any
         """

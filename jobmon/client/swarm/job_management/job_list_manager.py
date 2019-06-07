@@ -77,7 +77,6 @@ class JobListManager(object):
         """
         # bind original parameters and validated parameters to the db
         o_params = task.executor_parameter_obj.original
-        v_params = task.executor_parameter_obj.params
 
         if task.hash in self.hash_job_map:
             job = self.hash_job_map[task.hash]
@@ -95,7 +94,8 @@ class JobListManager(object):
                 queue=o_params.queue,
                 j_resource=o_params.j_resource
             )
-        self._add_validated_parameters(job.job_id, v_params)
+        self._add_validated_parameters(job.job_id,
+                                       task.executor_parameter_obj.params)
 
         # adding the attributes to the job now that there is a job_id
         for attribute in task.job_attributes:

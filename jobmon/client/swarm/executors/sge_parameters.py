@@ -1,4 +1,5 @@
 import inspect
+import json
 import logging
 import os
 from typing import Tuple, Union, Dict, Optional
@@ -25,7 +26,7 @@ class SGEParameters:
                  max_runtime_seconds: Optional[int] = None,
                  j_resource: bool = False,
                  m_mem_free: Optional[Union[str, float]] = None,
-                 context_args: Optional[Dict] = {}):
+                 context_args: Optional[Union[Dict, str]] = None):
         """
         Args
         slots (int): slots to request on the cluster
@@ -41,11 +42,14 @@ class SGEParameters:
             run before the executor kills it. Currently required by the
             new cluster. Default is None, for indefinite.
         j_resource (bool): whether or not the job will need the J drive
-        context_args (dict): additional arguments to be added for execution
+        context_args (dict or str): additional arguments to be added for
+        execution
         """
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
         self.j_resource = j_resource
+        if isinstance(context_args, dict):
+            context_args = json.dumps(context_args)
         self.context_args = context_args
         self._cluster = os.environ['SGE_ENV']  # el7 in SGE_ENV is fair cluster
         self.num_cores, self.m_mem_free = self._backward_compatible_resources(

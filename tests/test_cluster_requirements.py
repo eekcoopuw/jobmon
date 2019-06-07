@@ -77,7 +77,7 @@ def test_invalid_mem_adjusted(no_daemon, mem):
                                queue='all.q', max_runtime_seconds=120)
     task = Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
                 name="invalid_memory", executor_param_obj=sge_params)
-    valid_mem = task.executor_param_objects['validated'].m_mem_free
+    valid_mem = task.executor_parameter_obj.params.m_mem_free
     assert valid_mem == 1
 
 
@@ -112,7 +112,7 @@ def test_exclusive_args_no_slots_or_cores(no_daemon):
     task = Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
                 name="exclusive_args_none", m_mem_free='2G', j_resource=True,
                 queue='all.q', max_runtime_seconds=120)
-    assert task.executor_param_objects['validated'].num_cores == 1
+    assert task.executor_parameter_obj.params.num_cores == 1
 
 
 @pytest.mark.cluster
@@ -149,12 +149,12 @@ def test_no_queue_provided(no_daemon):
     qsub_cmd = sge_executor._build_qsub_command(
         job.command,
         job.name,
-        job.executor_parameters.m_mem_free,
-        job.executor_parameters.num_cores,
-        job.executor_parameters.queue,
-        job.executor_parameters.max_runtime_seconds,
-        job.executor_parameters.j_resource,
-        job.executor_parameters.context_args,
+        job.executor_parameters.params.m_mem_free,
+        job.executor_parameters.params.num_cores,
+        job.executor_parameters.params.queue,
+        job.executor_parameters.params.max_runtime_seconds,
+        job.executor_parameters.params.j_resource,
+        job.executor_parameters.params.context_args,
         sge_executor.stderr,
         sge_executor.stdout,
         sge_executor.project,

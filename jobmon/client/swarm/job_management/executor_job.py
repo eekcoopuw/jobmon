@@ -48,7 +48,7 @@ class ExecutorJob:
     @classmethod
     def from_wire(
             cls, wire_tuple: tuple, executor_class: str,
-            requester: Requester = shared_requester) -> "ExecutorJob":
+            requester: Requester = shared_requester) -> 'ExecutorJob':
         """construct instance from wire format"""
         # convert wire tuple into dictionary of kwargs
         kwargs = SerializeExecutorJob.kwargs_from_wire(wire_tuple)

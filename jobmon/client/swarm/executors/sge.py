@@ -13,8 +13,6 @@ from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
                                            sge_utils, ExecutorParameters)
-from jobmon.client.swarm.executors.sge_parameters import SGEParameters
-from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
@@ -156,11 +154,12 @@ class SGEExecutor(Executor):
         if "el6" in os.environ['SGE_ENV']:
             dev_or_prod = True
 
-        ctx_args = json.loads(context_args)
-        if 'sge_add_args' in ctx_args:
-            sge_add_args = ctx_args['sge_add_args']
-        else:
-            sge_add_args = ""
+        sge_add_args = ""
+        if context_args:
+            ctx_args = json.loads(context_args)
+            if 'sge_add_args' in ctx_args:
+                sge_add_args = ctx_args['sge_add_args']
+
         if project:
             project_cmd = f"-P {project}"
         elif not dev_or_prod and not project:
