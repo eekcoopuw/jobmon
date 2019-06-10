@@ -62,10 +62,9 @@ def test_big_memory_adjusted(no_daemon, mem):
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['125MB', '0GB'])
 def test_small_mem_adjusted(no_daemon, mem):
-    sge_params = SGEParameters(m_mem_free=mem, num_cores=8, j_resource=True,
-                               queue='all.q', max_runtime_seconds=120)
     task = Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-                name="invalid_memory", executor_param=sge_params)
+                name="invalid_memory", m_mem_free=mem, num_cores=8,
+                j_resource=True, queue='all.q', max_runtime_seconds=120)
     valid_mem = task.executor_parameter_obj.params.m_mem_free
     assert valid_mem == 0.128
 
@@ -73,10 +72,9 @@ def test_small_mem_adjusted(no_daemon, mem):
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['0B', '10gigabytes'])
 def test_invalid_mem_adjusted(no_daemon, mem):
-    sge_params = SGEParameters(m_mem_free=mem, num_cores=8, j_resource=True,
-                               queue='all.q', max_runtime_seconds=120)
     task = Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-                name="invalid_memory", executor_param_obj=sge_params)
+                name="invalid_memory", m_mem_free=mem, num_cores=8,
+                j_resource=True, queue='all.q', max_runtime_seconds=120)
     valid_mem = task.executor_parameter_obj.params.m_mem_free
     assert valid_mem == 1
 
@@ -86,8 +84,7 @@ def test_invalid_mem_adjusted(no_daemon, mem):
 def test_memory_transformed_correctly(mem):
     resource = SGEParameters(mem_free=mem, num_cores=1, queue='all.q',
                              max_runtime_seconds=86400)
-    mem_free_gb = resource._transform_mem_to_gb(resource.m_mem_free)
-    assert mem_free_gb == 500
+    assert resource.m_mem_free == 500
 
 
 @pytest.mark.cluster
@@ -95,8 +92,7 @@ def test_memory_transformed_correctly(mem):
 def test_min_memory_transformed_correctly(mem):
     resource = SGEParameters(mem_free=mem, num_cores=1, queue='all.q',
                              max_runtime_seconds=86400)
-    mem_free_gb = resource._transform_mem_to_gb(resource.m_mem_free)
-    assert mem_free_gb == 0.129
+    assert resource.m_mem_free == 0.129
 
 
 @pytest.mark.cluster
