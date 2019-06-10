@@ -177,7 +177,6 @@ class SGEParameters:
     def _transform_mem_to_gb(mem_str: str) -> float:
         # we allow both upper and lowercase g, m, t options
         # BUG g and G are not the same
-        mem = 1
         if mem_str[-1].lower() == "m":
             mem = float(mem_str[:-1])
             mem /= 1000
@@ -194,20 +193,14 @@ class SGEParameters:
             mem = float(mem_str[:-1])
         elif mem_str[-2:].lower() == "gb":
             mem = float(mem_str[:-2])
+        else:
+            mem = 1
         return mem
 
     def _validate_memory(self) -> Tuple[str, float]:
         """Ensure memory requested isn't more than available on any node, and
          tranform it into a float in gigabyte form"""
         mem = self.m_mem_free
-        if isinstance(mem, str):
-            if mem[-1].lower() not in ["m", "g", "t"] and \
-                    mem[-2:].lower() not in ["mb", "gb", "tb"]:
-                return (
-                    "Memory measure should be an int followed by M, MB, m,"
-                    " mb, G, GB, g, gb, T, TB, t, or tb you gave "
-                    f"{mem}, setting to 1G", 1)
-            mem = self._transform_mem_to_gb(mem)
         if mem is None:
             mem = 1  # set to 1G
         if mem < MIN_MEMORY_GB:
