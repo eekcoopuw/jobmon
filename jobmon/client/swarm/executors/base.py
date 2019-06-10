@@ -2,7 +2,7 @@ import inspect
 import logging
 import os
 import shutil
-from typing import List, Tuple, Dict, Optional, Type, Union
+from typing import List, Tuple, Dict, Optional, Type
 
 from jobmon.client import client_config
 from jobmon.client.swarm.executors.sge_parameters import SGEParameters
@@ -20,7 +20,7 @@ class ExecutorParameters:
                  from_original: bool = True, *args, **kwargs):
         logger.info("Initializing Base Class ExecutorParameters")
         self.executor_class = executor_class
-        if executor_class is 'SGEExecutor':
+        if executor_class == 'SGEExecutor':
             kwargs, sge_params = SGEParameters.parse_constructor_kwargs(kwargs)
             if from_original:
                 self.original = SGEParameters(**sge_params)
@@ -30,7 +30,11 @@ class ExecutorParameters:
         else:
             raise ValueError(f"This type of executor {executor_class} "
                              f"is not supported")
-        self.is_valid = False
+        self._is_valid = False
+
+    @property
+    def is_valid(self):
+        return self._is_valid
 
     def adjust_params(self, **kwargs) -> None:
         """
@@ -38,14 +42,8 @@ class ExecutorParameters:
         """
         self.params = self.params.adjusted(**kwargs)
 
-    def is_valid(self) -> bool:
-        """
-        If the parameters have been validated
-        """
-        return self.is_valid
-
     def validate_params(self):
-        self.is_valid = True
+        self._is_valid = True
         self.params, msg = self.params.validated()
         if msg:
             logger.debug(msg)

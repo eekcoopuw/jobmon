@@ -136,10 +136,10 @@ class SGEParameters:
             If the parameters need to be adjusted then create and return a new
             object, otherwise None
         """
-        cores = int(self.num_cores * (1+float(kwargs.get('num_cores', 0))))
-        mem = self.m_mem_free * (1+float(kwargs.get('m_mem_free', 0)))
-        runtime = int(self.max_runtime_seconds
-                      * (1+float(kwargs.get('max_runtime_seconds', 0))))
+        cores = int(self.num_cores * (1 + float(kwargs.get('num_cores', 0))))
+        mem = self.m_mem_free * (1 + float(kwargs.get('m_mem_free', 0)))
+        runtime = int(self.max_runtime_seconds *
+                      (1 + float(kwargs.get('max_runtime_seconds', 0))))
         adjusted_params = {'num_cores': cores, 'm_mem_free': mem,
                            'max_runtime_seconds': runtime,
                            'queue': self.queue, 'j_resource': self.j_resource,
