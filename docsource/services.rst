@@ -203,6 +203,7 @@ http.18        9056        3900 release-0.9.4
 http.19        9556        3950 release-0.9.5
 http.20        9556        3950 release-0.9.6
 http.21        9556        3950 release-0.9.7
+http.22        9856        3980 release-0.9.8
 ========  ==== ===== ===== ==== =============
 
 The port numbers come in pairs, e.g. "3313:3306".
