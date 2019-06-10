@@ -187,8 +187,8 @@ By default, your Workflow talks to our centrally-hosted jobmon server
 (jobmon-docker-cont-p01.hosts.ihme.washington.edu). You can access the
 jobmon database from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
-    host: jobmon-docker-cont-p01.hosts.ihme.washington.edu
-    port: 3950
+    host: jobmon-p01.ihme.washington.edu
+    port: 3990
     user: read_only
     pass: docker
     database: docker
