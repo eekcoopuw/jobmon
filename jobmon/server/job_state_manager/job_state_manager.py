@@ -18,6 +18,7 @@ from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
+from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
@@ -108,7 +109,7 @@ def add_job():
 
     original_exec_params = ExecutorParameterSet(
         job_id=job.job_id,
-        parameter_set_type="O",
+        parameter_set_type=ExecutorParameterSetType.ORIGINAL,
         max_runtime_seconds=data.get('max_runtime_seconds', None),
         context_args=data.get('context_args',"{}"),
         queue=data.get('queue', None),
