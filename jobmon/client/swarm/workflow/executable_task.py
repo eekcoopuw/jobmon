@@ -1,9 +1,11 @@
 import logging
 import hashlib
+from typing import Optional
 
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
-from jobmon.client.stubs import StubJob
+from jobmon.client.swarm.executors.base import ExecutorParameters
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +65,9 @@ class ExecutableTask(object):
                  name=None, slots=None, mem_free=None, num_cores=None,
                  max_runtime_seconds=None, queue=None, max_attempts=3,
                  j_resource=False, tag=None, context_args=None,
-                 job_attributes={}, m_mem_free=None):
+                 job_attributes={}, m_mem_free=None,
+                 executor_class='SGEExecutor',
+                 executor_parameters: Optional[ExecutorParameters] = None):
         """
         Create a task
 
@@ -98,6 +102,10 @@ class ExecutableTask(object):
             these attributes will be used for the job_factory
             add_job_attribute function
         j_resource(bool): whether this task is using the j-drive or not
+        executor_class (str): the type of executor so we can instantiate the
+            executor parameters properly
+        executor_parameters(ExecutorParameters): an instance of executor
+            paremeters class
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
@@ -112,28 +120,7 @@ class ExecutableTask(object):
         # Hash must be an integer, in order for it to be returned by __hash__
         self.hash = int(hashlib.sha1(command.encode('utf-8')).hexdigest(), 16)
 
-        self.slots = slots
-        self.num_cores = num_cores
-        self.max_runtime_seconds = max_runtime_seconds
-        self.queue = queue
         self.max_attempts = max_attempts
-        self.j_resource = j_resource
-        self.context_args = context_args
-
-        if mem_free is not None and m_mem_free is not None:
-            raise ValueError("Cannot pass both mem_free: {} and m_mem_free: "
-                             "{} when creating a task. mem_free is "
-                             "deprecated, so it's recommended to use "
-                             "m_mem_free.".format(mem_free, m_mem_free))
-        else:
-            if m_mem_free:
-                self.mem_free = m_mem_free
-            else:
-                self.mem_free = mem_free
-
-        # temporary conversion until dev and prod clusters are deprecated
-        if isinstance(self.mem_free, int):
-            self.mem_free = f'{self.mem_free}G'
 
         # Names of jobs can't start with a numeric.
         if name is None:
@@ -146,11 +133,27 @@ class ExecutableTask(object):
         ExecutableTask.is_valid_job_name(self.name)
 
         self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
-        self.downstream_tasks = set()
+        self.downstream_tasks: set = set()
         for up in self.upstream_tasks:
             up.add_downstream(self)
 
         self.job_attributes = job_attributes
+
+        if executor_parameters is None:
+            self.executor_parameters = ExecutorParameters(
+                slots=slots,
+                num_cores=num_cores,
+                mem_free=mem_free,
+                m_mem_free=m_mem_free,
+                max_runtime_seconds=max_runtime_seconds,
+                queue=queue,
+                j_resource=j_resource,
+                executor_class=executor_class)
+        else:
+            self.executor_parameters = executor_parameters
+        is_valid, msg = self.executor_parameters.is_valid()
+        if not is_valid:
+            logger.warning(msg)
 
     def add_upstream(self, ancestor):
         """
@@ -184,7 +187,7 @@ class ExecutableTask(object):
             raise ValueError(
                 "Invalid attribute configuration for {} with name: {}, "
                 "user input not used to configure attribute value".format(
-                attribute_type, type(attribute_type).__name__))
+                    attribute_type, type(attribute_type).__name__))
         elif not isinstance(attribute_type, int):
             raise ValueError("Invalid attribute_type: {}, {}"
                              .format(attribute_type,
@@ -232,7 +235,7 @@ class ExecutableTask(object):
 class BoundTask(object):
     """The class that bridges the gap between a task and it's bound Job"""
 
-    def __init__(self, task, job: StubJob, job_list_manager):
+    def __init__(self, task, job: SwarmJob, job_list_manager):
         """
         Link task and job
 

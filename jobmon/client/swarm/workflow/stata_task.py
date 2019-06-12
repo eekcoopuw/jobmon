@@ -1,7 +1,9 @@
 import logging
 import os
+from typing import Optional
 
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
+from jobmon.client.swarm.executors.base import ExecutorParameters
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +18,9 @@ class StataTask(ExecutableTask):
                  args=None, upstream_tasks=None, env_variables={}, name=None,
                  slots=None, num_cores=None, mem_free=None, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None,
-                 j_resource=False, m_mem_free=None):
+                 j_resource=False, m_mem_free=None, context_args=None,
+                 executor_class='SGEExecutor',
+                 executor_parameters: Optional[ExecutorParameters] = None):
         """
         This runs a stata file using stata-mp command, using the flags -b
         (batch) and -q (quiet).
@@ -43,9 +47,9 @@ class StataTask(ExecutableTask):
                 and prod clusters are taken offline
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 3
-            max_runtime_seconds (int, seconds): how long the job should be allowed to
-                run before the executor kills it. Default is None, for
-                indefinite.
+            max_runtime_seconds (int, seconds): how long the job should be
+                allowed to run before the executor kills it. Default is None,
+                for indefinite.
             tag (str): a group identifier. Currently just used for
                 visualization. All tasks with the same tag will be colored the
                 same in a TaskDagViz instance. Default is None.
@@ -59,7 +63,9 @@ class StataTask(ExecutableTask):
             upstream_tasks=upstream_tasks, name=name, slots=slots,
             num_cores=num_cores, mem_free=mem_free, max_attempts=max_attempts,
             max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
-            j_resource=j_resource, m_mem_free=m_mem_free)
+            j_resource=j_resource, m_mem_free=m_mem_free,
+            context_args=context_args, executor_class=executor_class,
+            executor_parameters=executor_parameters)
 
     @staticmethod
     def make_cmd(path_to_stata_binary, script, args):

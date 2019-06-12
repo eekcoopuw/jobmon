@@ -1,12 +1,12 @@
 import random
 
-from jobmon.client.swarm.executors import Executor
-from jobmon.models.job_instance import JobInstance
+from jobmon.client.swarm.executors import Executor, ExecutorParameters
 
 
 class DummyExecutor(Executor):
 
-    def execute(self, job_instance: JobInstance) -> int:
+    def execute(self, command: str, name: str,
+                executor_parameters: ExecutorParameters) -> int:
         # in a real executor, this is where qsub would happen.
         # here, since it's a dummy executor, we just get a random num
         executor_id = random.randint(1, int(1e7))
