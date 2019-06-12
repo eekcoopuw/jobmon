@@ -31,6 +31,7 @@ Table of Contents
     glossary
     design_notes
     API Reference <modules>
+    future_work
 
 
 Indices and tables

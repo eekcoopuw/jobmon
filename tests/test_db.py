@@ -16,6 +16,8 @@ def test_job_submit_times(db_cfg):
     DB = db_cfg["DB"]
 
     with app.app_context():
+        # NOTE: The sleeps are needed so that the timestamps are different.
+        # They are not "wait and hope the other thread is done" sleeps.
 
         # Create dags
         dag = TaskDagMeta(dag_hash='abcd', name='foo', user='bar')

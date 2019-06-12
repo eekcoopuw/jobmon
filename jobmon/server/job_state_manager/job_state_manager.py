@@ -323,10 +323,13 @@ def log_done(job_instance_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     logger.debug("Log DONE for JI {}".format(job_instance_id))
+    logger.debug("Data: " + str(data))
     ji = _get_job_instance(DB.session, job_instance_id)
     if data.get('executor_id', None) is not None:
         ji.executor_id = data['executor_id']
-    ji.nodename = data['nodename']
+    if data.get('nodename', None) is not None:
+        ji.nodename = data['nodename']
+    logger.debug("log_done nodename: {}".format(ji.nodename))
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(
         ji, JobInstanceStatus.DONE)
@@ -396,10 +399,11 @@ def log_error_worker_node(job_instance_id: int):
 def log_error_reconciler(job_instance_id: int):
     """Log a job_instance as errored
     Args:
-
-        job_instance_id (str): id of the job_instance to log done
-        error_message (str): message to log as error
+        job_instance:
+        data:
+        oom_killed: whether or not given job errored due to an oom-kill event
     """
+
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
@@ -442,6 +446,30 @@ def log_no_exec_id(job_instance_id):
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@jsm.route('/log_oom/<executor_id>', methods=['POST'])
+def log_oom(executor_id: str):
+    """Log instances where a job_instance is killed by an Out of Memory Kill
+    event TODO: factor log_error out as a function and use it for both log_oom and log_error
+    Args:
+        executor_id (int): A UGE job_id
+        task_id (int): UGE task_id if the job was an array job (included as
+                       JSON in request)
+        error_message (str): Optional message to log (included as JSON in
+                             request)
+    """
+    data = request.get_json()
+
+    # TODO: figure out what to do with log_oom
+    logger.error(f"{executor_id} ran out of memory. {data}")
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+    # job_instance = _get_job_instance_by_executor_id(DB.session,
+    #                                                 int(executor_id))
+
+    # return _log_error(job_instance=job_instance, data=data, oom_killed=True)
 
 
 @jsm.route('/job_instance/<job_instance_id>/log_executor_id', methods=['POST'])
@@ -568,8 +596,9 @@ def log_running(job_instance_id):
     ji = _get_job_instance(DB.session, job_instance_id)
     logger.debug(logging.logParameter("DB.session", DB.session))
     msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
-    ji.nodename = data['nodename']
-    logger.debug(" ************* log-running nodename: {}".format(ji.nodename))
+    if data.get('nodename', None) is not None:
+        ji.nodename = data['nodename']
+    logger.debug("log_running nodename: {}".format(ji.nodename))
     ji.process_group_id = data['process_group_id']
     ji.report_by_date = func.ADDTIME(
         func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
@@ -805,7 +834,6 @@ def _get_job_instance(session, job_instance_id):
     """Return a JobInstance from the database
 
     Args:
-
         session: DB.session or Session object to use to connect to the db
         job_instance_id (int): job_instance_id with which to query the database
     """
@@ -814,6 +842,21 @@ def _get_job_instance(session, job_instance_id):
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     job_instance = session.query(JobInstance).filter_by(
         job_instance_id=job_instance_id).first()
+    return job_instance
+
+
+def _get_job_instance_by_executor_id(session, executor_id):
+    """Return a JobInstance from the database
+
+    Args:
+        session: DB.session or Session object to use to connect to the db
+        executor_id (int): executor_id with which to query the database
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("session", session))
+    logger.debug(logging.logParameter("executor_id", executor_id))
+    job_instance = session.query(JobInstance).filter_by(
+        executor_id=executor_id).first()
     return job_instance
 
 

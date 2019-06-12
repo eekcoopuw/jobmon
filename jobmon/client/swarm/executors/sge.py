@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 from subprocess import check_output
@@ -59,6 +58,7 @@ class SGEExecutor(Executor):
             stack = traceback.format_exc()
             logger.error(f"*** Caught during qsub {e}")
             logger.error(f"Traceback {stack}")
+            logger.error("qsub response: {resp}")
             msg = (
                 f"Error in executor {self.__class__.__name__}, {str(self)} "
                 f"while executing command {qsub_cmd}: \n{stack}")

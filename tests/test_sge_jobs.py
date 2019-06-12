@@ -3,6 +3,7 @@ from functools import partial
 
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
+from jobmon.client.utils import _run_remote_command
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from tests.timeout_and_skip import timeout_and_skip
@@ -56,7 +57,7 @@ def test_context_args(db_cfg, real_jsm_jqs, job_list_manager_sge):
                          job_id=job.job_id))
 
 
-def context_args_check(db_cfg, job_id):
+def context_args_check(db_cfg, job_id) -> bool:
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
@@ -73,3 +74,97 @@ def context_args_check(db_cfg, job_id):
         return True
     else:
         return False
+
+
+def test_intel_args_positive(db_cfg, job_list_manager_sge):
+    # Positive test - we want Intel
+    architecture_specific_args(db_cfg,
+                               job_list_manager_sge,
+                               test_name="test_intel_arg",
+                               architecture_name="intel",
+                               cluster_architecture_name="GenuineIntel",
+                               )
+
+
+def test_intel_args_negative(db_cfg, job_list_manager_sge):
+    # Negative test - we don't want Intel
+    architecture_specific_args(db_cfg,
+                               job_list_manager_sge,
+                               test_name="test_intel_arg",
+                               architecture_name="intel",
+                               cluster_architecture_name="AuthenticAMD",
+                               yes_or_no=False
+                               )
+
+
+def test_amd_args_positive(db_cfg, job_list_manager_sge):
+    architecture_specific_args(db_cfg,
+                               job_list_manager_sge,
+                               test_name="test_amd_arg",
+                               architecture_name="amd",
+                               cluster_architecture_name="AuthenticAMD"
+                               )
+
+
+def test_amd_args_negative(db_cfg, job_list_manager_sge):
+    architecture_specific_args(db_cfg,
+                               job_list_manager_sge,
+                               test_name="test_amd_arg",
+                               architecture_name="amd",
+                               cluster_architecture_name="GenuineIntel",
+                               yes_or_no=False
+                               )
+
+
+def architecture_specific_args(db_cfg,
+                               job_list_manager_sge,
+                               test_name: str,
+                               architecture_name: str,
+                               cluster_architecture_name: str,
+                               yes_or_no=True
+                               ):
+    if yes_or_no:
+        suffix = ""
+    else:
+        suffix = "=FALSE"
+
+    job = job_list_manager_sge.bind_task(
+        Task(command="sleep 5",
+             name=test_name,
+             num_cores=1, m_mem_free='1G',
+             max_attempts=1,
+             max_runtime_seconds='100',
+             context_args={
+                 'sge_add_args': f"-l {architecture_name}{suffix}"}))
+    job_list_manager_sge.queue_job(job)
+
+    timeout_and_skip(step_size=10, max_time=30, max_qw=1,
+                     job_name=test_name,
+                     partial_test_function=partial(
+                         node_architecture_check,
+                         db_cfg=db_cfg,
+                         job_id=job.job_id,
+                         cluster_architecture_name=cluster_architecture_name
+                     ))
+
+
+def node_architecture_check(db_cfg, job_id: int,
+                            cluster_architecture_name: str) -> bool:
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    node_name = "no-name"
+    with app.app_context():
+        jis = DB.session.query(JobInstance).filter_by(job_id=job_id).all()
+        status = jis[0].status
+        node_name = jis[0].nodename
+        print(f">>>>>> {status} on {node_name}")
+    if status != "D":
+        return False
+    else:
+        command = "python {script}". \
+            format(script=sge.true_path("tests/get_cpu_vendor_name.py"))
+
+        exit_code, stdout_str, stderr_str = _run_remote_command(node_name,
+                                                                command)
+        print(f"Comp {command}: {exit_code}, {stdout_str}")
+        return exit_code == 0 and cluster_architecture_name in stdout_str
