@@ -105,8 +105,8 @@ class JobInstanceFactory(object):
         job_instance_ids = []
         for job in jobs:
             if job.status == JobStatus.ADJUSTING_RESOURCES:
-                job = self._adjust_job_resources(job)
-                job = self._queue_job(job)
+                job.update_executor_parameter_set("A")
+                job.queue_job()
 
             job_instance = self._create_job_instance(job)
             if job_instance:
@@ -131,14 +131,6 @@ class JobInstanceFactory(object):
         # and follows the args/returns requirements of an executor. Potentially
         # resuscitate the Executor abstract base class.
         self.executor = executor
-
-    def _adjust_job_resources(self, job: ExecutorJob) -> ExecutorJob:
-        job.update_executor_parameter_set("A")
-        return job
-
-    def _queue_job(self, job: ExecutorJob) -> ExecutorJob:
-        job.queue_job()
-        return job
 
     def _create_job_instance(self, job: ExecutorJob
                              ) -> Optional[ExecutorJobInstance]:
@@ -176,7 +168,9 @@ class JobInstanceFactory(object):
             last_process_group_id=job.last_process_group_id)
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
-        logger.debug("Using the following parameters in execution: {job.executor_parameters}")
+        logger.debug(
+            "Using the following parameters in execution: "
+            f"{job.executor_parameters}")
         executor_id = job_instance.executor.execute(
             command=command,
             name=job.name,

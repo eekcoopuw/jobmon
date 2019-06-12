@@ -77,7 +77,6 @@ class JobListManager(object):
             task (obj): obj of a type inherited from ExecutableTask
         """
         # bind original parameters and validated parameters to the db
-        o_params = task.executor_parameter_obj.original
 
         if task.hash in self.hash_job_map:
             job = self.hash_job_map[task.hash]
@@ -87,16 +86,18 @@ class JobListManager(object):
                 job_hash=task.hash,
                 command=task.command,
                 tag=task.tag,
-                num_cores=o_params.num_cores,
-                m_mem_free=o_params.m_mem_free,
+                num_cores=task.executor_parameters.num_cores,
+                m_mem_free=task.executor_parameters.m_mem_free,
                 max_attempts=task.max_attempts,
-                max_runtime_seconds=o_params.max_runtime_seconds,
-                context_args=o_params.context_args,
-                queue=o_params.queue,
-                j_resource=o_params.j_resource
+                max_runtime_seconds=(
+                    task.executor_parameters.max_runtime_seconds),
+                context_args=task.executor_parameters.context_args,
+                queue=task.executor_parameters.queue,
+                j_resource=task.executor_parameters.j_resource
             )
-        self._add_validated_parameters(job.job_id,
-                                       task.executor_parameter_obj.params)
+            task.executor_parameters.validate()
+            self._add_validated_parameters(job.job_id,
+                                           task.executor_parameters)
 
         # adding the attributes to the job now that there is a job_id
         for attribute in task.job_attributes:
@@ -107,16 +108,17 @@ class JobListManager(object):
         self.bound_tasks[job.job_id] = bound_task
         return bound_task
 
-    def _add_validated_parameters(self, job_id, parameters):
+    def _add_validated_parameters(self, job_id: int, executor_parameters):
         """Add an entry for the validated parameters to the database and
         activate them"""
+
         msg = {'parameter_set_type': ExecutorParameterSetType.VALIDATED,
-               'max_runtime_seconds': parameters.max_runtime_seconds,
-               'context_args': parameters.context_args,
-               'queue': parameters.queue,
-               'num_cores': parameters.num_cores,
-               'm_mem_free': parameters.m_mem_free,
-               'j_resource': parameters.j_resource}
+               'max_runtime_seconds': executor_parameters.max_runtime_seconds,
+               'context_args': executor_parameters.context_args,
+               'queue': executor_parameters.queue,
+               'num_cores': executor_parameters.num_cores,
+               'm_mem_free': executor_parameters.m_mem_free,
+               'j_resource': executor_parameters.j_resource}
         self.requester.send_request(
             app_route=f'/job/{job_id}/update_resources',
             message=msg,

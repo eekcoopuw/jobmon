@@ -1,5 +1,6 @@
 import logging
 import hashlib
+from typing import Optional
 
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
@@ -65,7 +66,8 @@ class ExecutableTask(object):
                  max_runtime_seconds=None, queue=None, max_attempts=3,
                  j_resource=False, tag=None, context_args=None,
                  job_attributes={}, m_mem_free=None,
-                 executor_class='SGEExecutor', executor_parameters={}):
+                 executor_class='SGEExecutor',
+                 executor_parameters: Optional[ExecutorParameters] = None):
         """
         Create a task
 
@@ -102,8 +104,8 @@ class ExecutableTask(object):
         j_resource(bool): whether this task is using the j-drive or not
         executor_class (str): the type of executor so we can instantiate the
             executor parameters properly
-        executor_parameters(dict): dictionary representation of the desired
-        resources
+        executor_parameters(ExecutorParameters): an instance of executor
+            paremeters class
 
          Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
@@ -131,25 +133,27 @@ class ExecutableTask(object):
         ExecutableTask.is_valid_job_name(self.name)
 
         self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
-        self.downstream_tasks = set()
+        self.downstream_tasks: set = set()
         for up in self.upstream_tasks:
             up.add_downstream(self)
 
         self.job_attributes = job_attributes
 
-        if not executor_parameters:
-            logger.debug("You did not specify executor parameters, "
-                         "creating them for you")
-            executor_parameters = {'slots': slots, 'num_cores': num_cores,
-                                   'mem_free': mem_free,
-                                   'm_mem_free': m_mem_free,
-                                   'max_runtime_seconds': max_runtime_seconds,
-                                   'queue': queue, 'j_resource': j_resource,
-                                   'context_args': context_args}
-        self.executor_parameter_obj = ExecutorParameters(
-            executor_class=executor_class, from_original=True,
-            **executor_parameters)
-        self.executor_parameter_obj.validate_params()
+        if executor_parameters is None:
+            self.executor_parameters = ExecutorParameters(
+                slots=slots,
+                num_cores=num_cores,
+                mem_free=mem_free,
+                m_mem_free=m_mem_free,
+                max_runtime_seconds=max_runtime_seconds,
+                queue=queue,
+                j_resource=j_resource,
+                executor_class=executor_class)
+        else:
+            self.executor_parameters = executor_parameters
+        is_valid, msg = self.executor_parameters.is_valid()
+        if not is_valid:
+            logger.warning(msg)
 
     def add_upstream(self, ancestor):
         """

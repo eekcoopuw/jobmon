@@ -1,7 +1,9 @@
 import logging
 import sys
+from typing import Optional
 
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
+from jobmon.client.swarm.executors.base import ExecutorParameters
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +17,8 @@ class PythonTask(ExecutableTask):
                  slots=None, num_cores=None, mem_free=None, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None,
                  j_resource=False, m_mem_free=None, context_args=None,
-                 executor_class='SGEExecutor', executor_parameters={}):
+                 executor_class='SGEExecutor',
+                 executor_parameters: Optional[ExecutorParameters] = None):
         """
         Args:
             path_to_python_binary (str): the python install that should be used

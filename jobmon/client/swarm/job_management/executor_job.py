@@ -61,7 +61,13 @@ class ExecutorJob:
         executor_job = cls(
             requester=requester,
             executor_parameters=ExecutorParameters(
-                executor_class=executor_class, from_original=False, **kwargs),
+                executor_class=executor_class,
+                num_cores=kwargs["num_cores"],
+                queue=kwargs["queue"],
+                max_runtime_seconds=kwargs["max_runtime_seconds"],
+                j_resource=kwargs["j_resource"],
+                m_mem_free=kwargs["m_mem_free"],
+                context_args=kwargs["context_args"]),
             **executor_job_kwargs)
         return executor_job
 
@@ -74,8 +80,7 @@ class ExecutorJob:
         param_adjustment = {'num_cores': adjustment_factor,
                             'm_mem_free': adjustment_factor,
                             'max_runtime_seconds': adjustment_factor}
-        adjusted_params = self.executor_parameters.get_adjusted(param_adjustment)
-        self.executor_parameters = adjusted_params
+        self.executor_parameters.adjust(**param_adjustment)
 
         msg = {'parameter_set_type': parameter_set_type}
         msg.update(self.executor_parameters.to_wire())

@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 from typing import List, Tuple, Dict, Optional, Type, Union
+import warnings
 
 from jobmon.client import client_config
 from jobmon.client.swarm.executors.sge_parameters import SGEParameters
@@ -16,47 +17,113 @@ class ExecutorParameters:
     """Base parameter class for executors, each executor has specific '
     parameters and must validate them accordingly"""
 
-    def __init__(self, executor_class: str = 'SGEExecutor',
-                 from_original: bool = True, *args, **kwargs):
-        logger.info("Initializing Base Class ExecutorParameters")
-        self.executor_class = executor_class
-        if executor_class is 'SGEExecutor':
-            kwargs, sge_params = SGEParameters.parse_constructor_kwargs(kwargs)
-            if from_original:
-                self.original = SGEParameters(**sge_params)
-                self.params = self.original
-            else:
-                self.params = SGEParameters(**sge_params)
-        else:
-            raise ValueError(f"This type of executor {executor_class} "
-                             f"is not supported")
-        self.is_valid = False
+    _strategies = {'SGEExecutor': SGEParameters}
+    _executor_parameter_args = [
+        "slots", "mem_free", "num_cores", "queue", "max_runtime_seconds",
+        "j_resource", "m_mem_free", "context_args"]
 
-    def adjust_params(self, **kwargs) -> None:
+    def __init__(self,
+                 slots: Optional[int] = None,
+                 mem_free: Optional[int] = None,
+                 num_cores: Optional[int] = None,
+                 queue: Optional[str] = None,
+                 max_runtime_seconds: Optional[int] = None,
+                 j_resource: bool = False,
+                 m_mem_free: Optional[Union[str, float]] = None,
+                 context_args: Optional[Union[Dict, str]] = None,
+                 executor_class: str = 'SGEExecutor'):
+
+        if slots is not None:
+            warnings.warn(
+                "slots is deprecated and will be removed in a future release",
+                FutureWarning)
+        if mem_free is not None:
+            warnings.warn(
+                "mem_free is deprecated and will be removed in a future"
+                " release", FutureWarning)
+
+        # initialize
+        self._slots = slots
+        self._mem_free = mem_free
+        self._num_cores = num_cores
+        self._queue = queue
+        self._max_runtime_seconds = max_runtime_seconds
+        self._j_resource = j_resource
+        self._m_mem_free = m_mem_free
+        self._context_args = context_args
+
+        StrategyCls = self._strategies.get(executor_class)
+        self._strategy: Optional[SGEParameters] = None
+        if StrategyCls is not None:
+            StrategyCls.set_executor_parameters_strategy(self)
+        else:
+            if slots is not None:
+                raise ValueError(
+                    "slots is only supported when using the SGEExecutor class")
+            if mem_free is not None:
+                raise ValueError(
+                    "mem_free is only supported when using the SGEExecutor "
+                    "class")
+
+        self._is_valid = False
+
+    def _attribute_proxy(self, attr_name):
+        if self._strategy is not None and hasattr(self._strategy, attr_name):
+            return getattr(self._strategy, attr_name)
+        else:
+            return getattr(self, "_" + attr_name)
+
+    @property
+    def num_cores(self):
+        return self._attribute_proxy("num_cores")
+
+    @property
+    def queue(self):
+        return self._attribute_proxy("queue")
+
+    @property
+    def max_runtime_seconds(self):
+        return self._attribute_proxy("max_runtime_seconds")
+
+    @property
+    def j_resource(self):
+        return self._attribute_proxy("j_resource")
+
+    @property
+    def m_mem_free(self):
+        return self._attribute_proxy("m_mem_free")
+
+    @property
+    def context_args(self):
+        return self._attribute_proxy("context_args")
+
+    def is_valid(self) -> Tuple[bool, Optional[str]]:
+        if self._strategy is not None:
+            msg = self._strategy.validation_msg()
+            if msg:
+                return False, msg
+        # TODO: implement any base typing logic
+        return True, None
+
+    def adjust(self, **kwargs) -> None:
         """
         Create a new parameter object with adjusted params, kwargs map any
         """
-        self.params = self.params.adjusted(**kwargs)
+        if self._strategy is not None:
+            self._strategy.adjust(**kwargs)
 
-    def is_valid(self) -> bool:
-        """
-        If the parameters have been validated
-        """
-        return self.is_valid
+    def validate(self):
+        if self._strategy is not None:
+            self._strategy.validate()
 
-    def validate_params(self):
-        self.is_valid = True
-        self.params, msg = self.params.validated()
-        if msg:
-            logger.debug(msg)
-
-    def validate_and_throw(self):
+    def is_valid_throw(self):
         """
         Calls validate and converts a False result into an exception
         """
-        self.params, msg = self.params.validated()
-        if msg:
-            raise ValueError(msg)
+        if self._strategy is not None:
+            msg = self._strategy.validation_msg()
+            if msg:
+                raise ValueError(msg)
 
     @classmethod
     def parse_constructor_kwargs(cls, kwarg_dict: Dict) -> Tuple[Dict, Dict]:
@@ -68,7 +135,13 @@ class ExecutorParameters:
         return kwarg_dict, constructor_kwargs
 
     def to_wire(self):
-        return {}
+        return {
+            'max_runtime_seconds': self.max_runtime_seconds,
+            'context_args': self.context_args,
+            'queue': self.queue,
+            'num_cores': self.num_cores,
+            'm_mem_free': self.m_mem_free,
+            'j_resource': self.j_resource}
 
 
 class Executor:
