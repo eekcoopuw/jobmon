@@ -14,7 +14,7 @@ def test_sge_cli(real_jsm_jqs, db_cfg):
     job_name = "foo"
     log_dir = f'/ihme/scratch/users/{getuser()}'
     t1 = PythonTask(script=os.path.join(thisdir, 'fill_pipe.py'),
-                    name=job_name, slots=1, max_runtime_seconds=600,
+                    name=job_name, num_cores=1, max_runtime_seconds=600,
                     max_attempts=1)
 
     workflow = Workflow("my_simple_dag", project='proj_tools',

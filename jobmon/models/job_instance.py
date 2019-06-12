@@ -1,12 +1,12 @@
 import logging
-from datetime import datetime
 
 from sqlalchemy.sql import func
 
 from jobmon.models import DB
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
-from jobmon.models.exceptions import InvalidStateTransition
+from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
+from jobmon.serializers import SerializeExecutorJobInstance
 
 logger = logging.getLogger(__name__)
 
@@ -16,21 +16,13 @@ class JobInstance(DB.Model):
 
     __tablename__ = 'job_instance'
 
-    @classmethod
-    def from_wire(cls, dct):
-        return cls(job_instance_id=dct['job_instance_id'],
-                   workflow_run_id=dct['workflow_run_id'],
-                   executor_id=dct['executor_id'],
-                   nodename=dct['nodename'],
-                   process_group_id=dct['process_group_id'],
-                   job_id=dct['job_id'],
-                   dag_id=dct['dag_id'],
-                   status=dct['status'],
-                   status_date=datetime.strptime(dct['status_date'],
-                                                 "%Y-%m-%dT%H:%M:%S"))
+    def to_wire_as_executor_job_instance(self):
+        return SerializeExecutorJobInstance.to_wire(self.job_instance_id,
+                                                    self.executor_id)
 
+    # TODO: figure out what should be passed to workflow_run when called during
+    # resume
     def to_wire(self):
-        time_since_status = (datetime.utcnow() - self.status_date).seconds
         return {
             'job_instance_id': self.job_instance_id,
             'workflow_run_id': self.workflow_run_id,
@@ -41,7 +33,6 @@ class JobInstance(DB.Model):
             'nodename': self.nodename,
             'process_group_id': self.process_group_id,
             'status_date': self.status_date.strftime("%Y-%m-%dT%H:%M:%S"),
-            'time_since_status_update': time_since_status,
         }
 
     job_instance_id = DB.Column(DB.Integer, primary_key=True)
@@ -52,13 +43,17 @@ class JobInstance(DB.Model):
         DB.Integer,
         DB.ForeignKey('job.job_id'),
         nullable=False)
-    job = DB.relationship("Job", back_populates="job_instances")
     dag_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('task_dag.dag_id'),
         index=True,
         nullable=False)
-    dag = DB.relationship("TaskDagMeta")
+    executor_parameter_set_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('executor_parameter_set.id'),
+        nullable=False)
+
+    # usage
     usage_str = DB.Column(DB.String(250))
     nodename = DB.Column(DB.String(50))
     process_group_id = DB.Column(DB.Integer)
@@ -66,40 +61,116 @@ class JobInstance(DB.Model):
     maxrss = DB.Column(DB.String(50))
     cpu = DB.Column(DB.String(50))
     io = DB.Column(DB.String(50))
+
+    # status/state
     status = DB.Column(
         DB.String(1),
         DB.ForeignKey('job_instance_status.id'),
         default=JobInstanceStatus.INSTANTIATED,
         nullable=False)
-    submitted_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    report_by_date = DB.Column(
-        DB.DateTime,
-        default=func.UTC_TIMESTAMP())
+    submitted_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    report_by_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
+    # ORM relationships
+    job = DB.relationship("Job", back_populates="job_instances")
+    dag = DB.relationship("TaskDagMeta")
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
+    executor_parameter_set = DB.relationship("ExecutorParameterSet")
 
+    # finite state machine transition information
     valid_transitions = [
-        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
-
+        # job instance is submitted normally (happy path)
         (JobInstanceStatus.INSTANTIATED,
          JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
 
+        # job instance submission hit weird bug and didn't get an executor_id
+        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.NO_EXECUTOR_ID),
+
+        # job instance logs running before submitted due to race condition
+        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.RUNNING),
+
+        # job instance logs running after submission to batch (happy path)
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
          JobInstanceStatus.RUNNING),
 
+        # job instance disappeared from executor heartbeat and never logged
+        # running. The executor has no accounting of why it died
         (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-         JobInstanceStatus.ERROR),
+         JobInstanceStatus.UNKNOWN_ERROR),
 
+        # job instance disappeared from executor heartbeat and never logged
+        # running. The executor discovered a resource error exit status.
+        # This seems unlikely but is valid for the purposes of the FSM
+        (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+         JobInstanceStatus.RESOURCE_ERROR),
+
+        # job instance hits an application error (happy path)
         (JobInstanceStatus.RUNNING, JobInstanceStatus.ERROR),
 
-        (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)]
+        # job instance stops logging heartbeats. reconciler can't find an exit
+        # status
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.UNKNOWN_ERROR),
+
+        # 1) job instance stops logging heartbeats. reconciler discovers a
+        # resource error.
+        # 2) worker node detects a resource error
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.RESOURCE_ERROR),
+
+        # job instance finishes normally (happy path)
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)
+    ]
 
     untimely_transitions = [
+
+        # job instance logs running before the executor logs submitted due to
+        # race condition. this is unlikely but happens and is valid for the
+        # purposes of the FSM
         (JobInstanceStatus.RUNNING,
-         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
+         JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
+
+        # job instance stops logging heartbeats and reconciler is looking for
+        # remote exit status but can't find it so logs an unknown error.
+        # Job finishes with an application error. We can't update state because
+        # the job may already be running again due to a race with the JIF
+        (JobInstanceStatus.ERROR, JobInstanceStatus.UNKNOWN_ERROR),
+
+        # job instance stops logging heartbeats and reconciler can't find exit
+        # status. Worker tries to finish gracefully but reconciler won the race
+        (JobInstanceStatus.UNKNOWN_ERROR, JobInstanceStatus.DONE),
+
+        # job instance stops logging heartbeats and reconciler can't find exit
+        # status. Worker tries to report an application error but cant' because
+        # the job could be running again alread and we don't want to update job
+        # state
+        (JobInstanceStatus.UNKNOWN_ERROR, JobInstanceStatus.ERROR),
+
+        # job instance stops logging heartbeats and reconciler can't find exit
+        # status. Worker tries to report a resource error but cant' because
+        # the job could be running again alread and we don't want to update job
+        # state
+        (JobInstanceStatus.UNKNOWN_ERROR, JobInstanceStatus.RESOURCE_ERROR),
+
+        # job instance stops logging heartbeats and reconciler can't find exit
+        # status. Worker reports a resource error before reconciler logs an
+        # unknown error.
+        (JobInstanceStatus.RESOURCE_ERROR, JobInstanceStatus.UNKNOWN_ERROR),
+
+        # job instance stops logging heartbeats and reconciler is looking for
+        # remote exit status but can't find it so logs an unknown error.
+        # The worker finishes gracefully before reconciler can log an unknown
+        # error
+        (JobInstanceStatus.DONE, JobInstanceStatus.UNKNOWN_ERROR)
     ]
+
+    kill_self_states = [JobInstanceStatus.NO_EXECUTOR_ID,
+                        JobInstanceStatus.UNKNOWN_ERROR,
+                        JobInstanceStatus.RESOURCE_ERROR]
+
+    error_states = [JobInstanceStatus.NO_EXECUTOR_ID, JobInstanceStatus.ERROR,
+                    JobInstanceStatus.UNKNOWN_ERROR,
+                    JobInstanceStatus.RESOURCE_ERROR]
 
     def transition(self, new_state):
         """Transition the JobInstance status"""
@@ -107,16 +178,20 @@ class JobInstance(DB.Model):
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             self.status = new_state
-            self.status_date = datetime.utcnow()
+            self.status_date = func.UTC_TIMESTAMP()
             if new_state == JobInstanceStatus.RUNNING:
                 self.job.transition(JobStatus.RUNNING)
             elif new_state == JobInstanceStatus.DONE:
                 self.job.transition(JobStatus.DONE)
-            elif new_state == JobInstanceStatus.ERROR:
-                self.job.transition_to_error()
+            elif new_state in self.error_states:
+                self.job.transition_after_job_instance_error(new_state)
 
     def _validate_transition(self, new_state):
         """Ensure the JobInstance status transition is valid"""
+        if self.status in self.__class__.kill_self_states and \
+                new_state is JobInstanceStatus.RUNNING:
+            raise KillSelfTransition('JobInstance', self.job_instance_id,
+                                     self.status, new_state)
         if (self.status, new_state) not in self.__class__.valid_transitions:
             raise InvalidStateTransition('JobInstance', self.job_instance_id,
                                          self.status, new_state)

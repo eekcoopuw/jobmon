@@ -1,18 +1,16 @@
 import pytest
-import time
 from time import sleep
 
+from jobmon.client import client_config
 from jobmon.client.swarm.executors import sge_utils as sge
-from jobmon.models.job import Job
-from jobmon.models.job_status import JobStatus
-from jobmon.client import shared_requester as req
 from jobmon.client.swarm.executors.dummy import DummyExecutor
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
+from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.server.jobmonLogging import jobmonLogging as logging
 from jobmon.client.utils import kill_remote_process
+from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 from tests.timeout_and_skip import timeout_and_skip
 from functools import partial
@@ -25,16 +23,19 @@ def job_list_manager_dummy(real_dag_id):
     # We don't want this queueing jobs in conflict with the SGE daemons...
     # but we do need it to subscribe to status updates for reconciliation
     # tests. Start this thread manually.
+    old_heartbeat_interval = client_config.heartbeat_interval
+    client_config.heartbeat_interval = 5
     executor = DummyExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
                          start_daemons=False, interrupt_on_error=False)
     yield jlm
     jlm.disconnect()
+    client_config.heartbeat_interval = old_heartbeat_interval
 
 
 @pytest.fixture(scope='function')
 def job_list_manager_reconciliation(real_dag_id):
-    executor = SGEExecutor()
+    executor = SGEExecutor(project="proj_tools")
     jlm = JobListManager(real_dag_id, executor=executor,
                          start_daemons=True,
                          interrupt_on_error=False)
@@ -113,6 +114,7 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     job = job_list_manager_dummy.bind_task(task)
     job_list_manager_dummy.queue_job(job)
     jif = job_list_manager_dummy.job_instance_factory
+    jir = job_list_manager_dummy.job_inst_reconciler
 
     # How long we wait for a JI to report it is running before reconciler moves
     # it to error state.
@@ -120,8 +122,7 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     job_list_manager_dummy.job_instance_factory.instantiate_queued_jobs()
 
     # Since we are using the 'dummy' executor, we never actually do
-    # any work. The job gets moved to error during reconciliation
-    # because we only allow 1 attempt
+    # any work. The job gets moved to lost_track during reconciliation
     state = ''
     maxretries = 10
     app = db_cfg["app"]
@@ -140,16 +141,21 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     if state != "B":
         raise Exception("The init status failed to be set to B")
 
+    # job will move into lost track because it never logs a heartbeat
     i = 0
-    while i <  maxretries:
-        job_list_manager_dummy.job_inst_reconciler.reconcile()
-        job_list_manager_dummy._sync()
+    while i < maxretries:
+        jir.reconcile()
         i += 1
         res = DB.session.execute(sql).fetchone()
         DB.session.commit()
-        if res[0] == "E":
+        if res[0] != "B":
             break
         sleep(5)
+    assert res[0] == "U"
+
+    # because we only allow 1 attempt job will move to E after job instance
+    # moves to U
+    job_list_manager_dummy._sync()
     assert len(job_list_manager_dummy.all_error) > 0
 
 
@@ -159,7 +165,7 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
 
     # Queue a job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
-                name="sleepyjob_pass", slots=1)
+                name="sleepyjob_pass", num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
 
@@ -183,13 +189,14 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
         sleep(2)
 
 
-def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
+def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg
+                                       ):
     """ensures that the jobs have logged new heartbeats while running"""
     job_list_manager_reconciliation.all_error = set()
     jir = job_list_manager_reconciliation.job_inst_reconciler
     jif = job_list_manager_reconciliation.job_instance_factory
 
-    task = BashTask(command="sleep 5", name="heartbeat_sleeper", slots=1,
+    task = BashTask(command="sleep 5", name="heartbeat_sleeper", num_cores=1,
                     max_runtime_seconds=500)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
@@ -219,14 +226,14 @@ def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg):
     assert start < end  # indicating at least one heartbeat got logged
 
 
-def test_reconciler_sge_timeout(job_list_manager_reconciliation):
+def test_reconciler_sge_timeout(job_list_manager_reconciliation, db_cfg):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_reconciliation.all_error = set()
 
     # Queue a test job
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
                 name="sleepyjob_fail", max_attempts=3, max_runtime_seconds=3,
-                slots=1)
+                num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
 
@@ -235,34 +242,35 @@ def test_reconciler_sge_timeout(job_list_manager_reconciliation):
     # The sleepy job tries to sleep for 60 seconds, but times out after 3
     # seconds (well, when the reconciler runs, typically every 10 seconds)
     # 60
-    timeout_and_skip(20, 100, 1, "sleepyjob_fail", partial(
+    timeout_and_skip(20, 200, 1, "sleepyjob_fail", partial(
         reconciler_sge_timeout_check,
         job_list_manager_reconciliation=job_list_manager_reconciliation,
         dag_id=job_list_manager_reconciliation.dag_id,
-        job_id=job.job_id))
+        job_id=job.job_id,
+        db_cfg=db_cfg))
 
 
 def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
-                                 job_id):
+                                 job_id, db_cfg):
     job_list_manager_reconciliation._sync()
     if len(job_list_manager_reconciliation.all_error) == 1:
         assert job_id in [
             j.job_id for j in job_list_manager_reconciliation.all_error]
 
         # The job should have been tried 3 times...
-        _, response = req.send_request(
-            app_route='/dag/{}/job'.format(dag_id),
-            message={},
-            request_type='get')
-        jobs = [Job.from_wire(j) for j in response['job_dcts']]
-        this_job = [j for j in jobs if j.job_id == job_id][0]
-        assert this_job.num_attempts == 3
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
+        with app.app_context():
+            query = f"select num_attempts from job where job_id = {job_id}"
+            res = DB.session.execute(query).fetchone()
+            DB.session.commit()
+        assert res[0] == 3
         return True
     else:
         return False
 
 
-def test_ignore_qw_in_timeouts(job_list_manager_reconciliation):
+def test_ignore_qw_in_timeouts(job_list_manager_reconciliation, db_cfg):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_reconciliation.all_error = set()
 
@@ -272,7 +280,7 @@ def test_ignore_qw_in_timeouts(job_list_manager_reconciliation):
     # TBD I don't think that has been implemented.
     task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
                 name="sleepyjob", max_attempts=3, max_runtime_seconds=3,
-                slots=1)
+                num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
 
@@ -281,28 +289,29 @@ def test_ignore_qw_in_timeouts(job_list_manager_reconciliation):
     # The sleepy job tries to sleep for 60 seconds, but times out after 3
     # seconds
 
-    timeout_and_skip(10, 90, 1, "sleepyjob", partial(
+    timeout_and_skip(10, 200, 1, "sleepyjob", partial(
         ignore_qw_in_timeouts_check,
         job_list_manager_reconciliation=job_list_manager_reconciliation,
         dag_id=job_list_manager_reconciliation.dag_id,
-        job_id=job.job_id))
+        job_id=job.job_id,
+        db_cfg=db_cfg))
 
 
-def ignore_qw_in_timeouts_check(job_list_manager_reconciliation, dag_id, job_id
-                                ):
+def ignore_qw_in_timeouts_check(job_list_manager_reconciliation, dag_id,
+                                job_id, db_cfg):
     job_list_manager_reconciliation._sync()
     if len(job_list_manager_reconciliation.all_error) == 1:
         assert job_id in [
             j.job_id for j in job_list_manager_reconciliation.all_error]
 
         # The job should have been tried 3 times...
-        _, response = req.send_request(
-            app_route='/dag/{}/job'.format(dag_id),
-            message={},
-            request_type='get')
-        jobs = [Job.from_wire(j) for j in response['job_dcts']]
-        this_job = [j for j in jobs if j.job_id == job_id][0]
-        assert this_job.num_attempts == 3
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
+        with app.app_context():
+            query = f"select num_attempts from job where job_id = {job_id}"
+            res = DB.session.execute(query).fetchone()
+            DB.session.commit()
+        assert res[0] == 3
         return True
     else:
         return False
@@ -337,29 +346,24 @@ def test_queued_for_instantiation(sge_jlm_for_queues):
 
     tasks = []
     for i in range(20):
-        task = BashTask(command=f"sleep {i}", slots=1)
+        task = BashTask(command=f"sleep {i}", num_cores=1)
         tasks.append(task)
         job = sge_jlm_for_queues.bind_task(task)
         sge_jlm_for_queues.queue_job(job)
 
     # comparing results and times of old query vs new query
-    time_a = time.time()
     rc, response = test_jif.requester.send_request(
-        app_route=f'/dag/{test_jif.dag_id}/job',
-        message={'status': JobStatus.QUEUED_FOR_INSTANTIATION},
+        app_route=f'/dag/{test_jif.dag_id}/queued_jobs/1000',
+        message={},
         request_type='get')
-    all_jobs = [Job.from_wire(j) for j in response['job_dcts']]
-    time_b = time.time()
+    all_jobs = [
+        ExecutorJob.from_wire(j, test_jif.executor.__class__.__name__)
+        for j in response['job_dcts']]
 
     # now new query that should only return 3 jobs
     select_jobs = test_jif._get_jobs_queued_for_instantiation()
-    time_c = time.time()
-    first_query = time_b - time_a
-    new_query = time_c - time_b
 
     assert len(select_jobs) == 3
     assert len(all_jobs) == 20
     for i in range(3):
         assert select_jobs[i].job_id == (i + 1)
-
-

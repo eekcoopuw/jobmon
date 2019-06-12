@@ -1,9 +1,5 @@
 """Interface to the dynamic resource manager (DRM), aka the scheduler."""
 
-try:
-    from collections.abc import Sequence
-except ImportError:
-    from collections import Sequence
 from datetime import datetime
 import itertools
 import logging
@@ -14,7 +10,6 @@ import subprocess
 import pandas as pd
 import numpy as np
 
-import jobmon.client.swarm.executors.sge as sge
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
@@ -67,7 +62,7 @@ def get_project_limits(project):
     if not project:
         project = 'ihme_general'
     if "el7" in os.environ["SGE_ENV"]:
-        """project limits are not enforced on the fair cluster if other 
+        """project limits are not enforced on the fair cluster if other
         projects are not using the resources so global limit is assigned"""
         return 10000
     else:
@@ -151,7 +146,7 @@ def qstat(status=None, pattern=None, user=None, jids=None):
             job_time = line.split()[6]
             try:
                 job_slots.append(int(line.split()[8]))
-            except:
+            except Exception:
                 job_slots.append(int(line.split()[7]))
             job_datetime = datetime.strptime(
                 " ".join([job_date, job_time]),
@@ -288,9 +283,12 @@ def qdel(job_ids):
 
 
 def qacct_exit_status(jid: int)->int:
-    cmd1 = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid  #For strange reason f string or format does not work
+    # For strange reason f string or format does not work
+    cmd1 = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid
+    logger.warning("**********************************************" + cmd1)
     try:
-        return int(subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n",""))
+        res = subprocess.check_output(cmd1, shell=True)
+        return int(res.decode("utf-8").replace("\n", ""))
     except Exception as e:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))
@@ -300,10 +298,13 @@ def qacct_exit_status(jid: int)->int:
 def qacct_hostname(jid: int)->str:
     if jid is None:
         return None
-    cmd1 = "qacct -j %s |grep hostname|awk \'{print $2}\'" % jid  # For strange reason f string or format does not work
+    # For strange reason f string or format does not work
+    cmd1 = "qacct -j %s |grep hostname|awk \'{print $2}\'" % jid
     logger.debug(cmd1)
     try:
-        return subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n", "")
+        res = subprocess.check_output(
+            cmd1, shell=True).decode("utf-8").replace("\n", "")
+        return res
     except Exception as e:
         # In case the command execution failed, log error and return None
         logger.error(str(e))
@@ -313,10 +314,13 @@ def qacct_hostname(jid: int)->str:
 def qstat_hostname(jid: int)->str:
     if jid is None:
         return None
-    cmd1 = " qstat -j %s |grep exec_host_list | awk -F \':\' \'{print $2}\'" % jid  # For strange reason f string or format does not work
+    # For strange reason f string or format does not work
+    cmd1 = " qstat -j %s |grep exec_host_list | awk -F \':\' \'{print $2}\'" % jid
     logger.debug(cmd1)
     try:
-        return subprocess.check_output(cmd1, shell=True).decode("utf-8").replace("\n", "").strip()
+        res = subprocess.check_output(
+            cmd1, shell=True).decode("utf-8").replace("\n", "").strip()
+        return res
     except Exception as e:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))

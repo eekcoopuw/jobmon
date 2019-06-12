@@ -1,11 +1,14 @@
 import logging
 from datetime import datetime
 
+from sqlalchemy.sql import func
+
 from jobmon.models import DB
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.exceptions import InvalidStateTransition
+from jobmon.serializers import SerializeExecutorJob, SerializeSwarmJob
 
 logger = logging.getLogger(__name__)
 
@@ -17,61 +20,67 @@ class Job(DB.Model):
     __table_args__ = (
         DB.Index("ix_dag_id_status_date", "dag_id", "status_date"),)
 
-    @classmethod
-    def from_wire(cls, dct):
-        return cls(dag_id=dct['dag_id'], job_id=dct['job_id'],
-                   job_hash=int(dct['job_hash']), name=dct['name'],
-                   tag=dct['tag'], command=dct['command'], slots=dct['slots'],
-                   mem_free=dct['mem_free'], num_cores=dct['num_cores'],
-                   status=dct['status'], max_runtime_seconds=dct['max_runtime_seconds'],
-                   num_attempts=dct['num_attempts'],
-                   max_attempts=dct['max_attempts'],
-                   context_args=dct['context_args'],
-                   queue=dct['queue'], j_resource=dct['j_resource'],
-                   last_nodename=dct['last_nodename'],
-                   last_process_group_id=dct['last_process_group_id'])
-
-    def to_wire(self):
+    def to_wire_as_executor_job(self):
         lnode, lpgid = self._last_instance_procinfo()
-        return {'dag_id': self.dag_id, 'job_id': self.job_id,
-                'name': self.name, 'tag': self.tag, 'job_hash': self.job_hash,
-                'command': self.command, 'status': self.status,
-                'slots': self.slots, 'mem_free': self.mem_free,
-                'num_cores': self.num_cores,
-                'max_runtime_seconds': self.max_runtime_seconds,
-                'num_attempts': self.num_attempts,
-                'max_attempts': self.max_attempts,
-                'context_args': self.context_args,
-                'queue': self.queue, 'j_resource': self.j_resource,
-                'last_nodename': lnode,
-                'last_process_group_id': lpgid}
+        serialized = SerializeExecutorJob.to_wire(
+            dag_id=self.dag_id,
+            job_id=self.job_id,
+            name=self.name,
+            job_hash=self.job_hash,
+            command=self.command,
+            status=self.status,
+            max_runtime_seconds=(
+                self.executor_parameter_set.max_runtime_seconds),
+            context_args=self.executor_parameter_set.context_args,
+            queue=self.executor_parameter_set.queue,
+            num_cores=self.executor_parameter_set.num_cores,
+            m_mem_free=self.executor_parameter_set.m_mem_free,
+            j_resource=self.executor_parameter_set.j_resource,
+            last_nodename=lnode,
+            last_process_group_id=lpgid)
+        return serialized
 
+    def to_wire_as_swarm_job(self):
+        serialized = SerializeSwarmJob.to_wire(
+            job_id=self.job_id,
+            job_hash=self.job_hash,
+            status=self.status)
+        return serialized
+
+    # identifiers
     job_id = DB.Column(DB.Integer, primary_key=True)
-    job_instances = DB.relationship("JobInstance", back_populates="job")
     dag_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('task_dag.dag_id'))
     job_hash = DB.Column(DB.String(255), nullable=False)
     name = DB.Column(DB.String(255))
     tag = DB.Column(DB.String(255))
+
+    # execution info
     command = DB.Column(DB.Text)
-    context_args = DB.Column(DB.String(1000))
-    queue = DB.Column(DB.String(255))
-    slots = DB.Column(DB.Integer, default=None)
-    mem_free = DB.Column(DB.String(255))
-    num_cores = DB.Column(DB.Integer, default=None)
-    j_resource = DB.Column(DB.Boolean, default=False)
-    max_runtime_seconds = DB.Column(DB.Integer, default=None)
+    executor_parameter_set_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('executor_parameter_set.id'),
+        default=None)
+
+    # status/state
     num_attempts = DB.Column(DB.Integer, default=0)
     max_attempts = DB.Column(DB.Integer, default=1)
     status = DB.Column(
         DB.String(1),
         DB.ForeignKey('job_status.id'),
         nullable=False)
-    submitted_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    status_date = DB.Column(DB.DateTime, default=datetime.utcnow,
+    submitted_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP(),
                             index=True)
 
+    # ORM relationships
+    job_instances = DB.relationship("JobInstance", back_populates="job")
+    executor_parameter_set = DB.relationship(
+        "ExecutorParameterSet", foreign_keys=[executor_parameter_set_id])
+
+    # Materialized attributes, derived during to_wire() only. Not represented
+    # in the database model
     last_nodename = None
     last_process_group_id = None
 
@@ -82,8 +91,10 @@ class Job(DB.Model):
         (JobStatus.INSTANTIATED, JobStatus.ERROR_RECOVERABLE),
         (JobStatus.RUNNING, JobStatus.DONE),
         (JobStatus.RUNNING, JobStatus.ERROR_RECOVERABLE),
-        (JobStatus.ERROR_RECOVERABLE, JobStatus.ERROR_FATAL),
-        (JobStatus.ERROR_RECOVERABLE, JobStatus.QUEUED_FOR_INSTANTIATION)]
+        (JobStatus.ERROR_RECOVERABLE, JobStatus.ADJUSTING_RESOURCES),
+        (JobStatus.ADJUSTING_RESOURCES, JobStatus.QUEUED_FOR_INSTANTIATION),
+        (JobStatus.ERROR_RECOVERABLE, JobStatus.QUEUED_FOR_INSTANTIATION),
+        (JobStatus.ERROR_RECOVERABLE, JobStatus.ERROR_FATAL)]
 
     def reset(self):
         """Reset status and number of attempts on a Job"""
@@ -94,15 +105,18 @@ class Job(DB.Model):
             new_error = JobInstanceErrorLog(description="Job RESET requested")
             ji.errors.append(new_error)
 
-    def transition_to_error(self):
+    def transition_after_job_instance_error(self, job_instance_error_state):
         """Transition the Job to an error state"""
         self.transition(JobStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
             logger.debug("ZZZ GIVING UP Job {}".format(self.job_id))
             self.transition(JobStatus.ERROR_FATAL)
         else:
-            logger.debug("ZZZ retrying Job {}".format(self.job_id))
-            self.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
+            if job_instance_error_state == JobInstanceStatus.RESOURCE_ERROR:
+                self.transition(JobStatus.ADJUSTING_RESOURCES)
+            else:
+                logger.debug("ZZZ retrying Job {}".format(self.job_id))
+                self.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
 
     def transition(self, new_state):
         """Transition the Job to a new state"""
