@@ -5,6 +5,7 @@ from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
+from jobmon import Workflow
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.models.job import Job
@@ -195,8 +196,6 @@ def test_kill_self_task(db_cfg, dag_factory):
     real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
         real_dag._execute())
-
-    ret_vals = get_task_status(real_dag, task)
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]

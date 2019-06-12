@@ -9,6 +9,7 @@ Subpackages
     jobmon.server.health_monitor
     jobmon.server.job_query_server
     jobmon.server.job_state_manager
+    jobmon.server.job_visualization_server
 
 Submodules
 ----------

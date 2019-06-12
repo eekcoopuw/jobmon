@@ -43,7 +43,7 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
     stderr.close()
 
 
-def kill_self(child_process: subprocess.Popen=None):
+def kill_self(child_process: subprocess.Popen = None):
     """If the worker has received a signal to kill itself, kill the child
     processes and then self, will show up as an exit code 299 in qacct"""
     if child_process:

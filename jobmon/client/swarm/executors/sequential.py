@@ -14,9 +14,14 @@ logger = logging.getLogger(__name__)
 
 class SequentialExecutor(Executor):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, stderr=None, stdout=None, project=None,
+                 working_dir=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._next_executor_id = 1
+        self.stderr = stderr
+        self.stdout = stdout
+        self.project = project
+        self.working_dir = working_dir
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters) -> int:
