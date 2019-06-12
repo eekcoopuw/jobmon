@@ -4,10 +4,12 @@ import logging
 import threading
 from time import sleep
 import traceback
-from typing import Optional
+from typing import Optional, List
 import _thread
 
 from jobmon.client import shared_requester, client_config
+from jobmon.client.requester import Requester
+from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.client.swarm.job_management.executor_job_instance import (
     ExecutorJobInstance)
@@ -19,30 +21,37 @@ logger = logging.getLogger(__name__)
 
 
 class JobInstanceFactory(object):
+    """The JobInstanceFactory is in charge of queueing jobs and creating
+    job_instances, in order to get the jobs from merely Task objects to
+    running code.
 
-    def __init__(self, dag_id, executor=None, interrupt_on_error=True,
-                 n_queued_jobs=1000, stop_event=None,
-                 requester=shared_requester):
-        """The JobInstanceFactory is in charge of queueing jobs and creating
-        job_instances, in order to get the jobs from merely Task objects to
-        running code.
+    Args:
+        dag_id (int): the id for the dag to run
+        executor (Executor, optional): executor to use w/ this factory.
+            SequentialExecutor, DummyExecutor or SGEExecutor. Default
+                SequentialExecutor
+        interrupt_on_error (bool, optional): whether or not to
+            interrupt the thread if there's an error. Default True
+        n_queued_jobs (int, optional): number of queued jobs to return and
+            send to be instantiated. default 1000
+        stop_event (threading.Event, optional): Object of type
+            threading.Event. Default None
+        requester (Requester, optional)
+    """
+    def __init__(self,
+                 dag_id: int,
+                 executor: Executor = None,
+                 interrupt_on_error: bool = True,
+                 n_queued_jobs: int = 1000,
+                 stop_event: threading.Event = None,
+                 requester: Requester = shared_requester):
 
-        Args:
-            dag_id (int): the id for the dag to run
-            executor (obj, default SequentialExecutor): obj of type
-            SequentialExecutor, DummyExecutor or SGEExecutor
-            interrupt_on_error (bool, default True): whether or not to
-                interrupt the thread if there's an error
-            n_queued_jobs (int): number of queued jobs to return and send to
-                be instantiated
-            stop_event (obj, default None): Object of type threading.Event
-        """
         self.dag_id = dag_id
         self.requester = requester
         self.interrupt_on_error = interrupt_on_error
         self.n_queued_jobs = n_queued_jobs
-        self.next_report_increment = client_config.heartbeat_interval * \
-            client_config.report_by_buffer
+        self.report_by_buffer = client_config.report_by_buffer
+        self.heartbeat_interval = client_config.heartbeat_interval
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they
@@ -59,14 +68,15 @@ class JobInstanceFactory(object):
         else:
             self._stop_event = stop_event
 
-    def instantiate_queued_jobs_periodically(self, poll_interval=3):
+    def instantiate_queued_jobs_periodically(self, poll_interval: int = 3
+                                             ) -> None:
         """Running in a thread, this function allows the JobInstanceFactory to
         periodically get all jobs that are ready and queue them for
         instantiation
 
         Args:
-            poll_interval (int): how often you want this function to poll for
-            newly ready jobs
+            poll_interval (int, optional): how often you want this function to
+                poll for newly ready jobs
         """
         logger.info("Polling for and instantiating queued jobs at {}s "
                     "intervals".format(poll_interval))
@@ -95,7 +105,7 @@ class JobInstanceFactory(object):
                 else:
                     raise
 
-    def instantiate_queued_jobs(self):
+    def instantiate_queued_jobs(self) -> List[int]:
         """Pull all jobs that are ready, create job instances for them, and
         thereby run them
         """
@@ -116,7 +126,7 @@ class JobInstanceFactory(object):
             len(job_instance_ids)))
         return job_instance_ids
 
-    def set_executor(self, executor):
+    def set_executor(self, executor: Executor) -> None:
         """
         Sets the executor that will be used for all jobs queued downstream
         of the set event.
@@ -188,7 +198,7 @@ class JobInstanceFactory(object):
             job_instance.register_no_exec_id(executor_id=executor_id)
         elif executor_id:
             job_instance.register_submission_to_batch_executor(
-                executor_id, self.next_report_increment)
+                executor_id, self.heartbeat_interval * self.report_by_buffer)
         else:
             msg = ("Did not receive an executor_id in _create_job_instance")
             logger.error(msg)
@@ -199,7 +209,7 @@ class JobInstanceFactory(object):
 
         return job_instance
 
-    def _get_jobs_queued_for_instantiation(self):
+    def _get_jobs_queued_for_instantiation(self) -> List[ExecutorJob]:
         app_route = f"/dag/{self.dag_id}/queued_jobs/{self.n_queued_jobs}"
         rc, response = self.requester.send_request(
             app_route=app_route,
@@ -207,7 +217,7 @@ class JobInstanceFactory(object):
             request_type='get')
         if rc != StatusCodes.OK:
             logger.error(f"error in {app_route}")
-            jobs = []
+            jobs: List[ExecutorJob] = []
         else:
             jobs = [
                 ExecutorJob.from_wire(j, self.executor.__class__.__name__)

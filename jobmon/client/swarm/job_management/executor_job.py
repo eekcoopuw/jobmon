@@ -1,6 +1,5 @@
-import inspect
 import logging
-from typing import Type, Optional, Dict, Tuple
+from typing import Optional
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
@@ -16,13 +15,37 @@ class ExecutorJob:
     """
     This is a Job object used on the RESTful API client side
     when constructing job instances.
+
+    Args:
+        dag_id (int): dag_id associated with this job
+        job_id (int): job_id associated with this job
+        name (str): name associated with this job
+        job_hash (int): hash of command for this job
+        command (str): what command to run when executing
+        status (str): job status  associated with this job
+        executor_parameters (ExecutorParameters): Executor parameters class
+            associated with the current executor for this job
+        last_nodename (str, Optional[str]): where this job last executed
+        last_process_group_id (int, Optional[int]) what was the linux process
+            group id of the last instance of this job
+        requester (Requester, shared_requester): requester for communicating
+            with central services
     """
 
-    def __init__(self, dag_id: int, job_id: int, name: str, job_hash: int,
-                 command: str, status: str, last_nodename: Optional[str],
-                 last_process_group_id: Optional[int],
+    # this API should always match what's returned by
+    # serializers.SerializeExecutorJob
+    def __init__(self,
+                 dag_id: int,
+                 job_id: int,
+                 name: str,
+                 job_hash: int,
+                 command: str,
+                 status: str,
                  executor_parameters: ExecutorParameters,
+                 last_nodename: Optional[str] = None,
+                 last_process_group_id: Optional[int] = None,
                  requester: Requester = shared_requester):
+
         self.dag_id = dag_id
         self.job_id = job_id
         self.name = name
@@ -37,28 +60,35 @@ class ExecutorJob:
         self.requester = requester
 
     @classmethod
-    def parse_constructor_kwargs(cls, kwarg_dict: Dict) -> Tuple[Dict, Dict]:
-        argspec = inspect.getfullargspec(cls.__init__)
-        constructor_kwargs = {}
-        for arg in argspec.args:
-            if arg in kwarg_dict:
-                constructor_kwargs[arg] = kwarg_dict.pop(arg)
-        return kwarg_dict, constructor_kwargs
+    def from_wire(cls,
+                  wire_tuple: tuple,
+                  executor_class: str,
+                  requester: Requester = shared_requester
+                  ) -> 'ExecutorJob':
+        """construct instance from wire format the JQS gives
 
-    @classmethod
-    def from_wire(
-            cls, wire_tuple: tuple, executor_class: str,
-            requester: Requester = shared_requester) -> 'ExecutorJob':
-        """construct instance from wire format"""
+        Args:
+            wire_tuple (tuple): tuple representing the wire format for this
+                job. format = serializers.SerializeExecutorJob.to_wire()
+            executor_class (str): which executor class this job instance is
+                being run on
+            requester (Requester, shared_requester): requester for
+                communicating with central services
+        """
+
         # convert wire tuple into dictionary of kwargs
         kwargs = SerializeExecutorJob.kwargs_from_wire(wire_tuple)
 
-        # separates the kwargs we recieved from the wire used for constructing
-        # ExecutorJob
-        kwargs, executor_job_kwargs = cls.parse_constructor_kwargs(kwargs)
-
+        # instantiate job
         executor_job = cls(
-            requester=requester,
+            dag_id=kwargs["dag_id"],
+            job_id=kwargs["job_id"],
+            name=kwargs["name"],
+            job_hash=kwargs["job_hash"],
+            command=kwargs["command"],
+            status=kwargs["status"],
+            last_nodename=kwargs["last_nodename"],
+            last_process_group_id=kwargs["last_process_group_id"],
             executor_parameters=ExecutorParameters(
                 executor_class=executor_class,
                 num_cores=kwargs["num_cores"],
@@ -67,11 +97,18 @@ class ExecutorJob:
                 j_resource=kwargs["j_resource"],
                 m_mem_free=kwargs["m_mem_free"],
                 context_args=kwargs["context_args"]),
-            **executor_job_kwargs)
+            requester=requester)
         return executor_job
 
     def update_executor_parameter_set(self, parameter_set_type: str) -> None:
-        # TODO: refactor for common API between executor parameter types
+        """update the resources for a given job in the db
+
+        Args:
+            parameter_set_type (str): models.executor_parameter_set_type value
+        """
+
+        # TODO: refactor for common API between executor parameter types.
+        # somehow infer what paremeters need scaled based executor
 
         # adjust parameters
         adjustment_factor = 0.5
@@ -87,12 +124,8 @@ class ExecutorJob:
             message=msg,
             request_type='post')
 
-    def queue_job(self):
-        """Transition a job to the Queued for Instantiation status in the db
-
-        Args:
-            job (ExecutorJob): the id of the job to be queued
-        """
+    def queue_job(self) -> None:
+        """Transition a job to the Queued for Instantiation status"""
         app_route = f"/job/{self.job_id}/queue"
         rc, _ = self.requester.send_request(
             app_route=app_route,

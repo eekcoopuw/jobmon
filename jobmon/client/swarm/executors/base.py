@@ -1,4 +1,3 @@
-import inspect
 import logging
 import os
 import shutil
@@ -18,9 +17,6 @@ class ExecutorParameters:
     parameters and must validate them accordingly"""
 
     _strategies = {'SGEExecutor': SGEParameters}
-    _executor_parameter_args = [
-        "slots", "mem_free", "num_cores", "queue", "max_runtime_seconds",
-        "j_resource", "m_mem_free", "context_args"]
 
     def __init__(self,
                  slots: Optional[int] = None,
@@ -28,7 +24,7 @@ class ExecutorParameters:
                  num_cores: Optional[int] = None,
                  queue: Optional[str] = None,
                  max_runtime_seconds: Optional[int] = None,
-                 j_resource: bool = False,
+                 j_resource: Optional[bool] = False,
                  m_mem_free: Optional[Union[str, float]] = None,
                  context_args: Optional[Union[Dict, str]] = None,
                  executor_class: str = 'SGEExecutor'):
@@ -67,7 +63,9 @@ class ExecutorParameters:
 
         self._is_valid = False
 
-    def _attribute_proxy(self, attr_name):
+    def _attribute_proxy(self, attr_name: str):
+        """checks whether executor specific class has implemented given
+        paremeter and returns it, or else returns base implemenetation"""
         if self._strategy is not None and hasattr(self._strategy, attr_name):
             return getattr(self._strategy, attr_name)
         else:
@@ -106,13 +104,13 @@ class ExecutorParameters:
         return True, None
 
     def adjust(self, **kwargs) -> None:
-        """
-        Create a new parameter object with adjusted params, kwargs map any
+        """adjust executor specific values when resource error is encountered
         """
         if self._strategy is not None:
             self._strategy.adjust(**kwargs)
 
     def validate(self):
+        """convert invalid parameters to valid ones for a given executor"""
         if self._strategy is not None:
             self._strategy.validate()
 
@@ -124,15 +122,6 @@ class ExecutorParameters:
             msg = self._strategy.validation_msg()
             if msg:
                 raise ValueError(msg)
-
-    @classmethod
-    def parse_constructor_kwargs(cls, kwarg_dict: Dict) -> Tuple[Dict, Dict]:
-        argspec = inspect.getfullargspec(cls.__init__)
-        constructor_kwargs = {}
-        for arg in argspec.args:
-            if arg in kwarg_dict:
-                constructor_kwargs[arg] = kwarg_dict.pop(arg)
-        return kwarg_dict, constructor_kwargs
 
     def to_wire(self):
         return {
