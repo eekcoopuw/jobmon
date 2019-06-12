@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 
 from sqlalchemy.sql import func
 
@@ -7,6 +6,7 @@ from jobmon.models import DB
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
+from jobmon.serializers import SerializeExecutorJobInstance
 
 logger = logging.getLogger(__name__)
 
@@ -16,19 +16,12 @@ class JobInstance(DB.Model):
 
     __tablename__ = 'job_instance'
 
-    @classmethod
-    def from_wire(cls, dct):
-        return cls(job_instance_id=dct['job_instance_id'],
-                   workflow_run_id=dct['workflow_run_id'],
-                   executor_id=dct['executor_id'],
-                   nodename=dct['nodename'],
-                   process_group_id=dct['process_group_id'],
-                   job_id=dct['job_id'],
-                   dag_id=dct['dag_id'],
-                   status=dct['status'],
-                   status_date=datetime.strptime(dct['status_date'],
-                                                 "%Y-%m-%dT%H:%M:%S"))
+    def to_wire_as_executor_job_instance(self):
+        return SerializeExecutorJobInstance.to_wire(self.job_instance_id,
+                                                    self.executor_id)
 
+    # TODO: figure out what should be passed to workflow_run when called during
+    # resume
     def to_wire(self):
         return {
             'job_instance_id': self.job_instance_id,
@@ -50,13 +43,17 @@ class JobInstance(DB.Model):
         DB.Integer,
         DB.ForeignKey('job.job_id'),
         nullable=False)
-    job = DB.relationship("Job", back_populates="job_instances")
     dag_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('task_dag.dag_id'),
         index=True,
         nullable=False)
-    dag = DB.relationship("TaskDagMeta")
+    executor_parameter_set_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('executor_parameter_set.id'),
+        nullable=False)
+
+    # usage
     usage_str = DB.Column(DB.String(250))
     nodename = DB.Column(DB.String(50))
     process_group_id = DB.Column(DB.Integer)
@@ -64,6 +61,8 @@ class JobInstance(DB.Model):
     maxrss = DB.Column(DB.String(50))
     cpu = DB.Column(DB.String(50))
     io = DB.Column(DB.String(50))
+
+    # status/state
     status = DB.Column(
         DB.String(1),
         DB.ForeignKey('job_instance_status.id'),
@@ -73,9 +72,14 @@ class JobInstance(DB.Model):
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     report_by_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
+    # ORM relationships
+    job = DB.relationship("Job", back_populates="job_instances")
+    dag = DB.relationship("TaskDagMeta")
     errors = DB.relationship("JobInstanceErrorLog",
                              back_populates="job_instance")
+    executor_parameter_set = DB.relationship("ExecutorParameterSet")
 
+    # finite state machine transition information
     valid_transitions = [
         # job instance is submitted normally (happy path)
         (JobInstanceStatus.INSTANTIATED,
@@ -164,25 +168,23 @@ class JobInstance(DB.Model):
                         JobInstanceStatus.UNKNOWN_ERROR,
                         JobInstanceStatus.RESOURCE_ERROR]
 
+    error_states = [JobInstanceStatus.NO_EXECUTOR_ID, JobInstanceStatus.ERROR,
+                    JobInstanceStatus.UNKNOWN_ERROR,
+                    JobInstanceStatus.RESOURCE_ERROR]
+
     def transition(self, new_state):
         """Transition the JobInstance status"""
         # if the transition is timely, move to new state. Otherwise do nothing
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             self.status = new_state
-            self.status_date = datetime.utcnow()
+            self.status_date = func.UTC_TIMESTAMP()
             if new_state == JobInstanceStatus.RUNNING:
                 self.job.transition(JobStatus.RUNNING)
             elif new_state == JobInstanceStatus.DONE:
                 self.job.transition(JobStatus.DONE)
-            elif new_state == JobInstanceStatus.ERROR:
-                self.job.transition_to_error()
-            elif new_state == JobInstanceStatus.NO_EXECUTOR_ID:
-                self.job.transition_to_error()
-            elif new_state == JobInstanceStatus.UNKNOWN_ERROR:
-                self.job.transition_to_error()
-            elif new_state == JobInstanceStatus.RESOURCE_ERROR:
-                self.job.transition_to_error()
+            elif new_state in self.error_states:
+                self.job.transition_after_job_instance_error(new_state)
 
     def _validate_transition(self, new_state):
         """Ensure the JobInstance status transition is valid"""

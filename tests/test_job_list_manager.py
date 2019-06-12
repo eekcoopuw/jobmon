@@ -7,7 +7,7 @@ import jobmon.client.swarm.executors.sge
 from tenacity import stop_after_attempt
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.client import shared_requester
+from jobmon.models.job_instance import JobInstance
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
@@ -56,21 +56,18 @@ def job_list_manager_sge_no_daemons(real_dag_id):
     jlm.disconnect()
 
 
-def get_presumed_submitted_or_running(dag_id):
-    try:
-        rc, response = shared_requester.send_request(
-            app_route=f'/dag/{dag_id}/get_job_instances_by_status',
-            message={'status': [
+def get_presumed_submitted_or_running(DB, dag_id):
+    job_instances = DB.session.query(JobInstance).\
+        filter_by(dag_id=dag_id).\
+        filter(JobInstance.status.in_([
                 JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                JobInstanceStatus.RUNNING]},
-            request_type='get')
-        job_instances = response['job_instances']
-    except TypeError:
-        job_instances = []
+                JobInstanceStatus.RUNNING])).\
+        all()  # noqa: E711
+    DB.session.commit()
     return job_instances
 
 
-def test_sync(job_list_manager_sge_no_daemons):
+def test_sync(job_list_manager_sge_no_daemons, db_cfg):
     job_list_manager_sge = job_list_manager_sge_no_daemons
     now = job_list_manager_sge.last_sync
     assert now is not None
@@ -88,10 +85,14 @@ def test_sync(job_list_manager_sge_no_daemons):
     # submitted or running
     max_sleep = 600  # 10 min max till test fails
     slept = 0
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
     while jid and slept <= max_sleep:
         slept += 5
         sleep(5)
-        jid = get_presumed_submitted_or_running(job_list_manager_sge.dag_id)
+        with app.app_context():
+            jid = get_presumed_submitted_or_running(
+                DB, job_list_manager_sge.dag_id)
 
     # with a new job failed, make sure that the sync has been updated and the
     # call with the sync filter actually returns jobs
@@ -111,7 +112,6 @@ def test_invalid_command(job_list_manager):
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
     assert len(job_list_manager.all_error) == 0
-
     job_list_manager.job_instance_factory.instantiate_queued_jobs()
 
     # sleep is okay because we are using the sequential executor which should
@@ -297,8 +297,8 @@ def test_job_instance_bad_qsub_parse(job_list_manager_sge_no_daemons, db_cfg,
     assert resp[0].status == 'W'
     assert resp[0].executor_id is None
     assert job_info[0].status == 'F'
-    assert "Got response from qsub but did not contain a valid job id " \
-           "(-33333), moving to 'W' state" in caplog.text
+    assert "Got response from qsub but did not contain a valid executor_id. " \
+           "Using (-33333), and moving to 'W' state" in caplog.text
 
 
 def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg):
@@ -320,7 +320,7 @@ def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg):
     with app.app_context():
         DB.session.execute("""UPDATE job_instance
         SET status = 'U'
-        WHERE job_instance_id = {}""".format(jids[0].job_instance_id))
+        WHERE job_instance_id = {}""".format(jids[0]))
         DB.session.commit()
     exec_id = resp.executor_id
     exit_status = None
