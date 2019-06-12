@@ -12,6 +12,7 @@ from jobmon.client.swarm.job_management.job_instance_reconciler import \
 from jobmon.client.swarm.workflow.executable_task import (BoundTask,
                                                           ExecutableTask)
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 
 
 logger = logging.getLogger(__name__)
@@ -110,7 +111,8 @@ class JobListManager(object):
     def _add_validated_parameters(self, job_id: int, executor_parameters):
         """Add an entry for the validated parameters to the database and
         activate them"""
-        msg = {'parameter_set_type': 'V',
+
+        msg = {'parameter_set_type': ExecutorParameterSetType.VALIDATED,
                'max_runtime_seconds': executor_parameters.max_runtime_seconds,
                'context_args': executor_parameters.context_args,
                'queue': executor_parameters.queue,

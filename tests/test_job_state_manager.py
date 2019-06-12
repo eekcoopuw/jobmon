@@ -10,8 +10,9 @@ from sqlalchemy.exc import OperationalError
 
 from jobmon.client import shared_requester as req
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
-from jobmon.models.job import Job
 from jobmon.models.exceptions import InvalidStateTransition
+from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
+from jobmon.models.job import Job
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
@@ -736,7 +737,7 @@ def test_change_job_resources(db_cfg, real_dag_id):
     swarm_job = SwarmJob.from_wire(response['job_dct'])
     _, response = req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
-        message={'parameter_set_type': 'A',
+        message={'parameter_set_type': ExecutorParameterSetType.ADJUSTED,
                  'num_cores': '3',
                  'max_runtime_seconds': '20',
                  'm_mem_free': 2},

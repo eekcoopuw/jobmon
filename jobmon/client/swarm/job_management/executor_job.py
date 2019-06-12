@@ -5,6 +5,7 @@ from typing import Type, Optional, Dict, Tuple
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import ExecutorParameters
+from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.job_status import JobStatus
 from jobmon.serializers import SerializeExecutorJob
 
@@ -70,7 +71,8 @@ class ExecutorJob:
             **executor_job_kwargs)
         return executor_job
 
-    def update_executor_parameter_set(self, parameter_set_type: str) -> None:
+    def update_executor_parameter_set(self, parameter_set_type: str =
+                                      ExecutorParameterSetType.ADJUSTED)->None:
         # TODO: refactor for common API between executor parameter types
 
         # adjust parameters
