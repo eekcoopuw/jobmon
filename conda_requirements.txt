@@ -3,4 +3,5 @@ Flask
 mysqlclient
 cryptography
 PyTables
+graphviz
 python-graphviz

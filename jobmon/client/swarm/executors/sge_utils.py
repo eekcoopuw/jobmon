@@ -14,7 +14,6 @@ import subprocess
 import pandas as pd
 import numpy as np
 
-import jobmon.client.swarm.executors.sge as sge
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
@@ -282,7 +281,7 @@ def qstat_usage(jids):
 
 
 def qdel(job_ids):
-    jids = [str(jid) for jid in np.atleast_1d(job_ids)]
+    jids = [str(int(jid)) for jid in np.atleast_1d(job_ids)]
     stdout = subprocess.check_output(['qdel'] + jids)
     return stdout
 

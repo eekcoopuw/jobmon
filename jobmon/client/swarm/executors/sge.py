@@ -70,7 +70,9 @@ class SGEExecutor(Executor):
 
     def get_usage_stats(self):
         sge_id = os.environ.get('JOB_ID')
-        usage = sge_utils.qstat_usage([sge_id])[int(sge_id)]
+        if sge_id is not None and type(sge_id)==type(0.1):
+            sge_id = int(sge_id)
+        usage = sge_utils.qstat_usage([sge_id])[sge_id]
         return usage
 
     def get_actual_submitted_or_running(self) -> ExecutorIDs:
