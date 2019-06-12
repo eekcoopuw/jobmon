@@ -67,47 +67,35 @@ class ExecutorParameters:
 
         self._is_valid = False
 
+    def _attribute_proxy(self, attr_name):
+        if self._strategy is not None and hasattr(self._strategy, attr_name):
+            return getattr(self._strategy, attr_name)
+        else:
+            return getattr(self, "_" + attr_name)
+
     @property
     def num_cores(self):
-        if self._strategy is not None:
-            if hasattr(self._strategy, "num_cores"):
-                return self._strategy.num_cores
-        return self._num_cores
+        return self._attribute_proxy("num_cores")
 
     @property
     def queue(self):
-        if self._strategy is not None:
-            if hasattr(self._strategy, "queue"):
-                return self._strategy.queue
-        return self._queue
+        return self._attribute_proxy("queue")
 
     @property
     def max_runtime_seconds(self):
-        if self._strategy is not None:
-            if hasattr(self._strategy, "max_runtime_seconds"):
-                return self._strategy.max_runtime_seconds
-        return self._max_runtime_seconds
+        return self._attribute_proxy("max_runtime_seconds")
 
     @property
     def j_resource(self):
-        if self._strategy is not None:
-            if hasattr(self._strategy, "j_resource"):
-                return self._strategy.j_resource
-        return self._j_resource
+        return self._attribute_proxy("j_resource")
 
     @property
     def m_mem_free(self):
-        if self._strategy is not None:
-            if hasattr(self._strategy, "m_mem_free"):
-                return self._strategy.m_mem_free
-        return self._m_mem_free
+        return self._attribute_proxy("m_mem_free")
 
     @property
     def context_args(self):
-        if self._strategy is not None:
-            if hasattr(self._strategy, "context_args"):
-                return self._strategy.context_args
-        return self._context_args
+        return self._attribute_proxy("context_args")
 
     def is_valid(self) -> Tuple[bool, Optional[str]]:
         if self._strategy is not None:
