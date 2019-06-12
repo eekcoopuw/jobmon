@@ -950,21 +950,21 @@ def test_get_executor_id(real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     # queue job
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     # add job instance
     _, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = response['job_instance_id']
+    job_instance_id = response['job_instance'][0]
 
     # do job logging
     req.send_request(
@@ -989,7 +989,8 @@ def test_get_executor_id(real_dag_id):
 
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
-        message={'job_instance_id': str(job_instance_id), 'nodename': socket.getfqdn()},
+        message={'job_instance_id': str(job_instance_id),
+                 'nodename': socket.getfqdn()},
         request_type='post')
 
     # Check executor_id
@@ -1011,21 +1012,21 @@ def test_get_nodename(real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    job = Job.from_wire(response['job_dct'])
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     # queue job
     req.send_request(
-        app_route='/job/{}/queue'.format(job.job_id),
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
         request_type='post')
 
     # add job instance
     _, response = req.send_request(
         app_route='/job_instance',
-        message={'job_id': str(job.job_id),
+        message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = response['job_instance_id']
+    job_instance_id = response['job_instance'][0]
 
     # do job logging
     req.send_request(
