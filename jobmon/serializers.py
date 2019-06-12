@@ -1,4 +1,5 @@
 from typing import Union
+import json
 
 
 class SerializeExecutorJob:
@@ -16,8 +17,8 @@ class SerializeExecutorJob:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple):
         # coerce types for all nullables that are cast
-        context_args = wire_tuple[7] if wire_tuple[7] else None
-        num_cores = int(wire_tuple[9]) if int(wire_tuple[9]) else None
+        context_args = json.loads(wire_tuple[7]) if wire_tuple[7] else None
+        num_cores = int(wire_tuple[9]) if wire_tuple[9] else None
         m_mem_free = float(wire_tuple[10]) if wire_tuple[10] else None
         last_process_group_id = int(wire_tuple[13]) if wire_tuple[13] else None
 

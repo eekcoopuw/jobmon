@@ -1,5 +1,3 @@
-import inspect
-import json
 import logging
 import os
 from typing import Tuple, Union, Dict, Optional
@@ -20,9 +18,11 @@ class SGEParameters:
     It will then determine if that will run on the requested cluster and adjust
     accordingly"""
 
-    def __init__(self, slots: Optional[int] = None,
+    def __init__(self,
+                 slots: Optional[int] = None,
                  mem_free: Optional[int] = None,
-                 num_cores: Optional[int] = None, queue: Optional[str] = None,
+                 num_cores: Optional[int] = None,
+                 queue: Optional[str] = None,
                  max_runtime_seconds: Optional[int] = None,
                  j_resource: bool = False,
                  m_mem_free: Optional[Union[str, float]] = None,
@@ -42,27 +42,39 @@ class SGEParameters:
             run before the executor kills it. Currently required by the
             new cluster. Default is None, for indefinite.
         j_resource (bool): whether or not the job will need the J drive
-        context_args (dict or str): additional arguments to be added for
-        execution
+            context_args (dict or str): additional arguments to be added for
+            execution
         """
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
         self.j_resource = j_resource
-        if isinstance(context_args, dict):
-            context_args = json.dumps(context_args)
         self.context_args = context_args
         self._cluster = os.environ['SGE_ENV']  # el7 in SGE_ENV is fair cluster
         self.num_cores, self.m_mem_free = self._backward_compatible_resources(
             slots, num_cores, mem_free, m_mem_free)
 
     @classmethod
-    def parse_constructor_kwargs(cls, kwarg_dict: Dict) -> Tuple[Dict, Dict]:
-        argspec = inspect.getfullargspec(cls.__init__)
-        constructor_kwargs = {}
-        for arg in argspec.args:
-            if arg in kwarg_dict:
-                constructor_kwargs[arg] = kwarg_dict.pop(arg)
-        return kwarg_dict, constructor_kwargs
+    def set_executor_parameters_strategy(cls, executor_parameters):
+        # first create an instance of the specific strategy
+        instance = cls(
+            slots=executor_parameters._slots,
+            mem_free=executor_parameters._mem_free,
+            num_cores=executor_parameters.num_cores,
+            queue=executor_parameters.queue,
+            max_runtime_seconds=executor_parameters.max_runtime_seconds,
+            j_resource=executor_parameters.j_resource,
+            m_mem_free=executor_parameters.m_mem_free,
+            context_args=executor_parameters.context_args)
+
+        # now set this instance as the underlying strategy and override the
+        # underlying values for the post init values
+        executor_parameters._strategy = instance
+        executor_parameters._num_cores = instance.num_cores
+        executor_parameters._queue = instance.queue
+        executor_parameters._max_runtime_seconds = instance.max_runtime_seconds
+        executor_parameters._j_resource = instance.j_resource
+        executor_parameters._m_mem_free = instance.m_mem_free
+        executor_parameters._context_args = instance.context_args
 
     def _backward_compatible_resources(self, slots, num_cores, mem_free,
                                        m_mem_free):
@@ -99,39 +111,37 @@ class SGEParameters:
                 m_mem_free = 1
         return num_cores, m_mem_free
 
-    def validated(self) -> Tuple['SGEParameters', str]:
+    def validation_msg(self) -> str:
         """
-        If the object is valid, return True and the validated set, otherwise
-        (False, error_message), deliberately does not throw so it can be used
-        where the client does not want an exception
+        If the object is valid, return an empty string, otherwise return an
+        error message
         """
-        cores_msg, cores = self._validate_num_cores()
-        mem_msg, mem = self._validate_memory()
-        runtime_msg, runtime = self._validate_runtime()
-        j_msg, j = self._validate_j_resource()
-        q_msg, queue = self._validate_queue()
-        validated_params = {'num_cores': cores, 'm_mem_free': mem,
-                            'max_runtime_seconds': runtime,
-                            'queue': queue, 'j_resource': j,
-                            'context_args': self.context_args}
+        cores_msg, _ = self._validate_num_cores()
+        mem_msg, _ = self._validate_memory()
+        runtime_msg, _ = self._validate_runtime()
+        j_msg, _ = self._validate_j_resource()
+        q_msg, _ = self._validate_queue()
         msg = ""
         if cores_msg or mem_msg or runtime_msg or j_msg or q_msg:
             msg = f"You have one or more resource errors that was adjusted " \
                 f"for:\n Cores: {cores_msg}, \n Memory: {mem_msg},\n" \
                 f" Runtime: {runtime_msg}, \n J-Drive: {j_msg}, \n " \
                 f"Queue: {q_msg}"
-        return self.__class__(**validated_params), msg
+        return msg
 
-    @classmethod
-    def return_validated(cls, validated_params) -> 'SGEParameters':
-        return cls(num_cores=validated_params['cores'],
-                   m_mem_free=validated_params['mem'],
-                   max_runtime_seconds=validated_params['runtime'],
-                   queue=validated_params['queue'],
-                   j_resource=validated_params['j'],
-                   context_args=validated_params['args'])
+    def validate(self) -> None:
+        _, cores = self._validate_num_cores()
+        _, mem = self._validate_memory()
+        _, runtime = self._validate_runtime()
+        _, j = self._validate_j_resource()
+        _, q = self._validate_queue()
+        self.num_cores = cores
+        self.m_mem_free = mem
+        self.max_runtime_seconds = runtime
+        self.j_resource = j
+        self.queue = q
 
-    def adjusted(self, **kwargs) -> 'SGEParameters':
+    def adjust(self, **kwargs) -> None:
         """
             If the parameters need to be adjusted then create and return a new
             object, otherwise None
@@ -140,21 +150,9 @@ class SGEParameters:
         mem = self.m_mem_free * (1 + float(kwargs.get('m_mem_free', 0)))
         runtime = int(self.max_runtime_seconds *
                       (1 + float(kwargs.get('max_runtime_seconds', 0))))
-        adjusted_params = {'num_cores': cores, 'm_mem_free': mem,
-                           'max_runtime_seconds': runtime,
-                           'queue': self.queue, 'j_resource': self.j_resource,
-                           'context_args': self.context_args
-                           }
-        return self.__class__(**adjusted_params)
-
-    def to_wire(self):
-        return {
-            'max_runtime_seconds': self.max_runtime_seconds,
-            'context_args': self.context_args,
-            'queue': self.queue,
-            'num_cores': self.num_cores,
-            'm_mem_free': self.m_mem_free,
-            'j_resource': self.j_resource}
+        self.num_cores = cores
+        self.m_mem_free = mem
+        self.max_runtime_seconds = runtime
 
     def _validate_num_cores(self) -> Tuple[str, int]:
         """Ensure cores requested isn't more than available on that

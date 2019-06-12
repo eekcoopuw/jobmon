@@ -72,21 +72,21 @@ class SGEExecutor(Executor):
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters) -> int:
-        logger.debug(f"PARAMS: {executor_parameters.params.m_mem_free}, "
-                     f"{executor_parameters.params.num_cores}, "
-                     f"{executor_parameters.params.queue},"
-                     f" {executor_parameters.params.max_runtime_seconds}, "
-                     f"{executor_parameters.params.j_resource},"
-                     f" {executor_parameters.params.context_args}")
+        logger.debug(f"PARAMS: {executor_parameters.m_mem_free}, "
+                     f"{executor_parameters.num_cores}, "
+                     f"{executor_parameters.queue},"
+                     f" {executor_parameters.max_runtime_seconds}, "
+                     f"{executor_parameters.j_resource},"
+                     f" {executor_parameters.context_args}")
         qsub_command = self._build_qsub_command(
             base_cmd=command,
             name=name,
-            mem=executor_parameters.params.m_mem_free,
-            cores=executor_parameters.params.num_cores,
-            queue=executor_parameters.params.queue,
-            runtime=executor_parameters.params.max_runtime_seconds,
-            j=executor_parameters.params.j_resource,
-            context_args=executor_parameters.params.context_args,
+            mem=executor_parameters.m_mem_free,
+            cores=executor_parameters.num_cores,
+            queue=executor_parameters.queue,
+            runtime=executor_parameters.max_runtime_seconds,
+            j=executor_parameters.j_resource,
+            context_args=executor_parameters.context_args,
             stderr=self.stderr,
             stdout=self.stdout,
             project=self.project,
@@ -139,7 +139,7 @@ class SGEExecutor(Executor):
                             queue: str,
                             runtime: int,
                             j: bool,
-                            context_args: str,
+                            context_args: dict,
                             stderr: Optional[str] = None,
                             stdout: Optional[str] = None,
                             project: Optional[str] = None,
@@ -156,9 +156,8 @@ class SGEExecutor(Executor):
 
         sge_add_args = ""
         if context_args:
-            ctx_args = json.loads(context_args)
-            if 'sge_add_args' in ctx_args:
-                sge_add_args = ctx_args['sge_add_args']
+            if 'sge_add_args' in context_args:
+                sge_add_args = context_args['sge_add_args']
 
         if project:
             project_cmd = f"-P {project}"
