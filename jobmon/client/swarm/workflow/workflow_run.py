@@ -7,10 +7,11 @@ import os
 import socket
 
 from jobmon.client import shared_requester
+from jobmon.client.swarm.job_management.executor_job_instance import \
+    ExecutorJobInstance
 from jobmon.client.swarm.executors.sge_utils import get_project_limits
 from jobmon.client.utils import kill_remote_process
 from jobmon.models.attributes.constants import workflow_run_attribute
-from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 
@@ -135,7 +136,7 @@ class WorkflowRun(object):
                     app_route=f'/workflow_run/{workflow_run_id}/job_instance',
                     message={},
                     request_type='get')
-                job_instances = [JobInstance.from_wire(ji)
+                job_instances = [ExecutorJobInstance.from_wire(ji)
                                  for ji in response['job_instances']]
                 jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
                                     for ji in job_instances]
