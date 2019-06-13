@@ -277,7 +277,7 @@ def qstat_usage(jids):
 
 
 def qdel(job_ids):
-    jids = [str(jid) for jid in np.atleast_1d(job_ids)]
+    jids = [str(int(jid)) for jid in np.atleast_1d(job_ids)]
     stdout = subprocess.check_output(['qdel'] + jids)
     return stdout
 

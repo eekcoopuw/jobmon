@@ -48,14 +48,16 @@ def test_sge_cli(real_jsm_jqs, db_cfg):
     wait_for_file(stderr_name)
     with open(stderr_name, "r") as f:
         content = f.read()
-    assert content == ("a" * 2**10 + "\n") * (2**8)
+    # The job_instance_intercom.py has the traceback appended to the stderr. Change assert.
+    assert ("a" * 2**10 + "\n") * (2**8) in content
 
     # check stdout
     stdout_name = os.path.join(log_dir, f"{job_name}.o{executor_id}")
     wait_for_file(stdout_name)
     with open(stdout_name, "r") as f:
         content = f.read()
-    assert content == ("a" * 2**10 + "\n") * (2**8)
+    # The job_instance_intercom.py has the traceback appended to the stderr. Change assert.
+    assert ("a" * 2 ** 10 + "\n") * (2 ** 8) in content
 
 
 def wait_for_file(filepath: str) -> bool:
