@@ -1,1 +1,3 @@
-from jobmon.client.swarm.executors.base import Executor
+from jobmon.client.swarm.executors.base import (Executor,
+                                                JobInstanceExecutorInfo,
+                                                ExecutorParameters)

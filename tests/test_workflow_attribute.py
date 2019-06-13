@@ -12,7 +12,7 @@ from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 def test_workflow_attribute(db_cfg, real_dag):
     wfa = "workflow_with_attribute"
     workflow = Workflow(wfa)
-    t1 = BashTask("sleep 1", slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
     workflow.add_tasks([t1])
     workflow.execute()
 
@@ -44,7 +44,7 @@ def test_workflow_attribute(db_cfg, real_dag):
 def test_workflow_attribute_input_error(real_jsm_jqs, db_cfg):
     wfa = "workflow_with_wrong_arg_attribute"
     workflow = Workflow(wfa)
-    t1 = BashTask("sleep 1", slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
     workflow.add_tasks([t1])
     workflow.execute()
 
@@ -58,7 +58,7 @@ def test_workflow_attribute_input_error(real_jsm_jqs, db_cfg):
 def test_workflow_attribute_tag(real_jsm_jqs, db_cfg):
     wfa = "workflow_with_tag_attribute"
     workflow = Workflow(wfa)
-    t1 = BashTask("sleep 1", slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
     workflow.add_tasks([t1])
     workflow.execute()
 

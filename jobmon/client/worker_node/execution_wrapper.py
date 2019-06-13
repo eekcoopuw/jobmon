@@ -1,8 +1,10 @@
 import argparse
-from functools import partial
 import logging
+from functools import partial
+from io import TextIOBase
 import os
 from queue import Queue
+import signal
 import subprocess
 import sys
 from threading import Thread
@@ -10,14 +12,14 @@ from time import sleep, time
 import traceback
 
 from jobmon.exceptions import ReturnCodes
-from jobmon.client.swarm.job_management.job_instance_intercom import \
-    JobInstanceIntercom
+from jobmon.client.worker_node.worker_node_job_instance import (
+    WorkerNodeJobInstance)
 from jobmon.client.utils import kill_remote_process_group
-
 
 logger = logging.getLogger()
 
-def enqueue_stderr(stderr, queue):
+
+def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
     """eagerly print 100 byte blocks to stderr so pipe doesn't fill up and
     deadlock. Also collect blocks for reporting to db by putting them in a
     queue to main thread
@@ -39,6 +41,14 @@ def enqueue_stderr(stderr, queue):
 
     # cleanup
     stderr.close()
+
+
+def kill_self(child_process: subprocess.Popen = None):
+    """If the worker has received a signal to kill itself, kill the child
+    processes and then self, will show up as an exit code 299 in qacct"""
+    if child_process:
+        child_process.kill()
+    sys.exit(signal.SIGKILL)
 
 
 def unwrap():
@@ -69,27 +79,32 @@ def unwrap():
     # identify executor class
     if args["executor_class"] == "SequentialExecutor":
         from jobmon.client.swarm.executors.sequential import \
-            SequentialExecutor as ExecutorClass
+            JobInstanceSequentialInfo as JobInstanceExecutorInfo
     elif args["executor_class"] == "SGEExecutor":
-        from jobmon.client.swarm.executors.sge import SGEExecutor \
-            as ExecutorClass
+        from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo \
+            as JobInstanceExecutorInfo
     elif args["executor_class"] == "DummyExecutor":
-        from jobmon.client.swarm.executors.dummy import DummyExecutor \
-            as ExecutorClass
+        from jobmon.client.swarm.executors import JobInstanceExecutorInfo \
+            as JobInstanceExecutorInfo
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))
+    ji_executor_info = JobInstanceExecutorInfo()
 
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
-    ji_intercom = JobInstanceIntercom(job_instance_id=args["job_instance_id"],
-                                      executor_class=ExecutorClass,
-                                      process_group_id=os.getpid(),
-                                      hostname=args['last_nodename'])
-    ji_intercom.log_running(next_report_increment=(args['heartbeat_interval'] * args['report_by_buffer']),
-                            executor_id=os.environ.get('JOB_ID'),
-                            nodename=args['last_nodename'])
+    worker_node_job_instance = WorkerNodeJobInstance(
+        job_instance_id=args["job_instance_id"],
+        job_instance_executor_info=ji_executor_info)
+
+    # if it logs running and is in the 'W' or 'U' state then it will go
+    # through the full process of trying to change states and receive a
+    # special exception to signal that it can't run and should kill itself
+    rc, kill = worker_node_job_instance.log_running(next_report_increment=(
+        args['heartbeat_interval'] * args['report_by_buffer']))
+    if kill == 'True':
+        kill_self()
 
     try:
         if args['last_nodename'] is not None and args['last_pgid'] is not None:
@@ -113,9 +128,18 @@ def unwrap():
         last_heartbeat_time = time() - args['heartbeat_interval']
         while proc.poll() is None:
             if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
-                ji_intercom.log_report_by(next_report_increment=(
-                    args['heartbeat_interval'] * args['report_by_buffer']),
-                    executor_id=os.environ.get('JOB_ID'))
+
+                # since the report by is not a state transition, it will not
+                #  get the error that the log running route gets, so just
+                # check the database and kill if its status means it should
+                #  be killed
+                if worker_node_job_instance.in_kill_self_state():
+                    kill_self(child_process=proc)
+                else:
+                    worker_node_job_instance.log_report_by(
+                        next_report_increment=(args['heartbeat_interval'] *
+                                               args['report_by_buffer']))
+
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
 
@@ -132,22 +156,18 @@ def unwrap():
         logger.warning(stderr)
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
+    # post stats usage
+    try:
+        worker_node_job_instance.log_job_stats()
+    except NotImplementedError:
+        pass
+
     # check return code
     if returncode != ReturnCodes.OK:
-        if args["executor_class"] == "SGEExecutor":
-            ji_intercom.log_job_stats()
-        jid = os.environ.get('JOB_ID')
-        logger.debug("jid:" + str(jid))
-
-        ji_intercom.log_error(error_message=str(stderr),
-                              executor_id=jid,
-                              exit_status=returncode,
-                              nodename=args['last_nodename']
-                              )
+        worker_node_job_instance.log_error(error_message=str(stderr),
+                                           exit_status=returncode)
     else:
-        if args["executor_class"] == "SGEExecutor":
-            ji_intercom.log_job_stats()
-        ji_intercom.log_done(executor_id=os.environ.get('JOB_ID'), nodename=args['last_nodename'])
+        worker_node_job_instance.log_done()
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting

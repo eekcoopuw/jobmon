@@ -16,6 +16,7 @@ class JobStatus(DB.Model):
     INSTANTIATED = 'I'
     RUNNING = 'R'
     ERROR_RECOVERABLE = 'E'
+    ADJUSTING_RESOURCES = 'A'
     ERROR_FATAL = 'F'
     DONE = 'D'
 

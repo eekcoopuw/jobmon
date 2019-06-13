@@ -1,20 +1,23 @@
+from datetime import datetime
 from flask import jsonify, request, Blueprint
 from http import HTTPStatus as StatusCodes
 import json
 import os
 import socket
-from sqlalchemy.sql import func, text
+from sqlalchemy.sql import func
 import sys
 import traceback
+from typing import Tuple, Optional
 import warnings
 
 from jobmon.models import DB
-from jobmon.models.attributes.constants import job_attribute
+from jobmon.models.attributes.constants import job_attribute, qsub_attribute
 from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
-from jobmon.models.exceptions import InvalidStateTransition
+from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
+from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
@@ -80,9 +83,8 @@ def add_job():
         job_hash: unique hash for the job
         command: job's command
         dag_id: dag_id to which this job is attached
-        slots: number of slots requested
         num_cores: number of cores requested
-        mem_free: number of Gigs of memory requested
+        m_mem_free: number of Gigs of memory requested
         max_attempts: how many times the job should be attempted
         max_runtime_seconds: how long the job should be allowed to run
         context_args: any other args that should be passed to the executor
@@ -94,24 +96,32 @@ def add_job():
     data = request.get_json()
     logger.debug(data)
     job = Job(
+        dag_id=data['dag_id'],
         name=data['name'],
+        tag=data.get('tag', None),
         job_hash=data['job_hash'],
         command=data['command'],
-        dag_id=data['dag_id'],
-        slots=data.get('slots', None),
-        num_cores=data.get('num_cores', None),
-        mem_free=data.get('mem_free', 2),
         max_attempts=data.get('max_attempts', 1),
-        max_runtime_seconds=data.get('max_runtime_seconds', None),
-        context_args=data.get('context_args', "{}"),
-        tag=data.get('tag', None),
-        queue=data.get('queue', None),
-        j_resource=data.get('j_resource', False),
         status=JobStatus.REGISTERED)
     DB.session.add(job)
-    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
-    job_dct = job.to_wire()
+
+    original_exec_params = ExecutorParameterSet(
+        job_id=job.job_id,
+        parameter_set_type="O",
+        max_runtime_seconds=data.get('max_runtime_seconds', None),
+        context_args=data.get('context_args',"{}"),
+        queue=data.get('queue', None),
+        num_cores=data.get('num_cores', None),
+        m_mem_free=data.get('m_mem_free', 2),
+        j_resource=data.get('j_resource', False)
+    )
+    DB.session.add(original_exec_params)
+    DB.session.flush()
+    original_exec_params.activate()
+    DB.session.commit()
+
+    job_dct = job.to_wire_as_swarm_job()
     resp = jsonify(job_dct=job_dct)
     resp.status_code = StatusCodes.OK
     return resp
@@ -142,12 +152,10 @@ def add_task_dag():
     return resp
 
 
-def _get_workflow_run_id(job_id):
+def _get_workflow_run_id(job):
     """Return the workflow_run_id by job_id"""
     logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_id", job_id))
-    job = DB.session.query(Job).filter_by(job_id=job_id).first()
-    logger.debug(logging.logParameter("DB.session", DB.session))
+    logger.debug(logging.logParameter("job_id", job.job_id))
     wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
     if not wf:
         DB.session.commit()
@@ -158,16 +166,6 @@ def _get_workflow_run_id(job_id):
     wf_run_id = wf_run.id
     DB.session.commit()
     return wf_run_id
-
-
-def _get_dag_id(job_id):
-    """Return the workflow_run_id by job_id"""
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_id", job_id))
-    job = DB.session.query(Job).filter_by(job_id=job_id).first()
-    logger.debug(logging.logParameter("DB.session", DB.session))
-    DB.session.commit()
-    return job.dag_id
 
 
 @jsm.route('/job_instance', methods=['POST'])
@@ -182,17 +180,20 @@ def add_job_instance():
     data = request.get_json()
     logger.debug(data)
     logger.debug("Add JI for job {}".format(data['job_id']))
-    workflow_run_id = _get_workflow_run_id(data['job_id'])
-    dag_id = _get_dag_id(data['job_id'])
+
+    # query job
+    job = DB.session.query(Job).filter_by(job_id=data['job_id']).first()
+    DB.session.commit()
+
+    # create job_instance from job parameters
     job_instance = JobInstance(
         executor_type=data['executor_type'],
         job_id=data['job_id'],
-        dag_id=dag_id,
-        workflow_run_id=workflow_run_id)
+        dag_id=job.dag_id,
+        workflow_run_id=_get_workflow_run_id(job),
+        executor_parameter_set_id=job.executor_parameter_set_id)
     DB.session.add(job_instance)
-    logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
-    ji_id = job_instance.job_instance_id
 
     try:
         job_instance.job.transition(JobStatus.INSTANTIATED)
@@ -200,13 +201,14 @@ def add_job_instance():
         if job_instance.job.status == JobStatus.INSTANTIATED:
             msg = ("Caught InvalidStateTransition. Not transitioning job "
                    "{}'s job_instance_id {} from I to I"
-                   .format(data['job_id'], ji_id))
+                   .format(data['job_id'], job_instance.job_instance_id))
             logger.warning(msg)
         else:
             raise
     finally:
         DB.session.commit()
-    resp = jsonify(job_instance_id=ji_id)
+    resp = jsonify(
+        job_instance=job_instance.to_wire_as_executor_job_instance())
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -337,158 +339,24 @@ def log_done(job_instance_id):
     return resp
 
 
-def _available_resource_in_queue(q="all.q") -> (int, int, int):
-    """
-    Todo: calculate the available resources in queue
-          for this release, just return the limits of each queue
-
-    Queue limit reference: https://docs.cluster.ihme.washington.edu/allocation-and-limits/queues/
-
-    :param q: queue
-    :return: (avaialbe_mem: int (in G), available_cores: int, max_runtime: int)
-    """
-
-    if q == "all.q":
-        return (512, 56, 259200)
-    if q == "long.q":
-        return (512, 56, 1382400)
-    if q == "geospatial.q":
-        return (1000, 64, 2160000)
-    return (sys.maxsize, sys.maxsize, sys.maxsize)
-
-
-def _increase_resources(exec_id: int, scale: float)->str:
-    """This route is created to increase the resources of jobs failed with a 137 error on the fair cluster on tries.
-       The memory, runtime and threads should increase by a configurable amount (say 50%). 
-       The row in the job table should be modified with new values. men_free, num_cores, max_runtime_seconds.
-    Args:
-        exec_id: excutor_id
-        scale: increase scale
-
-    Return: an result string to add to the return message
-    """
-    update_resource_query_template = """
-                        update job
-                        set mem_free="{mem}", 
-                            num_cores={cores}, 
-                            max_runtime_seconds={runtime}
-                        where job.job_id=
-                              (select job_id
-                               from job_instance
-                               where executor_id={id});
-                    """
-    update_status_query_template = """
-                            update job
-                            set status="F"
-                            where job.job_id=
-                                  (select job_id
-                                   from job_instance
-                                   where executor_id={id});
-                        """
-    logger.debug(logging.myself())
+def _log_error(ji: JobInstance,
+               error_state: int,
+               error_msg: str,
+               executor_id: Optional[int] = None,
+               nodename: Optional[str] = None
+               ):
+    if nodename is not None:
+        ji.nodename = nodename
+    if executor_id is not None:
+        ji.executor_id = executor_id
 
     try:
-        scale = float(scale)
-    except:
-        # In case the client sent an invalid value, set the scale to 50%.
-        scale = 0.5
-
-    query = f"select mem_free, num_cores, max_runtime_seconds, queue from job_instance, job where job_instance.job_id=job.job_id and executor_id = {exec_id}"
-    res = DB.session.execute(query).fetchone()
-    mem = res[0]
-    cores = res[1]
-    runtime = res[2]
-    queue = res[3]
-    DB.session.commit()
-    (available_mem, available_cores, max_runtime) = _available_resource_in_queue(queue)
-    logger.debug(f"Current system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
-    mem, cores, runtime = _get_new_resource_value(mem, cores, runtime, scale)
-    # int mem in M
-    mem_in_M = int(mem[:-1]) if mem[-1] == "M" else int(mem[:-1]) * 1000 if mem[-1] == "G" else int(mem) * 1000
-    # available_mem should be in G
-    if mem_in_M > available_mem * 1000 or cores > available_cores or runtime > max_runtime:
-        # move to ERROR_FATAL
-        query = update_status_query_template.format(id=exec_id)
-        DB.session.execute(query)
+        msg = _update_job_instance_state(ji, error_state)
         DB.session.commit()
-        logger.debug("Not enough system resources. Set the job status to F.")
-        return "Not enough system resources. Set the job status to F."
-    else:
-        query = update_resource_query_template.format(
-                mem=mem if mem is not None else "null",
-                cores=cores if (cores is not None) or (cores != 0) else "null",
-                runtime=runtime if runtime is not None else "null",
-                id=exec_id
-                )
-        DB.session.execute(query)
-        DB.session.commit()
-        logger.info(f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}")
-        return f"New system resources set to mem: {mem}, cores: {cores}, runtime: {runtime}"
-
-
-RESOURCE_LIMIT_KILL_CODES = (137, 247, 44, -9)
-
-
-def _log_error(job_instance: JobInstance, data: dict,
-               oom_killed: bool = False) -> object:
-    """Log a job_instance as errored
-    Args:
-        job_instance:
-        data:
-        oom_killed: whether or not given job errored due to an oom-kill event
-    """
-    job_instance_id = job_instance.job_instance_id
-
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-
-    if oom_killed:
-        if 'task_id' not in data:
-            data['task_id'] = 'No task_id given'
-        if 'error_message' not in data:
-            data['error_message'] = 'No error message given'
-        logger.debug("Log OOM-Killed for JI {}, message={}, task_id={}".format(
-            job_instance_id, data['error_message'], data['task_id']))
-    else:
-        logger.debug("Log ERROR for JI {}, message={}".format(
-            job_instance_id, data['error_message']))
-
-    logger.debug("Data:" + str(data))
-    logger.debug("Reading nodename {}".format(job_instance.nodename))
-    job_instance.nodename = data['nodename']
-
-    if data.get('executor_id', None) is not None:
-        job_instance.executor_id = data['executor_id']
-    try:
-        msg = _update_job_instance_state(job_instance, JobInstanceStatus.ERROR)
-        DB.session.commit()
-        error = JobInstanceErrorLog(
-            job_instance_id=job_instance_id,
-            description=data['error_message'])
+        error = JobInstanceErrorLog(job_instance_id=ji.job_instance_id,
+                                    description=error_msg)
         DB.session.add(error)
-        logger.debug(logging.logParameter("DB.session", DB.session))
         DB.session.commit()
-        # Check exit_status to see if resource needs to be increased
-        exit_status = data["exit_status"]
-        logger.debug("exit_status: " + str(exit_status))
-
-        if int(exit_status) in RESOURCE_LIMIT_KILL_CODES:
-            # increase resources
-            scale = 0.5 #default value
-            try:
-                sql = "select resource_adjustment from job, job_instance, workflow, workflow_run " \
-                      "where workflow_run.workflow_id=workflow.id and workflow.dag_id=job.dag_id " \
-                      "and job.job_id=job_instance.job_id and job_instance.executor_id={}".format(job_instance.executor_id)
-                res = DB.session.execute(sql).fetchone()
-                DB.session.commit()
-                scale = res[0]
-                # Use the default value when the scale value is not valid
-                if scale is None or scale < 0 or scale > 1:
-                    scale = 0.5
-            except Exception as e:
-                logger.debug(str(e))
-                pass
-            msg += _increase_resources(job_instance.executor_id, scale)
 
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.OK
@@ -497,28 +365,91 @@ def _log_error(job_instance: JobInstance, data: dict,
         warnings.warn(log_msg)
         logger.debug(log_msg)
         raise
+
     return resp
 
 
-@jsm.route('/job_instance/<job_instance_id>/log_error', methods=['POST'])
-def log_error(job_instance_id: str) -> object:
-    """Route to log a job_instance as errored
+@jsm.route('/job_instance/<job_instance_id>/log_error_worker_node',
+           methods=['POST'])
+def log_error_worker_node(job_instance_id: int):
+    """Log a job_instance as errored
     Args:
+
         job_instance_id (str): id of the job_instance to log done
         error_message (str): message to log as error
     """
+
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
-    ji = _get_job_instance(DB.session, int(job_instance_id))
+    error_state = data["error_state"]
+    error_message = data["error_message"]
+    executor_id = data.get('executor_id', None)
+    nodename = data.get("nodename", None)
+    logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
+    logger.debug("data:" + str(data))
 
-    if data.get('nodename', None) is not None:
-        ji.nodename = data['nodename']
-    logger.debug("log_error nodename {}".format(ji.nodename))
+    ji = _get_job_instance(DB.session, job_instance_id)
+    resp = _log_error(ji, error_state, error_message, executor_id, nodename)
+    return resp
 
-    return _log_error(job_instance=ji, data=data)
+
+@jsm.route('/job_instance/<job_instance_id>/log_error_reconciler',
+           methods=['POST'])
+def log_error_reconciler(job_instance_id: int):
+    """Log a job_instance as errored
+    Args:
+        job_instance:
+        data:
+        oom_killed: whether or not given job errored due to an oom-kill event
+    """
+
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    data = request.get_json()
+    error_state = data["error_state"]
+    error_message = data["error_message"]
+    executor_id = data.get('executor_id', None)
+    nodename = data.get("nodename", None)
+    logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
+    logger.debug("data:" + str(data))
+
+    ji = _get_job_instance(DB.session, job_instance_id)
+
+    # make sure the job hasn't logged a new heartbeat since we began
+    # reconciliation
+    if ji.report_by_date <= datetime.utcnow():
+        resp = _log_error(ji, error_state, error_message, executor_id,
+                          nodename)
+    else:
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/job_instance/<job_instance_id>/log_no_exec_id', methods=['POST'])
+def log_no_exec_id(job_instance_id):
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    logger.debug(f"Log NO EXECUTOR ID for JI {job_instance_id}")
+    data = request.get_json()
+    if data['executor_id'] == qsub_attribute.NO_EXEC_ID:
+        logger.info("Qsub was unsuccessful and caused an exception")
+    else:
+        logger.info("Qsub may have run, but the job id could not be parsed "
+                    "from the qsub response so no executor id can be assigned"
+                    " at this time")
+    ji = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    msg = _update_job_instance_state(ji, JobInstanceStatus.NO_EXECUTOR_ID)
+    DB.session.commit()
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jsm.route('/log_oom/<executor_id>', methods=['POST'])
-def log_oom(executor_id: str) -> object:
+def log_oom(executor_id: str):
     """Log instances where a job_instance is killed by an Out of Memory Kill
     event TODO: factor log_error out as a function and use it for both log_oom and log_error
     Args:
@@ -529,10 +460,16 @@ def log_oom(executor_id: str) -> object:
                              request)
     """
     data = request.get_json()
-    job_instance = _get_job_instance_by_executor_id(DB.session,
-                                                    int(executor_id))
 
-    return _log_error(job_instance=job_instance, data=data, oom_killed=True)
+    # TODO: figure out what to do with log_oom
+    logger.error(f"{executor_id} ran out of memory. {data}")
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+    # job_instance = _get_job_instance_by_executor_id(DB.session,
+    #                                                 int(executor_id))
+
+    # return _log_error(job_instance=job_instance, data=data, oom_killed=True)
 
 
 @jsm.route('/job_instance/<job_instance_id>/log_executor_id', methods=['POST'])
@@ -582,58 +519,8 @@ def log_dag_heartbeat(dag_id):
     return resp
 
 
-@jsm.route('/job_instance/<job_instance_id>/log_report_by', methods=['POST'])
-def log_ji_report_by(job_instance_id):
-    """Log a job_instance as being responsive with a new report_by_date, this
-    is done at the worker node heartbeat_interval rate, so it may not happen at
-    the same rate that the reconciler updates batch submitted report_by_dates
-    (also because it causes a lot of traffic if all workers are logging report
-    _by_dates often compared to if the reconciler runs often)
-    Args:
-
-        job_instance_id: id of the job_instance to log
-    """
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-
-    data = request.get_json()
-    executor_id = data.get('executor_id', None)
-    params = {}
-    params["next_report_increment"] = data["next_report_increment"]
-    params["job_instance_id"] = job_instance_id
-
-    if executor_id is not None:
-        params["executor_id"] = executor_id
-        query = """
-                UPDATE job_instance
-                SET report_by_date = ADDTIME(
-                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
-                    executor_id = :executor_id
-                WHERE job_instance_id = :job_instance_id"""
-    else:
-        query = """
-            UPDATE job_instance
-            SET report_by_date = ADDTIME(
-                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-            WHERE job_instance_id = :job_instance_id"""
-    DB.session.execute(query, params)
-    DB.session.commit()
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jsm.route('/task_dag/<dag_id>/reconcile', methods=['POST'])
-def reconcile(dag_id):
-    """Ensure all jobs that we thought were active continue to log heartbeats,
-    and update all jobs submitted to batch executor with a new report_by_date.
-    Since they are not running jobs, we still have to use qstat and update
-    their report_by_date from the reconciler, therefore they are updated
-    at the reconciliation rate
-    Args:
-
-        job_instance_id: id of the job_instance to log
-    """
+@jsm.route('/task_dag/<dag_id>/log_executor_report_by', methods=['POST'])
+def log_executor_report_by(dag_id):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("dag_id", dag_id))
     data = request.get_json()
@@ -651,31 +538,45 @@ def reconcile(dag_id):
         DB.session.execute(query, params)
         DB.session.commit()
 
-    # query all job instances that are submitted to executor or running which
-    # haven't reported as alive in the allocated time.
-    # ignore job instances created after heartbeat began. We'll reconcile them
-    # during the next reconciliation loop.
-    instances = DB.session.query(JobInstance).\
-        join(TaskDagMeta).\
-        filter_by(dag_id=dag_id).\
-        filter(
-            JobInstance.status.in_([
-                JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                JobInstanceStatus.RUNNING])).\
-        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
-        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).all()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/job_instance/<job_instance_id>/log_report_by', methods=['POST'])
+def log_ji_report_by(job_instance_id):
+    """Log a job_instance as being responsive with a new report_by_date, this
+    is done at the worker node heartbeat_interval rate, so it may not happen at
+    the same rate that the reconciler updates batch submitted report_by_dates
+    (also because it causes a lot of traffic if all workers are logging report
+    _by_dates often compared to if the reconciler runs often)
+    Args:
+
+        job_instance_id: id of the job_instance to log
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    data = request.get_json()
+    executor_id = data.get('executor_id', None)
+    params = {}
+    params["next_report_increment"] = data["next_report_increment"]
+    params["job_instance_id"] = job_instance_id
+    if executor_id is not None:
+        params["executor_id"] = executor_id
+        query = """
+                UPDATE job_instance
+                SET report_by_date = ADDTIME(
+                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
+                    executor_id = :executor_id
+                WHERE job_instance_id = :job_instance_id"""
+    else:
+        query = """
+            UPDATE job_instance
+            SET report_by_date = ADDTIME(
+                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE job_instance_id = :job_instance_id"""
+    DB.session.execute(query, params)
     DB.session.commit()
-
-    for ji in instances:
-        _update_job_instance_state(ji, JobInstanceStatus.ERROR)
-        msg = ("Job no longer visible in qstat, check qacct or jobmon "
-               f"database for executor_id {ji.executor_id} and "
-               f"job_instance_id {ji.job_instance_id}")
-        error = JobInstanceErrorLog(job_instance_id=ji.job_instance_id,
-                                    description=msg)
-        DB.session.add(error)
-        DB.session.commit()
-
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -705,6 +606,29 @@ def log_running(job_instance_id):
         ji.executor_id = data['executor_id']
     DB.session.commit()
     resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/job_instance/<job_instance_id>/log_nodename', methods=['POST'])
+def log_nodename(job_instance_id):
+    """Log a job_instance's nodename'
+    Args:
+
+        job_instance_id: id of the job_instance to log done
+        nodename (str): name of the node on which the job_instance is running
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    data = request.get_json()
+    logger.debug("Log nodename for JI {}".format(job_instance_id))
+    ji = _get_job_instance(DB.session, job_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    logger.debug(" ;;;;;;;;;;; log_nodename nodename: {}".format(data[
+        'nodename']))
+    _update_job_instance(ji, nodename=data['nodename'])
+    DB.session.commit()
+    resp = jsonify(message='')
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -790,29 +714,43 @@ def queue_job(job_id):
     return resp
 
 
-@jsm.route('/job/<job_id>/change_resources', methods=['PUT'])
-def change_job_resources(job_id):
-    """ Change the resources set for a given job, currently can change
-    mem_free, num_cores and max_runtime_seconds
+@jsm.route('/job/<job_id>/update_resources', methods=['POST'])
+def update_job_resources(job_id):
+    """ Change the resources set for a given job
+
     Args:
-        job_id: id of the job for which resources will be changed
-        """
+        job_id (int): id of the job for which resources will be changed
+        parameter_set_type (str): parameter set type for this job
+        max_runtime_seconds (int, optional): amount of time job is allowed to
+            run for
+        context_args (dict, optional): unstructured parameters to pass to
+            executor
+        queue (str, optional): sge queue to submit jobs to
+        num_cores (int, optional): how many cores to get from sge
+        m_mem_free ():
+        j_resource (bool, optional): whether to request access to the j drive
+    """
+
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_id", job_id))
-    job = DB.session.query(Job).filter_by(job_id=job_id).first()
-    logger.debug(logging.logParameter("DB.session", DB.session))
+
     data = request.get_json()
-    if 'num_cores' in data:
-        job.num_cores = data['num_cores']
-        logger.debug(f"changed num_cores to {data['num_cores']}")
-    if 'max_runtime_seconds' in data:
-        job.max_runtime_seconds = data['max_runtime_seconds']
-        logger.debug(f"changed max_runtime_seconds to "
-                     f"{data['max_runtime_seconds']}")
-    if 'mem_free' in data:
-        job.mem_free = data['mem_free']
-        logger.debug(f"changed mem_free to {data['mem_free']}")
+    parameter_set_type = data["parameter_set_type"]
+
+    exec_params = ExecutorParameterSet(
+        job_id=job_id,
+        parameter_set_type=parameter_set_type,
+        max_runtime_seconds=data.get('max_runtime_seconds', None),
+        context_args=data.get('context_args', "{}"),
+        queue=data.get('queue', None),
+        num_cores=data.get('num_cores', None),
+        m_mem_free=data.get('m_mem_free', 2),
+        j_resource=data.get('j_resource', False))
+    DB.session.add(exec_params)
+    DB.session.flush()  # get auto increment
+    exec_params.activate()
     DB.session.commit()
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -933,6 +871,7 @@ def _update_job_instance_state(job_instance, status_id):
     """
     logger.debug(logging.myself())
     logger.debug(f"Update JI state {status_id} for {job_instance}")
+    response = ""
     try:
         job_instance.transition(status_id)
     except InvalidStateTransition:
@@ -953,6 +892,12 @@ def _update_job_instance_state(job_instance, status_id):
             # log_and_raise(msg, logger)
             logger.error(msg)
             print(msg)
+    except KillSelfTransition:
+        msg = f"kill self, cannot transition " \
+              f"jid={job_instance.job_instance_id}"
+        logger.warning(msg)
+        print(msg)
+        response = "kill self"
     except Exception as e:
         msg = f"General exception in _update_job_instance_state, " \
             f"jid {job_instance}, transitioning to {job_instance}. " \
@@ -967,7 +912,7 @@ def _update_job_instance_state(job_instance, status_id):
         to_publish = mogrify(job.dag_id, (job.job_id, job.status))
         return to_publish
     else:
-        return ""
+        return response
 
 
 def _update_job_instance(job_instance, **kwargs):
@@ -1227,22 +1172,17 @@ def _get_new_resource_value(mem: str, cores: int, runtime: int, scale: float):
     :return:
     """
     if mem is not None:
-        if mem[-1] == "G" or mem[-1] == "M":
-            mem = str(int(int(mem[:-1]) * (1 + scale))) + mem[-1]
-        else:
-            mem = str(int(mem * (1 + scale)))
+        mem = float(mem) * (1 + scale)
     else:
         # Although mem should not be None, make it 1G if it's None
-        mem = "1G"
+        mem = 1
     if cores is not None:
-        cores = int(cores * (1 + scale))
+        cores = int(int(cores) * (1 + scale))
     else:
         cores = 0
     if runtime is not None:
-        runtime = int(runtime * (1 + scale))
+        runtime = int(int(runtime) * (1 + scale))
     else:
-        # Although runtime should not be None, make it 60 seconds if it's None
-        runtime = 60
+        # Although runtime should not be None, make it 24 hours if it is None
+        runtime = (24*60*60)
     return mem, cores, runtime
-
-

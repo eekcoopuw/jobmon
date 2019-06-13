@@ -13,7 +13,6 @@ from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
-from jobmon.swarm_logger import add_jobmon_file_logger
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
