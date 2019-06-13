@@ -4,8 +4,6 @@ from subprocess import check_output
 import traceback
 from typing import List, Tuple, Dict, Optional
 
-import pandas as pd
-
 from cluster_utils.io import makedirs_safely
 
 from jobmon.client import shared_requester

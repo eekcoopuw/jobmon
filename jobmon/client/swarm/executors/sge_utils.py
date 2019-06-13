@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import subprocess
-from typing import List, Dict
+from typing import List, Dict, Union
 
 import numpy as np
 
@@ -83,6 +83,7 @@ def get_project_limits(project):
 def qstat(status: str=None, pattern: str=None, user: str=None,
           jids: List[int]=None) -> Dict:
     """parse sge qstat information into a Dictionary keyed by executor_id
+    (sge job id)
 
     Args:
         status (string, optional): status filter to use when running qstat
@@ -95,7 +96,7 @@ def qstat(status: str=None, pattern: str=None, user: str=None,
             command
 
     Returns:
-        Dictionary of qstat return values keyed by sge_job_id aka executor_id
+        Dictionary of qstat return values keyed by executor_id (sge job id)
     """
     cmd = ["qstat", "-r"]
     if status is not None:
@@ -291,8 +292,8 @@ def qstat_usage(jids):
     return usage
 
 
-def qdel(job_ids: List[int]) -> str:
-    jids = [str(jid) for jid in job_ids]
+def qdel(job_ids: Union[List[int], int]) -> str:
+    jids = [str(jid) for jid in np.atleast_1d(job_ids)]
     logger.debug(f"About to qdel {jids}")
     stdout = subprocess.check_output(['qdel'] + jids)
     logger.debug(f"stdout from qdel: {stdout}")
