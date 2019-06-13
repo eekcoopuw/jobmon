@@ -16,19 +16,9 @@ class SGEParameters:
     """Manages the SGE specific parameters requested for a given job, it will
     create an entry for what was requested if they are valid values
     It will then determine if that will run on the requested cluster and adjust
-    accordingly"""
+    accordingly
 
-    def __init__(self,
-                 slots: Optional[int] = None,
-                 mem_free: Optional[int] = None,
-                 num_cores: Optional[int] = None,
-                 queue: Optional[str] = None,
-                 max_runtime_seconds: Optional[int] = None,
-                 j_resource: bool = False,
-                 m_mem_free: Optional[Union[str, float]] = None,
-                 context_args: Optional[Union[Dict, str]] = None):
-        """
-        Args
+    Args
         slots (int): slots to request on the cluster
         mem_free (int): memory in gigabytes, in the old cluster syntax
         m_mem_free (str or float): amount of memory in gbs, tbs, or mbs to
@@ -44,7 +34,18 @@ class SGEParameters:
         j_resource (bool): whether or not the job will need the J drive
             context_args (dict or str): additional arguments to be added for
             execution
-        """
+    """
+
+    def __init__(self,
+                 slots: Optional[int] = None,
+                 mem_free: Optional[int] = None,
+                 num_cores: Optional[int] = None,
+                 queue: Optional[str] = None,
+                 max_runtime_seconds: Optional[int] = None,
+                 j_resource: bool = False,
+                 m_mem_free: Optional[Union[str, float]] = None,
+                 context_args: Optional[Union[Dict, str]] = None):
+
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
         self.j_resource = j_resource

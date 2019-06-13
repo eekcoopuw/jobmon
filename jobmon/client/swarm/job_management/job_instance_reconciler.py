@@ -186,7 +186,8 @@ class JobInstanceReconciler(object):
         for executor_job_instance in lost_job_instances:
             executor_job_instance.log_error()
 
-    def _log_timeout_hostname(self, job_instance_id: int, hostname: str):
+    def _log_timeout_hostname(self, job_instance_id: int, hostname: str
+                              ) -> None:
         """Logs the hostname for any job that has timed out
         Args:
             job_instance_id (int): id for the job_instance that has timed out

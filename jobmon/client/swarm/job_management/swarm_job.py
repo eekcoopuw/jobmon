@@ -15,4 +15,6 @@ class SwarmJob:
 
     @classmethod
     def from_wire(cls, wire_tuple: tuple):
-        return cls(**SerializeSwarmJob.kwargs_from_wire(wire_tuple))
+        kwargs = SerializeSwarmJob.kwargs_from_wire(wire_tuple)
+        return cls(job_id=kwargs["job_id"], status=kwargs["status"],
+                   job_hash=kwargs["job_hash"])
