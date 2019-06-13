@@ -9,6 +9,7 @@ from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
 from jobmon.models.attributes.workflow_run_attribute_type import \
     WorkflowRunAttributeType
+from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.job import Job
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
@@ -36,8 +37,13 @@ def delete_job_db(db):
 def load_default_statuses(db):
     """Load all default statuses into the database"""
     statuses = []
+    for status in ['ORIGINAL', 'VALIDATED', 'ADJUSTED']:
+        status_obj = ExecutorParameterSetType(
+            id=getattr(ExecutorParameterSetType, status), label=status)
+        statuses.append(status_obj)
     for status in ['REGISTERED', 'QUEUED_FOR_INSTANTIATION', 'INSTANTIATED',
-                   'RUNNING', 'ERROR_RECOVERABLE', 'ERROR_FATAL', 'DONE']:
+                   'RUNNING', 'ERROR_RECOVERABLE', 'ADJUSTING_RESOURCES',
+                   'ERROR_FATAL', 'DONE']:
         status_obj = JobStatus(id=getattr(JobStatus, status), label=status)
         statuses.append(status_obj)
     for status in ['INSTANTIATED', 'NO_EXECUTOR_ID',

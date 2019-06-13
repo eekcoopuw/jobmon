@@ -16,9 +16,9 @@ class WorkerNodeJobInstance:
     def __init__(self,
                  job_instance_id: int,
                  job_instance_executor_info: JobInstanceExecutorInfo,
-                 nodename: Optional[str]=None,
-                 process_group_id: Optional[int]=None,
-                 requester: Requester=shared_requester):
+                 nodename: Optional[str] = None,
+                 process_group_id: Optional[int] = None,
+                 requester: Requester = shared_requester):
         """
         The JobInstanceIntercom is a mechanism whereby a running job_instance
         can communicate back to the JobStateManager to log its status, errors,

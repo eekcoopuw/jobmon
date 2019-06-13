@@ -10,33 +10,34 @@ from jobmon.client import shared_requester, client_config
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
-from jobmon.client.swarm.job_management.swarm_job_instance import (
-    SwarmJobInstance)
+from jobmon.client.swarm.job_management.executor_job_instance import (
+    ExecutorJobInstance)
 
 
 logger = logging.getLogger(__name__)
 
 
 class JobInstanceReconciler(object):
+    """The JobInstanceReconciler is a mechanism by which the
+    JobStateManager and JobQueryServer make sure the database in sync with
+    jobs in qstat
+
+    Args:
+        dag_id (int): the id for the dag to run
+        executor (Executor, default SequentialExecutor): obj of type
+            Executor
+        interrupt_on_error (bool, default True): whether or not to
+            interrupt the thread if there's an error
+        stop_event (threading.Event, default None): stop signal
+    """
 
     def __init__(self,
                  dag_id: int,
-                 executor: Optional[Executor]=None,
-                 interrupt_on_error: Optional[bool]=True,
-                 stop_event: Optional[threading.Event]=None,
-                 requester: Requester=shared_requester) -> None:
-        """The JobInstanceReconciler is a mechanism by which the
-        JobStateManager and JobQueryServer make sure the database in sync with
-        jobs in qstat
+                 executor: Optional[Executor] = None,
+                 interrupt_on_error: Optional[bool] = True,
+                 stop_event: Optional[threading.Event] = None,
+                 requester: Requester = shared_requester) -> None:
 
-        Args:
-            dag_id (int): the id for the dag to run
-            executor (Executor, default SequentialExecutor): obj of type
-                Executor
-            interrupt_on_error (bool, default True): whether or not to
-                interrupt the thread if there's an error
-            stop_event (threading.Event, default None): stop signal
-        """
         self.dag_id = dag_id
         self.requester = requester
         self.interrupt_on_error = interrupt_on_error
@@ -176,16 +177,17 @@ class JobInstanceReconciler(object):
             message={},
             request_type='get')
         if rc != StatusCodes.OK:
-            lost_job_instances: List[SwarmJobInstance] = []
+            lost_job_instances: List[ExecutorJobInstance] = []
         else:
             lost_job_instances = [
-                SwarmJobInstance.from_wire(ji, self.executor)
+                ExecutorJobInstance.from_wire(ji, self.executor)
                 for ji in response["job_instances"]
             ]
-        for swarm_job_instance in lost_job_instances:
-            swarm_job_instance.log_error()
+        for executor_job_instance in lost_job_instances:
+            executor_job_instance.log_error()
 
-    def _log_timeout_hostname(self, job_instance_id: int, hostname: str):
+    def _log_timeout_hostname(self, job_instance_id: int, hostname: str
+                              ) -> None:
         """Logs the hostname for any job that has timed out
         Args:
             job_instance_id (int): id for the job_instance that has timed out

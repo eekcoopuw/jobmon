@@ -13,7 +13,6 @@ from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
-from jobmon.swarm_logger import add_jobmon_file_logger
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -244,7 +243,14 @@ class Workflow(object):
         self.task_dag.add_tasks(tasks)
 
     def _bind(self):
-        """Bind the database and all of its tasks to the database"""
+        """
+        Bind the database and all of its tasks to the database.
+        Also ensure that the task dag starts its threads, if this is the
+        second or subsequent execution they will have been stopped.
+        """
+        if self.is_bound:
+            self.task_dag.reconnect()
+
         potential_wfs = self._matching_workflows()
         if len(potential_wfs) > 0 and not self.resume:
             raise WorkflowAlreadyExists("This workflow and task dag already "
@@ -382,7 +388,7 @@ class Workflow(object):
         self.executor.set_temp_dir(
             tmp_dir)
 
-    def execute(self):
+    def execute(self) -> int:
         """Run this workflow"""
         # add_jobmon_file_logger('jobmon', logging.DEBUG,
         #                        '{}/jobmon.log'.format(os.getcwd()))

@@ -255,12 +255,13 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
 
 @pytest.fixture
 def simple_workflow(real_jsm_jqs, db_cfg):
+    from jobmon.client.swarm.executors.sge_parameters import SGEParameters
     from jobmon.client.swarm.workflow.bash_task import BashTask
     from jobmon.client.swarm.workflow.workflow import Workflow
 
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1, m_mem_free='1G')
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1, m_mem_free='1G')
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1, m_mem_free='1G')
 
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False)
@@ -371,7 +372,8 @@ def real_dag(db_cfg, real_jsm_jqs, request):
     """
     from jobmon.client.swarm.executors.sge import SGEExecutor
     from jobmon.client.swarm.workflow.task_dag import TaskDag
-
+    # The workflow creates the executor, not the workflow.
+    # Hence we must create one here and pass it in
     executor = SGEExecutor(project='proj_tools')
     dag = TaskDag(name=request.node.name, executor=executor,
                   interrupt_on_error=False)
@@ -424,6 +426,3 @@ def execution_test_script_perms():
             os.chmod(f'{path}/{file}', perms)
         except Exception as e:
             raise e
-
-
-

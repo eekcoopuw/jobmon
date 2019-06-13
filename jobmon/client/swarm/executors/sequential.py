@@ -4,9 +4,9 @@ import subprocess
 import traceback
 from typing import Optional
 
-from jobmon.client.swarm.executors import Executor, JobInstanceExecutorInfo
+from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
+                                           ExecutorParameters)
 from jobmon.client import shared_requester
-from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 
 logger = logging.getLogger(__name__)
@@ -14,15 +14,19 @@ logger = logging.getLogger(__name__)
 
 class SequentialExecutor(Executor):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, stderr=None, stdout=None, project=None,
+                 working_dir=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._next_executor_id = 1
+        self.stderr = stderr
+        self.stdout = stdout
+        self.project = project
+        self.working_dir = working_dir
 
-    def execute(self, job_instance: JobInstance) -> int:
+    def execute(self, command: str, name: str,
+                executor_parameters: ExecutorParameters) -> int:
         try:
-            cmd = self.build_wrapped_command(job_instance.job,
-                                             job_instance.job_instance_id)
-            logger.debug(cmd)
+            logger.debug(command)
 
             # add an executor id to the environment
             env = os.environ.copy()
@@ -31,13 +35,13 @@ class SequentialExecutor(Executor):
             self._next_executor_id += 1
 
             # submit the job
-            subprocess.check_output(cmd, shell=True, env=env)
+            subprocess.check_output(command, shell=True, env=env)
         except Exception as e:
             logger.error(e)
             stack = traceback.format_exc()
             msg = (
                 f"Error in {self.__class__.__name__}, {str(self)} "
-                f"while submitting ji_id {job_instance.job_instance_id}:"
+                f"while running {command}:"
                 f"\n{stack}")
             shared_requester.send_request(
                 app_route="/error_logger",

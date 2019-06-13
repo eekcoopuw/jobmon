@@ -9,8 +9,10 @@ from jobmon.client.swarm.job_management.job_instance_factory import \
     JobInstanceFactory
 from jobmon.client.swarm.job_management.job_instance_reconciler import \
     JobInstanceReconciler
-from jobmon.client.swarm.workflow.executable_task import BoundTask
-from jobmon.client.stubs import StubJob
+from jobmon.client.swarm.workflow.executable_task import (BoundTask,
+                                                          ExecutableTask)
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 
 
 logger = logging.getLogger(__name__)
@@ -69,11 +71,12 @@ class JobListManager(object):
                                        JobStatus.DONE,
                                        JobStatus.ERROR_FATAL]]
 
-    def bind_task(self, task):
+    def bind_task(self, task: ExecutableTask):
         """Bind a task to the database, making it a job
         Args:
             task (obj): obj of a type inherited from ExecutableTask
         """
+        # bind original parameters and validated parameters to the db
 
         if task.hash in self.hash_job_map:
             job = self.hash_job_map[task.hash]
@@ -83,15 +86,18 @@ class JobListManager(object):
                 job_hash=task.hash,
                 command=task.command,
                 tag=task.tag,
-                slots=task.slots,
-                num_cores=task.num_cores,
-                mem_free=task.mem_free,
+                num_cores=task.executor_parameters.num_cores,
+                m_mem_free=task.executor_parameters.m_mem_free,
                 max_attempts=task.max_attempts,
-                max_runtime_seconds=task.max_runtime_seconds,
-                context_args=task.context_args,
-                queue=task.queue,
-                j_resource=task.j_resource
+                max_runtime_seconds=(
+                    task.executor_parameters.max_runtime_seconds),
+                context_args=task.executor_parameters.context_args,
+                queue=task.executor_parameters.queue,
+                j_resource=task.executor_parameters.j_resource
             )
+            task.executor_parameters.validate()
+            self._add_validated_parameters(job.job_id,
+                                           task.executor_parameters)
 
         # adding the attributes to the job now that there is a job_id
         for attribute in task.job_attributes:
@@ -101,6 +107,22 @@ class JobListManager(object):
         bound_task = BoundTask(task=task, job=job, job_list_manager=self)
         self.bound_tasks[job.job_id] = bound_task
         return bound_task
+
+    def _add_validated_parameters(self, job_id: int, executor_parameters):
+        """Add an entry for the validated parameters to the database and
+        activate them"""
+
+        msg = {'parameter_set_type': ExecutorParameterSetType.VALIDATED,
+               'max_runtime_seconds': executor_parameters.max_runtime_seconds,
+               'context_args': executor_parameters.context_args,
+               'queue': executor_parameters.queue,
+               'num_cores': executor_parameters.num_cores,
+               'm_mem_free': executor_parameters.m_mem_free,
+               'j_resource': executor_parameters.j_resource}
+        self.requester.send_request(
+            app_route=f'/job/{job_id}/update_resources',
+            message=msg,
+            request_type='post')
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""
@@ -119,7 +141,7 @@ class JobListManager(object):
         utcnow = response['time']
         self.last_sync = utcnow
 
-        jobs = StubJob.from_wire(response['job_dcts'])
+        jobs = [SwarmJob.from_wire(job) for job in response['job_dcts']]
         for job in jobs:
             if job.job_id in self.bound_tasks.keys():
                 self.bound_tasks[job.job_id].status = job.status
@@ -193,8 +215,7 @@ class JobListManager(object):
         """Create a job by passing the job args/kwargs through to the
         JobFactory
         """
-        j = self.job_factory.create_job(*args, **kwargs)
-        job = StubJob.job_to_stub(j)
+        job = self.job_factory.create_job(*args, **kwargs)
         self.hash_job_map[job.job_hash] = job
         self.job_hash_map[job.job_id] = job.job_hash
         return job
@@ -261,3 +282,7 @@ class JobListManager(object):
 
     def disconnect(self):
         self._stop_event.set()
+
+    def connect(self):
+        self._stop_event = Event()
+        self._start_job_instance_manager()

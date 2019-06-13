@@ -86,7 +86,8 @@ Constructing a Workflow and adding a few Tasks is simple::
 Restart Tasks and Resume Workflows
 =======================================
 
-A Workflow allows for sophisticated tracking of how many times a DAG gets executed, who ran them and when, and does some work to kill off any job instances that might be left over from previous failed attempts. With a Workflow you can:
+A Workflow allows for sophisticated tracking of how many times a DAG gets executed, who ran them and when.
+If on the old prod cluster it does uses ssh to kill off any job instances that might be left over from previous failed attempts. With a Workflow you can:
 
 #. Re-use a set of Tasks
 #. Stop a set of Tasks mid-run and resume it (either intentionally or unfortunately, as
@@ -190,8 +191,8 @@ By default, your Workflow talks to our centrally-hosted jobmon server
 (jobmon-docker-cont-p01.hosts.ihme.washington.edu). You can access the
 jobmon database from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
-    host: jobmon-docker-cont-p01.hosts.ihme.washington.edu
-    port: 3950
+    host: jobmon-p01.ihme.washington.edu
+    port: 3990
     user: read_only
     pass: docker
     database: docker

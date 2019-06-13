@@ -7,9 +7,11 @@ from queue import Queue
 import signal
 import subprocess
 import sys
+import traceback
+from functools import partial
+from queue import Queue
 from threading import Thread
 from time import sleep, time
-import traceback
 
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.worker_node.worker_node_job_instance import (
@@ -43,12 +45,21 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
     stderr.close()
 
 
-def kill_self(child_process: subprocess.Popen=None):
+def kill_self(child_process: subprocess.Popen = None):
     """If the worker has received a signal to kill itself, kill the child
     processes and then self, will show up as an exit code 299 in qacct"""
     if child_process:
         child_process.kill()
     sys.exit(signal.SIGKILL)
+
+
+def is_on_prod() -> bool:
+    """
+    A wrapper to hide the dirty way we determine which cluster we are on
+    Useful to have this be a function because it can be monkey patched in test.
+    :return:  True if we are on prod
+    """
+    return "el6" in os.environ['SGE_ENV']
 
 
 def unwrap():
@@ -107,7 +118,13 @@ def unwrap():
         kill_self()
 
     try:
-        if args['last_nodename'] is not None and args['last_pgid'] is not None:
+        # SGE on prod & dev did not kill orphan processes following
+        # an OOM kill, so if this is a retry job instance it must go
+        # kill any remaining processes on the last node.
+        # Not necessary on fair/buster.
+        if args['last_nodename'] is not None and \
+                args['last_pgid'] is not None and \
+                is_on_prod():
             kill_remote_process_group(args['last_nodename'], args['last_pgid'])
 
         # open subprocess using a process group so any children are also killed

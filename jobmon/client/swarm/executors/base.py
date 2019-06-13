@@ -1,15 +1,136 @@
 import logging
 import os
 import shutil
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Type, Union
+import warnings
 
 from jobmon.client import client_config
-from jobmon.models.job import Job
-from jobmon.models.job_instance import JobInstance
+from jobmon.client.swarm.executors.sge_parameters import SGEParameters
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 
 logger = logging.getLogger(__name__)
+
+
+class ExecutorParameters:
+    """Base parameter class for executors, each executor has specific '
+    parameters and must validate them accordingly"""
+
+    _strategies = {'SGEExecutor': SGEParameters}
+
+    def __init__(self,
+                 slots: Optional[int] = None,
+                 mem_free: Optional[int] = None,
+                 num_cores: Optional[int] = None,
+                 queue: Optional[str] = None,
+                 max_runtime_seconds: Optional[int] = None,
+                 j_resource: Optional[bool] = False,
+                 m_mem_free: Optional[Union[str, float]] = None,
+                 context_args: Optional[Union[Dict, str]] = None,
+                 executor_class: str = 'SGEExecutor'):
+
+        if slots is not None:
+            warnings.warn(
+                "slots is deprecated and will be removed in a future release",
+                FutureWarning)
+        if mem_free is not None:
+            warnings.warn(
+                "mem_free is deprecated and will be removed in a future"
+                " release", FutureWarning)
+
+        # initialize
+        self._slots = slots
+        self._mem_free = mem_free
+        self._num_cores = num_cores
+        self._queue = queue
+        self._max_runtime_seconds = max_runtime_seconds
+        self._j_resource = j_resource
+        self._m_mem_free = m_mem_free
+        self._context_args = context_args
+
+        StrategyCls = self._strategies.get(executor_class)
+        self._strategy: Optional[SGEParameters] = None
+        if StrategyCls is not None:
+            StrategyCls.set_executor_parameters_strategy(self)
+        else:
+            if slots is not None:
+                raise ValueError(
+                    "slots is only supported when using the SGEExecutor class")
+            if mem_free is not None:
+                raise ValueError(
+                    "mem_free is only supported when using the SGEExecutor "
+                    "class")
+
+        self._is_valid = False
+
+    def _attribute_proxy(self, attr_name: str):
+        """checks whether executor specific class has implemented given
+        paremeter and returns it, or else returns base implemenetation"""
+        if self._strategy is not None and hasattr(self._strategy, attr_name):
+            return getattr(self._strategy, attr_name)
+        else:
+            return getattr(self, "_" + attr_name)
+
+    @property
+    def num_cores(self):
+        return self._attribute_proxy("num_cores")
+
+    @property
+    def queue(self):
+        return self._attribute_proxy("queue")
+
+    @property
+    def max_runtime_seconds(self):
+        return self._attribute_proxy("max_runtime_seconds")
+
+    @property
+    def j_resource(self):
+        return self._attribute_proxy("j_resource")
+
+    @property
+    def m_mem_free(self):
+        return self._attribute_proxy("m_mem_free")
+
+    @property
+    def context_args(self):
+        return self._attribute_proxy("context_args")
+
+    def is_valid(self) -> Tuple[bool, Optional[str]]:
+        if self._strategy is not None:
+            msg = self._strategy.validation_msg()
+            if msg:
+                return False, msg
+        # TODO: implement any base typing logic
+        return True, None
+
+    def adjust(self, **kwargs) -> None:
+        """adjust executor specific values when resource error is encountered
+        """
+        if self._strategy is not None:
+            self._strategy.adjust(**kwargs)
+
+    def validate(self):
+        """convert invalid parameters to valid ones for a given executor"""
+        if self._strategy is not None:
+            self._strategy.validate()
+
+    def is_valid_throw(self):
+        """
+        Calls validate and converts a False result into an exception
+        """
+        if self._strategy is not None:
+            msg = self._strategy.validation_msg()
+            if msg:
+                raise ValueError(msg)
+
+    def to_wire(self):
+        return {
+            'max_runtime_seconds': self.max_runtime_seconds,
+            'context_args': self.context_args,
+            'queue': self.queue,
+            'num_cores': self.num_cores,
+            'm_mem_free': self.m_mem_free,
+            'j_resource': self.j_resource}
 
 
 class Executor:
@@ -24,12 +145,14 @@ class Executor:
     These methods will allow jobmon to identify jobs that have been lost
     and retry them.
     """
+    ExecutorParameters_cls: Type[ExecutorParameters] = ExecutorParameters
 
     def __init__(self, *args, **kwargs) -> None:
         self.temp_dir: Optional[str] = None
         logger.info("Initializing {}".format(self.__class__.__name__))
 
-    def execute(self, job_instance: JobInstance) -> int:
+    def execute(self, command: str, name: str,
+                executor_parameters: ExecutorParameters) -> int:
         """SUBCLASSES ARE REQUIRED TO IMPLEMENT THIS METHOD.
 
         It is recommended that subclasses use build_wrapped_command() to
@@ -58,7 +181,10 @@ class Executor:
         """
         raise NotImplementedError
 
-    def build_wrapped_command(self, job: Job, job_instance_id: int) -> str:
+    def build_wrapped_command(self, command: str, job_instance_id: int,
+                              last_nodename: Optional[str] = None,
+                              last_process_group_id: Optional[int] = None
+                              ) -> str:
         """Build a command that can be executed by the shell and can be
         unwrapped by jobmon itself to setup proper communication channels to
         the monitor server.
@@ -75,7 +201,7 @@ class Executor:
             jobmon_command = shutil.which("jobmon_command")
         wrapped_cmd = [
             jobmon_command,
-            "--command", "'{}'".format(job.command),
+            "--command", f"'{command}'",
             "--job_instance_id", job_instance_id,
             "--jm_host", client_config.jm_conn.host,
             "--jm_port", client_config.jm_conn.port,
@@ -83,12 +209,12 @@ class Executor:
             "--heartbeat_interval", client_config.heartbeat_interval,
             "--report_by_buffer", client_config.report_by_buffer
         ]
-        if self.temp_dir and 'stata' in job.command:
+        if self.temp_dir and 'stata' in command:
             wrapped_cmd.extend(["--temp_dir", self.temp_dir])
-        if job.last_nodename:
-            wrapped_cmd.extend(["--last_nodename", job.last_nodename])
-        if job.last_process_group_id:
-            wrapped_cmd.extend(["--last_pgid", job.last_process_group_id])
+        if last_nodename:
+            wrapped_cmd.extend(["--last_nodename", last_nodename])
+        if last_process_group_id:
+            wrapped_cmd.extend(["--last_pgid", last_process_group_id])
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         logger.debug(str_cmd)
         return str_cmd

@@ -4,9 +4,8 @@ import os
 import uuid
 import subprocess
 from multiprocessing import Process
-from getpass import getuser
 
-from jobmon import BashTask  # testing new style imports
+from jobmon import BashTask
 from jobmon import PythonTask
 from jobmon import StataTask
 from jobmon import Workflow
@@ -25,6 +24,15 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     WorkflowAlreadyExists, ResumeStatus
 
+
+def cleanup_jlm(workflow):
+    """If a dag is not completed properly and all threads are disconnected,
+    a new job list manager will access old job instance factory/reconciler
+    threads instead of creating new ones. So we need to make sure threads get
+    cleand up at the end"""
+
+    if workflow.task_dag.job_list_manager:
+        workflow.task_dag.job_list_manager.disconnect()
 
 @pytest.fixture
 def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
@@ -49,8 +57,8 @@ def mock_slack(msg, channel):
 
 
 def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
-    t1 = StataTask(script='di "hello"', slots=1)
-    t2 = StataTask(script='di "world"', upstream_tasks=[t1], slots=1)
+    t1 = StataTask(script='di "hello"', num_cores=1)
+    t2 = StataTask(script='di "world"', upstream_tasks=[t1], num_cores=1)
 
     wf = Workflow("stata_temp_dir_test", interrupt_on_error=False)
     wf.add_tasks([t1, t2])
@@ -59,26 +67,16 @@ def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
     assert success
 
 
-def cleanup_jlm(workflow):
-    """If a dag is not completed properly and all threads are disconnected,
-    a new job list manager will access old job instance factory/reconciler
-    threads instead of creating new ones. So we need to make sure threads get
-    cleand up at the end"""
-
-    if workflow.task_dag.job_list_manager:
-        workflow.task_dag.job_list_manager.disconnect()
-
-
 @pytest.mark.qsubs_jobs
 def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Create identical dags
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
-    t4 = BashTask("sleep 1", slots=1)
-    t5 = BashTask("sleep 2", upstream_tasks=[t4], slots=1)
-    t6 = BashTask("sleep 3", upstream_tasks=[t5], slots=1)
+    t4 = BashTask("sleep 1", num_cores=1)
+    t5 = BashTask("sleep 2", upstream_tasks=[t4], num_cores=1)
+    t6 = BashTask("sleep 3", upstream_tasks=[t5], num_cores=1)
 
     wfa1 = "v1"
     wf1 = Workflow(wfa1, interrupt_on_error=False)
@@ -99,8 +97,6 @@ def test_wfargs_update(real_jsm_jqs, db_cfg):
     # Make sure the second Workflow has a distinct set of Jobs
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
-    cleanup_jlm(wf1)
-    cleanup_jlm(wf2)
 
 
 @pytest.mark.qsubs_jobs
@@ -117,19 +113,18 @@ def test_resource_arguments(real_jsm_jqs, db_cfg):
     wf.add_tasks([t1])
     return_code = wf.execute()
     assert return_code == DagExecutionStatus.SUCCEEDED
-    cleanup_jlm(wf)
 
 
 @pytest.mark.qsubs_jobs
 def test_dag_update(real_jsm_jqs, db_cfg):
     # Create different dags
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
-    t4 = BashTask("sleep 3", slots=1)
-    t5 = BashTask("sleep 2", upstream_tasks=[t4], slots=1)
-    t6 = BashTask("sleep 1", upstream_tasks=[t5], slots=1)
+    t4 = BashTask("sleep 3", num_cores=1)
+    t5 = BashTask("sleep 2", upstream_tasks=[t4], num_cores=1)
+    t6 = BashTask("sleep 1", upstream_tasks=[t5], num_cores=1)
 
     wfa1 = "dag_update"
     wf1 = Workflow(wfa1, interrupt_on_error=False)
@@ -152,20 +147,17 @@ def test_dag_update(real_jsm_jqs, db_cfg):
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
-    cleanup_jlm(wf1)
-    cleanup_jlm(wf2)
-
 
 @pytest.mark.qsubs_jobs
 def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
     # Create different dags
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
-    t4 = BashTask("sleep 3", slots=1)
-    t5 = BashTask("sleep 2", upstream_tasks=[t4], slots=1)
-    t6 = BashTask("sleep 1", upstream_tasks=[t5], slots=1)
+    t4 = BashTask("sleep 3", num_cores=1)
+    t5 = BashTask("sleep 2", upstream_tasks=[t4], num_cores=1)
+    t6 = BashTask("sleep 1", upstream_tasks=[t5], num_cores=1)
 
     wfa1 = "wfargs_dag_update"
     wf1 = Workflow(wfa1, interrupt_on_error=False)
@@ -187,8 +179,6 @@ def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
     # Make sure the second Workflow has a distinct set of Jobs
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
-    cleanup_jlm(wf1)
-    cleanup_jlm(wf2)
 
 
 @pytest.mark.qsubs_jobs
@@ -224,9 +214,9 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
         DB.session.commit()
 
     # Re-create the dag "from scratch" (copy simple_workflow fixture)
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     wfa = "my_simple_dag"
     elogdir = str(tmpdir.mkdir("wf_elogs"))
@@ -237,7 +227,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     workflow.add_tasks([t1, t2, t3])
     workflow.execute()
 
-    # TODO: FIGURE OUT WHETHER IT's SENSIBLE TO CLEAR THE done/error
+    # TODO: FIGURE OUT WHETHER IT'S SENSIBLE TO CLEAR THE done/error
     # QUEUES AFTER THE __init__ _sync() call in job_list_manager...
 
     # Check that finished tasks aren't added to the top fringe
@@ -273,8 +263,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     jlm = workflow.task_dag.job_list_manager
     for _, task in workflow.task_dag.tasks.items():
         assert jlm.status_from_task(task) == JobStatus.DONE
-    cleanup_jlm(workflow)
-    cleanup_jlm(stopped_wf)
+
 
 
 @pytest.mark.qsubs_jobs
@@ -312,9 +301,9 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
         DB.session.commit()
 
     # Re-instantiate the DAG + Workflow
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False,
@@ -368,8 +357,6 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
         # WorkflowRuns..
         assert other_wfr.status == WorkflowRunStatus.STOPPED
         DB.session.commit()
-    cleanup_jlm(workflow)
-    cleanup_jlm(stopped_wf)
 
 
 @pytest.mark.qsubs_jobs
@@ -378,9 +365,9 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
     workflow by modifying the WorkflowArgs (e.g. new version #)
     """
     # Re-create the dag "from scratch" (copy simple_workflow fixture)
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False,
@@ -389,7 +376,6 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
 
     with pytest.raises(WorkflowAlreadyComplete):
         workflow.execute()
-    cleanup_jlm(workflow)
 
 
 def test_force_new_workflow_instead_of_resume(simple_workflow):
@@ -436,11 +422,9 @@ def test_dag_reset(db_cfg, simple_workflow_w_errors):
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
         DB.session.commit()
-    cleanup_jlm(err_wf)
 
 
 def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
-
     err_wf = simple_workflow_w_errors
     dag_id = err_wf.task_dag.dag_id
 
@@ -458,7 +442,6 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
         # Make sure all their node names were recorded
         nodenames = [ji.nodename for ji in jis]
         assert nodenames and all(nodenames)
-    cleanup_jlm(err_wf)
 
 
 def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
@@ -491,16 +474,15 @@ def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
 
     # exit status should not be a success, expect failure
     assert exit_status != 0
-    cleanup_jlm(err_wf)
 
 
 @pytest.mark.qsubs_jobs
 def test_fail_fast(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("erroring_out 1", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 10", upstream_tasks=[t1], slots=1)
-    t4 = BashTask("sleep 11", upstream_tasks=[t3], slots=1)
-    t5 = BashTask("sleep 12", upstream_tasks=[t4], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("erroring_out 1", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 10", upstream_tasks=[t1], num_cores=1)
+    t4 = BashTask("sleep 11", upstream_tasks=[t3], num_cores=1)
+    t5 = BashTask("sleep 12", upstream_tasks=[t4], num_cores=1)
 
     workflow = Workflow("test_fail_fast", fail_fast=True,
                         interrupt_on_error=False)
@@ -509,7 +491,6 @@ def test_fail_fast(real_jsm_jqs, db_cfg):
 
     assert len(workflow.task_dag.job_list_manager.all_error) == 1
     assert len(workflow.task_dag.job_list_manager.all_done) >= 2
-    cleanup_jlm(workflow)
 
 
 def test_heartbeat(db_cfg, real_jsm_jqs):
@@ -528,7 +509,9 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
     while i < maxtries:
         i += 1
         with app.app_context():
-            row = DB.session.execute("select status from workflow_run where id = {}".format(wfr.id)).fetchone()
+            row = DB.session.execute(
+                "SELECT status FROM workflow_run WHERE id = {}".
+                    format(wfr.id)).fetchone()
             DB.session.commit()
             if row[0] == 'R':
                 break
@@ -577,13 +560,14 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
         assert wfr.id not in [w.id for w in active]
         DB.session.commit()
 
+    # Must manully clean this one up because it was not executed.
     cleanup_jlm(workflow)
 
 
 def test_timeout(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 10", slots=1)
-    t2 = BashTask("sleep 11", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 12", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 10", num_cores=1)
+    t2 = BashTask("sleep 11", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 12", upstream_tasks=[t2], num_cores=1)
 
     wfa1 = "timeout_dag"
     wf1 = Workflow(wfa1, interrupt_on_error=False, seconds_until_timeout=3)
@@ -596,7 +580,6 @@ def test_timeout(real_jsm_jqs, db_cfg):
                     "timeout length (3 seconds). Submitted tasks will still"
                     " run, but the workflow will need to be restarted.")
     assert expected_msg == str(error.value)
-    cleanup_jlm(wf1)
 
 
 def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
@@ -614,12 +597,12 @@ def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
             DB.session.add(TaskDagMeta())
         DB.session.commit()
 
-    t1 = BashTask("echo 'hello'", slots=1)
-    t2 = BashTask("echo 'to'", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("echo 'the'", upstream_tasks=[t2], slots=1)
-    t4 = BashTask("echo 'beautiful'", upstream_tasks=[t3], slots=1)
-    t5 = BashTask("echo 'world'", upstream_tasks=[t4], slots=1)
-    t6 = BashTask("sleep 1", upstream_tasks=[t5], slots=1)
+    t1 = BashTask("echo 'hello'", num_cores=1)
+    t2 = BashTask("echo 'to'", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("echo 'the'", upstream_tasks=[t2], num_cores=1)
+    t4 = BashTask("echo 'beautiful'", upstream_tasks=[t3], num_cores=1)
+    t5 = BashTask("echo 'world'", upstream_tasks=[t4], num_cores=1)
+    t6 = BashTask("sleep 1", upstream_tasks=[t5], num_cores=1)
     workflow = Workflow("test_failing_nodes", interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3, t4, t5, t6])
     workflow.run()
@@ -668,14 +651,13 @@ def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
         DB.session.commit()
         failing_nodes = hm._calculate_node_failure_rate(DB.session, active_wfrs)
         assert 'new_fake_node.ihme.washington.edu' not in failing_nodes
-    cleanup_jlm(workflow)
 
 
 def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
     """Make sure adding tasks to a workflow (and not just a task dag) works"""
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     wfa = "add_tasks_to_workflow"
     workflow = Workflow(workflow_args=wfa, interrupt_on_error=False)
@@ -692,14 +674,13 @@ def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
             all()
         assert all(t.status == 'D' for t in j)
         DB.session.commit()
-    cleanup_jlm(workflow)
 
 
 def test_anonymous_workflow(db_cfg, real_jsm_jqs):
     # Make sure uuid is created for an anonymous workflow
-    t1 = BashTask("sleep 1", slots=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     workflow = Workflow(interrupt_on_error=False)
     workflow.add_tasks([t1, t2, t3])
@@ -735,8 +716,6 @@ def test_anonymous_workflow(db_cfg, real_jsm_jqs):
 
     # Make sure it's the same workflow
     assert workflow.id == new_workflow.id
-    cleanup_jlm(workflow)
-    cleanup_jlm(new_workflow)
 
 
 def test_workflow_status_dates(db_cfg, simple_workflow):
@@ -752,7 +731,6 @@ def test_workflow_status_dates(db_cfg, simple_workflow):
         for wfr in wf_runs:
             assert wfr.created_date != wfr.status_date
         DB.session.commit()
-    cleanup_jlm(simple_workflow)
 
 
 @pytest.mark.qsubs_jobs
@@ -767,9 +745,9 @@ def test_workflow_sge_args(db_cfg, real_jsm_jqs):
     t1 = PythonTask(name="check_env",
                     script='{}/executor_args_check.py'
                     .format(os.path.dirname(os.path.realpath(__file__))),
-                    slots=1, max_attempts=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], slots=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], slots=1)
+                    num_cores=1, max_attempts=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     wfa = "sge_args_dag"
     workflow = Workflow(workflow_args=wfa, project='proj_tools',
@@ -778,10 +756,26 @@ def test_workflow_sge_args(db_cfg, real_jsm_jqs):
     workflow.add_tasks([t1, t2, t3])
     wf_status = workflow.execute()
 
-    assert wf_status == DagExecutionStatus.SUCCEEDED
+    # TODO Grab a ref to the executor
+
     # If the working directory is not set correctly then executor_args_check.py
     # will fail and write its error message into the job_instance_error_log
-    # table
+    # table.
+    # This test is flakey. Gather more information by printing out the error.
+    # TODO this was added in May 2019, if the test has ceased to be flakey
+    # by July then remove this extra logging.
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    if wf_status != DagExecutionStatus.SUCCEEDED:
+        print(">>>>>> FLAKEY TEST test_workflow_sge_args FAILED <<<<<<<<<<<<<")
+        with app.app_context():
+            query = (
+                "SELECT job_instance_id, description  "
+                "FROM job_instance_error_log ")
+            results = DB.session.execute(query)
+            for row in results:
+                print("Error: jid {}, description {}".format(row[0], row[1]))
+            DB.session.commit()
 
     assert workflow.workflow_run.project == 'proj_tools'
     assert workflow.workflow_run.working_dir == (
@@ -789,13 +783,13 @@ def test_workflow_sge_args(db_cfg, real_jsm_jqs):
     assert workflow.workflow_run.stderr == '/tmp'
     assert workflow.workflow_run.stdout == '/tmp'
     assert workflow.workflow_run.executor_class == 'SGEExecutor'
-    cleanup_jlm(workflow)
+    assert wf_status == DagExecutionStatus.SUCCEEDED
 
 
 def test_workflow_identical_args(real_jsm_jqs, db_cfg):
     # first workflow runs and finishes
     wf1 = Workflow(workflow_args="same", project='proj_tools')
-    task = BashTask("sleep 2", slots=1)
+    task = BashTask("sleep 2", num_cores=1)
     wf1.add_task(task)
     wf1.execute()
 
@@ -811,9 +805,6 @@ def test_workflow_identical_args(real_jsm_jqs, db_cfg):
     wf3.add_task(task)
     with pytest.raises(WorkflowAlreadyComplete):
         wf3.execute()
-    cleanup_jlm(wf1)
-    cleanup_jlm(wf2)
-    cleanup_jlm(wf3)
 
 
 def test_workflow_config_reconciliation():
@@ -828,7 +819,7 @@ def test_workflow_config_reconciliation():
 def resumable_workflow():
     from jobmon.client.swarm.workflow.bash_task import BashTask
     from jobmon.client.swarm.workflow.workflow import Workflow
-    t1 = BashTask("sleep infinity", slots=1)
+    t1 = BashTask("sleep infinity", num_cores=1)
     wfa = "my_simple_dag"
     workflow = Workflow(wfa, interrupt_on_error=False, project="proj_tools",
                         resume=True)
@@ -875,8 +866,9 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
     # process should be joinable because _create_workflow_run should kill it
     p1.join()
 
-    # check qstat to make sure jobs isn't pending or running any more. there can
-    # be latency so wait at most 3 minutes for it's state to update in SGE
+    # check qstat to make sure jobs isn't pending or running any more.
+    # There canbe latency so wait at most 3 minutes for it's state
+    # to update in SGE
     max_sleep = 180  # 3 min max till test fails
     slept = 0
     ex_id_list = sge_utils.qstat("pr").keys()
@@ -911,10 +903,3 @@ def test_workflow_resource_adjustment(simple_workflow_w_errors, db_cfg):
     assert len(resp) == 2
     assert resp[0][0] == 0.5
     assert resp[1][0] == 0.3
-    cleanup_jlm(workflow)
-
-
-
-
-
-
