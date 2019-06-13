@@ -8,8 +8,6 @@ import signal
 import subprocess
 import sys
 import traceback
-from functools import partial
-from queue import Queue
 from threading import Thread
 from time import sleep, time
 
@@ -95,8 +93,7 @@ def unwrap():
         from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo \
             as JobInstanceExecutorInfo
     elif args["executor_class"] == "DummyExecutor":
-        from jobmon.client.swarm.executors import JobInstanceExecutorInfo \
-            as JobInstanceExecutorInfo
+        from jobmon.client.swarm.executors import JobInstanceExecutorInfo
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))
@@ -173,11 +170,11 @@ def unwrap():
         logger.warning(stderr)
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
-    # post stats usage
+    # post stats usage. this is a non critical error so catch all exceptions
     try:
         worker_node_job_instance.log_job_stats()
-    except NotImplementedError:
-        pass
+    except (NotImplementedError, Exception) as e:
+        logger.error(e)
 
     # check return code
     if returncode != ReturnCodes.OK:
