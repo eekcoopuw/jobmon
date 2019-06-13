@@ -50,8 +50,6 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
                     jid = id
                     job_status = qstat_out[id]['status']
                     print(f"found job {jid} with status {job_status}")
-            import pdb
-            pdb.set_trace()
             if jid:
                 # Make sure that job exists
                 if job_status == "qw":
