@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -126,7 +127,7 @@ class ExecutorParameters:
     def to_wire(self):
         return {
             'max_runtime_seconds': self.max_runtime_seconds,
-            'context_args': self.context_args,
+            'context_args': json.dumps(self.context_args),
             'queue': self.queue,
             'num_cores': self.num_cores,
             'm_mem_free': self.m_mem_free,

@@ -148,6 +148,7 @@ class ExecutableTask(object):
                 max_runtime_seconds=max_runtime_seconds,
                 queue=queue,
                 j_resource=j_resource,
+                context_args=context_args,
                 executor_class=executor_class)
         else:
             self.executor_parameters = executor_parameters

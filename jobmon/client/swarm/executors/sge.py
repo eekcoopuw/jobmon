@@ -40,7 +40,6 @@ class SGEExecutor(Executor):
 
     def _execute_sge(self, qsub_cmd) -> int:
         try:
-            print(qsub_cmd)
             logger.debug(f"Qsub command is: {qsub_cmd}")
             resp = check_output(qsub_cmd, shell=True, universal_newlines=True)
             logger.debug(f"****** Received from qsub '{resp}'")
@@ -92,7 +91,6 @@ class SGEExecutor(Executor):
             project=self.project,
             working_dir=self.working_dir)
         return self._execute_sge(qsub_command)
-
 
     def get_actual_submitted_or_running(self) -> List[int]:
         qstat_out = sge_utils.qstat()
