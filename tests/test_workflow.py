@@ -510,8 +510,8 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
         i += 1
         with app.app_context():
             row = DB.session.execute(
-                "SELECT status FROM workflow_run WHERE id = {}".
-                    format(wfr.id)).fetchone()
+                "SELECT status FROM workflow_run WHERE id = {}"
+                .format(wfr.id)).fetchone()
             DB.session.commit()
             if row[0] == 'R':
                 break
@@ -833,38 +833,42 @@ def run_workflow():
 
 
 def test_resume_workflow(real_jsm_jqs, db_cfg):
-    # create a workflow in a separate process with 1 job that sleeps forever
-    p1 = Process(target=run_workflow)
-    p1.start()
+    # create a workflow and run a job that executors for infinity
+    workflow1 = resumable_workflow()
+    workflow1._bind()
+    workflow1._create_workflow_run()
+    workflow1.task_dag._set_top_fringe()
+    workflow1.task_dag.job_list_manager.queue_task(
+        workflow1.task_dag.top_fringe[0])
 
-    # poll till we confirm that job is running
-    session = db_cfg["DB"].session
-    with db_cfg["app"].app_context():
-        status = ""
-        executor_id = None
-        max_sleep = 600  # 10 min max till test fails
-        slept = 0
-        while status != "R" and slept <= max_sleep:
-            ji = session.query(JobInstance).one_or_none()
-            sleep(5)
-            slept += 5
-            if ji:
-                status = ji.status
-        if ji:
-            executor_id = ji.executor_id
+    # # poll till we confirm that job is running
+    # session = db_cfg["DB"].session
+    # with db_cfg["app"].app_context():
+    #     status = ""
+    #     executor_id = None
+    #     max_sleep = 600  # 10 min max till test fails
+    #     slept = 0
+    #     import pdb; pdb.set_trace()
+    #     while status != "R" and slept <= max_sleep:
+    #         job = session.query(Job).one_or_none()
+    #         sleep(5)
+    #         slept += 5
+    #         if job:
+    #             status = job.status
+    #     if ji:
+    #         executor_id = ji.executor_id
 
-    # qdel job if the test timed out
-    if slept >= max_sleep and executor_id:
-        sge_utils.qdel(executor_id)
-        return
+    # # qdel job if the test timed out
+    # if slept >= max_sleep and executor_id:
+    #     sge_utils.qdel(executor_id)
+    #     return
+    import pdb; pdb.set_trace()
+    sleep(30)
 
     # now create an identical workflow which should kill the previous job
     workflow = resumable_workflow()
     workflow._bind()
     workflow._create_workflow_run()
-
-    # process should be joinable because _create_workflow_run should kill it
-    p1.join()
 
     # check qstat to make sure jobs isn't pending or running any more.
     # There canbe latency so wait at most 3 minutes for it's state
