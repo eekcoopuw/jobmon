@@ -102,7 +102,7 @@ def test_kill_remote_process_group_conditional(monkeypatch):
         "WorkerNodeJobInstance",
         MockIntercomRaiseInLogError)
     monkeypatch.setattr(
-        jobmon.client.worker_node.cli,
+        jobmon.client.worker_node.execution_wrapper,
         "is_on_prod",
         mock_is_on_prod)
 
@@ -145,7 +145,7 @@ def test_kill_remote_process_group_conditional(monkeypatch):
     set_on_prod(False)
     with patch.object(sys, 'argv', base_args):
         with pytest.raises(SystemExit):
-            jobmon.client.worker_node.cli.unwrap()
+            jobmon.client.worker_node.execution_wrapper.unwrap()
     # set on_prod back again for the next test
     set_on_prod(True)
 

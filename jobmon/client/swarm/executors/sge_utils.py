@@ -292,9 +292,8 @@ def qstat_usage(jids):
     return usage
 
 
-def qdel(job_ids: Union[List[int], int]) -> str:
-    jids = [str(jid) for jid in np.atleast_1d(job_ids)]
-    logger.debug(f"About to qdel {jids}")
+def qdel(job_ids):
+    jids = [str(int(jid)) for jid in np.atleast_1d(job_ids)]
     stdout = subprocess.check_output(['qdel'] + jids)
     logger.debug(f"stdout from qdel: {stdout}")
     return stdout
