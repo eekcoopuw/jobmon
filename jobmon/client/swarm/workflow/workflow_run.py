@@ -136,8 +136,9 @@ class WorkflowRun(object):
                     app_route=f'/workflow_run/{workflow_run_id}/job_instance',
                     message={},
                     request_type='get')
-                job_instances = [ExecutorJobInstance.from_wire(ji)
-                                 for ji in response['job_instances']]
+                job_instances = [ExecutorJobInstance.from_wire(
+                    ji, executor=previous_executor)
+                    for ji in response['job_instances']]
                 jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
                                     for ji in job_instances]
                 if job_instances:

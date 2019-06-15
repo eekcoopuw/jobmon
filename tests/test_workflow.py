@@ -23,6 +23,7 @@ from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     WorkflowAlreadyExists, ResumeStatus
+from jobmon.client.utils import gently_kill_command
 
 
 def cleanup_jlm(workflow):
@@ -833,42 +834,48 @@ def run_workflow():
 
 
 def test_resume_workflow(real_jsm_jqs, db_cfg):
-    # create a workflow and run a job that executors for infinity
-    workflow1 = resumable_workflow()
-    workflow1._bind()
-    workflow1._create_workflow_run()
-    workflow1.task_dag._set_top_fringe()
-    workflow1.task_dag.job_list_manager.queue_task(
-        workflow1.task_dag.top_fringe[0])
 
-    # # poll till we confirm that job is running
-    # session = db_cfg["DB"].session
-    # with db_cfg["app"].app_context():
-    #     status = ""
-    #     executor_id = None
-    #     max_sleep = 600  # 10 min max till test fails
-    #     slept = 0
-    #     import pdb; pdb.set_trace()
-    #     while status != "R" and slept <= max_sleep:
-    #         job = session.query(Job).one_or_none()
-    #         sleep(5)
-    #         slept += 5
-    #         if job:
-    #             status = job.status
-    #     if ji:
-    #         executor_id = ji.executor_id
+    # create a workflow in a separate process with 1 job that sleeps forever.
+    # it must be in a separate process because resume will kill the process
+    # that the workflow is running on which would terminate the test process
+    p1 = Process(target=run_workflow)
+    p1.start()
 
-    # # qdel job if the test timed out
-    # if slept >= max_sleep and executor_id:
-    #     sge_utils.qdel(executor_id)
-    #     return
-    import pdb; pdb.set_trace()
-    sleep(30)
+    # poll till we confirm that job is running
+    session = db_cfg["DB"].session
+    with db_cfg["app"].app_context():
+        status = ""
+        executor_id = None
+        max_sleep = 180  # 3 min max till test fails
+        slept = 0
+        while status != "R" and slept <= max_sleep:
+            ji = session.query(JobInstance).one_or_none()
+            session.commit()
+            sleep(5)
+            slept += 5
+            if ji:
+                status = ji.status
+        if ji:
+            executor_id = ji.executor_id
+
+    # qdel job if the test timed out
+    if slept >= max_sleep and executor_id:
+        sge_utils.qdel(executor_id)
+        gently_kill_command(p1.pid)
+        return
 
     # now create an identical workflow which should kill the previous job
+    # and workflow process
     workflow = resumable_workflow()
     workflow._bind()
     workflow._create_workflow_run()
+    cleanup_jlm(workflow)
+
+    # check if forked process was zombied
+    res = subprocess.check_output(f"ps -ax | grep {p1.pid} | grep -v grep",
+                                  shell=True, universal_newlines=True)
+    assert "Z+" in res
+    p1.join()
 
     # check qstat to make sure jobs isn't pending or running any more.
     # There canbe latency so wait at most 3 minutes for it's state
