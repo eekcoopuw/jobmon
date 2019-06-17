@@ -186,25 +186,26 @@ http.7        8456        3830 release-0.8.3
 
 jobmon-docker-cont-p01.hosts.ihme.washington.edu
 
-========  ==== ===== ===== ==== =============
-Version   jqs  jsm-1 jsm-2 db   git-tag
-========  ==== ===== ===== ==== =============
-http.8         8457        3840 release-0.8.4
-http.9         8458        3841 release-0.8.5
-http.10        8656        3860 release-0.8.6
-http.11        8756        3870 release-0.8.7
-http.12        8856        3880 release-0.8.8
-http.13        8956        3890 release-0.8.9
-http.14        9056        3900 release-0.9.0
-http.15        9056        3900 release-0.9.1
-http.16        9056        3900 release-0.9.2
-http.17        9056        3900 release-0.9.3
-http.18        9056        3900 release-0.9.4
-http.19        9556        3950 release-0.9.5
-http.20        9556        3950 release-0.9.6
-http.21        9556        3950 release-0.9.7
-http.22        9856        3980 release-0.9.8
-========  ==== ===== ===== ==== =============
+========  ==== ===== ===== =====  =============
+Version   jqs  jsm-1 jsm-2 db     git-tag
+========  ==== ===== ===== =====  =============
+http.8         8457        3840   release-0.8.4
+http.9         8458        3841   release-0.8.5
+http.10        8656        3860   release-0.8.6
+http.11        8756        3870   release-0.8.7
+http.12        8856        3880   release-0.8.8
+http.13        8956        3890   release-0.8.9
+http.14        9056        3900   release-0.9.0
+http.15        9056        3900   release-0.9.1
+http.16        9056        3900   release-0.9.2
+http.17        9056        3900   release-0.9.3
+http.18        9056        3900   release-0.9.4
+http.19        9556        3950   release-0.9.5
+http.20        9556        3950   release-0.9.6
+http.21        9556        3950   release-0.9.7
+http.22        9856        3980   release-0.9.8
+http.23        10001       10000  release-1.0.0
+========  ==== ===== ===== =====  =============
 
 The port numbers come in pairs, e.g. "3313:3306".
 The number on the right of the colon is the port-number inside the container, and never changes.
