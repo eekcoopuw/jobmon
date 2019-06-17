@@ -37,6 +37,8 @@ A Workflow is a framework by which a user may define the relationship between Ta
 
 A Workflow represents a set of Tasks which may depend on one another such that if each relationship were drawn (Task A) -> (Task B) meaning that Task B depends on Task A, it would form a `directed-acyclic graph (DAG) <https://en.wikipedia.org/wiki/Directed_acyclic_graph>`_.  A Workflow is further uniquely identified by a set of WorkflowArgs which are required if the Workflow is to be resumable.
 
+For more about the objects go to the :doc:`Workflow and Task Reference <jobmon.client.swarm.workflow>` or :doc:`Executor Parameter Reference <jobmon.client.swarm.executors>`
+
 Constructing a Workflow and adding a few Tasks is simple::
 
     import getpass
@@ -221,8 +223,16 @@ Open a SQL browser and connect to the database defined above.
 
 Tables:
 
+executor_parameter_set
+    The executor-specific parameters for a given job
+executor_parameter_set_type
+    The type of parameters (original requested, validated, adjusted)
 job
     The (potential) call of a job. Like a function definition in python
+job_attribute
+    Additional attributes being tracked for a job
+job_attribute_type
+    Type of attributes that can be tracked
 job_instance
     An actual run of a job. Like calling a function in python. One job can have multiple job_instances if they are retried
 job_instance_error_log
@@ -235,8 +245,16 @@ task_dag
     Has every entry of task dags created, as identified by a dag_id and dag_hash
 workflow
     Has every workflow created, along with it's associated dag_id, and workflow_args
+workflow_attribute
+    Additional attributes that are being tracked for a given workflow
+workflow_attribute_type
+    The types of attributes that can be tracked for workflows
 workflow_run
     Has every run of a workflow, paired with it's workflow, as identified by workflow_id
+workflow_run_attribute
+    Additional attributes that are being tracked for a workflow run
+workflow_run_attribute_type
+    The types of attributes that can be tracked for workflow runs
 workflow_run_status
     Meta-data table that defines the four states of a Workflow Run
 workflow_status

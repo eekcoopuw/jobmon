@@ -8,7 +8,6 @@ Subpackages
 
     jobmon.client.swarm
     jobmon.client.worker_node
-    jobmon.client.job_management
 
 Submodules
 ----------

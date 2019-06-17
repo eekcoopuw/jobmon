@@ -119,7 +119,7 @@ jobmon.models.workflow\_status module
     :show-inheritance:
 
 jobmon.models.attributes module
--------------------------------------
+-------------------------------
 
 .. automodule:: jobmon.models.attributes
     :members:

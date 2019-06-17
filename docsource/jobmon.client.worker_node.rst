@@ -5,7 +5,7 @@ Submodules
 ----------
 
 jobmon.client.worker\_node.execution_wrapper module
--------------------------------------
+---------------------------------------------------
 
 .. automodule:: jobmon.client.worker_node.execution_wrapper
     :members:
