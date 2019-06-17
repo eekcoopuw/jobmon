@@ -1,5 +1,5 @@
 from typing import Union
-import json
+import ast
 
 
 class SerializeExecutorJob:
@@ -17,7 +17,10 @@ class SerializeExecutorJob:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple):
         # coerce types for all nullables that are cast
-        context_args = json.loads(wire_tuple[7]) if wire_tuple[7] else None
+        # using ast.literal_eval is a potential security issue but was the only
+        # solution I could find to turing the data into json twice
+        context_args = ast.literal_eval(
+            wire_tuple[7]) if wire_tuple[7] else None
         num_cores = int(wire_tuple[9]) if wire_tuple[9] else None
         m_mem_free = float(wire_tuple[10]) if wire_tuple[10] else None
         last_process_group_id = int(wire_tuple[13]) if wire_tuple[13] else None

@@ -1,4 +1,5 @@
 import pytest
+import logging
 from subprocess import check_output
 from time import sleep
 from unittest import mock
@@ -345,3 +346,21 @@ def query_till_running(db_cfg):
             """SELECT status, executor_id FROM job_instance""").fetchall()[0]
         DB.session.commit()
     return resp
+
+
+def test_context_args(job_list_manager_sge_no_daemons, db_cfg, caplog):
+    caplog.set_level(logging.DEBUG)
+
+    jlm = job_list_manager_sge_no_daemons
+    jif = jlm.job_instance_factory
+
+    job = jlm.bind_task(
+        Task(command="sge_foobar",
+             name="test_context_args", num_cores=2, mem_free='4G',
+             max_runtime_seconds='1000',
+             context_args={'sge_add_args': '-a foo'}))
+
+    jlm.queue_job(job)
+    jif.instantiate_queued_jobs()
+
+    assert "-a foo" in caplog.text

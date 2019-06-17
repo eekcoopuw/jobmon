@@ -41,9 +41,7 @@ class JobFactory(object):
             j_resource (bool): whether or not this job is using the j drive
         """
         if not context_args:
-            context_args = json.dumps({})
-        else:
-            context_args = json.dumps(context_args)
+            context_args = {}
         rc, response = self.requester.send_request(
             app_route='/job',
             message={'dag_id': self.dag_id,
