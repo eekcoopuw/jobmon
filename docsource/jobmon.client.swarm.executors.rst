@@ -10,7 +10,6 @@ jobmon.client.swarm.executors.base module
 .. automodule:: jobmon.client.swarm.executors.base
     :members:
     :undoc-members:
-    :private-members:
     :show-inheritance:
 
 jobmon.client.swarm.executors.dummy module
