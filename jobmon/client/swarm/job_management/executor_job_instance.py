@@ -86,7 +86,7 @@ class ExecutorJobInstance:
         Args:
             executor_id (int): placeholder executor id. generall -9999
         """
-        self._executor_id = executor_id
+        self.executor_id = executor_id
         self.requester.send_request(
             app_route=f'/job_instance/{self.job_instance_id}/log_no_exec_id',
             message={'executor_id': executor_id},
@@ -103,7 +103,7 @@ class ExecutorJobInstance:
             next_report_increment (float): how many seconds to wait for
                 report or status update before considering the job lost
         """
-        self._executor_id = executor_id
+        self.executor_id = executor_id
         self.requester.send_request(
             app_route=f'/job_instance/{self.job_instance_id}/log_executor_id',
             message={'executor_id': str(executor_id),
@@ -112,9 +112,9 @@ class ExecutorJobInstance:
 
     def log_error(self) -> None:
         """Log an error from the executor loops"""
-        if self._executor_id is None:
+        if self.executor_id is None:
             raise ValueError("executor_id cannot be None during log_error")
-        executor_id: int = self._executor_id
+        executor_id: int = self.executor_id
         try:
             error_state, msg = self.executor.get_remote_exit_info(executor_id)
         except RemoteExitInfoNotAvailable:
