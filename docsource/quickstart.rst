@@ -44,6 +44,7 @@ Constructing a Workflow and adding a few Tasks is simple::
     from jobmon.client.swarm.workflow import Workflow
     from jobmon.client.swarm.bash_task import BashTask
     from jobmon.client.swarm.python_task import PythonTask
+    from jobmon.client.executors.base import ExecutorParameters
 
     # Create a Workflow
     user = getpass.getuser()
@@ -53,26 +54,30 @@ Constructing a Workflow and adding a few Tasks is simple::
                      working_dir='/homes/{}'.format(user),
                      seconds_until_timeout=3600)
 
-    # Add some Tasks to it...
-    write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
+    # Add some Tasks with defined Parameters
+    write_params = ExecutorParameters(m_mem_free='4G', num_cores=2,
+                                      max_runtime_seconds=600)
+    write_task = BashTask("touch ~/jobmon_qs.txt", executor_parameters=write_params)
+
+    # this task will use all default parameters by not specifying its own requirements
     copy_task = BashTask("cp ~/jobmon_qs.txt ~/cpof_jobmon_qs.txt", upstream_tasks=[write_task])
+
     del_task = BashTask("rm ~/jobmon_qs.txt", upstream_tasks=[copy_task])
     # (create a runme.py in your home directory)
+    run_params = ExecutorParameters(m_mem_free='4G', num_cores=2,
+                                    max_runtime_seconds=100)
     run_task = PythonTask(path_to_python_binary='/ihme/code/central_comp/miniconda/bin/python',
-                          script='~/runme.py', env_variables={'OP_NUM_THREADS': 1}, args=[1, 2], slots=2, mem_free=4)
+                          script='~/runme.py', env_variables={'OP_NUM_THREADS': 1}, args=[1, 2], executor_parameters=run_params)
 
     my_wf.add_tasks([write_task, copy_task, del_task, run_task])
     my_wf.run()
 
 .. note::
-    If you know that your Workflow is to be used for a one-off project only, you may choose to use an anonymous Workflow, meaning you leave workflow_args blank. In this case, WorkflowArgs will default to a UUID which, as it is randomly generated, will be harder to remember and thus is not recommended for use cases outside of the one-off project.
+    Unique Workflows: If you know that your Workflow is to be used for a one-off project only, you may choose to use an anonymous Workflow, meaning you leave workflow_args blank. In this case, WorkflowArgs will default to a UUID which, as it is randomly generated, will be harder to remember and thus is not recommended for use cases outside of the one-off project.
 
-.. note::
+Default Executor Parameters: Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you allocate appropriate resources for your job. These include num_cores, m_mem_free, and max_runtime_seconds. By default, num_cores used will be 1, mem_free will be 1G, and max attempts will be 3. Stderr, stdout, project, and working_dir (if desired) are set at the workflow level (see below).
 
-    Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you launch your job the way you want. These include slots, mem_free, max_attempts, max_runtime. By default, slots used will be 1, mem_free 2, with a max_attempt of 3. Stderr, stdout, project, and working_dir (if desired) are set at the workflow level (see below).
-
-.. note::
-    If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon Task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
+Additional Arguments: If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon Task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
 
 .. note::
     By default Workflows are set to time out if your tasks haven't all completed after 10 hours (or 36000 seconds). If your Workflow times out before your tasks have finished running, those tasks will continue running, but you will need to restart your Workflow again. You can change this if your tasks combined run longer than 10 hours.
@@ -81,7 +86,8 @@ Constructing a Workflow and adding a few Tasks is simple::
     Errors with a return code of 199 indicate an issue occurring within Jobmon itself.
 
 .. note::
-    If you want to define the rate at which resources are adjusted in case a job failes because it did not request enough resources (exit code 137), then you can adjust the resource_adjustment parameter defined in the workflow object (otherwise the default is 0.5 or 50% increase after each failure)
+    Resource Adjustments: If you want to define the rate at which resources are adjusted in case a job fails because it did not request enough resources (exit code 137), then you can adjust the resource_adjustment parameter defined in the workflow object (otherwise the default is 0.5 or 50% increase after each failure)
+
 
 Restart Tasks and Resume Workflows
 =======================================
@@ -106,7 +112,8 @@ To resume the Workflow created above::
     my_wf = Workflow(workflow_args"quickstart", project='proj_jenkins',
                   stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
                   stdout='/ihme/scratch/users/{}/sgeoutput'.format(user),
-                  working_dir='/homes/{}'.format(user), resume=True)
+                  working_dir='/homes/{}'.format(user), resume=True,
+                  resource_adjustment=0.3)
 
     # Re-add the same Tasks to it...
     write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)

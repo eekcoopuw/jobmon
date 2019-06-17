@@ -71,45 +71,44 @@ class ExecutableTask(object):
         """
         Create a task
 
-        Args
-        command: the unique command for this Task, also readable by humans.
-            Should include all parameters.
-            Two Tasks are equal (__eq__) iff they have the same command
-        upstream_tasks (list): Task objects that must be run prior to this
-        env_variables (dict): any environment variable that should be set
+        Args:
+            command: the unique command for this Task, also readable by humans. Should include all parameters. Two Tasks are equal (__eq__) iff they have the same command
+            upstream_tasks (list): Task objects that must be run prior to this
+            env_variables (dict): any environment variable that should be set
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
-        name (str): name that will be visible in qstat for this job
-        slots (int): slots to request on the cluster. Default is 1
-        num_cores (int): number of cores to request on the cluster
-        mem_free (int): amount of memory to request on the cluster.
-            Generally 2x slots. Default is 1
-        m_mem_free (str): amount of memory in gbs, tbs, or mbs (G, T, or M)
-             to request on the fair cluster. Mutually exclusive with
-            mem_free as it will fully replace that argument when the dev
-            and prod clusters are taken offline
-        max_attempts (int): number of attempts to allow the cluster to try
-            before giving up. Default is 3
-        max_runtime_seconds (int): how long the job should be allowed to
-            run before the executor kills it. Default is None, for indefinite.
-        tag (str): a group identifier. Currently just used for visualization.
-            All tasks with the same tag will be colored the same in a
-            TaskDagViz instance. Default is None.
-        queue (str): queue of cluster nodes to submit this task to. Must be
-            a valid queue, as defined by "qconf -sql"
-        job_attributes (dict): any attributes that will be
-            tracked. Once the task becomes a job and receives a job_id,
-            these attributes will be used for the job_factory
-            add_job_attribute function
-        j_resource(bool): whether this task is using the j-drive or not
-        executor_class (str): the type of executor so we can instantiate the
-            executor parameters properly
-        executor_parameters(ExecutorParameters): an instance of executor
-            paremeters class
-
-         Raise:
+            name (str): name that will be visible in qstat for this job
+            slots (int): slots to request on the cluster. Default is 1
+            num_cores (int): number of cores to request on the cluster
+            mem_free (int): amount of memory to request on the cluster.
+                Generally 2x slots. Default is 1
+            m_mem_free (str): amount of memory in gbs, tbs, or mbs, G, T, or M,
+                to request on the fair cluster. Mutually exclusive with
+                mem_free as it will fully replace that argument when the dev
+                and prod clusters are taken offline
+            max_attempts (int): number of attempts to allow the cluster to try
+                before giving up. Default is 3
+            max_runtime_seconds (int): how long the job should be allowed to
+                run before the executor kills it. Default is None, for indefinite.
+            tag (str): a group identifier. Currently just used for visualization.
+                All tasks with the same tag will be colored the same in a
+                TaskDagViz instance. Default is None.
+            queue (str): queue of cluster nodes to submit this task to. Must be
+                a valid queue, as defined by "qconf -sql"
+            job_attributes (dict): any attributes that will be
+                tracked. Once the task becomes a job and receives a job_id,
+                these attributes will be used for the job_factory
+                add_job_attribute function
+            j_resource (bool): whether this task is using the j-drive or not
+            context_args (dict): additional args to be passed to the executor
+            executor_class (str): the type of executor so we can instantiate the
+                executor parameters properly
+            executor_parameters (ExecutorParameters): an instance of executor
+                paremeters class
+        Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
            see is_valid_job_name
+
         """
         if env_variables:
             env_variables = ' '.join('{}={}'.format(key, val) for key, val

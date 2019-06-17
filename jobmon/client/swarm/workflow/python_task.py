@@ -9,6 +9,43 @@ logger = logging.getLogger(__name__)
 
 
 class PythonTask(ExecutableTask):
+    """
+    Args:
+        path_to_python_binary (str): the python install that should be used
+            Default is the Python install where Jobmon is installed
+        script (str): the full path to the python code to run
+        args (list): list of arguments to pass in to the script
+        upstream_tasks (list): Task objects that must be run prior to this
+        env_variables (dict): any environment variable that should be set
+            for this job, in the form of a key: value pair.
+            This will be prepended to the command.
+        name (str): name that will be visible in qstat for this job
+        slots (int): slots to request on the cluster. Default is 1
+        num_cores (int): number of cores to request on the cluster
+        mem_free (int): amount of memory in GBs to request on the cluster.
+            Generally 2x slots. Default is 1
+        m_mem_free (str): amount of memory in gbs, tbs, or mbs (G, T, or M)
+             to request on the fair cluster. Mutually exclusive with
+            mem_free as it will fully replace that argument when the dev
+            and prod clusters are taken offline
+        max_attempts (int): number of attempts to allow the cluster to try
+            before giving up. Default is 3
+        max_runtime_seconds (int): how long the job should be allowed to
+            run before the executor kills it. Default is None, for
+            indefinite.
+        tag (str): a group identifier. Currently just used for
+            visualization. All tasks with the same tag will be colored the
+            same in a TaskDagViz instance. Default is None.
+        queue (str): queue of cluster nodes to submit this task to. Must be
+            a valid queue, as defined by "qconf -sql"
+        j_resource (bool): Whether or not this task uses the j_drive
+        context_args (str): Additional arguments to pass along with to the
+            executor
+        executor_class (str): Executor class to configure the given
+            parameters ex. SGEExecutor
+        executor_parameters(ExecutorParameters): the set of executor
+            specific parameters for the given task
+    """
 
     current_python = sys.executable
 
@@ -35,7 +72,7 @@ class PythonTask(ExecutableTask):
             mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 1
             m_mem_free (str): amount of memory in gbs, tbs, or mbs (G, T, or M)
-                 to request on the fair cluster. Mutually exclusive with
+                to request on the fair cluster. Mutually exclusive with
                 mem_free as it will fully replace that argument when the dev
                 and prod clusters are taken offline
             max_attempts (int): number of attempts to allow the cluster to try
@@ -49,8 +86,13 @@ class PythonTask(ExecutableTask):
             queue (str): queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
             j_resource (bool): Whether or not this task uses the j_drive
-            executor_param_obj(ExecutorParameters): the set of executor
+            context_args (dict): Additional arguments to pass along with to the
+                executor
+            executor_class (str): Executor class to configure the given
+                parameters ex. SGEExecutor
+            executor_parameters(ExecutorParameters): the set of executor
                 specific parameters for the given task
+
         """
         self.command = PythonTask.make_cmd(path_to_python_binary, script,
                                            args)

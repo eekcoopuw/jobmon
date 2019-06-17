@@ -4,10 +4,10 @@ jobmon.client.worker\_node package
 Submodules
 ----------
 
-jobmon.client.worker\_node.cli module
+jobmon.client.worker\_node.execution_wrapper module
 -------------------------------------
 
-.. automodule:: jobmon.client.worker_node.cli
+.. automodule:: jobmon.client.worker_node.execution_wrapper
     :members:
     :undoc-members:
     :show-inheritance:

@@ -29,6 +29,25 @@ class ExecutorParameters:
                  m_mem_free: Optional[Union[str, float]] = None,
                  context_args: Optional[Union[Dict, str]] = None,
                  executor_class: str = 'SGEExecutor'):
+        """
+        Args:
+            slots (int) : number of slots requested using old cluster terminology,
+                WILL BE DEPRECATED
+            mem_free (int): number of gigabytest of memory to be requested using
+                old cluster terminology, WILL BE DEPRECATED
+            num_cores (int): number of cores fair cluster terminology
+            queue (str): queue to be requested for the given task depending on
+                the resources the job will need
+            max_runtime_seconds (int): the maximum runtime for the job in seconds
+            j_resource (bool): j drive access
+            m_mem_free (float, str): the amount of memory to be requested, can
+                either be in string format ex. '300M', '1G', '0.2T' or as a float
+            context_args (dict): additional arguments to be provided to the
+                executor
+            executor_class (str): name of the executor class so that params can
+                be parsed accordingly
+
+        """
 
         if slots is not None:
             warnings.warn(

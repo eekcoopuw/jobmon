@@ -25,6 +25,19 @@ class TaskDag(object):
     def __init__(self, name="", interrupt_on_error=True, executor=None,
                  fail_fast=False, job_instantiation_interval=3,
                  seconds_until_timeout=36000):
+        """
+        Args:
+            name (str): name of dag
+            interrupt_on_error (bool): whether to interrupt if there are errors
+                from the job instance factory or job instance reconciler
+            executor (Executor): executor instance being used
+            fail_fast (bool): whether to fail after a task fails
+            job_instantiation_interval (int): number of seconds to wait before
+                instantiating newly ready jobs
+            seconds_until_timeout (int): length that the workflow itself will
+                run before timing out
+
+        """
 
         self.dag_id = None
         self.job_list_manager = None

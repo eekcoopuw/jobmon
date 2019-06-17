@@ -53,7 +53,7 @@ def gently_kill_command(id: int) -> str:
     Best to use SIGTERM because it gives well-behaved processes a chance
     to clean up their child processes before the hard kill. This is less
     likely to leave orphans:
-      kill SIGTERM; sleep 5; kill SIGKILL
+    kill SIGTERM; sleep 5; kill SIGKILL
     """
     return f'kill -SIGTERM {id}; sleep 10; kill -SIGKILL {id}'
 

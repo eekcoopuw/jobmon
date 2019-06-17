@@ -8,6 +8,7 @@ Subpackages
 
     jobmon.client.swarm.executors
     jobmon.client.swarm.workflow
+    jobmon.client.swarm.job_management
 
 Module contents
 ---------------

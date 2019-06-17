@@ -30,3 +30,33 @@ If the WorkflowArgs + Tasks that define a Workflow already point to an
 existing Workflow that is complete when the user calls "execute()," the user
 must force creation of a Workflow (via interactive prompt). Otherwise, they
 would be expected to be passing new WorkflowArgs or to modify 1 or more Tasks.
+
+Resource Requesting and Retries
+*******************************
+
+With the move to the fair (buster) cluster, resource limits are enforced,
+and jobs may die due to cluster enforcement if they have underrequested
+resources. In order to help jobs complete without user intervention every time,
+jobmon now has resource adjustment. If it detects that a job has died due to
+resource enforcing, the resources will be increased and the job will be retried
+if it has not exceeded the maximum attempts.
+
+A record of the resources requested can be found in the ExecutorParameters
+table where each job will have the original parameters requested and the
+validated resources as well as rows added each time a resource error occurs
+and the resources need to be increased. If this happens, the user should
+reconfigure their job to use the resources that ultimately succeeded so that
+they do not waste cluster resources in the future.
+
+A step-by-step breakdown of how jobmon deals with a job instance failing due
+to resource enforcement is as follows:
+
+1. job instance exits with a resource killed error code (in state 'Z')
+2. if the job has no more retries it will move into failed state, if not it
+   will move into error recoverable
+3. the reconciler will take jobs that are in error recoverable, and marked
+   with a resource error and adjust them by the adjustment factor (right now it
+   adjusts all resources by the same factor, but in the future we hope to do
+   resource specific scaling)
+4. a new job instance will be created, and it will now refer to the new
+   adjusted resource values
