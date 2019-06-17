@@ -185,22 +185,26 @@ def qstat(status: str=None, pattern: str=None, user: str=None,
                'runtime': job_runtime_strs[index],
                'runtime_seconds': job_runtimes[index]}
         jobs[job_ids[index]] = job
+    del_keys = []
     if pattern is not None:
         for jid in jobs:
             if pattern not in jobs[jid]['name']:
-                del jobs[jid]
+                del_keys.append(jid)
     if status is not None:
         for jid in jobs:
             if jobs[jid]['status'] != status:
-                del jobs[jid]
+                del_keys.append(jid)
     if user is not None:
         for jid in jobs:
             if jobs[jid]['user'] != user:
-                del jobs[jid]
+                del_keys.append(jid)
     if jids is not None:
         unwanted_jids = set(jobs) - set(jids)
         for jid in unwanted_jids:
-            del jobs[jid]
+            del_keys.append(jid)
+    if del_keys:
+        for key in del_keys:
+            jobs.pop(key, None)
     logger.debug(f"Lines: {lines}, Jobs: {jobs}")
     return jobs
 

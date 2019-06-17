@@ -27,7 +27,7 @@ class ExecutorJobInstance:
                  requester: Requester = shared_requester):
 
         self.job_instance_id = job_instance_id
-        self._executor_id = executor_id
+        self.executor_id = executor_id
 
         # interfaces to the executor and server
         self.executor = executor

@@ -842,7 +842,7 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
     with db_cfg["app"].app_context():
         status = ""
         executor_id = None
-        max_sleep = 600  # 10 min max till test fails
+        max_sleep = 180  # 3 min max till test fails
         slept = 0
         while status != "R" and slept <= max_sleep:
             ji = session.query(JobInstance).one_or_none()
