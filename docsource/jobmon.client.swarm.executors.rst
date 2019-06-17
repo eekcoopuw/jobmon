@@ -19,7 +19,6 @@ jobmon.client.swarm.executors.dummy module
 .. automodule:: jobmon.client.swarm.executors.dummy
     :members:
     :undoc-members:
-    :private-members:
     :show-inheritance:
 
 jobmon.client.swarm.executors.sequential module
@@ -28,7 +27,6 @@ jobmon.client.swarm.executors.sequential module
 .. automodule:: jobmon.client.swarm.executors.sequential
     :members:
     :undoc-members:
-    :private-members:
     :show-inheritance:
 
 jobmon.client.swarm.executors.sge module
@@ -37,7 +35,6 @@ jobmon.client.swarm.executors.sge module
 .. automodule:: jobmon.client.swarm.executors.sge
     :members:
     :undoc-members:
-    :private-members:
     :show-inheritance:
 
 jobmon.client.swarm.executors.sge\_parameters module
@@ -46,7 +43,6 @@ jobmon.client.swarm.executors.sge\_parameters module
 .. automodule:: jobmon.client.swarm.executors.sge_parameters
     :members:
     :undoc-members:
-    :private-members:
     :show-inheritance:
 
 jobmon.client.swarm.executors.sge\_utils module
@@ -55,7 +51,6 @@ jobmon.client.swarm.executors.sge\_utils module
 .. automodule:: jobmon.client.swarm.executors.sge_utils
     :members:
     :undoc-members:
-    :private-members:
     :show-inheritance:
 
 
