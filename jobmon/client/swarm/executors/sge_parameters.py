@@ -30,20 +30,20 @@ class SGEParameters:
                  context_args: Optional[Union[Dict, str]] = None):
         """
         Args:
-            slots (int): slots to request on the cluster
-            mem_free (int): memory in gigabytes, in the old cluster syntax
-            m_mem_free (str or float): amount of memory in gbs, tbs, or mbs to
+            slots: slots to request on the cluster
+            mem_free: memory in gigabytes, in the old cluster syntax
+            m_mem_free: amount of memory in gbs, tbs, or mbs to
                 request on the cluster, submitted from the user in string form
                 but will be converted to a float for internal use
-            num_cores (int): number of cores to request on the cluster
-            j_resource (bool): whether or not to access the J drive. Default: False
-            queue (str): queue of cluster nodes to submit this task to. Must be
+            num_cores: number of cores to request on the cluster
+            j_resource: whether or not to access the J drive. Default: False
+            queue: queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
-            max_runtime_seconds (int): how long the job should be allowed to
+            max_runtime_seconds: how long the job should be allowed to
                 run before the executor kills it. Currently required by the
                 new cluster. Default is None, for indefinite.
-            j_resource (bool): whether or not the job will need the J drive
-            context_args (dict or str): additional arguments to be added for
+            j_resource: whether or not the job will need the J drive
+            context_args: additional arguments to be added for
                 execution
 
         """

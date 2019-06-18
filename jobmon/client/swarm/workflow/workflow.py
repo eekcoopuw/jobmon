@@ -9,10 +9,11 @@ import jobmon
 from cluster_utils.io import makedirs_safely
 from jobmon.client import shared_requester, client_config
 from jobmon.models.attributes.constants import workflow_attribute
-from jobmon.models.workflow import Workflow as WorkflowDAO
-from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.client.requester import Requester
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
+from jobmon.models.workflow import Workflow as WorkflowDAO
+from jobmon.models.workflow_status import WorkflowStatus
 
 try:  # Python 3.5+
     from http import HTTPStatus as StatusCodes
@@ -62,46 +63,50 @@ class Workflow(object):
         tasks must be added with the same dependencies between tasks.
     """
 
-    def __init__(self, workflow_args=None, name="",
-                 description="", stderr=None, stdout=None, project=None,
-                 reset_running_jobs=True, working_dir=None,
-                 executor_class='SGEExecutor', fail_fast=False,
-                 interrupt_on_error=False, requester=shared_requester,
-                 seconds_until_timeout=36000, resume=ResumeStatus.DONT_RESUME,
-                 reconciliation_interval=None, heartbeat_interval=None,
-                 report_by_buffer=None, resource_adjustment=0.5):
+    def __init__(self, workflow_args: str = None, name: str = "",
+                 description: str = "", stderr: str = None, stdout: str = None,
+                 project: str = None, reset_running_jobs: bool = True,
+                 working_dir: str = None, executor_class: str = 'SGEExecutor',
+                 fail_fast: bool = False, interrupt_on_error: bool = False,
+                 requester: Requester = shared_requester,
+                 seconds_until_timeout: int = 36000,
+                 resume: bool = ResumeStatus.DONT_RESUME,
+                 reconciliation_interval: int = None,
+                 heartbeat_interval: int = None,
+                 report_by_buffer: float = None,
+                 resource_adjustment: float = 0.5):
         """
         Args:
-            workflow_args (str): unique identifier of a workflow
-            name (str): name of the workflow
-            description (str): description of the workflow
-            stderr (str): filepath where stderr should be sent, if run on sGE
-            stdout (str): filepath where stdout should be sent, if run on sGE
-            project (str): SGE project to run under, if run on SGE
-            reset_running_jobs (bool): whether or not to reset running jobs
-            working_dir (str): the working dir that a job should be run from,
+            workflow_args: unique identifier of a workflow
+            name: name of the workflow
+            description: description of the workflow
+            stderr: filepath where stderr should be sent, if run on sGE
+            stdout: filepath where stdout should be sent, if run on sGE
+            project: SGE project to run under, if run on SGE
+            reset_running_jobs: whether or not to reset running jobs
+            working_dir: the working dir that a job should be run from,
                 if run on SGE
-            executor_class (str): name of one of Jobmon's executors
-            fail_fast (bool): whether or not to break out of execution on
+            executor_class: name of one of Jobmon's executors
+            fail_fast: whether or not to break out of execution on
                 first failure
-            interrupt_on_error (bool): whether or not the JIF/JIR daemons
+            interrupt_on_error: whether or not the JIF/JIR daemons
                 should interrupt on errors
-            seconds_until_timeout (int): amount of time (in seconds) to wait
+            seconds_until_timeout: amount of time (in seconds) to wait
                 until the whole workflow times out. Submitted jobs will
                 continue
-            resume (bool): whether the workflow should be resumed or not, if
+            resume: whether the workflow should be resumed or not, if
                 it is not and an identical workflow already exists, the
                 workflow will error out
-            reconciliation_interval(int): rate at which reconciler reconciles
+            reconciliation_interval: rate at which reconciler reconciles
                 jobs to for errors and check state changes, default set to 10
                 seconds in client config, but user can reconfigure here
-            heartbeat_interval (int): rate at which worker node reports
+            heartbeat_interval: rate at which worker node reports
                 back if it is still alive and running
-            report_by_buffer (float): number of heartbeats we push out the
+            report_by_buffer: number of heartbeats we push out the
                 report_by_date (default = 3.1) so a job in qw can miss 3
                 reconciliations or a running job can miss 3 worker heartbeats,
                 and then we will register that it as lost
-            resource_adjustment (float): The rate at which a resource will be
+            resource_adjustment: The rate at which a resource will be
                 increased if it fails from resource under requesting (value
                 between 0 and 1)
         """
