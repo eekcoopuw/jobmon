@@ -5,9 +5,8 @@ import json
 import os
 import socket
 from sqlalchemy.sql import func
-import sys
 import traceback
-from typing import Tuple, Optional
+from typing import Optional
 import warnings
 
 from jobmon.models import DB
@@ -111,7 +110,7 @@ def add_job():
         job_id=job.job_id,
         parameter_set_type=ExecutorParameterSetType.ORIGINAL,
         max_runtime_seconds=data.get('max_runtime_seconds', None),
-        context_args=data.get('context_args',"{}"),
+        context_args=data.get('context_args', None),
         queue=data.get('queue', None),
         num_cores=data.get('num_cores', None),
         m_mem_free=data.get('m_mem_free', 2),
