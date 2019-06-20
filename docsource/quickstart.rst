@@ -177,11 +177,53 @@ instantiate the workflow with fail_fast set to True. Then add tasks to the workf
 as normal, and the workflow will fail on the first failure.
 
 For example::
+
     wf = Workflow(workflow_args='testing', fail_fast=True)
     t1 = BashTask("not a command 1")
     t2 = BashTask("sleep 10", upstream_tasks=[t1])
     wf.add_tasks([t1, t2])
     wf.run()
+
+
+A Workflow that adjusts the resources of a job
+===============================================
+
+Sometimes a user may not be able to accurately predict the runtime or memory usage
+of a task. Jobmon will detect when the task fails due to resource constraints and
+retry that task with with more resources. The default resource scaling factor is 50%
+unless otherwise specified.
+
+For example::
+
+    from jobmon import Workflow, BashTask
+    from jobmon.client.swarm.executors import ExecutorParameters
+
+    my_wf = Workflow(
+        workflow_args="resource starved workflow",
+        project="proj_tools",
+        resource_adjustment=0.5)  # resources will scale by 50% on failure
+
+
+    # specify SGE specific parameters
+    sleepy_params = ExecutorParameters(
+        num_cores=1,
+        m_mem_free="1G",
+        max_runtime_seconds=100,  # set max runtime to be shorter than task runtime
+        queue="all.q",
+        executor_class="SGEExecutor")
+    sleepy_task = BashTask(
+        # set sleep to be longer than max runtime, forcing a retry
+        "sleep 120",
+        # job should succeed on second try. runtime will 150s on try 2
+        max_attempts=2,
+        executor_parameters=sleepy_params)
+    my_wf.add_task(sleepy_task)
+
+    # job will time out and get killed by the cluster. After a few minutes jobmon
+    # will notice that it has disappeared and ask SGE for exit status. SGE will
+    # show a resource kill. Jobmon will scale all resources by 50% and retry the
+    # job at which point it will succeed.
+    my_wf.run()
 
 
 Jobmon Database
