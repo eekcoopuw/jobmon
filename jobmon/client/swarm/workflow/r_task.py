@@ -35,7 +35,7 @@ class RTask(ExecutableTask):
             mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 1
             m_mem_free (str): amount of memory in gbs, tbs, or mbs (G, T, or M)
-                 to request on the fair cluster. Mutually exclusive with
+                to request on the fair cluster. Mutually exclusive with
                 mem_free as it will fully replace that argument when the dev
                 and prod clusters are taken offline
             max_attempts (int): number of attempts to allow the cluster to try
@@ -49,6 +49,10 @@ class RTask(ExecutableTask):
             queue (str): queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
             j_resource (bool): whether or not this task uses the j_drive
+            context_args (dict): additional args to be passed to the executor
+            executor_class (str): executor class name
+            executor_parameters (ExecutorParameters): executor specific
+                parameters
         """
         self.command = RTask.make_cmd(path_to_R_binary, script, args)
         super(RTask, self).__init__(

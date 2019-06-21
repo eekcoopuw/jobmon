@@ -36,10 +36,10 @@ jobmon.client.swarm.executors.sge module
     :undoc-members:
     :show-inheritance:
 
-jobmon.client.swarm.executors.sge\_resource module
---------------------------------------------------
+jobmon.client.swarm.executors.sge\_parameters module
+----------------------------------------------------
 
-.. automodule:: jobmon.client.swarm.executors.sge_resource
+.. automodule:: jobmon.client.swarm.executors.sge_parameters
     :members:
     :undoc-members:
     :show-inheritance:

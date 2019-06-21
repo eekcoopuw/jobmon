@@ -26,17 +26,17 @@ class JobInstanceFactory(object):
     running code.
 
     Args:
-        dag_id (int): the id for the dag to run
-        executor (Executor, optional): executor to use w/ this factory.
-            SequentialExecutor, DummyExecutor or SGEExecutor. Default
-                SequentialExecutor
-        interrupt_on_error (bool, optional): whether or not to
-            interrupt the thread if there's an error. Default True
-        n_queued_jobs (int, optional): number of queued jobs to return and
-            send to be instantiated. default 1000
-        stop_event (threading.Event, optional): Object of type
-            threading.Event. Default None
-        requester (Requester, optional)
+    dag_id (int): the id for the dag to run
+    executor (Executor, optional): executor to use w/ this factory.
+        SequentialExecutor, DummyExecutor or SGEExecutor. Default
+        SequentialExecutor
+    interrupt_on_error (bool, optional): whether or not to
+        interrupt the thread if there's an error. Default True
+    n_queued_jobs (int, optional): number of queued jobs to return and
+        send to be instantiated. default 1000
+    stop_event (threading.Event, optional): Object of type threading.Event.
+        Default None
+    requester (Requester, optional)
     """
     def __init__(self,
                  dag_id: int,

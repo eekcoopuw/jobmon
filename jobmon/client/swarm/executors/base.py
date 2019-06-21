@@ -29,6 +29,25 @@ class ExecutorParameters:
                  m_mem_free: Optional[Union[str, float]] = None,
                  context_args: Optional[Union[Dict, str]] = None,
                  executor_class: str = 'SGEExecutor'):
+        """
+        Args:
+            slots: number of slots requested using old cluster terminology,
+                WILL BE DEPRECATED
+            mem_free: number of gigabytest of memory to be requested using
+                old cluster terminology, WILL BE DEPRECATED
+            num_cores: number of cores fair cluster terminology
+            queue: queue to be requested for the given task depending on
+                the resources the job will need
+            max_runtime_seconds (int): the maximum runtime for the job in seconds
+            j_resource: j drive access
+            m_mem_free: the amount of memory to be requested, can
+                either be in string format ex. '300M', '1G', '0.2T' or as a float
+            context_args: additional arguments to be provided to the
+                executor
+            executor_class: name of the executor class so that params can
+                be parsed accordingly
+
+        """
 
         if slots is not None:
             warnings.warn(
@@ -166,6 +185,12 @@ class Executor:
         it, monitor for missingness, or collect usage statistics. If the
         subclass does not intend to offer those functionalities, this method
         can return None.
+
+        Args:
+            command: command to be run
+            name: name of job
+            executor_parameters: executor specific requested resources
+
         """
         raise NotImplementedError
 
@@ -189,13 +214,15 @@ class Executor:
         """Build a command that can be executed by the shell and can be
         unwrapped by jobmon itself to setup proper communication channels to
         the monitor server.
-
         Args:
-            job (job.Job): the job to be run
-            job_instance_id (int): the id of the job_instance to be run
+            command: command to run the desired job
+            job_instance_id: id for the given instance of this job
+            last_nodename: nodename that ran the prior instance of the job
+            last_process_group_id: pgid to be used for qdelling
 
         Returns:
             (str) unwrappable command
+
         """
         jobmon_command = client_config.jobmon_command
         if not jobmon_command:

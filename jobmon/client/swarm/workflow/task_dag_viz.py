@@ -18,6 +18,7 @@ class TaskDagViz(object):
             nodes in the graph
         width (int, default=30): desired width of drawing in inches
         height (int, default=100): desired height of drawing in inches
+
         """
         self.task_dag = task_dag
         self.graph_outdir = graph_outdir

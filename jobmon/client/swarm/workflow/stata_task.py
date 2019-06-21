@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 class StataTask(ExecutableTask):
-
     # The command "stata-mp" is considered better than the simple command
     # "stata" because it allows you to use more than one core.
     default_stata_script = "stata-mp"
@@ -42,7 +41,7 @@ class StataTask(ExecutableTask):
             mem_free (int): amount of memory in GBs to request on the cluster.
                 Generally 2x slots. Default is 1
             m_mem_free (str): amount of memory in gbs, tbs, or mbs (G, T, or M)
-                 to request on the fair cluster. Mutually exclusive with
+                to request on the fair cluster. Mutually exclusive with
                 mem_free as it will fully replace that argument when the dev
                 and prod clusters are taken offline
             max_attempts (int): number of attempts to allow the cluster to try
@@ -56,6 +55,12 @@ class StataTask(ExecutableTask):
             queue (str): queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
             j_resource (bool): whether or not this task uses the j_drive
+            context_args (dict): additional arguments to be passed to the
+                executor
+            executor_class (str): executor class being used
+            executor_parameters (ExecutorParameters): parameters specific to
+                the executor
+
         """
         self.command = StataTask.make_cmd(path_to_stata_binary, script, args)
         super(StataTask, self).__init__(
