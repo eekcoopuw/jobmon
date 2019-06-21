@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import pkg_resources
 import shutil
 from typing import List, Tuple, Dict, Optional, Type, Union
 import warnings
@@ -204,8 +205,7 @@ class Executor:
             jobmon_command,
             "--command", f"'{command}'",
             "--job_instance_id", job_instance_id,
-            "--jm_host", client_config.jm_conn.host,
-            "--jm_port", client_config.jm_conn.port,
+            "--expected_jobmon_version", pkg_resources.get_distribution("jobmon").version,
             "--executor_class", self.__class__.__name__,
             "--heartbeat_interval", client_config.heartbeat_interval,
             "--report_by_buffer", client_config.report_by_buffer

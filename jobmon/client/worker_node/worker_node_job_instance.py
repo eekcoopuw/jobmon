@@ -1,5 +1,6 @@
 import logging
 import os
+import pkg_resources
 import socket
 import traceback
 from typing import Optional, Union, Tuple, Dict
@@ -7,6 +8,7 @@ from typing import Optional, Union, Tuple, Dict
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import JobInstanceExecutorInfo
+from jobmon.exceptions import ReturnCodes
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +18,7 @@ class WorkerNodeJobInstance:
     def __init__(self,
                  job_instance_id: int,
                  job_instance_executor_info: JobInstanceExecutorInfo,
+                 expected_jobmon_version: str,
                  nodename: Optional[str] = None,
                  process_group_id: Optional[int] = None,
                  requester: Requester = shared_requester):
@@ -38,7 +41,15 @@ class WorkerNodeJobInstance:
         self._nodename = nodename
         self._process_group_id = process_group_id
         self.executor = job_instance_executor_info
-        self.requester = shared_requester
+        self.requester = requester
+        self.version = pkg_resources.get_distribution("jobmon").version
+        if self.version != expected_jobmon_version:
+            msg = f"Your workflow master node is using, " \
+                f"{expected_jobmon_version} and your worker node is using " \
+                f"{self.version}. Please check your bash profile "
+            rc = self.log_error(error_message=msg,
+                                exit_status=ReturnCodes.WORKER_NODE_ENV_FAILURE)
+            raise ValueError(msg)
         logger.debug("Instantiated JobInstanceIntercom")
 
     @property

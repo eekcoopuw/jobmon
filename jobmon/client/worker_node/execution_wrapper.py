@@ -70,8 +70,7 @@ def unwrap():
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)
-    parser.add_argument("--jm_host", required=True)
-    parser.add_argument("--jm_port", required=True)
+    parser.add_argument("--expected_jobmon_version", required=True)
     parser.add_argument("--executor_class", required=True)
     parser.add_argument("--temp_dir", required=False)
     parser.add_argument("--last_nodename", required=False)
@@ -102,9 +101,15 @@ def unwrap():
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
-    worker_node_job_instance = WorkerNodeJobInstance(
-        job_instance_id=args["job_instance_id"],
-        job_instance_executor_info=ji_executor_info)
+    try:
+        worker_node_job_instance = WorkerNodeJobInstance(
+            job_instance_id=args["job_instance_id"],
+            job_instance_executor_info=ji_executor_info,
+            expected_jobmon_version=args["expected_jobmon_version"])
+    except ValueError as err:
+        # the environments were found to be out of sync, hard exit
+        logger.error(err)
+        sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
 
     # if it logs running and is in the 'W' or 'U' state then it will go
     # through the full process of trying to change states and receive a

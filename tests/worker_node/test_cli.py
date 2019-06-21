@@ -1,7 +1,7 @@
 import os
 import sys
 from unittest.mock import patch
-
+import pkg_resources
 import pytest
 
 import jobmon.client.worker_node.execution_wrapper
@@ -18,10 +18,11 @@ class ExpectedException(Exception):
 class MockIntercom:
     """Mock the intercom interface for testing purposes"""
 
-    def __init__(self, job_instance_id, job_instance_executor_info
-                 ):
+    def __init__(self, job_instance_id, job_instance_executor_info,
+                 expected_jobmon_version):
         self.job_instance_id = job_instance_id
         self.executor = job_instance_executor_info
+        self.expected_jobmon_version = expected_jobmon_version
 
     @property
     def executor_id(self):
@@ -112,8 +113,7 @@ def test_kill_remote_process_group_conditional(monkeypatch):
         "fakescript",
         "--command", "ls",
         "--job_instance_id", "1",
-        "--jm_host", "some.host.name",
-        "--jm_port", "2",
+        "--expected_jobmon_version", pkg_resources.get_distribution("jobmon").version,
         "--executor_class", "SequentialExecutor",
         "--heartbeat_interval", "90",
         "--report_by_buffer", "3.1"
@@ -177,8 +177,7 @@ def test_stderr_buffering(monkeypatch, capsys):
         "fakescript",
         "--command", f"python {os.path.join(thisdir, 'fill_pipe.py')}",
         "--job_instance_id", "1",
-        "--jm_host", "some.host.name",
-        "--jm_port", "2",
+        "--expected_jobmon_version", pkg_resources.get_distribution("jobmon").version,
         "--executor_class", "SequentialExecutor",
         "--heartbeat_interval", "1",
         "--report_by_buffer", "3.1"
@@ -214,8 +213,7 @@ def test_executor_id(monkeypatch, capsys):
         "executor_id",
         "--command", "printenv",
         "--job_instance_id", "1",
-        "--jm_host", "some.host.name",
-        "--jm_port", "2",
+        "--expected_jobmon_version", pkg_resources.get_distribution("jobmon").version,
         "--executor_class", "SequentialExecutor",
         "--heartbeat_interval", "1",
         "--report_by_buffer", "3.1"

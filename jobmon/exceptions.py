@@ -12,6 +12,7 @@ class ReturnCodes(object):
     GENERIC_ERROR = 4
     NO_RESULTS = 5
     UNKNOWN_EXIT_STATE = 99
+    WORKER_NODE_ENV_FAILURE = 198
     WORKER_NODE_CLI_FAILURE = 199
 
 class ServerRunning(Exception):
