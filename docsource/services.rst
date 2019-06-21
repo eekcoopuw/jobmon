@@ -142,17 +142,14 @@ As of version 1.0.0, Jobmon ports reflect MAJOR, MINOR, (if a server side change
 Service                  Number
 ======================== ======
 Database                 0
-JQS/JSM                  1
-Job Visualization Server 2
-======================== ======
+JQS/JSM/JVS              1
 
 For example:
 
     Given port ABCDE, A = MAJOR, B = MINOR, CD = PATCH, and E = service and release 1.0.12, ports would be the following:
 
     1. Database: 10120
-    2. JQS/JSM: 10121
-    3. JVS: 10122
+    2. JQS/JSM/JVS: 10121
 
 If a client-side only PATCH (1.0.13) was released, the release would still refer to the above ports.
 
