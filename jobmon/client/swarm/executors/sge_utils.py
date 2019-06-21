@@ -175,36 +175,20 @@ def qstat(status: str=None, pattern: str=None, user: str=None,
     # assuming that all arrays are the same length
     jobs = {}
     for index in range(len(job_ids)):
-        job = {'job_id': job_ids[index],
-               'hostname': job_hosts[index],
-               'name': job_names[index],
-               'user': job_users[index],
-               'slots': job_slots[index],
-               'status': job_statuses[index],
-               'status_start': job_datetimes[index],
-               'runtime': job_runtime_strs[index],
-               'runtime_seconds': job_runtimes[index]}
-        jobs[job_ids[index]] = job
-    del_keys = []
-    if pattern is not None:
-        for jid in jobs:
-            if pattern not in jobs[jid]['name']:
-                del_keys.append(jid)
-    if status is not None:
-        for jid in jobs:
-            if jobs[jid]['status'] != status:
-                del_keys.append(jid)
-    if user is not None:
-        for jid in jobs:
-            if jobs[jid]['user'] != user:
-                del_keys.append(jid)
-    if jids is not None:
-        unwanted_jids = set(jobs) - set(jids)
-        for jid in unwanted_jids:
-            del_keys.append(jid)
-    if del_keys:
-        for key in del_keys:
-            jobs.pop(key, None)
+        if pattern is None or pattern in job_names[index]:
+            if status is None or job_statuses[index] == status:
+                if user is None or job_users[index] == user:
+                    if jids is None or job_ids[index] in jids:
+                        job = {'job_id': job_ids[index],
+                               'hostname': job_hosts[index],
+                               'name': job_names[index],
+                               'user': job_users[index],
+                               'slots': job_slots[index],
+                               'status': job_statuses[index],
+                               'status_start': job_datetimes[index],
+                               'runtime': job_runtime_strs[index],
+                               'runtime_seconds': job_runtimes[index]}
+                        jobs[job_ids[index]] = job
     logger.debug(f"Lines: {lines}, Jobs: {jobs}")
     return jobs
 
