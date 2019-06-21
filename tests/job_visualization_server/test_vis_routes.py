@@ -43,4 +43,4 @@ def test_foo(real_jsm_jqs, db_cfg):
     # zero index in responses is column names so ignore
     for job in jobs[1:]:
         # first index is job status which should have moved to done
-        assert job[1] == "D"
+        assert job[1] == "DONE"

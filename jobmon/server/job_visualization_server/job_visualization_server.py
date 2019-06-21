@@ -21,15 +21,16 @@ def get_time(session):
 
 
 _viz_label_mapping = {
-    "REGISTERED": "PENDING",
-    "QUEUED_FOR_INSTANTIATION": "PENDING",
-    "INSTANTIATED": "PENDING",
-    "RUNNING": "RUNNING",
-    "ERROR_RECOVERABLE": "RECOVERING",
-    "ADJUSTING_RESOURCES": "PENDING",
-    "ERROR_FATAL": "FATAL",
-    "DONE": "DONE",
+    "A": "PENDING",
+    "G": "PENDING",
+    "Q": "PENDING",
+    "I": "PENDING",
+    "E": "PENDING",
+    "R": "RUNNING",
+    "F": "FATAL",
+    "D": "DONE"
 }
+_viz_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 
 @jvs.route('/job_status', methods=['GET'])
@@ -37,15 +38,21 @@ def get_job_statuses():
     """get job status metadata"""
     job_statuses = DB.session.query(JobStatus).all()
     DB.session.commit()
-    job_statuses_dict = [js.to_wire() for js in job_statuses]
 
     # remap to viz names
-    for job_status in job_statuses_dict:
-        job_status_viz = _viz_label_mapping[job_status["label"]]
-        job_status["label"] = job_status_viz
+    job_status_set = set()
+    job_status_wire = []
+    for job_status_db in job_statuses:
+        label = _viz_label_mapping[job_status_db.id]
+        if label not in job_status_set:
+            job_status_set.add(label)
+            job_status = {}
+            job_status["label"] = label
+            job_status["order"] = _viz_order.index(label)
+            job_status_wire.append(job_status)
 
     # send to client
-    resp = jsonify(job_statuses_dict=job_statuses_dict)
+    resp = jsonify(job_statuses_dict=job_status_wire)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -111,8 +118,15 @@ def get_job_display_details_by_workflow(workflow_id):
 
     # unpack results, discarding the column name in the row_proxies for smaller
     # payloads
-    res = [tuple(data[1] for data in row_proxy.items()) for row_proxy in res]
-    res = [("job_id", "status", "display_group")] + res
-    resp = jsonify(jobs=res, time=next_sync)
+    if res:
+        jobs = [tuple(res[0].keys())]
+        for row_proxy in res:
+            row_dict = dict(row_proxy)
+            row_dict["status"] = _viz_label_mapping[row_dict["status"]]
+            jobs.append(tuple(row_dict.values()))
+    else:
+        jobs = []
+
+    resp = jsonify(jobs=jobs, time=next_sync)
     resp.status_code = StatusCodes.OK
     return resp
