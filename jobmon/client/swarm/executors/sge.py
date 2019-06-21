@@ -4,8 +4,6 @@ from subprocess import check_output
 import traceback
 from typing import List, Tuple, Dict, Optional
 
-import pandas as pd
-
 from cluster_utils.io import makedirs_safely
 
 from jobmon.client import shared_requester
@@ -93,8 +91,8 @@ class SGEExecutor(Executor):
         return self._execute_sge(qsub_command)
 
     def get_actual_submitted_or_running(self) -> List[int]:
-        qstat_out = sge_utils.qstat()
-        executor_ids = list(qstat_out.job_id)
+        qstat_dict= sge_utils.qstat()
+        executor_ids = list(qstat_dict.keys())
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids
 
@@ -103,25 +101,31 @@ class SGEExecutor(Executor):
         """Only terminate the job instances that are running, not going to
         kill the jobs that are actually still in a waiting or transitioning
         state"""
-        to_df = pd.DataFrame(data=jiid_exid_tuples,
-                             columns=["job_instance_id", "executor_id"])
-        if len(to_df) == 0:
+        logger.debug(f"Going to terminate: {jiid_exid_tuples}")
+        if len(jiid_exid_tuples) == 0:
             return []
         sge_jobs = sge_utils.qstat()
-        sge_jobs = sge_jobs[~sge_jobs.status.isin(['hqw', 'qw', "hRwq", "t"])]
-        to_df = to_df.merge(sge_jobs, left_on='executor_id', right_on='job_id')
-        return_list = []
-        if len(to_df) > 0:
-            sge_utils.qdel(list(to_df.executor_id))
-            for _, row in to_df.iterrows():
-                ji_id = row.job_instance_id
-                hostname = row.hostname
-                return_list.append((int(ji_id), hostname))
-        return return_list
+        deleted_jis = []
+        exec_ids_for_deletion = []
+        for el in jiid_exid_tuples:
+            jiid = el[0]
+            exec_id = el[1]
+            logger.debug(f"exec: {exec_id}, qstat: {sge_jobs}")
+            if exec_id in sge_jobs:
+                job_info = sge_jobs[exec_id]
+                if job_info['status'] not in ['hqw', 'qw', 'hRwq', 't']:
+                    deleted_jis.append((int(jiid), job_info['hostname']))
+                    exec_ids_for_deletion.append(exec_id)
+        logger.debug(f"jis for deletion {deleted_jis}, exec_ids for qdel: "
+                     f"{exec_ids_for_deletion}")
+        if len(exec_ids_for_deletion) > 0:
+            sge_utils.qdel(exec_ids_for_deletion)
+        return deleted_jis
 
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
         """return the exit state associated with a given exit code"""
         exit_code = sge_utils.qacct_exit_status(executor_id)
+        logger.debug(f"exit_status info: {exit_code}")
         if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
             msg = ("Insufficient resources requested. Job was lost. "
                    f"{self.__class__.__name__} accounting discovered exit code"

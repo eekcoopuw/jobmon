@@ -6,8 +6,8 @@ import logging
 import os
 import re
 import subprocess
+from typing import List, Dict, Union
 
-import pandas as pd
 import numpy as np
 
 
@@ -80,20 +80,23 @@ def get_project_limits(project):
     return 200
 
 
-def qstat(status=None, pattern=None, user=None, jids=None):
-    """parse sge qstat information into DataFrame
+def qstat(status: str=None, pattern: str=None, user: str=None,
+          jids: List[int]=None) -> Dict:
+    """parse sge qstat information into a Dictionary keyed by executor_id
+    (sge job id)
 
     Args:
         status (string, optional): status filter to use when running qstat
-            command
+            command for job statuses
         pattern (string, optional): pattern filter to use when running qstat
-            command
-        user (string, optional): user filter to use when running qstat command
+            command for certain qstat job names
+        user (string, optional): user filter to use when running qstat
+            command for job users
         jids (list, optional): list of job ids to use when running qstat
             command
 
     Returns:
-        DataFrame of qstat return values
+        Dictionary of qstat return values keyed by executor_id (sge job id)
     """
     cmd = ["qstat", "-r"]
     if status is not None:
@@ -119,7 +122,6 @@ def qstat(status=None, pattern=None, user=None, jids=None):
         output = output.decode('utf-8')
 
     lines = output.splitlines()
-
     job_ids = []
     job_users = []
     job_names = []
@@ -168,28 +170,30 @@ def qstat(status=None, pattern=None, user=None, jids=None):
                 continue
             host = line.split()[2].split("@")[1]
             job_hosts.append(host)
-            lintype = "--"
             continue
 
-    df = pd.DataFrame({
-        'job_id': job_ids,
-        'hostname': job_hosts,
-        'name': job_names,
-        'user': job_users,
-        'slots': job_slots,
-        'status': job_statuses,
-        'status_start': job_datetimes,
-        'runtime': job_runtime_strs,
-        'runtime_seconds': job_runtimes})
-    if pattern is not None:
-        df = df[df.name.str.contains(pattern)]
-    if jids is not None:
-        df = df[df.job_id.isin(jids)]
-    return df[['job_id', 'hostname', 'name', 'slots', 'user', 'status',
-               'status_start', 'runtime', 'runtime_seconds']]
+    # assuming that all arrays are the same length
+    jobs = {}
+    for index in range(len(job_ids)):
+        if pattern is None or pattern in job_names[index]:
+            if status is None or job_statuses[index] == status:
+                if user is None or job_users[index] == user:
+                    if jids is None or job_ids[index] in jids:
+                        job = {'job_id': job_ids[index],
+                               'hostname': job_hosts[index],
+                               'name': job_names[index],
+                               'user': job_users[index],
+                               'slots': job_slots[index],
+                               'status': job_statuses[index],
+                               'status_start': job_datetimes[index],
+                               'runtime': job_runtime_strs[index],
+                               'runtime_seconds': job_runtimes[index]}
+                        jobs[job_ids[index]] = job
+    logger.debug(f"Lines: {lines}, Jobs: {jobs}")
+    return jobs
 
 
-def qstat_details(jids):
+def qstat_details(jids: List[int]):
     """get more detailed qstat information
 
     Args:
@@ -279,6 +283,7 @@ def qstat_usage(jids):
 def qdel(job_ids):
     jids = [str(int(jid)) for jid in np.atleast_1d(job_ids)]
     stdout = subprocess.check_output(['qdel'] + jids)
+    logger.debug(f"stdout from qdel: {stdout}")
     return stdout
 
 
@@ -288,6 +293,7 @@ def qacct_exit_status(jid: int)->int:
     logger.warning("**********************************************" + cmd1)
     try:
         res = subprocess.check_output(cmd1, shell=True)
+        logger.debug(f"Exit code response: {res}")
         return int(res.decode("utf-8").replace("\n", ""))
     except Exception as e:
         # In case the command execution failed, log error and return -1

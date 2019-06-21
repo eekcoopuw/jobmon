@@ -43,11 +43,17 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
             # If we aren't making progress then dynamically skip the test.
             # Do this first so that qw_count is correct
             qstat_out = sge_utils.qstat()
-            job_row = qstat_out.loc[qstat_out['name'] == job_name]
-            if len(job_row) > 0:
+            jid = None
+            job_status = None
+            for id in qstat_out.keys():
+                if qstat_out[id]['name'] == job_name:
+                    jid = id
+                    job_status = qstat_out[id]['status']
+                    print(f"found job {jid} with status {job_status}")
+            if jid:
                 # Make sure that job exists
-                job_status = job_row['status'].iloc[0]
                 if job_status == "qw":
+                    print("job still in qwait")
                     qw_count += 1
 
             if total_sleep > max_time:
