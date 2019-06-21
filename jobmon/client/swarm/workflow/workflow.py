@@ -80,8 +80,8 @@ class Workflow(object):
             workflow_args: unique identifier of a workflow
             name: name of the workflow
             description: description of the workflow
-            stderr: filepath where stderr should be sent, if run on sGE
-            stdout: filepath where stdout should be sent, if run on sGE
+            stderr: filepath where stderr should be sent, if run on SGE
+            stdout: filepath where stdout should be sent, if run on SGE
             project: SGE project to run under, if run on SGE
             reset_running_jobs: whether or not to reset running jobs
             working_dir: the working dir that a job should be run from,
