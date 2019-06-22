@@ -61,20 +61,27 @@ class ExecutableTask(object):
 
         return True
 
-    def __init__(self, command: str, upstream_tasks: List = None,
-                 env_variables: Dict = None, name: str = None, slots: int = None,
-                 mem_free: int = None, num_cores: int = None,
-                 max_runtime_seconds: int = None, queue: str = None,
-                 max_attempts: int = 3, j_resource: bool = False,
-                 tag: str = None, context_args: dict = None,
-                 job_attributes: dict = None, m_mem_free: str = None,
+    def __init__(self, command: str,
+                 upstream_tasks: Optional[List["ExecutableTask"]] = None,
+                 env_variables: Optional[Dict[str, str]] = None,
+                 name: Optional[str] = None, slots: Optional[int] = None,
+                 mem_free: Optional[int] = None,
+                 num_cores: Optional[int] = None,
+                 max_runtime_seconds: Optional[int] = None,
+                 queue: Optional[str] = None, max_attempts: Optional[int] = 3,
+                 j_resource: bool = False, tag: Optional[str] = None,
+                 context_args: Optional[dict] = None,
+                 job_attributes: Optional[dict] = None,
+                 m_mem_free: Optional[str] = None,
                  executor_class: str = 'SGEExecutor',
                  executor_parameters: Optional[ExecutorParameters] = None):
         """
         Create a task
 
         Args:
-            command: the unique command for this Task, also readable by humans. Should include all parameters. Two Tasks are equal (__eq__) iff they have the same command
+            command: the unique command for this Task, also readable by humans
+                Should include all parameters. Two Tasks are equal (__eq__)
+                iff they have the same command
             upstream_tasks: Task objects that must be run prior to this
             env_variables: any environment variable that should be set
                 for this job, in the form of a key: value pair.
@@ -90,8 +97,8 @@ class ExecutableTask(object):
                 and prod clusters are taken offline
             max_attempts: number of attempts to allow the cluster to try
                 before giving up. Default is 3
-            max_runtime_seconds: how long the job should be allowed to
-                run before the executor kills it. Default is None, for indefinite.
+            max_runtime_seconds: how long the job should be allowed to run
+                before the executor kills it. Default is None, for indefinite.
             tag: a group identifier. Currently just used for visualization.
                 All tasks with the same tag will be colored the same in a
                 TaskDagViz instance. Default is None.
@@ -107,15 +114,16 @@ class ExecutableTask(object):
                 executor parameters properly
             executor_parameters: an instance of executor
                 paremeters class
+
         Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
            see is_valid_job_name
 
         """
         if env_variables:
-            env_variables = ' '.join('{}={}'.format(key, val) for key, val
-                                     in env_variables.items())
-            command = ' '.join([env_variables, command])
+            env_str = ' '.join('{}={}'.format(key, val) for key, val
+                               in env_variables.items())
+            command = ' '.join([env_str, command])
         self.command = command
 
         # Hash must be an integer, in order for it to be returned by __hash__
@@ -138,7 +146,10 @@ class ExecutableTask(object):
         for up in self.upstream_tasks:
             up.add_downstream(self)
 
-        self.job_attributes = job_attributes
+        if job_attributes:
+            self.job_attributes = job_attributes
+        else:
+            self.job_attributes = {}
 
         if executor_parameters is None:
             self.executor_parameters = ExecutorParameters(

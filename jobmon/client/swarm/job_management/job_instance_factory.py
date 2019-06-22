@@ -21,35 +21,36 @@ logger = logging.getLogger(__name__)
 
 
 class JobInstanceFactory(object):
-    """The JobInstanceFactory is in charge of queueing jobs and creating
-    job_instances, in order to get the jobs from merely Task objects to
-    running code.
 
-    Args:
-    dag_id (int): the id for the dag to run
-    executor (Executor, optional): executor to use w/ this factory.
-        SequentialExecutor, DummyExecutor or SGEExecutor. Default
-        SequentialExecutor
-    interrupt_on_error (bool, optional): whether or not to
-        interrupt the thread if there's an error. Default True
-    n_queued_jobs (int, optional): number of queued jobs to return and
-        send to be instantiated. default 1000
-    stop_event (threading.Event, optional): Object of type threading.Event.
-        Default None
-    requester (Requester, optional)
-    """
     def __init__(self,
                  dag_id: int,
-                 executor: Executor = None,
+                 executor: Optional[Executor] = None,
                  interrupt_on_error: bool = True,
                  n_queued_jobs: int = 1000,
-                 stop_event: threading.Event = None,
+                 resource_adjustment: float = 0.5,
+                 stop_event: Optional[threading.Event] = None,
                  requester: Requester = shared_requester):
+        """The JobInstanceFactory is in charge of queueing jobs and creating
+        job_instances, in order to get the jobs from merely Task objects to
+        running code.
+
+        Args:
+            dag_id: the id for the dag to run
+            executor: executor to use w/ this factory. SequentialExecutor,
+                DummyExecutor or SGEExecutor. Default SequentialExecutor
+            interrupt_on_error: whether or not to interrupt the thread if
+                there's an error
+            n_queued_jobs: number of queued jobs to return and send to be
+                instantiated. default 1000
+            stop_event: Object of type threading.Event
+            requester: requester for communicating with central services
+        """
 
         self.dag_id = dag_id
         self.requester = requester
         self.interrupt_on_error = interrupt_on_error
         self.n_queued_jobs = n_queued_jobs
+        self.resource_adjustment = resource_adjustment
         self.report_by_buffer = client_config.report_by_buffer
         self.heartbeat_interval = client_config.heartbeat_interval
 
@@ -115,7 +116,9 @@ class JobInstanceFactory(object):
         job_instance_ids = []
         for job in jobs:
             if job.status == JobStatus.ADJUSTING_RESOURCES:
-                job.update_executor_parameter_set("A")
+                job.update_executor_parameter_set(
+                    parameter_set_type=JobStatus.ADJUSTING_RESOURCES,
+                    resource_adjustment=self.resource_adjustment)
                 job.queue_job()
 
             job_instance = self._create_job_instance(job)

@@ -19,6 +19,7 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client import shared_requester as req
+from jobmon.client import client_config
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
@@ -34,6 +35,15 @@ def cleanup_jlm(workflow):
 
     if workflow.task_dag.job_list_manager:
         workflow.task_dag.job_list_manager.disconnect()
+
+
+@pytest.fixture
+def fast_heartbeat():
+    old_heartbeat = client_config.heartbeat_interval
+    client_config.heartbeat_interval = 10
+    yield
+    client_config.heartbeat_interval = old_heartbeat
+
 
 @pytest.fixture
 def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
@@ -264,7 +274,6 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     jlm = workflow.task_dag.job_list_manager
     for _, task in workflow.task_dag.tasks.items():
         assert jlm.status_from_task(task) == JobStatus.DONE
-
 
 
 @pytest.mark.qsubs_jobs
@@ -914,3 +923,43 @@ def test_workflow_resource_adjustment(simple_workflow_w_errors, db_cfg):
     assert len(resp) == 2
     assert resp[0][0] == 0.5
     assert resp[1][0] == 0.3
+
+
+def test_resource_scaling(real_jsm_jqs, db_cfg, fast_heartbeat):
+
+    from jobmon.client.swarm.executors import ExecutorParameters
+
+    my_wf = Workflow(
+        workflow_args="resource starved workflow",
+        project="proj_tools",
+        resource_adjustment=0.3)  # resources will scale by 50% on failure
+
+    # specify SGE specific parameters
+    sleepy_params = ExecutorParameters(
+        num_cores=1,
+        m_mem_free="1G",
+        max_runtime_seconds=60,  # set max runtime to be shorter than task
+        queue="all.q",
+        executor_class="SGEExecutor")
+    sleepy_task = BashTask(
+        # set sleep to be longer than max runtime, forcing a retry
+        "sleep 90",
+        # job should succeed on second try. runtime will 150s on try 2
+        max_attempts=3,
+        executor_parameters=sleepy_params)
+    my_wf.add_task(sleepy_task)
+
+    # job will time out and get killed by the cluster. After a few minutes
+    # jobmon will notice that it has disappeared and ask SGE for exit status.
+    # SGE will show a resource kill. Jobmon will scale all resources by 30% and
+    # retry the job at which point it will succeed.
+    my_wf.run()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        resp = DB.session.query(Job).all()
+        DB.session.commit()
+        job = resp[0]
+        assert len(job.job_instances) == 3
+        assert job.status == "D"

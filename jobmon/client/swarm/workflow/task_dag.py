@@ -78,7 +78,8 @@ class TaskDag(object):
         else:
             return False
 
-    def bind_to_db(self, dag_id=None, reset_running_jobs=True):
+    def bind_to_db(self, dag_id=None, reset_running_jobs=True,
+                   resource_adjustment=0.5):
         """
         Binds the dag to the database and starts Job Management services.
         The Job_List_Manger is stopped and discarded in _clean_up_after_run
@@ -95,7 +96,8 @@ class TaskDag(object):
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
                 interrupt_on_error=self.interrupt_on_error,
-                job_instantiation_interval=self.job_instantiation_interval)
+                job_instantiation_interval=self.job_instantiation_interval,
+                resource_adjustment=resource_adjustment)
 
             for _, task in self.tasks.items():
                 self.job_list_manager.bind_task(task)
@@ -115,7 +117,8 @@ class TaskDag(object):
                                             user=getpass.getuser())
             self.job_list_manager = JobListManager(
                 self.meta.dag_id, executor=self.executor, start_daemons=True,
-                interrupt_on_error=self.interrupt_on_error)
+                interrupt_on_error=self.interrupt_on_error,
+                resource_adjustment=resource_adjustment)
             self.dag_id = self.meta.dag_id
 
             # Bind all the tasks to the job_list_manager

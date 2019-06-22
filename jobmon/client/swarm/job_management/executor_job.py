@@ -13,25 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 class ExecutorJob:
-    """
-    This is a Job object used on the RESTful API client side
-    when constructing job instances.
-
-    Args:
-        dag_id (int): dag_id associated with this job
-        job_id (int): job_id associated with this job
-        name (str): name associated with this job
-        job_hash (int): hash of command for this job
-        command (str): what command to run when executing
-        status (str): job status  associated with this job
-        executor_parameters (ExecutorParameters): Executor parameters class
-            associated with the current executor for this job
-        last_nodename (str, Optional[str]): where this job last executed
-        last_process_group_id (int, Optional[int]) what was the linux process
-            group id of the last instance of this job
-        requester (Requester, shared_requester): requester for communicating
-            with central services
-    """
 
     # this API should always match what's returned by
     # serializers.SerializeExecutorJob
@@ -46,6 +27,24 @@ class ExecutorJob:
                  last_nodename: Optional[str] = None,
                  last_process_group_id: Optional[int] = None,
                  requester: Requester = shared_requester):
+        """
+        This is a Job object used on the RESTful API client side
+        when constructing job instances.
+
+        Args:
+            dag_id: dag_id associated with this job
+            job_id: job_id associated with this job
+            name: name associated with this job
+            job_hash: hash of command for this job
+            command: what command to run when executing
+            status: job status  associated with this job
+            executor_parameters: Executor parameters class associated with the
+                current executor for this job
+            last_nodename: where this job last executed
+            last_process_group_id: what was the linux process group id of the
+                last instance of this job
+            requester: requester for communicating with central services
+        """
 
         self.dag_id = dag_id
         self.job_id = job_id
@@ -101,23 +100,24 @@ class ExecutorJob:
             requester=requester)
         return executor_job
 
-    def update_executor_parameter_set(self, parameter_set_type: str =
-                                      ExecutorParameterSetType.ADJUSTED
-                                      ) -> None:
+    def update_executor_parameter_set(
+            self, parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
+            resource_adjustment: float = 0.5) -> None:
         """update the resources for a given job in the db
 
         Args:
-            parameter_set_type (str): models.executor_parameter_set_type value
+            parameter_set_type: models.executor_parameter_set_type value
+            resource_adjustment: scalar value to adjust resources by when
+                a resource error is detected
         """
 
         # TODO: refactor for common API between executor parameter types.
         # somehow infer what paremeters need scaled based executor
 
         # adjust parameters
-        adjustment_factor = 0.5
-        param_adjustment = {'num_cores': adjustment_factor,
-                            'm_mem_free': adjustment_factor,
-                            'max_runtime_seconds': adjustment_factor}
+        param_adjustment = {'num_cores': resource_adjustment,
+                            'm_mem_free': resource_adjustment,
+                            'max_runtime_seconds': resource_adjustment}
         self.executor_parameters.adjust(**param_adjustment)
 
         msg = {'parameter_set_type': parameter_set_type}

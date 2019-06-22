@@ -1,6 +1,7 @@
 import logging
 import time
 from threading import Event, Thread
+from typing import Dict
 
 from jobmon.client import shared_requester
 from jobmon.models.job_status import JobStatus
@@ -23,8 +24,10 @@ class JobListManager(object):
     def __init__(self, dag_id, executor=None, start_daemons=False,
                  job_instantiation_interval=3,
                  interrupt_on_error=True, n_queued_jobs=1000,
+                 resource_adjustment: float = 0.5,
                  requester=shared_requester):
         """Manages all the list of jobs that are running, done or errored
+
         Args:
             dag_id (int): the id for the dag to run
             executor (obj, default SequentialExecutor): obj of type
@@ -37,25 +40,34 @@ class JobListManager(object):
                 interrupt the thread if there's an error
             n_queued_jobs (int): number of queued jobs that should be returned
                 to be instantiated
+            resource_adjustment: scalar value to adjust resources by when
+                a resource error is detected
         """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
 
         self._stop_event = Event()
         self.job_instance_factory = JobInstanceFactory(
-            dag_id, executor, interrupt_on_error, n_queued_jobs,
+            dag_id=dag_id,
+            executor=executor,
+            interrupt_on_error=interrupt_on_error,
+            n_queued_jobs=n_queued_jobs,
+            resource_adjustment=resource_adjustment,
             stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
-            dag_id, executor, interrupt_on_error, stop_event=self._stop_event)
+            dag_id=dag_id,
+            executor=executor,
+            interrupt_on_error=interrupt_on_error,
+            stop_event=self._stop_event)
 
         self.requester = shared_requester
 
-        self.bound_tasks = {}  # {job_id: BoundTask}
-        self.hash_job_map = {}  # {job_hash: simpleJob}
-        self.job_hash_map = {}  # {simpleJob: job_hash}
+        self.bound_tasks: Dict = {}  # {job_id: BoundTask}
+        self.hash_job_map: Dict = {}  # {job_hash: simpleJob}
+        self.job_hash_map: Dict = {}  # {simpleJob: job_hash}
 
-        self.all_done = set()
-        self.all_error = set()
+        self.all_done: set = set()
+        self.all_error: set = set()
         self.last_sync = None
         self._sync()
 
@@ -270,7 +282,9 @@ class JobListManager(object):
         threads
         """
         self.jif_proc = Thread(
-            target=self.job_instance_factory.instantiate_queued_jobs_periodically,
+            target=(
+                self.job_instance_factory.instantiate_queued_jobs_periodically
+            ),
             args=(self.job_instantiation_interval,))
         self.jif_proc.daemon = True
         self.jif_proc.start()

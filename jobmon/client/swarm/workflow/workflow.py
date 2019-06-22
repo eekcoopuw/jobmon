@@ -276,11 +276,13 @@ class Workflow(object):
             self.task_dag.bind_to_db(
                 self.dag_id,
                 reset_running_jobs=self.reset_running_jobs,
+                resource_adjustment=self.resource_adjustment
             )
         elif len(potential_wfs) == 0:
             # Bind the dag ...
             self.task_dag.bind_to_db(
                 reset_running_jobs=self.reset_running_jobs,
+                resource_adjustment=self.resource_adjustment
             )
 
             # Create new workflow in Database
