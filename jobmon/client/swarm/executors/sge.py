@@ -270,5 +270,18 @@ class JobInstanceSGEInfo(JobInstanceExecutorInfo):
                    f"{exit_code}. Application returned error message:\n" +
                    error_msg)
             return JobInstanceStatus.RESOURCE_ERROR, msg
+        elif exit_code == ERROR_CODE_KILLED_FOR_ENV_ERR:
+            msg = "There is a discrepancy between the environment that your " \
+                  "workflow swarm node is accessing and the environment that " \
+                  "your worker node is accessing, because of this they will " \
+                  "not be able to access the correct jobmon services." \
+                  " Please check that they are accessing the environments " \
+                  "as expected (check qsub that was submitted for hints). " \
+                  "CHECK YOUR BASH PROFILE as it may contain a path that " \
+                  "references a different version of jobmon than you intend " \
+                  f"to use. {self.__class__.__name__} accounting discovered " \
+                  f"exit code: {exit_code}"
+            # TODO change this to a fatal error so they can't attempt a retry
+            return JobInstanceStatus.ERROR, msg
         else:
             return JobInstanceStatus.ERROR, error_msg
