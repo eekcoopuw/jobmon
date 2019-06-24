@@ -41,7 +41,7 @@ class WorkerNodeJobInstance:
         self._nodename = nodename
         self._process_group_id = process_group_id
         self.executor = job_instance_executor_info
-        self.requester = requester
+        self.requester = shared_requester
         self.version = pkg_resources.get_distribution("jobmon").version
         if self.version != expected_jobmon_version:
             msg = f"Your workflow master node is using, " \

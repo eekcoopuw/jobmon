@@ -63,7 +63,7 @@ def test_wrong_jobmon_versions(monkeypatch):
     with patch.object(sys, 'argv', base_args):
         with pytest.raises(SystemExit) as exit_code:
             jobmon.client.worker_node.execution_wrapper.unwrap()
-    assert exit_code.value.code == 198
+    assert exit_code.value.code == 555
 
 
 def mock_wrapped_command(self, command: str, job_instance_id: int,
@@ -91,26 +91,50 @@ def mock_wrapped_command(self, command: str, job_instance_id: int,
     return str_cmd
 
 
-def test_workflow_wrong_jobmon_versions(monkeypatch, db_cfg, real_jsm_jqs):
+def test_workflow_wrong_jobmon_versions(monkeypatch, db_cfg, real_dag_id):
     """
     check database to make sure correct information is propogated back
     """
+
+    from jobmon.client.swarm.executors.sge import SGEExecutor
     from jobmon.client.swarm.executors import Executor
+    from jobmon.client.swarm.job_management.job_list_manager import JobListManager
     monkeypatch.setattr(Executor, 'build_wrapped_command', mock_wrapped_command)
     task = BashTask("sleep 2", num_cores=1)
-    workflow = Workflow(name="bad_jobmon_versions")
-    workflow.add_task(task)
-    workflow.run()
-
+    executor = SGEExecutor(project='proj_tools')
+    jlm = JobListManager(real_dag_id, executor=executor,
+                         start_daemons=False, interrupt_on_error=False)
+    job = jlm.bind_task(task)
+    jlm.queue_job(job)
+    instantiated = jlm.job_instance_factory.instantiate_queued_jobs()
+    jid = instantiated[0]
+    status = query_until_error(db_cfg, jid)
+    while status[0] != 'U':
+        status = query_until_error(db_cfg, jid)
+        jlm.job_inst_reconciler._account_for_lost_job_instances()
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        query = """SELECT status FROM job WHERE dag_id={}""".format(workflow.dag_id)
-        resp = DB.session.execute(query).fetchall()
+        query="""SELECT description 
+                 FROM job_instance_error_log 
+                 WHERE job_instance_id={jid}""".format(jid=jid)
+        description = DB.session.execute(query).fetchone()
         DB.session.commit()
-    import pdb
-    pdb.set_trace()
+        assert 'There is a discrepancy between the environment' in description [0]
+    jlm.disconnect()
 
+def query_until_error(db_cfg, jid):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """
+                   SELECT status
+                   FROM job_instance
+                   WHERE job_instance_id = {jid}
+               """.format(jid=jid)
+        res = DB.session.execute(query).fetchone()
+        DB.session.commit()
+    return res
 
 
 
