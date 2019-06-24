@@ -418,7 +418,6 @@ def log_error_reconciler(job_instance_id: int):
 
     # make sure the job hasn't logged a new heartbeat since we began
     # reconciliation
-    logger.debug(f"report by is: {ji.report_by_date}, datetime is {datetime.utcnow()}")
     if ji.report_by_date <= datetime.utcnow():
         resp = _log_error(ji, error_state, error_message, executor_id,
                           nodename)

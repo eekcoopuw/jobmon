@@ -7,7 +7,6 @@ from unittest.mock import patch
 
 # This import is needed for the monkeypatch
 from jobmon.client import shared_requester, client_config
-from jobmon.client.swarm.executors.base import Executor
 from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo
 import jobmon.client.swarm.job_management.job_instance_factory
 import jobmon.client.swarm.job_management.executor_job_instance
@@ -15,7 +14,6 @@ from jobmon.client.worker_node.worker_node_job_instance import (
     WorkerNodeJobInstance)
 import jobmon.client.worker_node.execution_wrapper
 import jobmon.client.worker_node.worker_node_job_instance
-from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.client.swarm.workflow.bash_task import BashTask
 
 error_raised = False
