@@ -47,8 +47,6 @@ class WorkerNodeJobInstance:
             msg = f"Your workflow master node is using, " \
                 f"{expected_jobmon_version} and your worker node is using " \
                 f"{self.version}. Please check your bash profile "
-            rc = self.log_error(error_message=msg,
-                                exit_status=ReturnCodes.WORKER_NODE_ENV_FAILURE)
             raise ValueError(msg)
         logger.debug("Instantiated JobInstanceIntercom")
 
