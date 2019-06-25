@@ -15,6 +15,7 @@ from jobmon.client.worker_node.worker_node_job_instance import (
 import jobmon.client.worker_node.execution_wrapper
 import jobmon.client.worker_node.worker_node_job_instance
 from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.exceptions import ReturnCodes
 
 error_raised = False
 
@@ -61,7 +62,7 @@ def test_wrong_jobmon_versions(monkeypatch):
     with patch.object(sys, 'argv', base_args):
         with pytest.raises(SystemExit) as exit_code:
             jobmon.client.worker_node.execution_wrapper.unwrap()
-    assert exit_code.value.code == 555
+    assert exit_code.value.code == ReturnCodes.WORKER_NODE_ENV_FAILURE
 
 
 def mock_wrapped_command(self, command: str, job_instance_id: int,

@@ -64,7 +64,7 @@ def wait_for_file(filepath: str) -> bool:
     """Waits a few times to see if it appears, asserts if it takes too long"""
     num_tries = 0
     while not os.path.exists(filepath):
-        sleep(3)
+        sleep(5)
         num_tries += 1
         assert num_tries < 4
     return True
