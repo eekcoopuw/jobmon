@@ -44,6 +44,14 @@ jobmon.client.swarm.executors.sge\_parameters module
     :undoc-members:
     :show-inheritance:
 
+jobmon.client.swarm.executors.sge\_queue module
+-----------------------------------------------
+
+.. automodule:: jobmon.client.swarm.executors.sge_queue
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 jobmon.client.swarm.executors.sge\_utils module
 -----------------------------------------------
 

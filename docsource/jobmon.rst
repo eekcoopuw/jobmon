@@ -13,27 +13,58 @@ Subpackages
 Submodules
 ----------
 
-jobmon.client module
---------------------
+jobmon.cli module
+-----------------
 
-.. automodule:: jobmon.client
+.. automodule:: jobmon.cli
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.models module
---------------------
+jobmon.conda\_utilities module
+------------------------------
 
-.. automodule:: jobmon.models
+.. automodule:: jobmon.conda_utilities
     :members:
     :undoc-members:
     :show-inheritance:
 
+jobmon.default\_config module
+-----------------------------
 
-jobmon.server module
---------------------
+.. automodule:: jobmon.default_config
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
-.. automodule:: jobmon.server
+jobmon.exceptions module
+------------------------
+
+.. automodule:: jobmon.exceptions
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+jobmon.git\_utilities module
+----------------------------
+
+.. automodule:: jobmon.git_utilities
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+jobmon.serializers module
+-------------------------
+
+.. automodule:: jobmon.serializers
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+jobmon.swarm\_logger module
+---------------------------
+
+.. automodule:: jobmon.swarm_logger
     :members:
     :undoc-members:
     :show-inheritance:

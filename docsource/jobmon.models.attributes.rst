@@ -4,8 +4,8 @@ jobmon.models.attributes package
 Submodules
 ----------
 
-jobmon.models.attributes.attribute_dictionary module
-----------------------------------------------------
+jobmon.models.attributes.attribute\_dictionary module
+-----------------------------------------------------
 
 .. automodule:: jobmon.models.attributes.attribute_dictionary
     :members:
@@ -20,48 +20,48 @@ jobmon.models.attributes.constants module
     :undoc-members:
     :show-inheritance:
 
-jobmon.models.attributes.job_attribute module
----------------------------------------------
+jobmon.models.attributes.job\_attribute module
+----------------------------------------------
 
 .. automodule:: jobmon.models.attributes.job_attribute
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.models.attributes.job_attribute_type module
---------------------------------------------------
+jobmon.models.attributes.job\_attribute\_type module
+----------------------------------------------------
 
 .. automodule:: jobmon.models.attributes.job_attribute_type
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.models.attributes.workflow_attribute module
---------------------------------------------------
+jobmon.models.attributes.workflow\_attribute module
+---------------------------------------------------
 
 .. automodule:: jobmon.models.attributes.workflow_attribute
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.models.attributes.workflow_attribute_type module
--------------------------------------------------------
+jobmon.models.attributes.workflow\_attribute\_type module
+---------------------------------------------------------
 
 .. automodule:: jobmon.models.attributes.workflow_attribute_type
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.models.attributes.workflow_run_attribute module
-------------------------------------------------------
+jobmon.models.attributes.workflow\_run\_attribute module
+--------------------------------------------------------
 
 .. automodule:: jobmon.models.attributes.workflow_run_attribute
     :members:
     :undoc-members:
     :show-inheritance:
 
-jobmon.models.attributes.workflow_run_attribute_type module
------------------------------------------------------------
+jobmon.models.attributes.workflow\_run\_attribute\_type module
+--------------------------------------------------------------
 
 .. automodule:: jobmon.models.attributes.workflow_run_attribute_type
     :members:

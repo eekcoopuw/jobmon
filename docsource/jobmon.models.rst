@@ -1,7 +1,6 @@
 jobmon.models package
 =====================
 
-
 Subpackages
 -----------
 
@@ -9,10 +8,8 @@ Subpackages
 
     jobmon.models.attributes
 
-
 Submodules
 ----------
-
 
 jobmon.models.database\_loaders module
 --------------------------------------
@@ -26,6 +23,22 @@ jobmon.models.exceptions module
 -------------------------------
 
 .. automodule:: jobmon.models.exceptions
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+jobmon.models.executor\_parameter\_set module
+---------------------------------------------
+
+.. automodule:: jobmon.models.executor_parameter_set
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+jobmon.models.executor\_parameter\_set\_type module
+---------------------------------------------------
+
+.. automodule:: jobmon.models.executor_parameter_set_type
     :members:
     :undoc-members:
     :show-inheritance:
@@ -118,13 +131,6 @@ jobmon.models.workflow\_status module
     :undoc-members:
     :show-inheritance:
 
-jobmon.models.attributes module
--------------------------------
-
-.. automodule:: jobmon.models.attributes
-    :members:
-    :undoc-members:
-    :show-inheritance:
 
 Module contents
 ---------------

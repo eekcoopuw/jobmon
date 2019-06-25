@@ -7,8 +7,8 @@ Subpackages
 .. toctree::
 
     jobmon.client.swarm.executors
-    jobmon.client.swarm.workflow
     jobmon.client.swarm.job_management
+    jobmon.client.swarm.workflow
 
 Module contents
 ---------------

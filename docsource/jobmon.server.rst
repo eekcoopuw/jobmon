@@ -22,6 +22,22 @@ jobmon.server.config module
     :undoc-members:
     :show-inheritance:
 
+jobmon.server.jobmonLogging module
+----------------------------------
+
+.. automodule:: jobmon.server.jobmonLogging
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+jobmon.server.server\_side\_exception module
+--------------------------------------------
+
+.. automodule:: jobmon.server.server_side_exception
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Module contents
 ---------------
