@@ -18,11 +18,9 @@ class ExpectedException(Exception):
 class MockIntercom:
     """Mock the intercom interface for testing purposes"""
 
-    def __init__(self, job_instance_id, job_instance_executor_info,
-                 expected_jobmon_version):
+    def __init__(self, job_instance_id, job_instance_executor_info):
         self.job_instance_id = job_instance_id
         self.executor = job_instance_executor_info
-        self.expected_jobmon_version = expected_jobmon_version
 
     @property
     def executor_id(self):

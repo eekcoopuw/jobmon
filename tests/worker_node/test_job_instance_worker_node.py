@@ -32,37 +32,12 @@ class BadSGEExecutor(JobInstanceSGEInfo):
 
 def test_bad_qstat_call(monkeypatch):
     ji_intercom = WorkerNodeJobInstance(
-        job_instance_id=12345, job_instance_executor_info=BadSGEExecutor(),
-        expected_jobmon_version=pkg_resources.get_distribution("jobmon").version)
+        job_instance_id=12345, job_instance_executor_info=BadSGEExecutor())
 
     # The following should not throw
     ji_intercom.log_job_stats()
     # But check that it did
     assert error_raised
-
-
-class MockWorkerNodeJobInstance(WorkerNodeJobInstance):
-    def log_error(self, error_message, exit_status):
-        return 200
-
-
-def test_wrong_jobmon_versions(monkeypatch):
-    monkeypatch.setattr(jobmon.client.worker_node.execution_wrapper,
-                        "WorkerNodeJobInstance", MockWorkerNodeJobInstance)
-    version = 'wrong_version'
-    base_args = [
-        "fakescript",
-        "--command", "ls",
-        "--job_instance_id", "1",
-        "--expected_jobmon_version", version,
-        "--executor_class", "SequentialExecutor",
-        "--heartbeat_interval", "90",
-        "--report_by_buffer", "3.1"
-    ]
-    with patch.object(sys, 'argv', base_args):
-        with pytest.raises(SystemExit) as exit_code:
-            jobmon.client.worker_node.execution_wrapper.unwrap()
-    assert exit_code.value.code == ReturnCodes.WORKER_NODE_ENV_FAILURE
 
 
 def mock_wrapped_command(self, command: str, job_instance_id: int,

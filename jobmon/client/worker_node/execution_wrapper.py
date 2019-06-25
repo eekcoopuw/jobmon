@@ -2,6 +2,7 @@ import argparse
 import logging
 from functools import partial
 from io import TextIOBase
+import pkg_resources
 import os
 from queue import Queue
 import signal
@@ -101,15 +102,17 @@ def unwrap():
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
-    try:
-        worker_node_job_instance = WorkerNodeJobInstance(
-            job_instance_id=args["job_instance_id"],
-            job_instance_executor_info=ji_executor_info,
-            expected_jobmon_version=args["expected_jobmon_version"])
-    except ValueError as err:
-        # the environments were found to be out of sync, hard exit
-        logger.error(err)
+    version = pkg_resources.get_distribution("jobmon").version
+    if version != args['expected_jobmon_version']:
+        msg = f"Your workflow master node is using, " \
+            f"{args['expected_jobmon_version']} and your worker node is using" \
+            f" {version}. Please check your bash profile "
+        logger.error(msg)
         sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
+
+    worker_node_job_instance = WorkerNodeJobInstance(
+        job_instance_id=args["job_instance_id"],
+        job_instance_executor_info=ji_executor_info)
 
     # if it logs running and is in the 'W' or 'U' state then it will go
     # through the full process of trying to change states and receive a

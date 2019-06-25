@@ -18,7 +18,6 @@ class WorkerNodeJobInstance:
     def __init__(self,
                  job_instance_id: int,
                  job_instance_executor_info: JobInstanceExecutorInfo,
-                 expected_jobmon_version: str,
                  nodename: Optional[str] = None,
                  process_group_id: Optional[int] = None,
                  requester: Requester = shared_requester):
@@ -42,12 +41,6 @@ class WorkerNodeJobInstance:
         self._process_group_id = process_group_id
         self.executor = job_instance_executor_info
         self.requester = shared_requester
-        self.version = pkg_resources.get_distribution("jobmon").version
-        if self.version != expected_jobmon_version:
-            msg = f"Your workflow master node is using, " \
-                f"{expected_jobmon_version} and your worker node is using " \
-                f"{self.version}. Please check your bash profile "
-            raise ValueError(msg)
         logger.debug("Instantiated JobInstanceIntercom")
 
     @property
