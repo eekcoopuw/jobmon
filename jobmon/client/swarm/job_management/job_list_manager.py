@@ -62,9 +62,9 @@ class JobListManager(object):
 
         self.requester = shared_requester
 
-        self.bound_tasks: Dict = {}  # {job_id: BoundTask}
-        self.hash_job_map: Dict = {}  # {job_hash: simpleJob}
-        self.job_hash_map: Dict = {}  # {simpleJob: job_hash}
+        self.bound_tasks: Dict[int, BoundTask] = {}  # {job_id: BoundTask}
+        self.hash_job_map: Dict[int, SwarmJob] = {}  # {job_hash: simpleJob}
+        self.job_hash_map: Dict[int, int] = {}  # {job_id: job_hash}
 
         self.all_done: set = set()
         self.all_error: set = set()

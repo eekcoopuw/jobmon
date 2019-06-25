@@ -53,10 +53,12 @@ def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['1TB', '513GB'])
-def test_big_memory_adjusted(no_daemon, mem):
+def test_big_memory_adjusted(no_daemon, mem, capsys):
     task = Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
                 name="invalid_memory", m_mem_free=mem, num_cores=8,
                 j_resource=True, queue='all.q', max_runtime_seconds=120)
+    msg = task.executor_parameters.is_valid()[1]
+    assert "\n Memory" in msg
     task.executor_parameters.validate()
     assert 512 == task.executor_parameters.m_mem_free
 

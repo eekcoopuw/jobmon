@@ -45,7 +45,6 @@ class SGEParameters:
             j_resource: whether or not the job will need the J drive
             context_args: additional arguments to be added for
                 execution
-
         """
 
         self.queue = queue
@@ -124,12 +123,13 @@ class SGEParameters:
         runtime_msg, _ = self._validate_runtime()
         j_msg, _ = self._validate_j_resource()
         q_msg, _ = self._validate_queue()
-        msg = ""
         if cores_msg or mem_msg or runtime_msg or j_msg or q_msg:
-            msg = f"You have one or more resource errors that was adjusted " \
-                f"for:\n Cores: {cores_msg}, \n Memory: {mem_msg},\n" \
-                f" Runtime: {runtime_msg}, \n J-Drive: {j_msg}, \n " \
-                f"Queue: {q_msg}"
+            msg = "You have one or more resource errors that was adjusted "
+            for val in [cores_msg, mem_msg, runtime_msg, j_msg, q_msg]:
+                if val:
+                    msg += val
+        else:
+            msg = ""
         return msg
 
     def validate(self) -> None:
@@ -168,10 +168,11 @@ class SGEParameters:
             elif self.queue == "geospatial.q":
                 max_cores = MAX_CORES_GEOSPATIAL
         if self.num_cores is None:
-            return "No cores specified, setting num_cores to 1", 1
+            return "\n Cores: No cores specified, setting num_cores to 1", 1
         elif self.num_cores not in range(1, max_cores + 1):
-            return f"Invalid number of cores. Got {self.num_cores} cores" \
-                   f" but the max_cores is {max_cores}, setting cores to 1", 1
+            return f"\n Cores: Invalid number of cores. Got {self.num_cores}" \
+                   f"cores but the max_cores is {max_cores}, setting cores to"\
+                   f" 1", 1
         return "", self.num_cores
 
     @staticmethod
@@ -206,33 +207,36 @@ class SGEParameters:
             mem = 1  # set to 1G
         if mem < MIN_MEMORY_GB:
             mem = MIN_MEMORY_GB
-            return f"You requested below the minimum amount of memory, set " \
-                   f"to {mem}", mem
+            return f"\n Memory: You requested below the minimum amount of " \
+                   f"memory, set to {mem}", mem
         if mem > MAX_MEMORY_GB:
             mem = MAX_MEMORY_GB
-            return f"You requested above the maximum amount of memory, set " \
-                   f"to the max allowed which is {mem}", mem
+            return f"\n Memory: You requested above the maximum amount of " \
+                   f" memory, set to the max allowed which is {mem}", mem
         return "", mem
 
     def _validate_runtime(self) -> Tuple[str, int]:
         """Ensure that max_runtime is specified for the new cluster"""
         new_cluster = "el7" in self._cluster
         if self.max_runtime_seconds is None and new_cluster:
-            return "no runtime specified, setting to 24 hours", (24 * 60 * 60)
+            return ("\n Runtime: no runtime specified, setting to 24 hours",
+                    (24 * 60 * 60))
         elif isinstance(self.max_runtime_seconds, str):
             self.max_runtime_seconds = int(self.max_runtime_seconds)
         if self.max_runtime_seconds <= 0:
-            return f"Max runtime must be strictly positive." \
+            return f"\n Runtime: Max runtime must be strictly positive." \
                    f" Received {self.max_runtime_seconds}, " \
                    f"setting to 24 hours", (24 * 60 * 60)
         return "", self.max_runtime_seconds
 
     def _validate_j_resource(self) -> Tuple[str, bool]:
         if not(self.j_resource is True or self.j_resource is False):
-            return f"j_resource is a bool arg. Got {self.j_resource}", False
+            return f"\n J-Drive: j_resource is a bool arg. Got " \
+                   f"{self.j_resource}", False
         return "", self.j_resource
 
     def _validate_queue(self) -> Tuple[str, Union[str, None]]:
         if self.queue is None and "el7" in self._cluster:
-            return f"no queue was provided, setting to all.q", 'all.q'
+            return (f"\n Queue: no queue was provided, setting to all.q",
+                    'all.q')
         return "", self.queue

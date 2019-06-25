@@ -39,15 +39,14 @@ class ExecutorParameters:
             num_cores: number of cores fair cluster terminology
             queue: queue to be requested for the given task depending on
                 the resources the job will need
-            max_runtime_seconds (int): the maximum runtime for the job in seconds
+            max_runtime_seconds: the maximum runtime for the job in seconds
             j_resource: j drive access
-            m_mem_free: the amount of memory to be requested, can
-                either be in string format ex. '300M', '1G', '0.2T' or as a float
+            m_mem_free: the amount of memory to be requested, can either be in
+                string format ex. '300M', '1G', '0.2T' or as a float
             context_args: additional arguments to be provided to the
                 executor
             executor_class: name of the executor class so that params can
                 be parsed accordingly
-
         """
 
         if slots is not None:

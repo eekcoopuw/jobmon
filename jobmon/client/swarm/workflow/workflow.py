@@ -1,12 +1,14 @@
+from datetime import datetime
 import getpass
 import hashlib
+from http import HTTPStatus as StatusCodes
 import logging
 import os
-from datetime import datetime
 import uuid
 
-import jobmon
 from cluster_utils.io import makedirs_safely
+
+import jobmon
 from jobmon.client import shared_requester, client_config
 from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.client.requester import Requester
@@ -15,13 +17,6 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 
-try:  # Python 3.5+
-    from http import HTTPStatus as StatusCodes
-except ImportError:
-    try:  # Python 3
-        from http import client as StatusCodes
-    except ImportError:  # Python 2
-        import httplib as StatusCodes
 
 logger = logging.getLogger(__name__)
 
