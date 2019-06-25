@@ -34,7 +34,7 @@ would be expected to be passing new WorkflowArgs or to modify 1 or more Tasks.
 Resource Requesting and Retries
 *******************************
 
-With the move to the fair (buster) cluster, resource limits are enforced,
+With the move to the fair (Buster) cluster, resource limits are enforced,
 and jobs may die due to cluster enforcement if they have underrequested
 resources. In order to help jobs complete without user intervention every time,
 jobmon now has resource adjustment. If it detects that a job has died due to
