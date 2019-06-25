@@ -10,7 +10,7 @@ from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
                                            sge_utils, ExecutorParameters)
-from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
 
@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 ERROR_SGE_JID = -99999
 ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
-
 
 class SGEExecutor(Executor):
     def __init__(self,
@@ -131,6 +130,19 @@ class SGEExecutor(Executor):
                    f"{self.__class__.__name__} accounting discovered exit code"
                    f":{exit_code}.")
             return JobInstanceStatus.RESOURCE_ERROR, msg
+        elif exit_code == ReturnCodes.WORKER_NODE_ENV_FAILURE:
+            msg = "There is a discrepancy between the environment that your " \
+                  "workflow swarm node is accessing and the environment that " \
+                  "your worker node is accessing, because of this they will " \
+                  "not be able to access the correct jobmon services." \
+                  " Please check that they are accessing the environments " \
+                  "as expected (check qsub that was submitted for hints). " \
+                  "CHECK YOUR BASH PROFILE as it may contain a path that " \
+                  "references a different version of jobmon than you intend " \
+                  f"to use. {self.__class__.__name__} accounting discovered " \
+                  f"exit code: {exit_code}"
+            # TODO change this to a fatal error so they can't attempt a retry
+            return JobInstanceStatus.UNKNOWN_ERROR, msg
         else:
             raise RemoteExitInfoNotAvailable
 
@@ -260,5 +272,18 @@ class JobInstanceSGEInfo(JobInstanceExecutorInfo):
                    f"{exit_code}. Application returned error message:\n" +
                    error_msg)
             return JobInstanceStatus.RESOURCE_ERROR, msg
+        elif exit_code == ReturnCodes.WORKER_NODE_ENV_FAILURE:
+            msg = "There is a discrepancy between the environment that your " \
+                  "workflow swarm node is accessing and the environment that " \
+                  "your worker node is accessing, because of this they will " \
+                  "not be able to access the correct jobmon services." \
+                  " Please check that they are accessing the environments " \
+                  "as expected (check qsub that was submitted for hints). " \
+                  "CHECK YOUR BASH PROFILE as it may contain a path that " \
+                  "references a different version of jobmon than you intend " \
+                  f"to use. {self.__class__.__name__} accounting discovered " \
+                  f"exit code: {exit_code}"
+            # TODO change this to a fatal error so they can't attempt a retry
+            return JobInstanceStatus.UNKNOWN_ERROR, msg
         else:
             return JobInstanceStatus.ERROR, error_msg

@@ -2,6 +2,7 @@ import argparse
 import logging
 from functools import partial
 from io import TextIOBase
+import pkg_resources
 import os
 from queue import Queue
 import signal
@@ -70,8 +71,7 @@ def unwrap():
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)
-    parser.add_argument("--jm_host", required=True)
-    parser.add_argument("--jm_port", required=True)
+    parser.add_argument("--expected_jobmon_version", required=True)
     parser.add_argument("--executor_class", required=True)
     parser.add_argument("--temp_dir", required=False)
     parser.add_argument("--last_nodename", required=False)
@@ -102,6 +102,14 @@ def unwrap():
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
+    version = pkg_resources.get_distribution("jobmon").version
+    if version != args['expected_jobmon_version']:
+        msg = f"Your workflow master node is using, " \
+            f"{args['expected_jobmon_version']} and your worker node is using" \
+            f" {version}. Please check your bash profile "
+        logger.error(msg)
+        sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
+
     worker_node_job_instance = WorkerNodeJobInstance(
         job_instance_id=args["job_instance_id"],
         job_instance_executor_info=ji_executor_info)

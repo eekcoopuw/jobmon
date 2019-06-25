@@ -407,10 +407,10 @@ def log_error_reconciler(job_instance_id: int):
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
-    error_state = data["error_state"]
-    error_message = data["error_message"]
+    error_state = data['error_state']
+    error_message = data['error_message']
     executor_id = data.get('executor_id', None)
-    nodename = data.get("nodename", None)
+    nodename = data.get('nodename', None)
     logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
     logger.debug("data:" + str(data))
 

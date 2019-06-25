@@ -66,7 +66,7 @@ def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
     instantiated = jif.instantiate_queued_jobs()
-    jid = instantiated[0].job_instance_id
+    jid = instantiated[0]
     status = query_until_running(db_cfg, jid).status
     while status != 'R':
         res = query_until_running(db_cfg, jid)
