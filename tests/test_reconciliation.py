@@ -43,52 +43,6 @@ def job_list_manager_reconciliation(real_dag_id):
     jlm.disconnect()
 
 
-@pytest.mark.skip(reason="ssh problems on buster or fixtures from other tests "
-                         "interfering, to be addressed in GBDSCI-1802")
-def test_reconciler_running_ji_disappears(job_list_manager_reconciliation,
-                                          db_cfg):
-    """ensures that if a job silently dies (so it doesn't throw an interrupt,
-     but would not be present if you ran qstat), it stops logging heartbeats
-     and the reconciler handles it"""
-    job_list_manager_reconciliation._sync()
-    job_list_manager_reconciliation.all_error = set()
-    job_list_manager_reconciliation.all_done = set()
-    jir = job_list_manager_reconciliation.job_inst_reconciler
-    jif = job_list_manager_reconciliation.job_instance_factory
-    jif.interrupt_on_error = True
-
-    task = BashTask(command="sleep 300", name="heartbeat_sleeper",
-                    num_cores=1,
-                    mem_free="2G",
-                    max_runtime_seconds='1000',
-                    max_attempts=1)
-
-    job = job_list_manager_reconciliation.bind_task(task)
-    job_list_manager_reconciliation.queue_job(job)
-    instantiated = jif.instantiate_queued_jobs()
-    jid = instantiated[0]
-    status = query_until_running(db_cfg, jid).status
-    while status != 'R':
-        res = query_until_running(db_cfg, jid)
-        status = res.status
-    pid = res.process_group_id
-    hostname = res.nodename
-    # wait until it starts running, and then silently kill it
-    exit_code, out, err = kill_remote_process(hostname=hostname, pid=pid)
-    qstat_out = sge.qstat()
-    for jid in qstat_out.keys():
-        assert 'heartbeat_sleeper' not in qstat_out[jid]['name']
-
-    # job should not log a heartbeat so it should error out eventually
-    count = 0
-    while len(job_list_manager_reconciliation.all_error) < 1 and count < 3:
-        count += 1
-        sleep(30)
-        jir.reconcile()
-        job_list_manager_reconciliation._sync()
-    assert job_list_manager_reconciliation.all_error
-
-
 def query_until_running(db_cfg, jid):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
