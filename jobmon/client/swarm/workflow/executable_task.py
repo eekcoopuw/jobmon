@@ -73,6 +73,7 @@ class ExecutableTask(object):
                  context_args: Optional[dict] = None,
                  job_attributes: Optional[dict] = None,
                  m_mem_free: Optional[str] = None,
+                 hard_limits: Optional[bool] = False,
                  executor_class: str = 'SGEExecutor',
                  executor_parameters: Optional[ExecutorParameters] = None):
         """
@@ -110,6 +111,8 @@ class ExecutableTask(object):
                 add_job_attribute function
             j_resource: whether this task is using the j-drive or not
             context_args: additional args to be passed to the executor
+            hard_limits: if the user wants jobs to stay on the chosen queue
+                and not expand if resources are exceeded, set this to true
             executor_class: the type of executor so we can instantiate the
                 executor parameters properly
             executor_parameters: an instance of executor
@@ -161,6 +164,7 @@ class ExecutableTask(object):
                 queue=queue,
                 j_resource=j_resource,
                 context_args=context_args,
+                hard_limits=hard_limits,
                 executor_class=executor_class)
         else:
             self.executor_parameters = executor_parameters

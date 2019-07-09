@@ -11,6 +11,9 @@ MAX_CORES = 56
 MAX_CORES_GEOSPATIAL = 64
 MAX_CORES_C2 = 100
 
+MAX_RUNTIME_ALL = 259200
+MAX_RUNTIME_LONG = 1382400
+
 
 class SGEParameters:
     """Manages the SGE specific parameters requested for a given job, it will
@@ -27,7 +30,8 @@ class SGEParameters:
                  max_runtime_seconds: Optional[int] = None,
                  j_resource: bool = False,
                  m_mem_free: Optional[Union[str, float]] = None,
-                 context_args: Optional[Union[Dict, str]] = None):
+                 context_args: Optional[Union[Dict, str]] = None,
+                 hard_limits: Optional[bool] = False):
         """
         Args:
             slots: slots to request on the cluster
@@ -45,6 +49,8 @@ class SGEParameters:
             j_resource: whether or not the job will need the J drive
             context_args: additional arguments to be added for
                 execution
+            hard_limits: if the user wants jobs to stay on the chosen queue
+                and not expand if resources are exceeded, set this to true
         """
 
         self.queue = queue
@@ -54,6 +60,7 @@ class SGEParameters:
         self._cluster = os.environ['SGE_ENV']  # el7 in SGE_ENV is fair cluster
         self.num_cores, self.m_mem_free = self._backward_compatible_resources(
             slots, num_cores, mem_free, m_mem_free)
+        self.hard_limits = hard_limits
 
     @classmethod
     def set_executor_parameters_strategy(cls, executor_parameters):
@@ -66,7 +73,8 @@ class SGEParameters:
             max_runtime_seconds=executor_parameters.max_runtime_seconds,
             j_resource=executor_parameters.j_resource,
             m_mem_free=executor_parameters.m_mem_free,
-            context_args=executor_parameters.context_args)
+            context_args=executor_parameters.context_args,
+            hard_limits=executor_parameters.hard_limits)
 
         # now set this instance as the underlying strategy and override the
         # underlying values for the post init values
@@ -77,6 +85,7 @@ class SGEParameters:
         executor_parameters._j_resource = instance.j_resource
         executor_parameters._m_mem_free = instance.m_mem_free
         executor_parameters._context_args = instance.context_args
+        executor_parameters._hard_limits = instance.hard_limits
 
     def _backward_compatible_resources(self, slots, num_cores, mem_free,
                                        m_mem_free):
@@ -135,14 +144,15 @@ class SGEParameters:
     def validate(self) -> None:
         _, cores = self._validate_num_cores()
         _, mem = self._validate_memory()
-        _, runtime = self._validate_runtime()
         _, j = self._validate_j_resource()
         _, q = self._validate_queue()
+        self.queue = q
+        # set queue so that runtime can be validated accordingly
+        _, runtime = self._validate_runtime()
         self.num_cores = cores
         self.m_mem_free = mem
         self.max_runtime_seconds = runtime
         self.j_resource = j
-        self.queue = q
 
     def adjust(self, **kwargs) -> None:
         """
@@ -153,6 +163,20 @@ class SGEParameters:
         mem = self.m_mem_free * (1 + float(kwargs.get('m_mem_free', 0)))
         runtime = int(self.max_runtime_seconds *
                       (1 + float(kwargs.get('max_runtime_seconds', 0))))
+
+        # check that new resources have not exceeded limits
+        if runtime > MAX_RUNTIME_ALL and 'all' in self.queue:
+            if not self.hard_limits:
+                self.queue = 'long.q'
+                if runtime > MAX_RUNTIME_LONG:
+                    runtime = MAX_RUNTIME_LONG
+            else:
+                runtime = MAX_RUNTIME_ALL
+        if cores > MAX_CORES:
+            cores = MAX_CORES
+        if mem > MAX_MEMORY_GB:
+            mem = MAX_MEMORY_GB
+
         self.num_cores = cores
         self.m_mem_free = mem
         self.max_runtime_seconds = runtime
@@ -227,6 +251,15 @@ class SGEParameters:
             return f"\n Runtime: Max runtime must be strictly positive." \
                    f" Received {self.max_runtime_seconds}, " \
                    f"setting to 24 hours", (24 * 60 * 60)
+
+        # make sure the time is below the cap if they provided a queue
+        if self.max_runtime_seconds > MAX_RUNTIME_LONG and 'long' in self.queue:
+            return f"Runtime exceeded maximum for long.q, setting to 16 days", \
+                   MAX_RUNTIME_LONG
+        elif self.max_runtime_seconds > MAX_RUNTIME_ALL and self.hard_limits:
+            return f"Runtime exceeded maximum for all.q and the user has set " \
+                f"hard_limits to be enforced, therefore max_runtime is being " \
+                f"capped at the all.q maximum", MAX_RUNTIME_ALL
         return "", self.max_runtime_seconds
 
     def _validate_j_resource(self) -> Tuple[str, bool]:
@@ -236,7 +269,11 @@ class SGEParameters:
         return "", self.j_resource
 
     def _validate_queue(self) -> Tuple[str, Union[str, None]]:
-        if self.queue is None and "el7" in self._cluster:
-            return (f"\n Queue: no queue was provided, setting to all.q",
-                    'all.q')
+        if self.max_runtime_seconds > MAX_RUNTIME_ALL and not self.hard_limits:
+            if self.queue is None or 'long' not in self.queue:
+                return f"\n Queue: queue provided has insufficient max runtime, " \
+                       f"moved to long.q", 'long.q'
+        elif self.queue is None and "el7" in self._cluster:
+            return f"\n Queue: no queue was provided, setting to all.q", \
+                   'all.q'
         return "", self.queue
