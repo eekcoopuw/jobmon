@@ -238,29 +238,6 @@ def get_jobs_by_status_only(dag_id):
     return resp
 
 
-@jqs.route('/dag/<dag_id>/get_timed_out_executor_ids', methods=['GET'])
-def get_timed_out_executor_ids(dag_id):
-    jiid_exid_tuples = DB.session.query(JobInstance). \
-        filter_by(dag_id=dag_id).\
-        filter(JobInstance.status.in_(
-            [JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-             JobInstanceStatus.RUNNING])).\
-        join(ExecutorParameterSet).\
-        options(contains_eager(JobInstance.executor_parameter_set)).\
-        filter(ExecutorParameterSet.max_runtime_seconds != None).\
-        filter(
-            func.timediff(func.UTC_TIMESTAMP(), JobInstance.status_date) >
-            func.SEC_TO_TIME(ExecutorParameterSet.max_runtime_seconds)).\
-        with_entities(JobInstance.job_instance_id, JobInstance.executor_id).\
-        all()  # noqa: E711
-    DB.session.commit()
-
-    # TODO: convert to executor_job_instance wire format
-    resp = jsonify(jiid_exid_tuples=jiid_exid_tuples)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jqs.route('/dag/<dag_id>/get_job_instances_by_status', methods=['GET'])
 def get_job_instances_by_status(dag_id):
     """Returns all job_instances in the database that have the specified filter
