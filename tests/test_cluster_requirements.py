@@ -164,3 +164,20 @@ def test_no_queue_provided(no_daemon):
         sge_executor.working_dir)
     if 'el7' in os.environ['SGE_ENV']:
         assert 'all.q' in qsub_cmd
+
+
+def test_mem_exceeds_queue_limit(no_daemon):
+    job = no_daemon.bind_task(
+        BashTask(command="sleep 10", name='test_mem_args', queue='all.q',
+                 max_attempts=2, mem_free='3G', m_mem_free='2G', slots=1,
+                 max_runtime_seconds=1382402))
+    assert job._task.executor_parameters.queue == 'long.q'
+
+
+def test_mem_exceeds_queue_hard(no_daemon):
+    job = no_daemon.bind_task(
+        BashTask(command="sleep 10", name='test_mem_args', queue='all.q',
+                 max_attempts=2, mem_free='3G', m_mem_free='2G', slots=1,
+                 max_runtime_seconds=1382402, hard_limits=True))
+    assert job._task.executor_parameters.queue == 'all.q'
+    assert job._task.executor_parameters.max_runtime_seconds == 259200

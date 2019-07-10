@@ -251,7 +251,6 @@ class SGEParameters:
             return f"\n Runtime: Max runtime must be strictly positive." \
                    f" Received {self.max_runtime_seconds}, " \
                    f"setting to 24 hours", (24 * 60 * 60)
-
         # make sure the time is below the cap if they provided a queue
         if self.max_runtime_seconds > MAX_RUNTIME_LONG and 'long' in self.queue:
             return f"Runtime exceeded maximum for long.q, setting to 16 days", \
@@ -269,10 +268,12 @@ class SGEParameters:
         return "", self.j_resource
 
     def _validate_queue(self) -> Tuple[str, Union[str, None]]:
-        if self.max_runtime_seconds > MAX_RUNTIME_ALL and not self.hard_limits:
-            if self.queue is None or 'long' not in self.queue:
-                return f"\n Queue: queue provided has insufficient max runtime, " \
-                       f"moved to long.q", 'long.q'
+        if self.max_runtime_seconds:
+            if self.max_runtime_seconds > MAX_RUNTIME_ALL and not \
+                    self.hard_limits:
+                if self.queue is None or 'long' not in self.queue:
+                    return f"\n Queue: queue provided has insufficient " \
+                           f"max runtime, moved to long.q", 'long.q'
         elif self.queue is None and "el7" in self._cluster:
             return f"\n Queue: no queue was provided, setting to all.q", \
                    'all.q'
