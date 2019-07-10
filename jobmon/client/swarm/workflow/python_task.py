@@ -17,7 +17,7 @@ class PythonTask(ExecutableTask):
                  slots=None, num_cores=None, mem_free=None, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None,
                  j_resource=False, m_mem_free=None, context_args=None,
-                 executor_class='SGEExecutor',
+                 hard_limits=False, executor_class='SGEExecutor',
                  executor_parameters: Optional[ExecutorParameters] = None):
         """
         Args:
@@ -51,6 +51,8 @@ class PythonTask(ExecutableTask):
             j_resource (bool): Whether or not this task uses the j_drive
             context_args (dict): Additional arguments to pass along with to the
                 executor
+            hard_limits: if the user wants jobs to stay on the chosen queue
+                and not expand if resources are exceeded, set this to true
             executor_class (str): Executor class to configure the given
                 parameters ex. SGEExecutor
             executor_parameters(ExecutorParameters): the set of executor
@@ -65,7 +67,8 @@ class PythonTask(ExecutableTask):
             num_cores=num_cores, mem_free=mem_free, max_attempts=max_attempts,
             max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
             j_resource=j_resource, m_mem_free=m_mem_free,
-            context_args=context_args, executor_class=executor_class,
+            context_args=context_args, hard_limits=hard_limits,
+            executor_class=executor_class,
             executor_parameters=executor_parameters)
 
     @staticmethod
