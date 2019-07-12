@@ -83,7 +83,6 @@ class JobInstanceReconciler(object):
             try:
                 logging.debug(
                     f"Reconciling at interval {self.reconciliation_interval}s")
-                self.terminate_timed_out_jobs()
                 self.reconcile()
                 sleep(self.reconciliation_interval)
             except Exception as e:
@@ -106,34 +105,6 @@ class JobInstanceReconciler(object):
                     self._stop_event.set()
                 else:
                     raise
-
-    def terminate_timed_out_jobs(self) -> None:
-        """Attempts to terminate jobs that have been in the "running"
-        state for too long. From the SGE perspective, this might include
-        jobs that got stuck in "r" state but never called back to the
-        JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
-        SUBMITTED_TO_BATCH_EXECUTOR)
-        """
-        try:
-            rc, response = self.requester.send_request(
-                app_route=f'/dag/{self.dag_id}/get_timed_out_executor_ids',
-                message={},
-                request_type='get')
-            to_jobs = response['jiid_exid_tuples']
-            if rc != StatusCodes.OK:
-                to_jobs = []
-        except TypeError:
-            to_jobs = []
-        try:
-            terminated = self.executor.terminate_job_instances(to_jobs)
-        except NotImplementedError:
-            logger.warning("{} does not implement reconciliation methods"
-                           .format(self.executor.__class__.__name__))
-            terminated = []
-
-        # log the hostname in case we need to terminate it remotely later
-        for job_instance_id, hostname in terminated:
-            self._log_timeout_hostname(job_instance_id, hostname)
 
     def reconcile(self) -> None:
         """Identifies submitted to batch and running jobs that have missed
