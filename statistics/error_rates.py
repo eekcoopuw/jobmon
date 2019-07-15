@@ -96,6 +96,30 @@ def define_database_connections():
                 "port": 3890,
                 "user_name": "read_only",
                 "password": "*****"
+            },
+            "v095": {
+                "host": jobmon_docker_cont_p01,
+                "port": 3950,
+                "user_name": "read_only",
+                "password": "*****"
+            },
+            "v099": {
+                "host": jobmon_p01,
+                "port": 3990,
+                "user_name": "read_only",
+                "password": "*****"
+            },
+            "v100": {
+                "host": jobmon_docker_cont_p01,
+                "port": 10000,
+                "user_name": "read_only",
+                "password": "*****"
+            },
+            "v101": {
+                "host": jobmon_docker_cont_p01,
+                "port": 10010,
+                "user_name": "read_only",
+                "password": "*****"
             }
         })
     return db_config
@@ -198,7 +222,7 @@ def main():
     """
 
     # Megan created an odbc with all of the jobmon databases and passwords
-    kpi_odbc = "/ihme/scratch/users/svcscicompci/kpi.odbc.ini"
+    kpi_odbc = "/ihme/scratch/users/svcscicompci/kpi_odbc.ini"
     if os.path.exists(kpi_odbc):
         db_config = database_conns_from_file(kpi_odbc)
     else:
@@ -208,10 +232,14 @@ def main():
     all_jobs = None
     all_resumes = None
 
-    q3_q4_dbs = ["v071", "v072", "v080", "v081", "v083", "v089"]
+    # keeping for posterity - these were for q3-q4 of 2018(?)
+    # q3_q4_dbs = ["v071", "v072", "v080", "v081", "v083", "v089"]
+
+    # 07/17/2019 KPIs
+    db_list = ["v095", "v099", "v100", "v101"]
 
     # There are cleverer ways but this gets the job done
-    for name in q3_q4_dbs:
+    for name in db_list:
         print(f"Accessing {name}")
         w_df = get_workflow_statistics(name)
         j_df = get_job_statistics(name)
