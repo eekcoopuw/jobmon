@@ -167,7 +167,8 @@ class ExecutorParameters:
             'num_cores': self.num_cores,
             'm_mem_free': self.m_mem_free,
             'j_resource': self.j_resource,
-            'resource_scales': self.resource_scales}
+            'resource_scales': self.resource_scales,
+            'hard_limits': self.hard_limits}
 
 
 class Executor:

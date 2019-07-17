@@ -106,7 +106,8 @@ class JobListManager(object):
                 context_args=task.executor_parameters.context_args,
                 queue=task.executor_parameters.queue,
                 j_resource=task.executor_parameters.j_resource,
-                resource_scales=task.executor_parameters.resource_scales
+                resource_scales=task.executor_parameters.resource_scales,
+                hard_limits=task.executor_parameters.hard_limits
             )
             task.executor_parameters.validate()
             self._add_validated_parameters(job.job_id,
@@ -131,7 +132,8 @@ class JobListManager(object):
                'num_cores': executor_parameters.num_cores,
                'm_mem_free': executor_parameters.m_mem_free,
                'j_resource': executor_parameters.j_resource,
-               'resource_scales': executor_parameters.resource_scales}
+               'resource_scales': executor_parameters.resource_scales,
+               'hard_limits': executor_parameters.hard_limits}
         self.requester.send_request(
             app_route=f'/job/{job_id}/update_resources',
             message=msg,

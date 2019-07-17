@@ -9,11 +9,12 @@ class SerializeExecutorJob:
                 command: str, status: str, max_runtime_seconds: int,
                 context_args: str, resource_scales: str, queue: str,
                 num_cores: int, m_mem_free: str, j_resource: str,
-                last_nodename: str, last_process_group_id: int) -> tuple:
+                last_nodename: str, last_process_group_id: int,
+                hard_limits: str) -> tuple:
         return (dag_id, job_id, name, job_hash, command, status,
                 max_runtime_seconds, context_args, resource_scales, queue,
                 num_cores, m_mem_free, j_resource, last_nodename,
-                last_process_group_id)
+                last_process_group_id, hard_limits)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple):
@@ -40,7 +41,8 @@ class SerializeExecutorJob:
                 "m_mem_free": m_mem_free,
                 "j_resource": wire_tuple[12],
                 "last_nodename": wire_tuple[13],
-                "last_process_group_id": last_process_group_id}
+                "last_process_group_id": last_process_group_id,
+                "hard_limits": wire_tuple[15]}
 
 
 class SerializeSwarmJob:

@@ -29,6 +29,7 @@ class ExecutorParameterSet(DB.Model):
     num_cores = DB.Column(DB.Integer, default=None)
     m_mem_free = DB.Column(DB.Float, default=None)
     j_resource = DB.Column(DB.Boolean, default=None)
+    hard_limits = DB.Column(DB.Boolean, default=None)
 
     # ORM relationships
     job = DB.relationship("Job", foreign_keys=[job_id])

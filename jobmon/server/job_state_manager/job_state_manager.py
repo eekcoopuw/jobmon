@@ -89,6 +89,8 @@ def add_job():
         max_runtime_seconds: how long the job should be allowed to run
         context_args: any other args that should be passed to the executor
         resource_scales: amount to scale each resource by upon resource failure
+        hard_limits: whether to scale beyond current queue limits and change
+            queue
         tag: job attribute tag
         queue: which queue is being used
         j_resource: if the j_drive is being used
@@ -116,7 +118,8 @@ def add_job():
         num_cores=data.get('num_cores', None),
         m_mem_free=data.get('m_mem_free', 2),
         j_resource=data.get('j_resource', False),
-        resource_scales=data.get('resource_scales', None)
+        resource_scales=data.get('resource_scales', None),
+        hard_limits=data.get('hard_limits', False)
     )
     DB.session.add(original_exec_params)
     DB.session.flush()
@@ -748,7 +751,8 @@ def update_job_resources(job_id):
         num_cores=data.get('num_cores', None),
         m_mem_free=data.get('m_mem_free', 2),
         j_resource=data.get('j_resource', False),
-        resource_scales=data.get('resource_scales', None))
+        resource_scales=data.get('resource_scales', None),
+        hard_limits=data.get('hard_limits', False))
     DB.session.add(exec_params)
     DB.session.flush()  # get auto increment
     exec_params.activate()

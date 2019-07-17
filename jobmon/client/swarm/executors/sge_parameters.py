@@ -179,7 +179,7 @@ class SGEParameters:
         if scale_all_by is not None:
             logger.debug("You have configured the resource adjustment value "
                          "in your workflow, this will override any resource "
-                         "specific scalign you have configured. If you would "
+                         "specific scaling you have configured. If you would "
                          "like to scale your resources differently, configure "
                          "them only at the task level with the resource scales"
                          " parameter")

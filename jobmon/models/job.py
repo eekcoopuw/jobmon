@@ -38,7 +38,8 @@ class Job(DB.Model):
             m_mem_free=self.executor_parameter_set.m_mem_free,
             j_resource=self.executor_parameter_set.j_resource,
             last_nodename=lnode,
-            last_process_group_id=lpgid)
+            last_process_group_id=lpgid,
+            hard_limits=self.executor_parameter_set.hard_limits)
         return serialized
 
     def to_wire_as_swarm_job(self):

@@ -97,7 +97,8 @@ class ExecutorJob:
                 j_resource=kwargs["j_resource"],
                 m_mem_free=kwargs["m_mem_free"],
                 context_args=kwargs["context_args"],
-                resource_scales=kwargs["resource_scales"]),
+                resource_scales=kwargs["resource_scales"],
+                hard_limits=kwargs["hard_limits"]),
             requester=requester)
         return executor_job
 
