@@ -5,6 +5,7 @@ from http import HTTPStatus as StatusCodes
 import logging
 import os
 import uuid
+import warnings
 
 from cluster_utils.io import makedirs_safely
 
@@ -69,7 +70,8 @@ class Workflow(object):
                  reconciliation_interval: int = None,
                  heartbeat_interval: int = None,
                  report_by_buffer: float = None,
-                 resource_adjustment: float = 0.5):
+                 resource_adjustment: float = 0.5,
+                 scaling_threads: bool=False):
         """
         Args:
             workflow_args: unique identifier of a workflow
@@ -155,6 +157,11 @@ class Workflow(object):
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
 
+        if resource_adjustment != 0.5:
+            warnings.warn("Resource adjustment will be deprecated, please use "
+                          "the task-level resource_scales and provided scaling"
+                          " values for each resource that you want scaled",
+                          FutureWarning)
         if 0 < resource_adjustment <= 1:
             self.resource_adjustment = resource_adjustment
         else:

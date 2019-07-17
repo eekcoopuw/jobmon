@@ -71,6 +71,7 @@ class ExecutableTask(object):
                  queue: Optional[str] = None, max_attempts: Optional[int] = 3,
                  j_resource: bool = False, tag: Optional[str] = None,
                  context_args: Optional[dict] = None,
+                 resource_scales: Dict = None,
                  job_attributes: Optional[dict] = None,
                  m_mem_free: Optional[str] = None,
                  hard_limits: Optional[bool] = False,
@@ -111,6 +112,10 @@ class ExecutableTask(object):
                 add_job_attribute function
             j_resource: whether this task is using the j-drive or not
             context_args: additional args to be passed to the executor
+            resource_scales: for each resource, a scaling value (between 0 and 1)
+                can be provided so that different resources get scaled differently.
+                Default is {'m_mem_free': 0.5, 'max_runtime_seconds': 0.5},
+                only resources that are provided will ever get adjusted
             hard_limits: if the user wants jobs to stay on the chosen queue
                 and not expand if resources are exceeded, set this to true
             executor_class: the type of executor so we can instantiate the
@@ -153,7 +158,6 @@ class ExecutableTask(object):
             self.job_attributes = job_attributes
         else:
             self.job_attributes = {}
-
         if executor_parameters is None:
             self.executor_parameters = ExecutorParameters(
                 slots=slots,
@@ -164,6 +168,7 @@ class ExecutableTask(object):
                 queue=queue,
                 j_resource=j_resource,
                 context_args=context_args,
+                resource_scales=resource_scales,
                 hard_limits=hard_limits,
                 executor_class=executor_class)
         else:

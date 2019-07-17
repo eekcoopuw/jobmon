@@ -30,7 +30,8 @@ class ExecutorParameters:
                  m_mem_free: Optional[Union[str, float]] = None,
                  context_args: Optional[Union[Dict, str]] = None,
                  hard_limits: Optional[bool] = False,
-                 executor_class: str = 'SGEExecutor'):
+                 executor_class: str = 'SGEExecutor',
+                 resource_scales: Dict = None):
         """
         Args:
             slots: number of slots requested using old cluster terminology,
@@ -48,6 +49,8 @@ class ExecutorParameters:
                 executor
             hard_limits: if the user wants jobs to stay on the chosen queue
                 and not expand if resources are exceeded, set this to true
+            resource_scales: for each resource, a scaling value can be provided
+                so that different resources get scaled differently
             executor_class: name of the executor class so that params can
                 be parsed accordingly
         """
@@ -71,6 +74,7 @@ class ExecutorParameters:
         self._m_mem_free = m_mem_free
         self._context_args = context_args
         self._hard_limits = hard_limits
+        self._resource_scales = resource_scales
 
         StrategyCls = self._strategies.get(executor_class)
         self._strategy: Optional[SGEParameters] = None
@@ -120,6 +124,10 @@ class ExecutorParameters:
         return self._attribute_proxy("context_args")
 
     @property
+    def resource_scales(self):
+        return self._attribute_proxy("resource_scales")
+
+    @property
     def hard_limits(self):
         return self._attribute_proxy("hard_limits")
 
@@ -158,7 +166,8 @@ class ExecutorParameters:
             'queue': self.queue,
             'num_cores': self.num_cores,
             'm_mem_free': self.m_mem_free,
-            'j_resource': self.j_resource}
+            'j_resource': self.j_resource,
+            'resource_scales': self.resource_scales}
 
 
 class Executor:

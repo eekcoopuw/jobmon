@@ -32,6 +32,7 @@ class Job(DB.Model):
             max_runtime_seconds=(
                 self.executor_parameter_set.max_runtime_seconds),
             context_args=self.executor_parameter_set.context_args,
+            resource_scales=self.executor_parameter_set.resource_scales,
             queue=self.executor_parameter_set.queue,
             num_cores=self.executor_parameter_set.num_cores,
             m_mem_free=self.executor_parameter_set.m_mem_free,

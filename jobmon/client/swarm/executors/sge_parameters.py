@@ -30,8 +30,9 @@ class SGEParameters:
                  max_runtime_seconds: Optional[int] = None,
                  j_resource: bool = False,
                  m_mem_free: Optional[Union[str, float]] = None,
-                 context_args: Optional[Union[Dict, str]] = None,
-                 hard_limits: Optional[bool] = False):
+                 context_args: Union[Dict, str] = {},
+                 hard_limits: Optional[bool] = False,
+                 resource_scales: Dict = None):
         """
         Args:
             slots: slots to request on the cluster
@@ -51,16 +52,24 @@ class SGEParameters:
                 execution
             hard_limits: if the user wants jobs to stay on the chosen queue
                 and not expand if resources are exceeded, set this to true
+            resource_scales: for each resource, a scaling value can be provided
+                so that different resources get scaled differently (scaling is
+                only available on 'm_mem_free', 'num_cores' and
+                'max_runtime_seconds')
         """
-
         self.queue = queue
         self.max_runtime_seconds = max_runtime_seconds
         self.j_resource = j_resource
+        if context_args is None:
+            context_args = {}
         self.context_args = context_args
         self._cluster = os.environ['SGE_ENV']  # el7 in SGE_ENV is fair cluster
         self.num_cores, self.m_mem_free = self._backward_compatible_resources(
             slots, num_cores, mem_free, m_mem_free)
         self.hard_limits = hard_limits
+        if resource_scales is None:
+            resource_scales = {'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}
+        self.resource_scales = resource_scales
 
     @classmethod
     def set_executor_parameters_strategy(cls, executor_parameters):
@@ -74,7 +83,8 @@ class SGEParameters:
             j_resource=executor_parameters.j_resource,
             m_mem_free=executor_parameters.m_mem_free,
             context_args=executor_parameters.context_args,
-            hard_limits=executor_parameters.hard_limits)
+            hard_limits=executor_parameters.hard_limits,
+            resource_scales=executor_parameters.resource_scales)
 
         # now set this instance as the underlying strategy and override the
         # underlying values for the post init values
@@ -86,6 +96,7 @@ class SGEParameters:
         executor_parameters._m_mem_free = instance.m_mem_free
         executor_parameters._context_args = instance.context_args
         executor_parameters._hard_limits = instance.hard_limits
+        executor_parameters._resource_scales = instance.resource_scales
 
     def _backward_compatible_resources(self, slots, num_cores, mem_free,
                                        m_mem_free):
@@ -132,6 +143,7 @@ class SGEParameters:
         runtime_msg, _ = self._validate_runtime()
         j_msg, _ = self._validate_j_resource()
         q_msg, _ = self._validate_queue()
+        scales_msg, _ = self._validate_resource_scales()
         if cores_msg or mem_msg or runtime_msg or j_msg or q_msg:
             msg = "You have one or more resource errors that was adjusted "
             for val in [cores_msg, mem_msg, runtime_msg, j_msg, q_msg]:
@@ -149,36 +161,77 @@ class SGEParameters:
         self.queue = q
         # set queue so that runtime can be validated accordingly
         _, runtime = self._validate_runtime()
+        _, resource_scales = self._validate_resource_scales()
         self.num_cores = cores
         self.m_mem_free = mem
         self.max_runtime_seconds = runtime
         self.j_resource = j
+        self.resource_scales = resource_scales
 
     def adjust(self, **kwargs) -> None:
         """
-            If the parameters need to be adjusted then create and return a new
-            object, otherwise None
+            If only one specific parameter needs to be scaled, then scale that
+            parameter, otherwise scale each parameter for which a scaling
+            factor is available (default scale mem and runtime by 0.5)
         """
-        cores = int(self.num_cores * (1 + float(kwargs.get('num_cores', 0))))
-        mem = self.m_mem_free * (1 + float(kwargs.get('m_mem_free', 0)))
+        only_scaled_resources = kwargs.get('only_scale', [])
+        scale_all_by = kwargs.get('all_resource_scale_val', None)
+        if scale_all_by is not None:
+            logger.debug("You have configured the resource adjustment value "
+                         "in your workflow, this will override any resource "
+                         "specific scalign you have configured. If you would "
+                         "like to scale your resources differently, configure "
+                         "them only at the task level with the resource scales"
+                         " parameter")
+        for resource in only_scaled_resources:
+            if scale_all_by is not None:
+                self.resource_scales[resource] = scale_all_by
+        if len(only_scaled_resources) > 0:
+            if 'num_cores' in only_scaled_resources:
+                self._scale_cores()
+            if 'm_mem_free' in only_scaled_resources:
+                self._scale_m_mem_free()
+            if 'max_runtime_seconds' in only_scaled_resources:
+                self._scale_max_runtime_seconds()
+        else:
+            self._scale_cores()
+            self._scale_m_mem_free()
+            self._scale_max_runtime_seconds()
+
+    def _scale_cores(self):
+        scale_by = self.resource_scales.get('num_cores', 0)
+        logger.debug(f"scaling cores by {scale_by}")
+        cores = int(self.num_cores *
+                    (1 + float(self.resource_scales.get('num_cores', 0))))
+        if cores > MAX_CORES:
+            cores = MAX_CORES
+        self.num_cores = cores
+
+    def _scale_m_mem_free(self):
+        scale_by = self.resource_scales.get('m_mem_free')
+        logger.debug(f"scaling mem by {scale_by}")
+        mem = float(self.m_mem_free * \
+              (1 + float(self.resource_scales.get('m_mem_free', 0))))
+        if mem > MAX_MEMORY_GB:
+            mem = MAX_MEMORY_GB
+        self.m_mem_free = mem
+
+    def _scale_max_runtime_seconds(self):
+        scale_by = self.resource_scales.get('max_runtime_seconds')
+        logger.debug(f"scaling max runtime by {scale_by}")
         runtime = int(self.max_runtime_seconds *
-                      (1 + float(kwargs.get('max_runtime_seconds', 0))))
+                      (1 + float(self.resource_scales.get('max_runtime_seconds', 0))))
 
         # check that new resources have not exceeded limits
         if runtime > MAX_RUNTIME_ALL and 'all' in self.queue:
             if not self.hard_limits:
+                logger.debug("runtime exceeded limits of all.q, moving to long.q")
                 self.queue = 'long.q'
                 if runtime > MAX_RUNTIME_LONG:
                     runtime = MAX_RUNTIME_LONG
             else:
                 runtime = MAX_RUNTIME_ALL
-        if cores > MAX_CORES:
-            cores = MAX_CORES
-        if mem > MAX_MEMORY_GB:
-            mem = MAX_MEMORY_GB
 
-        self.num_cores = cores
-        self.m_mem_free = mem
         self.max_runtime_seconds = runtime
 
     def _validate_num_cores(self) -> Tuple[str, int]:
@@ -278,3 +331,22 @@ class SGEParameters:
             return f"\n Queue: no queue was provided, setting to all.q", \
                    'all.q'
         return "", self.queue
+
+    def _validate_resource_scales(self) -> Tuple[str, dict]:
+        scales = self.resource_scales
+        valid_resource_keys = ['m_mem_free', 'max_runtime_seconds', 'num_cores']
+        msg = ""
+        if scales:
+            for key in scales:
+                if key not in valid_resource_keys:
+                    msg = msg + f"{key} not a valid resource to scaled. Valid" \
+                                f" options are: m_mem_free, max_runtime_seconds" \
+                                f"and num_cores"
+                elif scales.get(key) > 1 or scales.get(key) < 0:
+                    scales[key] = 0.5
+                    msg = msg + f"{key} was set to " \
+                        f"{self.resource_scales.get(key)} which is above 1 or" \
+                        f" below 0, it has been reset to 0.5 \n"
+        else:
+            scales = {}
+        return msg, scales

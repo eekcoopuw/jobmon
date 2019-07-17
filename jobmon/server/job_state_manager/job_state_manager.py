@@ -88,6 +88,7 @@ def add_job():
         max_attempts: how many times the job should be attempted
         max_runtime_seconds: how long the job should be allowed to run
         context_args: any other args that should be passed to the executor
+        resource_scales: amount to scale each resource by upon resource failure
         tag: job attribute tag
         queue: which queue is being used
         j_resource: if the j_drive is being used
@@ -114,7 +115,8 @@ def add_job():
         queue=data.get('queue', None),
         num_cores=data.get('num_cores', None),
         m_mem_free=data.get('m_mem_free', 2),
-        j_resource=data.get('j_resource', False)
+        j_resource=data.get('j_resource', False),
+        resource_scales=data.get('resource_scales', None)
     )
     DB.session.add(original_exec_params)
     DB.session.flush()
@@ -741,11 +743,12 @@ def update_job_resources(job_id):
         job_id=job_id,
         parameter_set_type=parameter_set_type,
         max_runtime_seconds=data.get('max_runtime_seconds', None),
-        context_args=data.get('context_args', "{}"),
+        context_args=data.get('context_args', None),
         queue=data.get('queue', None),
         num_cores=data.get('num_cores', None),
         m_mem_free=data.get('m_mem_free', 2),
-        j_resource=data.get('j_resource', False))
+        j_resource=data.get('j_resource', False),
+        resource_scales=data.get('resource_scales', None))
     DB.session.add(exec_params)
     DB.session.flush()  # get auto increment
     exec_params.activate()
@@ -1160,29 +1163,3 @@ def setRootLoggerToDebug():
     resp.status_code = StatusCodes.OK
     return resp
 
-
-def _get_new_resource_value(mem: str, cores: int, runtime: int, scale: float):
-    """
-    Use the scale value to calculate the new resources for next retry
-
-    :param mem:
-    :param cores:
-    :param runtime:
-    :param scale:
-    :return:
-    """
-    if mem is not None:
-        mem = float(mem) * (1 + scale)
-    else:
-        # Although mem should not be None, make it 1G if it's None
-        mem = 1
-    if cores is not None:
-        cores = int(int(cores) * (1 + scale))
-    else:
-        cores = 0
-    if runtime is not None:
-        runtime = int(int(runtime) * (1 + scale))
-    else:
-        # Although runtime should not be None, make it 24 hours if it is None
-        runtime = (24*60*60)
-    return mem, cores, runtime

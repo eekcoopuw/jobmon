@@ -105,7 +105,8 @@ class JobListManager(object):
                     task.executor_parameters.max_runtime_seconds),
                 context_args=task.executor_parameters.context_args,
                 queue=task.executor_parameters.queue,
-                j_resource=task.executor_parameters.j_resource
+                j_resource=task.executor_parameters.j_resource,
+                resource_scales=task.executor_parameters.resource_scales
             )
             task.executor_parameters.validate()
             self._add_validated_parameters(job.job_id,
@@ -123,14 +124,14 @@ class JobListManager(object):
     def _add_validated_parameters(self, job_id: int, executor_parameters):
         """Add an entry for the validated parameters to the database and
         activate them"""
-
         msg = {'parameter_set_type': ExecutorParameterSetType.VALIDATED,
                'max_runtime_seconds': executor_parameters.max_runtime_seconds,
                'context_args': executor_parameters.context_args,
                'queue': executor_parameters.queue,
                'num_cores': executor_parameters.num_cores,
                'm_mem_free': executor_parameters.m_mem_free,
-               'j_resource': executor_parameters.j_resource}
+               'j_resource': executor_parameters.j_resource,
+               'resource_scales': executor_parameters.resource_scales}
         self.requester.send_request(
             app_route=f'/job/{job_id}/update_resources',
             message=msg,

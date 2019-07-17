@@ -19,7 +19,8 @@ class JobFactory(object):
 
     def create_job(self, command, jobname, job_hash, num_cores=None,
                    m_mem_free=2, max_attempts=1, max_runtime_seconds=None,
-                   context_args=None, tag=None, queue=None, j_resource=False):
+                   context_args=None, tag=None, queue=None, j_resource=False,
+                   resource_scales=None):
         """
         Create a job entry in the database.
 
@@ -35,10 +36,13 @@ class JobFactory(object):
                 job_instance before killing and marking that instance as failed
             context_args (dict): Additional arguments to be sent to the command
                 builders
+            resource_scales (dict): amount to scale each resource by upon
+                resource failure
             tag (str, default None): a group identifier
             queue (str): queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
             j_resource (bool): whether or not this job is using the j drive
+
         """
         if not context_args:
             context_args = {}
@@ -55,8 +59,8 @@ class JobFactory(object):
                      'max_runtime_seconds': max_runtime_seconds,
                      'tag': tag,
                      'queue': queue,
-                     'j_resource': j_resource
-                     },
+                     'j_resource': j_resource,
+                     'resource_scales': resource_scales},
             request_type='post')
         if rc != StatusCodes.OK:
             raise InvalidResponse(
