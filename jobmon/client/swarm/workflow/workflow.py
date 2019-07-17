@@ -70,8 +70,7 @@ class Workflow(object):
                  reconciliation_interval: int = None,
                  heartbeat_interval: int = None,
                  report_by_buffer: float = None,
-                 resource_adjustment: float = 0.5,
-                 scaling_threads: bool=False):
+                 resource_adjustment: float = 0.5):
         """
         Args:
             workflow_args: unique identifier of a workflow
