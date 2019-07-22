@@ -149,6 +149,30 @@ def test_exceed_mem_task(db_cfg, dag_factory):
     assert sge_jobname == name
 
 
+def test_exceed_runtime_task(db_cfg, dag_factory):
+    name='over_runtime_task'
+    task = BashTask(command='sleep 10', name=name, max_runtime_seconds=5)
+    executor = SGEExecutor(project='proj_tools')
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
+        jid = [ji for ji in job.job_instances][0].executor_id
+        resp = check_output(f"qacct -j {jid} | grep 'exit_status\|failed'", shell=True,
+                            universal_newlines=True)
+        assert ('247' in resp) or ('137' in resp)
+        assert job.job_instances[0].status == 'Z'
+        assert job.status == 'F'
+
+    sge_jobname = match_name_to_sge_name(jid)
+    assert sge_jobname == name
+
+
 def test_under_request_then_scale_resources(db_cfg, dag_factory):
     """test that when a task gets killed due to under requested memory, it
     tries again with additional memory added"""
@@ -178,9 +202,9 @@ def test_under_request_then_scale_resources(db_cfg, dag_factory):
         # add checks for increased system resources
         assert job.executor_parameter_set.m_mem_free == 0.9
         assert job.executor_parameter_set.max_runtime_seconds == 60
-
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
+
 
 
 def test_kill_self_task(db_cfg, dag_factory):

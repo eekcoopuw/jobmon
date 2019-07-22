@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import subprocess
-from typing import List, Dict, Union
+from typing import List, Dict, Tuple
 
 import numpy as np
 
@@ -287,18 +287,23 @@ def qdel(job_ids):
     return stdout
 
 
-def qacct_exit_status(jid: int)->int:
+def qacct_exit_status(jid: int)-> Tuple[int, str]:
     # For strange reason f string or format does not work
-    cmd1 = "qacct -j %s |grep exit_status|awk \'{print $2}\'" % jid
+    failed_reason = ""
+    cmd1 = "qacct -j %s |grep 'exit_status\|failed'" % jid
     logger.warning("**********************************************" + cmd1)
     try:
-        res = subprocess.check_output(cmd1, shell=True)
+        res = subprocess.check_output(cmd1, shell=True, universal_newlines=True)
         logger.debug(f"Exit code response: {res}")
-        return int(res.decode("utf-8").replace("\n", ""))
+        codes = res.split()
+        exit_code = codes[codes.index('exit_status')+1]
+        if 'h_rt' in codes:
+            failed_reason = 'over runtime'
+        return int(exit_code), failed_reason
     except Exception as e:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))
-        return SGE_UNKNOWN_ERROR
+        return SGE_UNKNOWN_ERROR, str(e)
 
 
 def qacct_hostname(jid: int)->str:

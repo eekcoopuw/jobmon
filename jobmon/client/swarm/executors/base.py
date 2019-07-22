@@ -29,7 +29,9 @@ class ExecutorParameters:
                  j_resource: Optional[bool] = False,
                  m_mem_free: Optional[Union[str, float]] = None,
                  context_args: Optional[Union[Dict, str]] = None,
-                 executor_class: str = 'SGEExecutor'):
+                 hard_limits: Optional[bool] = False,
+                 executor_class: str = 'SGEExecutor',
+                 resource_scales: Dict = None):
         """
         Args:
             slots: number of slots requested using old cluster terminology,
@@ -45,6 +47,10 @@ class ExecutorParameters:
                 string format ex. '300M', '1G', '0.2T' or as a float
             context_args: additional arguments to be provided to the
                 executor
+            hard_limits: if the user wants jobs to stay on the chosen queue
+                and not expand if resources are exceeded, set this to true
+            resource_scales: for each resource, a scaling value can be provided
+                so that different resources get scaled differently
             executor_class: name of the executor class so that params can
                 be parsed accordingly
         """
@@ -67,6 +73,8 @@ class ExecutorParameters:
         self._j_resource = j_resource
         self._m_mem_free = m_mem_free
         self._context_args = context_args
+        self._hard_limits = hard_limits
+        self._resource_scales = resource_scales
 
         StrategyCls = self._strategies.get(executor_class)
         self._strategy: Optional[SGEParameters] = None
@@ -115,6 +123,14 @@ class ExecutorParameters:
     def context_args(self):
         return self._attribute_proxy("context_args")
 
+    @property
+    def resource_scales(self):
+        return self._attribute_proxy("resource_scales")
+
+    @property
+    def hard_limits(self):
+        return self._attribute_proxy("hard_limits")
+
     def is_valid(self) -> Tuple[bool, Optional[str]]:
         if self._strategy is not None:
             msg = self._strategy.validation_msg()
@@ -150,7 +166,9 @@ class ExecutorParameters:
             'queue': self.queue,
             'num_cores': self.num_cores,
             'm_mem_free': self.m_mem_free,
-            'j_resource': self.j_resource}
+            'j_resource': self.j_resource,
+            'resource_scales': self.resource_scales,
+            'hard_limits': self.hard_limits}
 
 
 class Executor:

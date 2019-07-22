@@ -14,6 +14,7 @@ from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.client.swarm.job_management.executor_job_instance import (
     ExecutorJobInstance)
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
+from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.attributes.constants import qsub_attribute
 from jobmon.models.job_status import JobStatus
 
@@ -27,8 +28,8 @@ class JobInstanceFactory(object):
                  executor: Optional[Executor] = None,
                  interrupt_on_error: bool = True,
                  n_queued_jobs: int = 1000,
-                 resource_adjustment: float = 0.5,
                  stop_event: Optional[threading.Event] = None,
+                 resource_adjustment: float = 0.5,
                  requester: Requester = shared_requester):
         """The JobInstanceFactory is in charge of queueing jobs and creating
         job_instances, in order to get the jobs from merely Task objects to
@@ -50,9 +51,9 @@ class JobInstanceFactory(object):
         self.requester = requester
         self.interrupt_on_error = interrupt_on_error
         self.n_queued_jobs = n_queued_jobs
-        self.resource_adjustment = resource_adjustment
         self.report_by_buffer = client_config.report_by_buffer
         self.heartbeat_interval = client_config.heartbeat_interval
+        self.resource_adjustment = resource_adjustment
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they
@@ -116,8 +117,26 @@ class JobInstanceFactory(object):
         job_instance_ids = []
         for job in jobs:
             if job.status == JobStatus.ADJUSTING_RESOURCES:
+                logger.debug("Job in A state, adjusting resources before queueing")
+                only_scale = list(job.executor_parameters.resource_scales.keys())
+                rc, response = self.requester.send_request(
+                    app_route=f'/job/{job.job_id}/most_recent_exec_id',
+                    message={},
+                    request_type='get'
+                )
+                if len(response['executor_id']) > 0:
+                    exec_id = response['executor_id'][0]
+                    try:
+                        exit_code, msg = self.executor.get_remote_exit_info(exec_id)
+                        if 'exceeded max_runtime' in msg and \
+                                'max_runtime_seconds' in only_scale:
+                            only_scale = ['max_runtime_seconds']
+                    except RemoteExitInfoNotAvailable:
+                        logger.debug("Unable to retrieve exit info to "
+                                     "determine the cause of resource error")
                 job.update_executor_parameter_set(
                     parameter_set_type=JobStatus.ADJUSTING_RESOURCES,
+                    only_scale=only_scale,
                     resource_adjustment=self.resource_adjustment)
                 job.queue_job()
 

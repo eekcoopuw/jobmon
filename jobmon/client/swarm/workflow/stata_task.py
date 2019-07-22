@@ -18,6 +18,7 @@ class StataTask(ExecutableTask):
                  slots=None, num_cores=None, mem_free=None, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None,
                  j_resource=False, m_mem_free=None, context_args=None,
+                 resource_scales=None, hard_limits=False,
                  executor_class='SGEExecutor',
                  executor_parameters: Optional[ExecutorParameters] = None):
         """
@@ -57,6 +58,11 @@ class StataTask(ExecutableTask):
             j_resource (bool): whether or not this task uses the j_drive
             context_args (dict): additional arguments to be passed to the
                 executor
+            resource_scales: for each resource, a scaling value (between 0 and 1)
+                can be provided so that different resources get scaled differently.
+                Default is {'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}
+            hard_limits: if the user wants jobs to stay on the chosen queue
+                and not expand if resources are exceeded, set this to true
             executor_class (str): executor class being used
             executor_parameters (ExecutorParameters): parameters specific to
                 the executor
@@ -69,7 +75,8 @@ class StataTask(ExecutableTask):
             num_cores=num_cores, mem_free=mem_free, max_attempts=max_attempts,
             max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
             j_resource=j_resource, m_mem_free=m_mem_free,
-            context_args=context_args, executor_class=executor_class,
+            context_args=context_args, resource_scales=resource_scales,
+            hard_limits=hard_limits, executor_class=executor_class,
             executor_parameters=executor_parameters)
 
     @staticmethod

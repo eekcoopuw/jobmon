@@ -1,5 +1,6 @@
 import os
 from functools import partial
+from time import sleep
 
 import pytest
 
@@ -9,6 +10,9 @@ from jobmon.client.swarm.executors.sge_parameters import SGEParameters
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.client.swarm.workflow.python_task import PythonTask
+from jobmon.models.job import Job
+from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from tests.timeout_and_skip import timeout_and_skip
 
 
@@ -164,3 +168,74 @@ def test_no_queue_provided(no_daemon):
         sge_executor.working_dir)
     if 'el7' in os.environ['SGE_ENV']:
         assert 'all.q' in qsub_cmd
+
+
+def test_sec_exceeds_queue_limit(no_daemon):
+    job = no_daemon.bind_task(
+        BashTask(command="sleep 10", name='test_mem_args', queue='all.q',
+                 max_attempts=2, mem_free='3G', m_mem_free='2G', slots=1,
+                 max_runtime_seconds=1382402))
+    assert job._task.executor_parameters.queue == 'long.q'
+
+
+def test_sec_exceeds_queue_hard(no_daemon):
+    job = no_daemon.bind_task(
+        BashTask(command="sleep 10", name='test_mem_args', queue='all.q',
+                 max_attempts=2, mem_free='3G', m_mem_free='2G', slots=1,
+                 max_runtime_seconds=1382402, hard_limits=True))
+    assert job._task.executor_parameters.queue == 'all.q'
+    assert job._task.executor_parameters.max_runtime_seconds == 259200
+
+
+def test_mem_exceeds_limit_cant_scale(no_daemon, db_cfg):
+    name = "mem_no_scale"
+    job = no_daemon.bind_task(
+        PythonTask(script=sge.true_path("tests/exceed_mem.py"), name=name,
+                   m_mem_free='600M', max_attempts=2, num_cores=1,
+                   max_runtime_seconds=40,
+                   resource_scales={'max_runtime_seconds': 0.5}))
+
+    no_daemon.queue_job(job)
+    no_daemon.job_instance_factory.instantiate_queued_jobs()
+
+    count = 0
+    while get_status(db_cfg, name) != 'A' and count < 10:
+        sleep(5)
+        count = count + 1
+
+    no_daemon.job_instance_factory.instantiate_queued_jobs()
+
+    count = 0
+    while get_status(db_cfg, name) != 'F' and count < 10:
+        sleep(5)
+        count = count + 1
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
+        jid = [ji for ji in job.job_instances][0].executor_id
+        assert job.job_instances[0].status == 'Z'
+        assert job.job_instances[1].status == 'Z'
+        assert job.status == 'F'
+        resources = DB.session.query(ExecutorParameterSet).filter_by(
+                    job_id=job.job_id).all()
+        # add checks for increased system resources
+        assert job.executor_parameter_set.m_mem_free == 0.6
+        assert job.executor_parameter_set.max_runtime_seconds == 60
+        DB.session.commit()
+
+
+def get_status(db_cfg, name):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
+        DB.session.commit()
+        return job.status
+
+
+
+
+
+

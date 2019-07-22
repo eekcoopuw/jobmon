@@ -123,12 +123,17 @@ class SGEExecutor(Executor):
 
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
         """return the exit state associated with a given exit code"""
-        exit_code = sge_utils.qacct_exit_status(executor_id)
+        exit_code, reason = sge_utils.qacct_exit_status(executor_id)
         logger.debug(f"exit_status info: {exit_code}")
         if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
-            msg = ("Insufficient resources requested. Job was lost. "
-                   f"{self.__class__.__name__} accounting discovered exit code"
-                   f":{exit_code}.")
+            if 'over runtime' in reason:
+                msg = ("Job killed because it exceeded max_runtime. "
+                       f"{self.__class__.__name__} accounting discovered exit code"
+                       f":{exit_code}.")
+            else:
+                msg = ("Insufficient resources requested. Job was lost. "
+                       f"{self.__class__.__name__} accounting discovered exit code"
+                       f":{exit_code}.")
             return JobInstanceStatus.RESOURCE_ERROR, msg
         elif exit_code == ReturnCodes.WORKER_NODE_ENV_FAILURE:
             msg = "There is a discrepancy between the environment that your " \

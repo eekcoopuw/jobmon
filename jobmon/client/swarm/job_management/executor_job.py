@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, List
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
@@ -96,29 +96,31 @@ class ExecutorJob:
                 max_runtime_seconds=kwargs["max_runtime_seconds"],
                 j_resource=kwargs["j_resource"],
                 m_mem_free=kwargs["m_mem_free"],
-                context_args=kwargs["context_args"]),
+                context_args=kwargs["context_args"],
+                resource_scales=kwargs["resource_scales"],
+                hard_limits=kwargs["hard_limits"]),
             requester=requester)
         return executor_job
 
-    def update_executor_parameter_set(
-            self, parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
-            resource_adjustment: float = 0.5) -> None:
-        """update the resources for a given job in the db
+    def update_executor_parameter_set(self,
+        parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
+        only_scale: List = [], resource_adjustment=0.5) -> None:
+        """
+        update the resources for a given job in the db
 
         Args:
             parameter_set_type: models.executor_parameter_set_type value
-            resource_adjustment: scalar value to adjust resources by when
-                a resource error is detected
+            only_adjust: only one resource that should be adjusted,
+                otherwise all resources will be adjusted
         """
-
-        # TODO: refactor for common API between executor parameter types.
-        # somehow infer what paremeters need scaled based executor
-
-        # adjust parameters
-        param_adjustment = {'num_cores': resource_adjustment,
-                            'm_mem_free': resource_adjustment,
-                            'max_runtime_seconds': resource_adjustment}
-        self.executor_parameters.adjust(**param_adjustment)
+        logger.debug(f"only going to scale these resources: {only_scale}")
+        resources_adjusted = {'only_scale': only_scale}
+        if resource_adjustment != 0.5:
+            resources_adjusted['all_resource_scale_val'] = resource_adjustment
+            logger.debug("You have specified a resource adjustment, this will "
+                         "be applied to all resources that will be adjusted "
+                         "(default: m_mem_free and max_runtime_seconds)")
+        self.executor_parameters.adjust(**resources_adjusted)
 
         msg = {'parameter_set_type': parameter_set_type}
         msg.update(self.executor_parameters.to_wire())

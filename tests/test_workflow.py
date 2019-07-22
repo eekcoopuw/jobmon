@@ -963,3 +963,29 @@ def test_resource_scaling(real_jsm_jqs, db_cfg, fast_heartbeat):
         job = resp[0]
         assert len(job.job_instances) == 3
         assert job.status == "D"
+
+
+def test_resource_scaling_config(real_jsm_jqs, db_cfg):
+    """ non-default resource adjustment overrides individual resource
+    adjustments, more resources than default resources get scaled too"""
+
+    name = 'scale_by_wf_resource_scale'
+    task = PythonTask(script=sge_utils.true_path("tests/exceed_mem.py"),
+                      name=name, max_runtime_seconds=5, num_cores=2,
+                      m_mem_free='1G',
+                      resource_scales={'num_cores': 0.8, 'm_mem_free': 0.4,
+                                       'max_runtime_seconds': 0.7},
+                      max_attempts=2)
+    wf = Workflow(workflow_args="resource_underrequest_wf",
+                  project="proj_tools",
+                  resource_adjustment=0.3)
+    wf.add_task(task)
+    wf.run()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name=name).first()
+        DB.session.commit()
+        assert job.executor_parameter_set.m_mem_free == 1.3
+        assert job.executor_parameter_set.max_runtime_seconds == 6
+        assert job.executor_parameter_set.num_cores == 2

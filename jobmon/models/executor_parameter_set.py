@@ -21,14 +21,15 @@ class ExecutorParameterSet(DB.Model):
     # enforce runtime limit if executor implements terminate_timed_out_jobs
     max_runtime_seconds = DB.Column(DB.Integer, default=None)
 
-    # free text field of arguments passed unadultered to executor
+    # free text field of arguments passed unaltered to executor
     context_args = DB.Column(DB.String(1000), default=None)
-
+    resource_scales = DB.Column(DB.String(1000), default=None)
     # sge specific parameters
     queue = DB.Column(DB.String(255), default=None)
     num_cores = DB.Column(DB.Integer, default=None)
     m_mem_free = DB.Column(DB.Float, default=None)
     j_resource = DB.Column(DB.Boolean, default=None)
+    hard_limits = DB.Column(DB.Boolean, default=None)
 
     # ORM relationships
     job = DB.relationship("Job", foreign_keys=[job_id])

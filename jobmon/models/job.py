@@ -32,12 +32,14 @@ class Job(DB.Model):
             max_runtime_seconds=(
                 self.executor_parameter_set.max_runtime_seconds),
             context_args=self.executor_parameter_set.context_args,
+            resource_scales=self.executor_parameter_set.resource_scales,
             queue=self.executor_parameter_set.queue,
             num_cores=self.executor_parameter_set.num_cores,
             m_mem_free=self.executor_parameter_set.m_mem_free,
             j_resource=self.executor_parameter_set.j_resource,
             last_nodename=lnode,
-            last_process_group_id=lpgid)
+            last_process_group_id=lpgid,
+            hard_limits=self.executor_parameter_set.hard_limits)
         return serialized
 
     def to_wire_as_swarm_job(self):

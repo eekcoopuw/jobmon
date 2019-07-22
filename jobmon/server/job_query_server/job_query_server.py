@@ -421,14 +421,35 @@ def get_resources(executor_id):
     """
     This route is created for testing purpose
 
-    :param execution_id:
+    :param executor_id:
     :return:
     """
     logger.debug(logging.myself())
-    query = f"select m_mem_free, num_cores, max_runtime_seconds from job_instance, job where job_instance.job_id=job.job_id and executor_id = {execution_id}"
+    query = f"select m_mem_free, num_cores, max_runtime_seconds from " \
+            f"job_instance, job where job_instance.job_id=job.job_id " \
+            f"and executor_id = {executor_id}"
     res = DB.session.execute(query).fetchone()
     DB.session.commit()
     resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/job/<job_id>/most_recent_exec_id', methods=['GET'])
+def get_most_recent_exec_id(job_id: int):
+    """
+    Route to collect the most recent executor id for a given job so that it
+    can be qacct'd on to determine more detailed exit information after the fact
+    :param job_id:
+    :return: executor_id
+    """
+    logger.debug(logging.myself())
+    executor_id = DB.session.query(JobInstance). \
+                  filter_by(job_id=job_id). \
+                  order_by(JobInstance.status.desc()).\
+                  with_entities(JobInstance.executor_id).first()
+    DB.session.commit()
+    resp = jsonify(executor_id=executor_id)
     resp.status_code = StatusCodes.OK
     return resp
 
