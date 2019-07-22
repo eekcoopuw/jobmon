@@ -177,12 +177,12 @@ class SGEParameters:
         only_scaled_resources = kwargs.get('only_scale', [])
         scale_all_by = kwargs.get('all_resource_scale_val', None)
         if scale_all_by is not None:
-            logger.debug("You have configured the resource adjustment value "
-                         "in your workflow, this will override any resource "
-                         "specific scaling you have configured. If you would "
-                         "like to scale your resources differently, configure "
-                         "them only at the task level with the resource scales"
-                         " parameter")
+            logger.info("You have configured the resource adjustment value "
+                        "in your workflow, this will override any resource "
+                        "specific scaling you have configured. If you would "
+                        "like to scale your resources differently, configure "
+                        "them only at the task level with the resource scales"
+                        " parameter")
         for resource in only_scaled_resources:
             if scale_all_by is not None:
                 self.resource_scales[resource] = scale_all_by
