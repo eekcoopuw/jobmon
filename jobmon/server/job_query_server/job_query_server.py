@@ -240,6 +240,11 @@ def get_jobs_by_status_only(dag_id):
 
 @jqs.route('/dag/<dag_id>/get_timed_out_executor_ids', methods=['GET'])
 def get_timed_out_executor_ids(dag_id):
+    """This function isnt used by SGE because it automatically terminates timed
+     out jobs, however if an executor is being used that does not automatically
+    terminate timed out jobs, do it here. Finds all jobs that have been in the
+    submitted or running state for longer than the maximum specified run
+    time"""
     jiid_exid_tuples = DB.session.query(JobInstance). \
         filter_by(dag_id=dag_id).\
         filter(JobInstance.status.in_(

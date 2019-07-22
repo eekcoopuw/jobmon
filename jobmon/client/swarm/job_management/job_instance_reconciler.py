@@ -83,7 +83,8 @@ class JobInstanceReconciler(object):
             try:
                 logging.debug(
                     f"Reconciling at interval {self.reconciliation_interval}s")
-                self.terminate_timed_out_jobs()
+                # if your executor has the possiblity of timed out jobs still
+                # running, terminate them here
                 self.reconcile()
                 sleep(self.reconciliation_interval)
             except Exception as e:
@@ -108,11 +109,9 @@ class JobInstanceReconciler(object):
                     raise
 
     def terminate_timed_out_jobs(self) -> None:
-        """Attempts to terminate jobs that have been in the "running"
-        state for too long. From the SGE perspective, this might include
-        jobs that got stuck in "r" state but never called back to the
-        JobStateManager (i.e. SGE sees them as "r" but Jobmon sees them as
-        SUBMITTED_TO_BATCH_EXECUTOR)
+        """
+        If the executor does not automatically kill timed out jobs, make sure
+        they have been terminated using this function
         """
         try:
             rc, response = self.requester.send_request(
