@@ -43,10 +43,10 @@ Constructing a Workflow and adding a few Tasks is simple::
 
     import getpass
 
-    from jobmon.client.swarm.workflow import Workflow
-    from jobmon.client.swarm.bash_task import BashTask
-    from jobmon.client.swarm.python_task import PythonTask
-    from jobmon.client.executors.base import ExecutorParameters
+    from jobmon.client.swarm.workflow.workflow import Workflow
+    from jobmon.client.swarm.workflow.bash_task import BashTask
+    from jobmon.client.swarm.workflow.python_task import PythonTask
+    from jobmon.client.swarm.executors.base import ExecutorParameters
 
     # Create a Workflow
     user = getpass.getuser()
@@ -58,7 +58,9 @@ Constructing a Workflow and adding a few Tasks is simple::
 
     # Add some Tasks with defined Parameters
     write_params = ExecutorParameters(m_mem_free='4G', num_cores=2,
-                                      max_runtime_seconds=600)
+                                      max_runtime_seconds=600,
+                                      resource_scales={'m_mem_free': 0.3,
+                                                       'max_runtime_seconds': 0.2})
     write_task = BashTask("touch ~/jobmon_qs.txt", executor_parameters=write_params)
 
     # this task will use all default parameters by not specifying its own requirements
@@ -107,15 +109,14 @@ If on the old prod cluster it does uses ssh to kill off any job instances that m
 To resume the Workflow created above::
 
     import getpass
-    from jobmon.client.swarm.workflow import Workflow
+    from jobmon.client.swarm.workflow.workflow import Workflow
 
     # Re-instantiate your Workflow with the same WorkflowArgs but add the resume flag
     user = getpass.getuser()
     my_wf = Workflow(workflow_args"quickstart", project='proj_jenkins',
                   stderr='/ihme/scratch/users/{}/sgeoutput'.format(user),
                   stdout='/ihme/scratch/users/{}/sgeoutput'.format(user),
-                  working_dir='/homes/{}'.format(user), resume=True,
-                  resource_adjustment=0.3)
+                  working_dir='/homes/{}'.format(user), resume=True)
 
     # Re-add the same Tasks to it...
     write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
@@ -205,7 +206,7 @@ for m_mem_free and max_runtime_sec unless otherwise specified.
 For example::
 
     from jobmon import Workflow, BashTask
-    from jobmon.client.swarm.executors import ExecutorParameters
+    from jobmon.client.swarm.executors.base import ExecutorParameters
 
     my_wf = Workflow(
         workflow_args="resource starved workflow",
@@ -250,7 +251,7 @@ By default, your Workflow talks to our centrally-hosted jobmon server
 jobmon database from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-docker-cont-p01.hosts.ihme.washington.edu
-    port: 10010
+    port: 10020
     user: read_only
     pass: docker
     database: docker

@@ -202,6 +202,7 @@ http.21        9556        3950   release-0.9.7
 http.22        9856        3980   release-0.9.8
 http.23        10001       10000  release-1.0.0
 http.24        10011       10010  release-1.0.1
+http.25        10021       10020  release-1.0.2
 ========  ==== ===== ===== =====  =============
 
 The port numbers come in pairs, e.g. "3313:3306".
