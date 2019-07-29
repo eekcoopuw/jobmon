@@ -28,7 +28,7 @@ class Task(ExecutableTask):
 
 @pytest.fixture(scope='function')
 def job_list_manager(real_dag_id):
-    jlm = JobListManager(real_dag_id, interrupt_on_error=False)
+    jlm = JobListManager(real_dag_id)
     yield jlm
     jlm.disconnect()
 
@@ -37,8 +37,7 @@ def job_list_manager(real_dag_id):
 def job_list_manager_d(real_dag_id):
     """Quick job_instantiation_interval for quick tests"""
     jlm = JobListManager(real_dag_id, start_daemons=True,
-                         job_instantiation_interval=1,
-                         interrupt_on_error=False)
+                         job_instantiation_interval=1)
     yield jlm
     jlm.disconnect()
 
@@ -51,8 +50,7 @@ def job_list_manager_sge_no_daemons(real_dag_id):
     """
     executor = SGEExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
-                         job_instantiation_interval=1,
-                         interrupt_on_error=False)
+                         job_instantiation_interval=1)
     yield jlm
     jlm.disconnect()
 

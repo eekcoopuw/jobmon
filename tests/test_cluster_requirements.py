@@ -19,8 +19,7 @@ from tests.timeout_and_skip import timeout_and_skip
 @pytest.fixture
 def no_daemon(real_dag_id):
     executor = SGEExecutor(project='proj_tools')
-    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False,
-                         interrupt_on_error=False)
+    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False)
     yield jlm
     jlm.disconnect()
 

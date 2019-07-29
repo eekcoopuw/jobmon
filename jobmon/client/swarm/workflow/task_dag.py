@@ -22,14 +22,11 @@ class DagExecutionStatus(object):
 class TaskDag(object):
     """A DAG of ExecutableTasks."""
 
-    def __init__(self, name="", interrupt_on_error=True, executor=None,
-                 fail_fast=False, job_instantiation_interval=3,
-                 seconds_until_timeout=36000):
+    def __init__(self, name="", executor=None, fail_fast=False,
+                 job_instantiation_interval=3, seconds_until_timeout=36000):
         """
         Args:
             name (str): name of dag
-            interrupt_on_error (bool): whether to interrupt if there are errors
-                from the job instance factory or job instance reconciler
             executor (Executor): executor instance being used
             fail_fast (bool): whether to fail after a task fails
             job_instantiation_interval (int): number of seconds to wait before
@@ -51,9 +48,6 @@ class TaskDag(object):
 
         self.tags = set()
 
-        # Control whether the JIF/JIR daemons should interrupt on errors...
-        # this should primarily be set to True, except for test purposes
-        self.interrupt_on_error = interrupt_on_error
         self.fail_fast = fail_fast
 
         self.executor = executor
@@ -95,7 +89,6 @@ class TaskDag(object):
         if dag_id:
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
-                interrupt_on_error=self.interrupt_on_error,
                 job_instantiation_interval=self.job_instantiation_interval,
                 resource_adjustment=resource_adjustment)
 
@@ -117,7 +110,6 @@ class TaskDag(object):
                                             user=getpass.getuser())
             self.job_list_manager = JobListManager(
                 self.meta.dag_id, executor=self.executor, start_daemons=True,
-                interrupt_on_error=self.interrupt_on_error,
                 resource_adjustment=resource_adjustment)
             self.dag_id = self.meta.dag_id
 

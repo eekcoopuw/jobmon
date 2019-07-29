@@ -26,21 +26,17 @@ class JobInstanceReconciler(object):
         dag_id (int): the id for the dag to run
         executor (Executor, default SequentialExecutor): obj of type
             Executor
-        interrupt_on_error (bool, default True): whether or not to
-            interrupt the thread if there's an error
         stop_event (threading.Event, default None): stop signal
     """
 
     def __init__(self,
                  dag_id: int,
                  executor: Optional[Executor] = None,
-                 interrupt_on_error: Optional[bool] = True,
                  stop_event: Optional[threading.Event] = None,
                  requester: Requester = shared_requester) -> None:
 
         self.dag_id = dag_id
         self.requester = requester
-        self.interrupt_on_error = interrupt_on_error
         self.reconciliation_interval = client_config.reconciliation_interval
         self.report_by_buffer = client_config.report_by_buffer
         self.heartbeat_interval = client_config.heartbeat_interval
@@ -102,11 +98,9 @@ class JobInstanceReconciler(object):
                     app_route="/error_logger",
                     message={"traceback": msg},
                     request_type="post")
-                if self.interrupt_on_error:
-                    _thread.interrupt_main()
-                    self._stop_event.set()
-                else:
-                    raise
+                _thread.interrupt_main()
+                self._stop_event.set()
+                raise
 
     def terminate_timed_out_jobs(self) -> None:
         """
