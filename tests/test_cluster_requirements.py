@@ -134,8 +134,8 @@ def test_invalid_runtime_caught(no_daemon, runtime):
 @pytest.mark.cluster
 def test_both_mem_free_error():
     task = BashTask(command="sleep 10", name='test_mem_args',
-                    max_attempts=2, mem_free='3G', m_mem_free='2G', slots=1,
-                    max_runtime_seconds=60)
+                    max_attempts=2, mem_free='3G', m_mem_free='2G',
+                    num_cores=1, max_runtime_seconds=60)
     assert task.executor_parameters.m_mem_free == 2
 
 
@@ -172,7 +172,7 @@ def test_no_queue_provided(no_daemon):
 def test_sec_exceeds_queue_limit(no_daemon):
     job = no_daemon.bind_task(
         BashTask(command="sleep 10", name='test_mem_args', queue='all.q',
-                 max_attempts=2, mem_free='3G', m_mem_free='2G', slots=1,
+                 max_attempts=2, m_mem_free='3G', num_cores=1,
                  max_runtime_seconds=1382402))
     assert job._task.executor_parameters.queue == 'long.q'
 
@@ -180,7 +180,7 @@ def test_sec_exceeds_queue_limit(no_daemon):
 def test_sec_exceeds_queue_hard(no_daemon):
     job = no_daemon.bind_task(
         BashTask(command="sleep 10", name='test_mem_args', queue='all.q',
-                 max_attempts=2, mem_free='3G', m_mem_free='2G', slots=1,
+                 max_attempts=2, m_mem_free='3G', num_cores=1,
                  max_runtime_seconds=1382402, hard_limits=True))
     assert job._task.executor_parameters.queue == 'all.q'
     assert job._task.executor_parameters.max_runtime_seconds == 259200

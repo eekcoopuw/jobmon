@@ -11,7 +11,7 @@ import jobmon.client.swarm.executors.sge_utils as sge_utils
 def test_true_path():
     with pytest.raises(ValueError) as exc_info:
         sge_utils.true_path()
-    assert "cannot both" in str(exc_info)
+    assert "cannot both" in str(exc_info.value)
 
     assert sge_utils.true_path("") == os.getcwd()
     assert getpass.getuser() in sge_utils.true_path("~/bin")
