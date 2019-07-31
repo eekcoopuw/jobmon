@@ -56,8 +56,7 @@ def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
     t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3], num_cores=1,
                   mem_free='2G', queue="all.q", j_resource=False)
 
-    workflow = Workflow("my_failing_args", interrupt_on_error=False,
-                        project='ihme_general')
+    workflow = Workflow("my_failing_args", project='ihme_general')
     workflow.add_tasks([t1, t2, t3, t4])
     workflow.execute()
     return workflow
@@ -71,7 +70,7 @@ def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
     t1 = StataTask(script='di "hello"', num_cores=1)
     t2 = StataTask(script='di "world"', upstream_tasks=[t1], num_cores=1)
 
-    wf = Workflow("stata_temp_dir_test", interrupt_on_error=False)
+    wf = Workflow("stata_temp_dir_test")
     wf.add_tasks([t1, t2])
 
     success = wf.run()
@@ -90,12 +89,12 @@ def test_wfargs_update(real_jsm_jqs, db_cfg):
     t6 = BashTask("sleep 3", upstream_tasks=[t5], num_cores=1)
 
     wfa1 = "v1"
-    wf1 = Workflow(wfa1, interrupt_on_error=False)
+    wf1 = Workflow(wfa1)
     wf1.add_tasks([t1, t2, t3])
     wf1.execute()
 
     wfa2 = "v2"
-    wf2 = Workflow(wfa2, interrupt_on_error=False)
+    wf2 = Workflow(wfa2)
     wf2.add_tasks([t4, t5, t6])
     wf2.execute()
 
@@ -138,12 +137,12 @@ def test_dag_update(real_jsm_jqs, db_cfg):
     t6 = BashTask("sleep 1", upstream_tasks=[t5], num_cores=1)
 
     wfa1 = "dag_update"
-    wf1 = Workflow(wfa1, interrupt_on_error=False)
+    wf1 = Workflow(wfa1)
     wf1.add_tasks([t1, t2, t3])
     wf1.execute()
 
     wfa2 = "dag_update"
-    wf2 = Workflow(wfa2, interrupt_on_error=False)
+    wf2 = Workflow(wfa2)
     wf2.add_tasks([t4, t5, t6])
     wf2.execute()
 
@@ -171,12 +170,12 @@ def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
     t6 = BashTask("sleep 1", upstream_tasks=[t5], num_cores=1)
 
     wfa1 = "wfargs_dag_update"
-    wf1 = Workflow(wfa1, interrupt_on_error=False)
+    wf1 = Workflow(wfa1)
     wf1.add_tasks([t1, t2, t3])
     wf1.execute()
 
     wfa2 = "wfargs_dag_update"
-    wf2 = Workflow(wfa2, interrupt_on_error=False)
+    wf2 = Workflow(wfa2)
     wf2.add_tasks([t4, t5, t6])
     wf2.execute()
 
@@ -316,8 +315,7 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     wfa = "my_simple_dag"
-    workflow = Workflow(wfa, interrupt_on_error=False,
-                        resume=ResumeStatus.RESUME)
+    workflow = Workflow(wfa, resume=ResumeStatus.RESUME)
     workflow.add_tasks([t1, t2, t3])
 
     # Before actually executing the DAG, validate that the database has
@@ -380,8 +378,7 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     wfa = "my_simple_dag"
-    workflow = Workflow(wfa, interrupt_on_error=False,
-                        resume=ResumeStatus.RESUME)
+    workflow = Workflow(wfa, resume=ResumeStatus.RESUME)
     workflow.add_tasks([t1, t2, t3])
 
     with pytest.raises(WorkflowAlreadyComplete):
@@ -458,8 +455,7 @@ def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
     task = BashTask("not_a_command 1", num_cores=1, m_mem_free='2G',
                     queue="all.q", j_resource=False)
 
-    err_wf = Workflow("my_failing_task", interrupt_on_error=False,
-                      project='ihme_general')
+    err_wf = Workflow("my_failing_task", project='ihme_general')
     err_wf.add_task(task)
     err_wf.execute()
 
@@ -494,8 +490,7 @@ def test_fail_fast(real_jsm_jqs, db_cfg):
     t4 = BashTask("sleep 11", upstream_tasks=[t3], num_cores=1)
     t5 = BashTask("sleep 12", upstream_tasks=[t4], num_cores=1)
 
-    workflow = Workflow("test_fail_fast", fail_fast=True,
-                        interrupt_on_error=False)
+    workflow = Workflow("test_fail_fast", fail_fast=True)
     workflow.add_tasks([t1, t2, t3, t4, t5])
     workflow.execute()
 
@@ -508,7 +503,7 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
     app.config["SQLALCHEMY_ECHO"] = True
     DB = db_cfg["DB"]
 
-    workflow = Workflow("test_heartbeat", interrupt_on_error=False)
+    workflow = Workflow("test_heartbeat")
     workflow._bind()
     workflow._create_workflow_run()
 
@@ -580,7 +575,7 @@ def test_timeout(real_jsm_jqs, db_cfg):
     t3 = BashTask("sleep 12", upstream_tasks=[t2], num_cores=1)
 
     wfa1 = "timeout_dag"
-    wf1 = Workflow(wfa1, interrupt_on_error=False, seconds_until_timeout=3)
+    wf1 = Workflow(wfa1, seconds_until_timeout=3)
     wf1.add_tasks([t1, t2, t3])
 
     with pytest.raises(RuntimeError) as error:
@@ -613,7 +608,7 @@ def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
     t4 = BashTask("echo 'beautiful'", upstream_tasks=[t3], num_cores=1)
     t5 = BashTask("echo 'world'", upstream_tasks=[t4], num_cores=1)
     t6 = BashTask("sleep 1", upstream_tasks=[t5], num_cores=1)
-    workflow = Workflow("test_failing_nodes", interrupt_on_error=False)
+    workflow = Workflow("test_failing_nodes")
     workflow.add_tasks([t1, t2, t3, t4, t5, t6])
     workflow.run()
 
@@ -670,7 +665,7 @@ def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
     wfa = "add_tasks_to_workflow"
-    workflow = Workflow(workflow_args=wfa, interrupt_on_error=False)
+    workflow = Workflow(workflow_args=wfa)
     workflow.add_tasks([t1, t2, t3])
     workflow.run()
 
@@ -692,7 +687,7 @@ def test_anonymous_workflow(db_cfg, real_jsm_jqs):
     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
-    workflow = Workflow(interrupt_on_error=False)
+    workflow = Workflow()
     workflow.add_tasks([t1, t2, t3])
     workflow.run()
     bt3 = workflow.task_dag.job_list_manager.bound_task_from_task(t3)
@@ -719,8 +714,7 @@ def test_anonymous_workflow(db_cfg, real_jsm_jqs):
 
     # Restart it using the uuid.
     uu_id = workflow.workflow_args
-    new_workflow = Workflow(workflow_args=uu_id, interrupt_on_error=False,
-                            resume=True)
+    new_workflow = Workflow(workflow_args=uu_id, resume=True)
     new_workflow.add_tasks([t1, t2, t3])
     new_workflow.run()
 
@@ -831,8 +825,7 @@ def resumable_workflow():
     from jobmon.client.swarm.workflow.workflow import Workflow
     t1 = BashTask("sleep infinity", num_cores=1)
     wfa = "my_simple_dag"
-    workflow = Workflow(wfa, interrupt_on_error=False, project="proj_tools",
-                        resume=True)
+    workflow = Workflow(wfa, project="proj_tools", resume=True)
     workflow.add_tasks([t1])
     return workflow
 

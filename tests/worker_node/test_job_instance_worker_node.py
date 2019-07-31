@@ -77,7 +77,7 @@ def test_workflow_wrong_jobmon_versions(monkeypatch, db_cfg, real_dag_id):
     task = BashTask("sleep 2", num_cores=1)
     executor = SGEExecutor(project='proj_tools')
     jlm = JobListManager(real_dag_id, executor=executor,
-                         start_daemons=False, interrupt_on_error=False)
+                         start_daemons=False)
     job = jlm.bind_task(task)
     jlm.queue_job(job)
     instantiated = jlm.job_instance_factory.instantiate_queued_jobs()

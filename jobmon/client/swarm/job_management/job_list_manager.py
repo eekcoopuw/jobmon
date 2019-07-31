@@ -22,10 +22,8 @@ logger = logging.getLogger(__name__)
 class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
-                 job_instantiation_interval=3,
-                 interrupt_on_error=True, n_queued_jobs=1000,
-                 resource_adjustment: float = 0.5,
-                 requester=shared_requester):
+                 job_instantiation_interval=3, n_queued_jobs=1000,
+                 resource_adjustment: float = 0.5):
         """Manages all the list of jobs that are running, done or errored
 
         Args:
@@ -36,8 +34,6 @@ class JobListManager(object):
                 JobInstanceFactory and JobReconciler as daemonized threads
             job_instantiation_interval (int, default 3): number of seconds to
                 wait between instantiating newly ready jobs
-            interrupt_on_error (bool, default True): whether or not to
-                interrupt the thread if there's an error
             n_queued_jobs (int): number of queued jobs that should be returned
                 to be instantiated
             resource_adjustment: scalar value to adjust resources by when
@@ -50,14 +46,12 @@ class JobListManager(object):
         self.job_instance_factory = JobInstanceFactory(
             dag_id=dag_id,
             executor=executor,
-            interrupt_on_error=interrupt_on_error,
             n_queued_jobs=n_queued_jobs,
             resource_adjustment=resource_adjustment,
             stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id=dag_id,
             executor=executor,
-            interrupt_on_error=interrupt_on_error,
             stop_event=self._stop_event)
 
         self.requester = shared_requester

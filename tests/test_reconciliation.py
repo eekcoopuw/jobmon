@@ -9,7 +9,6 @@ from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.client.utils import kill_remote_process
 from jobmon.server.jobmonLogging import jobmonLogging as logging
 
 from tests.timeout_and_skip import timeout_and_skip
@@ -27,7 +26,7 @@ def job_list_manager_dummy(real_dag_id):
     client_config.heartbeat_interval = 5
     executor = DummyExecutor()
     jlm = JobListManager(real_dag_id, executor=executor,
-                         start_daemons=False, interrupt_on_error=False)
+                         start_daemons=False)
     yield jlm
     jlm.disconnect()
     client_config.heartbeat_interval = old_heartbeat_interval
@@ -37,8 +36,7 @@ def job_list_manager_dummy(real_dag_id):
 def job_list_manager_reconciliation(real_dag_id):
     executor = SGEExecutor(project="proj_tools")
     jlm = JobListManager(real_dag_id, executor=executor,
-                         start_daemons=True,
-                         interrupt_on_error=False)
+                         start_daemons=True)
     yield jlm
     jlm.disconnect()
 
@@ -290,8 +288,7 @@ def sge_jlm_for_queues(real_dag_id, tmpdir_factory):
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
                            project='proj_tools')
     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False,
-                         job_instantiation_interval=10,
-                         interrupt_on_error=True, n_queued_jobs=3)
+                         job_instantiation_interval=10, n_queued_jobs=3)
     yield jlm
     jlm.disconnect()
 
