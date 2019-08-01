@@ -1,14 +1,8 @@
-#!/usr/bin/env python
-
-import getpass
-import json
-import os
 import random
-import socket
 import string
 import subprocess
 import requests
-from datetime import datetime
+import configparser
 
 from jobmon.models.attributes import constants
 
@@ -74,3 +68,74 @@ def validate_slack_token(slack_token: str) -> bool:
               f"Retry with token or skip")
         return False
     return resp.json()['error'] != 'invalid_auth'
+
+
+class conf:
+    instance = None
+
+    @staticmethod
+    def _createInstance():
+        if conf.instance is None:
+            conf.instance = configparser.ConfigParser()
+            conf.instance.read('CONFIG.INI')
+
+    @staticmethod
+    def isTestMode():
+        if conf.instance is None:
+            conf._createInstance()
+        return conf.instance["basic values"]["test_mode"] == "True"
+
+    @staticmethod
+    def getJobmonVersion():
+        if conf.instance is None:
+            conf._createInstance()
+        return conf.instance["basic values"]["jobmon_version"]
+
+    @staticmethod
+    def ifUseExistedDB():
+        if conf.instance is None:
+            conf._createInstance()
+        if conf.instance["basic values"]["existing_db"] == "True":
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def getInternalDBHost():
+        if conf.ifUseExistedDB():
+            return conf.instance["existing db"]["internal_db_host"]
+        else:
+            return INTERNAL_DB_HOST
+
+    @staticmethod
+    def getInternalDBPort():
+        if conf.ifUseExistedDB():
+            return conf.instance["existing db"]["internal_db_port"]
+        else:
+            return INTERNAL_DB_PORT
+
+    @staticmethod
+    def getDBPWD():
+        if conf.ifUseExistedDB():
+            return conf.instance["existing db"]["internal_db_password"]
+        else:
+            return gen_password()
+
+    @staticmethod
+    def getExternalDBPort():
+        if conf.ifUseExistedDB():
+            return conf.instance["existing db"]["external_db_port"]
+        else:
+            return EXTERNAL_DB_PORT
+
+    @staticmethod
+    def getExternalDBHost():
+        return EXTERNAL_DB_HOST
+
+    @staticmethod
+    def getExternalServiceHost():
+        return EXTERNAL_SERVICE_HOST
+
+    @staticmethod
+    def getExternalServicePort():
+        return EXTERNAL_SERVICE_PORT
