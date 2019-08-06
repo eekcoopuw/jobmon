@@ -102,7 +102,7 @@ class conf:
 
     @staticmethod
     def getInternalDBHost():
-        if conf.ifUseExistedDB():
+        if conf.isExistedDB():
             return conf.instance["existing db"]["internal_db_host"]
         else:
             return INTERNAL_DB_HOST
@@ -123,7 +123,7 @@ class conf:
 
     @staticmethod
     def getExternalDBPort():
-        if conf.ifUseExistedDB():
+        if conf.isExistedDB():
             return str(conf.instance["existing db"]["external_db_port"])
         else:
             return str(EXTERNAL_DB_PORT)
@@ -164,3 +164,9 @@ class conf:
             return "docker-compose.yml.existingdb"
         else:
             return "docker-compse.yml.newdb"
+
+    @staticmethod
+    def getJobmonServiceUserPwd():
+        if conf.instance is None:
+            conf._createInstance()
+        return conf.instance["existing db"]["jobmon_pass_service_user"]

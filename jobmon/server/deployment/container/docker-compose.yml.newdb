@@ -4,7 +4,6 @@ services:
   jobmon:
     build: .
     restart: unless-stopped
-    env_file: ./jobmon.env
     image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
     container_name: jobmon${JOBMON_VERSION}_jobmon_1
     volumes:
@@ -29,7 +28,6 @@ services:
             max-file: "10"
   monitor:
     restart: unless-stopped
-    env_file: ./jobmon.env
     image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
     container_name: jobmon${JOBMON_VERSION}_monitor_1
     depends_on:
@@ -55,7 +53,6 @@ services:
             max-size: "100m"
             max-file: "10"
   initdb:
-    env_file: ./jobmon.env
     image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
     container_name: jobmon${JOBMON_VERSION}_initdb_1
     depends_on:
@@ -74,7 +71,6 @@ services:
         - db
   db:
     restart: unless-stopped
-    env_file: ./jobmon.env
     image: mysql:5.7
     container_name: jobmon${JOBMON_VERSION}_db_1
     ports:

@@ -13,13 +13,14 @@ class JobmonDeployment:
         self.tag = tag
 
     def _copy_docker_compse_file(self):
-        os.system("cp {d}{f} {d}docker-compose.yml".format(d=self.docker_file_dir), f=conf.getDockerComposeTemplate())
+        cmd = "cp {0}{1} {0}docker-compose.yml".format(self.docker_file_dir, conf.getDockerComposeTemplate())
+        os.system(cmd)
 
     def _dump_env(self):
         filename = self.docker_file_dir + ".env"
         f = open(filename, "w")
         for k in self.envs.keys():
-            f.write(k + "=" + self.envs[k])
+            f.write(k + "=" + self.envs[k] + "\n")
         f.close()
 
     def _run_docker_compose(self):
@@ -34,6 +35,8 @@ class JobmonDeployment:
         self.envs["SLACK_TOKEN"] = conf.getSlackToken()
         self.envs["WF_SLACK_CHANNEL"] = conf.getWFSlackChannel()
         self.envs["NODE_SLACK_CHANNEL"] = conf.getNodeSlackChannel()
+        if conf.isExistedDB():
+            self.envs["JOBMON_PASS_SERVICE_USER"] = conf.getJobmonServiceUserPwd()
 
     def _set_mysql_user_passwords(self):
         users = ['root', 'table_creator', 'service_user', 'read_only']
