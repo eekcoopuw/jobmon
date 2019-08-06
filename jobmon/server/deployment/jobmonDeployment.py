@@ -9,22 +9,23 @@ from jobmon.server.deployment.util import conf
 class JobmonDeployment:
     def __init__(self, tag):
         self.envs=dict()
-        self.docker_file_dir = os.path.dirname(os.path.abspath(__file__)) + "/container/"
+        self.docker_file_dir = os.path.dirname(os.path.abspath(__file__)) + "/container"
+        self.jobmon_dir = os.path.dirname(os.path.abspath(__file__))[:0-len("/jobmon/server/deployment")]
         self.tag = tag
 
     def _copy_docker_compse_file(self):
-        cmd = "cp {0}{1} {0}docker-compose.yml".format(self.docker_file_dir, conf.getDockerComposeTemplate())
+        cmd = "cp {0}/{1} {2}/docker-compose.yml".format(self.docker_file_dir, conf.getDockerComposeTemplate(), self.jobmon_dir)
         os.system(cmd)
 
     def _dump_env(self):
-        filename = self.docker_file_dir + ".env"
+        filename = self.jobmon_dir + "/.env"
         f = open(filename, "w")
         for k in self.envs.keys():
             f.write(k + "=" + self.envs[k] + "\n")
         f.close()
 
     def _run_docker_compose(self):
-        os.system("cd {} && docker-compose up --build -d".format(self.docker_file_dir))
+        os.system("cd {} && docker-compose up --build -d".format(self.jobmon_dir))
 
     def _set_connection_env(self):
         self.envs["EXTERNAL_SERVICE_PORT"] = conf.getExternalServicePort()
