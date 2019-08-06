@@ -92,7 +92,7 @@ class conf:
         return conf.instance["basic values"]["jobmon_version"]
 
     @staticmethod
-    def ifUseExistedDB():
+    def isExistedDB():
         if conf.instance is None:
             conf._createInstance()
         if conf.instance["basic values"]["existing_db"] == "True":
@@ -110,9 +110,9 @@ class conf:
     @staticmethod
     def getInternalDBPort():
         if conf.ifUseExistedDB():
-            return conf.instance["existing db"]["internal_db_port"]
+            return str(conf.instance["existing db"]["internal_db_port"])
         else:
-            return INTERNAL_DB_PORT
+            return str(INTERNAL_DB_PORT)
 
     @staticmethod
     def getDBPWD():
@@ -124,9 +124,9 @@ class conf:
     @staticmethod
     def getExternalDBPort():
         if conf.ifUseExistedDB():
-            return conf.instance["existing db"]["external_db_port"]
+            return str(conf.instance["existing db"]["external_db_port"])
         else:
-            return EXTERNAL_DB_PORT
+            return str(EXTERNAL_DB_PORT)
 
     @staticmethod
     def getExternalDBHost():
@@ -138,4 +138,29 @@ class conf:
 
     @staticmethod
     def getExternalServicePort():
-        return EXTERNAL_SERVICE_PORT
+        return str(EXTERNAL_SERVICE_PORT)
+
+    @staticmethod
+    def getSlackToken():
+        if conf.instance is None:
+            conf._createInstance()
+        return conf.instance["basic values"]["slack_token"]
+
+    @staticmethod
+    def getWFSlackChannel():
+        if conf.instance is None:
+            conf._createInstance()
+        return conf.instance["basic values"]["wf_slack_channel"]
+
+    @staticmethod
+    def getNodeSlackChannel():
+        if conf.instance is None:
+            conf._createInstance()
+        return conf.instance["basic values"]["node_slack_channel"]
+
+    @staticmethod
+    def getDockerComposeTemplate():
+        if conf.isExistedDB():
+            return "docker-compose.yml.existingdb"
+        else:
+            return "docker-compse.yml.newdb"

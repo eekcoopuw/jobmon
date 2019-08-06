@@ -1,57 +1,68 @@
 #!/usr/bin/env python
 
-import subprocess
+import os
+
+from jobmon.server.deployment import util
 from jobmon.server.deployment.util import conf
 
 
-def _run_docker(self):
-    subprocess.call(["docker-compose", "up", "--build", "-d"])
+class JobmonDeployment:
+    def __init__(self, tag):
+        self.envs=dict()
+        self.docker_file_dir = os.path.dirname(os.path.abspath(__file__)) + "/container/"
+        self.tag = tag
 
-def _set_connection_env(self):
-    os.environ["EXTERNAL_SERVICE_PORT"] = str(EXTERNAL_SERVICE_PORT)
-    os.environ["EXTERNAL_DB_PORT"] = str(EXTERNAL_DB_PORT)
-    os.environ["INTERNAL_DB_HOST"] = INTERNAL_DB_HOST
-    os.environ["INTERNAL_DB_PORT"] = str(INTERNAL_DB_PORT)
-    os.environ["JOBMON_VERSION"] = "".join(self.jobmon_version.split('.'))
-    if self.slack_token is not None:
-        os.environ["SLACK_TOKEN"] = self.slack_token
-    if self.wf_slack_channel is not None:
-        os.environ["WF_SLACK_CHANNEL"] = self.wf_slack_channel
-    if self.node_slack_channel is not None:
-        os.environ["NODE_SLACK_CHANNEL"] = self.node_slack_channel
+    def _copy_docker_compse_file(self):
+        os.system("cp {d}{f} {d}docker-compose.yml".format(d=self.docker_file_dir), f=conf.getDockerComposeTemplate())
 
+    def _dump_env(self):
+        filename = self.docker_file_dir + ".env"
+        f = open(filename, "w")
+        for k in self.envs.keys():
+            f.write(k + "=" + self.envs[k])
+        f.close()
 
- def _set_mysql_user_passwords(self):
+    def _run_docker_compose(self):
+        os.system("cd {} && docker-compose up --build -d".format(self.docker_file_dir))
+
+    def _set_connection_env(self):
+        self.envs["EXTERNAL_SERVICE_PORT"] = conf.getExternalServicePort()
+        self.envs["EXTERNAL_DB_PORT"] = conf.getExternalDBPort()
+        self.envs["INTERNAL_DB_HOST"] = conf.getInternalDBHost()
+        self.envs["INTERNAL_DB_PORT"] = conf.getExternalDBPort()
+        self.envs["JOBMON_VERSION"] = "".join(conf.getJobmonVersion().split('.'))
+        self.envs["SLACK_TOKEN"] = conf.getSlackToken()
+        self.envs["WF_SLACK_CHANNEL"] = conf.getWFSlackChannel()
+        self.envs["NODE_SLACK_CHANNEL"] = conf.getNodeSlackChannel()
+
+    def _set_mysql_user_passwords(self):
         users = ['root', 'table_creator', 'service_user', 'read_only']
         for user in users:
-            env_password = os.environ.get('JOBMON_PASS_' + user.upper(),
-                                          None)
-            if env_password is not None:
-                password = env_password
+            if 'JOBMON_PASS_' + user.upper() in self.envs:
+                password = self.envs['JOBMON_PASS_' + user.upper()]
             elif user == "read_only":
                 password = "docker"
-                os.environ['JOBMON_PASS_' + user.upper()] = password
             else:
-                password = self._set_mysql_user_password_env(user)
-            self.db_accounts[user] = password
+                password = util.gen_password()
+            self.envs['JOBMON_PASS_' + user.upper()] = password
 
-    def _set_mysql_user_password_env(self, user):
-        password = gen_password()
-        os.environ['JOBMON_PASS_' + user.upper()] = password
-        return password
+    def _upload_image(self):
+        os.system("docker push {}".format(self.tag))
 
-
-def _upload_image(tag: str):
-    subprocess.call(["docker", "push", tag])
-
+    def build(self):
+        self._copy_docker_compse_file()
+        self._set_connection_env()
+        if not conf.isExistedDB():
+            self._set_mysql_user_passwords()
+        self._dump_env()
+        self._run_docker_compose()
+        if not conf.isTestMode():
+            self._upload_image()
 
 def main():
     version = conf.getJobmonVersion()
     tag = f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{version}"
-    if conf.isTestMode():
-        print("You are in test mode. No image push has been done.")
-    else:
-        _upload_image(tag)
+    JobmonDeployment(tag).build()
 
 
 if __name__ == "__main__":
