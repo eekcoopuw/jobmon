@@ -14,7 +14,10 @@ class BuildContainer:
 
     def _copy_docker_compse_file(self):
         cmd = "cp {0}/{1} {2}/docker-compose.yml".format(self.docker_file_dir, conf.getDockerComposeTemplate(), self.jobmon_dir)
+        print(cmd)
+        os.system(cmd)
         cmd = "cp {0}/Dockerfile {1}/Dockerfile".format(self.docker_file_dir, self.jobmon_dir)
+        print(cmd)
         os.system(cmd)
 
     def _dump_env(self):
