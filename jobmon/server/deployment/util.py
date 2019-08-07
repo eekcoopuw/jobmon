@@ -170,3 +170,13 @@ class conf:
         if conf.instance is None:
             conf._createInstance()
         return conf.instance["existing db"]["jobmon_pass_service_user"]
+
+    @staticmethod
+    def getDockerTag():
+        return f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{conf.getJobmonVersion()}"
+
+    @staticmethod
+    def getGitTag():
+        if conf.instance is None:
+            conf._createInstance()
+        return conf.instance["production mode"]["jobmon_git_tag=release"]
