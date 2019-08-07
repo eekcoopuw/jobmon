@@ -78,10 +78,10 @@ services:
     environment:
         - MYSQL_ROOT_PASSWORD=${JOBMON_PASS_ROOT}
         - MYSQL_DATABASE=docker
-        - JOBMON_PASS_ROOT
-        - JOBMON_PASS_TABLE_CREATOR
-        - JOBMON_PASS_SERVICE_USER
-        - JOBMON_PASS_READ_ONLY
+        - JOBMON_PASS_ROOT=${JOBMON_PASS_ROOT}
+        - JOBMON_PASS_TABLE_CREATOR=${JOBMON_PASS_TABLE_CREATOR}
+        - JOBMON_PASS_SERVICE_USER=${JOBMON_PASS_SERVICE_USER}
+        - JOBMON_PASS_READ_ONLY=${JOBMON_PASS_READ_ONLY}
 
     volumes:
         - mysql-jobmon-emu:/var/lib/mysql
