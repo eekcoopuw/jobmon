@@ -84,10 +84,10 @@ services:
         - JOBMON_PASS_READ_ONLY=${JOBMON_PASS_READ_ONLY}
 
     volumes:
-        - mysql-jobmon-emu-${JOBMON_VERSION}:/var/lib/mysql
+        - mysql-jobmon${JOBMON_VERSION}-emu:/var/lib/mysql
         - ./create_users.sh:/docker-entrypoint-initdb.d/create_users.sh
 
     command: mysqld --innodb_autoinc_lock_mode=1 --innodb_flush_method=O_DIRECT --innodb_buffer_pool_size=10000M --innodb_buffer_pool_instances=2
 
 volumes:
-    mysql-jobmon-emu-${JOBMON_VERSION}: {}
+    mysql-jobmon${JOBMON_VERSION}-emu: {}
