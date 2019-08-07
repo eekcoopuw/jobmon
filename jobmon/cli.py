@@ -1,17 +1,7 @@
 import argparse
 import shlex
-import subprocess
 
-from jobmon.client import shared_requester
-from jobmon.models import DB, database_loaders
-from jobmon.server import create_app, ServerConfig
-from jobmon.server.health_monitor.notifiers import SlackNotifier
-from jobmon.server.health_monitor.health_monitor import HealthMonitor
-
-try:
-    FileExistsError
-except NameError:
-    FileExistsError = IOError
+from jobmon.server import ServerConfig
 
 
 class CLI(object):
@@ -42,7 +32,8 @@ class CLI(object):
         """Create the database tables and load them with the requisite
         Job and JobInstance statuses
         """
-
+        from jobmon.models import DB, database_loaders
+        from jobmon.server import create_app
         app = create_app()
         DB.init_app(app)
         with app.app_context():
@@ -76,6 +67,9 @@ class CLI(object):
 
     def start_health_monitor(self):
         """Start monitoring for lost workflow runs"""
+        from jobmon.server.health_monitor.notifiers import SlackNotifier
+        from jobmon.server.health_monitor.health_monitor import HealthMonitor
+
         if self.config.slack_token:
             wf_notifier = SlackNotifier(
                 self.config.slack_token,
@@ -93,10 +87,13 @@ class CLI(object):
         hm.monitor_forever()
 
     def start_uwsgi_based_web_service(self):
+        import subprocess
         subprocess.run("/entrypoint.sh")
         subprocess.run("/start.sh")
 
     def test_connection(self, args):
+        from jobmon.client import shared_requester
+
         # check the server's is_alive? route
         shared_requester.send_request(app_route='/', request_type='get')
 
