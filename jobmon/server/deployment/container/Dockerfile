@@ -4,7 +4,11 @@ RUN apt-get update && apt-get install -y mysql-client
 ENV NGINX_WORKER_PROCESSES auto
 
 # move app files
-COPY . /app
+COPY ./jobmon /app/jobmon
+COPY ./jobmon/server/deployment/container/setup.cfg /app/setup.cfg
+COPY ./jobmon/server/deployment/container/setup.py /app/setup.py
+COPY ./jobmon/server/deployment/container/autowrap.cfg  /app/autowrap.cfg
+COPY ./jobmon/server/deployment/container/versioneer.py  /app/versioneer.py
 WORKDIR /app
 
 # PIPS

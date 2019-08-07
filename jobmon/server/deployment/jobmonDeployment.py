@@ -10,6 +10,7 @@ class JobmonDeployment:
     def __init__(self, tag):
         self.envs=dict()
         self.docker_file_dir = os.path.dirname(os.path.abspath(__file__)) + "/container"
+        # Have to build under the jobmon root dir to install jobmon
         self.jobmon_dir = os.path.dirname(os.path.abspath(__file__))[:0-len("/jobmon/server/deployment")]
         self.tag = tag
 
