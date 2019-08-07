@@ -63,7 +63,7 @@ class Workflow(object):
                  description: str = "", stderr: str = None, stdout: str = None,
                  project: str = None, reset_running_jobs: bool = True,
                  working_dir: str = None, executor_class: str = 'SGEExecutor',
-                 fail_fast: bool = False, interrupt_on_error: bool = False,
+                 fail_fast: bool = False,
                  requester: Requester = shared_requester,
                  seconds_until_timeout: int = 36000,
                  resume: bool = ResumeStatus.DONT_RESUME,
@@ -85,8 +85,6 @@ class Workflow(object):
             executor_class: name of one of Jobmon's executors
             fail_fast: whether or not to break out of execution on
                 first failure
-            interrupt_on_error: whether or not the JIF/JIR daemons
-                should interrupt on errors
             seconds_until_timeout: amount of time (in seconds) to wait
                 until the whole workflow times out. Submitted jobs will
                 continue
@@ -128,7 +126,6 @@ class Workflow(object):
 
         self.task_dag = TaskDag(
             executor=self.executor,
-            interrupt_on_error=interrupt_on_error,
             fail_fast=fail_fast,
             seconds_until_timeout=seconds_until_timeout
         )

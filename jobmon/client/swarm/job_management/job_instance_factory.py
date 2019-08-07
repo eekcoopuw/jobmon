@@ -26,7 +26,6 @@ class JobInstanceFactory(object):
     def __init__(self,
                  dag_id: int,
                  executor: Optional[Executor] = None,
-                 interrupt_on_error: bool = True,
                  n_queued_jobs: int = 1000,
                  stop_event: Optional[threading.Event] = None,
                  resource_adjustment: float = 0.5,
@@ -39,8 +38,6 @@ class JobInstanceFactory(object):
             dag_id: the id for the dag to run
             executor: executor to use w/ this factory. SequentialExecutor,
                 DummyExecutor or SGEExecutor. Default SequentialExecutor
-            interrupt_on_error: whether or not to interrupt the thread if
-                there's an error
             n_queued_jobs: number of queued jobs to return and send to be
                 instantiated. default 1000
             stop_event: Object of type threading.Event
@@ -49,7 +46,6 @@ class JobInstanceFactory(object):
 
         self.dag_id = dag_id
         self.requester = requester
-        self.interrupt_on_error = interrupt_on_error
         self.n_queued_jobs = n_queued_jobs
         self.report_by_buffer = client_config.report_by_buffer
         self.heartbeat_interval = client_config.heartbeat_interval
@@ -101,11 +97,9 @@ class JobInstanceFactory(object):
                     app_route="/error_logger",
                     message={"traceback": msg},
                     request_type="post")
-                if self.interrupt_on_error:
-                    _thread.interrupt_main()
-                    self._stop_event.set()
-                else:
-                    raise
+                _thread.interrupt_main()
+                self._stop_event.set()
+                raise
 
     def instantiate_queued_jobs(self) -> List[int]:
         """Pull all jobs that are ready, create job instances for them, and

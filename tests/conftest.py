@@ -264,7 +264,7 @@ def simple_workflow(real_jsm_jqs, db_cfg):
     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1, m_mem_free='1G')
 
     wfa = "my_simple_dag"
-    workflow = Workflow(wfa, interrupt_on_error=False)
+    workflow = Workflow(wfa)
     workflow.add_tasks([t1, t2, t3])
     workflow.execute()
     return workflow
@@ -318,12 +318,11 @@ def tmp_out_dir():
 @pytest.fixture(scope='function')
 def job_list_manager_sub(dag_id):
     """This creates a job_list_manager that uses the Sequential Executor, does
-    not start the JobInstanceFactory or JobReconciler threads, and does
-    not interrupt on error
+    not start the JobInstanceFactory or JobReconciler threads
     """
     from jobmon.client.swarm.job_management.job_list_manager import \
         JobListManager
-    jlm = JobListManager(dag_id, interrupt_on_error=False)
+    jlm = JobListManager(dag_id)
     yield jlm
     jlm.disconnect()
 
@@ -331,8 +330,8 @@ def job_list_manager_sub(dag_id):
 @pytest.fixture(scope='function')
 def job_list_manager_sge(real_dag_id, tmpdir_factory):
     """This creates a job_list_manager that uses the SGEExecutor, does
-    start the JobInstanceFactory and JobReconciler threads, and does not
-    interrupt on error. It has short reconciliation intervals so that the
+    start the JobInstanceFactory and JobReconciler threads
+    It has short reconciliation intervals so that the
     tests run faster than in production.
     """
     from jobmon.client.swarm.executors.sge import SGEExecutor
@@ -345,8 +344,7 @@ def job_list_manager_sge(real_dag_id, tmpdir_factory):
     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
                            project='proj_tools')
     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
-                         job_instantiation_interval=1,
-                         interrupt_on_error=False)
+                         job_instantiation_interval=1)
     yield jlm
     jlm.disconnect()
 
@@ -358,7 +356,7 @@ def dag(db_cfg, no_requests_jsm_jqs, request):
     cleaned up after each test
     """
     from jobmon.client.swarm.workflow.task_dag import TaskDag
-    dag = TaskDag(name=request.node.name, interrupt_on_error=False)
+    dag = TaskDag(name=request.node.name)
     yield dag
     if dag.job_list_manager:
         dag.job_list_manager.disconnect()
@@ -375,8 +373,7 @@ def real_dag(db_cfg, real_jsm_jqs, request):
     # The workflow creates the executor, not the workflow.
     # Hence we must create one here and pass it in
     executor = SGEExecutor(project='proj_tools')
-    dag = TaskDag(name=request.node.name, executor=executor,
-                  interrupt_on_error=False)
+    dag = TaskDag(name=request.node.name, executor=executor)
     yield dag
     if dag.job_list_manager:
         dag.job_list_manager.disconnect()
@@ -392,8 +389,7 @@ def dag_factory(db_cfg, real_jsm_jqs, request):
     dags = []
 
     def factory(executor):
-        dag = TaskDag(name=request.node.name, executor=executor,
-                      interrupt_on_error=False)
+        dag = TaskDag(name=request.node.name, executor=executor)
         dags.append(dag)
         return dag
     yield factory
