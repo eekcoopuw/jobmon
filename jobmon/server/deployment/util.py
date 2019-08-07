@@ -163,7 +163,7 @@ class conf:
         if conf.isExistedDB():
             return "docker-compose.yml.existingdb"
         else:
-            return "docker-compse.yml.newdb"
+            return "docker-compose.yml.newdb"
 
     @staticmethod
     def getJobmonServiceUserPwd():
