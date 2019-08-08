@@ -12,7 +12,7 @@ services:
         - "${EXTERNAL_SERVICE_PORT}:80"
     entrypoint:
         - ./wait-for-tables.sh
-    command: ["jobmon", "start", "web_service"]
+    command: ["db", "jobmon", "start", "web_service"]
     environment:
         - DB_HOST=${INTERNAL_DB_HOST}
         - DB_PORT=${INTERNAL_DB_PORT}
@@ -40,7 +40,7 @@ services:
         - SLACK_TOKEN=${SLACK_TOKEN}
         - WF_SLACK_CHANNEL=${WF_SLACK_CHANNEL}
         - NODE_SLACK_CHANNEL=${NODE_SLACK_CHANNEL}
-    command: ["jobmon", "start", "health_monitor"]
+    command: ["db", "jobmon", "start", "health_monitor"]
     links:
         - jobmon
     logging:
