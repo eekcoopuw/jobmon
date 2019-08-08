@@ -15,4 +15,6 @@ until mysql -e 'SHOW TABLES;' --host=$host --user=$DB_USER --password=$DB_PASS d
 done
 
 >&2 echo "DB is up - executing command"
+
+echo $cmd
 $cmd
