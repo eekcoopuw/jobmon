@@ -109,14 +109,14 @@ class conf:
 
     @staticmethod
     def getInternalDBPort():
-        if conf.ifUseExistedDB():
+        if conf.isExistedDB():
             return str(conf.instance["existing db"]["internal_db_port"])
         else:
             return str(INTERNAL_DB_PORT)
 
     @staticmethod
     def getDBPWD():
-        if conf.ifUseExistedDB():
+        if conf.isExistedDB():
             return conf.instance["existing db"]["internal_db_password"]
         else:
             return gen_password()
