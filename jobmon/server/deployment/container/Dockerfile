@@ -11,6 +11,7 @@ COPY ./jobmon/server/deployment/container/autowrap.cfg  /app/autowrap.cfg
 COPY ./jobmon/server/deployment/container/versioneer.py  /app/versioneer.py
 COPY ./jobmon/server/deployment/container/wait-for-db.sh  /app/wait-for-db.sh
 COPY ./jobmon/server/deployment/container/wait-for-tables.sh  /app/wait-for-tables.sh
+RUN chmod +x /app/setup.py /app/versioneer.py /app/wait-for-db.sh /app/wait-for-tables.sh
 WORKDIR /app
 
 # PIPS
