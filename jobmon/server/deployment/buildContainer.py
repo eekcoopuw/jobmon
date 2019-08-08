@@ -34,7 +34,7 @@ class BuildContainer:
         self.envs["EXTERNAL_SERVICE_PORT"] = conf.getExternalServicePort()
         self.envs["EXTERNAL_DB_PORT"] = conf.getExternalDBPort()
         self.envs["INTERNAL_DB_HOST"] = conf.getInternalDBHost()
-        self.envs["INTERNAL_DB_PORT"] = conf.getExternalDBPort()
+        self.envs["INTERNAL_DB_PORT"] = conf.getInternalDBPort()
         self.envs["JOBMON_VERSION"] = "".join(conf.getJobmonVersion().split('.'))
         self.envs["SLACK_TOKEN"] = conf.getSlackToken()
         self.envs["WF_SLACK_CHANNEL"] = conf.getWFSlackChannel()
