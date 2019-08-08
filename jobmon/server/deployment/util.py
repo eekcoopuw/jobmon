@@ -115,13 +115,6 @@ class conf:
             return str(INTERNAL_DB_PORT)
 
     @staticmethod
-    def getDBPWD():
-        if conf.isExistedDB():
-            return conf.instance["existing db"]["internal_db_password"]
-        else:
-            return gen_password()
-
-    @staticmethod
     def getExternalDBPort():
         if conf.isExistedDB():
             return str(conf.instance["existing db"]["external_db_port"])
