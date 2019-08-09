@@ -9,7 +9,7 @@ try:
 except:
     HAS_AUTOWRAP = False
 
-
+print("HAS_AUTOWRAP:{}".format(HAS_AUTOWRAP))
 here = os.path.abspath(os.path.dirname(__file__))
 package_dir = os.path.join(here, 'jobmon)')
 
