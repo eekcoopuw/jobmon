@@ -20,7 +20,6 @@ from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.jobmonLogging import jobmonLogging as logging
 
-
 jqs = Blueprint("job_query_server", __name__)
 
 logger = logging.getLogger(__name__)
@@ -184,13 +183,13 @@ def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
     """
     last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
     time = get_time(DB.session)
-    jobs = DB.session.query(Job).\
+    jobs = DB.session.query(Job). \
         filter(
-            Job.dag_id == dag_id,
-            Job.status.in_([JobStatus.QUEUED_FOR_INSTANTIATION,
-                            JobStatus.ADJUSTING_RESOURCES]),
-            Job.status_date >= last_sync).\
-        order_by(Job.job_id).\
+        Job.dag_id == dag_id,
+        Job.status.in_([JobStatus.QUEUED_FOR_INSTANTIATION,
+                        JobStatus.ADJUSTING_RESOURCES]),
+        Job.status_date >= last_sync). \
+        order_by(Job.job_id). \
         limit(n_queued_jobs)
     DB.session.commit()
     job_dcts = [j.to_wire_as_executor_job() for j in jobs]
@@ -246,17 +245,17 @@ def get_timed_out_executor_ids(dag_id):
     submitted or running state for longer than the maximum specified run
     time"""
     jiid_exid_tuples = DB.session.query(JobInstance). \
-        filter_by(dag_id=dag_id).\
+        filter_by(dag_id=dag_id). \
         filter(JobInstance.status.in_(
-            [JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-             JobInstanceStatus.RUNNING])).\
-        join(ExecutorParameterSet).\
-        options(contains_eager(JobInstance.executor_parameter_set)).\
-        filter(ExecutorParameterSet.max_runtime_seconds != None).\
+        [JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+         JobInstanceStatus.RUNNING])). \
+        join(ExecutorParameterSet). \
+        options(contains_eager(JobInstance.executor_parameter_set)). \
+        filter(ExecutorParameterSet.max_runtime_seconds != None). \
         filter(
-            func.timediff(func.UTC_TIMESTAMP(), JobInstance.status_date) >
-            func.SEC_TO_TIME(ExecutorParameterSet.max_runtime_seconds)).\
-        with_entities(JobInstance.job_instance_id, JobInstance.executor_id).\
+        func.timediff(func.UTC_TIMESTAMP(), JobInstance.status_date) >
+        func.SEC_TO_TIME(ExecutorParameterSet.max_runtime_seconds)). \
+        with_entities(JobInstance.job_instance_id, JobInstance.executor_id). \
         all()  # noqa: E711
     DB.session.commit()
 
@@ -280,9 +279,9 @@ def get_job_instances_by_status(dag_id):
     """
     logger.debug(logging.myself())
     logging.logParameter("dag_id", dag_id)
-    job_instances = DB.session.query(JobInstance).\
-        filter_by(dag_id=dag_id).\
-        filter(JobInstance.status.in_(request.args.getlist('status'))).\
+    job_instances = DB.session.query(JobInstance). \
+        filter_by(dag_id=dag_id). \
+        filter(JobInstance.status.in_(request.args.getlist('status'))). \
         all()  # noqa: E711
     DB.session.commit()
     resp = jsonify(job_instances=[ji.to_wire() for ji in job_instances])
@@ -292,20 +291,19 @@ def get_job_instances_by_status(dag_id):
 
 @jqs.route('/dag/<dag_id>/get_suspicious_job_instances', methods=['GET'])
 def get_suspicious_job_instances(dag_id):
-
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
     # ignore job instances created after heartbeat began. We'll reconcile them
     # during the next reconciliation loop.
-    rows = DB.session.query(JobInstance).\
-        join(TaskDagMeta).\
-        filter_by(dag_id=dag_id).\
+    rows = DB.session.query(JobInstance). \
+        join(TaskDagMeta). \
+        filter_by(dag_id=dag_id). \
         filter(JobInstance.status.in_([
-            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-            JobInstanceStatus.RUNNING])).\
-        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date).\
-        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()).\
-        with_entities(JobInstance.job_instance_id, JobInstance.executor_id).\
+        JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+        JobInstanceStatus.RUNNING])). \
+        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date). \
+        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()). \
+        with_entities(JobInstance.job_instance_id, JobInstance.executor_id). \
         all()
     DB.session.commit()
     job_instances = [JobInstance(job_instance_id=row[0], executor_id=row[1])
@@ -349,8 +347,8 @@ def get_workflows_by_inputs(dag_id):
     """
     logger.debug(logging.myself())
     logging.logParameter("dag_id", dag_id)
-    workflow = DB.session.query(Workflow).\
-        filter(Workflow.dag_id == dag_id).\
+    workflow = DB.session.query(Workflow). \
+        filter(Workflow.dag_id == dag_id). \
         filter(Workflow.workflow_args == request.args['workflow_args']
                ).first()
     DB.session.commit()
@@ -409,8 +407,8 @@ def kill_self(job_instance_id):
     kill_statuses = JobInstance.kill_self_states
     logger.debug(logging.myself())
     logging.logParameter("job_instance_id", job_instance_id)
-    should_kill = DB.session.query(JobInstance).\
-        filter_by(job_instance_id=job_instance_id).\
+    should_kill = DB.session.query(JobInstance). \
+        filter_by(job_instance_id=job_instance_id). \
         filter(JobInstance.status.in_(kill_statuses)).first()
     if should_kill:
         resp = jsonify(should_kill=True)
@@ -431,8 +429,8 @@ def get_resources(executor_id):
     """
     logger.debug(logging.myself())
     query = f"select m_mem_free, num_cores, max_runtime_seconds from " \
-            f"job_instance, job where job_instance.job_id=job.job_id " \
-            f"and executor_id = {executor_id}"
+        f"job_instance, job where job_instance.job_id=job.job_id " \
+        f"and executor_id = {executor_id}"
     res = DB.session.execute(query).fetchone()
     DB.session.commit()
     resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
@@ -450,9 +448,9 @@ def get_most_recent_exec_id(job_id: int):
     """
     logger.debug(logging.myself())
     executor_id = DB.session.query(JobInstance). \
-                  filter_by(job_id=job_id). \
-                  order_by(JobInstance.status.desc()).\
-                  with_entities(JobInstance.executor_id).first()
+        filter_by(job_id=job_id). \
+        order_by(JobInstance.status.desc()). \
+        with_entities(JobInstance.executor_id).first()
     DB.session.commit()
     resp = jsonify(executor_id=executor_id)
     resp.status_code = StatusCodes.OK

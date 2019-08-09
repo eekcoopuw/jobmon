@@ -1,7 +1,7 @@
 import os
 
 from jobmon.server.deployment.util import conf
-from jobmon.server.deployment.jobmonDeployment import JobmonDeployment
+from jobmon.server.deployment.jobmon_deployment import JobmonDeployment
 
 
 def tag_release():

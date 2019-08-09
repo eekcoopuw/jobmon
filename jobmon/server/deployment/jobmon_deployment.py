@@ -1,6 +1,6 @@
 import os
 from jobmon.server.deployment.util import conf
-from jobmon.server.deployment.buildContainer import BuildContainer
+from jobmon.server.deployment.build_container import BuildContainer
 
 
 class JobmonDeployment(BuildContainer):

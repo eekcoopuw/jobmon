@@ -5,9 +5,9 @@ ENV NGINX_WORKER_PROCESSES auto
 
 # move app files
 COPY ./jobmon /app/jobmon
-COPY ./jobmon/server/deployment/container/setup.cfg /app/setup.cfg
-COPY ./jobmon/server/deployment/container/setup.py /app/setup.py
-COPY ./jobmon/server/deployment/container/versioneer.py  /app/versioneer.py
+COPY .setup.cfg /app/setup.cfg
+COPY .setup.py /app/setup.py
+COPY .versioneer.py  /app/versioneer.py
 COPY ./jobmon/server/deployment/container/wait-for-db.sh  /app/wait-for-db.sh
 COPY ./jobmon/server/deployment/container/wait-for-tables.sh  /app/wait-for-tables.sh
 RUN chmod +x /app/setup.py /app/versioneer.py /app/wait-for-db.sh /app/wait-for-tables.sh
