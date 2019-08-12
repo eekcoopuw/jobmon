@@ -20,7 +20,6 @@ cmds['version'] = vcmds['build_py']
 
 
 install_requires = [
-    'pandas',
     'sqlalchemy',
     'numpy',
     'flask',
