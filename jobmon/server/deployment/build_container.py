@@ -1,7 +1,8 @@
 import os
+from shutil import copyfile
 
 from jobmon.server.deployment import util
-from jobmon.server.deployment.util import conf
+from jobmon.server.deployment.util import Conf
 
 
 class BuildContainer:
@@ -10,16 +11,11 @@ class BuildContainer:
         self.docker_file_dir = os.path.dirname(os.path.abspath(__file__)) + "/container"
         # Have to build under the jobmon root dir to install jobmon
         self.jobmon_dir = os.path.dirname(os.path.abspath(__file__))[:0-len("/jobmon/server/deployment")]
-        self.tag = conf.getDockerTag()
+        self.tag = Conf().get_docker_tag()
 
-    def _copy_docker_compse_file(self):
-        cmd = "cp {0}/{1} {2}/docker-compose.yml".format(self.docker_file_dir, conf.getDockerComposeTemplate(),
-                                                         self.jobmon_dir)
-        print(cmd)
-        os.system(cmd)
-        cmd = "cp {0}/Dockerfile {1}/Dockerfile".format(self.docker_file_dir, self.jobmon_dir)
-        print(cmd)
-        os.system(cmd)
+    def _copy_docker_compose_file(self):
+        copyfile(self.docker_file_dir + "/" + Conf().get_docker_compose_template(), self.jobmon_dir + "/docker-compose.yml")
+        copyfile(self.docker_file_dir + "/Dockerfile", self.jobmon_dir + "/Dockerfile")
 
     def _dump_env(self):
         filename = self.jobmon_dir + "/.env"
@@ -32,16 +28,16 @@ class BuildContainer:
         os.system("cd {} && docker-compose up --build -d".format(self.jobmon_dir))
 
     def _set_connection_env(self):
-        self.envs["EXTERNAL_SERVICE_PORT"] = conf.getExternalServicePort()
-        self.envs["EXTERNAL_DB_PORT"] = conf.getExternalDBPort()
-        self.envs["INTERNAL_DB_HOST"] = conf.getInternalDBHost()
-        self.envs["INTERNAL_DB_PORT"] = conf.getInternalDBPort()
-        self.envs["JOBMON_VERSION"] = "".join(conf.getJobmonVersion().split('.'))
-        self.envs["SLACK_TOKEN"] = conf.getSlackToken()
-        self.envs["WF_SLACK_CHANNEL"] = conf.getWFSlackChannel()
-        self.envs["NODE_SLACK_CHANNEL"] = conf.getNodeSlackChannel()
-        if conf.isExistedDB():
-            self.envs["JOBMON_PASS_SERVICE_USER"] = conf.getJobmonServiceUserPwd()
+        self.envs["EXTERNAL_SERVICE_PORT"] = Conf().get_external_service_port()
+        self.envs["EXTERNAL_DB_PORT"] = Conf().get_external_db_port()
+        self.envs["INTERNAL_DB_HOST"] = Conf().get_internal_db_host()
+        self.envs["INTERNAL_DB_PORT"] = Conf().get_internal_db_port()
+        self.envs["JOBMON_VERSION"] = "".join(Conf().get_jobmon_version().split('.'))
+        self.envs["SLACK_TOKEN"] = Conf().get_slack_token()
+        self.envs["WF_SLACK_CHANNEL"] = Conf().get_wf_slack_channel()
+        self.envs["NODE_SLACK_CHANNEL"] = Conf().get_node_slack_channel()
+        if Conf().is_existed_db():
+            self.envs["JOBMON_PASS_SERVICE_USER"] = Conf().get_jobmon_service_user_pwd()
 
     def _set_mysql_user_passwords(self):
         users = ['root', 'table_creator', 'service_user', 'read_only']
@@ -55,9 +51,9 @@ class BuildContainer:
             self.envs['JOBMON_PASS_' + user.upper()] = password
 
     def build(self):
-        self._copy_docker_compse_file()
+        self._copy_docker_compose_file()
         self._set_connection_env()
-        if not conf.isExistedDB():
+        if not Conf().is_existed_db():
             self._set_mysql_user_passwords()
         self._dump_env()
         self._run_docker_compose()

@@ -70,106 +70,79 @@ def validate_slack_token(slack_token: str) -> bool:
     return resp.json()['error'] != 'invalid_auth'
 
 
-class conf:
-    instance = None
+class Conf:
+    __instance = None
 
     @staticmethod
-    def _createInstance():
-        if conf.instance is None:
+    def _getInstance():
+        if conf.__instance is None:
             conf.instance = configparser.ConfigParser()
             conf.instance.read('CONFIG.INI')
 
-    @staticmethod
-    def isTestMode():
-        if conf.instance is None:
-            conf._createInstance()
-        return conf.instance["basic values"]["test_mode"] == "True"
+    def __init__(self):
+        if Conf.__instance == None:
+            Conf.__instance == Conf._getInstance()
 
-    @staticmethod
-    def getJobmonVersion():
-        if conf.instance is None:
-            conf._createInstance()
-        return conf.instance["basic values"]["jobmon_version"]
 
-    @staticmethod
-    def isExistedDB():
-        if conf.instance is None:
-            conf._createInstance()
-        if conf.instance["basic values"]["existing_db"] == "True":
+    def is_test_mode(self):
+        return Conf.__instance["basic values"]["test_mode"] == "True"
+
+    def get_jobmon_version(self):
+        return Conf._instance["basic values"]["jobmon_version"]
+
+    def is_existed_db(self):
+        if Conf.__instance["basic values"]["existing_db"] == "True":
             return True
         else:
             return False
 
-    @staticmethod
-    def getInternalDBHost():
-        if conf.isExistedDB():
-            return conf.instance["existing db"]["internal_db_host"]
+    def get_internal_db_host(self):
+        if self.is_existed_db():
+            return Conf.__instance["existing db"]["internal_db_host"]
         else:
             return INTERNAL_DB_HOST
 
-    @staticmethod
-    def getInternalDBPort():
-        if conf.isExistedDB():
-            return str(conf.instance["existing db"]["internal_db_port"])
+    def get_internal_db_port(self):
+        if self.is_existed_db():
+            return str(Conf.__instance["existing db"]["internal_db_port"])
         else:
             return str(INTERNAL_DB_PORT)
 
-    @staticmethod
-    def getExternalDBPort():
-        if conf.isExistedDB():
-            return str(conf.instance["existing db"]["external_db_port"])
+    def get_external_db_port(self):
+        if self.is_existed_db():
+            return str(Conf.__instance["existing db"]["external_db_port"])
         else:
             return str(EXTERNAL_DB_PORT)
 
-    @staticmethod
-    def getExternalDBHost():
+    def get_external_db_host(self):
         return EXTERNAL_DB_HOST
 
-    @staticmethod
-    def getExternalServiceHost():
+    def get_external_service_host(self):
         return EXTERNAL_SERVICE_HOST
 
-    @staticmethod
-    def getExternalServicePort():
+    def get_external_service_port(self):
         return str(EXTERNAL_SERVICE_PORT)
 
-    @staticmethod
-    def getSlackToken():
-        if conf.instance is None:
-            conf._createInstance()
-        return conf.instance["basic values"]["slack_token"]
+    def get_slack_token(self):
+        return Conf.__instance["basic values"]["slack_token"]
 
-    @staticmethod
-    def getWFSlackChannel():
-        if conf.instance is None:
-            conf._createInstance()
-        return conf.instance["basic values"]["wf_slack_channel"]
+    def get_wf_slack_channel(self):
+        return Conf.__instance["basic values"]["wf_slack_channel"]
 
-    @staticmethod
-    def getNodeSlackChannel():
-        if conf.instance is None:
-            conf._createInstance()
-        return conf.instance["basic values"]["node_slack_channel"]
+    def get_node_slack_channel(self):
+        return Conf._instance["basic values"]["node_slack_channel"]
 
-    @staticmethod
-    def getDockerComposeTemplate():
-        if conf.isExistedDB():
+    def get_docker_compose_template(self):
+        if self.is_existed_db():
             return "docker-compose.yml.existingdb"
         else:
             return "docker-compose.yml.newdb"
 
-    @staticmethod
-    def getJobmonServiceUserPwd():
-        if conf.instance is None:
-            conf._createInstance()
+    def get_jobmon_service_user_pwd(self):
         return conf.instance["existing db"]["jobmon_pass_service_user"]
 
-    @staticmethod
-    def getDockerTag():
-        return f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{conf.getJobmonVersion()}"
+    def get_docker_tag(self):
+        return f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{self.get_jobmon_version()}"
 
-    @staticmethod
-    def getGitTag():
-        if conf.instance is None:
-            conf._createInstance()
-        return conf.instance["production mode"]["jobmon_git_tag=release"]
+    def get_git_tag(self):
+        return Conf.__instance["production mode"]["jobmon_git_tag=release"]
