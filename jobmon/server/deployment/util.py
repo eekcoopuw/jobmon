@@ -74,19 +74,19 @@ class Conf:
     __instance = None
 
     @staticmethod
-    def _getInstance():
+    def _get_instance():
         if Conf.__instance is None:
             Conf.__instance = configparser.ConfigParser()
             Conf.__instance.read('CONFIG.INI')
 
     def __init__(self):
-        Conf._getInstance()
+        Conf._get_instance()
 
     def is_test_mode(self):
         return Conf.__instance["basic values"]["test_mode"] == "True"
 
     def get_jobmon_version(self):
-        return Conf._instance["basic values"]["jobmon_version"]
+        return Conf.__instance["basic values"]["jobmon_version"]
 
     def is_existed_db(self):
         if Conf.__instance["basic values"]["existing_db"] == "True":
@@ -128,7 +128,7 @@ class Conf:
         return Conf.__instance["basic values"]["wf_slack_channel"]
 
     def get_node_slack_channel(self):
-        return Conf._instance["basic values"]["node_slack_channel"]
+        return Conf.__instance["basic values"]["node_slack_channel"]
 
     def get_docker_compose_template(self):
         if self.is_existed_db():
