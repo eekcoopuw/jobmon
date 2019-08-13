@@ -139,7 +139,7 @@ class Conf:
             return "docker-compose.yml.newdb"
 
     def get_jobmon_service_user_pwd(self):
-        return conf.instance["existing db"]["jobmon_pass_service_user"]
+        return Conf.__instance["existing db"]["jobmon_pass_service_user"]
 
     def get_docker_tag(self):
         return f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{self.get_jobmon_version()}"
