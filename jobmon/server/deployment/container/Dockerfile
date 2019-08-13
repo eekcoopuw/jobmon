@@ -5,7 +5,7 @@ ENV NGINX_WORKER_PROCESSES auto
 
 # move app files
 COPY ./jobmon /app/jobmon
-COPY ./jobmon/uwsgi.ini /app/uwsgi.ini
+COPY ./uwsgi.ini /app/uwsgi.ini
 COPY ./setup.cfg /app/setup.cfg
 COPY ./setup.py /app/setup.py
 COPY ./versioneer.py  /app/versioneer.py
