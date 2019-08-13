@@ -75,14 +75,12 @@ class Conf:
 
     @staticmethod
     def _getInstance():
-        if conf.__instance is None:
-            conf.instance = configparser.ConfigParser()
-            conf.instance.read('CONFIG.INI')
+        if Conf.__instance is None:
+            Conf.__instance = configparser.ConfigParser()
+            Conf.__instance.read('CONFIG.INI')
 
     def __init__(self):
-        if Conf.__instance == None:
-            Conf.__instance == Conf._getInstance()
-
+        Conf._getInstance()
 
     def is_test_mode(self):
         return Conf.__instance["basic values"]["test_mode"] == "True"
