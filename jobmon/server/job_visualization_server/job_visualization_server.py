@@ -1,6 +1,8 @@
+from collections.abc import Iterable
 from http import HTTPStatus as StatusCodes
 from flask import jsonify, request, Blueprint
 import logging
+import pandas as pd
 
 
 from jobmon.models import DB
@@ -128,5 +130,113 @@ def get_job_display_details_by_workflow(workflow_id):
         jobs = []
 
     resp = jsonify(jobs=jobs, time=next_sync)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jvs.route('/workflow_status', methods=['GET'])
+def get_workflow_status():
+    # convert workflow args into sql filter
+    workflow_request = request.args.get('workflow_id', None)
+    if workflow_request is not None:
+        if workflow_request == "all":
+            workflow_filter = ""
+        elif isinstance(workflow_request, Iterable):
+            workflow_filter = "workflow_id in :workflow_id "
+        else:
+            workflow_filter = "workflow_id = :workflow_id "
+    else:
+        workflow_filter = ""
+
+    # convert user args into sql filter
+    user_request = request.args.get('user', None)
+    if user_request is not None:
+        if user_request == "all":
+            user_filter = ""
+        elif isinstance(user_request, Iterable):
+            user_filter = "user in :user "
+        else:
+            user_filter = "user = :user "
+    else:
+        user_filter = ""
+
+    # combine filters and build params dictionary
+    params = {}
+    if workflow_filter or user_filter:
+        where_clause = "WHERE "
+        if workflow_filter:
+            params["workflow_id"] = workflow_request
+            where_clause += workflow_filter
+        if user_filter:
+            where_clause += user_filter
+            params["user"] = user_request
+
+    # execute query
+    q = """
+        SELECT
+            workflow.id as WF_ID,
+            workflow.name as WF_NAME,
+            workflow_status.label as WF_STATUS,
+            count(job.status) as JOBS,
+            job.STATUS,
+            sum(
+                CASE
+                    WHEN num_attempts <= 1 THEN 0
+                    ELSE num_attempts - 1
+                END
+            ) as RETRIES
+        FROM
+            workflow
+        JOIN job USING (dag_id)
+        JOIN workflow_status ON workflow_status.id = workflow.status
+        {where_clause}
+        GROUP BY workflow.id, job.status
+    """.format(where_clause=where_clause)
+    res = DB.session.execute(q, params).fetchall()
+
+    if res:
+
+        # assign to dataframe for aggregation
+        df = pd.DataFrame(res, columns=res[0].keys())
+
+        # remap to viz statuses
+        df.STATUS.replace(to_replace=_viz_label_mapping, inplace=True)
+
+        # pivot wide by job status
+        jobs = df.pivot_table(
+            values="JOBS",
+            index=["WF_ID", "WF_NAME", "WF_STATUS"],
+            columns="STATUS",
+            fill_value=0)[_viz_order]
+
+        # aggregate totals by workflow
+        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]
+                        ).agg({'JOBS': 'sum', 'RETRIES': 'sum'})
+
+        # combine datasets
+        df = pd.concat([jobs, df], axis=1)
+
+        # compute pcts and format
+        for col in _viz_order:
+            df[col + "_pct"] = (
+                df[col].astype(float) / df["JOBS"].astype(float)) * 100
+            df[col + "_pct"] = df[[col + "_pct"]].round(1)
+            df[col] = (
+                df[col].astype(int).astype(str) +
+                " (" + df[col + "_pct"].astype(str) + "%)")
+
+        # df.replace(to_replace={"0 (0.0%)": "NA"}, inplace=True)
+        # final order
+        df = df[["JOBS"] + _viz_order + ["RETRIES"]]
+        df = df.reset_index()
+        df = df.to_json()
+        resp = jsonify(workflows=df)
+    else:
+        df = pd.DataFrame({},
+                          columns=["WF_ID", "WF_NAME", "WF_STATUS", "JOBS",
+                                   "PENDING", "RUNNING", "DONE", "FATAL",
+                                   "RETRIES"]).to_json()
+        resp = jsonify(workflows=df)
+
     resp.status_code = StatusCodes.OK
     return resp

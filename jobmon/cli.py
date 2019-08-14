@@ -24,6 +24,15 @@ class CLI(object):
         test_parser = subparsers.add_parser("test")
         test_parser.set_defaults(func=self.test_connection)
 
+        workflow_status_parser = subparsers.add_parser("workflow_status")
+        workflow_status_parser.set_defaults(func=self.workflow_status)
+        workflow_status_parser.add_argument(
+            "-w", "--workflow_id", nargs="*", help="list of workflow_ids",
+            required=False)
+        workflow_status_parser.add_argument(
+            "-u", "--user", nargs="*", help="list of users",
+            required=False)
+
     def main(self):
         args = self.parse_args()
         args.func(args)
@@ -96,6 +105,24 @@ class CLI(object):
 
         # check the server's is_alive? route
         shared_requester.send_request(app_route='/', request_type='get')
+
+    def workflow_status(self, args):
+        import getpass
+        from jobmon.client import shared_requester
+
+        msg = {}
+        if args.workflow_id:
+            msg["workflow_id"] = args.workflow_id
+        if args.user:
+            msg["user"] = args.user
+        else:
+            msg["user"] = getpass.getuser()
+
+        df = shared_requester.send_request(
+            app_route="/workflow_status",
+            message=msg,
+            request_type="get")
+        print(df)
 
 
 def main():

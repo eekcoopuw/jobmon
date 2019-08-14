@@ -102,9 +102,9 @@ class ExecutorJob:
             requester=requester)
         return executor_job
 
-    def update_executor_parameter_set(self,
-        parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
-        only_scale: List = [], resource_adjustment=0.5) -> None:
+    def update_executor_parameter_set(
+            self, parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
+            only_scale: List = [], resource_adjustment=0.5) -> None:
         """
         update the resources for a given job in the db
 
