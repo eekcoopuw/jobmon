@@ -2,7 +2,6 @@ include README.rst
 include build/*.R
 include build/*.ado
 include versioneer.py
-include autowrap.cfg
 include jobmon/_version.py
 include jobmon/default_config/*
 include jobmon/client/swarm/executors/*.sh

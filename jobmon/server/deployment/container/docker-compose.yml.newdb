@@ -3,6 +3,7 @@ version: '2'
 services:
   jobmon:
     build: .
+    restart: unless-stopped
     image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
     container_name: jobmon${JOBMON_VERSION}_jobmon_1
     volumes:
@@ -26,6 +27,7 @@ services:
             max-size: "100m"
             max-file: "10"
   monitor:
+    restart: unless-stopped
     image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
     container_name: jobmon${JOBMON_VERSION}_monitor_1
     depends_on:
@@ -68,6 +70,7 @@ services:
     links:
         - db
   db:
+    restart: unless-stopped
     image: mysql:5.7
     container_name: jobmon${JOBMON_VERSION}_db_1
     ports:
@@ -75,10 +78,10 @@ services:
     environment:
         - MYSQL_ROOT_PASSWORD=${JOBMON_PASS_ROOT}
         - MYSQL_DATABASE=docker
-        - JOBMON_PASS_ROOT
-        - JOBMON_PASS_TABLE_CREATOR
-        - JOBMON_PASS_SERVICE_USER
-        - JOBMON_PASS_READ_ONLY
+        - JOBMON_PASS_ROOT=${JOBMON_PASS_ROOT}
+        - JOBMON_PASS_TABLE_CREATOR=${JOBMON_PASS_TABLE_CREATOR}
+        - JOBMON_PASS_SERVICE_USER=${JOBMON_PASS_SERVICE_USER}
+        - JOBMON_PASS_READ_ONLY=${JOBMON_PASS_READ_ONLY}
 
     volumes:
         - mysql-jobmon-emu:/var/lib/mysql
