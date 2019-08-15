@@ -16,6 +16,8 @@ import re
 import subprocess
 import sys
 
+from jobmon.server.deployment.util import Conf
+
 
 def get_keywords():
     """Get the keywords needed to look up the version information."""
@@ -41,7 +43,7 @@ def get_config():
     cfg = VersioneerConfig()
     cfg.VCS = "git"
     cfg.style = "pep440-pre"
-    cfg.tag_prefix = "release-"
+    cfg.tag_prefix = Conf().get_tag_prefix()
     cfg.parentdir_prefix = "None"
     cfg.versionfile_source = "jobmon/_version.py"
     cfg.verbose = False
@@ -221,6 +223,7 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
     expanded, and _version.py hasn't already been rewritten with a short
     version string, meaning we're inside a checked out source tree.
     """
+    print("tag_prefix: {}".format(tag_prefix))
     GITS = ["git"]
     if sys.platform == "win32":
         GITS = ["git.cmd", "git.exe"]
@@ -298,9 +301,13 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
         pieces["distance"] = int(count_out)  # total number of commits
 
     # commit date: see ISO-8601 comment in git_versions_from_keywords()
-    date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"],
+    try:
+        date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"],
                        cwd=root)[0].strip()
-    pieces["date"] = date.strip().replace(" ", "T", 1).replace(" ", "", 1)
+        pieces["date"] = date.strip().replace(" ", "T", 1).replace(" ", "", 1)
+    except Exception as e:
+        print(str(e))
+        pieces["date"] = ""
 
     return pieces
 

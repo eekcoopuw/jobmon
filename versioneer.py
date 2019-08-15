@@ -288,6 +288,8 @@ import re
 import subprocess
 import sys
 
+from jobmon.server.deployment.util import Conf
+
 
 class VersioneerConfig:
     """Container for Versioneer configuration parameters."""
@@ -353,7 +355,7 @@ def get_config_from_root(root):
     cfg.style = get(parser, "style") or ""
     cfg.versionfile_source = get(parser, "versionfile_source")
     cfg.versionfile_build = get(parser, "versionfile_build")
-    cfg.tag_prefix = get(parser, "tag_prefix")
+    cfg.tag_prefix = Conf().get_tag_prefix()
     if cfg.tag_prefix in ("''", '""'):
         cfg.tag_prefix = ""
     cfg.parentdir_prefix = get(parser, "parentdir_prefix")

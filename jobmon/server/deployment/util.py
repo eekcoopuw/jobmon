@@ -77,7 +77,7 @@ class Conf:
     def _get_instance():
         if Conf.__instance is None:
             Conf.__instance = configparser.ConfigParser()
-            Conf.__instance.read('CONFIG.INI')
+            Conf.__instance.read('../../../setup.cfg')
 
     def __init__(self):
         Conf._get_instance()
@@ -86,7 +86,11 @@ class Conf:
         return Conf.__instance["basic values"]["test_mode"] == "True"
 
     def get_jobmon_version(self):
-        return Conf.__instance["basic values"]["jobmon_version"]
+        if self.is_test_mode():
+            return Conf.__instance["testing mode"]["testing_jobmon_version"]
+        else:
+            import jobmon
+            return jobmon.__version__
 
     def is_existed_db(self):
         if Conf.__instance["basic values"]["existing_db"] == "True":
@@ -142,8 +146,8 @@ class Conf:
     def get_docker_tag(self):
         return f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{self.get_jobmon_version()}"
 
-    def get_git_tag(self):
-        return Conf.__instance["production mode"]["git_tag"]
-
-    def get_git_branch(self):
-        return Conf.__instance["production mode"]["git_branch"]
+    def get_tag_prefix(self):
+        if self.is_test_mode():
+            return Conf.__instance["testing mode"]["tag_prefix"]
+        else:
+            return Conf.__instance["versioneer"]["tag_prefix"]
