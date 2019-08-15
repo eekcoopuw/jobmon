@@ -1,10 +1,12 @@
-from jobmon.server.deployment.jobmon_deployment import JobmonDeployment
-import jobmon.server.deployment.release_new_version as release_new_version
+from jobmon.server.deployment.deploy import JobmonDeployment
+from jobmon.server.deployment.util import Conf
 
 
 def main():
-    release_new_version.tag_release()
-    JobmonDeployment().deploy()
+    jobmon = JobmonDeployment()
+    jobmon.build()
+    if not Conf().is_test_mode():
+        jobmon.upload_image()
 
 
 if __name__ == "__main__":

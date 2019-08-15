@@ -143,4 +143,7 @@ class Conf:
         return f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{self.get_jobmon_version()}"
 
     def get_git_tag(self):
-        return Conf.__instance["production mode"]["jobmon_git_tag=release"]
+        return Conf.__instance["production mode"]["git_tag"]
+
+    def get_git_branch(self):
+        return Conf.__instance["production mode"]["git_branch"]
