@@ -22,10 +22,8 @@ logger = logging.getLogger(__name__)
 class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
-                 job_instantiation_interval=3,
-                 interrupt_on_error=True, n_queued_jobs=1000,
-                 resource_adjustment: float = 0.5,
-                 requester=shared_requester):
+                 job_instantiation_interval=3, n_queued_jobs=1000,
+                 resource_adjustment: float = 0.5):
         """Manages all the list of jobs that are running, done or errored
 
         Args:
@@ -36,8 +34,6 @@ class JobListManager(object):
                 JobInstanceFactory and JobReconciler as daemonized threads
             job_instantiation_interval (int, default 3): number of seconds to
                 wait between instantiating newly ready jobs
-            interrupt_on_error (bool, default True): whether or not to
-                interrupt the thread if there's an error
             n_queued_jobs (int): number of queued jobs that should be returned
                 to be instantiated
             resource_adjustment: scalar value to adjust resources by when
@@ -50,14 +46,12 @@ class JobListManager(object):
         self.job_instance_factory = JobInstanceFactory(
             dag_id=dag_id,
             executor=executor,
-            interrupt_on_error=interrupt_on_error,
             n_queued_jobs=n_queued_jobs,
             resource_adjustment=resource_adjustment,
             stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id=dag_id,
             executor=executor,
-            interrupt_on_error=interrupt_on_error,
             stop_event=self._stop_event)
 
         self.requester = shared_requester
@@ -91,7 +85,17 @@ class JobListManager(object):
         # bind original parameters and validated parameters to the db
 
         if task.hash in self.hash_job_map:
+            logger.info("Job already bound and has a hash, retrieving from db "
+                        "and making sure updated parameters are bound")
             job = self.hash_job_map[task.hash]
+
+            # update the job's params in case they were changed before resuming
+            self._add_parameters(job.job_id, task.executor_parameters,
+                                 ExecutorParameterSetType.ORIGINAL)
+            task.executor_parameters.validate()
+            self._add_parameters(job.job_id, task.executor_parameters,
+                                 ExecutorParameterSetType.VALIDATED)
+            self._update_job(job.job_id, task.tag, task.max_attempts)
         else:
             job = self._create_job(
                 jobname=task.name,
@@ -110,8 +114,8 @@ class JobListManager(object):
                 hard_limits=task.executor_parameters.hard_limits
             )
             task.executor_parameters.validate()
-            self._add_validated_parameters(job.job_id,
-                                           task.executor_parameters)
+            self._add_parameters(job.job_id, task.executor_parameters,
+                                 ExecutorParameterSetType.VALIDATED)
 
         # adding the attributes to the job now that there is a job_id
         for attribute in task.job_attributes:
@@ -122,10 +126,11 @@ class JobListManager(object):
         self.bound_tasks[job.job_id] = bound_task
         return bound_task
 
-    def _add_validated_parameters(self, job_id: int, executor_parameters):
+    def _add_parameters(self, job_id: int, executor_parameters,
+                        parameter_set_type=ExecutorParameterSetType.VALIDATED):
         """Add an entry for the validated parameters to the database and
         activate them"""
-        msg = {'parameter_set_type': ExecutorParameterSetType.VALIDATED,
+        msg = {'parameter_set_type': parameter_set_type,
                'max_runtime_seconds': executor_parameters.max_runtime_seconds,
                'context_args': executor_parameters.context_args,
                'queue': executor_parameters.queue,
@@ -138,6 +143,16 @@ class JobListManager(object):
             app_route=f'/job/{job_id}/update_resources',
             message=msg,
             request_type='post')
+
+    def _update_job(self, job_id: int, tag: str, max_attempts: int):
+        msg = {'tag': tag, 'max_attempts': max_attempts}
+        self.requester.send_request(
+            app_route=f'/job/{job_id}/update_job',
+            message=msg,
+            request_type='post'
+        )
+
+
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""

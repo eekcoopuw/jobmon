@@ -27,17 +27,26 @@ To get started::
 Getting Started
 ***************
 Users will primarily interact with jobmon by creating a :term:`Workflow` and iteratively
-adding :term:`Task` to it. Each Workflow is uniquely defined by its :term:`WorkflowArgs` and the set of Tasks attached to it. A Workflow can only be re-loaded if the WorkflowArgs and all Tasks added to it are shown to be exact matches to a previous Workflow.
+adding :term:`Task` to it. Each Workflow is uniquely defined by its
+:term:`WorkflowArgs` and the set of Tasks attached to it. A Workflow can only
+be re-loaded if the WorkflowArgs and all Tasks added to it are shown to be
+exact matches to a previous Workflow.
 
 
 Create a Workflow
 *****************
 
-A Workflow is a framework by which a user may define the relationship between Tasks and define the relationship between multiple runs of the same set of Tasks.
+A Workflow is a framework by which a user may define the relationship between
+Tasks and define the relationship between multiple runs of the same set of Tasks.
 
-A Workflow represents a set of Tasks which may depend on one another such that if each relationship were drawn (Task A) -> (Task B) meaning that Task B depends on Task A, it would form a `directed-acyclic graph (DAG) <https://en.wikipedia.org/wiki/Directed_acyclic_graph>`_.  A Workflow is further uniquely identified by a set of WorkflowArgs which are required if the Workflow is to be resumable.
+A Workflow represents a set of Tasks which may depend on one another such
+that if each relationship were drawn (Task A) -> (Task B) meaning that Task B
+depends on Task A, it would form a `directed-acyclic graph (DAG) <https://en.wikipedia.org/wiki/Directed_acyclic_graph>`_.
+A Workflow is further uniquely identified by a set of WorkflowArgs which are
+required if the Workflow is to be resumable.
 
-For more about the objects go to the :doc:`Workflow and Task Reference <jobmon.client.swarm.workflow>` or :doc:`Executor Parameter Reference <jobmon.client.swarm.executors>`
+For more about the objects go to the :doc:`Workflow and Task Reference <jobmon.client.swarm.workflow>`
+or :doc:`Executor Parameter Reference <jobmon.client.swarm.executors>`
 
 Constructing a Workflow and adding a few Tasks is simple::
 
@@ -77,27 +86,52 @@ Constructing a Workflow and adding a few Tasks is simple::
     my_wf.run()
 
 .. note::
-    Unique Workflows: If you know that your Workflow is to be used for a one-off project only, you may choose to use an anonymous Workflow, meaning you leave workflow_args blank. In this case, WorkflowArgs will default to a UUID which, as it is randomly generated, will be harder to remember and thus is not recommended for use cases outside of the one-off project.
+    Unique Workflows: If you know that your Workflow is to be used for a
+    one-off project only, you may choose to use an anonymous Workflow, meaning
+    you leave workflow_args blank. In this case, WorkflowArgs will default to
+    a UUID which, as it is randomly generated, will be harder to remember and
+    thus is not recommended for use cases outside of the one-off project.
 
-Default Executor Parameters: Tasks, such as BashTask, PythonTask, etc. take many qsub-type arguments, to help you allocate appropriate resources for your job. These include num_cores, m_mem_free, and max_runtime_seconds. By default, num_cores used will be 1, mem_free will be 1G, and max attempts will be 3. Stderr, stdout, project, and working_dir (if desired) are set at the workflow level (see below).
+Default Executor Parameters: Tasks, such as BashTask, PythonTask, etc. take
+many qsub-type arguments, to help you allocate appropriate resources for your
+job. These include num_cores, m_mem_free, and max_runtime_seconds. By default,
+num_cores used will be 1, mem_free will be 1G, and max attempts will be 3.
+Stderr, stdout, project, and working_dir (if desired) are set at the workflow
+level (see below).
 
-Additional Arguments: If you need to launch a Python, R, or Stata job, but usually do so with a shellscript that sets environment variables before running the full program, you can pass these environment variables to your Jobmon Task, in the form of a dictionary. These will then be formatted and prepended to the command, so that all environment variables will be set on each node where the code executes.
+Additional Arguments: If you need to launch a Python, R, or Stata job, but
+usually do so with a shellscript that sets environment variables before
+running the full program, you can pass these environment variables to your
+Jobmon Task, in the form of a dictionary. These will then be formatted and
+prepended to the command, so that all environment variables will be set on
+each node where the code executes.
 
 .. note::
-    By default Workflows are set to time out if your tasks haven't all completed after 10 hours (or 36000 seconds). If your Workflow times out before your tasks have finished running, those tasks will continue running, but you will need to restart your Workflow again. You can change this if your tasks combined run longer than 10 hours.
+    By default Workflows are set to time out if your tasks haven't all
+    completed after 10 hours (or 36000 seconds). If your Workflow times out
+    before your tasks have finished running, those tasks will continue
+    running, but you will need to restart your Workflow again. You can change
+    this if your tasks combined run longer than 10 hours.
 
 .. note::
-    Errors with a return code of 199 indicate an issue occurring within Jobmon itself.
+    Errors with a return code of 199 indicate an issue occurring within Jobmon
+    itself.
 
 .. note::
-    Resource Adjustments: If you want to define the rate at which resources are adjusted in case a job fails because it did not request enough resources (exit code 137), then you can adjust the resource_adjustment parameter defined in the workflow object (otherwise the default is 0.5 or 50% increase after each failure)
+    Resource Adjustments: If you want to define the rate at which resources
+    are adjusted in case a job fails because it did not request enough
+    resources (exit code 137), you can define which resources you want to
+    adjust in the resource scales parameter and the factor by which they
+    should be scaled if they do fail due to a resource error
 
 
 Restart Tasks and Resume Workflows
 =======================================
 
-A Workflow allows for sophisticated tracking of how many times a DAG gets executed, who ran them and when.
-If on the old prod cluster it does uses ssh to kill off any job instances that might be left over from previous failed attempts. With a Workflow you can:
+A Workflow allows for sophisticated tracking of how many times a DAG gets
+executed, who ran them and when.
+If on the old prod cluster it does uses ssh to kill off any job instances
+that might be left over from previous failed attempts. With a Workflow you can:
 
 #. Re-use a set of Tasks
 #. Stop a set of Tasks mid-run and resume it (either intentionally or unfortunately, as
@@ -130,7 +164,9 @@ To resume the Workflow created above::
 
     my_wf.run()
 
-That's it. It is the same setup, just change the resume flag so that it is true (otherwise you will get an error that you are creating a workflow that already exists)
+That's it. It is the same setup, just change the resume flag so that it is
+true (otherwise you will get an error that you are creating a workflow that
+already exists)
 
 Behind the scenes, the Workflow will launch your Tasks as soon as each is
 ready to run (i.e. as soon as the Task's upstream dependencies are DONE). It
@@ -243,6 +279,58 @@ For example::
     scale values and the resource adjustment value will be applied to all
     resources specified
 
+
+
+A Workflow that retries jobs if they fail
+*****************************************
+
+By default a job will be retried up to 3 times if it fails. This helps to
+reduce the chance that random events on the cluster or landing on a bad node
+will cause your entire job and workflow to fail.
+
+In order to configure the number of times a job can be retried, configure the
+max_attempts parameter in the task that you create. If you are still debugging
+your code, please set the number of retries to zero so that it does not retry
+code with a bug multiple times. When the code is debugged, and you are ready
+to run in production, set the retries to a nonzero value.
+
+The following example shows a configuration in which the user wants their job
+to be retried 4 times and it will fail up until the fourth time.::
+
+    import getpass
+    from jobmon import Workflow, PythonTask
+    from jobmon.client.swarm.executors.base import ExecutorParameters
+    from jobmon.client.swarm.executors import sge_utils
+
+    user = getpass.getuser()
+
+    wf = Workflow(
+        workflow_args="workflow_with_many_retries",
+        project="proj_tools")
+
+    params = ExecutorParameters(
+        num_cores=1,
+        m_mem_free="1G",
+        max_runtime_seconds=100,  # set max runtime to be shorter than task runtime
+        queue="all.q",
+        executor_class="SGEExecutor",
+        resource_scales={'m_mem_free': 0.5, 'max_runtime_seconds': 0.5})
+
+    name = "retry_task"
+    output_file_name = f"/ihme/scratch/users/{user}/retry_output"
+    retry_task = PythonTask(
+        script=sge_utils.true_path("tests/remote_sleep_and_write.py"),
+        args=["--sleep_secs", "4",
+              "--output_file_path", output_file_name,
+              "--fail_count", 3,
+              "--name", name],
+        name=name, max_attempts=4, executor_parameters = params)
+
+    wf.add_task(retry_task)
+
+    # 3 job instances will fail before ultimately succeeding
+    wf.run()
+
 Jobmon Database
 ***************
 
@@ -284,7 +372,8 @@ job_attribute
 job_attribute_type
     Type of attributes that can be tracked
 job_instance
-    An actual run of a job. Like calling a function in python. One job can have multiple job_instances if they are retried
+    An actual run of a job. Like calling a function in python. One job can
+    have multiple job_instances if they are retried
 job_instance_error_log
     Any errors produced by a job_instance.
 job_instance_status
@@ -310,7 +399,9 @@ workflow_run_status
 workflow_status
     Meta-data table that defines the five states of a Workflow
 
-You will need to know your workflow_id or dag_id. Hopefully your application logged it, otherwise it will be obvious by name as one of the recent entries in the task_dag table.
+You will need to know your workflow_id or dag_id. Hopefully your application
+logged it, otherwise it will be obvious by name as one of the recent entries
+in the task_dag table.
 
 For example, the following command shows the current status of all jobs in dag 191:
     SELECT status, count(*) FROM job WHERE dag_id=191 GROUP BY status
