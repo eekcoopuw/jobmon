@@ -298,7 +298,11 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
         pieces["closest-tag"] = None
         count_out, rc = run_command(GITS, ["rev-list", "HEAD", "--count"],
                                     cwd=root)
-        pieces["distance"] = int(count_out)  # total number of commits
+        try:
+            pieces["distance"] = int(count_out)  # total number of commits
+        except Exception as e:
+            print(str(e))
+            pieces["distance"] = 0
 
     # commit date: see ISO-8601 comment in git_versions_from_keywords()
     try:
