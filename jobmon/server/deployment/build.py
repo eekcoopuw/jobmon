@@ -6,11 +6,11 @@ from jobmon.server.deployment.util import Conf
 
 
 class BuildContainer:
-    def __init__(self):
+    def __init__(self, docker_file_dir, jobmon_root):
         self.envs = dict()
-        self.docker_file_dir = os.path.dirname(os.path.abspath(__file__)) + "/container"
+        self.docker_file_dir = docker_file_dir
         # Have to build under the jobmon root dir to install jobmon
-        self.jobmon_dir = os.path.dirname(os.path.abspath(__file__))[:0-len("/jobmon/server/deployment")]
+        self.jobmon_dir = jobmon_root
         self.tag = Conf().get_docker_tag()
 
     def _copy_docker_compose_file(self):
