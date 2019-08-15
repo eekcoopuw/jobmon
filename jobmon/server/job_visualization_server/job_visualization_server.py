@@ -32,6 +32,12 @@ _viz_label_mapping = {
     "F": "FATAL",
     "D": "DONE"
 }
+_reversed_viz_label_mapping = {
+    "PENDING": ["A", "G", "Q", "I", "E"],
+    "RUNNING": ["R"],
+    "FATAL": ["F"],
+    "DONE": ["D"]
+}
 _viz_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 
@@ -101,14 +107,11 @@ def get_job_display_details_by_workflow(workflow_id):
         job.job_id,
         job.status,
         job_attribute.value AS display_group
-    FROM
-        workflow
-    JOIN
-        job
-            ON workflow.dag_id = job.dag_id
-    LEFT JOIN
-        job_attribute
-            ON job.job_id = job_attribute.job_id AND attribute_type = 18
+    FROM workflow
+    JOIN job
+        ON workflow.dag_id = job.dag_id
+    LEFT JOIN job_attribute
+        ON job.job_id = job_attribute.job_id AND attribute_type = 18
     WHERE
         workflow.id = :workflow_id
         AND job.status_date >= :last_sync
@@ -136,15 +139,17 @@ def get_job_display_details_by_workflow(workflow_id):
 
 @jvs.route('/workflow_status', methods=['GET'])
 def get_workflow_status():
+    params = {}
     # convert workflow args into sql filter
     workflow_request = request.args.get('workflow_id', None)
     if workflow_request is not None:
         if workflow_request == "all":
             workflow_filter = ""
-        elif isinstance(workflow_request, Iterable):
-            workflow_filter = "workflow_id in :workflow_id "
         else:
-            workflow_filter = "workflow_id = :workflow_id "
+            if not isinstance(workflow_request, list):
+                workflow_request = [workflow_request]
+            params["workflow_id"] = workflow_request
+            workflow_filter = "workflow.id in :workflow_id "
     else:
         workflow_filter = ""
 
@@ -153,23 +158,27 @@ def get_workflow_status():
     if user_request is not None:
         if user_request == "all":
             user_filter = ""
-        elif isinstance(user_request, Iterable):
-            user_filter = "user in :user "
         else:
-            user_filter = "user = :user "
+            if not isinstance(user_request, list):
+                user_request = [user_request]
+            params["user"] = user_request
+            user_filter = "user in :user "
     else:
         user_filter = ""
 
     # combine filters and build params dictionary
-    params = {}
     if workflow_filter or user_filter:
         where_clause = "WHERE "
-        if workflow_filter:
-            params["workflow_id"] = workflow_request
+        if workflow_filter and not user_filter:
             where_clause += workflow_filter
-        if user_filter:
+        elif user_filter and not workflow_filter:
             where_clause += user_filter
-            params["user"] = user_request
+        elif user_filter and workflow_filter:
+            where_clause += workflow_filter
+            where_clause += " AND "
+            where_clause += user_filter
+    else:
+        where_clause = ""
 
     # execute query
     q = """
@@ -185,10 +194,11 @@ def get_workflow_status():
                     ELSE num_attempts - 1
                 END
             ) as RETRIES
-        FROM
-            workflow
-        JOIN job USING (dag_id)
-        JOIN workflow_status ON workflow_status.id = workflow.status
+        FROM workflow
+        JOIN job
+            USING (dag_id)
+        JOIN workflow_status
+            ON workflow_status.id = workflow.status
         {where_clause}
         GROUP BY workflow.id, job.status
     """.format(where_clause=where_clause)
@@ -207,7 +217,11 @@ def get_workflow_status():
             values="JOBS",
             index=["WF_ID", "WF_NAME", "WF_STATUS"],
             columns="STATUS",
-            fill_value=0)[_viz_order]
+            fill_value=0)
+        for col in _viz_order:
+            if col not in jobs.columns:
+                jobs[col] = 0
+        jobs = jobs[_viz_order]
 
         # aggregate totals by workflow
         df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]
@@ -237,6 +251,88 @@ def get_workflow_status():
                                    "PENDING", "RUNNING", "DONE", "FATAL",
                                    "RETRIES"]).to_json()
         resp = jsonify(workflows=df)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jvs.route('/workflow/<workflow_id>/workflow_jobs', methods=['GET'])
+def get_workflow_jobs(workflow_id):
+    params = {"workflow_id": workflow_id}
+    where_clause = "WHERE workflow.id = :workflow_id"
+    status_request = request.args.get('status', None)
+    if status_request is not None:
+        params["status"] = _reversed_viz_label_mapping[status_request]
+        where_clause += " AND job.status in :status"
+
+    q = """
+        SELECT
+            job.job_id AS JOB_ID,
+            job.name AS JOB_NAME,
+            job.status AS STATUS,
+            CASE
+                WHEN num_attempts <= 1 THEN 0
+                ELSE num_attempts - 1
+            END AS RETRIES
+        FROM workflow
+        JOIN job
+            USING (dag_id)
+        {where_clause}""".format(where_clause=where_clause)
+    res = DB.session.execute(q, params).fetchall()
+
+    if res:
+        # assign to dataframe for serialization
+        df = pd.DataFrame(res, columns=res[0].keys())
+
+        # remap to viz statuses
+        df.STATUS.replace(to_replace=_viz_label_mapping, inplace=True)
+        df = df.to_json()
+        resp = jsonify(workflow_jobs=df)
+    else:
+        df = pd.DataFrame(
+            {}, columns=["JOB_ID", "JOB_NAME", "STATUS", "RETRIES"]).to_json()
+        resp = jsonify(workflow_jobs=df)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jvs.route('/job/<job_id>/status', methods=['GET'])
+def get_job_status(job_id):
+
+    q = """
+        SELECT
+            job.job_id,
+            job.status as job_status,
+            job_instance_id AS JOB_INSTANCE_ID,
+            executor_id AS EXECUTOR_ID,
+            job_instance_status.label AS STATUS,
+            usage_str AS RESOURCE_USAGE,
+            description AS ERROR_TRACE
+        FROM job
+        JOIN job_instance
+            ON job.job_id = job_instance.job_id
+        JOIN job_instance_status
+            ON job_instance.status = job_instance_status.id
+        JOIN executor_parameter_set
+            ON job_instance.executor_parameter_set_id = executor_parameter_set.id
+        LEFT JOIN job_instance_error_log USING (job_instance_id)
+        WHERE
+            job.job_id = :job_id"""
+    res = DB.session.execute(q, {"job_id": job_id}).fetchall()
+
+    if res:
+        # assign to dataframe for serialization
+        df = pd.DataFrame(res, columns=res[0].keys())
+        job_state = _viz_label_mapping[df["job_status"].unique()[0]]
+        df = df[["JOB_INSTANCE_ID", "EXECUTOR_ID", "STATUS", "RESOURCE_USAGE",
+                 "ERROR_TRACE"]]
+        resp = jsonify(job_state=job_state,
+                       job_instance_status=df.to_json())
+    else:
+        df = pd.DataFrame(
+            {}, columns=["JOB_ID", "JOB_NAME", "STATUS", "RETRIES"]).to_json()
+        resp = jsonify(job_state="?", job_instance_status=df)
 
     resp.status_code = StatusCodes.OK
     return resp

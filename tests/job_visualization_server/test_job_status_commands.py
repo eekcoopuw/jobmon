@@ -1,33 +1,104 @@
 from jobmon import BashTask
 from jobmon import Workflow
 from jobmon.cli import CLI
-from jobmon.client import shared_requester as req
+from jobmon.client.status_commands import (workflow_status, workflow_jobs,
+                                           job_status)
 
 
-def test_foo(real_jsm_jqs, db_cfg):
-    t1 = BashTask("sleep 10", num_cores=1)
-    t2 = BashTask("sleep 5", upstream_tasks=[t1], num_cores=1)
-    workflow = Workflow()
+def test_workflow_status(real_jsm_jqs, db_cfg):
+    t1 = BashTask("sleep 10", executor_class="SequentialExecutor")
+    t2 = BashTask("sleep 5", upstream_tasks=[t1],
+                  executor_class="SequentialExecutor")
+    workflow = Workflow(executor_class="SequentialExecutor")
+    workflow.add_tasks([t1, t2])
+    workflow._bind()
+    workflow.task_dag.job_list_manager.disconnect()
+
+    # we should have the column headers plus 2 jobs in pending
+    command_str = "workflow_status -u mlsandar -w 1"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(args.workflow_id, args.user)
+    assert df["PENDING"][0] == "2 (100.0%)"
+
+    # defaults should return an identical value
+    command_str = "workflow_status"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(args.workflow_id, args.user)
+    assert df["PENDING"][0] == "2 (100.0%)"
+
+    # add a second workflow
+    t1 = BashTask("sleep 15", executor_class="SequentialExecutor")
+    t2 = BashTask("sleep 1", upstream_tasks=[t1],
+                  executor_class="SequentialExecutor")
+    workflow = Workflow(executor_class="SequentialExecutor")
+    workflow.add_tasks([t1, t2])
+    workflow._bind()
+    workflow.task_dag.job_list_manager.disconnect()
+
+    # check that we get 2 rows now
+    command_str = "workflow_status -u mlsandar"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(args.workflow_id, args.user)
+    assert len(df) == 2
+
+    # check that we can get values by workflow_id
+    command_str = "workflow_status -w 2"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(args.workflow_id, args.user)
+    assert len(df) == 1
+    assert df["WF_ID"][0] == 2
+
+
+def test_workflow_jobs(real_jsm_jqs, db_cfg):
+    t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t2 = BashTask("sleep 4", upstream_tasks=[t1],
+                  executor_class="SequentialExecutor", max_runtime_seconds=10,
+                  resource_scales={})
+    workflow = Workflow(executor_class="SequentialExecutor")
     workflow.add_tasks([t1, t2])
     workflow._bind()
 
-    # we should have the column headers plus 2 tasks
-    command_str = "jobmon workflow_status -u mlsandar -w 1"
+    # we should get 2 jobs back in pending state
+    command_str = "workflow_jobs -w 1"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_jobs(args.workflow_id, args.status)
+    assert len(df) == 2
+    assert df.STATUS[0] == "PENDING"
+    assert len(df.STATUS.unique()) == 1
+
+    workflow.run()
+
+    # we should get 0 jobs in pending
+    command_str = "workflow_jobs -w 1 -s PENDING"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_jobs(args.workflow_id, args.status)
+    assert len(df) == 0
+
+    # we should get 0 jobs when requesting workflow 2
+    command_str = "workflow_jobs -w 2"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_jobs(args.workflow_id, args.status)
+    assert len(df) == 0
+
+
+def test_job_status(real_jsm_jqs, db_cfg):
+    t1 = BashTask("exit -9", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={}, max_attempts=2)
+    workflow = Workflow(executor_class="SequentialExecutor")
+    workflow.add_tasks([t1])
+    workflow.run()
+
+    # we should get 2 jobs back in pending state
+    command_str = "job_status -j 1"
     cli = CLI()
     args = cli.parse_args(command_str)
     args.func(args)
-
-    workflow.run()
-    assert 0
-
-    # # now each of our jobs should be in D state
-    # rc, resp = req.send_request(
-    #     app_route=f'/workflow/{workflow.id}/job_display_details',
-    #     message={"last_sync": last_sync},
-    #     request_type='get')
-    # jobs = resp["jobs"]
-
-    # # zero index in responses is column names so ignore
-    # for job in jobs[1:]:
-    #     # first index is job status which should have moved to done
-    #     assert job[1] == "DONE"
+    state, df = job_status(args.job_id)
