@@ -104,7 +104,7 @@ def add_job():
         tag=data.get('tag', None),
         job_hash=data['job_hash'],
         command=data['command'],
-        max_attempts=data.get('max_attempts', 1),
+        max_attempts=data.get('max_attempts', 3),
         status=JobStatus.REGISTERED)
     DB.session.add(job)
     DB.session.commit()
@@ -717,6 +717,40 @@ def queue_job(job_id):
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@jsm.route('/job/<job_id>/update_job', methods=['POST'])
+def update_job(job_id):
+    """
+    Change the non-dag forming job parameters before resuming
+    Args:
+        job_id (int): id of the job for which parameters are updated
+        tag (str): a group identifier
+        max_attempts (int): maximum numver of attempts before sending the job
+            to the ERROR FATAL state
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("job_id", job_id))
+
+    data = request.get_json()
+    tag = data.get('tag', None)
+    max_attempts = data.get('max_attempts', 3)
+
+    update_job = """
+                 UPDATE job
+                 SET tag=:tag, max_attempts=:max_attempts
+                 WHERE job_id=:job_id
+                 """
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    DB.session.execute(update_job,
+                       {"tag": tag,
+                        "max_attempts": max_attempts,
+                        "job_id": job_id})
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
 
 
 @jsm.route('/job/<job_id>/update_resources', methods=['POST'])

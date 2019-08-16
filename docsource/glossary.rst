@@ -23,7 +23,7 @@ For users
             intelligence in the Tasks themselves.
 
     WorkflowArgs
-        A set of arguments that are used to deteremine the "uniqueness" of the
+        A set of arguments that are used to determine the "uniqueness" of the
         Workflow and whether it can be resumed. Must be hashable. For example,
         CodCorrect or Como version might be passed as Args to the Workflow.
         Coupled with a populated TaskDag, WorkflowArgs define a Workflow.
@@ -59,7 +59,20 @@ For users
         A identifier attribute of a Task that allows tasks to be grouped together.
         Currently, this identifier is only used for purposes of visualization: all
         tasks with the same tag will be colored the same.
-
+    
+    Job Instance Status
+        === =========================== ==============================================================================
+        ID  Label                       Description
+        === =========================== ==============================================================================
+        B   SUBMITTED_TO_BATCH_EXECUTOR Job instance submitted normally.
+        D   DONE                        Job instance finishes normally.
+        E   ERROR                       Job instance has hit an application error.
+        I   INSTANTIATED                Job instance is created.
+        R   RUNNING                     Job instance starts running normally.
+        U   UNKNOWN_ERROR               Job instance stops reporting that it's alive and jobmon can't figure out why.
+        W   NO_EXECUTOR_ID              Job instance submission has hit a bug and did not receive an executor_id.
+        Z   RESOURCE_ERROR              Job instance died because of an insufficient resource request.
+        === =========================== ==============================================================================
 
 For developers
 **************

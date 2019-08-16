@@ -21,6 +21,7 @@ from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client import shared_requester as req
 from jobmon.client import client_config
 from jobmon.client.swarm.executors import sge_utils
+from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     WorkflowAlreadyExists, ResumeStatus
@@ -982,3 +983,37 @@ def test_resource_scaling_config(real_jsm_jqs, db_cfg):
         assert job.executor_parameter_set.m_mem_free == 0.78
         assert job.executor_parameter_set.max_runtime_seconds == 78
         assert job.executor_parameter_set.num_cores == 2
+
+
+def test_workflow_resume_new_resources(real_jsm_jqs, db_cfg):
+    sge_params = ExecutorParameters(max_runtime_seconds=8,
+                                    resource_scales={'m_mem_free': 0.2,
+                                                     'max_runtime_seconds': 0.3})
+    task = BashTask(name="rerun_task", command="sleep 10", max_attempts=1,
+                    executor_parameters=sge_params)
+    wf = Workflow(workflow_args="rerun_w_diff_resources", project="proj_tools")
+    wf.add_task(task)
+
+    wf.run()
+    assert wf.status == 'E'
+
+    sge_params2 = ExecutorParameters(max_runtime_seconds=40,
+                                     resource_scales={'m_mem_free': 0.4,
+                                                      'max_runtime_seconds': 0.5})
+
+    task2 = BashTask(name="rerun_task", tag="new_tag", command="sleep 10",
+                     max_attempts=2, executor_parameters=sge_params2)
+    wf2 = Workflow(workflow_args="rerun_w_diff_resources",
+                   project="ihme_general", resume=True)
+    wf2.add_task(task2)
+    wf2.run()
+    assert wf2.status == 'D'
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job = DB.session.query(Job).filter_by(name="rerun_task").first()
+        assert job.executor_parameter_set.max_runtime_seconds == 40
+        assert job.max_attempts == 2
+        assert job.tag == 'new_tag'
+        DB.session.commit()

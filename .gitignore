@@ -29,6 +29,7 @@ htmlcov
 
 # Ignore mac files
 ._*
+.DS_Store
 
 # Ignore secrets file
 jobmonrc-docker-wsecrets
