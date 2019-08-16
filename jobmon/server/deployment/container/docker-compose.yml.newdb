@@ -71,7 +71,7 @@ services:
         - db
   db:
     restart: unless-stopped
-    image: mysql:5.7-jobmon-${JOBMON_TAG}
+    image: mysql:5.7
     container_name: jobmon${JOBMON_VERSION}_db_1
     ports:
         - "${EXTERNAL_DB_PORT}:3306"
