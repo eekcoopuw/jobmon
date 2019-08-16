@@ -3,8 +3,7 @@ import string
 import subprocess
 import requests
 
-from jobmon import Conf
-
+from jobmon.setup_config import SetupCfg as Conf
 
 def gen_password():
     return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
@@ -48,7 +47,7 @@ def validate_slack_token(slack_token: str) -> bool:
     :return: True if the token validates, False otherwise
     """
     resp = requests.post(
-        Conf.get_slack_api_url(),
+        Conf().get_slack_api_url(),
         headers={'Authorization': 'Bearer {}'.format(slack_token)})
     if resp.status_code != 200:
         print(f"Response returned a bad status code: {resp.status_code} "

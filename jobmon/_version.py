@@ -16,8 +16,6 @@ import re
 import subprocess
 import sys
 
-from jobmon.server.deployment.util import Conf
-
 
 def get_keywords():
     """Get the keywords needed to look up the version information."""
@@ -43,7 +41,7 @@ def get_config():
     cfg = VersioneerConfig()
     cfg.VCS = "git"
     cfg.style = "pep440-pre"
-    cfg.tag_prefix = Conf().get_tag_prefix()
+    cfg.tag_prefix = "test_"
     cfg.parentdir_prefix = "None"
     cfg.versionfile_source = "jobmon/_version.py"
     cfg.verbose = False
