@@ -1,4 +1,3 @@
-from collections.abc import Iterable
 from http import HTTPStatus as StatusCodes
 from flask import jsonify, request, Blueprint
 import logging
@@ -139,46 +138,26 @@ def get_job_display_details_by_workflow(workflow_id):
 
 @jvs.route('/workflow_status', methods=['GET'])
 def get_workflow_status():
+    # initial params
     params = {}
-    # convert workflow args into sql filter
-    workflow_request = request.args.get('workflow_id', None)
-    if workflow_request is not None:
-        if workflow_request == "all":
-            workflow_filter = ""
-        else:
-            if not isinstance(workflow_request, list):
-                workflow_request = [workflow_request]
-            params["workflow_id"] = workflow_request
-            workflow_filter = "workflow.id in :workflow_id "
-    else:
-        workflow_filter = ""
+    user_request = request.args.getlist('user')
+    if user_request == "all":  # specifying all is equivalent to None
+        user_request = []
+    workflow_request = request.args.getlist('workflow_id')
+    if workflow_request == "all":  # specifying all is equivalent to None
+        workflow_request = []
 
-    # convert user args into sql filter
-    user_request = request.args.get('user', None)
-    if user_request is not None:
-        if user_request == "all":
-            user_filter = ""
-        else:
-            if not isinstance(user_request, list):
-                user_request = [user_request]
+    where_clause = ""
+    # convert workflow request into sql filter
+    if workflow_request:
+        workflow_request = [int(w) for w in workflow_request]
+        params["workflow_id"] = workflow_request
+        where_clause = "WHERE workflow.id in :workflow_id "
+    else:  # if we don't specify workflow then we use the users
+        # convert user request into sql filter
+        if user_request:
             params["user"] = user_request
-            user_filter = "user in :user "
-    else:
-        user_filter = ""
-
-    # combine filters and build params dictionary
-    if workflow_filter or user_filter:
-        where_clause = "WHERE "
-        if workflow_filter and not user_filter:
-            where_clause += workflow_filter
-        elif user_filter and not workflow_filter:
-            where_clause += user_filter
-        elif user_filter and workflow_filter:
-            where_clause += workflow_filter
-            where_clause += " AND "
-            where_clause += user_filter
-    else:
-        where_clause = ""
+            where_clause = "WHERE user in :user "
 
     # execute query
     q = """

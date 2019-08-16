@@ -52,6 +52,13 @@ def test_workflow_status(real_jsm_jqs, db_cfg):
     assert len(df) == 1
     assert df["WF_ID"][0] == 2
 
+    # check that we can get both
+    command_str = "workflow_status -w 1 2"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(args.workflow_id, args.user)
+    assert len(df) == 2
+
 
 def test_workflow_jobs(real_jsm_jqs, db_cfg):
     t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
@@ -96,9 +103,11 @@ def test_job_status(real_jsm_jqs, db_cfg):
     workflow.add_tasks([t1])
     workflow.run()
 
-    # we should get 2 jobs back in pending state
+    # we should get 2 failed job instances
     command_str = "job_status -j 1"
     cli = CLI()
     args = cli.parse_args(command_str)
     args.func(args)
     state, df = job_status(args.job_id)
+    assert state == "FATAL"
+    assert len(df) == 2
