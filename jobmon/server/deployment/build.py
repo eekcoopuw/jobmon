@@ -34,6 +34,7 @@ class BuildContainer:
         self.envs["INTERNAL_DB_HOST"] = Conf().get_internal_db_host()
         self.envs["INTERNAL_DB_PORT"] = Conf().get_internal_db_port()
         self.envs["JOBMON_VERSION"] = "".join(Conf().get_jobmon_version().split('.'))
+        self.envs["JOBMON_TAG"] = Conf().get_jobmon_version()
         self.envs["SLACK_TOKEN"] = Conf().get_slack_token()
         self.envs["WF_SLACK_CHANNEL"] = Conf().get_wf_slack_channel()
         self.envs["NODE_SLACK_CHANNEL"] = Conf().get_node_slack_channel()
