@@ -287,17 +287,25 @@ def qdel(job_ids):
     return stdout
 
 
-def qacct_exit_status(jid: int)-> Tuple[int, str]:
-    # For strange reason f string or format does not work
+def qacct_exit_status(jid: int) -> Tuple[int, str]:
     failed_reason = ""
-    cmd1 = "qacct -j %s |grep 'exit_status\|failed'" % jid
-    logger.warning("**********************************************" + cmd1)
+    cmd1 = f"qacct -j {jid}"
+    logger.debug("*** qacct command: " + cmd1)
     try:
+        codes = {}
         res = subprocess.check_output(cmd1, shell=True, universal_newlines=True)
-        logger.debug(f"Exit code response: {res}")
-        codes = res.split()
-        exit_code = codes[codes.index('exit_status')+1]
-        if 'h_rt' in codes:
+        res = res.split("\n")
+        for line in res:
+            if 'failed' in line or 'exit_status' in line:
+                status_line = line.split()
+                codes[status_line[0]] = status_line[1:]
+        logger.debug(f"Exit code response: {codes}")
+        if 'exit_status' not in codes:
+            raise RuntimeError(f"Can't find 'exit_status' from qacct: {res}")
+        if 'failed' not in codes:
+            raise RuntimeError(f"Can't find 'failed' from qacct: {res}")
+        exit_code = codes['exit_status'][0]
+        if 'h_rt' in codes['failed']:
             failed_reason = 'over runtime'
         return int(exit_code), failed_reason
     except Exception as e:
@@ -306,7 +314,7 @@ def qacct_exit_status(jid: int)-> Tuple[int, str]:
         return SGE_UNKNOWN_ERROR, str(e)
 
 
-def qacct_hostname(jid: int)->str:
+def qacct_hostname(jid: int) -> str:
     if jid is None:
         return None
     # For strange reason f string or format does not work
@@ -322,7 +330,7 @@ def qacct_hostname(jid: int)->str:
         return None
 
 
-def qstat_hostname(jid: int)->str:
+def qstat_hostname(jid: int) -> str:
     if jid is None:
         return None
     # For strange reason f string or format does not work

@@ -4,7 +4,7 @@ services:
   jobmon:
     build: .
     restart: unless-stopped
-    image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
+    image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_TAG}
     container_name: jobmon${JOBMON_VERSION}_jobmon_1
     volumes:
         - ./uwsgi.ini:/app/uwsgi.ini
@@ -23,7 +23,7 @@ services:
             max-file: "10"
   monitor:
     restart: unless-stopped
-    image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_VERSION}
+    image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_TAG}
     container_name: jobmon${JOBMON_VERSION}_monitor_1
     depends_on:
         - jobmon

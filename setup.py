@@ -24,7 +24,7 @@ install_requires = [
     'numpy',
     'flask',
     'flask_cors',
-    'flask_sqlalchemy',
+    'Flask-SQLAlchemy',
     'cluster_utils',
     'requests',
     'paramiko',
