@@ -703,18 +703,6 @@ def update_job(job_id):
         max_attempts (int): maximum numver of attempts before sending the job
             to the ERROR FATAL state
     """
-    job = DB.session.query(Job) \
-        .filter_by(job_id=job_id).first()
-    try:
-        job.transition(JobStatus.ADJUSTING_RESOURCES)
-    except InvalidStateTransition:
-        if job.status == JobStatus.ADJUSTING_RESOURCES:
-            msg = ("Caught InvalidStateTransition. Not transitioning job "
-                   "{} from A to A".format(job_id))
-            logger.warning(msg)
-        else:
-            raise
-    DB.session.commit()
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_id", job_id))
 
