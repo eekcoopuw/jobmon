@@ -206,7 +206,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
         DB.session.execute("""
             UPDATE job
             SET status='{s}'
-            WHERE job_id={jid}""".format(s=JobStatus.REGISTERED,
+            WHERE job_id={jid}""".format(s=JobStatus.ADJUSTING_RESOURCES,
                                          jid=to_run_jid))
         DB.session.execute("""
             UPDATE workflow
@@ -220,7 +220,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
                                              id=stopped_wf.id))
         DB.session.execute("""
             DELETE FROM job_instance
-            WHERE job_id={jid}""".format(s=JobStatus.REGISTERED,
+            WHERE job_id={jid}""".format(s=JobStatus.ADJUSTING_RESOURCES,
                                          jid=to_run_jid))
         DB.session.commit()
 
@@ -331,7 +331,7 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
         jobDAO = DB.session.query(Job).filter_by(job_id=bt2.job_id).first()
         assert jobDAO.max_attempts == 3
         assert jobDAO.num_attempts == 0
-        assert jobDAO.status == JobStatus.REGISTERED
+        assert jobDAO.status == JobStatus.ADJUSTING_RESOURCES
         DB.session.commit()
 
     workflow.execute()
@@ -410,13 +410,13 @@ def test_dag_reset(db_cfg, simple_workflow_w_errors):
         assert len(jobs) == 4
 
         xstatuses = [JobStatus.DONE, JobStatus.ERROR_FATAL,
-                     JobStatus.ERROR_FATAL, JobStatus.REGISTERED]
+                     JobStatus.ERROR_FATAL, JobStatus.ADJUSTING_RESOURCES]
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
         DB.session.commit()
 
     # Now RESET and make sure all the jobs that aren't "DONE" flip back to
-    # REGISTERED
+    # ADJUSTING_RESOURCES
     rc, _ = req.send_request(
         app_route='/task_dag/{}/reset_incomplete_jobs'.format(dag_id),
         message={},
@@ -425,8 +425,9 @@ def test_dag_reset(db_cfg, simple_workflow_w_errors):
         jobs = DB.session.query(Job).filter_by(dag_id=dag_id).all()
         assert len(jobs) == 4
 
-        xstatuses = [JobStatus.DONE, JobStatus.REGISTERED,
-                     JobStatus.REGISTERED, JobStatus.REGISTERED]
+        xstatuses = [JobStatus.DONE, JobStatus.ADJUSTING_RESOURCES,
+                     JobStatus.ADJUSTING_RESOURCES,
+                     JobStatus.ADJUSTING_RESOURCES]
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
         DB.session.commit()

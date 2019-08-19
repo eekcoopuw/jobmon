@@ -212,8 +212,8 @@ class TaskDag(object):
                 if task.is_done:
                     raise RuntimeError("Invalid DAG. Encountered a DONE node.")
                 else:
-                    logger.debug("Queueing newly ready task {}".format(task))
-                    self.job_list_manager.queue_task(task)
+                    logger.debug("Adjusting resources for newly ready task {}".format(task))
+                    self.job_list_manager.adjust_and_queue(task)
 
             # TBD timeout?
             # An exception is raised if the runtime exceeds the timeout limit
@@ -309,7 +309,7 @@ class TaskDag(object):
             logger.debug("  downstream {}".format(downstream))
             downstream_done = (downstream.status == JobStatus.DONE)
             if (not downstream_done and downstream.status ==
-                JobStatus.REGISTERED):
+                JobStatus.ADJUSTING_RESOURCES):
                 if downstream.all_upstreams_done:
                     logger.debug("  and add to fringe")
                     new_fringe += [downstream]  # make sure there's no dups
@@ -363,7 +363,7 @@ class TaskDag(object):
             unfinished_upstreams = [u for u in task.upstream_tasks
                                     if u.status != JobStatus.DONE]
             if not unfinished_upstreams and \
-                    task.status == JobStatus.REGISTERED:
+                    task.status == JobStatus.ADJUSTING_RESOURCES:
                 self.top_fringe += [task]
         return self.top_fringe
 

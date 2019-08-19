@@ -110,30 +110,6 @@ class JobInstanceFactory(object):
         logger.debug("JIF: Found {} Queued Jobs".format(len(jobs)))
         job_instance_ids = []
         for job in jobs:
-            if job.status == JobStatus.ADJUSTING_RESOURCES:
-                logger.debug("Job in A state, adjusting resources before queueing")
-                only_scale = list(job.executor_parameters.resource_scales.keys())
-                rc, response = self.requester.send_request(
-                    app_route=f'/job/{job.job_id}/most_recent_exec_id',
-                    message={},
-                    request_type='get'
-                )
-                if len(response['executor_id']) > 0:
-                    exec_id = response['executor_id'][0]
-                    try:
-                        exit_code, msg = self.executor.get_remote_exit_info(exec_id)
-                        if 'exceeded max_runtime' in msg and \
-                                'max_runtime_seconds' in only_scale:
-                            only_scale = ['max_runtime_seconds']
-                    except RemoteExitInfoNotAvailable:
-                        logger.debug("Unable to retrieve exit info to "
-                                     "determine the cause of resource error")
-                job.update_executor_parameter_set(
-                    parameter_set_type=JobStatus.ADJUSTING_RESOURCES,
-                    only_scale=only_scale,
-                    resource_adjustment=self.resource_adjustment)
-                job.queue_job()
-
             job_instance = self._create_job_instance(job)
             if job_instance:
                 job_instance_ids.append(job_instance.job_instance_id)

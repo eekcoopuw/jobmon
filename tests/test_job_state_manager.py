@@ -154,6 +154,20 @@ def test_jsm_valid_done(real_dag_id):
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
 
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
     # queue job
     req.send_request(
         app_route='/job/{}/queue'.format(swarm_job.job_id),
@@ -207,6 +221,20 @@ def test_jsm_valid_error(real_dag_id):
                  'dag_id': str(real_dag_id)},
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
 
     # queue job
     req.send_request(
@@ -272,6 +300,20 @@ def test_invalid_transition(dag_id):
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
 
+    _, response = req.send_request(
+        app_route='/job/{}/update_resources'.format(swarm_job.job_id),
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
     # InvalidStateTransition gets raised cuz the orig ji was Instantiated
     # and then this command tries to transition it's state backwards to G
     with pytest.raises(InvalidStateTransition):
@@ -295,6 +337,20 @@ def test_untimely_transition(real_dag_id, db_cfg):
                  'dag_id': str(real_dag_id)},
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
 
     # queue job
     req.send_request(
@@ -345,6 +401,21 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
                  'dag_id': str(real_dag_id)},
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
     req.send_request(
         app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
@@ -407,6 +478,21 @@ def test_job_reset(db_cfg, real_dag_id):
                  'max_attempts': '3'},
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
     req.send_request(
         app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
@@ -486,7 +572,7 @@ def test_job_reset(db_cfg, real_dag_id):
                  'next_report_increment': 120},
         request_type='post')
 
-    # Reset the job to REGISTERED
+    # Reset the job to ADJUSTING_RESOURCES
     req.send_request(
         app_route='/job/{}/reset'.format(swarm_job.job_id),
         message={},
@@ -499,7 +585,7 @@ def test_job_reset(db_cfg, real_dag_id):
                                                job_id=swarm_job.job_id).all()
         assert len(jobs) == 1
         job = jobs[0]
-        assert job.status == JobStatus.REGISTERED
+        assert job.status == JobStatus.ADJUSTING_RESOURCES
         assert job.num_attempts == 0
         assert len(job.job_instances) == 3
         assert all([ji.status == JobInstanceStatus.ERROR
@@ -523,6 +609,21 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
                  'dag_id': str(real_dag_id)},
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
     req.send_request(
         app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
@@ -766,6 +867,21 @@ def test_executor_id_logging(db_cfg, real_dag_id):
                  'dag_id': str(real_dag_id)},
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
     req.send_request(
         app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
@@ -840,6 +956,20 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
 
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
     # queue job
     req.send_request(
         app_route='/job/{}/queue'.format(swarm_job.job_id),
@@ -886,6 +1016,20 @@ def test_log_error_reconciler(db_cfg, real_dag_id):
                  'dag_id': str(real_dag_id)},
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
 
     # queue job
     req.send_request(
@@ -953,6 +1097,20 @@ def test_get_executor_id(real_dag_id):
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
 
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
     # queue job
     req.send_request(
         app_route='/job/{}/queue'.format(swarm_job.job_id),
@@ -1014,6 +1172,20 @@ def test_get_nodename(real_dag_id):
                  'dag_id': str(real_dag_id)},
         request_type='post')
     swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
 
     # queue job
     req.send_request(

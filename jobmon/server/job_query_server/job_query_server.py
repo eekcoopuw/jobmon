@@ -190,6 +190,7 @@ def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
             Job.status.in_([JobStatus.QUEUED_FOR_INSTANTIATION,
                             JobStatus.ADJUSTING_RESOURCES]),
             Job.status_date >= last_sync).\
+        filter(Job.executor_parameter_set_id.isnot(None)).\
         order_by(Job.job_id).\
         limit(n_queued_jobs)
     DB.session.commit()
