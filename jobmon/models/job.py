@@ -100,7 +100,6 @@ class Job(DB.Model):
     def reset(self):
         """Reset status and number of attempts on a Job"""
         self.status = JobStatus.ADJUSTING_RESOURCES
-        self.executor_parameter_set_id = None
         self.num_attempts = 0
         for ji in self.job_instances:
             ji.status = JobInstanceStatus.ERROR
