@@ -16,7 +16,7 @@ vcmds = versioneer.get_cmdclass()
 cmds = {}
 cmds['sdist'] = vcmds['sdist']
 cmds['version'] = vcmds['version']
-cmds['version'] = vcmds['build_py']
+#cmds['version'] = vcmds['build_py']
 
 
 install_requires = [
