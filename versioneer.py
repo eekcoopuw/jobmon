@@ -1477,7 +1477,10 @@ def get_versions(verbose=False):
 
 def get_version():
     """Get the short version string for this project."""
-    return get_versions()["version"]
+    cfg = configparser.ConfigParser()
+    cfg.read(os.path.abspath(os.getcwd() + "/setup.cfg"))
+    bv = cfg["basic values"]
+    return bv["jobmon_version"] if bv["test_mode"] == "True" else get_versions()["version"]
 
 
 def get_cmdclass():
