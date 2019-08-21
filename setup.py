@@ -2,6 +2,7 @@ import versioneer
 import os
 import sys
 from setuptools import setup
+import configparser
 
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -15,7 +16,7 @@ vcmds = versioneer.get_cmdclass()
 
 cmds = {}
 cmds['sdist'] = vcmds['sdist']
-cmds['version'] = vcmds['version']
+#cmds['version'] = vcmds['version']
 #cmds['version'] = vcmds['build_py']
 
 
@@ -31,10 +32,13 @@ install_requires = [
     'tenacity'
 ]
 
+cfg = configparser.ConfigParser()
+cfg.read(os.path.abspath(os.getcwd() + "/setup.cfg"))
+v = cfg["basic values"]["jobmon_version"]
+
 setup(
 
-    version=versioneer.get_version(),
-    cmdclass=cmds,
+    version=v,
     name='jobmon',
     description=('A centralized logging and management utility for a batch of'
                  'SGE jobs'),
