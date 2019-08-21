@@ -1480,7 +1480,7 @@ def get_version():
     cfg = configparser.ConfigParser()
     cfg.read(os.path.abspath(os.getcwd() + "/setup.cfg"))
     bv = cfg["basic values"]
-    return bv["jobmon_version"] if bv["test_mode"] == "True" else get_versions()["version"]
+    return bv["jobmon_version"] 
 
 
 def get_cmdclass():
