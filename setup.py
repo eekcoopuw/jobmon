@@ -1,7 +1,6 @@
 import versioneer
 import os
 import sys
-import configparser
 from setuptools import setup
 
 
@@ -32,13 +31,9 @@ install_requires = [
     'tenacity'
 ]
 
-cfg = configparser.ConfigParser()
-cfg.read(os.path.abspath(os.getcwd()+"/setup.cfg"))
-bv = cfg["basic values"]
-
 setup(
 
-    version=bv["jobmon_version"] if bv["test_mode"] == "True" else versioneer.get_version(),
+    version=versioneer.get_version(),
     cmdclass=cmds,
     name='jobmon',
     description=('A centralized logging and management utility for a batch of'
