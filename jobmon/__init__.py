@@ -1,7 +1,10 @@
 from ._version import get_versions
 from .setup_config import SetupCfg
-
-__version__ = SetupCfg.get_jobmon_version()
+if SetupCfg().is_test_mode():
+    __version__ = SetupCfg().get_jobmon_version()
+else:
+    __version__ = get_versions()['version']
+    del get_versions
 
 RELEASE_NAME = "emu"
 

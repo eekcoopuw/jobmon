@@ -2,7 +2,6 @@ import versioneer
 import os
 import sys
 from setuptools import setup
-import configparser
 
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -16,8 +15,8 @@ vcmds = versioneer.get_cmdclass()
 
 cmds = {}
 cmds['sdist'] = vcmds['sdist']
-#cmds['version'] = vcmds['version']
-#cmds['version'] = vcmds['build_py']
+cmds['version'] = vcmds['version']
+cmds['version'] = vcmds['build_py']
 
 
 install_requires = [
@@ -32,13 +31,10 @@ install_requires = [
     'tenacity'
 ]
 
-cfg = configparser.ConfigParser()
-cfg.read(os.path.abspath(os.getcwd() + "/setup.cfg"))
-v = cfg["basic values"]["jobmon_version"]
-
 setup(
 
-    version=v,
+    version=versioneer.get_version(),
+    cmdclass=cmds,
     name='jobmon',
     description=('A centralized logging and management utility for a batch of'
                  'SGE jobs'),
@@ -46,6 +42,7 @@ setup(
     author='CentralComp',
     author_email=('tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu, '
                   'cpinho@uw.edu'),
+    package_data={'': ['setup.cfg']},
     include_package_data=True,
     install_requires=install_requires,
     packages=['jobmon',
@@ -58,6 +55,7 @@ setup(
               'jobmon.models',
               'jobmon.models.attributes',
               'jobmon.server',
+              'jobmon.server.deployment',
               'jobmon.server.health_monitor',
               'jobmon.server.job_query_server',
               'jobmon.server.job_state_manager',
