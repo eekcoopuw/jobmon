@@ -9,7 +9,7 @@ class SetupCfg:
     def _get_instance():
         if SetupCfg.__instance is None:
             SetupCfg.__instance = configparser.ConfigParser()
-            config_file = os.path.abspath(os.getcwd())[:0-len("jobmon/server/deployment")]+"setup.cfg"
+            config_file = os.path.join(os.path.dirname(__file__), '../setup.cfg')
             print(config_file)
             SetupCfg.__instance.read(config_file)
         return SetupCfg.__instance
