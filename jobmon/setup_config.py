@@ -9,7 +9,7 @@ class SetupCfg:
     def _get_instance():
         if SetupCfg.__instance is None:
             SetupCfg.__instance = configparser.ConfigParser()
-            config_file = os.path.join(os.path.dirname(__file__), '../setup.cfg')
+            config_file = os.path.join(os.path.dirname(__file__), 'jobmon.cfg')
             print(config_file)
             SetupCfg.__instance.read(config_file)
         return SetupCfg.__instance
@@ -88,7 +88,7 @@ class SetupCfg:
         return f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{self.get_jobmon_version()}"
 
     def get_tag_prefix(self):
-        return self.instance["versioneer"]["tag_prefix"]
+        return self.instance["basic values"]["tag_prefix"]
 
     def get_reconciliation_interval(self):
         return self.instance["basic values"]["reconciliation_interval"]

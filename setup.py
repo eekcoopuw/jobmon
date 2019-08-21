@@ -42,8 +42,6 @@ setup(
     author='CentralComp',
     author_email=('tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu, '
                   'cpinho@uw.edu'),
-    package_data={'': ['setup.cfg']},
-    include_package_data=True,
     install_requires=install_requires,
     packages=['jobmon',
               'jobmon.client',
@@ -61,6 +59,8 @@ setup(
               'jobmon.server.job_state_manager',
               'jobmon.server.job_visualization_server'
               ],
+    package_data={'jobmon': ['*.cfg']},
+    include_package_data=True,
     entry_points={
         'console_scripts': [
             "jobmon=jobmon.cli:main",
