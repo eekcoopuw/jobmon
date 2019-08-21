@@ -83,12 +83,11 @@ class JobListManager(object):
         Args:
             task (obj): obj of a type inherited from ExecutableTask
         """
-        # bind original parameters and validated parameters to the db
-
         if task.hash in self.hash_job_map:
             logger.info("Job already bound and has a hash, retrieving from db "
                         "and making sure updated parameters are bound")
             job = self.hash_job_map[task.hash]
+            self._update_job(job.job_id, task.tag, task.max_attempts)
         else:
             job = self._create_job(
                 jobname=task.name,
@@ -108,12 +107,17 @@ class JobListManager(object):
         return bound_task
 
     def _bind_parameters(self, job_id, task):
-        self._add_parameters(job_id, task.executor_parameters,
+        resources = task.executor_parameters(task) # evaluate the callable
+        self._add_parameters(job_id, resources,
                              ExecutorParameterSetType.ORIGINAL)
-        task.executor_parameters.validate()
-        self._add_parameters(job_id, task.executor_parameters,
+        resources.validate()
+        self._add_parameters(job_id, resources,
                              ExecutorParameterSetType.VALIDATED)
-        self._update_job(job_id, task.tag, task.max_attempts)
+        import pdb
+        pdb.set_trace()
+        # TODO after parameters are bound, the job state needs to be set to
+        #  queued and AFTER the function needs to be set to the
+        #  scaling(adjusting) function
 
     def _add_parameters(self, job_id: int, executor_parameters,
                         parameter_set_type=ExecutorParameterSetType.VALIDATED):
@@ -256,11 +260,11 @@ class JobListManager(object):
         # at this point it should be in adjusting resources, the problem is
         # that if it is in A state then there will be a race condition with the
         # job instance factory that is polling for jobs in adjusting state
-        self.adjust(job_id, task)
+        self.adjust_resources(job_id, task)
         # some sort of differentiation needs to happen
         self.queue_job(job_id)
 
-    def adjust(self, job_id, task):
+    def adjust_resources(self, job_id, task):
         """Function from Job Instance Factory that adjusts resources and then
         queues them, this should also incorporate resource binding if they
         have not yet been bound"""
