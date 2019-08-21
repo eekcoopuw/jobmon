@@ -113,8 +113,6 @@ class JobListManager(object):
         resources.validate()
         self._add_parameters(job_id, resources,
                              ExecutorParameterSetType.VALIDATED)
-        import pdb
-        pdb.set_trace()
         # TODO after parameters are bound, the job state needs to be set to
         #  queued and AFTER the function needs to be set to the
         #  scaling(adjusting) function
