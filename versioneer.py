@@ -1696,6 +1696,11 @@ __version__ = get_versions()['version']
 del get_versions
 """
 
+def get_tag_prefix():
+    # add a hack to get prefix
+    jobmon_cfg = configparser.ConfigParser()
+    jobmon_cfg.read(os.path.join(get_root(), "jobmon/jobmon.cfg"))
+    return jobmon_cfg["basic values"]["tag_prefix"]
 
 def do_setup():
     """Main VCS-independent setup function for installing Versioneer."""
