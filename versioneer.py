@@ -1110,9 +1110,13 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
         pieces["distance"] = int(count_out)  # total number of commits
 
     # commit date: see ISO-8601 comment in git_versions_from_keywords()
-    date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"],
-                       cwd=root)[0].strip()
-    pieces["date"] = date.strip().replace(" ", "T", 1).replace(" ", "", 1)
+    try:
+        date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"],
+                           cwd=root)[0].strip()
+        pieces["date"] = date.strip().replace(" ", "T", 1).replace(" ", "", 1)
+    except Exception as e:
+        print(str(e))
+        pieces["date"] = ""
 
     return pieces
 
@@ -1478,7 +1482,7 @@ def get_versions(verbose=False):
 def get_version():
     """Get the short version string for this project."""
     cfg = configparser.ConfigParser()
-    cfg.read(os.path.abspath(os.getcwd() + "/jobmon/jobmon.cfg"))
+    cfg.read(os.path.abspath(os.path.dirname(__file__) + "/jobmon/jobmon.cfg"))
     bv = cfg["basic values"]
     return bv["jobmon_version"] if bv["test_mode"] == "True" else get_versions()["version"]
 
