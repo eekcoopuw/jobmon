@@ -32,7 +32,6 @@ install_requires = [
 ]
 
 setup(
-
     version=versioneer.get_version(),
     cmdclass=cmds,
     name='jobmon',
@@ -59,7 +58,7 @@ setup(
               'jobmon.server.job_state_manager',
               'jobmon.server.job_visualization_server'
               ],
-    package_data={'jobmon': ['*.cfg']},
+    package_data={'jobmon': ['*.cfg', 'jobmon/jobmon.cfg']},
     include_package_data=True,
     entry_points={
         'console_scripts': [
