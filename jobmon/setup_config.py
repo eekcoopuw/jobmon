@@ -63,6 +63,9 @@ class SetupCfg:
     def get_external_service_port(self):
         return str(self.instance["basic values"]["jobmon_service_port"])
 
+    def get_monitor_port(self):
+        return str(self.instance["basic values"]["jobmon_monitor_port"])
+
     def get_slack_token(self):
         return self.instance["basic values"]["slack_token"]
 

@@ -38,6 +38,7 @@ class BuildContainer:
         self.envs["SLACK_TOKEN"] = Conf().get_slack_token()
         self.envs["WF_SLACK_CHANNEL"] = Conf().get_wf_slack_channel()
         self.envs["NODE_SLACK_CHANNEL"] = Conf().get_node_slack_channel()
+        self.envs["MONITOR_PORT"] = Conf().get_monitor_port()
         if Conf().is_existed_db():
             self.envs["JOBMON_PASS_SERVICE_USER"] = Conf().get_jobmon_service_user_pwd()
 
