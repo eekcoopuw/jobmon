@@ -3,6 +3,7 @@ include build/*.R
 include build/*.ado
 include versioneer.py
 include jobmon/_version.py
+include jobmon/jobmon.cfg
 include jobmon/default_config/*
 include jobmon/client/swarm/executors/*.sh
 include client_logging.yaml
