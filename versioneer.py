@@ -353,7 +353,7 @@ def get_config_from_root(root):
     cfg.style = get(parser, "style") or ""
     cfg.versionfile_source = get(parser, "versionfile_source")
     cfg.versionfile_build = get(parser, "versionfile_build")
-    cfg.tag_prefix = get(parser, "tag_prefix")
+    cfg.tag_prefix = get_tag_prefix()
     if cfg.tag_prefix in ("''", '""'):
         cfg.tag_prefix = ""
     cfg.parentdir_prefix = get(parser, "parentdir_prefix")
@@ -1722,7 +1722,7 @@ def do_setup():
         LONG = LONG_VERSION_PY[cfg.VCS]
         f.write(LONG % {"DOLLAR": "$",
                         "STYLE": cfg.style,
-                        "TAG_PREFIX": cfg.tag_prefix,
+                        "TAG_PREFIX": get_tag_prefix(),
                         "PARENTDIR_PREFIX": cfg.parentdir_prefix,
                         "VERSIONFILE_SOURCE": cfg.versionfile_source,
                         })
