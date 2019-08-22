@@ -1,8 +1,8 @@
-import pytest
-from time import sleep
 import os
-import uuid
+import pytest
 import subprocess
+import uuid
+from time import sleep
 from multiprocessing import Process
 
 from jobmon import BashTask
@@ -26,6 +26,8 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     WorkflowAlreadyExists, ResumeStatus
 from jobmon.client.utils import gently_kill_command
+
+path_to_file = os.path.dirname(__file__)
 
 
 def cleanup_jlm(workflow):
@@ -964,7 +966,7 @@ def test_resource_scaling_config(real_jsm_jqs, db_cfg):
     adjustments, more resources than default resources get scaled too"""
 
     name = 'scale_by_wf_resource_scale'
-    task = PythonTask(script=sge_utils.true_path("tests/exceed_mem.py"),
+    task = PythonTask(script=sge_utils.true_path(f"{path_to_file}/exceed_mem.py"),
                       name=name, max_runtime_seconds=60, num_cores=2,
                       m_mem_free='600M',
                       resource_scales={'num_cores': 0.8, 'm_mem_free': 0.4,

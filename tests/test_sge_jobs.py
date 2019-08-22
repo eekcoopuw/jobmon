@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta
 from functools import partial
 
+import os
 import pytest
 
 from jobmon.client.swarm.executors import sge_utils as sge
@@ -11,10 +12,12 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from tests.timeout_and_skip import timeout_and_skip
 
+path_to_file = os.path.dirname(__file__)
+
 
 def test_valid_command(real_dag_id, job_list_manager_sge):
     job = job_list_manager_sge.bind_task(
-        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+        Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
              name="sge_valid_command", num_cores=2, mem_free='4G',
              max_runtime_seconds='1000',
              j_resource=True,
@@ -44,7 +47,7 @@ def test_context_args(db_cfg, real_jsm_jqs, job_list_manager_sge):
     # for execution in the future, in this case 5 hours in the future.
     delay_to = (datetime.now() + timedelta(hours=5)).strftime("%m%d%H%M")
     job = job_list_manager_sge.bind_task(
-        Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
+        Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
              name="test_context_args", num_cores=2, mem_free='4G',
              max_attempts=1,
              max_runtime_seconds='1000',
@@ -169,7 +172,7 @@ def node_architecture_check(db_cfg, job_id: int,
         return False
     else:
         command = "python {script}". \
-            format(script=sge.true_path("tests/get_cpu_vendor_name.py"))
+            format(script=sge.true_path(f"{path_to_file}/get_cpu_vendor_name.py"))
 
         exit_code, stdout_str, stderr_str = _run_remote_command(node_name,
                                                                 command)

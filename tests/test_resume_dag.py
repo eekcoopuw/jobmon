@@ -1,6 +1,7 @@
 import logging
-import sys
+import os
 import pytest
+import sys
 
 from cluster_utils.io import makedirs_safely
 
@@ -13,13 +14,14 @@ logger = logging.getLogger(__name__)
 handler = logging.StreamHandler(sys.stdout)
 handler.setLevel(logging.DEBUG)
 logger.addHandler(handler)
+path_to_file = os.path.dirname(__file__)
 
 
 @pytest.mark.qsubs_jobs
 def test_resume_real_dag(real_dag, tmp_out_dir):
     root_out_dir = "{}/mocks/test_resume_real_dag".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge_utils.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge_utils.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     a_output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(

@@ -1,3 +1,4 @@
+import os
 import pytest
 from time import sleep
 
@@ -15,6 +16,7 @@ from tests.timeout_and_skip import timeout_and_skip
 from functools import partial
 
 logger = logging.getLogger(__name__)
+path_to_file = os.path.dirname(__file__)
 
 
 @pytest.fixture(scope='function')
@@ -118,7 +120,7 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
     job_list_manager_reconciliation.all_error = set()
 
     # Queue a job
-    task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
+    task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/sleep.sh"),
                 name="sleepyjob_pass", num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
@@ -185,7 +187,7 @@ def test_reconciler_sge_timeout(job_list_manager_reconciliation, db_cfg):
     job_list_manager_reconciliation.all_error = set()
 
     # Queue a test job
-    task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
+    task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/sleep.sh"),
                 name="sleepyjob_fail", max_attempts=3, max_runtime_seconds=3,
                 num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
@@ -232,7 +234,7 @@ def test_ignore_qw_in_timeouts(job_list_manager_reconciliation, db_cfg):
     # to simulate a hqw -> set the timeout for that hqw job to something
     # short... make sure that job doesn't actually get killed
     # TBD I don't think that has been implemented.
-    task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
+    task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/sleep.sh"),
                 name="sleepyjob", max_attempts=3, max_runtime_seconds=3,
                 num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)

@@ -7,6 +7,8 @@ from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.workflow.task_dag_viz import TaskDagViz
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
+path_to_file = os.path.dirname(__file__)
+
 
 def test_dag_viz(tmp_out_dir, dag):
 
@@ -17,7 +19,7 @@ def test_dag_viz(tmp_out_dir, dag):
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(

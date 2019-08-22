@@ -11,7 +11,7 @@ thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 def test_sge_cli(real_jsm_jqs, db_cfg):
 
-    job_name = "foo"
+    job_name = "foo"    
     log_dir = f'/ihme/scratch/users/{getuser()}'
     t1 = PythonTask(script=os.path.join(thisdir, 'fill_pipe.py'),
                     name=job_name, num_cores=1, max_runtime_seconds=600,

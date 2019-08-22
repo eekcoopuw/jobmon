@@ -16,6 +16,7 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
+path_to_file = os.path.dirname(__file__)
 
 # All Tests are written from the point of view of the Swarm, i.e the job
 # controller in the application.  These are all "In Memory" tests - create all
@@ -80,7 +81,7 @@ def test_one_task(tmp_out_dir, real_dag):
     """Create a real_dag with one Task and execute it"""
     root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     output_file_name = "{}/test_one_task/mock.out".format(tmp_out_dir)
     task = SleepAndWriteFileMockTask(
@@ -107,7 +108,7 @@ def test_two_tasks_same_name_errors(tmp_out_dir, real_dag):
     """
     root_out_dir = "{}/mocks/test_two_tasks_same_name".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     output_file_name = "{}/test_two_tasks_same_name/a.out".format(tmp_out_dir)
     task_a = SleepAndWriteFileMockTask(
@@ -133,7 +134,7 @@ def test_three_linear_tasks(tmp_out_dir, real_dag):
     """
     root_out_dir = "{}/mocks/test_three_linear_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     a_output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
@@ -185,7 +186,7 @@ def test_fork_and_join_tasks(tmp_out_dir, real_dag):
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
@@ -268,7 +269,7 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, real_dag):
     root_out_dir = ("{}/mocks/test_fork_and_join_tasks_with_fatal_error"
                     .format(tmp_out_dir))
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
@@ -349,7 +350,7 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, tmp_out_dir,
     root_out_dir = ("{}/mocks/test_fork_and_join_tasks_with_retryable_error"
                     .format(tmp_out_dir))
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
@@ -450,7 +451,7 @@ def test_bushy_real_dag(tmp_out_dir, real_dag):
     """
     root_out_dir = "{}/mocks/test_fork_and_join_tasks".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
@@ -544,7 +545,7 @@ def test_real_dag_logging(db_cfg, tmp_out_dir, real_dag):
     """
     root_out_dir = "{}/mocks/test_real_dag_logging".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/remote_sleep_and_write.py")
+    command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
 
     output_file_name = "{}/test_real_dag_logging/mock.out".format(tmp_out_dir)
     task = SleepAndWriteFileMockTask(
@@ -586,7 +587,7 @@ def test_dag_logging_using_mem(db_cfg, tmp_out_dir, dag):
     """
     root_out_dir = "{}/mocks/test_dag_logging_using_mem".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
-    command_script = sge.true_path("tests/memory_usage_array.py")
+    command_script = sge.true_path(f"{path_to_file}/memory_usage_array.py")
 
     output_file_name = "{}/test_dag_logging_using_mem/mock.out".format(tmp_out_dir)
     task = SleepAndWriteFileMockTask(
