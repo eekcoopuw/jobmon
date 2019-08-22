@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
-                 job_instantiation_interval=3, n_queued_jobs=1000,
+                 job_instantiation_interval=10, n_queued_jobs=1000,
                  resource_adjustment: float = 0.5):
         """Manages all the list of jobs that are running, done or errored
 
@@ -32,7 +32,7 @@ class JobListManager(object):
                 SequentialExecutor, DummyExecutor or SGEExecutor
             start_daemons (bool, default False): whether or not to start the
                 JobInstanceFactory and JobReconciler as daemonized threads
-            job_instantiation_interval (int, default 3): number of seconds to
+            job_instantiation_interval (int, default 10): number of seconds to
                 wait between instantiating newly ready jobs
             n_queued_jobs (int): number of queued jobs that should be returned
                 to be instantiated

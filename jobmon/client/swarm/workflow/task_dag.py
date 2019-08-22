@@ -23,7 +23,7 @@ class TaskDag(object):
     """A DAG of ExecutableTasks."""
 
     def __init__(self, name="", executor=None, fail_fast=False,
-                 job_instantiation_interval=3, seconds_until_timeout=36000):
+                 job_instantiation_interval=10, seconds_until_timeout=36000):
         """
         Args:
             name (str): name of dag
