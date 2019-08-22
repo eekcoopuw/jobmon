@@ -56,9 +56,9 @@ class SetupCfg:
 
     def get_external_service_host(self):
         if self.is_existed_db():
-            return str(self.instance["existing db"]["external_db_port"])
+            return str(self.instance["existing db"]["external_db_host"])
         else:
-            return str(self.instance["new db"]["external_db_port"])
+            return str(self.instance["new db"]["external_db_host"])
 
     def get_external_service_port(self):
         return str(self.instance["basic values"]["jobmon_service_port"])
