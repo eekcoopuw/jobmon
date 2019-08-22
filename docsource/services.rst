@@ -95,7 +95,7 @@ Removing a deprecated database
 
 1. Copy the database to a backup location.
 2. Spin down the database container.
-3. Use " docker inspect -f '{{ .Mounts }}' <container_id>" to find the volume associated with the database. It is usually the first attribute of the value in the first element of the list. For example, volume "jobmon081_mysql-jobmon-emu":
+3. Use "docker inspect -f '{{ .Mounts }}' <container_id>" to find the volume associated with the database. It is usually the first attribute of the value in the first element of the list. For example, volume "jobmon081_mysql-jobmon-emu":
 
     [{jobmon081_mysql-jobmon-emu /var/lib/docker/volumes/jobmon081_mysql-jobmon-emu/_data /var/lib/mysql local z true rprivate}]
 
@@ -103,6 +103,38 @@ Make sure the database has been copied/backed up before doing the next two steps
 
 4. Run "docker rm <container_id>" to permanently remove the container from the host machine.
 5. Run "docker volume rm <volume_name>" to permanently remove the volume from the host machine.
+
+
+Database Locations
+******************
+
+====================================== ========================= ====================== =============
+Docker Volume Name                     Container Name            Host                   External Port
+====================================== ========================= ====================== =============
+db3311_jobmon060again_mysql-jobmon-emu jobmon-60-3311-archive    jobmon-archive-db-p01  3311
+forkedjobmon_mysql-jobmon-emu          jobmon-forked-db-archive  jobmon-archive-db-p01  3312
+jobmon_mysql-jobmon-emu                jobmon-unknown-db-archive jobmon-archive-db-p01  3765
+jobmon060again_mysql-jobmon-emu        jobmon-60-archive         jobmon-archive-db-p01  3766
+jobmon063again_mysql-jobmon-emu        jobmon-63-archive         jobmon-archive-db-p01  3305
+jobmon067_mysql-jobmon-emu             jobmon-67-archive         jobmon-archive-db-p01  3314
+jobmon071_mysql-jobmon-emu             jobmon071_db_1            jobmon-archive-db-p01  3316
+jobmon072_mysql-jobmon-emu             jobmon072_db_1            jobmon-archive-db-p01  3317
+jobmon080_mysql-jobmon-emu             jobmon-80-db-archive      jobmon-archive-db-p01  3800
+jobmon081_mysql-jobmon-emu             jobmon-81-db-archive      jobmon-archive-db-p01  3810
+jobmon083_mysql-jobmon-emu             jobmon-83-db-archive      jobmon-archive-db-p01  3830
+jobmon3313_mysql-jobmon-emu            jobmon-3313-db-archive    jobmon-archive-db-p01  3313
+jobmonemup3_mysql-jobmon-emu           jobmon-emup3-db-archive   jobmon-archive-db-p01  3310
+jobmonnov2018_mysql-jobmon-emu         jobmon-nov2018-db-archive jobmon-archive-db-p01  3767
+jobmon089_mysql-jobmon-emu             jobmon089_db_1            None                   3890
+jobmon090_mysql-jobmon-emu             jobmon090_db_1            None                   3900
+jobmon095_mysql-jobmon-emu             jobmon095_db_1            jobmon-docker-cont-p01 3950
+jobmon098_mysql-jobmon-emu             jobmon099_db_1            jobmon-archive-db-p01  3390
+jobmon100_mysql-jobmon-emu             jobmon100_db_1            jobmon-archive-db-p01  10000
+jobmon101_mysql-jobmon-emu             jobmon101_db_1            jobmon-docker-cont-p01 10010
+jobmon102_mysql-jobmon-emu             jobmon102_db_1            jobmon-docker-cont-p01 10020
+====================================== ========================= ====================== =============
+
+Note: jobmon089_db_1 and jobmon090_db_1 were lost due to the June 10 2019 UW Tower Outage
 
 Accessing a Database
 ********************
