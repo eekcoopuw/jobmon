@@ -3,7 +3,8 @@ import os
 import os.path as path
 import pytest
 
-from jobmon.server.deployment.util import validate_slack_token, find_release
+from jobmon.server.deployment.git_functions import find_release
+from jobmon.server.deployment.slack_functions import validate_slack_token
 
 
 def test_validate_slack_token():
