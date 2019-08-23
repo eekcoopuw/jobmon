@@ -71,9 +71,10 @@ class JobListManager(object):
 
     @property
     def active_jobs(self):
-        """List of tasks that are listed as Registered, Done or Error_Fatal"""
+        """List of tasks that are listed as Adjusting Resources,
+        Done or Error_Fatal"""
         return [task for job_id, task in self.bound_tasks.items()
-                if task.status not in [JobStatus.REGISTERED,
+                if task.status not in [JobStatus.ADJUSTING_RESOURCES,
                                        JobStatus.DONE,
                                        JobStatus.ERROR_FATAL]]
 
@@ -88,34 +89,14 @@ class JobListManager(object):
             logger.info("Job already bound and has a hash, retrieving from db "
                         "and making sure updated parameters are bound")
             job = self.hash_job_map[task.hash]
-
-            # update the job's params in case they were changed before resuming
-            self._add_parameters(job.job_id, task.executor_parameters,
-                                 ExecutorParameterSetType.ORIGINAL)
-            task.executor_parameters.validate()
-            self._add_parameters(job.job_id, task.executor_parameters,
-                                 ExecutorParameterSetType.VALIDATED)
-            self._update_job(job.job_id, task.tag, task.max_attempts)
         else:
             job = self._create_job(
                 jobname=task.name,
                 job_hash=task.hash,
                 command=task.command,
                 tag=task.tag,
-                num_cores=task.executor_parameters.num_cores,
-                m_mem_free=task.executor_parameters.m_mem_free,
-                max_attempts=task.max_attempts,
-                max_runtime_seconds=(
-                    task.executor_parameters.max_runtime_seconds),
-                context_args=task.executor_parameters.context_args,
-                queue=task.executor_parameters.queue,
-                j_resource=task.executor_parameters.j_resource,
-                resource_scales=task.executor_parameters.resource_scales,
-                hard_limits=task.executor_parameters.hard_limits
+                max_attempts=task.max_attempts
             )
-            task.executor_parameters.validate()
-            self._add_parameters(job.job_id, task.executor_parameters,
-                                 ExecutorParameterSetType.VALIDATED)
 
         # adding the attributes to the job now that there is a job_id
         for attribute in task.job_attributes:
@@ -125,6 +106,14 @@ class JobListManager(object):
         bound_task = BoundTask(task=task, job=job, job_list_manager=self)
         self.bound_tasks[job.job_id] = bound_task
         return bound_task
+
+    def _bind_parameters(self, job_id, task):
+        self._add_parameters(job_id, task.executor_parameters,
+                             ExecutorParameterSetType.ORIGINAL)
+        task.executor_parameters.validate()
+        self._add_parameters(job_id, task.executor_parameters,
+                             ExecutorParameterSetType.VALIDATED)
+        self._update_job(job_id, task.tag, task.max_attempts)
 
     def _add_parameters(self, job_id: int, executor_parameters,
                         parameter_set_type=ExecutorParameterSetType.VALIDATED):
@@ -151,8 +140,6 @@ class JobListManager(object):
             message=msg,
             request_type='post'
         )
-
-
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""
@@ -263,10 +250,46 @@ class JobListManager(object):
         task = self.bound_tasks[job_id]
         task.status = JobStatus.QUEUED_FOR_INSTANTIATION
 
-    def queue_task(self, task):
+    def adjust_and_queue(self, task):
         """Add a task's hash to the hash_job_map"""
         job_id = self.hash_job_map[task.hash].job_id
+        # at this point it should be in adjusting resources, the problem is
+        # that if it is in A state then there will be a race condition with the
+        # job instance factory that is polling for jobs in adjusting state
+        self.adjust(job_id, task)
+        # some sort of differentiation needs to happen
         self.queue_job(job_id)
+
+    def adjust(self, job_id, task):
+        """Function from Job Instance Factory that adjusts resources and then
+        queues them, this should also incorporate resource binding if they
+        have not yet been bound"""
+        self._bind_parameters(job_id, task)
+        # TODO
+        # if job.status == JobStatus.ADJUSTING_RESOURCES:
+        #     logger.debug("Job in A state, adjusting resources before queueing")
+        #     only_scale = list(job.executor_parameters.resource_scales.keys())
+        #     rc, response = self.requester.send_request(
+        #         app_route=f'/job/{job.job_id}/most_recent_exec_id',
+        #         message={},
+        #         request_type='get'
+        #     )
+        #     if len(response['executor_id']) > 0:
+        #         exec_id = response['executor_id'][0]
+        #         try:
+        #             exit_code, msg = self.executor.get_remote_exit_info(
+        #                 exec_id)
+        #             if 'exceeded max_runtime' in msg and \
+        #                     'max_runtime_seconds' in only_scale:
+        #                 only_scale = ['max_runtime_seconds']
+        #         except RemoteExitInfoNotAvailable:
+        #             logger.debug("Unable to retrieve exit info to "
+        #                          "determine the cause of resource error")
+        #     job.update_executor_parameter_set(
+        #         parameter_set_type=JobStatus.ADJUSTING_RESOURCES,
+        #         only_scale=only_scale,
+        #         resource_adjustment=self.resource_adjustment)
+        #     job.queue_job()
 
     def reset_jobs(self):
         """Reset jobs by passing through to the JobFactory"""

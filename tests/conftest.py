@@ -247,7 +247,9 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
     monkeypatch.setattr(requester, 'get_content', get_flask_content)
 
     def post_jsm(url, json, headers):
-        url = "/" + url.split('/')[-1]
+        components = url.split(':')[-1].split('/')
+        s = '/'
+        url = '/'+ s.join(components[1:])
         return jsm_client.post(url, json=json, headers=headers)
     monkeypatch.setattr(requests, 'post', post_jsm)
     monkeypatch.setattr(requester, 'get_content', get_flask_content)
