@@ -1,6 +1,6 @@
 import requests
 from jobmon.server.jobmonLogging import jobmonLogging as logging
-from jobmon.models.attributes import constants
+from jobmon.setup_config import SetupCfg as Conf
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class SlackNotifier(object):
         """
         self._token = token
         self.default_channel = default_channel
-        self.slack_api_url = constants.deploy_attribute['SLACK_API_URL']
+        self.slack_api_url = Conf().get_slack_api_url()
 
     def send(self, msg, channel=None):
         logger.debug(logging.myself())
