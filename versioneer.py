@@ -353,7 +353,7 @@ def get_config_from_root(root):
     cfg.style = get(parser, "style") or ""
     cfg.versionfile_source = get(parser, "versionfile_source")
     cfg.versionfile_build = get(parser, "versionfile_build")
-    cfg.tag_prefix = get(parser, "tag_prefix")
+    cfg.tag_prefix = get_tag_prefix()
     if cfg.tag_prefix in ("''", '""'):
         cfg.tag_prefix = ""
     cfg.parentdir_prefix = get(parser, "parentdir_prefix")
@@ -1110,9 +1110,13 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
         pieces["distance"] = int(count_out)  # total number of commits
 
     # commit date: see ISO-8601 comment in git_versions_from_keywords()
-    date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"],
-                       cwd=root)[0].strip()
-    pieces["date"] = date.strip().replace(" ", "T", 1).replace(" ", "", 1)
+    try:
+        date = run_command(GITS, ["show", "-s", "--format=%ci", "HEAD"],
+                           cwd=root)[0].strip()
+        pieces["date"] = date.strip().replace(" ", "T", 1).replace(" ", "", 1)
+    except Exception as e:
+        print(str(e))
+        pieces["date"] = ""
 
     return pieces
 
@@ -1477,7 +1481,10 @@ def get_versions(verbose=False):
 
 def get_version():
     """Get the short version string for this project."""
-    return get_versions()["version"]
+    cfg = configparser.ConfigParser()
+    cfg.read(os.path.abspath(os.path.dirname(__file__) + "/jobmon/jobmon.cfg"))
+    bv = cfg["basic values"]
+    return bv["jobmon_version"] if bv["test_mode"] == "True" else get_versions()["version"]
 
 
 def get_cmdclass():
@@ -1693,6 +1700,11 @@ __version__ = get_versions()['version']
 del get_versions
 """
 
+def get_tag_prefix():
+    # add a hack to get prefix
+    jobmon_cfg = configparser.ConfigParser()
+    jobmon_cfg.read(os.path.join(get_root(), "jobmon/jobmon.cfg"))
+    return jobmon_cfg["basic values"]["tag_prefix"]
 
 def do_setup():
     """Main VCS-independent setup function for installing Versioneer."""
@@ -1714,7 +1726,7 @@ def do_setup():
         LONG = LONG_VERSION_PY[cfg.VCS]
         f.write(LONG % {"DOLLAR": "$",
                         "STYLE": cfg.style,
-                        "TAG_PREFIX": cfg.tag_prefix,
+                        "TAG_PREFIX": get_tag_prefix(),
                         "PARENTDIR_PREFIX": cfg.parentdir_prefix,
                         "VERSIONFILE_SOURCE": cfg.versionfile_source,
                         })
