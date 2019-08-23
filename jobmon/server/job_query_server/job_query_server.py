@@ -451,7 +451,7 @@ def get_most_recent_exec_id(job_id: int):
     logger.debug(logging.myself())
     executor_id = DB.session.query(JobInstance). \
                   filter_by(job_id=job_id). \
-                  order_by(JobInstance.status.desc()).\
+                  order_by(JobInstance.job_instance_id.desc()).\
                   with_entities(JobInstance.executor_id).first()
     DB.session.commit()
     resp = jsonify(executor_id=executor_id)

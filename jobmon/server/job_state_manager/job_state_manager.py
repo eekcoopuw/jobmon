@@ -831,19 +831,21 @@ def reset_incomplete_jobs(dag_id):
         WHERE dag_id=:dag_id
         AND job.status!=:done_status
     """.format(time)
+    log_errors = """
+            INSERT INTO job_instance_error_log
+                (job_instance_id, description, error_time)
+            SELECT job_instance_id, 
+            CONCAT('Job RESET requested setting to E from status of: ', job_instance.status) as description, 
+            UTC_TIMESTAMP as error_time
+            FROM job_instance
+            JOIN job USING(job_id)
+            WHERE job.dag_id=:dag_id
+            AND job.status!=:done_status
+        """
     up_job_instance = """
         UPDATE job_instance
         JOIN job USING(job_id)
-        SET job_instance.status=:error_status
-        WHERE job.dag_id=:dag_id
-        AND job.status!=:done_status
-    """
-    log_errors = """
-        INSERT INTO job_instance_error_log
-            (job_instance_id, description)
-        SELECT job_instance_id, 'Job RESET requested' as description
-        FROM job_instance
-        JOIN job USING(job_id)
+        SET job_instance.status=:error_status, job_instance.status_date=UTC_TIMESTAMP
         WHERE job.dag_id=:dag_id
         AND job.status!=:done_status
     """
@@ -854,16 +856,16 @@ def reset_incomplete_jobs(dag_id):
         {"dag_id": dag_id,
          "registered_status": JobStatus.REGISTERED,
          "done_status": JobStatus.DONE})
+    logger.debug("Query:\n{}".format(log_errors))
+    DB.session.execute(
+        log_errors,
+        {"dag_id": dag_id,
+         "done_status": JobStatus.DONE})
     logger.debug("Query:\n{}".format(up_job_instance))
     DB.session.execute(
         up_job_instance,
         {"dag_id": dag_id,
          "error_status": JobInstanceStatus.ERROR,
-         "done_status": JobStatus.DONE})
-    logger.debug("Query:\n{}".format(log_errors))
-    DB.session.execute(
-        log_errors,
-        {"dag_id": dag_id,
          "done_status": JobStatus.DONE})
     DB.session.commit()
     resp = jsonify()
