@@ -2,11 +2,11 @@ import os
 from shutil import copyfile
 
 from jobmon.setup_config import SetupCfg as Conf
-from jobmon.server.deployment import util
+from jobmon.server.deployment import git_functions
 
 
 class BuildContainer:
-    def __init__(self, docker_file_dir, jobmon_root):
+    def __init__(self, docker_file_dir: str, jobmon_root: str):
         self.envs = dict()
         self.docker_file_dir = docker_file_dir
         # Have to build under the jobmon root dir to install jobmon
@@ -39,7 +39,7 @@ class BuildContainer:
         self.envs["WF_SLACK_CHANNEL"] = Conf().get_wf_slack_channel()
         self.envs["NODE_SLACK_CHANNEL"] = Conf().get_node_slack_channel()
         self.envs["MONITOR_PORT"] = Conf().get_monitor_port()
-        if Conf().is_existed_db():
+        if Conf().is_existing_db():
             self.envs["JOBMON_PASS_SERVICE_USER"] = Conf().get_jobmon_service_user_pwd()
 
     def _set_mysql_user_passwords(self):
@@ -50,13 +50,13 @@ class BuildContainer:
             elif user == "read_only":
                 password = "docker"
             else:
-                password = util.gen_password()
+                password = git_functions.gen_password()
             self.envs['JOBMON_PASS_' + user.upper()] = password
 
     def build(self):
         self._copy_docker_compose_file()
         self._set_connection_env()
-        if not Conf().is_existed_db():
+        if not Conf().is_existing_db():
             self._set_mysql_user_passwords()
         self._dump_env()
         self._run_docker_compose()
