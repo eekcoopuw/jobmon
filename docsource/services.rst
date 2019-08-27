@@ -132,6 +132,7 @@ jobmon098_mysql-jobmon-emu             jobmon099_db_1            jobmon-archive-
 jobmon100_mysql-jobmon-emu             jobmon100_db_1            jobmon-archive-db-p01  10000
 jobmon101_mysql-jobmon-emu             jobmon101_db_1            jobmon-docker-cont-p01 10010
 jobmon102_mysql-jobmon-emu             jobmon102_db_1            jobmon-docker-cont-p01 10020
+jobmon_mysql-jobmon-emu                jobmon0001postdev58_db_1  jobmon-p01             10030
 ====================================== ========================= ====================== =============
 
 Note: jobmon089_db_1 and jobmon090_db_1 were lost due to the June 10 2019 UW Tower Outage
@@ -143,7 +144,7 @@ For testing purposes, you can access the jobmon database on that server
 from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
     host: jobmon-p01.ihme.washington.edu
-    port: 3830
+    port: 10030
     user: read_only
     pass: docker
 
@@ -235,6 +236,7 @@ http.22        9856        3980   release-0.9.8
 http.23        10001       10000  release-1.0.0
 http.24        10011       10010  release-1.0.1
 http.25        10021       10020  release-1.0.2
+http.26        10031       10030  release-1.0.3
 ========  ==== ===== ===== =====  =============
 
 The port numbers come in pairs, e.g. "3313:3306".
@@ -273,30 +275,69 @@ command line doesn't show up and work properly)
   a. You can tag directly through the stash UI by clicking on the commit and
   adding a tag
 
-2. Check the pypi server to make sure that there is not an existing build of
+2. To check the pypi server to make sure that there is not an existing build of
 the version you just tagged you can go to:
-http://dev-tomflem.ihme.washington.edu/docs/jobmon/ to make sure that the
-version is not already present
+http://https://pypi.services.ihme.washington.edu/simple/jobmon/ to see if that the
+version is not already present.
 
-3. If there is already a version deployed with the same version either:
+3. If the version exists, it can be override by setting the overide_package_on_pypi
+Jenkins flag to true.
 
-  a. Tag with a new version that doesn't exist (best if you haven't already
-  set up matching port numbers and deployed the database accordingly), and
-  build as normal
+4. Run a jenkins build setting:
 
-  b. Go on to the pypi server (pypi.services.ihme.washington.edu) with your
-  normal ihme credentials and delete the tar for the given build in the pypi
-  docker container (this should be your last resort)
+    repo_url: ssh://git@stash.ihme.washington.edu:7999/cc/jobmon.git
 
-  c. If you had to delete the version from the pypi server, you need to edit
-  the jenkins file to rebuild even if it has built that version before,
-  the easiest way to do this is by clicking replay on a previously successful
-  build that ran without tests, editing the jenkinsfile to make sure that when
-  it deploys to the server it doesn't first check if version exists, and
-  running that.
+    branch: master (or any branch you want to build on)
 
-4. If you are sure that the version doesn't exist, run a jenkins build setting
-skip_tests=True. If the build completes successfully, check the docs again to
+    python_vers: 3
+
+    skip_tests: True
+
+    qlogin-fair: scicomp-uge-submit-p01-direct
+
+    qlogin: qlogin
+
+    test_mode: False (if set to True, it will use the provided tag; otherwise, it uses the tag in git.)
+
+    existing_db: False (if set to True, please provide the server_user_password)
+
+    slack_token: (our slack token)
+
+    slack_api_url: https://slack.com/api/chat.postMessage
+
+    wf_slack_channel: jobmon-alerts
+
+    node_slack_channel: suspicious_nodes
+
+    jobmon_server_hostname: jobmon-p01
+
+    jobmon_server_sqdn: jobmon-p01.ihme.washington.edu
+
+    jobmon_service_port: (port of this version)
+
+    jobmon_version: 1.0.4 (this only takes effect when test_mode=True)
+
+    reconciliation_interval: 30
+
+    hearbeat_interval: 90
+
+    report_by_buffer: 3.1
+
+    internal_db_host: db
+
+    internal_db_port: 3306
+
+    external_db_host: jobmon-p01.ihme.washington.edu
+
+    external_db_port: (db port of this version)
+
+    jobmon_pass_service_user: (this only takes effect when test_mode=True)
+
+    tag_prefix: release-
+
+    overide_package_on_pypi: true
+
+5. If the build completes successfully, check the docs again to
 make sure the new version is up and labelled as expected
 
 
@@ -305,7 +346,7 @@ Deploying JobStateManager and JobQueryServer
 
 To deploy a centralized JobStateManager and JobQueryServer:
 
-1. Make sure you have properly build and deployed to jenkins, then ssh intojobmon-p01.ihme.washington.edu using your svcscicompci ssh key::
+1. Make sure you have properly build and deployed to jenkins, then ssh into jobmon-p01.ihme.washington.edu using your svcscicompci ssh key::
 
     ssh -i ~/.ssh/svcsci_id_rsa svcscicompci@jobmon-p01.ihme.washington.edu
 
@@ -316,49 +357,31 @@ To deploy a centralized JobStateManager and JobQueryServer:
 
 6. Activate the jobmon conda environment:
     source activate jobmon
-7. From the root directory of the repo, run::
+7. Edit <jobmon root>/jobmon/jobmon.cfg
 
-    ./runserver.py
+    a. Fill in the values in [basic values] session.
 
-    Note: By the end of Mar 7, 2019, on jobmon-docker-cont-p01, the version of docker-compose comes with the conda environment has a bug, but the downgrade is blocked by other packages, so a working version has been put under ~/bin.
-          Do `export PATH="~/bin:$PATH"` to use the bypass version.
+    b. If creating a new jobmon DB, fill in the values in [new db] session.
 
-You'll be prompted for a slack bot token.
-Use the 'BotUserOathToken' from (you must be logged into Slack on your web browser, you'll find a prompt here: https://api.slack.com/apps )::
+    c. If using an existing jobmon DB, fill in the values in [existing db] session.
 
-  https://api.slack.com/apps/AA4BZNQH1/oauth?
+       Note: to obtain the jobmon_pass_service_user, run::
 
-Press the Copy button on the 'Bot User OAuth Access Token' text box and paste it into your terminal.
-The runserver.py script will also ask for two slack channels. Leave them black to use defaults.
+                  docker exec  -it <container_id> /bin/bash
 
-The script will run ``docker-compose up build``
+       then do a::
 
-Notice that the most privileged database passwords are randomly generated in runserver.py
-They are then set as environment variables in the docker service container. To
-see them, connect to the docker container like this:
-``docker exec -it jobmon071_jqs_1 bash``
-and do a `env`, look for: ``DB_USER & DB_PASS``
+                  set
 
+8. Under <jobmon root>/jobmon/server/deployment, run::
+
+    python run_server.py
+
+9. Once the server is up, you should see three containers: jobmon, monitor, and db. View <jobmon root>/.env to get DB password.
 
 Pushing the Docker Image to the Registry
 ****************************************
-In order to keep track of old builds, we push them to the registry so that we can have a record of them even if we are no longer using the containers on the server itself
-
-In the version of the jobmon repo that you want to build and push, run::
-
-    docker build --tag registry-app-p01.ihme.washington.edu/jobmon/jobmon:<version ex. 0.8.9>
-
-Then login to the registry so that you can push the image::
-
-    docker login registry-app-p01.ihme.washington.edu
-
-And enter your registry credentials.
-
-Finally, run::
-
-    docker push registry-app-p01.ihme.washington.edu/jobmon/jobmon:<version ex. 0.8.9>
-
-And check the registry at https://reg.ihme.washington.edu/harbor/projects/44/repositories to ensure that it worked
+If you use run_server.py, and set test_mode to False, the run_server script uploads the image for you.
 
 
 Deployment architecture
