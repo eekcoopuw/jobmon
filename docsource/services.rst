@@ -346,7 +346,7 @@ Deploying JobStateManager and JobQueryServer
 
 To deploy a centralized JobStateManager and JobQueryServer:
 
-1. Make sure you have properly build and deployed to jenkins, then ssh intojobmon-p01.ihme.washington.edu using your svcscicompci ssh key::
+1. Make sure you have properly build and deployed to jenkins, then ssh into jobmon-p01.ihme.washington.edu using your svcscicompci ssh key::
 
     ssh -i ~/.ssh/svcsci_id_rsa svcscicompci@jobmon-p01.ihme.washington.edu
 
