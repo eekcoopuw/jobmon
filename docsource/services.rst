@@ -377,7 +377,7 @@ To deploy a centralized JobStateManager and JobQueryServer:
 
     python run_server.py
 
-9. Once the server is up, you should see three containers: jobmon, monitor, and db. Vier <jobmon root>/.env to get DB password.
+9. Once the server is up, you should see three containers: jobmon, monitor, and db. View <jobmon root>/.env to get DB password.
 
 Pushing the Docker Image to the Registry
 ****************************************
