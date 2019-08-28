@@ -1,5 +1,6 @@
 import os
 import pytest
+import datetime
 from time import sleep
 
 from jobmon.client import client_config
@@ -180,6 +181,37 @@ def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg
         DB.session.commit()
     start, end = res
     assert start < end  # indicating at least one heartbeat got logged
+
+
+def test_reconciler_sge_dag_heartbeats(job_list_manager_reconciliation, db_cfg
+                                       ):
+    job_list_manager_reconciliation.all_error = set()
+    dag_id = job_list_manager_reconciliation.dag_id
+    jir = job_list_manager_reconciliation.job_inst_reconciler
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """
+        SELECT heartbeat_date
+        FROM task_dag
+        WHERE dag_id = {}""".format(dag_id)
+        res = DB.session.execute(query).fetchone()
+        DB.session.commit()
+        start = res
+    # Sleep to ensure that the timestamps will be different
+    sleep(2)
+    jir.reconcile()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """
+        SELECT heartbeat_date
+        FROM task_dag
+        WHERE dag_id = {}""".format(dag_id)
+        res = DB.session.execute(query).fetchone()
+        DB.session.commit()
+        end = res
+    assert start[0] < end[0]
 
 
 def test_reconciler_sge_timeout(job_list_manager_reconciliation, db_cfg):

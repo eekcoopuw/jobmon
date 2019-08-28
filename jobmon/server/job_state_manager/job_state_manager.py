@@ -513,11 +513,13 @@ def log_dag_heartbeat(dag_id):
     """
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("dag_id", dag_id))
-    dag = DB.session.query(TaskDagMeta).filter_by(
-        dag_id=dag_id).first()
-    if dag:
-        # set to database time not web app time
-        dag.heartbeat_date = func.UTC_TIMESTAMP()
+
+    params = {"dag_id": int(dag_id)}
+    query = """
+        UPDATE task_dag
+        SET heartbeat_date = UTC_TIMESTAMP()
+        WHERE dag_id in (:dag_id)"""
+    DB.session.execute(query, params)
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
