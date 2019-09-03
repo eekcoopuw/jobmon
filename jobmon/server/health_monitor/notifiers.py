@@ -29,7 +29,8 @@ class SlackNotifier(object):
         logger.debug(resp)
         if resp.status_code != requests.codes.OK:
             error = "Could not send Slack message. {}".format(resp.content)
-            if "Server Error" in error:  # catch Slack server outage error
-                logger.error(error)
-            else:
-                raise RuntimeError(error)
+            # To raise an exception here causes the docker container stop, and becomes hard to restart.
+            # Log the error instead. So we can enter the container to fix issues when necessary.
+            # Log the status code so that it's easier to identify the cause.
+            logger.error(resp.status_code)
+            logger.error(error)
