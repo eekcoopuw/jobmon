@@ -62,7 +62,8 @@ class WorkflowRun(object):
         if rc != StatusCodes.OK:
             raise ValueError(f"Invalid Response to add_workflow_run: {rc}")
         self.id = wfr_id
-        self.add_project_limit_attribute('start')
+        if self.executor_class == "SGEExecutor":
+            self.add_project_limit_attribute('start')
 
     def add_project_limit_attribute(self, timing):
         if timing == 'start':
@@ -151,17 +152,20 @@ class WorkflowRun(object):
 
     def update_done(self):
         """Update the status of the workflow_run as done"""
-        self.add_project_limit_attribute('end')
+        if self.executor_class == "SGEExecutor":
+            self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.DONE)
 
     def update_error(self):
         """Update the status of the workflow_run as errored"""
-        self.add_project_limit_attribute('end')
+        if self.executor_class == "SGEExecutor":
+            self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.ERROR)
 
     def update_stopped(self):
         """Update the status of the workflow_run as stopped"""
-        self.add_project_limit_attribute('end')
+        if self.executor_class == "SGEExecutor":
+            self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
