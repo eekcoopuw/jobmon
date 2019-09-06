@@ -12,8 +12,8 @@ To get started::
     If you get **Could not find a version that satisfies the requirement jobmon (from version: )** then create (or append) the following to ``~/.pip/pip.conf``::
 
         [global]
-        extra-index-url = http://dev-tomflem.ihme.washington.edu/simple
-        trusted-host = dev-tomflem.ihme.washington.edu
+        extra-index-url = http://pypi.services.ihme.washington.edu/simple
+        trusted-host = pypi.services.ihme.washington.edu
 
 .. note::
 
@@ -338,8 +338,8 @@ By default, your Workflow talks to our centrally-hosted jobmon server
 (jobmon-docker-cont-p01.hosts.ihme.washington.edu). You can access the
 jobmon database from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
-    host: jobmon-docker-cont-p01.hosts.ihme.washington.edu
-    port: 10020
+    host: jobmon-p01.ihme.washington.edu
+    port: 10030
     user: read_only
     pass: docker
     database: docker
