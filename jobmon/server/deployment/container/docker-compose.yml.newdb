@@ -1,4 +1,4 @@
-version: '2'
+version: '3.2'
 
 services:
   jobmon:
@@ -87,6 +87,9 @@ services:
 
     volumes:
         - mysql-jobmon-emu:/var/lib/mysql
+        - type: bind
+          source: /opt/jobmon/data/${JOBMON_VERSION}-mysql-jobmon
+          target: /var/lib/mysql
         - ./create_users.sh:/docker-entrypoint-initdb.d/create_users.sh
 
     command: mysqld --innodb_autoinc_lock_mode=1 --innodb_flush_method=O_DIRECT --innodb_buffer_pool_size=10000M --innodb_buffer_pool_instances=2
