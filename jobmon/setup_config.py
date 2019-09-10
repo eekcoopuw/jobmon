@@ -48,10 +48,10 @@ class SetupCfg:
         else:
             return str(self.instance["new db"]["external_db_port"])
 
-    def get_external_db_host(self) ->str:
+    def get_external_service_host(self) ->str:
         return self.instance["basic values"]["jobmon_server_sqdn"]
 
-    def get_external_service_host(self) ->str:
+    def get_external_db_host(self) ->str:
         if self.is_existing_db():
             return str(self.instance["existing db"]["external_db_host"])
         else:
