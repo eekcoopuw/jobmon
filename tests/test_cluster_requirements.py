@@ -91,7 +91,7 @@ def test_invalid_mem_adjusted(no_daemon, mem):
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['.5TB', '500GB', '500000MB'])
 def test_memory_transformed_correctly(mem):
-    resource = SGEParameters(mem_free=mem, num_cores=1, queue='all.q',
+    resource = SGEParameters(m_mem_free=mem, num_cores=1, queue='all.q',
                              max_runtime_seconds=86400)
     assert resource.m_mem_free == 500
 
@@ -99,22 +99,13 @@ def test_memory_transformed_correctly(mem):
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['.129GB', '129MB'])
 def test_min_memory_transformed_correctly(mem):
-    resource = SGEParameters(mem_free=mem, num_cores=1, queue='all.q',
+    resource = SGEParameters(m_mem_free=mem, num_cores=1, queue='all.q',
                              max_runtime_seconds=86400)
     assert resource.m_mem_free == 0.129
 
 
 @pytest.mark.cluster
-def test_exclusive_args_both_slots_and_cores(no_daemon):
-    task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
-                name="exclusive_args_both", m_mem_free='2G', slots=7,
-                num_cores=8, j_resource=True, queue='all.q',
-                max_runtime_seconds=20)
-    assert task.executor_parameters.num_cores == 8
-
-
-@pytest.mark.cluster
-def test_exclusive_args_no_slots_or_cores(no_daemon):
+def test_exclusive_args_no_cores(no_daemon):
     task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
                 name="exclusive_args_none", m_mem_free='2G', j_resource=True,
                 queue='all.q', max_runtime_seconds=120)
@@ -136,7 +127,7 @@ def test_invalid_runtime_caught(no_daemon, runtime):
 @pytest.mark.cluster
 def test_both_mem_free_error():
     task = BashTask(command="sleep 10", name='test_mem_args',
-                    max_attempts=2, mem_free='3G', m_mem_free='2G',
+                    max_attempts=2, m_mem_free='2G',
                     num_cores=1, max_runtime_seconds=60)
     assert task.executor_parameters.m_mem_free == 2
 

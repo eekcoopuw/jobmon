@@ -1,3 +1,4 @@
+import getpass
 from jobmon import BashTask
 from jobmon import Workflow
 from jobmon.cli import CLI
@@ -6,6 +7,7 @@ from jobmon.client.status_commands import (workflow_status, workflow_jobs,
 
 
 def test_workflow_status(real_jsm_jqs, db_cfg):
+    user = getpass.getuser()
     t1 = BashTask("sleep 10", executor_class="SequentialExecutor")
     t2 = BashTask("sleep 5", upstream_tasks=[t1],
                   executor_class="SequentialExecutor")
@@ -15,7 +17,7 @@ def test_workflow_status(real_jsm_jqs, db_cfg):
     workflow.task_dag.job_list_manager.disconnect()
 
     # we should have the column headers plus 2 jobs in pending
-    command_str = "workflow_status -u mlsandar -w 1"
+    command_str = f"workflow_status -u {user} -w 1"
     cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user)
@@ -38,7 +40,7 @@ def test_workflow_status(real_jsm_jqs, db_cfg):
     workflow.task_dag.job_list_manager.disconnect()
 
     # check that we get 2 rows now
-    command_str = "workflow_status -u mlsandar"
+    command_str = f"workflow_status -u {user}"
     cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user)

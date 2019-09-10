@@ -73,7 +73,7 @@ def test_hashing_bash_characters():
 def test_bash_task_args(db_cfg, job_list_manager_sge):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
-    a = BashTask(command="echo 'Hello Jobmon'", num_cores=1, mem_free='2G',
+    a = BashTask(command="echo 'Hello Jobmon'", num_cores=1, m_mem_free='2G',
                  max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
@@ -126,7 +126,7 @@ def test_r_task_args(db_cfg, job_list_manager_sge):
     DB = db_cfg["DB"]
     a = RTask(script=sge.true_path(f"{path_to_file}/simple_R_script.r"),
               env_variables={'OP_NUM_THREADS': 1},
-              num_cores=1, mem_free='2G', max_attempts=1)
+              num_cores=1, m_mem_free='2G', max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
     with app.app_context():

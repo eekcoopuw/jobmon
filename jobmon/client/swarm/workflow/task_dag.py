@@ -72,8 +72,7 @@ class TaskDag(object):
         else:
             return False
 
-    def bind_to_db(self, dag_id=None, reset_running_jobs=True,
-                   resource_adjustment=0.5):
+    def bind_to_db(self, dag_id=None, reset_running_jobs=True):
         """
         Binds the dag to the database and starts Job Management services.
         The Job_List_Manger is stopped and discarded in _clean_up_after_run
@@ -89,8 +88,7 @@ class TaskDag(object):
         if dag_id:
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
-                job_instantiation_interval=self.job_instantiation_interval,
-                resource_adjustment=resource_adjustment)
+                job_instantiation_interval=self.job_instantiation_interval)
 
             for _, task in self.tasks.items():
                 self.job_list_manager.bind_task(task)
@@ -109,8 +107,7 @@ class TaskDag(object):
             self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
                                             user=getpass.getuser())
             self.job_list_manager = JobListManager(
-                self.meta.dag_id, executor=self.executor, start_daemons=True,
-                resource_adjustment=resource_adjustment)
+                self.meta.dag_id, executor=self.executor, start_daemons=True)
             self.dag_id = self.meta.dag_id
 
             # Bind all the tasks to the job_list_manager

@@ -280,7 +280,7 @@ def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
     makedirs_safely(root_out_dir)
 
     task = StataTask(script=sge.true_path(f"{path_to_file}/simple_stata_script.do"),
-                     name=name, mem_free='1G', max_attempts=2,
+                     name=name, m_mem_free='1G', max_attempts=2,
                      max_runtime_seconds=60, num_cores=1)
     executor = SGEExecutor(project='proj_tools')
     executor.set_temp_dir(root_out_dir)

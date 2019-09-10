@@ -18,7 +18,7 @@ path_to_file = os.path.dirname(__file__)
 def test_valid_command(real_dag_id, job_list_manager_sge):
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
-             name="sge_valid_command", num_cores=2, mem_free='4G',
+             name="sge_valid_command", num_cores=2, m_mem_free='4G',
              max_runtime_seconds='1000',
              j_resource=True,
              max_attempts=1))
@@ -48,7 +48,7 @@ def test_context_args(db_cfg, real_jsm_jqs, job_list_manager_sge):
     delay_to = (datetime.now() + timedelta(hours=5)).strftime("%m%d%H%M")
     job = job_list_manager_sge.bind_task(
         Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
-             name="test_context_args", num_cores=2, mem_free='4G',
+             name="test_context_args", num_cores=2, m_mem_free='4G',
              max_attempts=1,
              max_runtime_seconds='1000',
              context_args={'sge_add_args': '-a {}'.format(delay_to)}))

@@ -102,9 +102,10 @@ class ExecutorJob:
             requester=requester)
         return executor_job
 
-    def update_executor_parameter_set(
-            self, parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
-            only_scale: List = [], resource_adjustment=0.5) -> None:
+    def update_executor_parameter_set(self,
+        parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
+        only_scale: List = []) -> None:
+
         """
         update the resources for a given job in the db
 
@@ -115,11 +116,6 @@ class ExecutorJob:
         """
         logger.debug(f"only going to scale these resources: {only_scale}")
         resources_adjusted = {'only_scale': only_scale}
-        if resource_adjustment != 0.5:
-            resources_adjusted['all_resource_scale_val'] = resource_adjustment
-            logger.debug("You have specified a resource adjustment, this will "
-                         "be applied to all resources that will be adjusted "
-                         "(default: m_mem_free and max_runtime_seconds)")
         self.executor_parameters.adjust(**resources_adjusted)
 
         msg = {'parameter_set_type': parameter_set_type}

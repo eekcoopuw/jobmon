@@ -23,8 +23,6 @@ class SGEParameters:
     """
 
     def __init__(self,
-                 slots: Optional[int] = None,
-                 mem_free: Optional[int] = None,
                  num_cores: Optional[int] = None,
                  queue: Optional[str] = None,
                  max_runtime_seconds: Optional[int] = None,
@@ -35,8 +33,6 @@ class SGEParameters:
                  resource_scales: Dict = None):
         """
         Args:
-            slots: slots to request on the cluster
-            mem_free: memory in gigabytes, in the old cluster syntax
             m_mem_free: amount of memory in gbs, tbs, or mbs to
                 request on the cluster, submitted from the user in string form
                 but will be converted to a float for internal use
@@ -64,8 +60,14 @@ class SGEParameters:
             context_args = {}
         self.context_args = context_args
         self._cluster = os.environ['SGE_ENV']  # el7 in SGE_ENV is fair cluster
-        self.num_cores, self.m_mem_free = self._backward_compatible_resources(
-            slots, num_cores, mem_free, m_mem_free)
+        self.num_cores = num_cores
+        if isinstance(m_mem_free, str):
+            m_mem_free = self._transform_mem_to_gb(m_mem_free)
+            if isinstance(m_mem_free, str):
+                logger.warning(f"This is not a memory measure that can be "
+                               f"processed, setting to 1G")
+                m_mem_free = 1
+        self.m_mem_free = m_mem_free
         self.hard_limits = hard_limits
         if resource_scales is None:
             resource_scales = {'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}
@@ -75,8 +77,6 @@ class SGEParameters:
     def set_executor_parameters_strategy(cls, executor_parameters):
         # first create an instance of the specific strategy
         instance = cls(
-            slots=executor_parameters._slots,
-            mem_free=executor_parameters._mem_free,
             num_cores=executor_parameters.num_cores,
             queue=executor_parameters.queue,
             max_runtime_seconds=executor_parameters.max_runtime_seconds,
@@ -97,41 +97,6 @@ class SGEParameters:
         executor_parameters._context_args = instance.context_args
         executor_parameters._hard_limits = instance.hard_limits
         executor_parameters._resource_scales = instance.resource_scales
-
-    def _backward_compatible_resources(self, slots, num_cores, mem_free,
-                                       m_mem_free):
-        """
-        Ensure there are no conflicting or missing arguments for memory and
-        cores since we are allowing old cluster syntax and new cluster syntax
-        """
-        if slots and num_cores:
-            logger.warning("Cannot specify BOTH slots and num_cores. Using "
-                           "the num_cores you specified to set the value")
-        elif not slots and not num_cores:
-            logger.warning("Must pass one of [slots, num_cores], will set to "
-                           "default 1 core for this run")
-        elif slots and not num_cores:
-            logger.info("User Specified slots instead of num_cores, so we are"
-                        "converting it, but to run on the fair cluster they "
-                        "should specify num_cores")
-            num_cores = slots
-        if mem_free and m_mem_free:
-            logger.warning(f"Cannot specify BOTH mem_free and m_mem_free. "
-                           f"Specify one or the other, you requested "
-                           f"{mem_free}G mem_free and {m_mem_free} "
-                           f"m_mem_free, defaults to m_mem_free value")
-        elif mem_free and not m_mem_free:
-            m_mem_free = mem_free
-        elif not mem_free and not m_mem_free:
-            logger.warning("Must pass one of [mem_free, m_mem_free], will set "
-                           "to default 1G for this run")
-        if isinstance(m_mem_free, str):
-            m_mem_free = self._transform_mem_to_gb(m_mem_free)
-            if isinstance(m_mem_free, str):
-                logger.warning(f"This is not a memory measure that can be "
-                               f"processed, setting to 1G")
-                m_mem_free = 1
-        return num_cores, m_mem_free
 
     def validation_msg(self) -> str:
         """
@@ -236,7 +201,7 @@ class SGEParameters:
 
     def _validate_num_cores(self) -> Tuple[str, int]:
         """Ensure cores requested isn't more than available on that
-        node, at this point slots have been converted to cores
+        node.
         """
         max_cores = MAX_CORES
         if self.queue is not None:

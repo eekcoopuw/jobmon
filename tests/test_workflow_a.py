@@ -26,8 +26,8 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     WorkflowAlreadyExists, ResumeStatus
 from jobmon.client.utils import gently_kill_command
-
 import tests.workflow_utils as wu
+
 
 path_to_file = os.path.dirname(__file__)
 

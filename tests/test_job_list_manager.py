@@ -73,7 +73,7 @@ def test_sync(job_list_manager_sge_no_daemons, db_cfg):
 
     # This job will intentionally fail
     job = job_list_manager_sge.bind_task(Task(command='fizzbuzz', name='bar',
-                                              mem_free='1G',
+                                              m_mem_free='1G',
                                               max_runtime_seconds='1000',
                                               num_cores=1))
     # create job instances
@@ -191,7 +191,7 @@ def test_sge_valid_command(job_list_manager_sge_no_daemons):
                                               name="sgefbb",
                                               num_cores=3,
                                               max_runtime_seconds='1000',
-                                              mem_free='600M'))
+                                              m_mem_free='600M'))
     job_list_manager_sge.queue_job(job)
     job_list_manager_sge.job_instance_factory.instantiate_queued_jobs()
     job_list_manager_sge._sync()
@@ -261,7 +261,7 @@ def test_job_instance_qsub_error(job_list_manager_sge_no_daemons, db_cfg,
     jlm = job_list_manager_sge_no_daemons
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
-                             max_runtime_seconds='1000', mem_free='600M'))
+                             max_runtime_seconds='1000', m_mem_free='600M'))
     jlm.queue_job(job)
     jif.instantiate_queued_jobs()
     jlm._sync()
@@ -283,7 +283,7 @@ def test_job_instance_bad_qsub_parse(job_list_manager_sge_no_daemons, db_cfg,
     jlm = job_list_manager_sge_no_daemons
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
-                             max_runtime_seconds='1000', mem_free='600M'))
+                             max_runtime_seconds='1000', m_mem_free='600M'))
     jlm.queue_job(job)
     jif.instantiate_queued_jobs()
     jlm._sync()
@@ -307,7 +307,7 @@ def test_ji_unknown_state(job_list_manager_sge_no_daemons, db_cfg):
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
                              num_cores=3, max_runtime_seconds='70',
-                             mem_free='600M'))
+                             m_mem_free='600M'))
     jlm.queue_job(job)
     jids = jif.instantiate_queued_jobs()
     jlm._sync()
@@ -354,7 +354,7 @@ def test_context_args(job_list_manager_sge_no_daemons, db_cfg, caplog):
 
     job = jlm.bind_task(
         Task(command="sge_foobar",
-             name="test_context_args", num_cores=2, mem_free='4G',
+             name="test_context_args", num_cores=2, m_mem_free='4G',
              max_runtime_seconds='1000',
              context_args={'sge_add_args': '-a foo'}))
 

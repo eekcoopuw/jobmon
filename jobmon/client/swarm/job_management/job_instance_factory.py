@@ -28,7 +28,6 @@ class JobInstanceFactory(object):
                  executor: Optional[Executor] = None,
                  n_queued_jobs: int = 1000,
                  stop_event: Optional[threading.Event] = None,
-                 resource_adjustment: float = 0.5,
                  requester: Requester = shared_requester):
         """The JobInstanceFactory is in charge of queueing jobs and creating
         job_instances, in order to get the jobs from merely Task objects to
@@ -49,7 +48,6 @@ class JobInstanceFactory(object):
         self.n_queued_jobs = n_queued_jobs
         self.report_by_buffer = client_config.report_by_buffer
         self.heartbeat_interval = client_config.heartbeat_interval
-        self.resource_adjustment = resource_adjustment
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they
@@ -130,8 +128,7 @@ class JobInstanceFactory(object):
                                      "determine the cause of resource error")
                 job.update_executor_parameter_set(
                     parameter_set_type=JobStatus.ADJUSTING_RESOURCES,
-                    only_scale=only_scale,
-                    resource_adjustment=self.resource_adjustment)
+                    only_scale=only_scale)
                 job.queue_job()
 
             job_instance = self._create_job_instance(job)

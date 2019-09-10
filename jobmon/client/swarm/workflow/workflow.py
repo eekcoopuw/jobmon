@@ -69,8 +69,7 @@ class Workflow(object):
                  resume: bool = ResumeStatus.DONT_RESUME,
                  reconciliation_interval: int = None,
                  heartbeat_interval: int = None,
-                 report_by_buffer: float = None,
-                 resource_adjustment: float = 0.5):
+                 report_by_buffer: float = None):
         """
         Args:
             workflow_args: unique identifier of a workflow
@@ -100,9 +99,6 @@ class Workflow(object):
                 report_by_date (default = 3.1) so a job in qw can miss 3
                 reconciliations or a running job can miss 3 worker heartbeats,
                 and then we will register that it as lost
-            resource_adjustment: The rate at which a resource will be
-                increased if it fails from resource under requesting (value
-                between 0 and 1)
         """
         self.wf_dao = None
         self.name = name
@@ -152,18 +148,6 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
-
-        if resource_adjustment != 0.5:
-            warnings.warn("Resource adjustment will be deprecated, please use "
-                          "the task-level resource_scales and provided scaling"
-                          " values for each resource that you want scaled",
-                          FutureWarning)
-        if 0 < resource_adjustment <= 1:
-            self.resource_adjustment = resource_adjustment
-        else:
-            logger.debug("You may only request a resource adjustment value "
-                         "between 0 and 1")
-            self.resource_adjustment = 0.5
 
     def set_executor(self, executor_class):
         """Set which executor to use to run the tasks.
@@ -273,14 +257,12 @@ class Workflow(object):
                 raise WorkflowAlreadyComplete
             self.task_dag.bind_to_db(
                 self.dag_id,
-                reset_running_jobs=self.reset_running_jobs,
-                resource_adjustment=self.resource_adjustment
+                reset_running_jobs=self.reset_running_jobs
             )
         elif len(potential_wfs) == 0:
             # Bind the dag ...
             self.task_dag.bind_to_db(
-                reset_running_jobs=self.reset_running_jobs,
-                resource_adjustment=self.resource_adjustment
+                reset_running_jobs=self.reset_running_jobs
             )
 
             # Create new workflow in Database
@@ -320,8 +302,7 @@ class Workflow(object):
             self.id, self.stderr, self.stdout, self.project,
             executor_class=self.executor_class,
             reset_running_jobs=self.reset_running_jobs,
-            working_dir=self.working_dir,
-            resource_adjustment=self.resource_adjustment)
+            working_dir=self.working_dir)
 
     def _error(self):
         """Update the workflow as errored"""

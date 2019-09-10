@@ -216,7 +216,7 @@ def main():
     Number of Workflows by state and number of jobs
     Jobs by language, and states
     Job retry rates
-    Clusters usage: slots, hours
+    Clusters usage: cores, hours
 
     Get them into pandas frames
     """
