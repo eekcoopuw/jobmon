@@ -66,5 +66,5 @@ def wait_for_file(filepath: str) -> bool:
     while not os.path.exists(filepath):
         sleep(5)
         num_tries += 1
-        assert num_tries < 4
+        assert num_tries < 8
     return True
