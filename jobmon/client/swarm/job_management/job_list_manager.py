@@ -1,15 +1,10 @@
 import logging
 import time
-from threading import Event, Thread
 from typing import Dict
 
 from jobmon.client import shared_requester
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.job_management.job_factory import JobFactory
-from jobmon.client.swarm.job_management.job_instance_factory import \
-    JobInstanceFactory
-from jobmon.client.swarm.job_management.job_instance_reconciler import \
-    JobInstanceReconciler
 from jobmon.client.swarm.workflow.executable_task import (BoundTask,
                                                           ExecutableTask)
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
@@ -21,38 +16,14 @@ logger = logging.getLogger(__name__)
 
 class JobListManager(object):
 
-    def __init__(self, dag_id, executor=None, start_daemons=False,
-                 job_instantiation_interval=10, n_queued_jobs=1000,
-                 resource_adjustment: float = 0.5):
+    def __init__(self, dag_id):
         """Manages all the list of jobs that are running, done or errored
 
         Args:
             dag_id (int): the id for the dag to run
-            executor (obj, default SequentialExecutor): obj of type
-                SequentialExecutor, DummyExecutor or SGEExecutor
-            start_daemons (bool, default False): whether or not to start the
-                JobInstanceFactory and JobReconciler as daemonized threads
-            job_instantiation_interval (int, default 10): number of seconds to
-                wait between instantiating newly ready jobs
-            n_queued_jobs (int): number of queued jobs that should be returned
-                to be instantiated
-            resource_adjustment: scalar value to adjust resources by when
-                a resource error is detected
         """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
-
-        self._stop_event = Event()
-        self.job_instance_factory = JobInstanceFactory(
-            dag_id=dag_id,
-            executor=executor,
-            n_queued_jobs=n_queued_jobs,
-            resource_adjustment=resource_adjustment,
-            stop_event=self._stop_event)
-        self.job_inst_reconciler = JobInstanceReconciler(
-            dag_id=dag_id,
-            executor=executor,
-            stop_event=self._stop_event)
 
         self.requester = shared_requester
 
@@ -64,10 +35,6 @@ class JobListManager(object):
         self.all_error: set = set()
         self.last_sync = None
         self._sync()
-
-        self.job_instantiation_interval = job_instantiation_interval
-        if start_daemons:
-            self._start_job_instance_manager()
 
     @property
     def active_jobs(self):
@@ -151,8 +118,6 @@ class JobListManager(object):
             message=msg,
             request_type='post'
         )
-
-
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""
@@ -295,26 +260,8 @@ class JobListManager(object):
         job_id = self.hash_job_map[task.hash].job_id
         return self.bound_tasks[job_id]
 
-    def _start_job_instance_manager(self):
-        """Start the JobInstanceFactory and JobReconciler in separate
-        threads
-        """
-        self.jif_proc = Thread(
-            target=(
-                self.job_instance_factory.instantiate_queued_jobs_periodically
-            ),
-            args=(self.job_instantiation_interval,))
-        self.jif_proc.daemon = True
-        self.jif_proc.start()
-
-        self.jir_proc = Thread(
-            target=self.job_inst_reconciler.reconcile_periodically)
-        self.jir_proc.daemon = True
-        self.jir_proc.start()
-
     def disconnect(self):
-        self._stop_event.set()
+        pass
 
     def connect(self):
-        self._stop_event = Event()
-        self._start_job_instance_manager()
+        pass

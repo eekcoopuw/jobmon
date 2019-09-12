@@ -2,7 +2,7 @@ from typing import Optional
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
-from jobmon.client.swarm.executors import Executor
+from jobmon.scheduler.executors import Executor
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.serializers import SerializeExecutorJobInstance

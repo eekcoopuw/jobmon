@@ -22,15 +22,11 @@ class DagExecutionStatus(object):
 class TaskDag(object):
     """A DAG of ExecutableTasks."""
 
-    def __init__(self, name="", executor=None, fail_fast=False,
-                 job_instantiation_interval=10, seconds_until_timeout=36000):
+    def __init__(self, name="", fail_fast=False, seconds_until_timeout=36000):
         """
         Args:
             name (str): name of dag
-            executor (Executor): executor instance being used
             fail_fast (bool): whether to fail after a task fails
-            job_instantiation_interval (int): number of seconds to wait before
-                instantiating newly ready jobs
             seconds_until_timeout (int): length that the workflow itself will
                 run before timing out
 
@@ -50,8 +46,6 @@ class TaskDag(object):
 
         self.fail_fast = fail_fast
 
-        self.executor = executor
-        self.job_instantiation_interval = job_instantiation_interval
         self.seconds_until_timeout = seconds_until_timeout
 
     def _set_fail_after_n_executions(self, n):
@@ -87,10 +81,7 @@ class TaskDag(object):
                 database
         """
         if dag_id:
-            self.job_list_manager = JobListManager(
-                dag_id, executor=self.executor, start_daemons=True,
-                job_instantiation_interval=self.job_instantiation_interval,
-                resource_adjustment=resource_adjustment)
+            self.job_list_manager = JobListManager(dag_id)
 
             for _, task in self.tasks.items():
                 self.job_list_manager.bind_task(task)
@@ -108,9 +99,7 @@ class TaskDag(object):
             tdf = TaskDagMetaFactory()
             self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
                                             user=getpass.getuser())
-            self.job_list_manager = JobListManager(
-                self.meta.dag_id, executor=self.executor, start_daemons=True,
-                resource_adjustment=resource_adjustment)
+            self.job_list_manager = JobListManager(dag_id)
             self.dag_id = self.meta.dag_id
 
             # Bind all the tasks to the job_list_manager
@@ -157,8 +146,7 @@ class TaskDag(object):
         return True
 
     def disconnect(self):
-        if self.job_list_manager:
-            self.job_list_manager.disconnect()
+        pass
 
     def _execute(self):
         """
@@ -185,6 +173,8 @@ class TaskDag(object):
         """
         if not self.is_bound:
             self.bind_to_db()
+
+        # TODO: move dag heartbeat into this method
 
         previously_completed = copy.copy(self.job_list_manager.all_done)
         self._set_top_fringe()

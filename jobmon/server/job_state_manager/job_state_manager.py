@@ -526,10 +526,8 @@ def log_dag_heartbeat(dag_id):
     return resp
 
 
-@jsm.route('/task_dag/<dag_id>/log_executor_report_by', methods=['POST'])
+@jsm.route('/log_executor_report_by', methods=['POST'])
 def log_executor_report_by(dag_id):
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("dag_id", dag_id))
     data = request.get_json()
 
     params = {}
@@ -836,8 +834,8 @@ def reset_incomplete_jobs(dag_id):
     log_errors = """
             INSERT INTO job_instance_error_log
                 (job_instance_id, description, error_time)
-            SELECT job_instance_id, 
-            CONCAT('Job RESET requested setting to E from status of: ', job_instance.status) as description, 
+            SELECT job_instance_id,
+            CONCAT('Job RESET requested setting to E from status of: ', job_instance.status) as description,
             UTC_TIMESTAMP as error_time
             FROM job_instance
             JOIN job USING(job_id)

@@ -4,7 +4,7 @@ import threading
 import _thread
 from time import sleep
 import traceback
-from typing import Optional, List
+from typing import Optional, List, Type
 
 from jobmon.client import shared_requester, client_config
 from jobmon.client.requester import Requester
@@ -31,7 +31,7 @@ class JobInstanceReconciler(object):
 
     def __init__(self,
                  dag_id: int,
-                 executor: Optional[Executor] = None,
+                 executor: Type[Executor],
                  stop_event: Optional[threading.Event] = None,
                  requester: Requester = shared_requester) -> None:
 

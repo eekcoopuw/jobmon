@@ -4,7 +4,7 @@ from typing import Dict
 
 from flask import jsonify, request, Blueprint
 from sqlalchemy.orm import contains_eager
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from jobmon.models import DB
 from jobmon.models.attributes.job_attribute import JobAttribute
@@ -16,6 +16,7 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
+from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.jobmonLogging import jobmonLogging as logging
@@ -172,8 +173,8 @@ def get_job_attribute(job_id):
 #     return resp
 
 
-@jqs.route('/dag/<dag_id>/queued_jobs/<n_queued_jobs>', methods=['GET'])
-def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
+@jqs.route('/queued_jobs/<n_queued_jobs>', methods=['GET'])
+def get_queued_jobs(n_queued_jobs: int) -> Dict:
     """Returns oldest n jobs (or all jobs if total queued jobs < n) to be
     instantiated. Because the SGE can only qsub jobs at a certain rate, and we
     poll every 10 seconds, it does not make sense to return all jobs that are
@@ -181,16 +182,29 @@ def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
     Args:
         last_sync (datetime): time since when to get jobs
     """
-    last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
+
     time = get_time(DB.session)
-    jobs = DB.session.query(Job). \
-        filter(
-        Job.dag_id == dag_id,
-        Job.status.in_([JobStatus.QUEUED_FOR_INSTANTIATION,
-                        JobStatus.ADJUSTING_RESOURCES]),
-        Job.status_date >= last_sync). \
-        order_by(Job.job_id). \
-        limit(n_queued_jobs)
+
+    # TODO: this is where we would filter by workflow priority
+    query = """
+        SELECT
+            job.*
+        FROM
+            job
+        JOIN workflow
+            on job.dag_id = workflow.dag_id
+        WHERE
+            workflow.status = :workflow_status
+            AND job.status = :job_status
+            AND job.status_date >= :last_sync
+        ORDER BY job.job_id
+        LIMIT :n_queued_jobs"""
+    jobs = DB.session.query(Job).from_statement(text(query)).params(
+        workflow_status=WorkflowStatus.RUNNING,
+        job_status=JobStatus.QUEUED_FOR_INSTANTIATION,
+        last_sync=request.args.get('last_sync', '2010-01-01 00:00:00'),
+        n_queued_jobs=n_queued_jobs
+    ).all()
     DB.session.commit()
     job_dcts = [j.to_wire_as_executor_job() for j in jobs]
     resp = jsonify(job_dcts=job_dcts, time=time)
@@ -288,23 +302,27 @@ def get_job_instances_by_status(dag_id):
     resp.status_code = StatusCodes.OK
     return resp
 
-
-@jqs.route('/dag/<dag_id>/get_suspicious_job_instances', methods=['GET'])
+# TODO: may want to filter this route by jobmon version or scheduler instance?
+@jqs.route('/get_suspicious_job_instances', methods=['GET'])
 def get_suspicious_job_instances(dag_id):
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
     # ignore job instances created after heartbeat began. We'll reconcile them
     # during the next reconciliation loop.
-    rows = DB.session.query(JobInstance). \
-        join(TaskDagMeta). \
-        filter_by(dag_id=dag_id). \
-        filter(JobInstance.status.in_([
-        JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-        JobInstanceStatus.RUNNING])). \
-        filter(JobInstance.submitted_date <= TaskDagMeta.heartbeat_date). \
-        filter(JobInstance.report_by_date <= func.UTC_TIMESTAMP()). \
-        with_entities(JobInstance.job_instance_id, JobInstance.executor_id). \
-        all()
+
+    query = """
+    SELECT
+        job_instance.job_instance_id, job_instance.executor_id
+    FROM
+        job_instance
+    WHERE
+        job_instance.status in :active_jobs
+        job_instance.report_by_date <= UTC_TIMESTAMP()
+    """
+    rows = DB.session.query(JobInstance).from_statement(text(query)).params(
+        active_jobs=[JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                     JobInstanceStatus.RUNNING]
+    ).all()
     DB.session.commit()
     job_instances = [JobInstance(job_instance_id=row[0], executor_id=row[1])
                      for row in rows]

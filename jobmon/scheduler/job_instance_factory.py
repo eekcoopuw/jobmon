@@ -4,7 +4,7 @@ import logging
 import threading
 from time import sleep
 import traceback
-from typing import Optional, List
+from typing import Optional, List, Type
 import _thread
 
 from jobmon.client import shared_requester, client_config
@@ -25,7 +25,7 @@ class JobInstanceFactory(object):
 
     def __init__(self,
                  dag_id: int,
-                 executor: Optional[Executor] = None,
+                 executor: Type[Executor],
                  n_queued_jobs: int = 1000,
                  stop_event: Optional[threading.Event] = None,
                  resource_adjustment: float = 0.5,

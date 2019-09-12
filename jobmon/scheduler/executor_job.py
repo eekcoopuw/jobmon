@@ -3,7 +3,7 @@ from typing import Optional, List
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
-from jobmon.client.swarm.executors import ExecutorParameters
+from jobmon.scheduler.executors import ExecutorParameters
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.job_status import JobStatus
 from jobmon.serializers import SerializeExecutorJob
@@ -102,9 +102,10 @@ class ExecutorJob:
             requester=requester)
         return executor_job
 
-    def update_executor_parameter_set(self,
-        parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
-        only_scale: List = [], resource_adjustment=0.5) -> None:
+    def update_executor_parameter_set(
+            self,
+            parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
+            only_scale: List = [], resource_adjustment=0.5) -> None:
         """
         update the resources for a given job in the db
 
