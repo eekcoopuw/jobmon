@@ -3,7 +3,7 @@ import sys
 from typing import Optional
 
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
-from jobmon.client.swarm.executors.base import ExecutorParameters
+from jobmon.scheduler.executors.base import ExecutorParameters
 
 logger = logging.getLogger(__name__)
 

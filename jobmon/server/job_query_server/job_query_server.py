@@ -194,16 +194,16 @@ def get_queued_jobs(n_queued_jobs: int) -> Dict:
         JOIN workflow
             on job.dag_id = workflow.dag_id
         WHERE
-            workflow.status = :workflow_status
+            workflow.status in :workflow_status
             AND job.status = :job_status
             AND job.status_date >= :last_sync
         ORDER BY job.job_id
         LIMIT :n_queued_jobs"""
     jobs = DB.session.query(Job).from_statement(text(query)).params(
-        workflow_status=WorkflowStatus.RUNNING,
+        workflow_status=[WorkflowStatus.CREATED, WorkflowStatus.RUNNING],
         job_status=JobStatus.QUEUED_FOR_INSTANTIATION,
         last_sync=request.args.get('last_sync', '2010-01-01 00:00:00'),
-        n_queued_jobs=n_queued_jobs
+        n_queued_jobs=int(n_queued_jobs)
     ).all()
     DB.session.commit()
     job_dcts = [j.to_wire_as_executor_job() for j in jobs]

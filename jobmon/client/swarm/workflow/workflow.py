@@ -125,7 +125,6 @@ class Workflow(object):
         self.reset_running_jobs = reset_running_jobs
 
         self.task_dag = TaskDag(
-            executor=self.executor,
             fail_fast=fail_fast,
             seconds_until_timeout=seconds_until_timeout
         )
@@ -172,24 +171,12 @@ class Workflow(object):
             executor_class (str): string referring to one of the executor
             classes in jobmon.client.swarm.executors
         """
-        self.executor_class = executor_class
-        if self.executor_class == 'SGEExecutor':
-            from jobmon.client.swarm.executors.sge import SGEExecutor
-            self.executor = SGEExecutor(**self.executor_args)
-        elif self.executor_class == "SequentialExecutor":
-            from jobmon.client.swarm.executors.sequential import \
-                SequentialExecutor
-            self.executor = SequentialExecutor()
-        elif self.executor_class == "DummyExecutor":
-            from jobmon.client.swarm.executors.dummy import DummyExecutor
-            self.executor = DummyExecutor()
-        else:
+        valid = ['SGEExecutor', "SequentialExecutor", "DummyExecutor"]
+        if executor_class not in valid:
             raise ValueError("{} is not a valid "
                              "executor_class".format(executor_class))
-
-        if not hasattr(self.executor, "execute"):
-            raise AttributeError(
-                "Executor must have an execute() method")
+        else:
+            self.executor_class = executor_class
 
     @property
     def dag_id(self):
@@ -401,7 +388,7 @@ class Workflow(object):
         if not self.is_bound:
             self._bind()
         self._create_workflow_run()
-        self._set_executor_temp_dir()
+        # self._set_executor_temp_dir()
         dag_status, n_new_done, n_prev_done, n_failed = (
             self.task_dag._execute_interruptible())
 

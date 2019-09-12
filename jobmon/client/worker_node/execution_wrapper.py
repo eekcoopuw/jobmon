@@ -87,13 +87,13 @@ def unwrap():
 
     # identify executor class
     if args["executor_class"] == "SequentialExecutor":
-        from jobmon.client.swarm.executors.sequential import \
+        from jobmon.scheduler.executors.sequential import \
             JobInstanceSequentialInfo as JobInstanceExecutorInfo
     elif args["executor_class"] == "SGEExecutor":
-        from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo \
+        from jobmon.scheduler.executors.sge import JobInstanceSGEInfo \
             as JobInstanceExecutorInfo
     elif args["executor_class"] == "DummyExecutor":
-        from jobmon.client.swarm.executors import JobInstanceExecutorInfo
+        from jobmon.scheduler.executors import JobInstanceExecutorInfo
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))

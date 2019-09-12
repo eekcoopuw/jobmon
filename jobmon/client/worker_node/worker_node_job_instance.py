@@ -1,14 +1,12 @@
 import logging
 import os
-import pkg_resources
 import socket
 import traceback
 from typing import Optional, Union, Tuple, Dict
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
-from jobmon.client.swarm.executors import JobInstanceExecutorInfo
-from jobmon.exceptions import ReturnCodes
+from jobmon.scheduler.executors import JobInstanceExecutorInfo
 
 logger = logging.getLogger(__name__)
 

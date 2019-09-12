@@ -99,8 +99,8 @@ class TaskDag(object):
             tdf = TaskDagMetaFactory()
             self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
                                             user=getpass.getuser())
-            self.job_list_manager = JobListManager(dag_id)
             self.dag_id = self.meta.dag_id
+            self.job_list_manager = JobListManager(self.dag_id)
 
             # Bind all the tasks to the job_list_manager
             for _, task in self.tasks.items():

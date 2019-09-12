@@ -7,9 +7,8 @@ import os
 import socket
 
 from jobmon.client import shared_requester
-from jobmon.client.swarm.job_management.executor_job_instance import \
-    ExecutorJobInstance
-from jobmon.client.swarm.executors.sge_utils import get_project_limits
+from jobmon.scheduler.executor_job_instance import ExecutorJobInstance
+from jobmon.scheduler.executors.sge_utils import get_project_limits
 from jobmon.client.utils import kill_remote_process
 from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
@@ -62,7 +61,7 @@ class WorkflowRun(object):
         if rc != StatusCodes.OK:
             raise ValueError(f"Invalid Response to add_workflow_run: {rc}")
         self.id = wfr_id
-        self.add_project_limit_attribute('start')
+        # self.add_project_limit_attribute('start')
 
     def add_project_limit_attribute(self, timing):
         if timing == 'start':
@@ -151,17 +150,17 @@ class WorkflowRun(object):
 
     def update_done(self):
         """Update the status of the workflow_run as done"""
-        self.add_project_limit_attribute('end')
+        # self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.DONE)
 
     def update_error(self):
         """Update the status of the workflow_run as errored"""
-        self.add_project_limit_attribute('end')
+        # self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.ERROR)
 
     def update_stopped(self):
         """Update the status of the workflow_run as stopped"""
-        self.add_project_limit_attribute('end')
+        # self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):

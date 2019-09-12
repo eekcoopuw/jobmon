@@ -21,8 +21,11 @@ class SerializeExecutorJob:
         # coerce types for all nullables that are cast
         # using ast.literal_eval is a potential security issue but was the only
         # solution I could find to turning the data into json twice
+        max_runtime_seconds = int(wire_tuple[6]) if wire_tuple[6] else None
         context_args = ast.literal_eval(
             wire_tuple[7]) if wire_tuple[7] else None
+        resource_scales = ast.literal_eval(
+            wire_tuple[8]) if wire_tuple[8] else None
         num_cores = int(wire_tuple[10]) if wire_tuple[10] else None
         m_mem_free = float(wire_tuple[11]) if wire_tuple[11] else None
         last_process_group_id = int(wire_tuple[14]) if wire_tuple[14] else None
@@ -33,9 +36,9 @@ class SerializeExecutorJob:
                 "job_hash": int(wire_tuple[3]),
                 "command": wire_tuple[4],
                 "status": wire_tuple[5],
-                "max_runtime_seconds": int(wire_tuple[6]),
+                "max_runtime_seconds": max_runtime_seconds,
                 "context_args": context_args,
-                "resource_scales": ast.literal_eval(wire_tuple[8]),
+                "resource_scales": resource_scales,
                 "queue": wire_tuple[9],
                 "num_cores": num_cores,
                 "m_mem_free": m_mem_free,
