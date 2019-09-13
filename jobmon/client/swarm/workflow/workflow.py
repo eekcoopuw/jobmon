@@ -237,7 +237,7 @@ class Workflow(object):
         """
         if self.is_bound:
             self.task_dag.reconnect()
-
+        self._matching_wf_args_diff_hash()
         potential_wfs = self._matching_workflows()
         if len(potential_wfs) > 0 and not self.resume:
             raise WorkflowAlreadyExists("This workflow and task dag already "
@@ -314,6 +314,26 @@ class Workflow(object):
         """Update the workflow as stopped"""
         self.workflow_run.update_stopped()
         self._update_status(WorkflowStatus.STOPPED)
+
+    def _matching_wf_args_diff_hash(self):
+        """Check """
+        workflow_hash = self._compute_hash()
+        rc, response = self.requester.send_request(
+            app_route='/workflow/workflow_args',
+            message={'workflow_args': str(self.workflow_args)},
+            request_type='get')
+        bound_workflow_hashes = response['workflow_hashes']
+        for hash in bound_workflow_hashes:
+            if workflow_hash != hash[0]:
+                raise WorkflowAlreadyExists("The unique workflow_args already"
+                                            " belong to a workflow that "
+                                            "contains different tasks than the"
+                                            " workflow you are creating, "
+                                            "either change your workflow args "
+                                            "so that they are unique for this "
+                                            "set of tasks, or make sure your "
+                                            "tasks match the workflow you are "
+                                            "trying to resume")
 
     def _matching_dag_ids(self):
         """Find all matching dag_ids for this task_dag_hash"""

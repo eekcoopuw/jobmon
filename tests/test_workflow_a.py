@@ -92,72 +92,6 @@ def test_resource_arguments(real_jsm_jqs, db_cfg):
 
 
 @pytest.mark.qsubs_jobs
-def test_dag_update(real_jsm_jqs, db_cfg):
-    # Create different dags
-    t1 = BashTask("sleep 1", num_cores=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
-
-    t4 = BashTask("sleep 3", num_cores=1)
-    t5 = BashTask("sleep 2", upstream_tasks=[t4], num_cores=1)
-    t6 = BashTask("sleep 1", upstream_tasks=[t5], num_cores=1)
-
-    wfa1 = "dag_update"
-    wf1 = Workflow(wfa1)
-    wf1.add_tasks([t1, t2, t3])
-    wf1.execute()
-
-    wfa2 = "dag_update"
-    wf2 = Workflow(wfa2)
-    wf2.add_tasks([t4, t5, t6])
-    wf2.execute()
-
-    # Make sure the second Workflow has a distinct Workflow ID and WorkflowRun
-    # ID
-    assert wf1.id != wf2.id
-
-    # Make sure the second Workflow has a distinct hash
-    assert wf1.hash != wf2.hash
-
-    # Make sure the second Workflow has a distinct set of Jobs
-    assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
-                set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
-
-
-@pytest.mark.qsubs_jobs
-def test_wfagrs_dag_update(real_jsm_jqs, db_cfg):
-    # Create different dags
-    t1 = BashTask("sleep 1", num_cores=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
-
-    t4 = BashTask("sleep 3", num_cores=1)
-    t5 = BashTask("sleep 2", upstream_tasks=[t4], num_cores=1)
-    t6 = BashTask("sleep 1", upstream_tasks=[t5], num_cores=1)
-
-    wfa1 = "wfargs_dag_update"
-    wf1 = Workflow(wfa1)
-    wf1.add_tasks([t1, t2, t3])
-    wf1.execute()
-
-    wfa2 = "wfargs_dag_update"
-    wf2 = Workflow(wfa2)
-    wf2.add_tasks([t4, t5, t6])
-    wf2.execute()
-
-    # Make sure the second Workflow has a distinct Workflow ID and WorkflowRun
-    # ID
-    assert wf1.id != wf2.id
-
-    # Make sure the second Workflow has a distinct hash
-    assert wf1.hash != wf2.hash
-
-    # Make sure the second Workflow has a distinct set of Jobs
-    assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
-                set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
-
-
-@pytest.mark.qsubs_jobs
 def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     # Manually modify the database so that some mid-dag jobs appear in
     # a running / non-complete / non-error state
@@ -190,9 +124,9 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
         DB.session.commit()
 
     # Re-create the dag "from scratch" (copy simple_workflow fixture)
-    t1 = BashTask("sleep 1", num_cores=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
+    t1 = BashTask("sleep 1", num_cores=1, m_mem_free='1G')
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1, m_mem_free='1G')
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1, m_mem_free='1G')
 
     wfa = "my_simple_dag"
     elogdir = str(tmpdir.mkdir("wf_elogs"))

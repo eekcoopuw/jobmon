@@ -275,6 +275,23 @@ def test_workflow_identical_args(real_jsm_jqs, db_cfg):
         wf3.execute()
 
 
+def test_same_wf_args_diff_dag(real_jsm_jqs, db_cfg):
+    wf1 = Workflow(workflow_args="same", project='proj_tools')
+    task1 = BashTask("sleep 2", num_cores=1)
+    wf1.add_task(task1)
+
+    wf2 = Workflow(workflow_args="same", project='proj_tools')
+    task2 = BashTask("sleep 3", num_cores=1)
+    wf2.add_task(task2)
+
+    exit_status = wf1.execute()
+
+    assert exit_status == 0
+
+    with pytest.raises(WorkflowAlreadyExists):
+        wf2.run()
+
+
 def test_workflow_config_reconciliation():
     Workflow(name="test_reconciliation_args", reconciliation_interval=3,
                   heartbeat_interval=4, report_by_buffer=5.1)
@@ -358,40 +375,13 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
     assert executor_id not in ex_id_list
 
 
-def test_workflow_resource_adjustment(simple_workflow_w_errors, db_cfg):
-    workflow = simple_workflow_w_errors
-
-    assert workflow.workflow_run.resource_adjustment == 0.5
-
-    wf_id = workflow.id
-    workflow.resource_adjustment = 0.3
-    workflow.resume = ResumeStatus.RESUME
-    workflow.execute()
-
-    assert workflow.workflow_run.resource_adjustment == 0.3
-
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        query = """SELECT resource_adjustment
-                   FROM workflow_run
-                   WHERE workflow_id = {}""".format(wf_id)
-        resp = DB.session.execute(query).fetchall()
-        DB.session.commit()
-
-    assert len(resp) == 2
-    assert resp[0][0] == 0.5
-    assert resp[1][0] == 0.3
-
-
 def test_resource_scaling(real_jsm_jqs, db_cfg, fast_heartbeat):
 
     from jobmon.client.swarm.executors import ExecutorParameters
 
     my_wf = Workflow(
         workflow_args="resource starved workflow",
-        project="proj_tools",
-        resource_adjustment=0.3)  # resources will scale by 50% on failure
+        project="proj_tools")
 
     # specify SGE specific parameters
     sleepy_params = ExecutorParameters(
@@ -422,32 +412,6 @@ def test_resource_scaling(real_jsm_jqs, db_cfg, fast_heartbeat):
         job = resp[0]
         assert len(job.job_instances) == 3
         assert job.status == "D"
-
-
-def test_resource_scaling_config(real_jsm_jqs, db_cfg):
-    """ non-default resource adjustment overrides individual resource
-    adjustments, more resources than default resources get scaled too"""
-
-    name = 'scale_by_wf_resource_scale'
-    task = PythonTask(script=sge_utils.true_path(f"{path_to_file}/exceed_mem.py"),
-                      name=name, max_runtime_seconds=60, num_cores=2,
-                      m_mem_free='600M',
-                      resource_scales={'num_cores': 0.8, 'm_mem_free': 0.4,
-                                       'max_runtime_seconds': 0.7},
-                      max_attempts=2)
-    wf = Workflow(workflow_args="resource_underrequest_wf",
-                  project="proj_tools",
-                  resource_adjustment=0.3)
-    wf.add_task(task)
-    wf.run()
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        job = DB.session.query(Job).filter_by(name=name).first()
-        DB.session.commit()
-        assert job.executor_parameter_set.m_mem_free == 0.78
-        assert job.executor_parameter_set.max_runtime_seconds == 78
-        assert job.executor_parameter_set.num_cores == 2
 
 
 def test_workflow_resume_new_resources(real_jsm_jqs, db_cfg):
