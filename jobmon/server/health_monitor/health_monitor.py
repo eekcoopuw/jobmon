@@ -4,7 +4,7 @@ from time import sleep
 from sqlalchemy.orm import joinedload
 
 from jobmon import __version__
-from jobmon.client import shared_requester
+from jobmon.requester import shared_requester
 from jobmon.models import DB
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO

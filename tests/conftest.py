@@ -71,8 +71,9 @@ def env_var(monkeypatch, test_session_config):
     """These two env variables are what tell the configs that we're running
     tests, not production code
     """
-    from jobmon.client import shared_requester, client_config
-    from jobmon.client.connection_config import ConnectionConfig
+    from jobmon.requester import shared_requester
+    from jobmon.client_config import client_config
+    from jobmon.connection_config import ConnectionConfig
 
     monkeypatch.setenv("JOBMON_HOST", test_session_config["JOBMON_HOST"])
     monkeypatch.setenv("JOBMON_PORT", test_session_config["JOBMON_PORT"])
@@ -237,7 +238,7 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
     test_client
     """
     import requests
-    from jobmon.client import requester
+    from jobmon import requester
     jsm_client, jqs_client = jsm_jqs
 
     def get_jqs(url, params, headers):
@@ -276,7 +277,7 @@ def dag_id(no_requests_jsm_jqs, db_cfg):
     dag_id
     """
     import random
-    from jobmon.client import shared_requester
+    from jobmon.requester import shared_requester
 
     rc, response = shared_requester.send_request(
         app_route='/task_dag',
@@ -293,7 +294,7 @@ def real_dag_id(real_jsm_jqs, db_cfg):
     return the dag_id
     """
     import random
-    from jobmon.client import shared_requester
+    from jobmon.requester import shared_requester
 
     rc, response = shared_requester.send_request(
         app_route='/task_dag',

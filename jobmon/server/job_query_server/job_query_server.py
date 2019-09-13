@@ -304,7 +304,7 @@ def get_job_instances_by_status(dag_id):
 
 # TODO: may want to filter this route by jobmon version or scheduler instance?
 @jqs.route('/get_suspicious_job_instances', methods=['GET'])
-def get_suspicious_job_instances(dag_id):
+def get_suspicious_job_instances():
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
     # ignore job instances created after heartbeat began. We'll reconcile them
@@ -317,17 +317,15 @@ def get_suspicious_job_instances(dag_id):
         job_instance
     WHERE
         job_instance.status in :active_jobs
-        job_instance.report_by_date <= UTC_TIMESTAMP()
+        AND job_instance.report_by_date <= UTC_TIMESTAMP()
     """
     rows = DB.session.query(JobInstance).from_statement(text(query)).params(
         active_jobs=[JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
                      JobInstanceStatus.RUNNING]
     ).all()
     DB.session.commit()
-    job_instances = [JobInstance(job_instance_id=row[0], executor_id=row[1])
-                     for row in rows]
     resp = jsonify(job_instances=[ji.to_wire_as_executor_job_instance()
-                                  for ji in job_instances])
+                                  for ji in rows])
     resp.status_code = StatusCodes.OK
     return resp
 

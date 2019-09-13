@@ -527,7 +527,7 @@ def log_dag_heartbeat(dag_id):
 
 
 @jsm.route('/log_executor_report_by', methods=['POST'])
-def log_executor_report_by(dag_id):
+def log_executor_report_by():
     data = request.get_json()
 
     params = {}

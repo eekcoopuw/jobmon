@@ -2,7 +2,7 @@ import argparse
 import shlex
 import subprocess
 
-from jobmon.client import shared_requester
+from jobmon.requester import shared_requester
 from jobmon.models import DB, database_loaders
 from jobmon.server import create_app, ServerConfig
 from jobmon.server.health_monitor.notifiers import SlackNotifier
