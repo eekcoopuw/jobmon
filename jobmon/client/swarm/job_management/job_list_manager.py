@@ -149,7 +149,12 @@ class JobListManager(object):
             request_type='post'
         )
 
-
+    def log_dag_running(self) -> None:
+        rc, _ = self.requester.send_request(
+            app_route=f'/task_dag/{self.dag_id}/log_running',
+            message={},
+            request_type='post')
+        return rc
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""

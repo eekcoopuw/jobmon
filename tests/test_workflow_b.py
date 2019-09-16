@@ -446,3 +446,19 @@ def test_workflow_resume_new_resources(real_jsm_jqs, db_cfg):
         assert job.max_attempts == 2
         assert job.tag == 'new_tag'
         DB.session.commit()
+
+
+def test_workflow_in_running_state(real_jsm_jqs, db_cfg):
+    t1 = BashTask("sleep 10", executor_class="SequentialExecutor",
+                  max_runtime_seconds=15, resource_scales={})
+    workflow = Workflow(executor_class="SequentialExecutor")
+    workflow.add_tasks([t1])
+    workflow._bind()
+    workflow._create_workflow_run()
+    workflow.task_dag._execute()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        wfDAO = DB.session.query(WorkflowDAO).filter_by(id=workflow.id).first()
+        assert wfDAO.status == WorkflowStatus.RUNNING

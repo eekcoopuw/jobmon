@@ -503,6 +503,28 @@ def log_executor_id(job_instance_id):
     return resp
 
 
+@jsm.route('/task_dag/<dag_id>/log_running', methods=['POST'])
+def log_dag_running(dag_id: int):
+    """Log a dag as running
+
+    Args:
+        dag_id: id of the dag to move to running
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("dag_id", dag_id))
+
+    params = {"dag_id": int(dag_id)}
+    query = """
+        UPDATE workflow
+        SET status = 'R'
+        WHERE dag_id = :dag_id"""
+    DB.session.execute(query, params)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jsm.route('/task_dag/<dag_id>/log_heartbeat', methods=['POST'])
 def log_dag_heartbeat(dag_id):
     """Log a dag as being responsive, with a heartbeat
@@ -835,8 +857,8 @@ def reset_incomplete_jobs(dag_id):
     log_errors = """
             INSERT INTO job_instance_error_log
                 (job_instance_id, description, error_time)
-            SELECT job_instance_id, 
-            CONCAT('Job RESET requested setting to E from status of: ', job_instance.status) as description, 
+            SELECT job_instance_id,
+            CONCAT('Job RESET requested setting to E from status of: ', job_instance.status) as description,
             UTC_TIMESTAMP as error_time
             FROM job_instance
             JOIN job USING(job_id)
