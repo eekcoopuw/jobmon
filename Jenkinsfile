@@ -86,6 +86,7 @@ def createSetupCfgFile() {
         tag_prefix=\${tag_prefix}
         test_mode=\${test_mode}
         existing_db=\${existing_db}
+        same_host=\${same_host}
         slack_token=\${slack_token}
         slack_api_url=\${slack_api_url}
         wf_slack_channel=\${wf_slack_channel}
@@ -107,8 +108,12 @@ def createSetupCfgFile() {
         [existing db]
         internal_db_host=\${internal_db_host}
         internal_db_port=\${internal_db_port}
+        external_db_host=\${external_db_host}
         external_db_port=\${external_db_port}
-        jobmon_pass_service_user=\${jobmon_pass_service_user}" > /tmp/jobmon.cfg
+        jobmon_pass_service_user=\${jobmon_pass_service_user}
+
+        [same host]
+        existing_network=\${existing_network}" > /tmp/jobmon.cfg
     '''
 }
 

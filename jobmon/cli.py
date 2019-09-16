@@ -11,7 +11,6 @@ class CLI(object):
         self._subparsers = self.parser.add_subparsers(dest="sub_command")
 
         # add subparsers
-        self._add_initdb_subparser()
         self._add_start_subparser()
         self._add_test_subparser()
         self._add_workflow_status_subparser()
@@ -35,19 +34,8 @@ class CLI(object):
             args = self.parser.parse_args()
         if not args.sub_command:
             raise ValueError("sub-command required: "
-                             "{initdb, start, test}")
+                             "{start, test}")
         return args
-
-    def initdb(self, args):
-        """Create the database tables and load them with the requisite
-        Job and JobInstance statuses
-        """
-        from jobmon.models import DB, database_loaders
-        from jobmon.server import create_app
-        app = create_app()
-        DB.init_app(app)
-        with app.app_context():
-            database_loaders.main(DB)
 
     def start(self, args):
         """Start the monitoring service"""
@@ -85,10 +73,6 @@ class CLI(object):
         job_state, df = job_status(args.job_id)
         print(f"\nJOB_ID: {args.job_id}", f" STATUS: {job_state}\n")
         print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
-
-    def _add_initdb_subparser(self):
-        initdb_parser = self._subparsers.add_parser("initdb")
-        initdb_parser.set_defaults(func=self.initdb)
 
     def _add_start_subparser(self):
         start_parser = self._subparsers.add_parser("start")
