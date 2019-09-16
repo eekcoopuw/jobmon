@@ -11,13 +11,26 @@ def test_dynamic_resource_assignment(real_jsm_jqs, db_cfg):
                     max_attempts=2, executor_parameters=assign_resources)
     wf = Workflow(workflow_args='dynamic_resource_wf')
     wf.add_task(task)
-    wf.run()
+    exit = wf.run()
+    assert exit == 0 # confirm successful run
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = f"SELECT * from executor_parameter_set join job using(job_id)" \
+                f" where dag_id = {wf.dag_id}"
+        resp = DB.session.execute(query).fetchall()
+        DB.session.commit()
+        assert resp[0].max_runtime_seconds == 60
+        assert resp[0].m_mem_free == 0.4
+        assert resp[0].num_cores == 2
 
 
 def assign_resources(*args, **kwargs):
-    m_mem_free = '1G'
+    """Callable to be evaluated by task when it is queued to run"""
+    m_mem_free = '400M'
     max_runtime_seconds = 60
-    num_cores = 1
+    num_cores = 2
     queue = 'all.q'
 
     exec_params = ExecutorParameters(m_mem_free=m_mem_free,
@@ -35,3 +48,6 @@ def test_static_resource_assignment(real_jsm_jqs):
     wf = Workflow(workflow_args='static_resource_wf')
     wf.add_task(task)
     wf.run()
+
+
+

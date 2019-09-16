@@ -331,10 +331,10 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, real_dag):
     assert task_status(real_dag, task_b[2]) == JobStatus.DONE
 
     assert task_status(real_dag, task_c[0]) == JobStatus.DONE
-    assert task_status(real_dag, task_c[1]) == JobStatus.ADJUSTING_RESOURCES
+    assert task_status(real_dag, task_c[1]) == JobStatus.REGISTERED
     assert task_status(real_dag, task_c[2]) == JobStatus.DONE
 
-    assert task_status(real_dag, task_d) == JobStatus.ADJUSTING_RESOURCES
+    assert task_status(real_dag, task_d) == JobStatus.REGISTERED
 
 
 @pytest.mark.qsubs_jobs

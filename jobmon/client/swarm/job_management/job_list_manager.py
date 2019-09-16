@@ -1,3 +1,4 @@
+from functools import partial
 import logging
 import time
 from threading import Event, Thread
@@ -13,6 +14,8 @@ from jobmon.client.swarm.job_management.job_instance_reconciler import \
 from jobmon.client.swarm.workflow.executable_task import (BoundTask,
                                                           ExecutableTask)
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.client.swarm.job_management.executor_job import ExecutorJob
+from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 
 
@@ -24,7 +27,9 @@ class JobListManager(object):
     def __init__(self, dag_id, executor=None, start_daemons=False,
                  job_instantiation_interval=3, n_queued_jobs=1000,
                  resource_adjustment: float = 0.5):
-        """Manages all the list of jobs that are running, done or errored
+        """Once the job is ready to run and the task dag submits it, the job
+        list manager takes over and monitors the job throughout its states
+         until it is done or failed.
 
         Args:
             dag_id (int): the id for the dag to run
@@ -55,6 +60,8 @@ class JobListManager(object):
             stop_event=self._stop_event)
 
         self.requester = shared_requester
+        self.executor = executor
+        self.resource_adjustment = resource_adjustment
 
         self.bound_tasks: Dict[int, BoundTask] = {}  # {job_id: BoundTask}
         self.hash_job_map: Dict[int, SwarmJob] = {}  # {job_hash: simpleJob}
@@ -71,10 +78,9 @@ class JobListManager(object):
 
     @property
     def active_jobs(self):
-        """List of tasks that are listed as Adjusting Resources,
-        Done or Error_Fatal"""
+        """List of tasks that are listed as Registered, Done or Error_Fatal"""
         return [task for job_id, task in self.bound_tasks.items()
-                if task.status not in [JobStatus.ADJUSTING_RESOURCES,
+                if task.status not in [JobStatus.REGISTERED,
                                        JobStatus.DONE,
                                        JobStatus.ERROR_FATAL]]
 
@@ -106,30 +112,24 @@ class JobListManager(object):
         self.bound_tasks[job.job_id] = bound_task
         return bound_task
 
-    def _bind_parameters(self, job_id, task):
-        resources = task.executor_parameters(task) # evaluate the callable
+    def _bind_parameters(self, job_id, executor_parameter_set_type,
+                         **kwargs):
+        # evaluate the callable
+        task = kwargs.get("task")
+        resources = task.executor_parameters(kwargs)
+        task.bound_parameters.append(resources)
+
+        if executor_parameter_set_type == ExecutorParameterSetType.VALIDATED:
+            resources.validate()
         self._add_parameters(job_id, resources,
-                             ExecutorParameterSetType.ORIGINAL)
-        resources.validate()
-        self._add_parameters(job_id, resources,
-                             ExecutorParameterSetType.VALIDATED)
-        # TODO after parameters are bound, the job state needs to be set to
-        #  queued and AFTER the function needs to be set to the
-        #  scaling(adjusting) function
+                             executor_parameter_set_type)
 
     def _add_parameters(self, job_id: int, executor_parameters,
                         parameter_set_type=ExecutorParameterSetType.VALIDATED):
         """Add an entry for the validated parameters to the database and
         activate them"""
-        msg = {'parameter_set_type': parameter_set_type,
-               'max_runtime_seconds': executor_parameters.max_runtime_seconds,
-               'context_args': executor_parameters.context_args,
-               'queue': executor_parameters.queue,
-               'num_cores': executor_parameters.num_cores,
-               'm_mem_free': executor_parameters.m_mem_free,
-               'j_resource': executor_parameters.j_resource,
-               'resource_scales': executor_parameters.resource_scales,
-               'hard_limits': executor_parameters.hard_limits}
+        msg = {'parameter_set_type': parameter_set_type}
+        msg.update(executor_parameters.to_wire())
         self.requester.send_request(
             app_route=f'/job/{job_id}/update_resources',
             message=msg,
@@ -142,6 +142,30 @@ class JobListManager(object):
             message=msg,
             request_type='post'
         )
+
+    def adjust_resources(self, task, *args, **kwargs):
+        """Function from Job Instance Factory that adjusts resources and then
+        queues them, this should also incorporate resource binding if they
+        have not yet been bound"""
+        logger.debug("Job in A state, adjusting resources before queueing")
+        exec_param_set = task.bound_parameters[-1] # get the most recent parameter set
+        only_scale = list(exec_param_set.resource_scales.keys())
+        rc, msg = self.requester.send_request(
+            app_route=f'/job/{task.job_id}/most_recent_ji_error',
+            message={},
+            request_type='get')
+        if 'exceeded max_runtime' in msg and 'max_runtime_seconds' in only_scale:
+            only_scale = ['max_runtime_seconds']
+        logger.debug(f"only going to scale these resources: {only_scale}")
+        resources_adjusted = {'only_scale': only_scale}
+        if self.resource_adjustment != 0.5:
+            resources_adjusted[
+                'all_resource_scale_val'] = self.resource_adjustment
+            logger.debug("You have specified a resource adjustment, this will "
+                         "be applied to all resources that will be adjusted "
+                         "(default: m_mem_free and max_runtime_seconds)")
+        exec_param_set.adjust(**resources_adjusted)
+        return exec_param_set
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""
@@ -181,13 +205,14 @@ class JobListManager(object):
             self.job_hash_map[job.job_id] = job.job_hash
         return jobs
 
-    def parse_done_and_errors(self, jobs):
+    def parse_adjusting_done_and_errors(self, jobs):
         """Separate out the done jobs from the errored ones
         Args:
             jobs(list): list of objects of type models.Job
         """
         completed_tasks = set()
         failed_tasks = set()
+        adjusting_tasks = set()
         for job in jobs:
             task = self.bound_tasks[job.job_id]
             if task.status == JobStatus.DONE and task not in self.all_done:
@@ -201,17 +226,19 @@ class JobListManager(object):
                 # of failures as it is about to be reset and
                 # retried... i.e. move on to the else: continue
                 failed_tasks.add(task)
+            elif task.status == JobStatus.ADJUSTING_RESOURCES and task.is_bound:
+                adjusting_tasks.add(task)
             else:
                 continue
         self.all_done.update(completed_tasks)
         self.all_error -= completed_tasks
         self.all_error.update(failed_tasks)
-        return completed_tasks, failed_tasks
+        return completed_tasks, failed_tasks, adjusting_tasks
 
     def _sync(self):
         """Get all jobs from the database and parse the done and errored"""
         jobs = self.get_job_statuses()
-        self.parse_done_and_errors(jobs)
+        self.parse_adjusting_done_and_errors(jobs)
 
     def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
         """Block code execution until a job is done or errored"""
@@ -224,7 +251,12 @@ class JobListManager(object):
                                    "workflow will need to be restarted."
                                    .format(timeout))
             jobs = self.get_job_statuses()
-            completed, failed = self.parse_done_and_errors(jobs)
+            completed, failed, adjusting = self.parse_adjusting_done_and_errors(jobs)
+            if adjusting:
+                for task in adjusting:
+                    task.executor_parameters = partial(self.adjust_resources,
+                                                       task) # change callable
+                    self.adjust_resources_and_queue(task)
             if completed or failed:
                 return completed, failed
             time.sleep(poll_interval)
@@ -239,59 +271,21 @@ class JobListManager(object):
         self.job_hash_map[job.job_id] = job.job_hash
         return job
 
-    def queue_job(self, variable):
-        """Queue a job by passing the job's id to the JobFactory"""
-        job_id = variable
-        if str(type(variable)) != "<class 'int'>":
-            # what we really need here is a job_id, so take job_id as variable
-            # for the optimized query it seems some clients are using the
-            # function, so support the old way thus, I have to take advantage
-            # of the typeless feature of python, which is a bad practise
-            job_id = variable.job_id
+    def adjust_resources_and_queue(self, task):
+        """If a job is provided to the function then the resources have already
+        been bound to the database and it should be set as adjusted"""
+        job_id = self.hash_job_map[task.hash].job_id
+        if not task.bound_parameters: # create O and V if no prior params are bound
+            self._bind_parameters(job_id, ExecutorParameterSetType.ORIGINAL,
+                                  task=task)
+            self._bind_parameters(job_id, ExecutorParameterSetType.VALIDATED,
+                                  task=task)
+        else:
+            self._bind_parameters(job_id, ExecutorParameterSetType.ADJUSTED,
+                                  task=task)
         self.job_factory.queue_job(job_id)
         task = self.bound_tasks[job_id]
         task.status = JobStatus.QUEUED_FOR_INSTANTIATION
-
-    def adjust_and_queue(self, task):
-        """Add a task's hash to the hash_job_map"""
-        job_id = self.hash_job_map[task.hash].job_id
-        # at this point it should be in adjusting resources, the problem is
-        # that if it is in A state then there will be a race condition with the
-        # job instance factory that is polling for jobs in adjusting state
-        self.adjust_resources(job_id, task)
-        # some sort of differentiation needs to happen
-        self.queue_job(job_id)
-
-    def adjust_resources(self, job_id, task):
-        """Function from Job Instance Factory that adjusts resources and then
-        queues them, this should also incorporate resource binding if they
-        have not yet been bound"""
-        self._bind_parameters(job_id, task)
-        # TODO
-        # if job.status == JobStatus.ADJUSTING_RESOURCES:
-        #     logger.debug("Job in A state, adjusting resources before queueing")
-        #     only_scale = list(job.executor_parameters.resource_scales.keys())
-        #     rc, response = self.requester.send_request(
-        #         app_route=f'/job/{job.job_id}/most_recent_exec_id',
-        #         message={},
-        #         request_type='get'
-        #     )
-        #     if len(response['executor_id']) > 0:
-        #         exec_id = response['executor_id'][0]
-        #         try:
-        #             exit_code, msg = self.executor.get_remote_exit_info(
-        #                 exec_id)
-        #             if 'exceeded max_runtime' in msg and \
-        #                     'max_runtime_seconds' in only_scale:
-        #                 only_scale = ['max_runtime_seconds']
-        #         except RemoteExitInfoNotAvailable:
-        #             logger.debug("Unable to retrieve exit info to "
-        #                          "determine the cause of resource error")
-        #     job.update_executor_parameter_set(
-        #         parameter_set_type=JobStatus.ADJUSTING_RESOURCES,
-        #         only_scale=only_scale,
-        #         resource_adjustment=self.resource_adjustment)
-        #     job.queue_job()
 
     def reset_jobs(self):
         """Reset jobs by passing through to the JobFactory"""

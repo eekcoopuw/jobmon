@@ -72,7 +72,9 @@ def test_bash_task_args(db_cfg, job_list_manager_sge):
     DB = db_cfg["DB"]
     a = BashTask(command="echo 'Hello Jobmon'", num_cores=1, mem_free='2G',
                  max_attempts=1)
-    job_id = job_list_manager_sge.bind_task(a).job_id
+    job = job_list_manager_sge.bind_task(a)
+    job_id = job.job_id
+    job_list_manager_sge.adjust_resources_and_queue(job)
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
@@ -101,7 +103,9 @@ def test_python_task_args(db_cfg, job_list_manager_sge):
     DB = db_cfg["DB"]
     a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
                    num_cores=1, m_mem_free='2G', max_attempts=1)
-    job_id = job_list_manager_sge.bind_task(a).job_id
+    job = job_list_manager_sge.bind_task(a)
+    job_id = job.job_id
+    job_list_manager_sge.adjust_resources_and_queue(job)
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
@@ -124,7 +128,9 @@ def test_r_task_args(db_cfg, job_list_manager_sge):
     a = RTask(script=sge.true_path("tests/simple_R_script.r"),
               env_variables={'OP_NUM_THREADS': 1},
               num_cores=1, mem_free='2G', max_attempts=1)
-    job_id = job_list_manager_sge.bind_task(a).job_id
+    job = job_list_manager_sge.bind_task(a)
+    job_id = job.job_id
+    job_list_manager_sge.adjust_resources_and_queue(job)
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
@@ -147,7 +153,9 @@ def test_stata_task_args(db_cfg, job_list_manager_sge):
     a = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
                   env_variables={'OP_NUM_THREADS': 1},
                   num_cores=1, m_mem_free='2G', max_attempts=1)
-    job_id = job_list_manager_sge.bind_task(a).job_id
+    job = job_list_manager_sge.bind_task(a)
+    job_id = job.job_id
+    job_list_manager_sge.adjust_resources_and_queue(job)
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()

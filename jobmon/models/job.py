@@ -87,6 +87,7 @@ class Job(DB.Model):
     last_process_group_id = None
 
     valid_transitions = [
+        (JobStatus.REGISTERED, JobStatus.QUEUED_FOR_INSTANTIATION),
         (JobStatus.ADJUSTING_RESOURCES, JobStatus.QUEUED_FOR_INSTANTIATION),
         (JobStatus.QUEUED_FOR_INSTANTIATION, JobStatus.INSTANTIATED),
         (JobStatus.INSTANTIATED, JobStatus.RUNNING),
@@ -99,7 +100,7 @@ class Job(DB.Model):
 
     def reset(self):
         """Reset status and number of attempts on a Job"""
-        self.status = JobStatus.ADJUSTING_RESOURCES
+        self.status = JobStatus.REGISTERED
         self.num_attempts = 0
         for ji in self.job_instances:
             ji.status = JobInstanceStatus.ERROR

@@ -572,7 +572,7 @@ def test_job_reset(db_cfg, real_dag_id):
                  'next_report_increment': 120},
         request_type='post')
 
-    # Reset the job to ADJUSTING_RESOURCES
+    # Reset the job to REGISTERED
     req.send_request(
         app_route='/job/{}/reset'.format(swarm_job.job_id),
         message={},
@@ -585,7 +585,7 @@ def test_job_reset(db_cfg, real_dag_id):
                                                job_id=swarm_job.job_id).all()
         assert len(jobs) == 1
         job = jobs[0]
-        assert job.status == JobStatus.ADJUSTING_RESOURCES
+        assert job.status == JobStatus.REGISTERED
         assert job.num_attempts == 0
         assert len(job.job_instances) == 3
         assert all([ji.status == JobInstanceStatus.ERROR
@@ -1006,7 +1006,7 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
 
 
 def test_log_error_reconciler(db_cfg, real_dag_id):
-    next_report_increment = 10
+    next_report_increment = 15
     # add job
     _, response = req.send_request(
         app_route='/job',

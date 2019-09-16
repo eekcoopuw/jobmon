@@ -102,33 +102,6 @@ class ExecutorJob:
             requester=requester)
         return executor_job
 
-    def update_executor_parameter_set(self,
-        parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
-        only_scale: List = [], resource_adjustment=0.5) -> None:
-        """
-        update the resources for a given job in the db
-
-        Args:
-            parameter_set_type: models.executor_parameter_set_type value
-            only_adjust: only one resource that should be adjusted,
-                otherwise all resources will be adjusted
-        """
-        logger.debug(f"only going to scale these resources: {only_scale}")
-        resources_adjusted = {'only_scale': only_scale}
-        if resource_adjustment != 0.5:
-            resources_adjusted['all_resource_scale_val'] = resource_adjustment
-            logger.debug("You have specified a resource adjustment, this will "
-                         "be applied to all resources that will be adjusted "
-                         "(default: m_mem_free and max_runtime_seconds)")
-        self.executor_parameters.adjust(**resources_adjusted)
-
-        msg = {'parameter_set_type': parameter_set_type}
-        msg.update(self.executor_parameters.to_wire())
-        self.requester.send_request(
-            app_route=f'/job/{self.job_id}/update_resources',
-            message=msg,
-            request_type='post')
-
     def queue_job(self) -> None:
         """Transition a job to the Queued for Instantiation status"""
         app_route = f"/job/{self.job_id}/queue"

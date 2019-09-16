@@ -11,6 +11,7 @@ class JobStatus(DB.Model):
 
     __tablename__ = 'job_status'
 
+    REGISTERED = 'G'
     QUEUED_FOR_INSTANTIATION = 'Q'
     INSTANTIATED = 'I'
     RUNNING = 'R'

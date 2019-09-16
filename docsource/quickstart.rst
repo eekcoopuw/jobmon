@@ -213,6 +213,58 @@ Tasks that may have been made in previous Workflows will be ignored.
     Figure out how we want to give users visibility into the Workflows
     they've created over time.
 
+Dynamically Configure Resources for a Given Task
+================================================
+It is now possible for dynamically configure the resources needed to run a
+given task. For example, if an upstream task may better inform the resources
+that a downstream task needs, the resources will not be checked and bound until
+the downstream is about to run and all of its upstream dependencies
+have completed. To do this, the user can provide a function that will be called
+at runtime and return an ExecutorParameter object with the resources needed.
+
+For example ::
+
+    from jobmon.client.swarm.executors.base import ExecutorParameters
+    from jobmon.client.swarm.workflow.workflow import Workflow
+    from jobmon.client.swarm.workflow.bash_task import BashTask
+
+    def assign_resources(*args, **kwargs):
+        """ Callable to be evaluated when the task is ready to be scheduled
+        to run"""
+        resources = {}
+        resource_file = "/tmp/scicomp/resources_task2.txt"
+        with open(resource_file) as f:
+            for line in f:
+                (resource, val) = line.split()
+                resources[resource] = val
+
+        m_mem_free = str(resources['mem'])
+        max_runtime_seconds = int(resources['runtime']
+        num_cores = int(resources['cores'])
+        queue = 'all.q'
+
+        exec_params = ExecutorParameters(m_mem_free=m_mem_free,
+                                         max_runtime_seconds=max_runtime_seconds,
+                                         num_cores=num_cores, queue=queue)
+        return exec_params
+
+    # task with static resources that assigns the resources for the 2nd task
+    # when it runs
+    task1 = PythonTask(name='task_to_assign_resources',
+                       script="/assign_resources.py", max_attempts = 1,
+                       max_runtime_seconds=200, num_cores=1,
+                       queue='all.q', m_mem_free='1G')
+
+    # task that evaluates the callable once task1 has run and assigned
+    # resources
+    task2 = BashTask(name='dynamic_resource_task', command='sleep 1',
+                    max_attempts=2, executor_parameters=assign_resources)
+    task2.add_upstream(task1) # make task2 dependent on task 1
+
+    wf = Workflow(workflow_args='dynamic_resource_wf')
+    wf.add_task(task1)
+    wf.run()
+
 
 Making Workflow Fail On First Failure
 =======================================

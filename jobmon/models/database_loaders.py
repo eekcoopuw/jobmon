@@ -41,7 +41,7 @@ def load_default_statuses(db):
         status_obj = ExecutorParameterSetType(
             id=getattr(ExecutorParameterSetType, status), label=status)
         statuses.append(status_obj)
-    for status in ['QUEUED_FOR_INSTANTIATION', 'INSTANTIATED',
+    for status in ['REGISTERED', 'QUEUED_FOR_INSTANTIATION', 'INSTANTIATED',
                    'RUNNING', 'ERROR_RECOVERABLE', 'ADJUSTING_RESOURCES',
                    'ERROR_FATAL', 'DONE']:
         status_obj = JobStatus(id=getattr(JobStatus, status), label=status)

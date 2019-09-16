@@ -177,9 +177,9 @@ class ExecutableTask(object):
             # if the resources have already been defined, function returns
             # itself upon evalutaion
             is_valid, msg = executor_parameters.is_valid()
-            if not is_valid():
+            if not is_valid:
                 logger.warning(msg)
-            static_func = lambda executor_parameters: executor_parameters
+            static_func = lambda executor_parameters, *args: executor_parameters
             self.executor_parameters = partial(static_func, executor_parameters)
         else:
             # if a callable was provided instead
@@ -279,7 +279,12 @@ class BoundTask(object):
 
         self._jlm = job_list_manager
         self._task = task
-        self.executor_parameters = task.executor_parameters
+        if task:
+            self.executor_parameters = task.executor_parameters
+        else:
+            self.executor_parameters = None
+
+        self.bound_parameters = [] # once the callable is evaluated, the resources should be saved here
 
         if task:
             self.hash = task.hash

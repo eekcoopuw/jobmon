@@ -96,7 +96,7 @@ def add_job():
         job_hash=data['job_hash'],
         command=data['command'],
         max_attempts=data.get('max_attempts', 3),
-        status=JobStatus.ADJUSTING_RESOURCES)
+        status=JobStatus.REGISTERED)
     DB.session.add(job)
     DB.session.commit()
 
@@ -828,7 +828,7 @@ def reset_incomplete_jobs(dag_id):
     DB.session.execute(
         up_job,
         {"dag_id": dag_id,
-         "registered_status": JobStatus.ADJUSTING_RESOURCES,
+         "registered_status": JobStatus.REGISTERED,
          "done_status": JobStatus.DONE})
     logger.debug("Query:\n{}".format(up_job_instance))
     DB.session.execute(

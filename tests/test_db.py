@@ -54,21 +54,21 @@ def test_job_submit_times(db_cfg):
 
         # Create a job
         job1 = Job(dag_id=dag_id, name='test1', job_hash=1,
-                   status=JobStatus.ADJUSTING_RESOURCES)
+                   status=JobStatus.REGISTERED)
         DB.session.add(job1)
         DB.session.commit()
 
     sleep(1)
     with app.app_context():
         job2 = Job(dag_id=dag_id, name='test2', job_hash=2,
-                   status=JobStatus.ADJUSTING_RESOURCES)
+                   status=JobStatus.REGISTERED)
         DB.session.add(job2)
         DB.session.commit()
 
     sleep(1)
     with app.app_context():
         job3 = Job(dag_id=dag_id, name='test3', job_hash=3,
-                   status=JobStatus.ADJUSTING_RESOURCES)
+                   status=JobStatus.REGISTERED)
         DB.session.add(job3)
         DB.session.commit()
 
@@ -104,7 +104,7 @@ def test_job_executor_params_relationship(db_cfg):
 
         # Create a job
         job1 = Job(dag_id=dag.dag_id, name='test1', job_hash=1,
-                   status=JobStatus.ADJUSTING_RESOURCES)
+                   status=JobStatus.REGISTERED)
         DB.session.add(job1)
         DB.session.commit()
         job_id = job1.job_id

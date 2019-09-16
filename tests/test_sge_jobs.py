@@ -19,7 +19,7 @@ def test_valid_command(real_dag_id, job_list_manager_sge):
              max_runtime_seconds='1000',
              j_resource=True,
              max_attempts=1))
-    job_list_manager_sge.queue_job(job)
+    job_list_manager_sge.adjust_resources_and_queue(job)
 
     # max_qw is the number of times it is allowed to be in qw state. Don't
     # set it to be 1, that is is too tight.
@@ -49,7 +49,7 @@ def test_context_args(db_cfg, real_jsm_jqs, job_list_manager_sge):
              max_attempts=1,
              max_runtime_seconds='1000',
              context_args={'sge_add_args': '-a {}'.format(delay_to)}))
-    job_list_manager_sge.queue_job(job)
+    job_list_manager_sge.adjust_resources_and_queue(job)
 
     # The job should not run so only one qw is needed
     timeout_and_skip(step_size=10, max_time=30, max_qw=1,
@@ -143,7 +143,7 @@ def architecture_specific_args(db_cfg,
              max_runtime_seconds='100',
              context_args={
                  'sge_add_args': f"-l {architecture_name}{suffix}"}))
-    job_list_manager_sge.queue_job(job)
+    job_list_manager_sge.adjust_resources_and_queue(job)
 
     timeout_and_skip(step_size=10, max_time=30, max_qw=1,
                      job_name=test_name,
