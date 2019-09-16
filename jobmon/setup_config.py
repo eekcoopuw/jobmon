@@ -30,6 +30,9 @@ class SetupCfg:
     def is_existing_db(self) ->bool:
         return self.instance["basic values"]["existing_db"] == "True"
 
+    def is_on_same_host(self) -> bool:
+        return self.instance["basic values"]["same_host"] == "True"
+
     def get_internal_db_host(self) ->bool:
         if self.is_existing_db():
             return self.instance["existing db"]["internal_db_host"]
@@ -77,7 +80,12 @@ class SetupCfg:
 
     def get_docker_compose_template(self) ->str:
         if self.is_existing_db():
-            return "docker-compose.yml.existingdb"
+            if self.is_on_same_host():
+                # if on the same host connect containers to existing network
+                return "docker-compose.yml.existingdb_same_host"
+            else:
+                # otherwise connect externally to the containers
+                return "docker-compose.yml.existingdb_diff_host"
         else:
             return "docker-compose.yml.newdb"
 
@@ -98,3 +106,12 @@ class SetupCfg:
 
     def get_report_by_buffer(self) ->str:
         return self.instance["basic values"]["report_by_buffer"]
+
+    def get_compose_project_name(self) -> str:
+        if self.is_existing_db():
+            return f"existing_db_{self.get_jobmon_version()}"
+        else:
+            return f"new_db_{self.get_jobmon_version()}"
+
+    def get_existing_network(self) -> str:
+        return self.instance["same host"]["existing_network"]
