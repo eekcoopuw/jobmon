@@ -395,8 +395,7 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                         } else {
                            sh """
                                 source activate ${project_name}_build${python_major_version} &> /dev/null
-                                python setup.py sdist
-                                mv ./dist/* /ihme/pypi/
+                                python setup.py sdist upload -r ihme-artifactory
                             """
                         }
                     }
