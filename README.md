@@ -1,6 +1,6 @@
 # Documentation
 
-Documentation for this project is hosted [here](http://dev-tomflem.ihme.washington.edu/docs/jobmon/current/index.html)
+Documentation for this project is hosted [here](http://scicomp-docs.ihme.washington.edu/jobmon/current/index.html)
 
 To get started using Jobmon, just follow the instructions under the Quickstart heading
 
