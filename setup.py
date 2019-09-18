@@ -20,6 +20,7 @@ cmds['version'] = vcmds['build_py']
 
 
 install_requires = [
+    'pandas',
     'sqlalchemy',
     'numpy',
     'flask',
@@ -28,7 +29,8 @@ install_requires = [
     'cluster_utils',
     'requests',
     'paramiko',
-    'tenacity'
+    'tenacity',
+    'twine'
 ]
 
 setup(
