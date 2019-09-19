@@ -16,9 +16,18 @@ CREATE TABLE `executor_parameter_set` (
   `m_mem_free` float DEFAULT NULL,
   `j_resource` tinyint(1) DEFAULT NULL,
   `hard_limits` tinyint(1) DEFAULT NULL,
-  PRIMARY KEY (`id`),
+  `submitted_date_short` date,
+  PRIMARY KEY (`id`, `submitted_date_short`),
   KEY `parameter_set_type` (`parameter_set_type`),
-  KEY `job_id` (`job_id`),
-  CONSTRAINT `executor_parameter_set_ibfk_1` FOREIGN KEY (`parameter_set_type`) REFERENCES `executor_parameter_set_type` (`id`),
-  CONSTRAINT `executor_parameter_set_ibfk_2` FOREIGN KEY (`job_id`) REFERENCES `job` (`job_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4088858;
+  KEY `job_id` (`job_id`)
+  ) ENGINE=InnoDB
+/*!50100 PARTITION BY RANGE (TO_DAYS(submitted_date_short))
+( PARTITION p201908 VALUES LESS THAN (TO_DAYS('2019-09-01'))ENGINE = InnoDB,
+PARTITION p201909 VALUES LESS THAN (TO_DAYS('2019-10-01'))ENGINE = InnoDB,
+PARTITION p201910 VALUES LESS THAN (TO_DAYS('2019-11-01'))ENGINE = InnoDB,
+PARTITION p201911 VALUES LESS THAN (TO_DAYS('2019-12-01'))ENGINE = InnoDB,
+PARTITION p201912 VALUES LESS THAN (TO_DAYS('2020-01-01'))ENGINE = InnoDB,
+PARTITION p202001 VALUES LESS THAN (TO_DAYS('2020-02-01'))ENGINE = InnoDB,
+PARTITION future VALUES LESS THAN MAXVALUE ENGINE = InnoDB
+
+)*/;
