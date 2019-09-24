@@ -33,6 +33,9 @@ class SetupCfg:
     def is_on_same_host(self) -> bool:
         return self.instance["basic values"]["same_host"] == "True"
 
+    def is_db_only(self) -> bool:
+        return self.instance["basic values"]["db_only"] == "True"
+
     def get_internal_db_host(self) ->bool:
         if self.is_existing_db():
             return self.instance["existing db"]["internal_db_host"]
@@ -87,7 +90,11 @@ class SetupCfg:
                 # otherwise connect externally to the containers
                 return "docker-compose.yml.existingdb_diff_host"
         else:
-            return "docker-compose.yml.newdb"
+            if self.is_db_only():
+                # if this is a db only deployment
+                return "docker-compose.yml.dbonly"
+            else:
+                return "docker-compose.yml.newdb"
 
     def get_jobmon_service_user_pwd(self) ->str:
         return self.instance["existing db"]["jobmon_pass_service_user"]

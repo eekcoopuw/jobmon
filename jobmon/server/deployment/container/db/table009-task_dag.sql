@@ -12,4 +12,4 @@ CREATE TABLE `task_dag` (
   `heartbeat_date` datetime DEFAULT NULL,
   `created_date` datetime DEFAULT NULL,
   PRIMARY KEY (`dag_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=15496;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
