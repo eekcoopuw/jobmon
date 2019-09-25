@@ -33,4 +33,4 @@ CREATE TABLE `job_instance` (
   CONSTRAINT `job_instance_ibfk_2` FOREIGN KEY (`executor_parameter_set_id`) REFERENCES `executor_parameter_set` (`id`),
   CONSTRAINT `job_instance_ibfk_3` FOREIGN KEY (`status`) REFERENCES `job_instance_status` (`id`),
   CONSTRAINT `job_instance_ibfk_4` FOREIGN KEY (`job_id`) REFERENCES `job` (`job_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB;

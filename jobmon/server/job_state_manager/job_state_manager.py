@@ -948,7 +948,6 @@ def _update_job_instance_state(job_instance, status_id):
                 f"{job_instance.job_instance_id}" \
                 f"from {job_instance.status} to {status_id}"
             logger.warning(msg)
-            print(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. " \
@@ -957,19 +956,16 @@ def _update_job_instance_state(job_instance, status_id):
                 f"from {job_instance.status} to {status_id}"
             # log_and_raise(msg, logger)
             logger.error(msg)
-            print(msg)
     except KillSelfTransition:
         msg = f"kill self, cannot transition " \
               f"jid={job_instance.job_instance_id}"
         logger.warning(msg)
-        print(msg)
         response = "kill self"
     except Exception as e:
         msg = f"General exception in _update_job_instance_state, " \
             f"jid {job_instance}, transitioning to {job_instance}. " \
             f"Not transitioning job. {e}"
         log_and_raise(msg, logger)
-        print(msg)
 
     job = job_instance.job
 

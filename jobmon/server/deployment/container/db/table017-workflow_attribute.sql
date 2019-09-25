@@ -14,4 +14,4 @@ CREATE TABLE `workflow_attribute` (
   KEY `attribute_type` (`attribute_type`),
   CONSTRAINT `workflow_attribute_ibfk_1` FOREIGN KEY (`workflow_id`) REFERENCES `workflow` (`id`),
   CONSTRAINT `workflow_attribute_ibfk_2` FOREIGN KEY (`attribute_type`) REFERENCES `workflow_attribute_type` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB;

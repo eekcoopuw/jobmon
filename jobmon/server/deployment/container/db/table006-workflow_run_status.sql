@@ -8,7 +8,7 @@ CREATE TABLE `workflow_run_status` (
   `id` varchar(1) NOT NULL,
   `label` varchar(150) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB;
 
 LOCK TABLES `workflow_run_status` WRITE;
 INSERT INTO `workflow_run_status` VALUES ('D','DONE'),('E','ERROR'),('R','RUNNING'),('S','STOPPED');

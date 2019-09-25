@@ -14,4 +14,4 @@ CREATE TABLE `job_attribute` (
   KEY `attribute_type` (`attribute_type`),
   CONSTRAINT `job_attribute_ibfk_1` FOREIGN KEY (`job_id`) REFERENCES `job` (`job_id`),
   CONSTRAINT `job_attribute_ibfk_2` FOREIGN KEY (`attribute_type`) REFERENCES `job_attribute_type` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB;

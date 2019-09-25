@@ -1063,3 +1063,67 @@ def test_get_nodename(real_dag_id):
     )
     assert rc == 200
     assert response['nodename'] == "mimi.ilovecat.org"
+
+
+def _get_ords(s):
+    r = ""
+    for c in s:
+        r += str(ord(c)) + " "
+    return r.strip()
+
+
+@pytest.mark.parametrize("testing_chars, comment", [("Ā ā Ă ă Ą ą ", "UTF-8 latin extended"),
+                                                    ("ڦ ڧ ڨ ک ڪ ګ ڬ", "UTF-8 Arabic"),
+                                                    ("ༀ ༁ ༂ ༃ ༄ ༅ ༆ ༇ ༈ ༉ ༊", "UTF-8 Tibetan"),
+                                                    ("ᜀ ᜁ ᜂ ᜃ", "UTF-8 Tagalog"),# garbage code caused by missing font
+                                                    ("① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩", "UTF-8 Enclosed alphanumerics"),
+                                                    ("▀ ▁ ▂ ▃ ▄ ▅ ▆ ▇ █ ▉ ▊ ▋ ▌ ▍ ▎ ▏ ▐", "UTF-8 Block elements1"),
+                                                    ("░ ▒ ▓ ▔ ▕ ▖ ▗ ▘ ▙ ▚ ▛ ▜ ▝ ▞ ▟", "UTF-8 Block elements2"),
+                                                    ("✁ ✂ ✃ ✄ ✆ ✇ ✈ ✉ ✌ ", "UTF-8 Dingbats"),
+                                                    ("⤔ ⤕ ⤖ ⤗ ⤘ ⤙ ⤚ ⤛ ⤜ ⤝ ⤞ ⤟ ⤠", "UTF-8 Supplemental arrows"),
+                                                    ("⡻ ⡼ ⡽ ⡾ ⡿ ...", "UTF-8 Braille patterns"),
+                                                    ("⻯ ⻱ ⻲ ⻳", "UTF-8 CJK radicals"),
+                                                    ("〄 々 〆 〇 〈 〉 《 》 「 」 『 』 【 】 〒 〓", "UTF-8 CJK symbols"),
+                                                    ("ぁ あ ぃ い", "UTF-8 Hiragana"),
+                                                    ("㈫ ㈬ ㈭ ㈮ ㈯", "UTF-8 Enclosed CJK"),
+                                                    ("𝄀 𝄁 𝄂 𝄃 𝄄 𝄅 𝄆 𝄇 𝄈 𝄉 𝄊 𝄋 𝄌 𝄍 𝄎 𝄏 𝄐 𝄑 𝄒 𝄓 𝄔 𝄕", "UTF-8 Musical"),
+                                                   ])
+def test_special_chars(real_dag_id, testing_chars, comment):
+    logger.info("Testing {c} {s}({ords})".format(c=comment, s=testing_chars, ords=_get_ords(testing_chars)))
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id),
+                 'max_attempts': '3'},
+        request_type='post')
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    req.send_request(
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
+        message={},
+        request_type='post')
+
+    # Create a job instances
+    rc, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(swarm_job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    ji1 = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+    # Log some strange characters in the error
+    s = f"{testing_chars} ({comment} {_get_ords(testing_chars)})"
+    status, _ = req.send_request(
+        app_route='/job_instance/{}/log_error_worker_node'.format(ji1),
+        message={'error_message': s,
+                 'executor_id': str(12345),
+                 'error_state': JobInstanceStatus.ERROR,
+                 'nodename': socket.getfqdn()},
+        request_type='post')
+    assert status == 200
+    status, msg = req.send_request(app_route='/job_instance/{}/get_errors'.format(ji1),
+                  message={},
+                  request_type='get')
+    assert status == 200
+    assert s in msg["errors"]
