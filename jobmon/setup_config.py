@@ -3,115 +3,329 @@ import os
 
 
 class SetupCfg:
-    __instance = None
 
-    @staticmethod
-    def _get_instance():
-        if SetupCfg.__instance is None:
-            SetupCfg.__instance = configparser.ConfigParser()
-            config_file = os.path.join(os.path.dirname(__file__), 'jobmon.cfg')
-            print(config_file)
-            SetupCfg.__instance.read(config_file)
-        return SetupCfg.__instance
+    __singleton = None
 
-    def __init__(self):
-        self.instance = SetupCfg._get_instance()
+    def __new__(cls, *args, **kwargs):
+        # singleton implementation
+        if cls.__singleton is None:
+            cls.__singleton = super().__new__(cls)
+        return cls.__singleton
 
-    def is_test_mode(self) ->bool:
-        return self.instance["basic values"]["test_mode"] == "True"
+    def __init__(self, test_mode=None, existing_db=None, same_host=None,
+                 slack_token=None, slack_api_url=None, wf_slack_channel=None,
+                 node_slack_channel=None, jobmon_server_hostname=None,
+                 jobmon_server_sqdn=None, jobmon_service_port=None,
+                 jobmon_monitor_port=None, jobmon_version=None,
+                 reconciliation_interval=None, heartbeat_interval=None,
+                 report_by_buffer=None, tag_prefix=None, internal_db_host=None,
+                 internal_db_port=None, external_db_host=None,
+                 external_db_port=None, jobmon_service_user_pwd=None,
+                 existing_network=None):
 
-    def get_jobmon_version(self) ->str:
-        if self.is_test_mode():
-            return self.instance["basic values"]["jobmon_version"]
+        # get env for fallback
+        self._env = os.environ
+
+        # get config for secondary fallback
+        config_file = os.path.join(os.path.dirname(__file__), 'jobmon.cfg')
+        self._config = configparser.ConfigParser()
+        self._config.read(config_file)
+
+        # initialize vals
+        self.test_mode = test_mode
+        self.existing_db = existing_db
+        self.same_host = same_host
+        self.slack_token = slack_token
+        self.slack_api_url = slack_api_url
+        self.wf_slack_channel = wf_slack_channel
+        self.node_slack_channel = node_slack_channel
+        self.jobmon_server_hostname = jobmon_server_hostname
+        self.jobmon_server_sqdn = jobmon_server_sqdn
+        self.jobmon_service_port = jobmon_service_port
+        self.jobmon_monitor_port = jobmon_monitor_port
+        self.jobmon_version = jobmon_version
+        self.reconciliation_interval = reconciliation_interval
+        self.heartbeat_interval = heartbeat_interval
+        self.report_by_buffer = report_by_buffer
+        self.tag_prefix = tag_prefix
+        self.internal_db_host = internal_db_host
+        self.internal_db_port = internal_db_port
+        self.external_db_host = external_db_host
+        self.external_db_port = external_db_port
+        self.jobmon_service_user_pwd = jobmon_service_user_pwd
+        self.existing_network = existing_network
+
+    @property
+    def test_mode(self) -> bool:
+        return self._is_test_mode
+
+    @test_mode.setter
+    def test_mode(self, val):
+        if val is None:
+            val = self._env.get("TEST_MODE") == "True"
+        if val is None:
+            val = self._config["basic values"].getboolean("test_mode")
+        self._is_test_mode = val
+
+    @property
+    def existing_db(self) -> bool:
+        return self._existing_db
+
+    @existing_db.setter
+    def existing_db(self, val):
+        if val is None:
+            val = self._env.get("EXISTING_DB") == "True"
+        if val is None:
+            val = self._config["basic values"].getboolean("existing_db")
+        self._existing_db = val
+
+    @property
+    def same_host(self) -> bool:
+        return self._same_host
+
+    @same_host.setter
+    def same_host(self, val):
+        if val is None:
+            val = self._env.get("SAME_HOST") == "True"
+        if val is None:
+            val = self._config["basic values"].getboolean("same_host")
+        self._same_host = val
+
+    @property
+    def slack_token(self) -> str:
+        return self._slack_token
+
+    @slack_token.setter
+    def slack_token(self, val):
+        if val is None:
+            val = self._env.get("SLACK_TOKEN")
+        if val is None:
+            val = self._config["basic values"]["slack_token"]
+        self._slack_token = val
+
+    @property
+    def slack_api_url(self) -> str:
+        return self._slack_api_url
+
+    @slack_api_url.setter
+    def slack_api_url(self, val):
+        if val is None:
+            val = self._env.get("SLACK_API_URL")
+        if val is None:
+            val = self._config["basic values"]["slack_api_url"]
+        self._slack_api_url = val
+
+    @property
+    def wf_slack_channel(self) -> str:
+        return self._wf_slack_channel
+
+    @wf_slack_channel.setter
+    def wf_slack_channel(self, val):
+        if val is None:
+            val = self._env.get("WF_SLACK_CHANNEL")
+        if val is None:
+            val = self._config["basic values"]["wf_slack_channel"]
+        self._wf_slack_channel = val
+
+    @property
+    def node_slack_channel(self) -> str:
+        return self._node_slack_channel
+
+    @node_slack_channel.setter
+    def node_slack_channel(self, val):
+        if val is None:
+            val = self._env.get("NODE_SLACK_CHANNEL")
+        if val is None:
+            val = self._config["basic values"]["node_slack_channel"]
+        self._node_slack_channel = val
+
+    @property
+    def jobmon_server_hostname(self) -> str:
+        return self._jobmon_server_hostname
+
+    @jobmon_server_hostname.setter
+    def jobmon_server_hostname(self, val):
+        if val is None:
+            val = self._env.get("JOBMON_SERVER_HOSTNAME")
+        if val is None:
+            val = self._config["basic values"]["jobmon_server_hostname"]
+        self._jobmon_server_hostname = val
+
+    @property
+    def jobmon_server_sqdn(self) -> str:
+        return self._jobmon_server_sqdn
+
+    @jobmon_server_sqdn.setter
+    def jobmon_server_sqdn(self, val):
+        if val is None:
+            val = self._env.get("JOBMON_SERVER_SQDN")
+        if val is None:
+            val = self._config["basic values"]["jobmon_server_sqdn"]
+        self._jobmon_server_sqdn = val
+
+    @property
+    def jobmon_service_port(self) -> int:
+        return self._jobmon_service_port
+
+    @jobmon_service_port.setter
+    def jobmon_service_port(self, val):
+        if val is None:
+            val = self._env.get("JOBMON_SERVICE_PORT")
+        if val is None:
+            val = self._config["basic values"]["jobmon_service_port"]
+        self._jobmon_service_port = int(val)
+
+    @property
+    def jobmon_monitor_port(self) -> int:
+        return self._jobmon_monitor_port
+
+    @jobmon_monitor_port.setter
+    def jobmon_monitor_port(self, val):
+        if val is None:
+            val = self._env.get("JOBMON_MONITOR_PORT")
+        if val is None:
+            val = self._config["basic values"]["jobmon_monitor_port"]
+        self._jobmon_monitor_port = int(val)
+
+    @property
+    def jobmon_version(self) -> str:
+        return self._jobmon_version
+
+    @jobmon_version.setter
+    def jobmon_version(self, val):
+        if self.test_mode:
+            if val is None:
+                val = self._env.get("JOBMON_VERSION")
+            if val is None:
+                val = self._config["basic values"].get("jobmon_version")
         else:
-            from jobmon import __version__
-            return __version__
-
-    def is_existing_db(self) ->bool:
-        return self.instance["basic values"]["existing_db"] == "True"
-
-    def is_on_same_host(self) -> bool:
-        return self.instance["basic values"]["same_host"] == "True"
-
-    def get_internal_db_host(self) ->bool:
-        if self.is_existing_db():
-            return self.instance["existing db"]["internal_db_host"]
-        else:
-            return self.instance["new db"]["internal_db_host"]
-
-    def get_internal_db_port(self) ->str:
-        if self.is_existing_db():
-            return self.instance["existing db"]["internal_db_port"]
-        else:
-            return self.instance["new db"]["internal_db_port"]
-
-    def get_external_db_port(self) ->str:
-        if self.is_existing_db():
-            return str(self.instance["existing db"]["external_db_port"])
-        else:
-            return str(self.instance["new db"]["external_db_port"])
-
-    def get_external_service_host(self) ->str:
-        return self.instance["basic values"]["jobmon_server_sqdn"]
-
-    def get_external_db_host(self) ->str:
-        if self.is_existing_db():
-            return str(self.instance["existing db"]["external_db_host"])
-        else:
-            return str(self.instance["new db"]["external_db_host"])
-
-    def get_external_service_port(self) ->str:
-        return str(self.instance["basic values"]["jobmon_service_port"])
-
-    def get_monitor_port(self):
-        return str(self.instance["basic values"]["jobmon_monitor_port"])
-
-    def get_slack_token(self) ->str:
-        return self.instance["basic values"]["slack_token"]
-
-    def get_wf_slack_channel(self) ->str:
-        return self.instance["basic values"]["wf_slack_channel"]
-
-    def get_node_slack_channel(self) ->str:
-        return self.instance["basic values"]["node_slack_channel"]
-
-    def get_slack_api_url(self) ->str:
-        return self.instance["basic values"]["slack_api_url"]
-
-    def get_docker_compose_template(self) ->str:
-        if self.is_existing_db():
-            if self.is_on_same_host():
-                # if on the same host connect containers to existing network
-                return "docker-compose.yml.existingdb_same_host"
+            if val is not None:
+                raise ValueError("cannot set jobmon version unless test_mode"
+                                 " is set to True")
             else:
-                # otherwise connect externally to the containers
-                return "docker-compose.yml.existingdb_diff_host"
-        else:
-            return "docker-compose.yml.newdb"
+                from jobmon import __version__
+                val = __version__
+        if val is not None:
+            import jobmon
+            setattr(jobmon, "__version__", val)
+        self._jobmon_version = val
 
-    def get_jobmon_service_user_pwd(self) ->str:
-        return self.instance["existing db"]["jobmon_pass_service_user"]
+    @property
+    def reconciliation_interval(self) -> int:
+        return self._reconciliation_interval
 
-    def get_docker_tag(self) ->str:
-        return f"registry-app-p01.ihme.washington.edu/jobmon/jobmon:{self.get_jobmon_version()}"
+    @reconciliation_interval.setter
+    def reconciliation_interval(self, val):
+        if val is None:
+            val = self._env.get("RECONCILIATION_INTERVAL")
+        if val is None:
+            val = self._config["basic values"]["reconciliation_interval"]
+        self._reconciliation_interval = int(val)
 
-    def get_tag_prefix(self) ->str:
-        return self.instance["basic values"]["tag_prefix"]
+    @property
+    def heartbeat_interval(self) -> int:
+        return self._heartbeat_interval
 
-    def get_reconciliation_interval(self) ->str:
-        return self.instance["basic values"]["reconciliation_interval"]
+    @heartbeat_interval.setter
+    def heartbeat_interval(self, val):
+        if val is None:
+            val = self._env.get("HEARTBEAT_INTERVAL")
+        if val is None:
+            val = self._config["basic values"]["heartbeat_interval"]
+        self._heartbeat_interval = int(val)
 
-    def get_heartbeat_interval(self) ->str:
-        return self.instance["basic values"]["heartbeat_interval"]
+    @property
+    def report_by_buffer(self) -> float:
+        return self._report_by_buffer
 
-    def get_report_by_buffer(self) ->str:
-        return self.instance["basic values"]["report_by_buffer"]
+    @report_by_buffer.setter
+    def report_by_buffer(self, val):
+        if val is None:
+            val = self._env.get("REPORT_BY_BUFFER")
+        if val is None:
+            val = self._config["basic values"]["report_by_buffer"]
+        self._report_by_buffer = float(val)
 
-    def get_compose_project_name(self) -> str:
-        if self.is_existing_db():
-            return f"existing_db_{self.get_jobmon_version()}"
-        else:
-            return f"new_db_{self.get_jobmon_version()}"
+    @property
+    def tag_prefix(self) -> str:
+        return self._tag_prefix
 
-    def get_existing_network(self) -> str:
-        return self.instance["same host"]["existing_network"]
+    @tag_prefix.setter
+    def tag_prefix(self, val):
+        if val is None:
+            val = self._env.get("TAG_PREFIX")
+        if val is None:
+            val = self._config["basic values"]["tag_prefix"]
+        self._tag_prefix = val
+
+    @property
+    def internal_db_host(self) -> str:
+        return self._internal_db_host
+
+    @internal_db_host.setter
+    def internal_db_host(self, val):
+        if val is None:
+            val = self._env.get("INTERNAL_DB_HOST")
+        if val is None:
+            val = self._config["db"]["internal_db_host"]
+        self._internal_db_host = val
+
+    @property
+    def internal_db_port(self) -> str:
+        return self._internal_db_port
+
+    @internal_db_port.setter
+    def internal_db_port(self, val):
+        if val is None:
+            val = self._env.get("INTERNAL_DB_PORT")
+        if val is None:
+            val = self._config["db"]["internal_db_port"]
+        self._internal_db_port = val
+
+    @property
+    def external_db_host(self) -> str:
+        return self._external_db_host
+
+    @external_db_host.setter
+    def external_db_host(self, val):
+        if val is None:
+            val = self._env.get("EXTERNAL_DB_HOST")
+        if val is None:
+            val = self._config["db"]["external_db_host"]
+        self._external_db_host = val
+
+    @property
+    def external_db_port(self) -> str:
+        return self._external_db_port
+
+    @external_db_port.setter
+    def external_db_port(self, val):
+        if val is None:
+            val = self._env.get("EXTERNAL_DB_PORT")
+        if val is None:
+            val = self._config["db"]["external_db_port"]
+        self._external_db_port = val
+
+    @property
+    def jobmon_service_user_pwd(self) -> str:
+        return self._jobmon_service_user_pwd
+
+    @jobmon_service_user_pwd.setter
+    def jobmon_service_user_pwd(self, val):
+        if val is None:
+            val = self._env.get("JOBMON_SERVICE_USER_PWD")
+        if val is None:
+            val = self._config["existing db"]["jobmon_service_user_pwd"]
+        self._jobmon_service_user_pwd = val
+
+    @property
+    def existing_network(self) -> str:
+        return self._existing_network
+
+    @existing_network.setter
+    def existing_network(self, val):
+        if val is None:
+            val = self._env.get("EXISTING_NETWORK")
+        if val is None:
+            val = self._config["same host"]["existing_network"]
+        self._existing_network = val

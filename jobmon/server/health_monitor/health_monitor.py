@@ -36,7 +36,7 @@ class HealthMonitor(object):
 
     def __init__(self, loss_threshold=5, poll_interval=10,
                  wf_notification_sink=None, node_notification_sink=None,
-                 requester=shared_requester):
+                 requester=shared_requester, app=None):
         logger.debug(logging.myself())
         if poll_interval < loss_threshold:
             raise ValueError("poll_interval ({pi} min) must exceed the "
@@ -50,11 +50,18 @@ class HealthMonitor(object):
         self._wf_notification_sink = wf_notification_sink
         self._node_notification_sink = node_notification_sink
 
-        config = ServerConfig.from_defaults()
-        logger.debug("DB config: {}".format(config))
-        self.app = create_app(config)
-        DB.init_app(self.app)
-        self._database = config.db_name
+        # construct flask app
+        if app is None:
+            config = ServerConfig.from_defaults()
+            logger.debug("DB config: {}".format(config))
+            self.app = create_app(config)
+            DB.init_app(self.app)
+        else:
+            self.app = app
+
+        # get database name
+        uri = self.app.config['SQLALCHEMY_DATABASE_URI']
+        self._database = uri.split("/")[-1]
 
     def monitor_forever(self):
         """Run in a thread and monitor for failing jobs"""

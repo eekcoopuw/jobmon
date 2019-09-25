@@ -1,25 +1,19 @@
 import os
 import pytest
 import subprocess
-import uuid
 from time import sleep
 from multiprocessing import Process
 
-from jobmon import BashTask
-from jobmon import PythonTask
-from jobmon import StataTask
-from jobmon import Workflow
+from jobmon.client import BashTask
+from jobmon.client import PythonTask
+from jobmon.client import Workflow
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job import Job
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance import JobInstance
-from jobmon.models.job_status import JobStatus
-from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.client import shared_requester as req
-from jobmon.client import client_config
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
@@ -28,12 +22,11 @@ from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
 from jobmon.client.utils import gently_kill_command
 
 import tests.workflow_utils as wu
-from tests.workflow_utils import fast_heartbeat
 
 path_to_file = os.path.dirname(__file__)
 
 
-def test_timeout(real_jsm_jqs, db_cfg):
+def test_timeout(env_var, db_cfg):
     t1 = BashTask("sleep 10", num_cores=1)
     t2 = BashTask("sleep 11", upstream_tasks=[t1], num_cores=1)
     t3 = BashTask("sleep 12", upstream_tasks=[t2], num_cores=1)
@@ -51,7 +44,7 @@ def test_timeout(real_jsm_jqs, db_cfg):
     assert expected_msg == str(error.value)
 
 
-def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
+def test_health_monitor_failing_nodes(env_var, db_cfg):
     """Test the Health Montior's identification of failing nodes"""
 
     # these dummy dags will increment the ID of our dag-of-interest to
@@ -78,8 +71,8 @@ def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
 
     wfr = workflow.workflow_run
 
-    hm = HealthMonitor(node_notification_sink=wu.mock_slack)
-    hm._database = 'singularity'
+    hm = HealthMonitor(node_notification_sink=wu.mock_slack, app=app)
+    hm._database = 'docker'
 
     # A database commit must follow each dbs update, sqlalchmey might use
     # a different dbs connection for each dbs statement. So the next query
@@ -105,7 +98,8 @@ def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
             WHERE job_instance_id < 7 and workflow_run_id={wfr_id}
             """.format(s=JobInstanceStatus.ERROR, wfr_id=wfr.id))
         DB.session.commit()
-        failing_nodes = hm._calculate_node_failure_rate(DB.session, active_wfrs)
+        failing_nodes = hm._calculate_node_failure_rate(DB.session,
+                                                        active_wfrs)
         assert 'fake_node.ihme.washington.edu' in failing_nodes
 
         # Manually make those job instances land on the same node and have
@@ -118,11 +112,12 @@ def test_health_monitor_failing_nodes(real_jsm_jqs, db_cfg):
             WHERE job_instance_id < 7 and workflow_run_id={wfr_id}
             """.format(s=JobInstanceStatus.ERROR, wfr_id=wfr.id))
         DB.session.commit()
-        failing_nodes = hm._calculate_node_failure_rate(DB.session, active_wfrs)
+        failing_nodes = hm._calculate_node_failure_rate(DB.session,
+                                                        active_wfrs)
         assert 'new_fake_node.ihme.washington.edu' not in failing_nodes
 
 
-def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
+def test_add_tasks_to_workflow(env_var, db_cfg):
     """Make sure adding tasks to a workflow (and not just a task dag) works"""
     t1 = BashTask("sleep 1", num_cores=1)
     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
@@ -145,7 +140,7 @@ def test_add_tasks_to_workflow(real_jsm_jqs, db_cfg):
         DB.session.commit()
 
 
-def test_anonymous_workflow(db_cfg, real_jsm_jqs):
+def test_anonymous_workflow(db_cfg, env_var):
     # Make sure uuid is created for an anonymous workflow
     t1 = BashTask("sleep 1", num_cores=1)
     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
@@ -202,7 +197,7 @@ def test_workflow_status_dates(db_cfg, simple_workflow):
 
 
 @pytest.mark.qsubs_jobs
-def test_workflow_sge_args(db_cfg, real_jsm_jqs):
+def test_workflow_sge_args(db_cfg, env_var):
     """Test to make sure that the correct information is available to the
      worker cli. For some reason, there are times when this fails and whatever
      executor this workflow is pointing at has a working directory configured,
@@ -254,7 +249,7 @@ def test_workflow_sge_args(db_cfg, real_jsm_jqs):
     assert wf_status == DagExecutionStatus.SUCCEEDED
 
 
-def test_workflow_identical_args(real_jsm_jqs, db_cfg):
+def test_workflow_identical_args(env_var, db_cfg):
     # first workflow runs and finishes
     wf1 = Workflow(workflow_args="same", project='proj_tools')
     task = BashTask("sleep 2", num_cores=1)
@@ -275,7 +270,7 @@ def test_workflow_identical_args(real_jsm_jqs, db_cfg):
         wf3.execute()
 
 
-def test_same_wf_args_diff_dag(real_jsm_jqs, db_cfg):
+def test_same_wf_args_diff_dag(env_var, db_cfg):
     wf1 = Workflow(workflow_args="same", project='proj_tools')
     task1 = BashTask("sleep 2", num_cores=1)
     wf1.add_task(task1)
@@ -316,7 +311,7 @@ def run_workflow():
     workflow.execute()
 
 
-def test_resume_workflow(real_jsm_jqs, db_cfg):
+def test_resume_workflow(env_var, db_cfg):
 
     # create a workflow in a separate process with 1 job that sleeps forever.
     # it must be in a separate process because resume will kill the process
@@ -375,7 +370,7 @@ def test_resume_workflow(real_jsm_jqs, db_cfg):
     assert executor_id not in ex_id_list
 
 
-def test_resource_scaling(real_jsm_jqs, db_cfg, fast_heartbeat):
+def test_resource_scaling(env_var, db_cfg):
 
     from jobmon.client.swarm.executors import ExecutorParameters
 
@@ -414,7 +409,7 @@ def test_resource_scaling(real_jsm_jqs, db_cfg, fast_heartbeat):
         assert job.status == "D"
 
 
-def test_workflow_resume_new_resources(real_jsm_jqs, db_cfg):
+def test_workflow_resume_new_resources(env_var, db_cfg):
     sge_params = ExecutorParameters(max_runtime_seconds=8,
                                     resource_scales={'m_mem_free': 0.2,
                                                      'max_runtime_seconds': 0.3})
@@ -448,7 +443,7 @@ def test_workflow_resume_new_resources(real_jsm_jqs, db_cfg):
         DB.session.commit()
 
 
-def test_workflow_in_running_state(real_jsm_jqs, db_cfg):
+def test_workflow_in_running_state(env_var, db_cfg):
     t1 = BashTask("sleep 10", executor_class="SequentialExecutor",
                   max_runtime_seconds=15, resource_scales={})
     workflow = Workflow(executor_class="SequentialExecutor")

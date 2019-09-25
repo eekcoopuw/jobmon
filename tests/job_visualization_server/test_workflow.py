@@ -4,7 +4,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 
 
-def test_get_workflow(real_jsm_jqs, db_cfg):
+def test_get_workflow(env_var, db_cfg):
     # test the get route on workflow
     app = db_cfg["app"]
     DB = db_cfg["DB"]

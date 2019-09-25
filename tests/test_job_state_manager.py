@@ -6,14 +6,12 @@ import random
 import socket
 from time import sleep
 import pytest
-from sqlalchemy.exc import OperationalError
 
 from jobmon.client import shared_requester as req
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.job import Job
-from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
@@ -29,38 +27,63 @@ SECOND_HASH = 12346
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='function')
-def commit_hooked_jsm(jsm_jqs):
-    """Add a commit hook to the JSM's database session, so we
-    can intercept Error Logging and force transaction failures to test
-    downstream error handling
+@pytest.fixture(scope='session')
+def jsm_jqs(ephemera):
+    """This sets up the JSM/JQS using the test_client which is a
+    fake server
     """
-    DB = db_cfg["DB"]
-    jsm, _ = jsm_jqs
+    from jobmon.server import create_app
+    from jobmon.server.config import ServerConfig
 
-    from sqlalchemy import event
+    # The create_app call sets up database connections
+    server_config = ServerConfig(
+        db_host=ephemera["DB_HOST"],
+        db_port=ephemera["DB_PORT"],
+        db_user=ephemera["DB_USER"],
+        db_pass=ephemera["DB_PASS"],
+        db_name=ephemera["DB_NAME"],
+        wf_slack_channel=None,
+        node_slack_channel=None,
+        slack_token=None)
+    app = create_app(server_config)
+    app.config['TESTING'] = True
+    client = app.test_client()
+    yield client, client
 
-    sessionmaker = DB.create_session()
 
-    @event.listens_for(sessionmaker, 'before_commit')
-    def inspect_on_done_or_error(session):
-        if any(session.dirty):
-            done_jobs = [j for j in session.dirty
-                         if isinstance(j, Job) and
-                         j.status == JobStatus.DONE]
-            done_jobs = [j for j in done_jobs
-                         if not any([ji for ji in j.job_instances
-                                     if ji.executor_id < 0])]
-            if any(done_jobs):
-                raise OperationalError("Test hook", "", "")
-        if any(session.new):
-            errors_to_log = [o for o in session.new
-                             if isinstance(o, JobInstanceErrorLog) and
-                             o.description != "skip_error_hook"]
-            if any(errors_to_log):
-                raise OperationalError("Test hook", "", "")
-    yield jsm
-    event.remove(sessionmaker, 'before_commit', inspect_on_done_or_error)
+def get_flask_content(response):
+    """The function called by the no_request_jsm_jqs to query the fake
+    test_client for a response
+    """
+    if 'application/json' in response.headers.get('Content-Type'):
+        content = response.json
+    elif 'text/html' in response.headers.get('Content-Type'):
+        content = response.data
+    else:
+        content = response.content
+    return response.status_code, content
+
+
+@pytest.fixture(scope='function')
+def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
+    """This function monkeypatches the requests library to use the
+    test_client
+    """
+    import requests
+    from jobmon.client import requester
+    jsm_client, jqs_client = jsm_jqs
+
+    def get_jqs(url, params, headers):
+        url = "/" + url.split('/')[-1]
+        return jqs_client.get(path=url, query_string=params, headers=headers)
+    monkeypatch.setattr(requests, 'get', get_jqs)
+    monkeypatch.setattr(requester, 'get_content', get_flask_content)
+
+    def post_jsm(url, json, headers):
+        url = "/" + url.split('/')[-1]
+        return jsm_client.post(url, json=json, headers=headers)
+    monkeypatch.setattr(requests, 'post', post_jsm)
+    monkeypatch.setattr(requester, 'get_content', get_flask_content)
 
 
 def test_get_workflow_run_id(db_cfg, real_dag_id):
@@ -142,7 +165,7 @@ def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):
         assert not _get_workflow_run_id(job)
 
 
-def test_jsm_valid_done(real_dag_id):
+def test_jsm_valid_done(real_dag_id, db_cfg):
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -195,7 +218,7 @@ def test_jsm_valid_done(real_dag_id):
         request_type='post')
 
 
-def test_jsm_valid_error(real_dag_id):
+def test_jsm_valid_error(real_dag_id, db_cfg):
 
     # add job
     _, response = req.send_request(
@@ -250,7 +273,7 @@ def test_jsm_valid_error(real_dag_id):
         request_type='post')
 
 
-def test_invalid_transition(dag_id):
+def test_invalid_transition(real_dag_id, no_requests_jsm_jqs):
 
     # add dag
     rc, response = req.send_request(
@@ -591,7 +614,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
         DB.session.commit()
 
 
-testdata: dict = (
+testdata: tuple = (
     ('CRITICAL', 'CRITICAL'),
     ('error', 'ERROR'),
     ('WarNING', 'WARNING'),
@@ -602,7 +625,7 @@ testdata: dict = (
 
 
 @pytest.mark.parametrize("level,expected", testdata)
-def test_dynamic_change_log_level(level: str, expected: str):
+def test_dynamic_change_log_level(level: str, expected: str, env_var):
     # set log level to <level>
     rc, response = req.send_request(
         app_route='/log_level/{}'.format(level),
@@ -619,7 +642,7 @@ def test_dynamic_change_log_level(level: str, expected: str):
     assert response['level'] == expected
 
 
-def test_syslog_parameter():
+def test_syslog_parameter(env_var):
     # get syslog status
     rc, response = req.send_request(
         app_route='/syslog_status',
@@ -662,7 +685,7 @@ def test_syslog_parameter():
     assert response['syslog']
 
 
-def test_error_logger(real_jsm_jqs):
+def test_error_logger(env_var):
     # assert route returns no errors
     rc, response = req.send_request(
         app_route='/error_logger',
@@ -672,7 +695,7 @@ def test_error_logger(real_jsm_jqs):
     assert rc == 200
 
 
-def test_set_flask_log_level_seperately(real_dag_id):
+def test_set_flask_log_level_seperately(db_cfg, real_dag_id):
     print("----------------------------default------------------------")
     _, response = req.send_request(
         app_route='/job',
@@ -941,7 +964,7 @@ def test_log_error_reconciler(db_cfg, real_dag_id):
             JobInstanceStatus.UNKNOWN_ERROR)
 
 
-def test_get_executor_id(real_dag_id):
+def test_get_executor_id(db_cfg, real_dag_id):
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -1003,7 +1026,7 @@ def test_get_executor_id(real_dag_id):
     assert int(response['executor_id']) == 12345
 
 
-def test_get_nodename(real_dag_id):
+def test_get_nodename(db_cfg, real_dag_id):
     # add job
     _, response = req.send_request(
         app_route='/job',

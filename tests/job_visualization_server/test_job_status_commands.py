@@ -1,12 +1,12 @@
 import getpass
-from jobmon import BashTask
-from jobmon import Workflow
+from jobmon.client import BashTask
+from jobmon.client import Workflow
 from jobmon.cli import CLI
 from jobmon.client.status_commands import (workflow_status, workflow_jobs,
                                            job_status)
 
 
-def test_workflow_status(real_jsm_jqs, db_cfg):
+def test_workflow_status(env_var, db_cfg):
     user = getpass.getuser()
     t1 = BashTask("sleep 10", executor_class="SequentialExecutor")
     t2 = BashTask("sleep 5", upstream_tasks=[t1],
@@ -62,7 +62,7 @@ def test_workflow_status(real_jsm_jqs, db_cfg):
     assert len(df) == 2
 
 
-def test_workflow_jobs(real_jsm_jqs, db_cfg):
+def test_workflow_jobs(env_var, db_cfg):
     t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={})
     t2 = BashTask("sleep 4", upstream_tasks=[t1],
@@ -98,7 +98,7 @@ def test_workflow_jobs(real_jsm_jqs, db_cfg):
     assert len(df) == 0
 
 
-def test_job_status(real_jsm_jqs, db_cfg):
+def test_job_status(env_var, db_cfg):
     t1 = BashTask("exit -9", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={}, max_attempts=2)
     workflow = Workflow(executor_class="SequentialExecutor")

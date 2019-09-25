@@ -5,7 +5,6 @@ from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon import Workflow
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.models.job import Job
@@ -152,7 +151,7 @@ def test_exceed_mem_task(db_cfg, dag_factory):
 
 
 def test_exceed_runtime_task(db_cfg, dag_factory):
-    name='over_runtime_task'
+    name = 'over_runtime_task'
     task = BashTask(command='sleep 10', name=name, max_runtime_seconds=5)
     executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
@@ -165,8 +164,8 @@ def test_exceed_runtime_task(db_cfg, dag_factory):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        resp = check_output(f"qacct -j {jid} | grep 'exit_status\|failed'", shell=True,
-                            universal_newlines=True)
+        resp = check_output(f"qacct -j {jid} | grep 'exit_status\|failed'",
+                            shell=True, universal_newlines=True)
         assert ('247' in resp) or ('137' in resp)
         assert job.job_instances[0].status == 'Z'
         assert job.status == 'F'
@@ -206,7 +205,6 @@ def test_under_request_then_scale_resources(db_cfg, dag_factory):
         assert job.executor_parameter_set.max_runtime_seconds == 60
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
-
 
 
 def test_kill_self_task(db_cfg, dag_factory):

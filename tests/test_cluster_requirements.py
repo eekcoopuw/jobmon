@@ -5,41 +5,20 @@ from time import sleep
 import pytest
 
 from jobmon.client.swarm.executors import sge_utils as sge
-from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.executors.sge_parameters import SGEParameters
-from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.models.job import Job
-from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from tests.timeout_and_skip import timeout_and_skip
 
 path_to_file = os.path.dirname(__file__)
 
 
-@pytest.fixture
-def no_daemon(real_dag_id):
-    executor = SGEExecutor(project='proj_tools')
-    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False)
-    yield jlm
-    jlm.disconnect()
-
-
-def valid_command_check(job_list_manager_sge):
-    job_list_manager_sge._sync()
-    if len(job_list_manager_sge.all_done) == 1:
-        # Success
-        return True
-    else:
-        return False
-
-
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['6G', '6GB', '150MB', '200M'])
 @pytest.mark.parametrize('queue', ['all.q'])
-def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
-                                     mem, queue):
+def test_new_cluster_with_new_params(jlm_sge_daemon, mem, queue):
     task = Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
                 name="sge_foobar", executor_class='SGEExecutor',
                 m_mem_free=mem,
@@ -47,18 +26,26 @@ def test_new_cluster_with_new_params(real_dag_id, job_list_manager_sge,
                 queue=queue,
                 max_runtime_seconds=600,
                 j_resource=False)
-    job = job_list_manager_sge.bind_task(task)
-    job_list_manager_sge.queue_job(job)
+    job = jlm_sge_daemon.bind_task(task)
+    jlm_sge_daemon.queue_job(job)
+
+    def valid_command_check(jlm_sge_daemon):
+        jlm_sge_daemon._sync()
+        if len(jlm_sge_daemon.all_done) == 1:
+            # Success
+            return True
+        else:
+            return False
 
     timeout_and_skip(step_size=10, max_time=120, max_qw=1,
                      partial_test_function=partial(
                          valid_command_check,
-                         job_list_manager_sge=job_list_manager_sge))
+                         jlm_sge_daemon=jlm_sge_daemon))
 
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['1TB', '513GB'])
-def test_big_memory_adjusted(no_daemon, mem, capsys):
+def test_big_memory_adjusted(mem, capsys):
     task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
                 name="invalid_memory", m_mem_free=mem, num_cores=8,
                 j_resource=True, queue='all.q', max_runtime_seconds=120)
@@ -70,7 +57,7 @@ def test_big_memory_adjusted(no_daemon, mem, capsys):
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['125MB', '0GB'])
-def test_small_mem_adjusted(no_daemon, mem):
+def test_small_mem_adjusted(mem):
     task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
                 name="invalid_memory", m_mem_free=mem, num_cores=8,
                 j_resource=True, queue='all.q', max_runtime_seconds=120)
@@ -80,7 +67,7 @@ def test_small_mem_adjusted(no_daemon, mem):
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['0B', '10gigabytes'])
-def test_invalid_mem_adjusted(no_daemon, mem):
+def test_invalid_mem_adjusted(mem):
     task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
                 name="invalid_memory", m_mem_free=mem, num_cores=8,
                 j_resource=True, queue='all.q', max_runtime_seconds=120)
@@ -105,7 +92,7 @@ def test_min_memory_transformed_correctly(mem):
 
 
 @pytest.mark.cluster
-def test_exclusive_args_no_cores(no_daemon):
+def test_exclusive_args_no_cores():
     task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
                 name="exclusive_args_none", m_mem_free='2G', j_resource=True,
                 queue='all.q', max_runtime_seconds=120)
@@ -115,7 +102,7 @@ def test_exclusive_args_no_cores(no_daemon):
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('runtime', [0, -3])
-def test_invalid_runtime_caught(no_daemon, runtime):
+def test_invalid_runtime_caught(runtime):
     task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
                 name="invalid_runtime", m_mem_free='2G', num_cores=8,
                 j_resource=True, queue="all.q", max_runtime_seconds=runtime)
@@ -133,15 +120,17 @@ def test_both_mem_free_error():
 
 
 @pytest.mark.cluster
-def test_no_queue_provided(no_daemon):
-    job = no_daemon.bind_task(BashTask(command="echo hello", name="sge_foobar",
-                                       m_mem_free='1G', num_cores=1,
-                                       max_runtime_seconds=600,
-                                       j_resource=False))
-    sge_executor = no_daemon.job_instance_factory.executor
+def test_no_queue_provided(jlm_sge_no_daemon):
+    job = jlm_sge_no_daemon.bind_task(
+        BashTask(command="echo hello", name="sge_foobar",
+                 m_mem_free='1G', num_cores=1,
+                 max_runtime_seconds=600,
+                 j_resource=False))
+    sge_executor = jlm_sge_no_daemon.job_instance_factory.executor
 
-    no_daemon.queue_job(job)
-    jobs = no_daemon.job_instance_factory._get_jobs_queued_for_instantiation()
+    jlm_sge_no_daemon.queue_job(job)
+    jobs = jlm_sge_no_daemon.job_instance_factory.\
+        _get_jobs_queued_for_instantiation()
     job = jobs[0]
 
     # the job is setup to run but also check that it has the right qsub cmd
@@ -162,16 +151,16 @@ def test_no_queue_provided(no_daemon):
         assert 'all.q' in qsub_cmd
 
 
-def test_sec_exceeds_queue_limit(no_daemon):
-    job = no_daemon.bind_task(
+def test_sec_exceeds_queue_limit(jlm_sge_no_daemon):
+    job = jlm_sge_no_daemon.bind_task(
         BashTask(command="sleep 10", name='test_mem_args', queue='all.q',
                  max_attempts=2, m_mem_free='3G', num_cores=1,
                  max_runtime_seconds=1382402))
     assert job._task.executor_parameters.queue == 'long.q'
 
 
-def test_sec_exceeds_queue_hard(no_daemon):
-    job = no_daemon.bind_task(
+def test_sec_exceeds_queue_hard(jlm_sge_no_daemon):
+    job = jlm_sge_no_daemon.bind_task(
         BashTask(command="sleep 10", name='test_mem_args', queue='all.q',
                  max_attempts=2, m_mem_free='3G', num_cores=1,
                  max_runtime_seconds=1382402, hard_limits=True))
@@ -179,23 +168,31 @@ def test_sec_exceeds_queue_hard(no_daemon):
     assert job._task.executor_parameters.max_runtime_seconds == 259200
 
 
-def test_mem_exceeds_limit_cant_scale(no_daemon, db_cfg):
+def test_mem_exceeds_limit_cant_scale(jlm_sge_no_daemon, db_cfg):
     name = "mem_no_scale"
-    job = no_daemon.bind_task(
-        PythonTask(script=sge.true_path(f"{path_to_file}/exceed_mem.py"), name=name,
-                   m_mem_free='600M', max_attempts=2, num_cores=1,
+    job = jlm_sge_no_daemon.bind_task(
+        PythonTask(script=sge.true_path(f"{path_to_file}/exceed_mem.py"),
+                   name=name, m_mem_free='600M', max_attempts=2, num_cores=1,
                    max_runtime_seconds=40,
                    resource_scales={'max_runtime_seconds': 0.5}))
 
-    no_daemon.queue_job(job)
-    no_daemon.job_instance_factory.instantiate_queued_jobs()
+    jlm_sge_no_daemon.queue_job(job)
+    jlm_sge_no_daemon.job_instance_factory.instantiate_queued_jobs()
+
+    def get_status(db_cfg, name):
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
+        with app.app_context():
+            job = DB.session.query(Job).filter_by(name=name).first()
+            DB.session.commit()
+            return job.status
 
     count = 0
     while get_status(db_cfg, name) != 'A' and count < 10:
         sleep(5)
         count = count + 1
 
-    no_daemon.job_instance_factory.instantiate_queued_jobs()
+    jlm_sge_no_daemon.job_instance_factory.instantiate_queued_jobs()
 
     count = 0
     while get_status(db_cfg, name) != 'F' and count < 10:
@@ -206,28 +203,10 @@ def test_mem_exceeds_limit_cant_scale(no_daemon, db_cfg):
     DB = db_cfg["DB"]
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
-        jid = [ji for ji in job.job_instances][0].executor_id
         assert job.job_instances[0].status == 'Z'
         assert job.job_instances[1].status == 'Z'
         assert job.status == 'F'
-        resources = DB.session.query(ExecutorParameterSet).filter_by(
-                    job_id=job.job_id).all()
         # add checks for increased system resources
         assert job.executor_parameter_set.m_mem_free == 0.6
         assert job.executor_parameter_set.max_runtime_seconds == 60
         DB.session.commit()
-
-
-def get_status(db_cfg, name):
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        job = DB.session.query(Job).filter_by(name=name).first()
-        DB.session.commit()
-        return job.status
-
-
-
-
-
-

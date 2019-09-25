@@ -20,4 +20,4 @@ CREATE TABLE `workflow` (
   KEY `status` (`status`),
   CONSTRAINT `workflow_ibfk_1` FOREIGN KEY (`dag_id`) REFERENCES `task_dag` (`dag_id`),
   CONSTRAINT `workflow_ibfk_2` FOREIGN KEY (`status`) REFERENCES `workflow_status` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=15484;
+) ENGINE=InnoDB AUTO_INCREMENT=1;

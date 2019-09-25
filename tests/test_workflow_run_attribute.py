@@ -6,7 +6,7 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.models.attributes.constants import workflow_run_attribute
 
 
-def test_workflow_run_attribute(real_jsm_jqs, db_cfg):
+def test_workflow_run_attribute(env_var, db_cfg):
     # create a workflow_run
     wfa = "test_workflow_run_attribute"
     workflow = Workflow(wfa)
@@ -48,7 +48,7 @@ def test_workflow_run_attribute(real_jsm_jqs, db_cfg):
         assert entry_value == "1000"
 
 
-def test_workflow_run_attribute_input_error(real_jsm_jqs, db_cfg):
+def test_workflow_run_attribute_input_error(env_var, db_cfg):
     # create a workflow_run
     wfa = "test_workflow_run_attribute_input_error"
     workflow = Workflow(wfa)
@@ -65,7 +65,7 @@ def test_workflow_run_attribute_input_error(real_jsm_jqs, db_cfg):
 
 
 @pytest.mark.qsubs_jobs
-def test_new_workflow_has_project_limit(real_jsm_jqs, db_cfg):
+def test_new_workflow_has_project_limit(env_var, db_cfg):
     wfa = "test_new_workflow_has_project_limit"
     workflow = Workflow(wfa, project='proj_tools')
     t1 = BashTask("sleep 1", num_cores=1)
