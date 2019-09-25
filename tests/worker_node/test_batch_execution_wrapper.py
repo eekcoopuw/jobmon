@@ -11,7 +11,7 @@ thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 def test_sge_cli(real_jsm_jqs, db_cfg):
 
-    job_name = "foo"
+    job_name = "foo"    
     log_dir = f'/ihme/scratch/users/{getuser()}'
     t1 = PythonTask(script=os.path.join(thisdir, 'fill_pipe.py'),
                     name=job_name, num_cores=1, max_runtime_seconds=600,
@@ -66,5 +66,5 @@ def wait_for_file(filepath: str) -> bool:
     while not os.path.exists(filepath):
         sleep(5)
         num_tries += 1
-        assert num_tries < 4
+        assert num_tries < 8
     return True

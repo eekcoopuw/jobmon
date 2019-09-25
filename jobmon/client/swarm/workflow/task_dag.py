@@ -23,7 +23,7 @@ class TaskDag(object):
     """A DAG of ExecutableTasks."""
 
     def __init__(self, name="", executor=None, fail_fast=False,
-                 job_instantiation_interval=3, seconds_until_timeout=36000):
+                 job_instantiation_interval=10, seconds_until_timeout=36000):
         """
         Args:
             name (str): name of dag
@@ -72,8 +72,7 @@ class TaskDag(object):
         else:
             return False
 
-    def bind_to_db(self, dag_id=None, reset_running_jobs=True,
-                   resource_adjustment=0.5):
+    def bind_to_db(self, dag_id=None, reset_running_jobs=True):
         """
         Binds the dag to the database and starts Job Management services.
         The Job_List_Manger is stopped and discarded in _clean_up_after_run
@@ -89,8 +88,7 @@ class TaskDag(object):
         if dag_id:
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
-                job_instantiation_interval=self.job_instantiation_interval,
-                resource_adjustment=resource_adjustment)
+                job_instantiation_interval=self.job_instantiation_interval)
 
             for _, task in self.tasks.items():
                 self.job_list_manager.bind_task(task)
@@ -109,8 +107,7 @@ class TaskDag(object):
             self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
                                             user=getpass.getuser())
             self.job_list_manager = JobListManager(
-                self.meta.dag_id, executor=self.executor, start_daemons=True,
-                resource_adjustment=resource_adjustment)
+                self.meta.dag_id, executor=self.executor, start_daemons=True)
             self.dag_id = self.meta.dag_id
 
             # Bind all the tasks to the job_list_manager
@@ -185,6 +182,7 @@ class TaskDag(object):
         """
         if not self.is_bound:
             self.bind_to_db()
+        self.job_list_manager.log_dag_running()
 
         previously_completed = copy.copy(self.job_list_manager.all_done)
         self._set_top_fringe()

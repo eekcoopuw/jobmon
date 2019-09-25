@@ -54,7 +54,7 @@ downstream tasks depend on these jobs.
                     task = PythonTask(script='run_burdenator_most_detailed',
                                       args=[loc, year],
                                       name='most_detailed_{}_{}'.format(loc, year),
-                                      slots=40, mem_free=20, max_attempts=5,
+                                      num_cores=40, m_mem_free=20, max_attempts=5,
                                       max_runtime=360)
                     self.workflow.add_task(task)
                     self.most_detailed_jobs_by_command[task.name] = task
@@ -69,7 +69,7 @@ downstream tasks depend on these jobs.
                                 script='run_loc_agg',
                                 args=[measure, year, sex, rei],
                                 name='loc_agg_{}_{}_{}_{}'.format(measure, year, sex, rei),
-                                slots=20, mem_free=40, max_runtime=540,
+                                num_cores=20, m_mem_free=40, max_runtime=540,
                                 max_attempts=11)
                             for loc in self.most_detailed_location_ids:
                                 task.add_upstream(
@@ -85,7 +85,7 @@ downstream tasks depend on these jobs.
                     for year in self.year_ids:
                         task = PythonTask(script='run_cleanup', args=[measure, loc, year],
                                           name='cleanup_{}_{}_{}'.format(measure, loc, year),
-                                          slots=25, mem_free=50, max_runtime=360,
+                                          num_cores=25, m_mem_free=50, max_runtime=360,
                                           max_attempts=11)
                         for sex in self.sex_ids:
                             for rei in self.rei_ids:
@@ -111,7 +111,7 @@ downstream tasks depend on these jobs.
                                                                          end_year],
                                           name=('pct_change_{}_{}_{}_{}'
                                                 .format(measure, loc, start_year, end_year),
-                                          slots=45, mem_free=90, max_attempts=11,
+                                          num_cores=45, m_mem_free=90, max_attempts=11,
                                           max_runtime=540)
                         for year in [start_year, end_year]:
                             if is_aggregate:
@@ -129,7 +129,7 @@ downstream tasks depend on these jobs.
             """Depends on pct-change jobs"""
             for measure in self.measure_ids:
                 task = PythonTask(script='run_pct_change', args=[measure],
-                                  name='upload_{}'.format(measure), slots=20, mem_free=40,
+                                  name='upload_{}'.format(measure), num_cores=20, m_mem_free=40,
                                   max_runtime=720, max_attempts=3)
                 for location_id in self.all_location_ids:
                     for start_year, end_year in zip(self.start_year_ids, self.end_year_ids):

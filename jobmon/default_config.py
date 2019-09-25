@@ -1,6 +1,5 @@
 import os
 
-from jobmon.models.attributes import constants
 from jobmon.setup_config import SetupCfg as Conf
 
 

@@ -1,11 +1,10 @@
-version: '2'
+version: '3.2'
 
 services:
   jobmon:
     build: .
     restart: unless-stopped
     image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_TAG}
-    container_name: jobmon${JOBMON_VERSION}_jobmon_1
     volumes:
         - ./uwsgi.ini:/app/uwsgi.ini
     ports:
@@ -29,7 +28,6 @@ services:
   monitor:
     restart: unless-stopped
     image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_TAG}
-    container_name: jobmon${JOBMON_VERSION}_monitor_1
     ports:
         - "${MONITOR_PORT}:80"
     depends_on:
@@ -54,26 +52,10 @@ services:
         options:
             max-size: "100m"
             max-file: "10"
-  initdb:
-    image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_TAG}
-    container_name: jobmon${JOBMON_VERSION}_initdb_1
-    depends_on:
-        - jobmon
-    entrypoint:
-        - ./wait-for-db.sh
-        - db
-    environment:
-        - DB_HOST=${INTERNAL_DB_HOST}
-        - DB_PORT=${INTERNAL_DB_PORT}
-        - DB_USER=table_creator
-        - DB_PASS=${JOBMON_PASS_TABLE_CREATOR}
-        - JOBMON_PORT=${EXTERNAL_SERVICE_PORT}
-    command: ["jobmon", "initdb"]
-    links:
-        - db
+
   db:
     restart: unless-stopped
-    image: mysql:5.7
+    image: mariadb:10.4
     container_name: jobmon${JOBMON_VERSION}_db_1
     ports:
         - "${EXTERNAL_DB_PORT}:3306"
@@ -87,7 +69,10 @@ services:
 
     volumes:
         - mysql-jobmon-emu:/var/lib/mysql
-        - ./create_users.sh:/docker-entrypoint-initdb.d/create_users.sh
+        - type: bind
+          source: /opt/jobmon/data/${JOBMON_VERSION}-mysql-jobmon
+          target: /var/lib/mysql
+        - ./jobmon/server/deployment/container/db/:/docker-entrypoint-initdb.d/
 
     command: mysqld --innodb_autoinc_lock_mode=1 --innodb_flush_method=O_DIRECT --innodb_buffer_pool_size=10000M --innodb_buffer_pool_instances=2
 

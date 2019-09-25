@@ -102,8 +102,7 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
                  'project': 'proj_tools',
                  'slack_channel': "",
                  'executor_class': 'SGEExecutor',
-                 'working_dir': "",
-                 'resource_adjustment': "0.5"},
+                 'working_dir': ""},
         request_type='post')
     wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that

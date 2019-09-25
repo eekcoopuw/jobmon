@@ -31,6 +31,7 @@ class BuildContainer:
     def _set_connection_env(self):
         self.envs["EXTERNAL_SERVICE_PORT"] = Conf().get_external_service_port()
         self.envs["EXTERNAL_DB_PORT"] = Conf().get_external_db_port()
+        self.envs["EXTERNAL_DB_HOST"] = Conf().get_external_db_host()
         self.envs["INTERNAL_DB_HOST"] = Conf().get_internal_db_host()
         self.envs["INTERNAL_DB_PORT"] = Conf().get_internal_db_port()
         self.envs["JOBMON_VERSION"] = "".join(Conf().get_jobmon_version().split('.'))
@@ -39,8 +40,11 @@ class BuildContainer:
         self.envs["WF_SLACK_CHANNEL"] = Conf().get_wf_slack_channel()
         self.envs["NODE_SLACK_CHANNEL"] = Conf().get_node_slack_channel()
         self.envs["MONITOR_PORT"] = Conf().get_monitor_port()
+        self.envs["COMPOSE_PROJECT_NAME"] = Conf().get_compose_project_name()
         if Conf().is_existing_db():
             self.envs["JOBMON_PASS_SERVICE_USER"] = Conf().get_jobmon_service_user_pwd()
+            if Conf().is_on_same_host():
+                self.envs["EXISTING_NETWORK"] = Conf().get_existing_network()
 
     def _set_mysql_user_passwords(self):
         users = ['root', 'table_creator', 'service_user', 'read_only']

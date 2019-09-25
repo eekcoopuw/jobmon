@@ -44,9 +44,7 @@ we can build a jobmon image that kubernetes can access.
   kubectl apply -f k8s/
   ```
 
-6. Wait a few mins for the db to startup and the initdb process to complete.
-   This command should show the initdb container status as 'Completed' when
-   ready.
+6. Wait a few mins for the db to startup.
 
   ```
   kubectl get pods

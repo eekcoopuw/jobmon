@@ -64,8 +64,7 @@ class ExecutableTask(object):
     def __init__(self, command: str,
                  upstream_tasks: Optional[List["ExecutableTask"]] = None,
                  env_variables: Optional[Dict[str, str]] = None,
-                 name: Optional[str] = None, slots: Optional[int] = None,
-                 mem_free: Optional[int] = None,
+                 name: Optional[str] = None,
                  num_cores: Optional[int] = None,
                  max_runtime_seconds: Optional[int] = None,
                  queue: Optional[str] = None, max_attempts: Optional[int] = 3,
@@ -89,14 +88,9 @@ class ExecutableTask(object):
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
             name: name that will be visible in qstat for this job
-            slots: slots to request on the cluster. Default is 1
             num_cores: number of cores to request on the cluster
-            mem_free: amount of memory to request on the cluster.
-                Generally 2x slots. Default is 1
             m_mem_free: amount of memory in gbs, tbs, or mbs, G, T, or M,
-                to request on the fair cluster. Mutually exclusive with
-                mem_free as it will fully replace that argument when the dev
-                and prod clusters are taken offline
+                to request on the fair cluster.
             max_attempts: number of attempts to allow the cluster to try
                 before giving up. Default is 3
             max_runtime_seconds: how long the job should be allowed to run
@@ -160,9 +154,7 @@ class ExecutableTask(object):
             self.job_attributes = {}
         if executor_parameters is None:
             self.executor_parameters = ExecutorParameters(
-                slots=slots,
                 num_cores=num_cores,
-                mem_free=mem_free,
                 m_mem_free=m_mem_free,
                 max_runtime_seconds=max_runtime_seconds,
                 queue=queue,

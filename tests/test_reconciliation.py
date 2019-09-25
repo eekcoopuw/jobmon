@@ -1,4 +1,6 @@
+import os
 import pytest
+import datetime
 from time import sleep
 
 from jobmon.client import client_config
@@ -15,6 +17,7 @@ from tests.timeout_and_skip import timeout_and_skip
 from functools import partial
 
 logger = logging.getLogger(__name__)
+path_to_file = os.path.dirname(__file__)
 
 
 @pytest.fixture(scope='function')
@@ -118,7 +121,7 @@ def test_reconciler_sge(db_cfg, job_list_manager_reconciliation):
     job_list_manager_reconciliation.all_error = set()
 
     # Queue a job
-    task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
+    task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/sleep.sh"),
                 name="sleepyjob_pass", num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
     job_list_manager_reconciliation.queue_job(job)
@@ -180,12 +183,43 @@ def test_reconciler_sge_new_heartbeats(job_list_manager_reconciliation, db_cfg
     assert start < end  # indicating at least one heartbeat got logged
 
 
+def test_reconciler_sge_dag_heartbeats(job_list_manager_reconciliation, db_cfg
+                                       ):
+    job_list_manager_reconciliation.all_error = set()
+    dag_id = job_list_manager_reconciliation.dag_id
+    jir = job_list_manager_reconciliation.job_inst_reconciler
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """
+        SELECT heartbeat_date
+        FROM task_dag
+        WHERE dag_id = {}""".format(dag_id)
+        res = DB.session.execute(query).fetchone()
+        DB.session.commit()
+        start = res
+    # Sleep to ensure that the timestamps will be different
+    sleep(2)
+    jir.reconcile()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """
+        SELECT heartbeat_date
+        FROM task_dag
+        WHERE dag_id = {}""".format(dag_id)
+        res = DB.session.execute(query).fetchone()
+        DB.session.commit()
+        end = res
+    assert start[0] < end[0]
+
+
 def test_reconciler_sge_timeout(job_list_manager_reconciliation, db_cfg):
     # Flush the error queue to avoid false positives from other tests
     job_list_manager_reconciliation.all_error = set()
 
     # Queue a test job
-    task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
+    task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/sleep.sh"),
                 name="sleepyjob_fail", max_attempts=3, max_runtime_seconds=3,
                 num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)
@@ -232,7 +266,7 @@ def test_ignore_qw_in_timeouts(job_list_manager_reconciliation, db_cfg):
     # to simulate a hqw -> set the timeout for that hqw job to something
     # short... make sure that job doesn't actually get killed
     # TBD I don't think that has been implemented.
-    task = Task(command=sge.true_path("tests/shellfiles/sleep.sh"),
+    task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/sleep.sh"),
                 name="sleepyjob", max_attempts=3, max_runtime_seconds=3,
                 num_cores=1)
     job = job_list_manager_reconciliation.bind_task(task)

@@ -1,3 +1,4 @@
+import os
 import pytest
 import sys
 
@@ -8,6 +9,8 @@ from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.client.swarm.workflow.r_task import RTask
 from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.models.job import Job
+
+path_to_file = os.path.dirname(__file__)
 
 
 def test_good_names():
@@ -70,7 +73,7 @@ def test_hashing_bash_characters():
 def test_bash_task_args(db_cfg, job_list_manager_sge):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
-    a = BashTask(command="echo 'Hello Jobmon'", num_cores=1, mem_free='2G',
+    a = BashTask(command="echo 'Hello Jobmon'", num_cores=1, m_mem_free='2G',
                  max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
@@ -121,9 +124,9 @@ def test_python_task_args(db_cfg, job_list_manager_sge):
 def test_r_task_args(db_cfg, job_list_manager_sge):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
-    a = RTask(script=sge.true_path("tests/simple_R_script.r"),
+    a = RTask(script=sge.true_path(f"{path_to_file}/simple_R_script.r"),
               env_variables={'OP_NUM_THREADS': 1},
-              num_cores=1, mem_free='2G', max_attempts=1)
+              num_cores=1, m_mem_free='2G', max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id
 
     with app.app_context():
@@ -135,7 +138,7 @@ def test_r_task_args(db_cfg, job_list_manager_sge):
         DB.session.commit()
         # check all job args
         assert command == ('OP_NUM_THREADS=1 Rscript {}'
-                           .format(sge.true_path("tests/simple_R_script.r")))
+                           .format(sge.true_path(f"{path_to_file}/simple_R_script.r")))
         assert num_cores == 1
         assert m_mem_free == 2
         assert max_attempts == 1
@@ -144,7 +147,7 @@ def test_r_task_args(db_cfg, job_list_manager_sge):
 def test_stata_task_args(db_cfg, job_list_manager_sge):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
-    a = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
+    a = StataTask(script=sge.true_path(f"{path_to_file}/simple_stata_script.do"),
                   env_variables={'OP_NUM_THREADS': 1},
                   num_cores=1, m_mem_free='2G', max_attempts=1)
     job_id = job_list_manager_sge.bind_task(a).job_id

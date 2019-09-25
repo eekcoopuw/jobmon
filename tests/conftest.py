@@ -16,6 +16,9 @@ from sqlalchemy.exc import ProgrammingError
 
 from cluster_utils.ephemerdb import create_ephemerdb
 
+from jobmon import BashTask
+from jobmon.client.swarm.workflow.workflow import Workflow
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +44,6 @@ def ephemera_conn_str():
     yield conn_str
 
 
-
 # NOTE: there are two types of tests that conftest sets up. 1. Using the real
 # flask dev server, to allow us to do real testing of connections to the server
 # --see real_jqs_jsm, real_dag_id, etc. 2. Using the fake server, called
@@ -54,9 +56,11 @@ def ephemera_conn_str():
 @pytest.fixture(scope='session')
 def test_session_config(ephemera_conn_str):
     db_conn_dict = unpack_conn_str(ephemera_conn_str)
+    pid = os.getpid() % 30_000
+    port = 10_000 + pid
     cfg = {
         "JOBMON_HOST": socket.gethostname(),
-        "JOBMON_PORT": "6789",
+        "JOBMON_PORT": str(port), # "6789",
         "DB_HOST": db_conn_dict["host"],
         "DB_PORT": db_conn_dict["port"],
         "DB_USER": db_conn_dict["user"],
@@ -422,3 +426,21 @@ def execution_test_script_perms():
             os.chmod(f'{path}/{file}', perms)
         except Exception as e:
             raise e
+
+
+@pytest.fixture
+def simple_workflow_w_errors(real_jsm_jqs, db_cfg):
+    # Used in test_workflow_[ab]
+    t1 = BashTask("sleep 1", num_cores=1, m_mem_free='2G', queue="all.q",
+                  j_resource=False)
+    t2 = BashTask("not_a_command 1", upstream_tasks=[t1], num_cores=1,
+                  m_mem_free='2G', queue="all.q", j_resource=False)
+    t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime_seconds=4,
+                  num_cores=1, m_mem_free='2G', queue="all.q", j_resource=False)
+    t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3], num_cores=1,
+                  m_mem_free='2G', queue="all.q", j_resource=False)
+
+    workflow = Workflow("my_failing_args", project='ihme_general')
+    workflow.add_tasks([t1, t2, t3, t4])
+    workflow.execute()
+    return workflow

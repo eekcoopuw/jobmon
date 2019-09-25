@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
-                 job_instantiation_interval=3, n_queued_jobs=1000,
-                 resource_adjustment: float = 0.5):
+                 job_instantiation_interval=10, n_queued_jobs=1000):
+
         """Manages all the list of jobs that are running, done or errored
 
         Args:
@@ -32,12 +32,10 @@ class JobListManager(object):
                 SequentialExecutor, DummyExecutor or SGEExecutor
             start_daemons (bool, default False): whether or not to start the
                 JobInstanceFactory and JobReconciler as daemonized threads
-            job_instantiation_interval (int, default 3): number of seconds to
+            job_instantiation_interval (int, default 10): number of seconds to
                 wait between instantiating newly ready jobs
             n_queued_jobs (int): number of queued jobs that should be returned
                 to be instantiated
-            resource_adjustment: scalar value to adjust resources by when
-                a resource error is detected
         """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
@@ -47,7 +45,6 @@ class JobListManager(object):
             dag_id=dag_id,
             executor=executor,
             n_queued_jobs=n_queued_jobs,
-            resource_adjustment=resource_adjustment,
             stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id=dag_id,
@@ -152,7 +149,12 @@ class JobListManager(object):
             request_type='post'
         )
 
-
+    def log_dag_running(self) -> None:
+        rc, _ = self.requester.send_request(
+            app_route=f'/task_dag/{self.dag_id}/log_running',
+            message={},
+            request_type='post')
+        return rc
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""

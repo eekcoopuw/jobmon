@@ -58,44 +58,131 @@ A few intuitive changes to which swarm objects have access to JobInstance manage
 It’s not science if someone else can’t repeat it…
 
 
-More Granularity In JobInstance **Error** States
+Dynamic Resource Allocation
 ------------------------------------------------
 
-Improve jobmon code base by distinguishing between application errors and infrastructure errors in the JobInstance finite state machine.
+Improve jobmon code base by allowing the user to dynamically calculate resource requirements once a job is ready to be scheduled.
 
 Backgroud
 ^^^^^^^^^^
 
-The JobInstance finite state machine is a set of routes exposed by the job_state_manager service which track an job instances state as it progresses from created to done. Specifically: add_job_instance, log_executor_id, log_done, log_error, log_ji_report_by, reconcile,
-log_running.
-
-These routes are currently accessed by the JobInstanceFactory, JobInstanceReconciler, and the JobInstanceIntercom. The JobInstanceFactory waits for Jobs to be moved into queued state by the JobListManager. Then it creates new job_instances (add_job_instance) and submits them to the executor (log_executor_id). The JobInstanceIntercom is an api used to send messages from the worker nodes about the state of a given JobInstance (log_running, log_ji_report_by, log_done, log_error). The JobInstanceReconciler monitors the executor and makes sure that jobs the executor thinks are running or submitted also log a heartbeat (log_ji_report_by). It also ensures that any job instances that mysteriously die or time out have their state subsequently updated (log_error).
+Users have requested the ability to pass a generator function to each task which would compute executor specific resource requirements at runtime. Examples such as memory and runtime do not affect the structure of a jobmon workflow, which allows for the possibility of delaying evaluating these values and/or dynamically computing them right before a task is ready to be scheduled.
 
 Motivation
 ^^^^^^^^^^^
 
- - The user is currently unable to quickly distinguish between an application error and an infrastructure error.
- - Jobmon's retry logic is one of it's most useful features, but it is wasteful to retry a job that is failing due to an application programming error because the programming error won't automatically repair itself whereas an infrastructure error may succeed on subsequent tries.
- - Jobmon's health monitor does not report useful information when it logs suspicious nodes right now because it captures all errors, not infrastructure errors.
- - Separating system errors from application errors could facilitate adding future system error subtypes such as resource allocation errors, enabling applications to dynamically configure how much resources they need to request to run successfully.
+ - A task may not be able to determine it's resource requirements a priori therefore delayed evalution of resources is a necessity for many users.
+ - Reduce locations where executor parameters must be imported reducing code complexity.
 
+Design rational
+^^^^^^^^^^^^^^^^
+
+A long term goal for jobmon is to ensure that the Executor thread remains easy to factor out into an individual service. This will help facilitate any future transition to Kubernetes.
+
+With that in mind, a primary concern when implementing dynamic resources is ensuring the resource generating/modifying function is resident only in the swarm thread. Doing so avoids the need to communicate arbitrary functions via the database/JSM using pickle.
+
+We can accomplish this feature by formalizing the "Adjusting" state in the job FSM. It will be a non-transient state that accurs after a job is "Registered" and before it moves to "Queued for Instantiation" or after a job_instance hits a resource error.
+
+When a dag is being created for the first time all jobs would be in registered state. The TaskDag object then detects the fringe of the dag and moves these jobs into "Ajusted." From there the JobListManager collects jobs in "done", "error" and "adjusting". Jobs in adjusting call the generating function associated with a given task and move the job to "Queued for instantiation."
+
+Alternatively if a job hits a resource error, the job would be moved back into "adjusting." The swarm thread would collect those jobs via the JobListManager and call the adjust function instead of the generating function.
 
 Code Changes
 ^^^^^^^^^^^^^
 
-The cleanest way to implement this change is to keep all errors logged by the worker_node the same. Errors discovered by reconciliation or the executor should have separate states.
+This design would require changes to job_state_manager, JobInstanceFactory, Task, TaskDag, and JobListManager.
 
-This change would require the addition of new states to models.job_instance_status and an expansion of the allowed state transitions in models.job_instance.valid_transitions.
 
-The JobInstanceReconciler and the reconcile route in the job_state_manager would need to log a separate class of errors.
+The first step would be to modify job_state_manager to be able to add a job without adding executor parameters.
 
-There is good reason to have a new state if UGE does not properly return an executor_id during qsub. This likely means the job entered error state immediately and therefore should be moved to ERROR_FATAL immediately.
+jobmon/server/job_state_manager/job_state_manager.py 112-127, Remove:
 
-models.job.transition() and models.job.transition_to_error() would need to be updated to make sure that jobs only transition to ERROR_RECOVERABLE when the error is a system error not an application programming error.
+.. literalinclude:: ../jobmon/server/job_state_manager/job_state_manager.py
+    :lines: 112-127
 
-server.health_monitor.HealthMonitor._calculate_node_failure_rate() would need to be updated to incorporate the correct job_instance_status values into it's monitoring.
+At the same time add valid state transitions in the model for REGISTERED -> ADJUSTING_RESOURCES and ADJUSTING_RESOURCES -> QUEUED_FOR_INSTANTIATION. Remove REGISTERED -> QUEUED_FOR_INSTANTIATION.
 
-Conclusion
-^^^^^^^^^^
+jobmon/models/job.py 89-99, remove:
 
-More granularity in the JobInstance state machine would be a big quality of life improvement for both users and developers.
+.. literalinclude:: ../jobmon/models/job.py
+    :lines: 89-99
+
+JobInstanceFactory is no longer responsible for adjusting resources.
+
+jobmon/client/swarm/job_management/job_instance_factory.py 119-141, remove:
+
+.. literalinclude:: ../jobmon/client/swarm/job_management/job_instance_factory.py
+    :lines: 119-141
+
+JobInstanceFactory is now responsible for validating any executor parameter set that is "Original" or "Adjusting". In order to accomplish this we need to serialize the current executor parameter set type. This includes modifications to the following:
+
+jobmon/serializers.py 5-45:
+
+.. literalinclude:: ../jobmon/serializers.py
+    :lines: 5-45
+
+jobmon/models/job.py 16-43:
+
+.. literalinclude:: ../jobmon/models/job.py
+    :lines: 16-43
+
+Then add the validated executor parameters to the db if the parameters are currently "Original" or "Adjusting" similar to:
+
+jobmon/client/swarm/job_management/job_instance_factory.py 137-140:
+
+.. literalinclude:: ../jobmon/client/swarm/job_management/job_instance_factory.py
+    :lines: 137-140
+
+The change to Task is conceptually concise. The executor_parameters parameter is now a generating function instead of a concrete instance. The generating function is either a user specified function that is lazily evaluated only once the job is ready to be instantiated, or it is the current resource adjustment function that gets executed when a job hits a resource error. The changes would be confined to the __init__ method. The goal is to convert executor parameters into a callable for a unified API inside of TaskDag.
+
+.. code-block:: python
+
+        if executor_parameters is None:
+            executor_parameters = ExecutorParameters(
+                slots=slots,
+                num_cores=num_cores,
+                mem_free=mem_free,
+                m_mem_free=m_mem_free,
+                max_runtime_seconds=max_runtime_seconds,
+                queue=queue,
+                j_resource=j_resource,
+                context_args=context_args,
+                resource_scales=resource_scales,
+                hard_limits=hard_limits,
+                executor_class=executor_class)
+
+        if isinstance(executor_parameters, ExecutorParameters):
+            is_valid, msg = executor_parameters.is_valid()
+            if not is_valid:
+                logger.warning(msg)
+            func = lambda executor_parameters: executor_parameters
+            executor_parameters = partial(
+                lambda executor_parameters: executor_parameters,
+                executor_parameters)
+        else:
+            self.executor_parameters = partial(executor_parameters, self)
+
+.. note::
+    There may be a motivation to unify BoundTask and Task. If a user is dynamically generating resources, the object they use to infer usage is the task object itself. Currently, task does not have access to FSM info about a task such as job_id, status, etc.
+
+Changes to JobListManager would be in the _create_job() and parse_done_and_errors(). In _create_job() we would no longer provide executor parameter arguments.
+
+jobmon/client/swarm/job_management/job_list_manager.py 96-115
+
+.. literalinclude:: ../jobmon/client/swarm/job_management/job_list_manager.py
+    :lines: 96-115
+
+In parse_done_and_errors() the method must now return jobs that are in adjusting states.
+
+Changes to TaskDag would be in _execute(). We need a new loop to address jobs in adjusting state. The loop would add the executor parameters to the db but evaluating the executor parameters callable on the task object. It would also reset the callable to the standard scaling function that we currently use so that if a job hits a resource error it would get scaled normally.
+
+jobmon/client/swarm/workflow/task_dag.py 228-234
+
+.. literalinclude:: ../jobmon/client/swarm/workflow/task_dag.py
+    :lines: 228-234
+
+.. note::
+    This design opens up the possibility of users providing custom scaling functions for resource errors similar to the custom function they provide for the initial resource request.
+
+Testing Strategy
+^^^^^^^^^^^^^^^^^

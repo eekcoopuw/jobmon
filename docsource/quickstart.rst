@@ -12,8 +12,8 @@ To get started::
     If you get **Could not find a version that satisfies the requirement jobmon (from version: )** then create (or append) the following to ``~/.pip/pip.conf``::
 
         [global]
-        extra-index-url = http://dev-tomflem.ihme.washington.edu/simple
-        trusted-host = dev-tomflem.ihme.washington.edu
+        extra-index-url = http://pypi.services.ihme.washington.edu/simple
+        trusted-host = pypi.services.ihme.washington.edu
 
 .. note::
 
@@ -117,14 +117,6 @@ each node where the code executes.
     Errors with a return code of 199 indicate an issue occurring within Jobmon
     itself.
 
-.. note::
-    Resource Adjustments: If you want to define the rate at which resources
-    are adjusted in case a job fails because it did not request enough
-    resources (exit code 137), you can define which resources you want to
-    adjust in the resource scales parameter and the factor by which they
-    should be scaled if they do fail due to a resource error
-
-
 Restart Tasks and Resume Workflows
 =======================================
 
@@ -153,12 +145,12 @@ To resume the Workflow created above::
                   working_dir='/homes/{}'.format(user), resume=True)
 
     # Re-add the same Tasks to it...
-    write_task = BashTask("touch ~/jobmon_qs.txt", slots=2, mem_free=4)
+    write_task = BashTask("touch ~/jobmon_qs.txt", num_cores=2, m_mem_free=4)
     copy_task = BashTask("cp ~/jobmon_qs.txt ~/cpof_jobmon_qs.txt", upstream_tasks=[write_task])
     del_task = BashTask("rm ~/jobmon_qs.txt", upstream_tasks=[copy_task])
     # (create a runme.py in your home directory)
     run_task = PythonTask(path_to_python_binary='/ihme/code/central_comp/miniconda/bin/python',
-                          script='~/runme.py', env_variables={'OP_NUM_THREADS': 1}, args=[1, 2], slots=2, mem_free=4)
+                          script='~/runme.py', env_variables={'OP_NUM_THREADS': 1}, args=[1, 2], num_cores=2, m_mem_free=4)
 
     my_wf.add_tasks([write_task, copy_task, del_task, run_task])
 
@@ -271,13 +263,6 @@ For example::
     # job at which point it will succeed.
     my_wf.run()
 
-.. note::
-
-    The workflow level parameter, resource_adjustment, will be removed in
-    future versions of jobmon however if you are currently specifying it as a
-    value other than the default 0.5, it will override the individual resource
-    scale values and the resource adjustment value will be applied to all
-    resources specified
 
 
 
@@ -338,8 +323,8 @@ By default, your Workflow talks to our centrally-hosted jobmon server
 (jobmon-docker-cont-p01.hosts.ihme.washington.edu). You can access the
 jobmon database from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
-    host: jobmon-docker-cont-p01.hosts.ihme.washington.edu
-    port: 10020
+    host: jobmon-p01.ihme.washington.edu
+    port: 10030
     user: read_only
     pass: docker
     database: docker
