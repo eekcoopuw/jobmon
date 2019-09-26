@@ -68,3 +68,7 @@ class UnsafeSSHDirectory(Exception):
 
 class RemoteExitInfoNotAvailable(Exception):
     pass
+
+
+class CallableReturnedInvalidObject(Exception):
+    pass

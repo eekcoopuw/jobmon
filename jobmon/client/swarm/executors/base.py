@@ -3,7 +3,7 @@ import logging
 import os
 import pkg_resources
 import shutil
-from typing import List, Tuple, Dict, Optional, Type, Union
+from typing import List, Tuple, Dict, Optional, Type, Union, Callable
 import warnings
 
 from jobmon.client import client_config

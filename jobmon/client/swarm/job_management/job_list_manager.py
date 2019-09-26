@@ -6,6 +6,7 @@ from typing import Dict
 
 from jobmon.client import shared_requester
 from jobmon.models.job_status import JobStatus
+from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.job_management.job_factory import JobFactory
 from jobmon.client.swarm.job_management.job_instance_factory import \
     JobInstanceFactory
@@ -14,8 +15,7 @@ from jobmon.client.swarm.job_management.job_instance_reconciler import \
 from jobmon.client.swarm.workflow.executable_task import (BoundTask,
                                                           ExecutableTask)
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
-from jobmon.client.swarm.job_management.executor_job import ExecutorJob
-from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 
 
@@ -117,6 +117,12 @@ class JobListManager(object):
         # evaluate the callable
         task = kwargs.get("task")
         resources = task.executor_parameters(kwargs)
+        if not isinstance(resources, ExecutorParameters):
+            raise CallableReturnedInvalidObject(f"The function called to "
+                                                f"return resources did not "
+                                                f"return the expected Executor"
+                                                f" Parameters object, it is of"
+                                                f" type {type(resources)}")
         task.bound_parameters.append(resources)
 
         if executor_parameter_set_type == ExecutorParameterSetType.VALIDATED:
@@ -254,8 +260,9 @@ class JobListManager(object):
             completed, failed, adjusting = self.parse_adjusting_done_and_errors(jobs)
             if adjusting:
                 for task in adjusting:
+                    # change callable to adjustment function
                     task.executor_parameters = partial(self.adjust_resources,
-                                                       task) # change callable
+                                                       task)
                     self.adjust_resources_and_queue(task)
             if completed or failed:
                 return completed, failed
