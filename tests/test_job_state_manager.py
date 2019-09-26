@@ -1072,24 +1072,25 @@ def _get_ords(s):
     return r.strip()
 
 
-@pytest.mark.parametrize("testing_chars, comment", [("Ā ā Ă ă Ą ą ", "UTF-8 latin extended"),
-                                                    ("ڦ ڧ ڨ ک ڪ ګ ڬ", "UTF-8 Arabic"),
-                                                    ("ༀ ༁ ༂ ༃ ༄ ༅ ༆ ༇ ༈ ༉ ༊", "UTF-8 Tibetan"),
-                                                    ("ᜀ ᜁ ᜂ ᜃ", "UTF-8 Tagalog"),# garbage code caused by missing font
-                                                    ("① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩", "UTF-8 Enclosed alphanumerics"),
-                                                    ("▀ ▁ ▂ ▃ ▄ ▅ ▆ ▇ █ ▉ ▊ ▋ ▌ ▍ ▎ ▏ ▐", "UTF-8 Block elements1"),
-                                                    ("░ ▒ ▓ ▔ ▕ ▖ ▗ ▘ ▙ ▚ ▛ ▜ ▝ ▞ ▟", "UTF-8 Block elements2"),
-                                                    ("✁ ✂ ✃ ✄ ✆ ✇ ✈ ✉ ✌ ", "UTF-8 Dingbats"),
-                                                    ("⤔ ⤕ ⤖ ⤗ ⤘ ⤙ ⤚ ⤛ ⤜ ⤝ ⤞ ⤟ ⤠", "UTF-8 Supplemental arrows"),
-                                                    ("⡻ ⡼ ⡽ ⡾ ⡿ ...", "UTF-8 Braille patterns"),
-                                                    ("⻯ ⻱ ⻲ ⻳", "UTF-8 CJK radicals"),
-                                                    ("〄 々 〆 〇 〈 〉 《 》 「 」 『 』 【 】 〒 〓", "UTF-8 CJK symbols"),
-                                                    ("ぁ あ ぃ い", "UTF-8 Hiragana"),
-                                                    ("㈫ ㈬ ㈭ ㈮ ㈯", "UTF-8 Enclosed CJK"),
-                                                    ("𝄀 𝄁 𝄂 𝄃 𝄄 𝄅 𝄆 𝄇 𝄈 𝄉 𝄊 𝄋 𝄌 𝄍 𝄎 𝄏 𝄐 𝄑 𝄒 𝄓 𝄔 𝄕", "UTF-8 Musical"),
-                                                   ])
-def test_special_chars(real_dag_id, testing_chars, comment):
+@pytest.mark.parametrize("testing_chars, comment, replaced", [("a", "Latin1", False),
+                                                    ("Ā ā Ă ă Ą ą ", "UTF-8 latin extended", False),
+                                                    ("ༀ ༁ ༂ ༃ ༄ ༅ ༆ ༇ ༈ ༉ ༊", "UTF-8 Tibetan", False),
+                                                    ("ᜀ ᜁ ᜂ ᜃ", "UTF-8 Tagalog", False),# garbage code caused by missing font
+                                                    ("① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩", "UTF-8 Enclosed alphanumerics", False),
+                                                    ("▀ ▁ ▂ ▃ ▄ ▅ ▆ ▇ █ ▉ ▊ ▋ ▌ ▍ ▎ ▏ ▐", "UTF-8 Block elements1", False),
+                                                    ("░ ▒ ▓ ▔ ▕ ▖ ▗ ▘ ▙ ▚ ▛ ▜ ▝ ▞ ▟", "UTF-8 Block elements2", False),
+                                                    ("✁ ✂ ✃ ✄ ✆ ✇ ✈ ✉ ✌ ", "UTF-8 Dingbats", False),
+                                                    ("⤔ ⤕ ⤖ ⤗ ⤘ ⤙ ⤚ ⤛ ⤜ ⤝ ⤞ ⤟ ⤠", "UTF-8 Supplemental arrows", False),
+                                                    ("⡻ ⡼ ⡽ ⡾ ⡿ ...", "UTF-8 Braille patterns", False),
+                                                    ("⻯ ⻱ ⻲ ⻳", "UTF-8 CJK radicals", False),
+                                                    ("〄 々 〆 〇 〈 〉 《 》 「 」 『 』 【 】 〒 〓", "UTF-8 CJK symbols", False),
+                                                    ("ぁ あ ぃ い", "UTF-8 Hiragana", False),
+                                                    ("㈫ ㈬ ㈭ ㈮ ㈯", "UTF-8 Enclosed CJK", False),
+                                                    ("𝄀 𝄁 𝄂 𝄃 𝄄 𝄅 𝄆 𝄇 𝄈 𝄉 𝄊 𝄋 𝄌 𝄍 𝄎 𝄏 𝄐 𝄑 𝄒 𝄓 𝄔 𝄕", "UTF-8 Musical", True)
+                                                    ])
+def test_special_chars(real_dag_id, testing_chars, comment, replaced):
     logger.info("Testing {c} {s}({ords})".format(c=comment, s=testing_chars, ords=_get_ords(testing_chars)))
+    logger.debug("************************************" + str(len(testing_chars)))
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
@@ -1123,7 +1124,10 @@ def test_special_chars(real_dag_id, testing_chars, comment):
         request_type='post')
     assert status == 200
     status, msg = req.send_request(app_route='/job_instance/{}/get_errors'.format(ji1),
-                  message={},
-                  request_type='get')
+                                   message={},
+                                   request_type='get')
     assert status == 200
-    assert s in msg["errors"]
+    if replaced:
+        assert s.encode("latin1", "replace").decode("utf-8") in msg["errors"]
+    else:
+        assert s in msg["errors"]

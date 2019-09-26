@@ -64,6 +64,6 @@ class ServerConfig(object):
 
     @property
     def conn_str(self):
-        return "mysql://{user}:{pw}@{host}:{port}/{db}".format(
+        return "mysql://{user}:{pw}@{host}:{port}/{db}?charset=utf8".format(
             user=self.db_user, pw=self.db_pass, host=self.db_host,
             port=self.db_port, db=self.db_name)
