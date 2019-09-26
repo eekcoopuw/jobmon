@@ -406,7 +406,7 @@ def log_error_worker_node(job_instance_id: int):
         resp = _log_error(ji, error_state, error_message, executor_id, nodename)
         return resp
     except sqlalchemy.exc.OperationalError as e:
-        # modify the error messgae and retry
+        # modify the error message and retry
         new_msg = error_message.encode("latin1", "replace").decode("utf-8")
         resp = _log_error(ji, error_state, new_msg, executor_id, nodename)
         return resp
@@ -437,8 +437,13 @@ def log_error_reconciler(job_instance_id: int):
     # make sure the job hasn't logged a new heartbeat since we began
     # reconciliation
     if ji.report_by_date <= datetime.utcnow():
-        resp = _log_error(ji, error_state, error_message, executor_id,
-                          nodename)
+        try:
+            resp = _log_error(ji, error_state, error_message, executor_id,
+                              nodename)
+        except sqlalchemy.exc.OperationalError as e:
+            # modify the error message and retry
+            new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+            resp = _log_error(ji, error_state, new_msg, executor_id, nodename)
     else:
         resp = jsonify()
         resp.status_code = StatusCodes.OK

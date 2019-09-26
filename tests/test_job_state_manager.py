@@ -1072,10 +1072,11 @@ def _get_ords(s):
     return r.strip()
 
 
-@pytest.mark.parametrize("testing_chars, comment, replaced", [("a", "Latin1", False),
+@pytest.mark.parametrize("testing_chars, comment, replaced", [ #you may not read the testing data due to missing fonts
+                                                    ("a", "Latin1", False),
                                                     ("Ā ā Ă ă Ą ą ", "UTF-8 latin extended", False),
                                                     ("ༀ ༁ ༂ ༃ ༄ ༅ ༆ ༇ ༈ ༉ ༊", "UTF-8 Tibetan", False),
-                                                    ("ᜀ ᜁ ᜂ ᜃ", "UTF-8 Tagalog", False),# garbage code caused by missing font
+                                                    ("ᜀ ᜁ ᜂ ᜃ", "UTF-8 Tagalog", False),
                                                     ("① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩", "UTF-8 Enclosed alphanumerics", False),
                                                     ("▀ ▁ ▂ ▃ ▄ ▅ ▆ ▇ █ ▉ ▊ ▋ ▌ ▍ ▎ ▏ ▐", "UTF-8 Block elements1", False),
                                                     ("░ ▒ ▓ ▔ ▕ ▖ ▗ ▘ ▙ ▚ ▛ ▜ ▝ ▞ ▟", "UTF-8 Block elements2", False),
@@ -1090,7 +1091,7 @@ def _get_ords(s):
                                                     ])
 def test_special_chars(real_dag_id, testing_chars, comment, replaced):
     logger.info("Testing {c} {s}({ords})".format(c=comment, s=testing_chars, ords=_get_ords(testing_chars)))
-    logger.debug("************************************" + str(len(testing_chars)))
+    logger.debug("Lenth of input data" + str(len(testing_chars)))
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
