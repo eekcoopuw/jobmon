@@ -10,7 +10,7 @@ from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.server.jobmonLogging import jobmonLogging as logging
+from jobmon.server.server_logging import jobmonLogging as logging
 
 from tests.timeout_and_skip import timeout_and_skip
 from functools import partial

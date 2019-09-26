@@ -1,14 +1,12 @@
-import json
-import logging
 import os
 import pkg_resources
 import shutil
 from typing import List, Tuple, Dict, Optional, Type, Union
-import warnings
 
 from jobmon.client import client_config
 from jobmon.client.swarm.executors.sge_parameters import SGEParameters
 from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)

@@ -20,6 +20,9 @@ def test_workflow_run_attribute(env_var, db_cfg):
     workflow_run.add_workflow_run_attribute(workflow_run_attribute.NUM_DRAWS,
                                             "1000")
 
+    # cleanup
+    workflow.task_dag.disconnect()
+
     # query from workflow_run_attribute table
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -62,6 +65,8 @@ def test_workflow_run_attribute_input_error(env_var, db_cfg):
     with pytest.raises(ValueError) as exc:
         workflow_run.add_workflow_run_attribute("num_draws", "ten")
     assert "Invalid" in str(exc.value)
+
+    workflow.task_dag.disconnect()
 
 
 @pytest.mark.qsubs_jobs
@@ -139,3 +144,5 @@ def test_new_workflow_has_project_limit(env_var, db_cfg):
         assert entry_type == workflow_run_attribute.SLOT_LIMIT_AT_END
         assert entry_value  # Can't be None, although it could be -1 if no
         # slot limits
+
+    workflow.task_dag.disconnect()

@@ -1,6 +1,7 @@
 import requests
-from jobmon.server.jobmonLogging import jobmonLogging as logging
 from jobmon import config
+from jobmon.server.server_logging import jobmonLogging as logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +30,10 @@ class SlackNotifier(object):
         logger.debug(resp)
         if resp.status_code != requests.codes.OK:
             error = "Could not send Slack message. {}".format(resp.content)
-            # To raise an exception here causes the docker container stop, and becomes hard to restart.
-            # Log the error instead. So we can enter the container to fix issues when necessary.
+            # To raise an exception here causes the docker container stop, and
+            # becomes hard to restart.
+            # Log the error instead. So we can enter the container to fix
+            # issues when necessary.
             # Log the status code so that it's easier to identify the cause.
             logger.error(resp.status_code)
             logger.error(error)

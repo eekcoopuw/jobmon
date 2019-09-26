@@ -1,6 +1,6 @@
 import os
 
-from jobmon.setup_config import SetupCfg as Conf
+from jobmon import config
 from jobmon.server.deployment.deploy import JobmonDeployment
 
 
@@ -11,7 +11,7 @@ def main():
         :0 - len("/jobmon/server/deployment")]
     jobmon = JobmonDeployment(docker_file_dir, jobmon_root)
     jobmon.build()
-    if not Conf().is_test_mode():
+    if not config.test_mode:
         jobmon.upload_image()
 
 

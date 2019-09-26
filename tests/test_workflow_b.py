@@ -371,7 +371,6 @@ def test_resume_workflow(env_var, db_cfg):
 
 
 def test_resource_scaling(env_var, db_cfg):
-
     from jobmon.client.swarm.executors import ExecutorParameters
 
     my_wf = Workflow(
@@ -457,3 +456,4 @@ def test_workflow_in_running_state(env_var, db_cfg):
     with app.app_context():
         wfDAO = DB.session.query(WorkflowDAO).filter_by(id=workflow.id).first()
         assert wfDAO.status == WorkflowStatus.RUNNING
+        DB.session.commit()

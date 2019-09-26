@@ -1,4 +1,3 @@
-import logging
 from typing import Optional, List
 
 from jobmon.client import shared_requester
@@ -7,6 +6,7 @@ from jobmon.client.swarm.executors import ExecutorParameters
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.job_status import JobStatus
 from jobmon.serializers import SerializeExecutorJob
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)

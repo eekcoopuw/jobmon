@@ -2,13 +2,11 @@ import pytest
 
 from jobmon.cli import CLI
 
-Py2Py3Exit = ValueError
-
 
 def test_invalid_sub_command():
     cli = CLI()
 
-    with pytest.raises(Py2Py3Exit):
+    with pytest.raises(ValueError):
         # Should complain that jobmon requires a sub-command
         cli.parse_args("")
     with pytest.raises(SystemExit):
@@ -20,7 +18,7 @@ def test_invalid_sub_command():
 
 
 @pytest.mark.parametrize("valid_subcommand",
-                          ["health_monitor", "web_service"])
+                         ["health_monitor", "web_service"])
 def test_start_subcommand(valid_subcommand):
     cli = CLI()
 

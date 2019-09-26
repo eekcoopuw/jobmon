@@ -71,6 +71,7 @@ def test_workflow_jobs(env_var, db_cfg):
     workflow = Workflow(executor_class="SequentialExecutor")
     workflow.add_tasks([t1, t2])
     workflow._bind()
+    workflow.task_dag.job_list_manager.disconnect()
 
     # we should get 2 jobs back in pending state
     command_str = "workflow_jobs -w 1"

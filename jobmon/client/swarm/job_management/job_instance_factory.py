@@ -1,6 +1,5 @@
 from builtins import str
 from http import HTTPStatus as StatusCodes
-import logging
 import threading
 from time import sleep
 import traceback
@@ -17,6 +16,7 @@ from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.attributes.constants import qsub_attribute
 from jobmon.models.job_status import JobStatus
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

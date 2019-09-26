@@ -1,4 +1,3 @@
-import logging
 import os
 import subprocess
 import traceback
@@ -8,6 +7,7 @@ from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
                                            ExecutorParameters)
 from jobmon.client import shared_requester
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

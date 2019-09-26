@@ -2,10 +2,8 @@ from datetime import datetime
 import getpass
 import hashlib
 from http import HTTPStatus as StatusCodes
-import logging
 import os
 import uuid
-import warnings
 
 from cluster_utils.io import makedirs_safely
 
@@ -17,6 +15,7 @@ from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)

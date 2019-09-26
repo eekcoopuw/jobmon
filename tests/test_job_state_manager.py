@@ -7,6 +7,7 @@ import socket
 from time import sleep
 import pytest
 
+from jobmon import config
 from jobmon.client import shared_requester as req
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.models.exceptions import InvalidStateTransition
@@ -17,7 +18,7 @@ from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow import Workflow
 from jobmon.models.attributes.constants import job_attribute
-from jobmon.server.jobmonLogging import jobmonLogging as logging
+from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.serializers import SerializeExecutorJobInstance
 
 HASH = 12345
@@ -614,34 +615,6 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
         DB.session.commit()
 
 
-testdata: tuple = (
-    ('CRITICAL', 'CRITICAL'),
-    ('error', 'ERROR'),
-    ('WarNING', 'WARNING'),
-    ('iNFO', 'INFO'),
-    ('DEBUg', 'DEBUG'),
-    ('whatever', 'NOTSET')
-)
-
-
-@pytest.mark.parametrize("level,expected", testdata)
-def test_dynamic_change_log_level(level: str, expected: str, env_var):
-    # set log level to <level>
-    rc, response = req.send_request(
-        app_route='/log_level/{}'.format(level),
-        message={},
-        request_type='post')
-    assert rc == 200
-    # check log level is <expected>
-    rc, response = req.send_request(
-        app_route='/log_level',
-        message={},
-        request_type='get')
-    assert rc == 200
-
-    assert response['level'] == expected
-
-
 def test_syslog_parameter(env_var):
     # get syslog status
     rc, response = req.send_request(
@@ -650,7 +623,7 @@ def test_syslog_parameter(env_var):
         request_type='get'
     )
     assert rc == 200
-    assert response['syslog'] is False
+    assert response['syslog'] == config.use_rsyslog
 
     # try to attach a wrong port and expect failure
     rc, response = req.send_request(
@@ -658,31 +631,6 @@ def test_syslog_parameter(env_var):
         message={},
         request_type='post')
     assert rc == 400
-
-    # get syslog status
-    rc, response = req.send_request(
-        app_route='/syslog_status',
-        message={},
-        request_type='get'
-    )
-    assert rc == 200
-    assert response['syslog'] is False
-
-    # try to attach a wrong port and expect failure
-    rc, response = req.send_request(
-        app_route='/attach_remote_syslog/debug/127.0.0.1/12345/tcp',
-        message={},
-        request_type='post')
-    assert rc == 200
-
-    # get syslog status
-    rc, response = req.send_request(
-        app_route='/syslog_status',
-        message={},
-        request_type='get'
-    )
-    assert rc == 200
-    assert response['syslog']
 
 
 def test_error_logger(env_var):

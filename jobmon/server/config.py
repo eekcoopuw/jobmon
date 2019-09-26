@@ -1,5 +1,5 @@
-from jobmon.server.jobmonLogging import jobmonLogging as logging
 from jobmon import config
+from jobmon.server.server_logging import jobmonLogging as logging
 
 
 logger = logging.getLogger(__file__)

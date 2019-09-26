@@ -1,4 +1,3 @@
-import logging
 import time
 from threading import Event, Thread
 from typing import Dict
@@ -14,6 +13,7 @@ from jobmon.client.swarm.workflow.executable_task import (BoundTask,
                                                           ExecutableTask)
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)

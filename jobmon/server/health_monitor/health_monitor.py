@@ -11,7 +11,7 @@ from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow import Workflow
 from jobmon.server import create_app
 from jobmon.server.config import ServerConfig
-from jobmon.server.jobmonLogging import jobmonLogging as logging
+from jobmon.server.server_logging import jobmonLogging as logging
 
 
 logger = logging.getLogger(__file__)

@@ -21,7 +21,8 @@ class SetupCfg:
                  report_by_buffer=None, tag_prefix=None, internal_db_host=None,
                  internal_db_port=None, external_db_host=None,
                  external_db_port=None, jobmon_service_user_pwd=None,
-                 existing_network=None):
+                 existing_network=None, use_rsyslog=None, rsyslog_host=None,
+                 rsyslog_port=None, rsyslog_protocol=None):
 
         # get env for fallback
         self._env = os.environ
@@ -54,6 +55,10 @@ class SetupCfg:
         self.external_db_port = external_db_port
         self.jobmon_service_user_pwd = jobmon_service_user_pwd
         self.existing_network = existing_network
+        self.use_rsyslog = use_rsyslog
+        self.rsyslog_host = rsyslog_host
+        self.rsyslog_port = rsyslog_port
+        self.rsyslog_protocol = rsyslog_protocol
 
     @property
     def test_mode(self) -> bool:
@@ -163,7 +168,6 @@ class SetupCfg:
             val = self._config["basic values"]["jobmon_server_sqdn"]
         self._jobmon_server_sqdn = val
 
-    @property
     def jobmon_service_port(self) -> int:
         return self._jobmon_service_port
 
@@ -197,7 +201,7 @@ class SetupCfg:
             if val is None:
                 val = self._env.get("JOBMON_VERSION")
             if val is None:
-                val = self._config["basic values"].get("jobmon_version")
+                val = self._config["basic values"]["jobmon_version"]
         else:
             if val is not None:
                 raise ValueError("cannot set jobmon version unless test_mode"
@@ -329,3 +333,51 @@ class SetupCfg:
         if val is None:
             val = self._config["same host"]["existing_network"]
         self._existing_network = val
+
+    @property
+    def use_rsyslog(self) -> bool:
+        return self._use_rsyslog
+
+    @use_rsyslog.setter
+    def use_rsyslog(self, val):
+        if val is None:
+            val = self._env.get("USE_RSYSLOG")
+        if val is None:
+            val = self._config["basic values"]["use_rsyslog"] == "True"
+        self._use_rsyslog = val
+
+    @property
+    def rsyslog_host(self) -> str:
+        return self._rsyslog_host
+
+    @rsyslog_host.setter
+    def rsyslog_host(self, val):
+        if val is None:
+            val = self._env.get("RSYSLOG_HOST")
+        if val is None:
+            val = self._config["rsyslog"]["host"]
+        self._rsyslog_host = val
+
+    @property
+    def rsyslog_port(self) -> int:
+        return self._rsyslog_port
+
+    @rsyslog_port.setter
+    def rsyslog_port(self, val):
+        if val is None:
+            val = self._env.get("RSYSLOG_PORT")
+        if val is None:
+            val = self._config["rsyslog"]["port"]
+        self._rsyslog_port = val
+
+    @property
+    def rsyslog_protocol(self) -> int:
+        return self._rsyslog_protocol
+
+    @rsyslog_protocol.setter
+    def rsyslog_protocol(self, val):
+        if val is None:
+            val = self._env.get("RSYSLOG_PROTOCOL")
+        if val is None:
+            val = self._config["rsyslog"]["protocol"]
+        self._rsyslog_protocol = val

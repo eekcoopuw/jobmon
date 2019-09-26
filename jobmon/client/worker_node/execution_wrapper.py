@@ -1,5 +1,4 @@
 import argparse
-import logging
 from functools import partial
 from io import TextIOBase
 import pkg_resources
@@ -15,6 +14,7 @@ from time import sleep, time
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.worker_node.worker_node_job_instance import (
     WorkerNodeJobInstance)
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger()
 

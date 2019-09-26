@@ -1,4 +1,3 @@
-import logging
 import hashlib
 from typing import Optional, List, Dict
 
@@ -6,6 +5,7 @@ from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

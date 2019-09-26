@@ -3,8 +3,7 @@ import pytest
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.client import shared_requester as req
-from jobmon.models.attributes.constants import workflow_attribute, \
-    job_attribute
+from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 
 

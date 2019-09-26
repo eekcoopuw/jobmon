@@ -18,7 +18,7 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.jobmonLogging import jobmonLogging as logging
+from jobmon.server.server_logging import jobmonLogging as logging
 
 jqs = Blueprint("job_query_server", __name__)
 
@@ -516,3 +516,4 @@ def get_nodename(job_instance_id: int):
         resp = jsonify({'msg': str(e)})
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
         return resp
+
