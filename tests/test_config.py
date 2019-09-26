@@ -80,7 +80,7 @@ def clear_envvars(monkeypatch):
 
 def test_default_config(clear_envvars):
     def_cfg = ServerConfig.from_defaults()
-    exp_conn_str = "mysql://{u}:{p}@{h}:{po}/docker".format(
+    exp_conn_str = "mysql://{u}:{p}@{h}:{po}/docker?charset=utf8".format(
         u=DSG["db_user"],
         p=DSG["db_pass"],
         h=DSG["db_host"],
@@ -91,7 +91,7 @@ def test_default_config(clear_envvars):
 
 def test_env_override_of_conn_str(envvars):
     def_cfg = ServerConfig.from_defaults()
-    exp_conn_str = "mysql://{u}:{p}@{h}:{po}/{d}".format(
+    exp_conn_str = "mysql://{u}:{p}@{h}:{po}/{d}?charset=utf8".format(
         u=envvars["DB_USER"],
         p=envvars["DB_PASS"],
         h=envvars["DB_HOST"],
