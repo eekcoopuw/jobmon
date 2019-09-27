@@ -168,6 +168,7 @@ class SetupCfg:
             val = self._config["basic values"]["jobmon_server_sqdn"]
         self._jobmon_server_sqdn = val
 
+    @property
     def jobmon_service_port(self) -> int:
         return self._jobmon_service_port
 
