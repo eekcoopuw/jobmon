@@ -1,13 +1,7 @@
 import pytest
 
-from jobmon.default_config import DEFAULT_SERVER_CONFIG as DSG
+from jobmon.setup_config import SetupCfg
 from jobmon.server.config import ServerConfig
-
-
-try:
-    FileNotFoundError
-except NameError:
-    FileNotFoundError = IOError
 
 
 # @pytest.fixture

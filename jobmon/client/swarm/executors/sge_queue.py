@@ -1,5 +1,8 @@
 from typing import Dict
 
+from jobmon.client.client_logging import ClientLogging as logging
+
+logger = logging.getLogger(__name__)
 
 class SGEQueue:
     """Each object in this class is the configuration of a queue on the

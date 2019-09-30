@@ -5,7 +5,7 @@ import sys
 import uuid
 
 from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon import PythonTask
+from jobmon.client import PythonTask
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 

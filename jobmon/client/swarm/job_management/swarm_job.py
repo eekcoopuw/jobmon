@@ -1,4 +1,7 @@
+from jobmon.client.client_logging import ClientLogging as logging
 from jobmon.serializers import SerializeSwarmJob
+
+logger = logging.getLogger(__name__)
 
 
 class SwarmJob:
@@ -10,7 +13,9 @@ class SwarmJob:
     def __init__(self, job_id: int, status: str, job_hash: int):
         # Takes one row of the SQL query return
         self.job_id = job_id
+        logger.debug("job_id" + str(job_id))
         self.status = status
+        logger.debug("status: " + str(status))
         self.job_hash = job_hash
 
     @classmethod

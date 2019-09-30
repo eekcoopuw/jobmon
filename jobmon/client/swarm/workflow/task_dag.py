@@ -1,12 +1,13 @@
 import getpass
 import hashlib
-import logging
 import copy
 from collections import OrderedDict
 
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.task_dag_factory import TaskDagMetaFactory
+from jobmon.client.client_logging import ClientLogging as logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -210,8 +211,10 @@ class TaskDag(object):
                 if task.is_done:
                     raise RuntimeError("Invalid DAG. Encountered a DONE node.")
                 else:
-                    logger.debug("Queueing newly ready task {}".format(task))
-                    self.job_list_manager.queue_task(task)
+                    logger.debug("Instantiating resources for newly ready "
+                                 "task and changing it to the queued state {}"
+                                 .format(task))
+                    self.job_list_manager.adjust_resources_and_queue(task)
 
             # TBD timeout?
             # An exception is raised if the runtime exceeds the timeout limit
@@ -232,6 +235,7 @@ class TaskDag(object):
                 fringe = list(set(fringe + task_to_add))
             if (self.fail_after_n_executions is not None and
                     n_executions >= self.fail_after_n_executions):
+                self.job_list_manager.disconnect()
                 raise ValueError("Dag asked to fail after {} executions. "
                                  "Failing now".format(n_executions))
 

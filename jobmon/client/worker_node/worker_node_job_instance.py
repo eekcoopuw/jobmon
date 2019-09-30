@@ -1,4 +1,3 @@
-import logging
 import os
 import pkg_resources
 import socket
@@ -9,6 +8,7 @@ from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import JobInstanceExecutorInfo
 from jobmon.exceptions import ReturnCodes
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +41,14 @@ class WorkerNodeJobInstance:
         self._process_group_id = process_group_id
         self.executor = job_instance_executor_info
         self.requester = shared_requester
-        logger.debug("Instantiated JobInstanceIntercom")
+        logger.info("Instantiated JobInstanceIntercom")
+        logger.debug("job_instance_id: " + str(job_instance_id + "; nodename:" + str(nodename)))
 
     @property
     def executor_id(self) -> Optional[int]:
         if self._executor_id is None and self.executor.executor_id is not None:
             self._executor_id = self.executor.executor_id
+        logger.debug("executor_id: " + str(self._executor_id))
         return self._executor_id
 
     @property

@@ -4,7 +4,7 @@ from jobmon.client.swarm.executors import sge_utils as sge
 from tests.mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 
-def test_burdenator_scale(db_cfg, real_jsm_jqs, task_dag_manager, tmp_out_dir):
+def test_burdenator_scale(db_cfg, env_var, task_dag_manager, tmp_out_dir):
     """
     Create and execute  a big four-phase fork and join dag with expanding and
     contracting phase sizes. Design to be similar to the burdenator, but does

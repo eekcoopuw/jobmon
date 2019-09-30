@@ -1,5 +1,4 @@
 from http import HTTPStatus as StatusCodes
-import logging
 import threading
 import _thread
 from time import sleep
@@ -12,6 +11,7 @@ from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.client.swarm.job_management.executor_job_instance import (
     ExecutorJobInstance)
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ class JobInstanceReconciler(object):
 
         while True and not self._stop_event.is_set():
             try:
-                logging.debug(
+                logger.debug(
                     f"Reconciling at interval {self.reconciliation_interval}s")
                 # if your executor has the possiblity of timed out jobs still
                 # running, terminate them here

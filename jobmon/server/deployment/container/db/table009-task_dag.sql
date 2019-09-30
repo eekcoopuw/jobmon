@@ -13,3 +13,4 @@ CREATE TABLE `task_dag` (
   `created_date` datetime DEFAULT NULL,
   PRIMARY KEY (`dag_id`)
 ) ENGINE=InnoDB;
+

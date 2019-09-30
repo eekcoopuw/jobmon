@@ -29,9 +29,7 @@ install_requires = [
     'cluster_utils',
     'requests',
     'paramiko',
-    'tenacity',
-    'twine'
-]
+    'tenacity']
 
 setup(
     version=versioneer.get_version(),

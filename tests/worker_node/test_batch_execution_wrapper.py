@@ -2,16 +2,16 @@ from getpass import getuser
 import os
 from time import sleep
 
-from jobmon import PythonTask
-from jobmon import Workflow
+from jobmon.client import PythonTask
+from jobmon.client import Workflow
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 
-def test_sge_cli(real_jsm_jqs, db_cfg):
+def test_sge_cli(env_var, db_cfg):
 
-    job_name = "foo"    
+    job_name = "foo"
     log_dir = f'/ihme/scratch/users/{getuser()}'
     t1 = PythonTask(script=os.path.join(thisdir, 'fill_pipe.py'),
                     name=job_name, num_cores=1, max_runtime_seconds=600,

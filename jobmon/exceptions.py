@@ -18,6 +18,7 @@ class ReturnCodes(object):
     # multiple times until they fell within a given range and those were the
     # exit codes that were returned in qacct
 
+
 class ServerRunning(Exception):
     pass
 
@@ -67,4 +68,8 @@ class UnsafeSSHDirectory(Exception):
 
 
 class RemoteExitInfoNotAvailable(Exception):
+    pass
+
+
+class CallableReturnedInvalidObject(Exception):
     pass
