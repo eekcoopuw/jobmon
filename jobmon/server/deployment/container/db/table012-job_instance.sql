@@ -32,4 +32,5 @@ CREATE TABLE `job_instance` (
   CONSTRAINT `job_instance_ibfk_1` FOREIGN KEY (`dag_id`) REFERENCES `task_dag` (`dag_id`),
   CONSTRAINT `job_instance_ibfk_2` FOREIGN KEY (`executor_parameter_set_id`) REFERENCES `executor_parameter_set` (`id`),
   CONSTRAINT `job_instance_ibfk_3` FOREIGN KEY (`status`) REFERENCES `job_instance_status` (`id`),
-) ENGINE=InnoDB;
+  CONSTRAINT `job_instance_ibfk_4` FOREIGN KEY (`job_id`) REFERENCES `job` (`job_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1;
