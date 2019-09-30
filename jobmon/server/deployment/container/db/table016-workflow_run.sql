@@ -24,4 +24,4 @@ CREATE TABLE `workflow_run` (
   KEY `status` (`status`),
   CONSTRAINT `workflow_run_ibfk_1` FOREIGN KEY (`workflow_id`) REFERENCES `workflow` (`id`),
   CONSTRAINT `workflow_run_ibfk_2` FOREIGN KEY (`status`) REFERENCES `workflow_run_status` (`id`)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

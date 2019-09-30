@@ -12,4 +12,4 @@ CREATE TABLE `job_instance_error_log` (
   PRIMARY KEY (`id`),
   KEY `job_instance_id` (`job_instance_id`),
   CONSTRAINT `job_instance_error_log_ibfk_1` FOREIGN KEY (`job_instance_id`) REFERENCES `job_instance` (`job_instance_id`)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

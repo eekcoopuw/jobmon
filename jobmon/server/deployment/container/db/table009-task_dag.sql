@@ -12,5 +12,5 @@ CREATE TABLE `task_dag` (
   `heartbeat_date` datetime DEFAULT NULL,
   `created_date` datetime DEFAULT NULL,
   PRIMARY KEY (`dag_id`)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
