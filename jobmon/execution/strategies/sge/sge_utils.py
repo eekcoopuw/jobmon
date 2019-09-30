@@ -2,7 +2,6 @@
 
 from datetime import datetime
 import itertools
-import logging
 import os
 import re
 import subprocess
@@ -10,6 +9,7 @@ from typing import List, Dict, Tuple
 
 import numpy as np
 
+from jobmon.client.client_logging import ClientLogging as logging
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)

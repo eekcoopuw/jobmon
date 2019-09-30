@@ -1,4 +1,3 @@
-import logging
 import os
 from subprocess import check_output
 import traceback
@@ -13,6 +12,7 @@ from jobmon.execution.strategies.base import (
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

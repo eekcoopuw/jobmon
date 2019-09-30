@@ -1,13 +1,12 @@
-import logging
 import os
 import pkg_resources
 import shutil
-from typing import List, Tuple, Dict, Optional, Type, Union
-import warnings
+from typing import List, Tuple, Dict, Optional, Union
 
 from jobmon.client_config import client_config
 from jobmon.execution.strategies.sge.sge_parameters import SGEParameters
 from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -20,8 +19,6 @@ class ExecutorParameters:
     _strategies = {'SGEExecutor': SGEParameters}
 
     def __init__(self,
-                 slots: Optional[int] = None,
-                 mem_free: Optional[int] = None,
                  num_cores: Optional[int] = None,
                  queue: Optional[str] = None,
                  max_runtime_seconds: Optional[int] = None,
@@ -33,10 +30,6 @@ class ExecutorParameters:
                  resource_scales: Dict = None):
         """
         Args:
-            slots: number of slots requested using old cluster terminology,
-                WILL BE DEPRECATED
-            mem_free: number of gigabytest of memory to be requested using
-                old cluster terminology, WILL BE DEPRECATED
             num_cores: number of cores fair cluster terminology
             queue: queue to be requested for the given task depending on
                 the resources the job will need
@@ -54,18 +47,7 @@ class ExecutorParameters:
                 be parsed accordingly
         """
 
-        if slots is not None:
-            warnings.warn(
-                "slots is deprecated and will be removed in a future release",
-                FutureWarning)
-        if mem_free is not None:
-            warnings.warn(
-                "mem_free is deprecated and will be removed in a future"
-                " release", FutureWarning)
-
         # initialize
-        self._slots = slots
-        self._mem_free = mem_free
         self._num_cores = num_cores
         self._queue = queue
         self._max_runtime_seconds = max_runtime_seconds
@@ -79,14 +61,6 @@ class ExecutorParameters:
         self._strategy: Optional[SGEParameters] = None
         if StrategyCls is not None:
             StrategyCls.set_executor_parameters_strategy(self)
-        else:
-            if slots is not None:
-                raise ValueError(
-                    "slots is only supported when using the SGEExecutor class")
-            if mem_free is not None:
-                raise ValueError(
-                    "mem_free is only supported when using the SGEExecutor "
-                    "class")
 
         self._is_valid = False
 

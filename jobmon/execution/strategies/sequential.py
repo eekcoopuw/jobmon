@@ -1,4 +1,3 @@
-import logging
 import os
 from typing import Optional, List
 
@@ -7,6 +6,7 @@ from jobmon.execution.strategies import (Executor, JobInstanceExecutorInfo,
 from jobmon.execution.worker_node.execution_wrapper import (unwrap,
                                                             parse_arguments)
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

@@ -36,9 +36,9 @@ class Requester(object):
 
     """
 
-    def __init__(self, connection_config):
+    def __init__(self, url):
         """set class defaults. attempt to connect with server."""
-        self.url = connection_config.url
+        self.url = url
 
     @retry(
         wait=wait_exponential(max=10),

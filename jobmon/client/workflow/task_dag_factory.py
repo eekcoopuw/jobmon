@@ -1,9 +1,9 @@
 from datetime import datetime
-import logging
 from getpass import getuser
 
 from jobmon.requester import shared_requester
 from jobmon.models.task_dag import TaskDagMeta
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

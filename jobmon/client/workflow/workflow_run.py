@@ -2,7 +2,6 @@ from builtins import str
 from datetime import datetime
 import getpass
 from http import HTTPStatus as StatusCodes
-import logging
 import os
 import socket
 
@@ -12,6 +11,7 @@ from jobmon.execution.scheduler.executor_job_instance import \
 from jobmon.client.utils import kill_remote_process
 from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class WorkflowRun(object):
     def __init__(self, workflow_id, stderr, stdout, project,
                  slack_channel='jobmon-alerts', executor_class='SGEExecutor',
                  working_dir=None, reset_running_jobs=True,
-                 requester=shared_requester, resource_adjustment=0.5):
+                 requester=shared_requester):
         self.workflow_id = workflow_id
         self.requester = requester
         self.stderr = stderr
@@ -42,7 +42,6 @@ class WorkflowRun(object):
         self.executor_class = executor_class
         self.working_dir = working_dir
         self.kill_previous_workflow_runs(reset_running_jobs)
-        self.resource_adjustment = resource_adjustment
         rc, response = self.requester.send_request(
             app_route='/workflow_run',
             message={'workflow_id': workflow_id,
@@ -54,21 +53,22 @@ class WorkflowRun(object):
                      'project': project,
                      'slack_channel': slack_channel,
                      'executor_class': executor_class,
-                     'working_dir': working_dir,
-                     'resource_adjustment': resource_adjustment},
+                     'working_dir': working_dir},
             request_type='post')
         wfr_id = response['workflow_run_id']
         if rc != StatusCodes.OK:
             raise ValueError(f"Invalid Response to add_workflow_run: {rc}")
         self.id = wfr_id
-        # self.add_project_limit_attribute('start')
+        if self.executor_class == "SGEExecutor":
+            self.add_project_limit_attribute('start')
 
     def add_project_limit_attribute(self, timing):
         if timing == 'start':
             atype = workflow_run_attribute.SLOT_LIMIT_AT_START
         else:
             atype = workflow_run_attribute.SLOT_LIMIT_AT_END
-        limits = get_project_limits(self.project)
+        # limits = get_project_limits(self.project)
+        limits = 0
         self.add_workflow_run_attribute(attribute_type=atype, value=limits)
 
     def check_if_workflow_is_running(self):
@@ -150,17 +150,20 @@ class WorkflowRun(object):
 
     def update_done(self):
         """Update the status of the workflow_run as done"""
-        # self.add_project_limit_attribute('end')
+        if self.executor_class == "SGEExecutor":
+            self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.DONE)
 
     def update_error(self):
         """Update the status of the workflow_run as errored"""
-        # self.add_project_limit_attribute('end')
+        if self.executor_class == "SGEExecutor":
+            self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.ERROR)
 
     def update_stopped(self):
         """Update the status of the workflow_run as stopped"""
-        # self.add_project_limit_attribute('end')
+        if self.executor_class == "SGEExecutor":
+            self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):

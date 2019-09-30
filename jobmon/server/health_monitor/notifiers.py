@@ -1,6 +1,7 @@
 import requests
-from jobmon.server.jobmonLogging import jobmonLogging as logging
-from jobmon.setup_config import SetupCfg as Conf
+from jobmon import config
+from jobmon.server.server_logging import jobmonLogging as logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ class SlackNotifier(object):
         """
         self._token = token
         self.default_channel = default_channel
-        self.slack_api_url = Conf().get_slack_api_url()
+        self.slack_api_url = config.slack_api_url
 
     def send(self, msg, channel=None):
         logger.debug(logging.myself())
@@ -29,7 +30,10 @@ class SlackNotifier(object):
         logger.debug(resp)
         if resp.status_code != requests.codes.OK:
             error = "Could not send Slack message. {}".format(resp.content)
-            if "Server Error" in error:  # catch Slack server outage error
-                logger.error(error)
-            else:
-                raise RuntimeError(error)
+            # To raise an exception here causes the docker container stop, and
+            # becomes hard to restart.
+            # Log the error instead. So we can enter the container to fix
+            # issues when necessary.
+            # Log the status code so that it's easier to identify the cause.
+            logger.error(resp.status_code)
+            logger.error(error)

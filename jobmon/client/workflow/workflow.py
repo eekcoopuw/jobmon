@@ -2,10 +2,8 @@ from datetime import datetime
 import getpass
 import hashlib
 from http import HTTPStatus as StatusCodes
-import logging
 import os
 import uuid
-import warnings
 
 from cluster_utils.io import makedirs_safely
 
@@ -18,6 +16,7 @@ from jobmon.client.workflow.workflow_run import WorkflowRun
 from jobmon.client.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -70,8 +69,7 @@ class Workflow(object):
                  resume: bool = ResumeStatus.DONT_RESUME,
                  reconciliation_interval: int = None,
                  heartbeat_interval: int = None,
-                 report_by_buffer: float = None,
-                 resource_adjustment: float = 0.5):
+                 report_by_buffer: float = None):
         """
         Args:
             workflow_args: unique identifier of a workflow
@@ -101,9 +99,6 @@ class Workflow(object):
                 report_by_date (default = 3.1) so a job in qw can miss 3
                 reconciliations or a running job can miss 3 worker heartbeats,
                 and then we will register that it as lost
-            resource_adjustment: The rate at which a resource will be
-                increased if it fails from resource under requesting (value
-                between 0 and 1)
         """
         self.wf_dao = None
         self.name = name
@@ -152,18 +147,6 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
-
-        if resource_adjustment != 0.5:
-            warnings.warn("Resource adjustment will be deprecated, please use "
-                          "the task-level resource_scales and provided scaling"
-                          " values for each resource that you want scaled",
-                          FutureWarning)
-        if 0 < resource_adjustment <= 1:
-            self.resource_adjustment = resource_adjustment
-        else:
-            logger.debug("You may only request a resource adjustment value "
-                         "between 0 and 1")
-            self.resource_adjustment = 0.5
 
     def set_executor(self, executor_class):
         """Set which executor to use to run the tasks.
@@ -242,7 +225,7 @@ class Workflow(object):
         """
         if self.is_bound:
             self.task_dag.reconnect()
-
+        self._matching_wf_args_diff_hash()
         potential_wfs = self._matching_workflows()
         if len(potential_wfs) > 0 and not self.resume:
             raise WorkflowAlreadyExists("This workflow and task dag already "
@@ -262,14 +245,12 @@ class Workflow(object):
                 raise WorkflowAlreadyComplete
             self.task_dag.bind_to_db(
                 self.dag_id,
-                reset_running_jobs=self.reset_running_jobs,
-                resource_adjustment=self.resource_adjustment
+                reset_running_jobs=self.reset_running_jobs
             )
         elif len(potential_wfs) == 0:
             # Bind the dag ...
             self.task_dag.bind_to_db(
-                reset_running_jobs=self.reset_running_jobs,
-                resource_adjustment=self.resource_adjustment
+                reset_running_jobs=self.reset_running_jobs
             )
 
             # Create new workflow in Database
@@ -309,8 +290,7 @@ class Workflow(object):
             self.id, self.stderr, self.stdout, self.project,
             executor_class=self.executor_class,
             reset_running_jobs=self.reset_running_jobs,
-            working_dir=self.working_dir,
-            resource_adjustment=self.resource_adjustment)
+            working_dir=self.working_dir)
 
     def _error(self):
         """Update the workflow as errored"""
@@ -322,6 +302,26 @@ class Workflow(object):
         """Update the workflow as stopped"""
         self.workflow_run.update_stopped()
         self._update_status(WorkflowStatus.STOPPED)
+
+    def _matching_wf_args_diff_hash(self):
+        """Check """
+        workflow_hash = self._compute_hash()
+        rc, response = self.requester.send_request(
+            app_route='/workflow/workflow_args',
+            message={'workflow_args': str(self.workflow_args)},
+            request_type='get')
+        bound_workflow_hashes = response['workflow_hashes']
+        for hash in bound_workflow_hashes:
+            if workflow_hash != hash[0]:
+                raise WorkflowAlreadyExists("The unique workflow_args already"
+                                            " belong to a workflow that "
+                                            "contains different tasks than the"
+                                            " workflow you are creating, "
+                                            "either change your workflow args "
+                                            "so that they are unique for this "
+                                            "set of tasks, or make sure your "
+                                            "tasks match the workflow you are "
+                                            "trying to resume")
 
     def _matching_dag_ids(self):
         """Find all matching dag_ids for this task_dag_hash"""

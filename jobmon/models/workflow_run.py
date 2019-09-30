@@ -19,7 +19,6 @@ class WorkflowRun(DB.Model):
     working_dir = DB.Column(DB.String(1000), default=None)
     slack_channel = DB.Column(DB.String(150))
     executor_class = DB.Column(DB.String(150))
-    resource_adjustment = DB.Column(DB.Float, default=0.5)
     created_date = DB.Column(DB.DateTime, default=datetime.utcnow)
     status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
     status = DB.Column(DB.String(1),
@@ -43,7 +42,6 @@ class WorkflowRun(DB.Model):
             working_dir=dct['working_dir'],
             slack_channel=dct['slack_channel'],
             executor_class=dct['executor_class'],
-            resource_adjustment=dct['resource_adjustment'],
             status=dct['status'],
         )
 
@@ -60,6 +58,5 @@ class WorkflowRun(DB.Model):
             'working_dir': self.working_dir,
             'slack_channel': self.slack_channel,
             'executor_class': self.executor_class,
-            'resource_adjustment': self.resource_adjustment,
             'status': self.status,
         }

@@ -1,13 +1,14 @@
-import logging
 import time
 from typing import Dict
 
+
+from jobmon.client import shared_requester
+from jobmon.client.client_logging import ClientLogging as logging
 from jobmon.client.job_management.job_factory import JobFactory
-from jobmon.client.workflow.executable_task import BoundTask, ExecutableTask
 from jobmon.client.job_management.swarm_job import SwarmJob
+from jobmon.client.workflow.executable_task import BoundTask, ExecutableTask
 from jobmon.models.job_status import JobStatus
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
-from jobmon.requester import shared_requester
 
 
 logger = logging.getLogger(__name__)
@@ -117,6 +118,13 @@ class JobListManager(object):
             message=msg,
             request_type='post'
         )
+
+    def log_dag_running(self) -> None:
+        rc, _ = self.requester.send_request(
+            app_route=f'/task_dag/{self.dag_id}/log_running',
+            message={},
+            request_type='post')
+        return rc
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""

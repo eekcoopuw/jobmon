@@ -15,14 +15,22 @@ from tests.timeout_and_skip import timeout_and_skip
 path_to_file = os.path.dirname(__file__)
 
 
-def test_valid_command(real_dag_id, job_list_manager_sge):
-    job = job_list_manager_sge.bind_task(
+def test_valid_command(real_dag_id, jlm_sge_daemon):
+    job = jlm_sge_daemon.bind_task(
         Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
-             name="sge_valid_command", num_cores=2, mem_free='4G',
+             name="sge_valid_command", num_cores=2, m_mem_free='4G',
              max_runtime_seconds='1000',
              j_resource=True,
              max_attempts=1))
-    job_list_manager_sge.queue_job(job)
+    jlm_sge_daemon.queue_job(job)
+
+    def valid_command_check(job_list_manager_sge):
+        job_list_manager_sge._sync()
+        if len(job_list_manager_sge.all_done) == 1:
+            # Success
+            return True
+        else:
+            return False
 
     # max_qw is the number of times it is allowed to be in qw state. Don't
     # set it to be 1, that is is too tight.
@@ -30,29 +38,38 @@ def test_valid_command(real_dag_id, job_list_manager_sge):
                      job_name='sge_valid_command',
                      partial_test_function=partial(
                          valid_command_check,
-                         job_list_manager_sge=job_list_manager_sge))
+                         job_list_manager_sge=jlm_sge_daemon))
 
 
-def valid_command_check(job_list_manager_sge):
-    job_list_manager_sge._sync()
-    if len(job_list_manager_sge.all_done) == 1:
-        # Success
-        return True
-    else:
-        return False
-
-
-def test_context_args(db_cfg, real_jsm_jqs, job_list_manager_sge):
+def test_context_args(db_cfg, jlm_sge_daemon):
     # Use the "-a" flag on qsub so that the job will only be eligible
     # for execution in the future, in this case 5 hours in the future.
     delay_to = (datetime.now() + timedelta(hours=5)).strftime("%m%d%H%M")
-    job = job_list_manager_sge.bind_task(
+    job = jlm_sge_daemon.bind_task(
         Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
-             name="test_context_args", num_cores=2, mem_free='4G',
+             name="test_context_args", num_cores=2, m_mem_free='4G',
              max_attempts=1,
              max_runtime_seconds='1000',
              context_args={'sge_add_args': '-a {}'.format(delay_to)}))
-    job_list_manager_sge.queue_job(job)
+    jlm_sge_daemon.queue_job(job)
+
+    def context_args_check(db_cfg, job_id) -> bool:
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
+        with app.app_context():
+            jis = DB.session.query(JobInstance).filter_by(job_id=job_id).all()
+            njis = len(jis)
+            status = jis[0].status
+            sge_jid = jis[0].executor_id
+        # Make sure the job actually got to SGE
+        if njis == 1:
+            # Make sure it hasn't advanced to running (the -a argument worked)
+            assert status == JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR
+            # Cleanup
+            sge.qdel(sge_jid)
+            return True
+        else:
+            return False
 
     # The job should not run so only one qw is needed
     timeout_and_skip(step_size=10, max_time=30, max_qw=1,
@@ -61,25 +78,6 @@ def test_context_args(db_cfg, real_jsm_jqs, job_list_manager_sge):
                          context_args_check,
                          db_cfg=db_cfg,
                          job_id=job.job_id))
-
-
-def context_args_check(db_cfg, job_id) -> bool:
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        jis = DB.session.query(JobInstance).filter_by(job_id=job_id).all()
-        njis = len(jis)
-        status = jis[0].status
-        sge_jid = jis[0].executor_id
-    # Make sure the job actually got to SGE
-    if njis == 1:
-        # Make sure it hasn't advanced to running (i.e. the -a argument worked)
-        assert status == JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR
-        # Cleanup
-        sge.qdel(sge_jid)
-        return True
-    else:
-        return False
 
 
 @pytest.mark.skip("Fails too often, needs a new approach")

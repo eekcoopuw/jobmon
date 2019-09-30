@@ -31,7 +31,7 @@ class Workflow(DB.Model):
         DB.Integer, DB.ForeignKey('task_dag.dag_id'))
     workflow_args = DB.Column(DB.Text)
     workflow_hash = DB.Column(DB.Text)
-    description = DB.Column(DB.Text)
+    description = DB.Column(DB.Text(collation='utf8_general_ci'))
     name = DB.Column(DB.String(150))
     user = DB.Column(DB.String(150))
     created_date = DB.Column(

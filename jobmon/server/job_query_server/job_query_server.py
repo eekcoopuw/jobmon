@@ -19,7 +19,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.jobmonLogging import jobmonLogging as logging
+from jobmon.server.server_logging import jobmonLogging as logging
 
 jqs = Blueprint("job_query_server", __name__)
 
@@ -352,6 +352,23 @@ def get_dags_by_inputs():
     return resp
 
 
+@jqs.route('/workflow/workflow_args', methods=['GET'])
+def get_workflow_args():
+    """
+    Return any dag hashes that are assigned to workflows with identical
+    workflow args
+    """
+    logger.debug(logging.myself())
+    workflow_args = request.args['workflow_args']
+    workflow_hashes = DB.session.query(Workflow).filter(
+        Workflow.workflow_args == workflow_args).\
+        with_entities(Workflow.workflow_hash).all()
+    DB.session.commit()
+    resp = jsonify(workflow_hashes=workflow_hashes)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/dag/<dag_id>/workflow', methods=['GET'])
 def get_workflows_by_inputs(dag_id):
     """
@@ -463,11 +480,10 @@ def get_most_recent_exec_id(job_id: int):
     :return: executor_id
     """
     logger.debug(logging.myself())
-    executor_id = DB.session.query(JobInstance). \
+    executor_id = DB.session.query(JobInstance).\
         filter_by(job_id=job_id). \
-        order_by(JobInstance.status.desc()). \
+        order_by(JobInstance.job_instance_id.desc()).\
         with_entities(JobInstance.executor_id).first()
-
     DB.session.commit()
     resp = jsonify(executor_id=executor_id)
     resp.status_code = StatusCodes.OK
@@ -516,3 +532,4 @@ def get_nodename(job_instance_id: int):
         resp = jsonify({'msg': str(e)})
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
         return resp
+

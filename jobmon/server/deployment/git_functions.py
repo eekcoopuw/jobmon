@@ -1,9 +1,7 @@
 import random
 import string
 import subprocess
-import requests
 
-from jobmon.setup_config import SetupCfg as Conf
 
 def gen_password():
     return ''.join(random.choices(string.ascii_letters + string.digits, k=8))
@@ -37,7 +35,3 @@ def find_release(tags: list):
                            "number.".format(candidate_tags))
     else:
         return None
-
-
-
-

@@ -79,7 +79,7 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
         real_dag._execute()
 
     # ensure the real_dag that "fell over" has 2 out of the 5 jobs complete
-    logger.debug("All completed are {}".format(real_dag.job_list_manager.all_done))
+    logger.debug(f"All completed are {real_dag.job_list_manager.all_done}")
     bound_tasks = list(real_dag.job_list_manager.bound_tasks.values())
     assert bound_tasks[0].status == JobStatus.DONE
     assert bound_tasks[1].status == JobStatus.DONE

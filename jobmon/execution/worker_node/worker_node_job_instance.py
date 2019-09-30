@@ -1,4 +1,3 @@
-import logging
 import os
 import socket
 import traceback
@@ -6,6 +5,7 @@ from typing import Optional, Union, Tuple, Dict
 
 from jobmon.requester import Requester, shared_requester
 from jobmon.execution.strategies import JobInstanceExecutorInfo
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

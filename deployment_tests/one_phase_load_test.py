@@ -8,7 +8,7 @@ from datetime import datetime
 
 from jobmon.client.swarm.workflow.workflow import Workflow
 
-from jobmon import BashTask
+from jobmon.client import BashTask
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
@@ -38,7 +38,7 @@ def one_phase_load_test(n_jobs: int) -> None:
     for i in range(n_jobs):
         uid = str(uuid.uuid4())
         sleep_time = random.randint(30, 41)
-        task = BashTask(f"{command} {sleep_time} {uid}", slots=1)
+        task = BashTask(f"{command} {sleep_time} {uid}", num_cores=1)
         task_list.append(task)
 
     wf.add_tasks(task_list)

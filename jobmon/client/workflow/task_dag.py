@@ -1,12 +1,13 @@
 import getpass
 import hashlib
-import logging
 import copy
 from collections import OrderedDict
 
 from jobmon.client.job_management.job_list_manager import JobListManager
 from jobmon.models.job_status import JobStatus
 from jobmon.client.workflow.task_dag_factory import TaskDagMetaFactory
+from jobmon.client.client_logging import ClientLogging as logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +67,7 @@ class TaskDag(object):
         else:
             return False
 
-    def bind_to_db(self, dag_id=None, reset_running_jobs=True,
-                   resource_adjustment=0.5):
+    def bind_to_db(self, dag_id=None, reset_running_jobs=True):
         """
         Binds the dag to the database and starts Job Management services.
         The Job_List_Manger is stopped and discarded in _clean_up_after_run
@@ -173,6 +173,7 @@ class TaskDag(object):
         """
         if not self.is_bound:
             self.bind_to_db()
+        self.job_list_manager.log_dag_running()
 
         # TODO: move dag heartbeat into this method
 
@@ -224,6 +225,7 @@ class TaskDag(object):
                 fringe = list(set(fringe + task_to_add))
             if (self.fail_after_n_executions is not None and
                     n_executions >= self.fail_after_n_executions):
+                self.job_list_manager.disconnect()
                 raise ValueError("Dag asked to fail after {} executions. "
                                  "Failing now".format(n_executions))
 

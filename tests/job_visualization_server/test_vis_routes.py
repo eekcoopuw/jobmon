@@ -1,12 +1,12 @@
-from jobmon import BashTask
-from jobmon import Workflow
+from jobmon.client import BashTask
+from jobmon.client import Workflow
 
 from jobmon.client import shared_requester as req
 from jobmon.server.job_visualization_server.job_visualization_server import (
     _viz_label_mapping)
 
 
-def test_job_status(real_jsm_jqs, db_cfg):
+def test_job_status(env_var, db_cfg):
     rc, resp = req.send_request(
         app_route='/job_status',
         message={},
@@ -16,7 +16,7 @@ def test_job_status(real_jsm_jqs, db_cfg):
         assert job_status["label"] in _viz_label_mapping.values()
 
 
-def test_foo(real_jsm_jqs, db_cfg):
+def test_foo(env_var, db_cfg):
     t1 = BashTask("sleep 10", num_cores=1)
     t2 = BashTask("sleep 5", upstream_tasks=[t1], num_cores=1)
     workflow = Workflow()

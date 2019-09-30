@@ -1,10 +1,10 @@
 from http import HTTPStatus as StatusCodes
-import logging
 
-from jobmon.requester import shared_requester
+from jobmon.client import shared_requester
+from jobmon.client.job_management.swarm_job import SwarmJob
+from jobmon.client.client_logging import ClientLogging as logging
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import job_attribute
-from jobmon.client.job_management.swarm_job import SwarmJob
 
 
 logger = logging.getLogger(__name__)
