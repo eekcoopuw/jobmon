@@ -51,14 +51,6 @@ job_attribute = AttributeDictionary({
     'DISPLAY_GROUP': 18
 })
 
-deploy_attribute = AttributeDictionary({
-    'SERVER_QDNS': "jobmon-docker-cont-p01.hosts.ihme.washington.edu",
-    'SERVER_HOSTNAME': "jobmon-docker-cont-p01",
-    'DB_PORT': 10020,
-    'SERVICE_PORT': 10021,
-    'SLACK_API_URL': 'https://slack.com/api/chat.postMessage',
-})
-
 qsub_attribute = AttributeDictionary({
     'NO_EXEC_ID': -99999,
     'UNPARSABLE': -33333

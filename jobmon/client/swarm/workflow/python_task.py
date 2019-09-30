@@ -1,9 +1,10 @@
-import logging
 import sys
 from typing import Optional
 
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 from jobmon.client.swarm.executors.base import ExecutorParameters
+from jobmon.client.client_logging import ClientLogging as logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ class PythonTask(ExecutableTask):
 
     def __init__(self, path_to_python_binary=current_python, script=None,
                  args=None, upstream_tasks=None, env_variables={}, name=None,
-                 slots=None, num_cores=None, mem_free=None, max_attempts=3,
+                 num_cores=None, max_attempts=3,
                  max_runtime_seconds=None, tag=None, queue=None,
                  j_resource=False, m_mem_free=None, context_args=None,
                  resource_scales=None, hard_limits=False,
@@ -31,14 +32,9 @@ class PythonTask(ExecutableTask):
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
             name (str): name that will be visible in qstat for this job
-            slots (int): slots to request on the cluster. Default is 1
             num_cores (int): number of cores to request on the cluster
-            mem_free (int): amount of memory in GBs to request on the cluster.
-                Generally 2x slots. Default is 1
             m_mem_free (str): amount of memory in gbs, tbs, or mbs (G, T, or M)
-                to request on the fair cluster. Mutually exclusive with
-                mem_free as it will fully replace that argument when the dev
-                and prod clusters are taken offline
+                to request on the fair cluster.
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 3
             max_runtime_seconds (int): how long the job should be allowed to
@@ -67,8 +63,8 @@ class PythonTask(ExecutableTask):
                                            args)
         super(PythonTask, self).__init__(
             command=self.command, env_variables=env_variables,
-            upstream_tasks=upstream_tasks, name=name, slots=slots,
-            num_cores=num_cores, mem_free=mem_free, max_attempts=max_attempts,
+            upstream_tasks=upstream_tasks, name=name,
+            num_cores=num_cores, max_attempts=max_attempts,
             max_runtime_seconds=max_runtime_seconds, tag=tag, queue=queue,
             j_resource=j_resource, m_mem_free=m_mem_free,
             context_args=context_args, resource_scales=resource_scales,

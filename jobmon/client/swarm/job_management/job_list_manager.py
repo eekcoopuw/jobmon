@@ -17,6 +17,7 @@ from jobmon.client.swarm.workflow.executable_task import (BoundTask,
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -25,8 +26,7 @@ logger = logging.getLogger(__name__)
 class JobListManager(object):
 
     def __init__(self, dag_id, executor=None, start_daemons=False,
-                 job_instantiation_interval=3, n_queued_jobs=1000,
-                 resource_adjustment: float = 0.5):
+                 job_instantiation_interval=10, n_queued_jobs=1000):
         """Once the job is ready to run and the task dag submits it, the job
         list manager takes over and monitors the job throughout its states
          until it is done or failed.
@@ -37,12 +37,10 @@ class JobListManager(object):
                 SequentialExecutor, DummyExecutor or SGEExecutor
             start_daemons (bool, default False): whether or not to start the
                 JobInstanceFactory and JobReconciler as daemonized threads
-            job_instantiation_interval (int, default 3): number of seconds to
+            job_instantiation_interval (int, default 10): number of seconds to
                 wait between instantiating newly ready jobs
             n_queued_jobs (int): number of queued jobs that should be returned
                 to be instantiated
-            resource_adjustment: scalar value to adjust resources by when
-                a resource error is detected
         """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
@@ -52,7 +50,6 @@ class JobListManager(object):
             dag_id=dag_id,
             executor=executor,
             n_queued_jobs=n_queued_jobs,
-            resource_adjustment=resource_adjustment,
             stop_event=self._stop_event)
         self.job_inst_reconciler = JobInstanceReconciler(
             dag_id=dag_id,
@@ -61,7 +58,6 @@ class JobListManager(object):
 
         self.requester = shared_requester
         self.executor = executor
-        self.resource_adjustment = resource_adjustment
 
         self.bound_tasks: Dict[int, BoundTask] = {}  # {job_id: BoundTask}
         self.hash_job_map: Dict[int, SwarmJob] = {}  # {job_hash: simpleJob}
@@ -164,14 +160,15 @@ class JobListManager(object):
             only_scale = ['max_runtime_seconds']
         logger.debug(f"only going to scale these resources: {only_scale}")
         resources_adjusted = {'only_scale': only_scale}
-        if self.resource_adjustment != 0.5:
-            resources_adjusted[
-                'all_resource_scale_val'] = self.resource_adjustment
-            logger.debug("You have specified a resource adjustment, this will "
-                         "be applied to all resources that will be adjusted "
-                         "(default: m_mem_free and max_runtime_seconds)")
         exec_param_set.adjust(**resources_adjusted)
         return exec_param_set
+
+    def log_dag_running(self) -> None:
+        rc, _ = self.requester.send_request(
+            app_route=f'/task_dag/{self.dag_id}/log_running',
+            message={},
+            request_type='post')
+        return rc
 
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""

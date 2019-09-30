@@ -9,6 +9,7 @@ import traceback
 from typing import Optional
 import warnings
 
+from jobmon import config
 from jobmon.models import DB
 from jobmon.models.attributes.constants import job_attribute, qsub_attribute
 from jobmon.models.attributes.job_attribute import JobAttribute
@@ -27,7 +28,7 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
-from jobmon.server.jobmonLogging import jobmonLogging as logging
+from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.server.server_side_exception import log_and_raise
 
 
@@ -66,7 +67,7 @@ def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logmsg = "{}: Responder received is_alive?".format(os.getpid())
     logger.debug(logmsg)
     resp = jsonify(msg="Yes, I am alive")
@@ -86,7 +87,7 @@ def add_job():
         max_attempts: how many times the job should be attempted
         tag: job attribute tag
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
     job = Job(
@@ -115,7 +116,7 @@ def add_task_dag():
         user: name of the user of the dag
         dag_hash: unique hash for the task_dag
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     data = request.get_json(force=True)
     logger.debug(data)
     dag = TaskDagMeta(
@@ -133,7 +134,7 @@ def add_task_dag():
 
 def _get_workflow_run_id(job):
     """Return the workflow_run_id by job_id"""
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_id", job.job_id))
     wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
     if not wf:
@@ -155,7 +156,7 @@ def add_job_instance():
         job_id (int): unique id for the job
         executor_type (str): string name of the executor type used
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
     logger.debug("Add JI for job {}".format(data['job_id']))
@@ -205,7 +206,7 @@ def add_update_workflow():
         description (str): string description of the workflow, optional
         any other Workflow attributes you want to set
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
     if request.method == 'POST':
@@ -232,6 +233,7 @@ def add_update_workflow():
 
 @jsm.route('/error_logger', methods=['POST'])
 def workflow_error_logger():
+    logger.info(logging.myself())
     data = request.get_json()
     logger.error(data["traceback"])
     resp = jsonify()
@@ -257,7 +259,7 @@ def add_update_workflow_run():
             increased if the jobs fail from under-requested resources
         any other Workflow attributes you want to set
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
     if request.method == 'POST':
@@ -270,8 +272,7 @@ def add_update_workflow_run():
                              working_dir=data['working_dir'],
                              project=data['project'],
                              slack_channel=data['slack_channel'],
-                             executor_class=data['executor_class'],
-                             resource_adjustment=data['resource_adjustment'])
+                             executor_class=data['executor_class'])
         workflow = DB.session.query(Workflow).\
             filter(Workflow.id == data['workflow_id']).first()
         # Set all previous runs to STOPPED
@@ -298,6 +299,7 @@ def log_done(job_instance_id):
 
         job_instance_id: id of the job_instance to log done
     """
+    logger.info(logging.myself())
     data = request.get_json()
     logger.debug(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
@@ -357,8 +359,7 @@ def log_error_worker_node(job_instance_id: int):
         job_instance_id (str): id of the job_instance to log done
         error_message (str): message to log as error
     """
-
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     error_state = data["error_state"]
@@ -382,8 +383,7 @@ def log_error_reconciler(job_instance_id: int):
         data:
         oom_killed: whether or not given job errored due to an oom-kill event
     """
-
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     error_state = data['error_state']
@@ -408,7 +408,7 @@ def log_error_reconciler(job_instance_id: int):
 
 @jsm.route('/job_instance/<job_instance_id>/log_no_exec_id', methods=['POST'])
 def log_no_exec_id(job_instance_id):
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     logger.debug(f"Log NO EXECUTOR ID for JI {job_instance_id}")
     data = request.get_json()
@@ -438,6 +438,7 @@ def log_oom(executor_id: str):
         error_message (str): Optional message to log (included as JSON in
                              request)
     """
+    logger.info(logging.myself())
     data = request.get_json()
 
     # TODO: figure out what to do with log_oom
@@ -458,7 +459,7 @@ def log_executor_id(job_instance_id):
 
         job_instance_id: id of the job_instance to log
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     report_by_date = func.ADDTIME(
@@ -478,6 +479,28 @@ def log_executor_id(job_instance_id):
     return resp
 
 
+@jsm.route('/task_dag/<dag_id>/log_running', methods=['POST'])
+def log_dag_running(dag_id: int):
+    """Log a dag as running
+
+    Args:
+        dag_id: id of the dag to move to running
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("dag_id", dag_id))
+
+    params = {"dag_id": int(dag_id)}
+    query = """
+        UPDATE workflow
+        SET status = 'R'
+        WHERE dag_id = :dag_id"""
+    DB.session.execute(query, params)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jsm.route('/task_dag/<dag_id>/log_heartbeat', methods=['POST'])
 def log_dag_heartbeat(dag_id):
     """Log a dag as being responsive, with a heartbeat
@@ -485,13 +508,15 @@ def log_dag_heartbeat(dag_id):
 
         dag id: id of the job_instance to log
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("dag_id", dag_id))
-    dag = DB.session.query(TaskDagMeta).filter_by(
-        dag_id=dag_id).first()
-    if dag:
-        # set to database time not web app time
-        dag.heartbeat_date = func.UTC_TIMESTAMP()
+
+    params = {"dag_id": int(dag_id)}
+    query = """
+        UPDATE task_dag
+        SET heartbeat_date = UTC_TIMESTAMP()
+        WHERE dag_id in (:dag_id)"""
+    DB.session.execute(query, params)
     DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -500,7 +525,7 @@ def log_dag_heartbeat(dag_id):
 
 @jsm.route('/task_dag/<dag_id>/log_executor_report_by', methods=['POST'])
 def log_executor_report_by(dag_id):
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("dag_id", dag_id))
     data = request.get_json()
 
@@ -533,7 +558,7 @@ def log_ji_report_by(job_instance_id):
 
         job_instance_id: id of the job_instance to log
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     executor_id = data.get('executor_id', None)
@@ -568,7 +593,7 @@ def log_running(job_instance_id):
 
         job_instance_id: id of the job_instance to log as running
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     logger.debug("Log RUNNING for JI {}".format(job_instance_id))
@@ -597,7 +622,7 @@ def log_nodename(job_instance_id):
         job_instance_id: id of the job_instance to log done
         nodename (str): name of the node on which the job_instance is running
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     logger.debug("Log nodename for JI {}".format(job_instance_id))
@@ -624,7 +649,7 @@ def log_usage(job_instance_id):
         cpu (str, optional): cpu used
         io (str, optional): io used
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     data = request.get_json()
     if data.get('maxrss', None) is None:
@@ -674,7 +699,7 @@ def queue_job(job_id):
 
         job_id: id of the job to queue
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_id", job_id))
     job = DB.session.query(Job)\
         .filter_by(job_id=job_id).first()
@@ -703,7 +728,7 @@ def update_job(job_id):
         max_attempts (int): maximum numver of attempts before sending the job
             to the ERROR FATAL state
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_id", job_id))
 
     data = request.get_json()
@@ -746,7 +771,7 @@ def update_job_resources(job_id):
             queue limits
     """
 
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_id", job_id))
 
     data = request.get_json()
@@ -780,7 +805,7 @@ def reset_job(job_id):
 
         job_id: id of the job to reset
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_id", job_id))
     job = DB.session.query(Job).filter_by(job_id=job_id).first()
     logger.debug(logging.logParameter("DB.session", DB.session))
@@ -798,7 +823,7 @@ def reset_incomplete_jobs(dag_id):
 
         dag_id: id of the dag to reset
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("dag_id", dag_id))
     time = get_time(DB.session)
     up_job = """
@@ -807,19 +832,23 @@ def reset_incomplete_jobs(dag_id):
         WHERE dag_id=:dag_id
         AND job.status!=:done_status
     """.format(time)
+    log_errors = """
+            INSERT INTO job_instance_error_log
+                (job_instance_id, description, error_time)
+            SELECT job_instance_id,
+            CONCAT('Job RESET requested setting to E from status of: ',
+                   job_instance.status) as description,
+            UTC_TIMESTAMP as error_time
+            FROM job_instance
+            JOIN job USING(job_id)
+            WHERE job.dag_id=:dag_id
+            AND job.status!=:done_status
+        """
     up_job_instance = """
         UPDATE job_instance
         JOIN job USING(job_id)
-        SET job_instance.status=:error_status
-        WHERE job.dag_id=:dag_id
-        AND job.status!=:done_status
-    """
-    log_errors = """
-        INSERT INTO job_instance_error_log
-            (job_instance_id, description)
-        SELECT job_instance_id, 'Job RESET requested' as description
-        FROM job_instance
-        JOIN job USING(job_id)
+        SET job_instance.status=:error_status,
+            job_instance.status_date=UTC_TIMESTAMP
         WHERE job.dag_id=:dag_id
         AND job.status!=:done_status
     """
@@ -830,16 +859,16 @@ def reset_incomplete_jobs(dag_id):
         {"dag_id": dag_id,
          "registered_status": JobStatus.REGISTERED,
          "done_status": JobStatus.DONE})
+    logger.debug("Query:\n{}".format(log_errors))
+    DB.session.execute(
+        log_errors,
+        {"dag_id": dag_id,
+         "done_status": JobStatus.DONE})
     logger.debug("Query:\n{}".format(up_job_instance))
     DB.session.execute(
         up_job_instance,
         {"dag_id": dag_id,
          "error_status": JobInstanceStatus.ERROR,
-         "done_status": JobStatus.DONE})
-    logger.debug("Query:\n{}".format(log_errors))
-    DB.session.execute(
-        log_errors,
-        {"dag_id": dag_id,
          "done_status": JobStatus.DONE})
     DB.session.commit()
     resp = jsonify()
@@ -854,7 +883,7 @@ def _get_job_instance(session, job_instance_id):
         session: DB.session or Session object to use to connect to the db
         job_instance_id (int): job_instance_id with which to query the database
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("session", session))
     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
     job_instance = session.query(JobInstance).filter_by(
@@ -869,7 +898,7 @@ def _get_job_instance_by_executor_id(session, executor_id):
         session: DB.session or Session object to use to connect to the db
         executor_id (int): executor_id with which to query the database
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("session", session))
     logger.debug(logging.logParameter("executor_id", executor_id))
     job_instance = session.query(JobInstance).filter_by(
@@ -886,7 +915,7 @@ def _update_job_instance_state(job_instance, status_id):
         job_instance (obj) object of time models.JobInstance
         status_id (int): id of the status to which to transition
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(f"Update JI state {status_id} for {job_instance}")
     response = ""
     try:
@@ -938,7 +967,7 @@ def _update_job_instance(job_instance, **kwargs):
     Args:
         job_instance (obj): object of type models.JobInstance
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("job_instance", job_instance))
     logger.debug("Update JI  {}".format(job_instance))
     status_requested = kwargs.get('status', None)
@@ -966,7 +995,7 @@ def add_workflow_attribute():
         attribute_type (obj): object of type WorkflowAttribute
         value (str): value of the WorkflowAttribute to add
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     data = request.get_json()
     workflow_attribute = WorkflowAttribute(
         workflow_id=data['workflow_id'],
@@ -991,7 +1020,7 @@ def add_workflow_run_attribute():
         attribute_type (obj): object of type WorkflowRunAttribute
         value (str): value of the WorkflowRunAttribute to add
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     data = request.get_json()
     workflow_run_attribute = WorkflowRunAttribute(
         workflow_run_id=data['workflow_run_id'],
@@ -1015,7 +1044,7 @@ def add_job_attribute():
         attribute_type (obj): object of type JobAttribute
         value (str): value of the JobAttribute to add
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     data = request.get_json()
     job_attribute = JobAttribute(
         job_id=data['job_id'],
@@ -1033,7 +1062,7 @@ def add_job_attribute():
 def get_log_level():
     """A simple 'action' to get the current server log level
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     level: str = logging.getLevelName()
     logger.debug(level)
     resp = jsonify({'level': level})
@@ -1098,7 +1127,7 @@ def set_log_level(level):
 
 
 def getLogLevelUseName(name: str) -> int:
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("name", name))
     log_level_dict = {"CRITICAL": logging.CRITICAL,
                       "ERROR": logging.ERROR,
@@ -1125,7 +1154,7 @@ def attach_remote_syslog(level, host, port, sockettype):
     otherwise, UDP
     :return:
     """
-    logger.debug(logging.myself())
+    logger.info(logging.myself())
     logger.debug(logging.logParameter("level", level))
     logger.debug(logging.logParameter("host", host))
     logger.debug(logging.logParameter("port", port))
@@ -1159,21 +1188,80 @@ def attach_remote_syslog(level, host, port, sockettype):
 
 @jsm.route('/syslog_status', methods=['GET'])
 def syslog_status():
-    logger.debug(logging.myself())
-    resp = jsonify({'syslog': logging.isSyslogAttached()})
+    logger.info(logging.myself())
+    if logging.isSyslogAttached():
+        resp = jsonify({'syslog': True},
+                       {'host': config.rsyslog_host},
+                       {'port': config.rsyslog_port},
+                       {'protocol': config.rsyslog_protocol})
+        return resp
+    resp = jsonify({'syslog': False})
     return resp
 
 
-@jsm.route('/debug_on', methods=['POST'])
-def setRootLoggerToDebug():
+@jsm.route('/log_level_flask', methods=['GET'])
+def get_log_level_flask():
+    """A simple 'action' to get the current server log level
     """
-    This function set the root log level to debug. Be careful because you are
-    unable to set it back.
-    :return:
-    """
-    logging._setRootLoggerLevel(logging.DEBUG)
-    resp = jsonify(msn="The root logger lever has been set to DEBUG. This "
-                       "action is irreversible.")
+    logger.info(logging.myself())
+    level: str = logging.getFlaskLevelName()
+    logger.debug(level)
+    resp = jsonify({'level': level})
     resp.status_code = StatusCodes.OK
     return resp
 
+
+@jsm.route('/log_level_flask/<level>', methods=['POST'])
+def set_log_level_flask(level):
+    """Change log level
+    Args:
+
+        level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO,
+            DEBUG
+
+        data:
+             loggers: a list of logger
+                      Currently only support 'jobmonServer' and 'flask';
+                      Other values will be ignored;
+                      Empty list default to 'jobmonServer'.
+    """
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("level", level))
+    level = level.upper()
+    lev: int = logging.NOTSET
+
+    if level == "CRITICAL":
+        lev = logging.CRITICAL
+    elif level == "ERROR":
+        lev = logging.ERROR
+    elif level == "WARNING":
+        lev = logging.WARNING
+    elif level == "INFO":
+        lev = logging.INFO
+    elif level == "DEBUG":
+        lev = logging.DEBUG
+
+    data = request.get_json()
+    logger.debug(data)
+
+    logger_list = []
+    try:
+        logger_list = data['loggers']
+    except Exception:
+        # Deliberately eat the exception. If no data provided, change all other
+        # loggers except sqlalchemy
+        pass
+
+    if len(logger_list) == 0:
+        # Default to reset jobmonServer log level
+        logging.setFlaskLogLevel(lev)
+    else:
+        if 'jobmonServer' in logger_list:
+            logging.setlogLevel(lev)
+        elif 'flask' in logger_list:
+            logging.setFlaskLogLevel(lev)
+
+    resp = jsonify(msn="Set {loggers} server log to {level}".format(
+        level=level, loggers=logger_list))
+    resp.status_code = StatusCodes.OK
+    return resp

@@ -22,7 +22,7 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
                  sleep_timeout=False,
                  max_runtime_seconds=None
                  ):
-        etk.ExecutableTask.__init__(self, command, num_cores=1, mem_free='2G',
+        etk.ExecutableTask.__init__(self, command, num_cores=1, m_mem_free='2G',
                                     upstream_tasks=upstream_tasks,
                                     max_runtime_seconds=max_runtime_seconds)
 

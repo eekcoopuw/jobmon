@@ -1,3 +1,4 @@
+import os
 import pytest
 import sys
 
@@ -8,6 +9,8 @@ from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.client.swarm.workflow.r_task import RTask
 from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.models.job import Job
+
+path_to_file = os.path.dirname(__file__)
 
 
 def test_good_names():
@@ -67,14 +70,14 @@ def test_hashing_bash_characters():
     assert a.is_valid_job_name(a.name)
 
 
-def test_bash_task_args(db_cfg, job_list_manager_sge):
+def test_bash_task_args(db_cfg, jlm_sge_no_daemon):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
-    a = BashTask(command="echo 'Hello Jobmon'", num_cores=1, mem_free='2G',
+    a = BashTask(command="echo 'Hello Jobmon'", num_cores=1, m_mem_free='2G',
                  max_attempts=1)
-    job = job_list_manager_sge.bind_task(a)
+    job = jlm_sge_no_daemon.bind_task(a)
     job_id = job.job_id
-    job_list_manager_sge.adjust_resources_and_queue(job)
+    jlm_sge_no_daemon.adjust_resources_and_queue(job)
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
@@ -98,14 +101,14 @@ def test_python_task_equality():
     assert len(b.upstream_tasks) == 1
 
 
-def test_python_task_args(db_cfg, job_list_manager_sge):
+def test_python_task_args(db_cfg, jlm_sge_no_daemon):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
                    num_cores=1, m_mem_free='2G', max_attempts=1)
-    job = job_list_manager_sge.bind_task(a)
+    job = jlm_sge_no_daemon.bind_task(a)
     job_id = job.job_id
-    job_list_manager_sge.adjust_resources_and_queue(job)
+    jlm_sge_no_daemon.adjust_resources_and_queue(job)
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
@@ -122,15 +125,16 @@ def test_python_task_args(db_cfg, job_list_manager_sge):
         assert max_attempts == 1
 
 
-def test_r_task_args(db_cfg, job_list_manager_sge):
+def test_r_task_args(db_cfg, jlm_sge_no_daemon):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
-    a = RTask(script=sge.true_path("tests/simple_R_script.r"),
-              env_variables={'OP_NUM_THREADS': 1},
-              num_cores=1, mem_free='2G', max_attempts=1)
-    job = job_list_manager_sge.bind_task(a)
+    a = RTask(script=sge.true_path(f"{path_to_file}/simple_R_script.r"),
+              env_variables={'OP_NUM_THREADS': 1}, num_cores=1,
+              m_mem_free='2G', max_attempts=1)
+
+    job = jlm_sge_no_daemon.bind_task(a)
     job_id = job.job_id
-    job_list_manager_sge.adjust_resources_and_queue(job)
+    jlm_sge_no_daemon.adjust_resources_and_queue(job)
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()
@@ -141,21 +145,21 @@ def test_r_task_args(db_cfg, job_list_manager_sge):
         DB.session.commit()
         # check all job args
         assert command == ('OP_NUM_THREADS=1 Rscript {}'
-                           .format(sge.true_path("tests/simple_R_script.r")))
+                           .format(sge.true_path(f"{path_to_file}/simple_R_script.r")))
         assert num_cores == 1
         assert m_mem_free == 2
         assert max_attempts == 1
 
 
-def test_stata_task_args(db_cfg, job_list_manager_sge):
+def test_stata_task_args(db_cfg, jlm_sge_no_daemon):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
-    a = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
+    a = StataTask(script=sge.true_path(f"{path_to_file}/simple_stata_script.do"),
                   env_variables={'OP_NUM_THREADS': 1},
                   num_cores=1, m_mem_free='2G', max_attempts=1)
-    job = job_list_manager_sge.bind_task(a)
+    job = jlm_sge_no_daemon.bind_task(a)
     job_id = job.job_id
-    job_list_manager_sge.adjust_resources_and_queue(job)
+    jlm_sge_no_daemon.adjust_resources_and_queue(job)
 
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=job_id).all()

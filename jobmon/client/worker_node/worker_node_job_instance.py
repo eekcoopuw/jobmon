@@ -1,4 +1,3 @@
-import logging
 import os
 import pkg_resources
 import socket
@@ -9,6 +8,7 @@ from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import JobInstanceExecutorInfo
 from jobmon.exceptions import ReturnCodes
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

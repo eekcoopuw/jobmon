@@ -5,7 +5,6 @@ from time import sleep
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon import Workflow
 from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.models.job import Job
@@ -17,6 +16,8 @@ from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.job_management.executor_job_instance import (
     ExecutorJobInstance)
+
+path_to_file = os.path.dirname(__file__)
 
 
 def match_name_to_sge_name(jid):
@@ -123,7 +124,7 @@ def test_exceed_mem_task(db_cfg, dag_factory):
     """test that when a job exceeds the requested amount of memory on the fair
     cluster, it gets killed"""
     name = 'mem_task'
-    task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
+    task = PythonTask(script=sge.true_path(f"{path_to_file}/exceed_mem.py"),
                       name=name, m_mem_free='130M', max_attempts=2,
                       num_cores=1, max_runtime_seconds=40)
 
@@ -150,7 +151,7 @@ def test_exceed_mem_task(db_cfg, dag_factory):
 
 
 def test_exceed_runtime_task(db_cfg, dag_factory):
-    name='over_runtime_task'
+    name = 'over_runtime_task'
     task = BashTask(command='sleep 10', name=name, max_runtime_seconds=5)
     executor = SGEExecutor(project='proj_tools')
     real_dag = dag_factory(executor)
@@ -163,8 +164,8 @@ def test_exceed_runtime_task(db_cfg, dag_factory):
     with app.app_context():
         job = DB.session.query(Job).filter_by(name=name).first()
         jid = [ji for ji in job.job_instances][0].executor_id
-        resp = check_output(f"qacct -j {jid} | grep 'exit_status\|failed'", shell=True,
-                            universal_newlines=True)
+        resp = check_output(f"qacct -j {jid} | grep 'exit_status\|failed'",
+                            shell=True, universal_newlines=True)
         assert ('247' in resp) or ('137' in resp)
         assert job.job_instances[0].status == 'Z'
         assert job.status == 'F'
@@ -178,7 +179,7 @@ def test_under_request_then_scale_resources(db_cfg, dag_factory):
     tries again with additional memory added"""
 
     name = 'mem_task'
-    task = PythonTask(script=sge.true_path("tests/exceed_mem.py"),
+    task = PythonTask(script=sge.true_path(f"{path_to_file}/exceed_mem.py"),
                       name=name, m_mem_free='600M', max_attempts=2,
                       num_cores=1, max_runtime_seconds=40)
 
@@ -206,12 +207,11 @@ def test_under_request_then_scale_resources(db_cfg, dag_factory):
     assert sge_jobname == name
 
 
-
 def test_kill_self_task(db_cfg, dag_factory):
     """test that when a task kills itself, it fails and the ji does not sit
     in Batch or Running forever"""
     name = 'kill_self_task'
-    task = PythonTask(script=sge.true_path("tests/kill.py"),
+    task = PythonTask(script=sge.true_path(f"{path_to_file}/kill.py"),
                       name=name, m_mem_free='130M', max_attempts=2,
                       num_cores=1, max_runtime_seconds=40)
 
@@ -244,7 +244,7 @@ def test_R_task(db_cfg, dag_factory, tmp_out_dir):
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
 
-    task = RTask(script=sge.true_path("tests/simple_R_script.r"), name=name,
+    task = RTask(script=sge.true_path(f"{path_to_file}/simple_R_script.r"), name=name,
                  m_mem_free='1G', max_attempts=2, max_runtime_seconds=60,
                  num_cores=1)
     executor = SGEExecutor(project='proj_tools')
@@ -277,8 +277,8 @@ def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
 
-    task = StataTask(script=sge.true_path("tests/simple_stata_script.do"),
-                     name=name, mem_free='1G', max_attempts=2,
+    task = StataTask(script=sge.true_path(f"{path_to_file}/simple_stata_script.do"),
+                     name=name, m_mem_free='1G', max_attempts=2,
                      max_runtime_seconds=60, num_cores=1)
     executor = SGEExecutor(project='proj_tools')
     executor.set_temp_dir(root_out_dir)
@@ -320,7 +320,7 @@ def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
 
     output_file_name = "{t}/mocks/{n}/mock.out".format(t=tmp_out_dir, n=name)
 
-    task = PythonTask(script=sge.true_path("tests/remote_sleep_and_write.py"),
+    task = PythonTask(script=sge.true_path(f"{path_to_file}/remote_sleep_and_write.py"),
                       args=["--sleep_secs", "1",
                             "--output_file_path", output_file_name,
                             "--name", name],

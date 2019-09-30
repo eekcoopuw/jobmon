@@ -1,5 +1,4 @@
 import argparse
-import logging
 from functools import partial
 from io import TextIOBase
 import pkg_resources
@@ -15,7 +14,7 @@ from time import sleep, time
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.worker_node.worker_node_job_instance import (
     WorkerNodeJobInstance)
-from jobmon.client.utils import kill_remote_process_group
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger()
 
@@ -50,15 +49,6 @@ def kill_self(child_process: subprocess.Popen = None):
     if child_process:
         child_process.kill()
     sys.exit(signal.SIGKILL)
-
-
-def is_on_prod() -> bool:
-    """
-    A wrapper to hide the dirty way we determine which cluster we are on
-    Useful to have this be a function because it can be monkey patched in test.
-    :return:  True if we are on prod
-    """
-    return "el6" in os.environ['SGE_ENV']
 
 
 def unwrap():
@@ -123,14 +113,6 @@ def unwrap():
         kill_self()
 
     try:
-        # SGE on prod & dev did not kill orphan processes following
-        # an OOM kill, so if this is a retry job instance it must go
-        # kill any remaining processes on the last node.
-        # Not necessary on fair/buster.
-        if args['last_nodename'] is not None and \
-                args['last_pgid'] is not None and \
-                is_on_prod():
-            kill_remote_process_group(args['last_nodename'], args['last_pgid'])
 
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(

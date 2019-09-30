@@ -10,7 +10,8 @@ from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.exceptions import CallableReturnedInvalidObject
 
 
-def test_callable_returns_exec_params(real_jsm_jqs, db_cfg):
+@pytest.mark.qsubs_jobs
+def test_callable_returns_exec_params(env_var, db_cfg):
     """Test when the provided callable returns the correct parameters"""
     task = BashTask(name='good_callable_task', command='sleep 1',
                     max_attempts=2,
@@ -52,7 +53,8 @@ def resource_file_does_exist(*args, **kwargs):
     return params
 
 
-def test_callable_fails_bad_filepath(real_jsm_jqs):
+@pytest.mark.qsubs_jobs
+def test_callable_fails_bad_filepath(env_var, db_cfg):
     task = BashTask(name='bad_callable_wrong_file', command='sleep 1',
                     max_attempts=2,
                     executor_parameters=resource_filepath_does_not_exist)
@@ -69,7 +71,8 @@ def resource_filepath_does_not_exist(*args, **kwargs):
     resource_dict = json.loads(resources)
 
 
-def test_callable_returns_wrong_object(real_jsm_jqs):
+@pytest.mark.qsubs_jobs
+def test_callable_returns_wrong_object(env_var, db_cfg):
     task = BashTask(name='bad_callable_wrong_return_obj', command='sleep 1',
                     max_attempts=2,
                     executor_parameters=wrong_return_params)
@@ -84,7 +87,8 @@ def wrong_return_params(*args, **kwargs):
     return wrong_format
 
 
-def test_static_resource_assignment(real_jsm_jqs):
+@pytest.mark.qsubs_jobs
+def test_static_resource_assignment(env_var, db_cfg):
     executor_parameters = ExecutorParameters(m_mem_free='1G',
                                              max_runtime_seconds=60,
                                              num_cores=1, queue='all.q')
@@ -95,7 +99,8 @@ def test_static_resource_assignment(real_jsm_jqs):
     wf.run()
 
 
-def test_dynamic_resource_assignment(real_jsm_jqs, db_cfg):
+@pytest.mark.qsubs_jobs
+def test_dynamic_resource_assignment(env_var, db_cfg):
     task = BashTask(name='dynamic_resource_task', command='sleep 1',
                     max_attempts=2, executor_parameters=assign_resources)
     wf = Workflow(workflow_args='dynamic_resource_wf')

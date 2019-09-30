@@ -1,6 +1,5 @@
 from builtins import str
 from http import HTTPStatus as StatusCodes
-import logging
 import threading
 from time import sleep
 import traceback
@@ -17,6 +16,7 @@ from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.attributes.constants import qsub_attribute
 from jobmon.models.job_status import JobStatus
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,6 @@ class JobInstanceFactory(object):
                  executor: Optional[Executor] = None,
                  n_queued_jobs: int = 1000,
                  stop_event: Optional[threading.Event] = None,
-                 resource_adjustment: float = 0.5,
                  requester: Requester = shared_requester):
         """The JobInstanceFactory is in charge of queueing jobs and creating
         job_instances, in order to get the jobs from merely Task objects to
@@ -49,7 +48,6 @@ class JobInstanceFactory(object):
         self.n_queued_jobs = n_queued_jobs
         self.report_by_buffer = client_config.report_by_buffer
         self.heartbeat_interval = client_config.heartbeat_interval
-        self.resource_adjustment = resource_adjustment
 
         # At this level, default to using a Sequential Executor if None is
         # provided. End-users shouldn't be interacting at this level (they

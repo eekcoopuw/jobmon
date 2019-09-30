@@ -19,6 +19,6 @@ class JobInstanceErrorLog(DB.Model):
         DB.ForeignKey('job_instance.job_instance_id'),
         nullable=False)
     error_time = DB.Column(DB.DateTime, default=datetime.utcnow)
-    description = DB.Column(DB.Text)
+    description = DB.Column(DB.Text(collation='utf8_general_ci'))
 
     job_instance = DB.relationship("JobInstance", back_populates="errors")

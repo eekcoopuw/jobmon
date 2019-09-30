@@ -8,7 +8,7 @@ from datetime import datetime
 
 from jobmon.client.swarm.workflow.workflow import Workflow
 
-from jobmon import BashTask
+from jobmon.client import BashTask
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
@@ -38,7 +38,7 @@ def three_phase_load_test(n_jobs: int) -> None:
     for i in range(n_jobs):
         uid = str(uuid.uuid4())
         sleep_time = random.randint(30, 41)
-        tier_1_task = BashTask(f"{command} {sleep_time} {uid}", slots=1)
+        tier_1_task = BashTask(f"{command} {sleep_time} {uid}", num_cores=1)
         tier1.append(tier_1_task)
 
     tier2 = []
@@ -47,7 +47,7 @@ def three_phase_load_test(n_jobs: int) -> None:
         uid = str(uuid.uuid4())
         sleep_time = random.randint(30, 41)
         tier_2_task = BashTask(f"{command} {sleep_time} {uid}",
-                               upstream_tasks=[tier1[(i % n_jobs)]], slots=1)
+                               upstream_tasks=[tier1[(i % n_jobs)]], num_cores=1)
         tier2.append(tier_2_task)
 
     tier3 = []
@@ -58,7 +58,7 @@ def three_phase_load_test(n_jobs: int) -> None:
         tier_3_task = BashTask(f"{command} {sleep_time} {uid}",
                                upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
                                                tier2[(i + (2 * n_jobs))]],
-                               slots=1)
+                               num_cores=1)
         tier3.append(tier_3_task)
 
     wf.add_tasks(tier1 + tier2 + tier3)
