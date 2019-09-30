@@ -7,8 +7,8 @@ import uuid
 
 from cluster_utils.io import makedirs_safely
 
-import jobmon
-from jobmon.requester import shared_requester
+from jobmon import __version__
+from jobmon.client import shared_requester
 from jobmon.client_config import client_config
 from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.requester import Requester
@@ -373,7 +373,7 @@ class Workflow(object):
                                     "available".format(scratch_tmp_dir,
                                                        local_tmp_dir))
         tmp_dir = os.path.join(tmp_root,
-                               jobmon.__version__,
+                               __version__,
                                str(self.wf_dao.id),
                                str(self.workflow_run.id))
         logger.info(

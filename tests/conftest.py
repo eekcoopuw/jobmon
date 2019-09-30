@@ -16,8 +16,7 @@ import requests
 
 from cluster_utils.ephemerdb import create_ephemerdb
 
-from jobmon.client import BashTask
-from jobmon.client.swarm.workflow.workflow import Workflow
+from jobmon.client import BashTask, Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +142,7 @@ def db_cfg(ephemera):
 @pytest.fixture(scope='function')
 def env_var(real_jsm_jqs, monkeypatch):
     from jobmon.client import shared_requester, client_config
-    from jobmon.client.config import ClientConfig
+    from jobmon.client.client_config import ClientConfig
 
     cc = ClientConfig.from_defaults()
     cc.host = real_jsm_jqs["JOBMON_HOST"]

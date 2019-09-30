@@ -5,7 +5,6 @@ from typing import List, Tuple, Dict, Optional
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon.requester import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.execution.strategies.base import (
     Executor, JobInstanceExecutorInfo, sge_utils, ExecutorParameters)
@@ -59,10 +58,10 @@ class SGEExecutor(Executor):
             msg = (
                 f"Error in executor {self.__class__.__name__}, {str(self)} "
                 f"while executing command {qsub_cmd}: \n{stack}")
-            shared_requester.send_request(
-                app_route="/error_logger",
-                message={"traceback": msg},
-                request_type="post")
+            # shared_requester.send_request(
+            #     app_route="/error_logger",
+            #     message={"traceback": msg},
+            #     request_type="post")
             if isinstance(e, ValueError):
                 raise e
             return qsub_attribute.NO_EXEC_ID

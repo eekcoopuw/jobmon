@@ -9,16 +9,18 @@ def happy_path(sleep_secs, output_file_path, name):
     f.write("Mock output from '{}'\n".format(name))
     f.close()
 
-"""
-Iterating through a large array to use memory and get legitimate usage statistics
-"""
+
+# Iterating through a large array to use memory and get legitimate usage
+# statistics
+
+
 def main():
     arr = []
     for i in range(10000000000):
         arr.append(i)
 
     for j in arr:
-        arr[j] = j*2
+        arr[j] = j * 2
 
     parser = argparse.ArgumentParser(description='mock job')
     parser.add_argument('--sleep_secs',

@@ -5,7 +5,7 @@ from http import HTTPStatus as StatusCodes
 import os
 import socket
 
-from jobmon.requester import shared_requester
+from jobmon.client import shared_requester
 from jobmon.execution.scheduler.executor_job_instance import \
     ExecutorJobInstance
 from jobmon.client.utils import kill_remote_process

@@ -115,6 +115,3 @@ def get_content(response):
     else:
         content = response.content
     return response.status_code, content
-
-
-shared_requester = Requester(client_config.jm_conn)
