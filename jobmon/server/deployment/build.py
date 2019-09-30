@@ -34,7 +34,9 @@ class BuildContainer:
         filename = self.jobmon_dir + "/.env"
         f = open(filename, "w")
         for k in self.envs.keys():
-            f.write(k + "=" + self.envs[k] + "\n")
+            print("k value: {v} type: {t}".format(v=k, t=type(k)))
+            print("envs[k] value: {v} type: {t}".format(v=self.envs[k], t=type(self.envs[k])))
+            f.write(k + "=" + str(self.envs[k]) + "\n")
         f.close()
 
     def _run_docker_compose(self):
@@ -86,7 +88,7 @@ def main():
     # Have to build under the jobmon root dir to install jobmon
     jobmon_root = os.path.dirname(os.path.abspath(__file__))[
         :0 - len("/jobmon/server/deployment")]
-    BuildContainer(docker_file_dir, jobmon_root).build()
+    BuildContainer(docker_file_dir, jobmon_root, DeploymentConfig.from_defaults()).build()
 
 
 if __name__ == "__main__":
