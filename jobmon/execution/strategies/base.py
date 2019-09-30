@@ -3,7 +3,7 @@ import pkg_resources
 import shutil
 from typing import List, Tuple, Dict, Optional, Union
 
-from jobmon.client_config import client_config
+from jobmon.execution import config
 from jobmon.execution.strategies.sge.sge_parameters import SGEParameters
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.client.client_logging import ClientLogging as logging
@@ -169,7 +169,7 @@ class Executor:
 
     @property
     def jobmon_command(self):
-        jobmon_command = client_config.jobmon_command
+        jobmon_command = config.jobmon_command
         if not jobmon_command:
             jobmon_command = shutil.which("jobmon_command")
         return jobmon_command
@@ -233,8 +233,8 @@ class Executor:
             "--expected_jobmon_version",
             pkg_resources.get_distribution("jobmon").version,
             "--executor_class", self.__class__.__name__,
-            "--heartbeat_interval", client_config.heartbeat_interval,
-            "--report_by_buffer", client_config.report_by_buffer
+            "--heartbeat_interval", config.heartbeat_interval,
+            "--report_by_buffer", config.report_by_buffer
         ]
         if self.temp_dir and 'stata' in command:
             wrapped_cmd.extend(["--temp_dir", self.temp_dir])

@@ -14,6 +14,7 @@ from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
@@ -302,6 +303,7 @@ def get_job_instances_by_status(dag_id):
     resp.status_code = StatusCodes.OK
     return resp
 
+
 # TODO: may want to filter this route by jobmon version or scheduler instance?
 @jqs.route('/get_suspicious_job_instances', methods=['GET'])
 def get_suspicious_job_instances():
@@ -471,21 +473,23 @@ def get_resources(executor_id):
     return resp
 
 
-@jqs.route('/job/<job_id>/most_recent_exec_id', methods=['GET'])
-def get_most_recent_exec_id(job_id: int):
+@jqs.route('/job/<job_id>/most_recent_ji_error', methods=['GET'])
+def get_most_recent_ji_error(job_id: int):
     """
-    Route to collect the most recent executor id for a given job so that it
-    can be qacct'd on to determine more detailed exit information after the fact
+    Route to determine the cause of the most recent job_instance's error
     :param job_id:
-    :return: executor_id
+    :return: error message
     """
+
     logger.debug(logging.myself())
-    executor_id = DB.session.query(JobInstance).\
-        filter_by(job_id=job_id). \
-        order_by(JobInstance.job_instance_id.desc()).\
-        with_entities(JobInstance.executor_id).first()
+    msg = DB.session.query(JobInstance).filter_by(job_id=job_id)\
+        .order_by(JobInstance.job_instance_id.desc())\
+        .join(JobInstanceErrorLog)\
+        .options(contains_eager(JobInstance.job_instance_id))\
+        .with_entities(JobInstanceErrorLog.description)\
+        .first()
     DB.session.commit()
-    resp = jsonify(executor_id=executor_id)
+    resp = jsonify({"error_description": msg})
     resp.status_code = StatusCodes.OK
     return resp
 

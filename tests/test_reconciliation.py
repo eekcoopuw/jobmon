@@ -51,7 +51,7 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     # Queue a job
     task = Task(command="ls", num_cores="1", name="dummyfbb", max_attempts=1)
     job = job_list_manager_dummy.bind_task(task)
-    job_list_manager_dummy.queue_job(job)
+    job_list_manager_dummy.adjust_resources_and_queue(job)
     jif = job_list_manager_dummy.job_instance_factory
     jir = job_list_manager_dummy.job_inst_reconciler
 
@@ -103,8 +103,9 @@ def test_reconciler_sge(db_cfg, jlm_sge_daemon):
     # Queue a job
     task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/sleep.sh"),
                 name="sleepyjob_pass", num_cores=1)
+
     job = jlm_sge_daemon.bind_task(task)
-    jlm_sge_daemon.queue_job(job)
+    jlm_sge_daemon.adjust_resources_and_queue(job)
 
     # Give the job_state_manager some time to process the error message
     # This test job just sleeps for 60s, so it should not be missing
@@ -133,7 +134,7 @@ def test_reconciler_sge_new_heartbeats(jlm_sge_daemon, db_cfg):
     task = BashTask(command="sleep 5", name="heartbeat_sleeper", num_cores=1,
                     max_runtime_seconds=500)
     job = jlm_sge_daemon.bind_task(task)
-    jlm_sge_daemon.queue_job(job)
+    jlm_sge_daemon.adjust_resources_and_queue(job)
 
     jif.instantiate_queued_jobs()
     jir.reconcile()
@@ -198,7 +199,7 @@ def test_reconciler_sge_timeout(jlm_sge_daemon, db_cfg):
                 name="sleepyjob_fail", max_attempts=3, max_runtime_seconds=3,
                 num_cores=1)
     job = jlm_sge_daemon.bind_task(task)
-    jlm_sge_daemon.queue_job(job)
+    jlm_sge_daemon.adjust_resources_and_queue(job)
 
     # Give the SGE scheduler some time to get the job scheduled and for the
     # reconciliation daemon to kill the job.
@@ -215,7 +216,14 @@ def test_reconciler_sge_timeout(jlm_sge_daemon, db_cfg):
 
 def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
                                  job_id, db_cfg):
-    job_list_manager_reconciliation._sync()
+    jlm = job_list_manager_reconciliation
+    jobs = jlm.get_job_statuses()
+    completed, failed, adjusting = jlm.parse_adjusting_done_and_errors(jobs)
+    if adjusting:
+        for task in adjusting:
+            task.executor_parameters = partial(jlm.adjust_resources,
+                                               task)  # change callable
+            jlm.adjust_resources_and_queue(task)
     if len(job_list_manager_reconciliation.all_error) == 1:
         assert job_id in [
             j.job_id for j in job_list_manager_reconciliation.all_error]
@@ -233,6 +241,7 @@ def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
         return False
 
 
+
 # def test_ignore_qw_in_timeouts(jlm_sge_daemon, db_cfg):
 #     # Qsub a long running job -> queue another job that waits on it,
 #     # to simulate a hqw -> set the timeout for that hqw job to something
@@ -242,7 +251,7 @@ def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
 #                 name="sleepyjob", max_attempts=3, max_runtime_seconds=3,
 #                 num_cores=1)
 #     job = jlm_sge_daemon.bind_task(task)
-#     jlm_sge_daemon.queue_job(job)
+#     jlm_sge_daemon.adjust_resources_and_queue(job)
 
 #     # Give the SGE scheduler some time to get the job scheduled and for the
 #     # reconciliation daemon to kill the job
@@ -267,7 +276,7 @@ def test_queued_for_instantiation(jlm_sge_no_daemon):
         task = BashTask(command=f"sleep {i}", num_cores=1)
         tasks.append(task)
         job = jlm_sge_no_daemon.bind_task(task)
-        jlm_sge_no_daemon.queue_job(job)
+        jlm_sge_no_daemon.adjust_resources_and_queue(job)
 
     # comparing results and times of old query vs new query
     rc, response = test_jif.requester.send_request(

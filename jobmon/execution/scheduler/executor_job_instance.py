@@ -1,6 +1,7 @@
 from typing import Optional
 
-from jobmon.requester import Requester, shared_requester
+from jobmon.requester import Requester
+from jobmon.execution import shared_requester
 from jobmon.execution.strategies import Executor
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus

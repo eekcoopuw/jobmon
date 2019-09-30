@@ -88,13 +88,13 @@ class Job(DB.Model):
 
     valid_transitions = [
         (JobStatus.REGISTERED, JobStatus.QUEUED_FOR_INSTANTIATION),
+        (JobStatus.ADJUSTING_RESOURCES, JobStatus.QUEUED_FOR_INSTANTIATION),
         (JobStatus.QUEUED_FOR_INSTANTIATION, JobStatus.INSTANTIATED),
         (JobStatus.INSTANTIATED, JobStatus.RUNNING),
         (JobStatus.INSTANTIATED, JobStatus.ERROR_RECOVERABLE),
         (JobStatus.RUNNING, JobStatus.DONE),
         (JobStatus.RUNNING, JobStatus.ERROR_RECOVERABLE),
         (JobStatus.ERROR_RECOVERABLE, JobStatus.ADJUSTING_RESOURCES),
-        (JobStatus.ADJUSTING_RESOURCES, JobStatus.QUEUED_FOR_INSTANTIATION),
         (JobStatus.ERROR_RECOVERABLE, JobStatus.QUEUED_FOR_INSTANTIATION),
         (JobStatus.ERROR_RECOVERABLE, JobStatus.ERROR_FATAL)]
 

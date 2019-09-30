@@ -84,17 +84,8 @@ def add_job():
         job_hash: unique hash for the job
         command: job's command
         dag_id: dag_id to which this job is attached
-        num_cores: number of cores requested
-        m_mem_free: number of Gigs of memory requested
         max_attempts: how many times the job should be attempted
-        max_runtime_seconds: how long the job should be allowed to run
-        context_args: any other args that should be passed to the executor
-        resource_scales: amount to scale each resource by upon resource failure
-        hard_limits: whether to scale beyond current queue limits and change
-            queue
         tag: job attribute tag
-        queue: which queue is being used
-        j_resource: if the j_drive is being used
     """
     logger.info(logging.myself())
     data = request.get_json()
@@ -108,23 +99,6 @@ def add_job():
         max_attempts=data.get('max_attempts', 3),
         status=JobStatus.REGISTERED)
     DB.session.add(job)
-    DB.session.commit()
-
-    original_exec_params = ExecutorParameterSet(
-        job_id=job.job_id,
-        parameter_set_type=ExecutorParameterSetType.ORIGINAL,
-        max_runtime_seconds=data.get('max_runtime_seconds', None),
-        context_args=data.get('context_args', None),
-        queue=data.get('queue', None),
-        num_cores=data.get('num_cores', None),
-        m_mem_free=data.get('m_mem_free', 2),
-        j_resource=data.get('j_resource', False),
-        resource_scales=data.get('resource_scales', None),
-        hard_limits=data.get('hard_limits', False)
-    )
-    DB.session.add(original_exec_params)
-    DB.session.flush()
-    original_exec_params.activate()
     DB.session.commit()
 
     job_dct = job.to_wire_as_swarm_job()
@@ -791,6 +765,9 @@ def update_job_resources(job_id):
         num_cores (int, optional): how many cores to get from sge
         m_mem_free ():
         j_resource (bool, optional): whether to request access to the j drive
+        resource_scales (dict): values to scale by upon resource error
+        hard_limit (bool): whether to move queues if requester resources exceed
+            queue limits
     """
 
     logger.info(logging.myself())

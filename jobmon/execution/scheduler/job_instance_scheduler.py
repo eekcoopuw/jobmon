@@ -5,17 +5,13 @@ import time
 import traceback
 from typing import Optional, List
 
-from jobmon.requester import Requester, shared_requester
-
-# TODO, split configs?
-from jobmon.client_config import client_config
-
-from jobmon.models.attributes.constants import qsub_attribute
-
+from jobmon.execution import shared_requester, config
 from jobmon.execution.strategies import Executor
 from jobmon.execution.scheduler.executor_job import ExecutorJob
 from jobmon.execution.scheduler.executor_job_instance import \
     ExecutorJobInstance
+from jobmon.models.attributes.constants import qsub_attribute
+from jobmon.requester import Requester
 
 
 logger = logging.getLogger(__name__)
@@ -33,7 +29,7 @@ class JobInstanceScheduler:
         self._stop_event = threading.Event()
         self.reconciliation_proc = threading.Thread(
             target=self._reconcile_forever,
-            args=(client_config.reconciliation_interval,))
+            args=(config.reconciliation_interval,))
         self.reconciliation_proc.daemon = True
 
     def start(self):
@@ -152,9 +148,7 @@ class JobInstanceScheduler:
         elif executor_id:
             job_instance.register_submission_to_batch_executor(
                 executor_id,
-                (
-                    client_config.heartbeat_interval *
-                    client_config.report_by_buffer))
+                config.heartbeat_interval * config.report_by_buffer)
         else:
             msg = ("Did not receive an executor_id in _create_job_instance")
             logger.error(msg)
@@ -183,8 +177,7 @@ class JobInstanceScheduler:
 
     def _log_executor_report_by(self) -> None:
         next_report_increment = (
-            client_config.heartbeat_interval *
-            client_config.report_by_buffer)
+            config.heartbeat_interval * config.report_by_buffer)
         try:
             # TODO, this method needs to be user agnostic
             # qstat for pending jobs or running jobs

@@ -384,8 +384,6 @@ class Workflow(object):
 
     def execute(self) -> int:
         """Run this workflow"""
-        # add_jobmon_file_logger('jobmon', logging.DEBUG,
-        #                        '{}/jobmon.log'.format(os.getcwd()))
 
         if not self.is_bound:
             self._bind()

@@ -203,8 +203,10 @@ class TaskDag(object):
                 if task.is_done:
                     raise RuntimeError("Invalid DAG. Encountered a DONE node.")
                 else:
-                    logger.debug("Queueing newly ready task {}".format(task))
-                    self.job_list_manager.queue_task(task)
+                    logger.debug("Instantiating resources for newly ready "
+                                 "task and changing it to the queued state {}"
+                                 .format(task))
+                    self.job_list_manager.adjust_resources_and_queue(task)
 
             # TBD timeout?
             # An exception is raised if the runtime exceeds the timeout limit

@@ -9,6 +9,7 @@ from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
 from jobmon.models.attributes.workflow_run_attribute_type import \
     WorkflowRunAttributeType
+from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.job import Job
 from jobmon.models.job_instance import JobInstance
@@ -158,6 +159,7 @@ def clean_job_db(db):
     _truncate(db, JobInstanceErrorLog)
     _truncate(db, JobInstance)
     _truncate(db, JobAttribute)
+    _truncate(db, ExecutorParameterSet)
     _truncate(db, Job)
 
     _truncate(db, WorkflowRunAttribute)
