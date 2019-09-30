@@ -22,7 +22,6 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
     root_out_dir = "{}/mocks/test_resume_real_dag".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     command_script = sge_utils.true_path(f"{path_to_file}/remote_sleep_and_write.py")
-
     a_output_file_name = "{}/a.out".format(root_out_dir)
     task_a = SleepAndWriteFileMockTask(
         command=("python {cs} --sleep_secs 1 --output_file_path {ofn} "
@@ -91,6 +90,7 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
     # the real_dag will keep track of all completed tasks from last run of
     # the real_dag, and so the number of all_completed will be all 5
     real_dag._set_fail_after_n_executions(None)
+    real_dag.bind_to_db(real_dag.dag_id)
     status, all_completed, all_previously_complete, \
         all_failed = real_dag._execute()
     assert status == DagExecutionStatus.SUCCEEDED

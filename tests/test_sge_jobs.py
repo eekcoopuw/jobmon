@@ -22,7 +22,7 @@ def test_valid_command(real_dag_id, jlm_sge_daemon):
              max_runtime_seconds='1000',
              j_resource=True,
              max_attempts=1))
-    jlm_sge_daemon.queue_job(job)
+    jlm_sge_daemon.adjust_resources_and_queue(job)
 
     def valid_command_check(job_list_manager_sge):
         job_list_manager_sge._sync()
@@ -51,7 +51,7 @@ def test_context_args(db_cfg, jlm_sge_daemon):
              max_attempts=1,
              max_runtime_seconds='1000',
              context_args={'sge_add_args': '-a {}'.format(delay_to)}))
-    jlm_sge_daemon.queue_job(job)
+    jlm_sge_daemon.adjust_resources_and_queue(job)
 
     def context_args_check(db_cfg, job_id) -> bool:
         app = db_cfg["app"]
@@ -144,7 +144,7 @@ def architecture_specific_args(db_cfg,
              max_runtime_seconds='100',
              context_args={
                  'sge_add_args': f"-l {architecture_name}{suffix}"}))
-    job_list_manager_sge.queue_job(job)
+    job_list_manager_sge.adjust_resources_and_queue(job)
 
     timeout_and_skip(step_size=10, max_time=30, max_qw=1,
                      job_name=test_name,

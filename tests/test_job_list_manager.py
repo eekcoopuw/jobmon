@@ -52,7 +52,7 @@ def test_sync(db_cfg, jlm_sge_no_daemon):
              max_runtime_seconds='1000',
              num_cores=1))
     # create job instances
-    jlm_sge_no_daemon.queue_job(job)
+    jlm_sge_no_daemon.adjust_resources_and_queue(job)
     jid = jlm_sge_no_daemon.job_instance_factory.instantiate_queued_jobs()
 
     def get_presumed_submitted_or_running(DB, dag_id):
@@ -92,7 +92,7 @@ def test_invalid_command(job_list_manager):
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
 
-    job_list_manager.queue_job(job.job_id)
+    job_list_manager.adjust_resources_and_queue(job)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
     assert len(job_list_manager.all_error) == 0
@@ -111,7 +111,7 @@ def test_valid_command(job_list_manager):
     njobs0 = job_list_manager.active_jobs
     assert len(njobs0) == 0
     assert len(job_list_manager.all_done) == 0
-    job_list_manager.queue_job(job.job_id)
+    job_list_manager.adjust_resources_and_queue(job)
     njobs1 = job_list_manager.active_jobs
     assert len(njobs1) == 1
 
@@ -127,7 +127,7 @@ def test_valid_command(job_list_manager):
 def test_daemon_invalid_command(job_list_manager_daemon):
     job = job_list_manager_daemon.bind_task(
         Task(command="some new job", name="foobar", num_cores=1))
-    job_list_manager_daemon.queue_job(job.job_id)
+    job_list_manager_daemon.adjust_resources_and_queue(job)
 
     job_list_manager_daemon._sync()
     return len(job_list_manager_daemon.all_error) == 1
@@ -136,16 +136,20 @@ def test_daemon_invalid_command(job_list_manager_daemon):
 def test_daemon_valid_command(job_list_manager_daemon):
     job = job_list_manager_daemon.bind_task(
         Task(command="ls", name="foobarbaz", num_cores=1))
-    job_list_manager_daemon.queue_job(job.job_id)
-
+    job_list_manager_daemon.adjust_resources_and_queue(job)
     job_list_manager_daemon._sync()
     return len(job_list_manager_daemon.all_done) == 1
+
+
+def daemon_valid_command_check(job_list_manager_d):
+    job_list_manager_d._sync()
+    return len(job_list_manager_d.all_done) == 1
 
 
 def test_blocking_update_timeout(job_list_manager_daemon):
     job = job_list_manager_daemon.bind_task(
         Task(command="sleep 3", name="foobarbaz", num_cores=1))
-    job_list_manager_daemon.queue_job(job)
+    job_list_manager_daemon.adjust_resources_and_queue(job)
 
     with pytest.raises(RuntimeError) as error:
         job_list_manager_daemon.block_until_any_done_or_error(timeout=2)
@@ -160,7 +164,7 @@ def test_sge_valid_command(jlm_sge_no_daemon):
     job = jlm_sge_no_daemon.bind_task(
         Task(command="ls", name="sgefbb", num_cores=3,
              max_runtime_seconds='1000', m_mem_free='600M'))
-    jlm_sge_no_daemon.queue_job(job)
+    jlm_sge_no_daemon.adjust_resources_and_queue(job)
     jlm_sge_no_daemon.job_instance_factory.instantiate_queued_jobs()
     jlm_sge_no_daemon._sync()
     assert (jlm_sge_no_daemon.bound_tasks[job.job_id].status ==
@@ -188,7 +192,7 @@ def test_server_502(job_list_manager):
 
     job = job_list_manager.bind_task(Task(command='ls', name='baz',
                                           num_cores=1))
-    job_list_manager.queue_job(job)
+    job_list_manager.adjust_resources_and_queue(job)
     job_list_manager.job_instance_factory.instantiate_queued_jobs()
 
     # mock requester.get_content to return 2 502s then 200
@@ -230,7 +234,7 @@ def test_job_instance_qsub_error(jlm_sge_no_daemon, db_cfg, monkeypatch,
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
                              max_runtime_seconds='1000', m_mem_free='600M'))
-    jlm.queue_job(job)
+    jlm.adjust_resources_and_queue(job)
     jif.instantiate_queued_jobs()
     jlm._sync()
     app = db_cfg["app"]
@@ -254,7 +258,7 @@ def test_job_instance_bad_qsub_parse(jlm_sge_no_daemon, db_cfg, monkeypatch,
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
                              max_runtime_seconds='1000', m_mem_free='600M'))
-    jlm.queue_job(job)
+    jlm.adjust_resources_and_queue(job)
     jif.instantiate_queued_jobs()
     jlm._sync()
     app = db_cfg["app"]
@@ -288,7 +292,7 @@ def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
     job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
                              num_cores=3, max_runtime_seconds='70',
                              m_mem_free='600M'))
-    jlm.queue_job(job)
+    jlm.adjust_resources_and_queue(job)
     jids = jif.instantiate_queued_jobs()
     jlm._sync()
     resp = query_till_running(db_cfg)
@@ -329,7 +333,7 @@ def test_context_args(jlm_sge_no_daemon, db_cfg, caplog):
              max_runtime_seconds='1000',
              context_args={'sge_add_args': '-a foo'}))
 
-    jlm.queue_job(job)
+    jlm.adjust_resources_and_queue(job)
     jif.instantiate_queued_jobs()
 
     assert "-a foo" in caplog.text

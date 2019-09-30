@@ -1,8 +1,7 @@
 import os
 import pkg_resources
 import shutil
-from typing import List, Tuple, Dict, Optional, Type, Union
-
+from typing import List, Tuple, Dict, Optional, Type, Union, Callable
 from jobmon.client import client_config
 from jobmon.client.swarm.executors.sge_parameters import SGEParameters
 from jobmon.exceptions import RemoteExitInfoNotAvailable
