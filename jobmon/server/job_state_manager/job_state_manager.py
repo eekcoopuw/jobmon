@@ -371,7 +371,7 @@ def log_error_worker_node(job_instance_id: int):
     error_state = data["error_state"]
     error_message = data["error_message"]
     logger.debug(error_message)
-    logger.debug("*******************************" + str(len(error_message)))
+    logger.debug(str(len(error_message)))
     executor_id = data.get('executor_id', None)
     nodename = data.get("nodename", None)
     logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
