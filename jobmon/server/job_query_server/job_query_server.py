@@ -14,11 +14,12 @@ from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.jobmonLogging import jobmonLogging as logging
+from jobmon.server.server_logging import jobmonLogging as logging
 
 jqs = Blueprint("job_query_server", __name__)
 
@@ -185,11 +186,10 @@ def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
     time = get_time(DB.session)
     jobs = DB.session.query(Job). \
         filter(
-        Job.dag_id == dag_id,
-        Job.status.in_([JobStatus.QUEUED_FOR_INSTANTIATION,
-                        JobStatus.ADJUSTING_RESOURCES]),
-        Job.status_date >= last_sync). \
-        order_by(Job.job_id). \
+            Job.dag_id == dag_id,
+            Job.status == JobStatus.QUEUED_FOR_INSTANTIATION,
+            Job.status_date >= last_sync).\
+        order_by(Job.job_id).\
         limit(n_queued_jobs)
     DB.session.commit()
     job_dcts = [j.to_wire_as_executor_job() for j in jobs]
@@ -455,21 +455,23 @@ def get_resources(executor_id):
     return resp
 
 
-@jqs.route('/job/<job_id>/most_recent_exec_id', methods=['GET'])
-def get_most_recent_exec_id(job_id: int):
+@jqs.route('/job/<job_id>/most_recent_ji_error', methods=['GET'])
+def get_most_recent_ji_error(job_id: int):
     """
-    Route to collect the most recent executor id for a given job so that it
-    can be qacct'd on to determine more detailed exit information after the fact
+    Route to determine the cause of the most recent job_instance's error
     :param job_id:
-    :return: executor_id
+    :return: error message
     """
+
     logger.debug(logging.myself())
-    executor_id = DB.session.query(JobInstance).\
-        filter_by(job_id=job_id). \
-        order_by(JobInstance.job_instance_id.desc()).\
-        with_entities(JobInstance.executor_id).first()
+    msg = DB.session.query(JobInstance).filter_by(job_id=job_id)\
+                          .order_by(JobInstance.job_instance_id.desc())\
+                          .join(JobInstanceErrorLog)\
+                          .options(contains_eager(JobInstance.job_instance_id))\
+                          .with_entities(JobInstanceErrorLog.description)\
+                          .first()
     DB.session.commit()
-    resp = jsonify(executor_id=executor_id)
+    resp = jsonify({"error_description": msg})
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -516,3 +518,4 @@ def get_nodename(job_instance_id: int):
         resp = jsonify({'msg': str(e)})
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
         return resp
+

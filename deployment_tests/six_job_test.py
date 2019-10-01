@@ -2,7 +2,7 @@
 import uuid
 from jobmon.client.swarm.workflow.workflow import Workflow
 
-from jobmon import BashTask
+from jobmon.client import BashTask
 
 
 def six_job_test():

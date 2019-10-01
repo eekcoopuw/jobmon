@@ -2,7 +2,6 @@ from builtins import str
 from datetime import datetime
 import getpass
 from http import HTTPStatus as StatusCodes
-import logging
 import os
 import socket
 
@@ -13,6 +12,7 @@ from jobmon.client.swarm.executors.sge_utils import get_project_limits
 from jobmon.client.utils import kill_remote_process
 from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)

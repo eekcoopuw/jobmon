@@ -1,4 +1,3 @@
-import logging
 from typing import Optional, List
 
 from jobmon.client import shared_requester
@@ -7,6 +6,7 @@ from jobmon.client.swarm.executors import ExecutorParameters
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.job_status import JobStatus
 from jobmon.serializers import SerializeExecutorJob
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -101,29 +101,6 @@ class ExecutorJob:
                 hard_limits=kwargs["hard_limits"]),
             requester=requester)
         return executor_job
-
-    def update_executor_parameter_set(self,
-        parameter_set_type: str = ExecutorParameterSetType.ADJUSTED,
-        only_scale: List = []) -> None:
-
-        """
-        update the resources for a given job in the db
-
-        Args:
-            parameter_set_type: models.executor_parameter_set_type value
-            only_adjust: only one resource that should be adjusted,
-                otherwise all resources will be adjusted
-        """
-        logger.debug(f"only going to scale these resources: {only_scale}")
-        resources_adjusted = {'only_scale': only_scale}
-        self.executor_parameters.adjust(**resources_adjusted)
-
-        msg = {'parameter_set_type': parameter_set_type}
-        msg.update(self.executor_parameters.to_wire())
-        self.requester.send_request(
-            app_route=f'/job/{self.job_id}/update_resources',
-            message=msg,
-            request_type='post')
 
     def queue_job(self) -> None:
         """Transition a job to the Queued for Instantiation status"""

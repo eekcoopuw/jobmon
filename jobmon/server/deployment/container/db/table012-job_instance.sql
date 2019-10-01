@@ -23,21 +23,21 @@ CREATE TABLE `job_instance`(
   `submitted_date` datetime DEFAULT NULL,
   `status_date` datetime DEFAULT NULL,
   `report_by_date` datetime DEFAULT NULL,
-  `submitted_date_short` date,
-  PRIMARY KEY (`job_instance_id`, `submitted_date_short`),
+  `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
+  PRIMARY KEY (`job_instance_id`, `partition_date`),
   KEY `ix_job_instance_dag_id` (`dag_id`),
   KEY `ix_job_instance_executor_id` (`executor_id`),
   KEY `executor_parameter_set_id` (`executor_parameter_set_id`),
   KEY `status` (`status`),
   KEY `job_id` (`job_id`)
   ) ENGINE=InnoDB
-/*!50100 PARTITION BY RANGE (TO_DAYS(submitted_date_short))
-( PARTITION p201908 VALUES LESS THAN (TO_DAYS('2019-09-01'))ENGINE = InnoDB,
-PARTITION p201909 VALUES LESS THAN (TO_DAYS('2019-10-01'))ENGINE = InnoDB,
-PARTITION p201910 VALUES LESS THAN (TO_DAYS('2019-11-01'))ENGINE = InnoDB,
-PARTITION p201911 VALUES LESS THAN (TO_DAYS('2019-12-01'))ENGINE = InnoDB,
-PARTITION p201912 VALUES LESS THAN (TO_DAYS('2020-01-01'))ENGINE = InnoDB,
-PARTITION p202001 VALUES LESS THAN (TO_DAYS('2020-02-01'))ENGINE = InnoDB,
+/*!50100 PARTITION BY RANGE (UNIX_TIMESTAMP(partition_date))
+( PARTITION p201908 VALUES LESS THAN (UNIX_TIMESTAMP('2019-09-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201909 VALUES LESS THAN (UNIX_TIMESTAMP('2019-10-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201910 VALUES LESS THAN (UNIX_TIMESTAMP('2019-11-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201911 VALUES LESS THAN (UNIX_TIMESTAMP('2019-12-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201912 VALUES LESS THAN (UNIX_TIMESTAMP('2020-01-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p202001 VALUES LESS THAN (UNIX_TIMESTAMP('2020-02-01 00:00:00'))ENGINE = InnoDB,
 PARTITION future VALUES LESS THAN MAXVALUE ENGINE = InnoDB
 
 )*/;

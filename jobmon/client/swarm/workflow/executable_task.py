@@ -1,11 +1,15 @@
-import logging
+from functools import partial
 import hashlib
-from typing import Optional, List, Dict
+import logging
+
+from typing import Optional, List, Dict, Callable, Union
 
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.client.client_logging import ClientLogging as logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +79,8 @@ class ExecutableTask(object):
                  m_mem_free: Optional[str] = None,
                  hard_limits: Optional[bool] = False,
                  executor_class: str = 'SGEExecutor',
-                 executor_parameters: Optional[ExecutorParameters] = None):
+                 executor_parameters:
+                 Optional[Union[ExecutorParameters, Callable]] = None):
         """
         Create a task
 
@@ -153,7 +158,7 @@ class ExecutableTask(object):
         else:
             self.job_attributes = {}
         if executor_parameters is None:
-            self.executor_parameters = ExecutorParameters(
+            executor_parameters = ExecutorParameters(
                 num_cores=num_cores,
                 m_mem_free=m_mem_free,
                 max_runtime_seconds=max_runtime_seconds,
@@ -163,11 +168,17 @@ class ExecutableTask(object):
                 resource_scales=resource_scales,
                 hard_limits=hard_limits,
                 executor_class=executor_class)
+        if isinstance(executor_parameters, ExecutorParameters):
+            # if the resources have already been defined, function returns
+            # itself upon evalutaion
+            is_valid, msg = executor_parameters.is_valid()
+            if not is_valid:
+                logger.warning(msg)
+            static_func = lambda executor_parameters, *args: executor_parameters
+            self.executor_parameters = partial(static_func, executor_parameters)
         else:
-            self.executor_parameters = executor_parameters
-        is_valid, msg = self.executor_parameters.is_valid()
-        if not is_valid:
-            logger.warning(msg)
+            # if a callable was provided instead
+            self.executor_parameters = partial(executor_parameters, self)
 
     def add_upstream(self, ancestor):
         """
@@ -263,6 +274,12 @@ class BoundTask(object):
 
         self._jlm = job_list_manager
         self._task = task
+        if task:
+            self.executor_parameters = task.executor_parameters
+        else:
+            self.executor_parameters = None
+
+        self.bound_parameters = [] # once the callable is evaluated, the resources should be saved here
 
         if task:
             self.hash = task.hash
