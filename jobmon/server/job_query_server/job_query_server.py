@@ -519,3 +519,23 @@ def get_nodename(job_instance_id: int):
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
         return resp
 
+
+@jqs.route('/job_instance/<job_instance_id>/get_errors', methods=['GET'])
+def get_ji_error(job_instance_id: int):
+    """
+    This route is created for testing purpose
+
+    :param executor_id:
+    :return:
+    """
+    logger.debug(logging.myself())
+    query = f"select description from job_instance_error_log where job_instance_id = {job_instance_id};"
+    result = DB.session.execute(query)
+    errors = []
+    for r in result:
+        errors.append(r[0])
+    DB.session.commit()
+    logger.debug(errors)
+    resp = jsonify({'errors': errors})
+    resp.status_code = StatusCodes.OK
+    return resp

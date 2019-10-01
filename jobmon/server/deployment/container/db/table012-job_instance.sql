@@ -11,7 +11,7 @@ CREATE TABLE `job_instance` (
   `executor_id` int(11) DEFAULT NULL,
   `job_id` int(11) NOT NULL,
   `dag_id` int(11) NOT NULL,
-  `executor_parameter_set_id` int(11) NOT NULL,
+  `executor_parameter_set_id` int(11) DEFAULT NULL,
   `usage_str` varchar(250) DEFAULT NULL,
   `nodename` varchar(50) DEFAULT NULL,
   `process_group_id` int(11) DEFAULT NULL,
@@ -33,4 +33,4 @@ CREATE TABLE `job_instance` (
   CONSTRAINT `job_instance_ibfk_2` FOREIGN KEY (`executor_parameter_set_id`) REFERENCES `executor_parameter_set` (`id`),
   CONSTRAINT `job_instance_ibfk_3` FOREIGN KEY (`status`) REFERENCES `job_instance_status` (`id`),
   CONSTRAINT `job_instance_ibfk_4` FOREIGN KEY (`job_id`) REFERENCES `job` (`job_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8;

@@ -21,4 +21,4 @@ CREATE TABLE `executor_parameter_set` (
   KEY `job_id` (`job_id`),
   CONSTRAINT `executor_parameter_set_ibfk_1` FOREIGN KEY (`parameter_set_type`) REFERENCES `executor_parameter_set_type` (`id`),
   CONSTRAINT `executor_parameter_set_ibfk_2` FOREIGN KEY (`job_id`) REFERENCES `job` (`job_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;

@@ -24,4 +24,5 @@ CREATE TABLE `job` (
   KEY `status` (`status`),
   CONSTRAINT `job_ibfk_2` FOREIGN KEY (`status`) REFERENCES `job_status` (`id`),
   CONSTRAINT `job_ibfk_3` FOREIGN KEY (`dag_id`) REFERENCES `task_dag` (`dag_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+

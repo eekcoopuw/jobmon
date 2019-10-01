@@ -51,7 +51,7 @@ class JobInstance(DB.Model):
     executor_parameter_set_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('executor_parameter_set.id'),
-        nullable=False)
+        nullable=True)
 
     # usage
     usage_str = DB.Column(DB.String(250))
