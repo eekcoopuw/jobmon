@@ -42,7 +42,7 @@ class WorkerNodeJobInstance:
         self.executor = job_instance_executor_info
         self.requester = shared_requester
         logger.info("Instantiated JobInstanceIntercom")
-        logger.debug("job_instance_id: " + str(job_instance_id + "; nodename:" + str(nodename)))
+        logger.debug(f"job_instance_id: {job_instance_id}; nodename: + {nodename}")
 
     @property
     def executor_id(self) -> Optional[int]:
