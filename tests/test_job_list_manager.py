@@ -296,8 +296,13 @@ def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
     jids = jif.instantiate_queued_jobs()
     jlm._sync()
     resp = query_till_running(db_cfg)
-    while resp.status != 'R':
+    count = 0
+    while resp.status != 'R' and count < 20:
+        jids = jif.instantiate_queued_jobs()
+        jlm._sync()
         resp = query_till_running(db_cfg)
+        sleep(3)
+        count = count + 1
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():

@@ -28,7 +28,7 @@ def ephemera():
     because the ephemera db has to be started before any other code
     imports the_server_config
     """
-    edb = create_ephemerdb(elevated_privileges=True)
+    edb = create_ephemerdb(elevated_privileges=True, using_mariadb=True)
     edb.db_name = "docker"
     conn_str = edb.start()
     # use the ephemera db root privileges (root: singularity_root) otherwise

@@ -233,3 +233,4 @@ def test_mem_exceeds_limit_cant_scale(jlm_sge_no_daemon, db_cfg):
         assert job.executor_parameter_set.m_mem_free == 0.6
         assert job.executor_parameter_set.max_runtime_seconds == 60
         DB.session.commit()
+
