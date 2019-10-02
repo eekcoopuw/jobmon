@@ -8,6 +8,7 @@ from sqlalchemy.sql import func
 import traceback
 from typing import Optional
 import warnings
+import sqlalchemy
 
 from jobmon import config
 from jobmon.models import DB
@@ -332,20 +333,25 @@ def _log_error(ji: JobInstance,
         ji.executor_id = executor_id
 
     try:
+        error = JobInstanceErrorLog(job_instance_id=ji.job_instance_id,
+                                       description=error_msg)
+        DB.session.add(error)
         msg = _update_job_instance_state(ji, error_state)
         DB.session.commit()
-        error = JobInstanceErrorLog(job_instance_id=ji.job_instance_id,
-                                    description=error_msg)
-        DB.session.add(error)
-        DB.session.commit()
-
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.OK
-    except InvalidStateTransition:
+    except InvalidStateTransition as e:
+        DB.session.rollback()
+        logger.warning(str(e))
         log_msg = f"JSM::log_error(), reason={msg}"
         warnings.warn(log_msg)
         logger.debug(log_msg)
         raise
+    except Exception as e:
+        DB.session.rollback()
+        logger.warning(str(e))
+        raise
+
 
     return resp
 
@@ -364,14 +370,22 @@ def log_error_worker_node(job_instance_id: int):
     data = request.get_json()
     error_state = data["error_state"]
     error_message = data["error_message"]
+    logger.debug(error_message)
+    logger.debug(str(len(error_message)))
     executor_id = data.get('executor_id', None)
     nodename = data.get("nodename", None)
     logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
     logger.debug("data:" + str(data))
 
     ji = _get_job_instance(DB.session, job_instance_id)
-    resp = _log_error(ji, error_state, error_message, executor_id, nodename)
-    return resp
+    try:
+        resp = _log_error(ji, error_state, error_message, executor_id, nodename)
+        return resp
+    except sqlalchemy.exc.OperationalError as e:
+        # modify the error message and retry
+        new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+        resp = _log_error(ji, error_state, new_msg, executor_id, nodename)
+        return resp
 
 
 @jsm.route('/job_instance/<job_instance_id>/log_error_reconciler',
@@ -398,8 +412,13 @@ def log_error_reconciler(job_instance_id: int):
     # make sure the job hasn't logged a new heartbeat since we began
     # reconciliation
     if ji.report_by_date <= datetime.utcnow():
-        resp = _log_error(ji, error_state, error_message, executor_id,
-                          nodename)
+        try:
+            resp = _log_error(ji, error_state, error_message, executor_id,
+                              nodename)
+        except sqlalchemy.exc.OperationalError as e:
+            # modify the error message and retry
+            new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+            resp = _log_error(ji, error_state, new_msg, executor_id, nodename)
     else:
         resp = jsonify()
         resp.status_code = StatusCodes.OK
@@ -928,7 +947,6 @@ def _update_job_instance_state(job_instance, status_id):
                 f"{job_instance.job_instance_id}" \
                 f"from {job_instance.status} to {status_id}"
             logger.warning(msg)
-            print(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. " \
@@ -937,19 +955,16 @@ def _update_job_instance_state(job_instance, status_id):
                 f"from {job_instance.status} to {status_id}"
             # log_and_raise(msg, logger)
             logger.error(msg)
-            print(msg)
     except KillSelfTransition:
         msg = f"kill self, cannot transition " \
               f"jid={job_instance.job_instance_id}"
         logger.warning(msg)
-        print(msg)
         response = "kill self"
     except Exception as e:
         msg = f"General exception in _update_job_instance_state, " \
             f"jid {job_instance}, transitioning to {job_instance}. " \
             f"Not transitioning job. {e}"
         log_and_raise(msg, logger)
-        print(msg)
 
     job = job_instance.job
 

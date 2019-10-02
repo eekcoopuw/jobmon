@@ -23,7 +23,7 @@ CREATE TABLE `job` (
   KEY `ix_job_status_date` (`status_date`),
   KEY `executor_parameter_set_id` (`executor_parameter_set_id`),
   KEY `status` (`status`)
-  ) ENGINE=InnoDB
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 /*!50100 PARTITION BY RANGE (UNIX_TIMESTAMP(partition_date))
 ( PARTITION p201908 VALUES LESS THAN (UNIX_TIMESTAMP('2019-09-01 00:00:00'))ENGINE = InnoDB,
 PARTITION p201909 VALUES LESS THAN (UNIX_TIMESTAMP('2019-10-01 00:00:00'))ENGINE = InnoDB,

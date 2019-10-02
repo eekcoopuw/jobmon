@@ -20,7 +20,7 @@ CREATE TABLE `executor_parameter_set` (
   PRIMARY KEY (`id`, `partition_date`),
   KEY `parameter_set_type` (`parameter_set_type`),
   KEY `job_id` (`job_id`)
-  ) ENGINE=InnoDB
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 /*!50100 PARTITION BY RANGE (UNIX_TIMESTAMP(partition_date))
 ( PARTITION p201908 VALUES LESS THAN (UNIX_TIMESTAMP('2019-09-01 00:00:00'))ENGINE = InnoDB,
 PARTITION p201909 VALUES LESS THAN (UNIX_TIMESTAMP('2019-10-01 00:00:00'))ENGINE = InnoDB,

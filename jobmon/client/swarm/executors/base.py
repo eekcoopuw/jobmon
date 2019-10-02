@@ -48,13 +48,21 @@ class ExecutorParameters:
 
         # initialize
         self._num_cores = num_cores
+        logger.debug("num_cores: " + str(num_cores))
         self._queue = queue
+        logger.debug("queue: " + str(queue))
         self._max_runtime_seconds = max_runtime_seconds
+        logger.debug("max_runtime_seconds: " + str(max_runtime_seconds))
         self._j_resource = j_resource
+        logger.debug("j_resource: " + str(j_resource))
         self._m_mem_free = m_mem_free
+        logger.debug("m_mem_free: " + str(m_mem_free))
         self._context_args = context_args
+        logger.debug("context_args: " + str(context_args))
         self._hard_limits = hard_limits
+        logger.debug("hard_limits: " + str(hard_limits))
         self._resource_scales = resource_scales
+        logger.debug("resource_scales: " + str(resource_scales))
 
         StrategyCls = self._strategies.get(executor_class)
         self._strategy: Optional[SGEParameters] = None

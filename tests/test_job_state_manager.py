@@ -1205,3 +1205,72 @@ def test_get_nodename(db_cfg, real_dag_id):
     )
     assert rc == 200
     assert response['nodename'] == "mimi.ilovecat.org"
+
+
+def _get_ords(s):
+    r = ""
+    for c in s:
+        r += str(ord(c)) + " "
+    return r.strip()
+
+
+@pytest.mark.parametrize("testing_chars, comment, replaced", [ #you may not read the testing data due to missing fonts
+                                                    ("a", "Latin1", False),
+                                                    ("Ā ā Ă ă Ą ą ", "UTF-8 latin extended", False),
+                                                    ("ༀ ༁ ༂ ༃ ༄ ༅ ༆ ༇ ༈ ༉ ༊", "UTF-8 Tibetan", False),
+                                                    ("ᜀ ᜁ ᜂ ᜃ", "UTF-8 Tagalog", False),
+                                                    ("① ② ③ ④ ⑤ ⑥ ⑦ ⑧ ⑨ ⑩", "UTF-8 Enclosed alphanumerics", False),
+                                                    ("▀ ▁ ▂ ▃ ▄ ▅ ▆ ▇ █ ▉ ▊ ▋ ▌ ▍ ▎ ▏ ▐", "UTF-8 Block elements1", False),
+                                                    ("░ ▒ ▓ ▔ ▕ ▖ ▗ ▘ ▙ ▚ ▛ ▜ ▝ ▞ ▟", "UTF-8 Block elements2", False),
+                                                    ("✁ ✂ ✃ ✄ ✆ ✇ ✈ ✉ ✌ ", "UTF-8 Dingbats", False),
+                                                    ("⤔ ⤕ ⤖ ⤗ ⤘ ⤙ ⤚ ⤛ ⤜ ⤝ ⤞ ⤟ ⤠", "UTF-8 Supplemental arrows", False),
+                                                    ("⡻ ⡼ ⡽ ⡾ ⡿ ...", "UTF-8 Braille patterns", False),
+                                                    ("⻯ ⻱ ⻲ ⻳", "UTF-8 CJK radicals", False),
+                                                    ("〄 々 〆 〇 〈 〉 《 》 「 」 『 』 【 】 〒 〓", "UTF-8 CJK symbols", False),
+                                                    ("ぁ あ ぃ い", "UTF-8 Hiragana", False),
+                                                    ("㈫ ㈬ ㈭ ㈮ ㈯", "UTF-8 Enclosed CJK", False),
+                                                    ("𝄀 𝄁 𝄂 𝄃 𝄄 𝄅 𝄆 𝄇 𝄈 𝄉 𝄊 𝄋 𝄌 𝄍 𝄎 𝄏 𝄐 𝄑 𝄒 𝄓 𝄔 𝄕", "UTF-8 Musical", True)
+                                                    ])
+def test_special_chars(real_dag_id, testing_chars, comment, replaced):
+    logger.info("Testing {c} {s}({ords})".format(c=comment, s=testing_chars, ords=_get_ords(testing_chars)))
+    logger.debug("Lenth of input data" + str(len(testing_chars)))
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id),
+                 'max_attempts': '3'},
+        request_type='post')
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    req.send_request(
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
+        message={},
+        request_type='post')
+
+    # Create a job instances
+    rc, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(swarm_job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    ji1 = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+    # Log some strange characters in the error
+    s = f"{testing_chars} ({comment} {_get_ords(testing_chars)})"
+    status, _ = req.send_request(
+        app_route='/job_instance/{}/log_error_worker_node'.format(ji1),
+        message={'error_message': s,
+                 'executor_id': str(12345),
+                 'error_state': JobInstanceStatus.ERROR,
+                 'nodename': socket.getfqdn()},
+        request_type='post')
+    assert status == 200
+    status, msg = req.send_request(app_route='/job_instance/{}/get_errors'.format(ji1),
+                                   message={},
+                                   request_type='get')
+    assert status == 200
+    if replaced:
+        assert s.encode("latin1", "replace").decode("utf-8") in msg["errors"]
+    else:
+        assert s in msg["errors"]
