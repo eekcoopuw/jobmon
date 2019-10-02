@@ -290,7 +290,7 @@ def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
     jlm = jlm_sge_no_daemon
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
-                             num_cores=3, max_runtime_seconds='70',
+                             num_cores=1, max_runtime_seconds=120,
                              m_mem_free='600M'))
     jlm.adjust_resources_and_queue(job)
     jids = jif.instantiate_queued_jobs()
@@ -298,10 +298,8 @@ def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
     resp = query_till_running(db_cfg)
     count = 0
     while resp.status != 'R' and count < 20:
-        jids = jif.instantiate_queued_jobs()
-        jlm._sync()
         resp = query_till_running(db_cfg)
-        sleep(3)
+        sleep(10)
         count = count + 1
     app = db_cfg["app"]
     DB = db_cfg["DB"]
