@@ -112,13 +112,13 @@ def createSetupCfgFile() {
         jobmon_service_user_pwd=\${jobmon_service_user_pwd}
 
         [same host]
-        existing_network=\${existing_network}"
+        existing_network=\${existing_network}
 
 
         [rsyslog]
         host=\${rs_host}
         port=\${rs_port}
-        protocol=\${rs_protocol}> /tmp/jobmon.cfg
+        protocol=\${rs_protocol}"> /tmp/jobmon.cfg
         '''
 }
 
