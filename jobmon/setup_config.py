@@ -390,7 +390,7 @@ class SetupCfg:
             val = self._env.get("RSYSLOG_PORT")
         if val is None:
             val = self._config["rsyslog"]["port"]
-        self._rsyslog_port = val
+        self._rsyslog_port = int(val)
 
     @property
     def rsyslog_protocol(self) -> int:
