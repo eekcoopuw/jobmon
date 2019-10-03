@@ -17,13 +17,20 @@ class BuildContainer:
     def _copy_docker_compose_file(self):
         if self.config.existing_db:
             if self.config.same_host:
+                print("**********Same host existing db")
                 # if on the same host connect containers to existing network
                 compose_file = "docker-compose.yml.existingdb_same_host"
             else:
+                print("***********Diffrent host existing db")
                 # otherwise connect externally to the containers
                 compose_file = "docker-compose.yml.existingdb_diff_host"
         else:
-            compose_file = "docker-compose.yml.newdb"
+            if self.config.db_only:
+                print("***********DB only")
+                compose_file = "docker-compose.yml.dbonly"
+            else:
+                print("***********Full deploy")
+                compose_file = "docker-compose.yml.newdb"
 
         copyfile(self.docker_file_dir + "/" + compose_file,
                  self.jobmon_dir + "/docker-compose.yml")
