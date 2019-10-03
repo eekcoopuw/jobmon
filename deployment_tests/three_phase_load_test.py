@@ -8,7 +8,7 @@ from datetime import datetime
 
 from jobmon.client.swarm.workflow.workflow import Workflow
 
-from jobmon import BashTask
+from jobmon.client import BashTask
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))

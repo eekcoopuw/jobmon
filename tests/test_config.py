@@ -1,13 +1,7 @@
 import pytest
 
-from jobmon.default_config import DEFAULT_SERVER_CONFIG as DSG
+from jobmon.setup_config import SetupCfg
 from jobmon.server.config import ServerConfig
-
-
-try:
-    FileNotFoundError
-except NameError:
-    FileNotFoundError = IOError
 
 
 # @pytest.fixture
@@ -68,34 +62,13 @@ def envvars(monkeypatch):
     yield conn_vars
 
 
-@pytest.fixture
-def clear_envvars(monkeypatch):
-
-    vars_to_unset = ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASS", "DB_NAME"]
-
-    # clear any existing env vars (monkeypatch will revert them at teardown)
-    for ev in vars_to_unset:
-        monkeypatch.delenv(ev)
-
-
-def test_default_config(clear_envvars):
-    def_cfg = ServerConfig.from_defaults()
-    exp_conn_str = "mysql://{u}:{p}@{h}:{po}/docker".format(
-        u=DSG["db_user"],
-        p=DSG["db_pass"],
-        h=DSG["db_host"],
-        po=DSG["db_port"],
-    )
-    assert def_cfg.conn_str == exp_conn_str
-
-
-def test_env_override_of_conn_str(envvars):
-    def_cfg = ServerConfig.from_defaults()
-    exp_conn_str = "mysql://{u}:{p}@{h}:{po}/{d}".format(
-        u=envvars["DB_USER"],
-        p=envvars["DB_PASS"],
-        h=envvars["DB_HOST"],
-        d=envvars["DB_NAME"],
-        po=envvars["DB_PORT"],
-    )
-    assert def_cfg.conn_str == exp_conn_str
+# def test_env_override_of_conn_str(envvars):
+#     def_cfg = ServerConfig.from_defaults()
+#     exp_conn_str = "mysql://{u}:{p}@{h}:{po}/{d}".format(
+#         u=envvars["DB_USER"],
+#         p=envvars["DB_PASS"],
+#         h=envvars["DB_HOST"],
+#         d=envvars["DB_NAME"],
+#         po=envvars["DB_PORT"],
+#     )
+#     assert def_cfg.conn_str == exp_conn_str

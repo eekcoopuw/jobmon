@@ -16,13 +16,20 @@ CREATE TABLE `workflow_run` (
   `working_dir` varchar(1000) DEFAULT NULL,
   `slack_channel` varchar(150) DEFAULT NULL,
   `executor_class` varchar(150) DEFAULT NULL,
-  `resource_adjustment` float DEFAULT NULL,
   `created_date` datetime DEFAULT NULL,
   `status_date` datetime DEFAULT NULL,
   `status` varchar(1) NOT NULL,
-  PRIMARY KEY (`id`),
+  `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
+  PRIMARY KEY (`id`, `partition_date`),
   KEY `workflow_id` (`workflow_id`),
-  KEY `status` (`status`),
-  CONSTRAINT `workflow_run_ibfk_1` FOREIGN KEY (`workflow_id`) REFERENCES `workflow` (`id`),
-  CONSTRAINT `workflow_run_ibfk_2` FOREIGN KEY (`status`) REFERENCES `workflow_run_status` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=16891;
+  KEY `status` (`status`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+/*!50100 PARTITION BY RANGE (UNIX_TIMESTAMP(partition_date))
+( PARTITION p201908 VALUES LESS THAN (UNIX_TIMESTAMP('2019-09-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201909 VALUES LESS THAN (UNIX_TIMESTAMP('2019-10-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201910 VALUES LESS THAN (UNIX_TIMESTAMP('2019-11-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201911 VALUES LESS THAN (UNIX_TIMESTAMP('2019-12-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201912 VALUES LESS THAN (UNIX_TIMESTAMP('2020-01-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p202001 VALUES LESS THAN (UNIX_TIMESTAMP('2020-02-01 00:00:00'))ENGINE = InnoDB,
+PARTITION future VALUES LESS THAN MAXVALUE ENGINE = InnoDB
+)*/;

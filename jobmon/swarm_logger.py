@@ -1,6 +1,7 @@
 import logging
 import logging.config
 
+TAG = "jobmonSwam"
 
 def add_jobmon_file_logger(name, level, log_file_name):
     """ Adds a log file handler for Jobmon logging. """
@@ -12,7 +13,7 @@ def add_jobmon_file_logger(name, level, log_file_name):
 
     # create a logging format in local (Seattle) time
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        TAG + ': %(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
 
     # add the handlers to the logger

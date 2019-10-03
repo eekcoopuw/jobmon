@@ -83,7 +83,6 @@ def createSetupCfgFile() {
     sh '''
         echo "
         [basic values]
-        tag_prefix=\${tag_prefix}
         test_mode=\${test_mode}
         existing_db=\${existing_db}
         same_host=\${same_host}
@@ -92,25 +91,23 @@ def createSetupCfgFile() {
         wf_slack_channel=\${wf_slack_channel}
         node_slack_channel=\${node_slack_channel}
         jobmon_server_hostname=\${jobmon_server_hostname}
-        jobmon_server_sqdn=jobmon-p01.ihme.washington.edu
+        jobmon_server_sqdn=\${jobmon_server_sqdn}
         jobmon_service_port=\${jobmon_service_port}
+        jobmon_monitor_port=\${jobmon_monitor_port}
         jobmon_version=\${jobmon_version}
         reconciliation_interval=\${reconciliation_interval}
         heartbeat_interval=\${heartbeat_interval}
         report_by_buffer=\${report_by_buffer}
+        tag_prefix=\${tag_prefix}
 
-        [new db]
+        [db]
         internal_db_host=\${internal_db_host}
         internal_db_port=\${internal_db_port}
         external_db_host=\${external_db_host}
         external_db_port=\${external_db_port}
 
         [existing db]
-        internal_db_host=\${internal_db_host}
-        internal_db_port=\${internal_db_port}
-        external_db_host=\${external_db_host}
-        external_db_port=\${external_db_port}
-        jobmon_pass_service_user=\${jobmon_pass_service_user}
+        jobmon_service_user_pwd=\${jobmon_service_user_pwd}
 
         [same host]
         existing_network=\${existing_network}" > /tmp/jobmon.cfg

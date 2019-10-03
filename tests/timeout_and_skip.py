@@ -3,6 +3,9 @@ import pytest
 from time import sleep
 
 from jobmon.client.swarm.executors import sge_utils
+from jobmon.client.client_logging import ClientLogging as logging
+
+logger = logging.getLogger(__name__)
 
 
 def do_nothing():
@@ -29,11 +32,15 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
     total_sleep = 0
     qw_count = 0
     while True:
-        print(f"*** Check {job_name}")
+        logger.debug("************Check job_name: " + str(job_name))
+        logger.debug("Sleep + " + str(step_size))
         sleep(step_size)
         total_sleep += step_size
+        logger.debug("Total sleep: " + str(total_sleep))
         # There should now be a job that has errored out
-        if partial_test_function():
+        r_partial_test_function = partial_test_function()
+        logger.debug("partial_test_function: " + str(partial_test_function))
+        if r_partial_test_function:
             # The test passed, we are good
 
             print(f"*** Passed {job_name}")
@@ -43,13 +50,16 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
             # If we aren't making progress then dynamically skip the test.
             # Do this first so that qw_count is correct
             qstat_out = sge_utils.qstat()
+            logger.debug("qstat_out: " + str(qstat_out))
             jid = None
             job_status = None
             for id in qstat_out.keys():
+                logger.debug("@@@@@@@@@@{v1}@@@@@@@@@@{v2}@@@@@@@@@@@@".format(v1=qstat_out[id]['name'], v2=job_name))
                 if qstat_out[id]['name'] == job_name:
                     jid = id
                     job_status = qstat_out[id]['status']
                     print(f"found job {jid} with status {job_status}")
+            logger.debug("jid: " + str(jid) + "; job_status: " + str(job_status))
             if jid:
                 # Make sure that job exists
                 if job_status == "qw":

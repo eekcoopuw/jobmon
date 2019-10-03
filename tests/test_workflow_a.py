@@ -3,13 +3,10 @@ import pytest
 import subprocess
 import uuid
 from time import sleep
-from multiprocessing import Process
 
-from jobmon import BashTask
-from jobmon import PythonTask
-from jobmon import StataTask
-from jobmon import Workflow
-from jobmon.models.task_dag import TaskDagMeta
+from jobmon.client import BashTask
+from jobmon.client import StataTask
+from jobmon.client import Workflow
 from jobmon.models.job import Job
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance import JobInstance
@@ -19,20 +16,16 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client import shared_requester as req
-from jobmon.client import client_config
-from jobmon.client.swarm.executors import sge_utils
-from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
-    WorkflowAlreadyExists, ResumeStatus
-from jobmon.client.utils import gently_kill_command
+    ResumeStatus
 import tests.workflow_utils as wu
 
 
 path_to_file = os.path.dirname(__file__)
 
 
-def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
+def test_wf_with_stata_temp_dir(env_var, db_cfg):
     t1 = StataTask(script='di "hello"', num_cores=1)
     t2 = StataTask(script='di "world"', upstream_tasks=[t1], num_cores=1)
 
@@ -44,7 +37,7 @@ def test_wf_with_stata_temp_dir(real_jsm_jqs, db_cfg):
 
 
 @pytest.mark.qsubs_jobs
-def test_wfargs_update(real_jsm_jqs, db_cfg):
+def test_wfargs_update(env_var, db_cfg):
     # Create identical dags
     t1 = BashTask("sleep 1", num_cores=1)
     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
@@ -76,7 +69,7 @@ def test_wfargs_update(real_jsm_jqs, db_cfg):
 
 
 @pytest.mark.qsubs_jobs
-def test_resource_arguments(real_jsm_jqs, db_cfg):
+def test_resource_arguments(env_var, db_cfg):
     """
     Test the parsing/serialization max run time and cores.
     90,000 seconds is deliberately longer than one day, testing a specific
@@ -351,7 +344,7 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
         assert nodenames and all(nodenames)
 
 
-def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
+def test_subprocess_return_code_propagation(db_cfg, env_var):
     task = BashTask("not_a_command 1", num_cores=1, m_mem_free='2G',
                     queue="all.q", j_resource=False)
 
@@ -383,7 +376,7 @@ def test_subprocess_return_code_propagation(db_cfg, real_jsm_jqs):
 
 
 @pytest.mark.qsubs_jobs
-def test_fail_fast(real_jsm_jqs, db_cfg):
+def test_fail_fast(env_var, db_cfg):
     t1 = BashTask("sleep 1", num_cores=1)
     t2 = BashTask("erroring_out 1", upstream_tasks=[t1], num_cores=1)
     t3 = BashTask("sleep 10", upstream_tasks=[t1], num_cores=1)
@@ -398,7 +391,7 @@ def test_fail_fast(real_jsm_jqs, db_cfg):
     assert len(workflow.task_dag.job_list_manager.all_done) >= 2
 
 
-def test_heartbeat(db_cfg, real_jsm_jqs):
+def test_heartbeat(db_cfg, env_var, ephemera):
     app = db_cfg["app"]
     app.config["SQLALCHEMY_ECHO"] = True
     DB = db_cfg["DB"]
@@ -426,7 +419,7 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
 
     from jobmon.server.health_monitor.health_monitor import \
         HealthMonitor
-    hm = HealthMonitor()
+    hm = HealthMonitor(app=app)
     with app.app_context():
 
         # This test's workflow should be in the 'active' list
@@ -441,7 +434,8 @@ def test_heartbeat(db_cfg, real_jsm_jqs):
 
     # Setup monitor with a very short loss threshold (~3s = 1min/20)
     hm_hyper = HealthMonitor(loss_threshold=1 / 20.,
-                             wf_notification_sink=wu.mock_slack)
+                             wf_notification_sink=wu.mock_slack,
+                             app=app)
 
     # give some time for the reconciliation to fall behind
     with app.app_context():

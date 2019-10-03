@@ -1,6 +1,7 @@
-import logging
 import os
 from typing import Tuple, Union, Dict, Optional
+
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

@@ -6,6 +6,9 @@ from jobmon.client.swarm.executors import Executor
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.serializers import SerializeExecutorJobInstance
+from jobmon.client.client_logging import ClientLogging as logging
+
+logger = logging.getLogger(__name__)
 
 
 class ExecutorJobInstance:
