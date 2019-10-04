@@ -38,6 +38,11 @@ class _LogLevelSingleton:
 
 
 class jobmonLogging:
+
+    def __init__(self):
+        # This does nothing but keep sphinx happy
+        pass
+
     # Constants
     # This is to make the jsm and jqm code easier to read
     CRITICAL: int = logging.CRITICAL
