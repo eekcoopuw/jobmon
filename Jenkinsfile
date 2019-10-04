@@ -281,7 +281,7 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                 """
                 sh """
                     source activate ${project_name}_build${python_major_version} &> /dev/null
-                    mk_symlinks \"${project_name}\" \"/ihme/centralcomp/docs\"
+                    // mk_symlinks \"${project_name}\" \"/ihme/centralcomp/docs\"
                 """
             }
         }
