@@ -121,7 +121,7 @@ class ExecutorJobInstance:
         try:
             error_state, msg = self.executor.get_remote_exit_info(executor_id)
         except RemoteExitInfoNotAvailable:
-            msg = ("Unknow error caused job to be lost")
+            msg = ("Unknown error caused job to be lost")
             error_state = JobInstanceStatus.UNKNOWN_ERROR
 
         # this is the 'happy' path. The executor gives us a concrete error for
