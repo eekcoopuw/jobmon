@@ -1,17 +1,17 @@
 from http import HTTPStatus as StatusCodes
-import logging
 import threading
 import time
 import traceback
 from typing import Optional, List
 
-from jobmon.execution import shared_requester, config
-from jobmon.execution.strategies import Executor
+from jobmon.execution.strategies.base import Executor
+from jobmon.execution.scheduler.execution_config import ExecutionConfig
 from jobmon.execution.scheduler.executor_job import ExecutorJob
 from jobmon.execution.scheduler.executor_job_instance import \
     ExecutorJobInstance
 from jobmon.models.attributes.constants import qsub_attribute
 from jobmon.requester import Requester
+from jobmon.execution.scheduler import SchedulerLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -20,9 +20,10 @@ logger = logging.getLogger(__name__)
 class JobInstanceScheduler:
 
     def __init__(self, executor: Executor,
-                 requester: Requester = shared_requester):
+                 config: ExecutionConfig = ExecutionConfig.from_defaults()):
         self.executor = executor
-        self.requester = requester
+        self.config = config
+        self.requester = Requester(config.url)
         logger.info(f"scheduler communicating at {self.requester.url}")
 
         # reconciliation loop is always running
@@ -33,8 +34,8 @@ class JobInstanceScheduler:
         self.reconciliation_proc.daemon = True
 
     def start(self):
-        # TODO: add an is started attribute to executor
-        self.executor.start()
+        if not self.executor.started:
+            self.executor.start(self.config.jobmon_command)
         self.reconciliation_proc.start()
 
     def stop(self):
@@ -102,14 +103,14 @@ class JobInstanceScheduler:
         """
         try:
             job_instance = ExecutorJobInstance.register_job_instance(
-                job.job_id, self.executor)
+                job.job_id, self.executor, self.requester)
         except Exception as e:
             logger.error(e)
             stack = traceback.format_exc()
             msg = (
                 f"Error while creating job instances {self.__class__.__name__}"
                 f", {str(self)} while submitting jid {job.job_id}: \n{stack}")
-            shared_requester.send_request(
+            self.requester.send_request(
                 app_route="/error_logger",
                 message={"traceback": stack},
                 request_type="post")
@@ -123,6 +124,8 @@ class JobInstanceScheduler:
         command = job_instance.executor.build_wrapped_command(
             command=job.command,
             job_instance_id=job_instance.job_instance_id,
+            heartbeat_interval=self.config.heartbeat_interval,
+            report_by_buffer=self.config.report_by_buffer,
             last_nodename=job.last_nodename,
             last_process_group_id=job.last_process_group_id)
         # The following call will always return a value.
@@ -148,11 +151,11 @@ class JobInstanceScheduler:
         elif executor_id:
             job_instance.register_submission_to_batch_executor(
                 executor_id,
-                config.heartbeat_interval * config.report_by_buffer)
+                self.config.heartbeat_interval * self.config.report_by_buffer)
         else:
             msg = ("Did not receive an executor_id in _create_job_instance")
             logger.error(msg)
-            shared_requester.send_request(
+            self.requester.send_request(
                 app_route="/error_logger",
                 message={"traceback": msg},
                 request_type="post")
@@ -160,7 +163,7 @@ class JobInstanceScheduler:
         return job_instance
 
     def _get_jobs_queued_for_instantiation(self) -> List[ExecutorJob]:
-        app_route = f"/queued_jobs/1000"
+        app_route = f"/queued_jobs/{self.config.n_queued}"
         rc, response = self.requester.send_request(
             app_route=app_route,
             message={},
@@ -170,14 +173,15 @@ class JobInstanceScheduler:
             jobs: List[ExecutorJob] = []
         else:
             jobs = [
-                ExecutorJob.from_wire(j, self.executor.__class__.__name__)
+                ExecutorJob.from_wire(j, self.executor.__class__.__name__,
+                                      self.requester)
                 for j in response['job_dcts']]
 
         return jobs
 
     def _log_executor_report_by(self) -> None:
         next_report_increment = (
-            config.heartbeat_interval * config.report_by_buffer)
+            self.config.heartbeat_interval * self.config.report_by_buffer)
         try:
             # TODO, this method needs to be user agnostic
             # qstat for pending jobs or running jobs
@@ -205,7 +209,8 @@ class JobInstanceScheduler:
             lost_job_instances: List[ExecutorJobInstance] = []
         else:
             lost_job_instances = [
-                ExecutorJobInstance.from_wire(ji, self.executor)
+                ExecutorJobInstance.from_wire(ji, self.executor,
+                                              self.requester)
                 for ji in response["job_instances"]
             ]
         for executor_job_instance in lost_job_instances:

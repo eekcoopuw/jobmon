@@ -6,7 +6,7 @@ from collections import OrderedDict
 from jobmon.client.job_management.job_list_manager import JobListManager
 from jobmon.models.job_status import JobStatus
 from jobmon.client.workflow.task_dag_factory import TaskDagMetaFactory
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 
 
 logger = logging.getLogger(__name__)

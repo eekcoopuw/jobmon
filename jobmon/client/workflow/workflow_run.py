@@ -6,12 +6,10 @@ import os
 import socket
 
 from jobmon.client import shared_requester
-from jobmon.execution.scheduler.executor_job_instance import \
-    ExecutorJobInstance
 from jobmon.client.utils import kill_remote_process
 from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -115,33 +113,33 @@ class WorkflowRun(object):
         else:
             kill_remote_process(wf_run['hostname'], wf_run['pid'])
             logger.info(f"Kill previous workflow runs: {workflow_run_id}")
-            if reset_running_jobs:
-                if wf_run['executor_class'] == "SequentialExecutor":
-                    from jobmon.client.swarm.executors.sequential import \
-                        SequentialExecutor
-                    previous_executor = SequentialExecutor()
-                elif wf_run['executor_class'] == "SGEExecutor":
-                    from jobmon.client.swarm.executors.sge import SGEExecutor
-                    previous_executor = SGEExecutor()
-                elif wf_run['executor_class'] == "DummyExecutor":
-                    from jobmon.client.swarm.executors.dummy import \
-                        DummyExecutor
-                    previous_executor = DummyExecutor()
-                else:
-                    raise ValueError("{} is not supported by this version of "
-                                     "jobmon".format(wf_run['executor_class']))
-                # get job instances of workflow run
-                _, response = self.requester.send_request(
-                    app_route=f'/workflow_run/{workflow_run_id}/job_instance',
-                    message={},
-                    request_type='get')
-                job_instances = [ExecutorJobInstance.from_wire(
-                    ji, executor=previous_executor)
-                    for ji in response['job_instances']]
-                jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
-                                    for ji in job_instances]
-                if job_instances:
-                    previous_executor.terminate_job_instances(jiid_exid_tuples)
+            # if reset_running_jobs:
+                # if wf_run['executor_class'] == "SequentialExecutor":
+                #     from jobmon.client.swarm.executors.sequential import \
+                #         SequentialExecutor
+                #     previous_executor = SequentialExecutor()
+                # elif wf_run['executor_class'] == "SGEExecutor":
+                #     from jobmon.client.swarm.executors.sge import SGEExecutor
+                #     previous_executor = SGEExecutor()
+                # elif wf_run['executor_class'] == "DummyExecutor":
+                #     from jobmon.client.swarm.executors.dummy import \
+                #         DummyExecutor
+                #     previous_executor = DummyExecutor()
+                # else:
+                #     raise ValueError("{} is not supported by this version of "
+                #                      "jobmon".format(wf_run['executor_class']))
+                # # get job instances of workflow run
+                # _, response = self.requester.send_request(
+                #     app_route=f'/workflow_run/{workflow_run_id}/job_instance',
+                #     message={},
+                #     request_type='get')
+                # job_instances = [ExecutorJobInstance.from_wire(
+                #     ji, executor=previous_executor)
+                #     for ji in response['job_instances']]
+                # jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
+                #                     for ji in job_instances]
+                # if job_instances:
+                #     previous_executor.terminate_job_instances(jiid_exid_tuples)
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
                 message={'workflow_run_id': workflow_run_id,

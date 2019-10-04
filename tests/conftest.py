@@ -7,16 +7,16 @@ import pwd
 import re
 import shutil
 import socket
-import sys
 import uuid
 from time import sleep
+
+pytest_plugins = ['helpers_namespace']
 
 import pytest
 import requests
 
 from cluster_utils.ephemerdb import create_ephemerdb
 
-from jobmon.client import BashTask, Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -119,7 +119,7 @@ def db_cfg(ephemera):
     from jobmon.models import database_loaders
     from jobmon.models import DB
     from jobmon.server import create_app
-    from jobmon.server.config import ServerConfig
+    from jobmon.server.server_config import ServerConfig
 
     # The create_app call sets up database connections
     server_config = ServerConfig(
@@ -128,37 +128,224 @@ def db_cfg(ephemera):
         db_user=ephemera["DB_USER"],
         db_pass=ephemera["DB_PASS"],
         db_name=ephemera["DB_NAME"],
+        slack_token=None,
         wf_slack_channel=None,
-        node_slack_channel=None,
-        slack_token=None)
+        node_slack_channel=None)
     app = create_app(server_config)
 
-    yield {'app': app, 'DB': DB}
+    yield {'app': app, 'DB': DB, "server_config": server_config}
 
     with app.app_context():
         database_loaders.clean_job_db(DB)
 
 
 @pytest.fixture(scope='function')
-def env_var(real_jsm_jqs, monkeypatch):
-    from jobmon.client import shared_requester, client_config
-    from jobmon.client.client_config import ClientConfig
+def client_env(real_jsm_jqs, monkeypatch):
+    from jobmon.client import shared_requester
+    from jobmon.requester import ConnectionConfig
+    cc = ConnectionConfig(real_jsm_jqs["JOBMON_HOST"],
+                          real_jsm_jqs["JOBMON_PORT"])
 
-    cc = ClientConfig.from_defaults()
-    cc.host = real_jsm_jqs["JOBMON_HOST"]
-    cc.port = real_jsm_jqs["JOBMON_PORT"]
-
+    # modify shared requester
     monkeypatch.setattr(shared_requester, "url", cc.url)
-    monkeypatch.setattr(client_config, 'heartbeat_interval', 10)
-    monkeypatch.setattr(client_config, 'report_by_buffer', 2.1)
-    monkeypatch.setattr(client_config, 'reconciliation_interval', 5)
+
+
+def dummy_scheduler_instance(host, port, reconciliation_interval,
+                             heartbeat_interval, report_by_buffer):
+    from jobmon.execution.scheduler.execution_config import ExecutionConfig
+    from jobmon.execution.scheduler.job_instance_scheduler import \
+        JobInstanceScheduler
+    from jobmon.execution.strategies.dummy import DummyExecutor
+
+    config = ExecutionConfig.from_defaults()
+    config.host = host
+    config.port = port
+    config.reconciliation_interval = reconciliation_interval
+    config.heartbeat_interval = heartbeat_interval
+    config.report_by_buffer = report_by_buffer
+
+    executor = DummyExecutor()
+    return JobInstanceScheduler(executor, config)
+
+
+def run_dummy_scheduler_instance(host, port, reconciliation_interval,
+                                 heartbeat_interval, report_by_buffer):
+    scheduler = dummy_scheduler_instance(
+        host, port, reconciliation_interval, heartbeat_interval,
+        report_by_buffer)
+    scheduler.run()
+
+
+@pytest.fixture(scope='function')
+def dummy_scheduler(real_jsm_jqs, monkeypatch):
+    # modify env
+    monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
+    monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
+    scheduler = dummy_scheduler_instance(
+        real_jsm_jqs["JOBMON_HOST"], real_jsm_jqs["JOBMON_PORT"], 4, 2, 2.1)
+    yield scheduler
+    scheduler.stop()
+
+
+@pytest.fixture(scope='function')
+def dummy_scheduler_process(real_jsm_jqs, monkeypatch):
+    import multiprocessing as mp
+    import time
 
     monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
     monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
 
+    ctx = mp.get_context('spawn')
+    p1 = ctx.Process(target=run_multiprocess_scheduler_instance,
+                     args=(real_jsm_jqs["JOBMON_HOST"],
+                           real_jsm_jqs["JOBMON_PORT"],
+                           4, 2, 2.1))
+    p1.start()
+    time.sleep(10)
+    yield
+    p1.terminate()
+
+
+@pytest.helpers.register
+def sequential_scheduler_instance(host, port, reconciliation_interval,
+                                  heartbeat_interval, report_by_buffer):
+    from jobmon.execution.scheduler.execution_config import ExecutionConfig
+    from jobmon.execution.scheduler.job_instance_scheduler import \
+        JobInstanceScheduler
+    from jobmon.execution.strategies.sequential import SequentialExecutor
+
+    config = ExecutionConfig.from_defaults()
+    config.host = host
+    config.port = port
+    config.reconciliation_interval = reconciliation_interval
+    config.heartbeat_interval = heartbeat_interval
+    config.report_by_buffer = report_by_buffer
+
+    executor = SequentialExecutor()
+    return JobInstanceScheduler(executor, config)
+
+
+def run_sequential_scheduler_instance(host, port, reconciliation_interval,
+                                      heartbeat_interval, report_by_buffer):
+    scheduler = sequential_scheduler_instance(
+        host, port, reconciliation_interval, heartbeat_interval,
+        report_by_buffer)
+    scheduler.run()
+
 
 @pytest.fixture(scope='function')
-def real_dag_id(env_var):
+def sequential_scheduler(real_jsm_jqs):
+    # modify env
+    from jobmon import config
+    config.jobmon_server_sqdn = real_jsm_jqs["JOBMON_HOST"]
+    config.jobmon_service_port = real_jsm_jqs["JOBMON_PORT"]
+    scheduler = sequential_scheduler_instance(
+        real_jsm_jqs["JOBMON_HOST"], real_jsm_jqs["JOBMON_PORT"], 4, 2, 2.1)
+    yield scheduler
+    scheduler.stop()
+    config.jobmon_server_sqdn = None
+    config.jobmon_service_port = None
+
+
+@pytest.fixture(scope='function')
+def sequential_scheduler_process(real_jsm_jqs, monkeypatch):
+    import multiprocessing as mp
+    import time
+
+    monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
+    monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
+
+    ctx = mp.get_context('spawn')
+    p1 = ctx.Process(target=run_multiprocess_scheduler_instance,
+                     args=(real_jsm_jqs["JOBMON_HOST"],
+                           real_jsm_jqs["JOBMON_PORT"],
+                           4, 2, 2.1))
+    p1.start()
+    time.sleep(10)
+    yield
+    p1.terminate()
+
+
+def multiprocess_scheduler_instance(host, port, reconciliation_interval,
+                                    heartbeat_interval, report_by_buffer):
+
+    from jobmon.execution.scheduler.execution_config import ExecutionConfig
+    from jobmon.execution.scheduler.job_instance_scheduler import \
+        JobInstanceScheduler
+    from jobmon.execution.strategies.multiprocess import MultiprocessExecutor
+
+    config = ExecutionConfig.from_defaults()
+    config.host = host
+    config.port = port
+    config.reconciliation_interval = reconciliation_interval
+    config.heartbeat_interval = heartbeat_interval
+    config.report_by_buffer = report_by_buffer
+
+    executor = MultiprocessExecutor(parallelism=2)
+    scheduler = JobInstanceScheduler(executor, config)
+    return scheduler
+
+
+def run_multiprocess_scheduler_instance(host, port, reconciliation_interval,
+                                        heartbeat_interval, report_by_buffer):
+    scheduler = multiprocess_scheduler_instance(
+        host, port, reconciliation_interval, heartbeat_interval,
+        report_by_buffer)
+    scheduler.run()
+
+
+@pytest.fixture(scope='function')
+def multiprocess_scheduler(real_jsm_jqs, monkeypatch):
+    # modify env
+    monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
+    monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
+    scheduler = multiprocess_scheduler_instance(
+        real_jsm_jqs["JOBMON_HOST"], real_jsm_jqs["JOBMON_PORT"], 4, 2, 2.1)
+    yield scheduler
+    scheduler.stop()
+
+
+@pytest.fixture(scope='function')
+def multiprocess_scheduler_process(real_jsm_jqs):
+    import multiprocessing as mp
+    import time
+
+    ctx = mp.get_context('spawn')
+    p1 = ctx.Process(target=run_multiprocess_scheduler_instance,
+                     args=(real_jsm_jqs["JOBMON_HOST"],
+                           real_jsm_jqs["JOBMON_PORT"],
+                           4, 2, 2.1))
+    p1.start()
+
+    # TODO replace once I have DB registration in place
+    time.sleep(10)
+    yield
+    p1.terminate()
+
+
+# @pytest.fixture(scope='function')
+# def execution_env(real_jsm_jqs, monkeypatch):
+#     from jobmon.execution import shared_requester, shared_execution_config
+
+#     # modify execution config object
+#     monkeypatch.setattr(shared_execution_config, "host",
+#                         real_jsm_jqs["JOBMON_HOST"])
+#     monkeypatch.setattr(shared_execution_config, "port",
+#                         real_jsm_jqs["JOBMON_PORT"])
+#     monkeypatch.setattr(shared_execution_config, "reconciliation_interval", 4)
+#     monkeypatch.setattr(shared_execution_config, "heartbeat_interval", 2)
+#     monkeypatch.setattr(shared_execution_config, "report_by_buffer", 2.1)
+
+#     # modify shared requester
+#     monkeypatch.setattr(shared_requester, "url", shared_execution_config.url)
+
+#     # modify env
+#     monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
+#     monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
+
+
+@pytest.fixture(scope='function')
+def real_dag_id(client_env):
     """This uses the real Flask dev server to create a dag in the db and
     return the dag_id
     """
@@ -259,29 +446,29 @@ def dag_factory(db_cfg, env_var, request):
             dag.job_list_manager.disconnect()
 
 
-@pytest.fixture(autouse=True)
-def execution_test_script_perms():
-    executed_files = ['executor_args_check.py', 'simple_R_script.r',
-                      'simple_stata_script.do', 'memory_usage_array.py',
-                      'remote_sleep_and_write.py', 'kill.py', 'exceed_mem.py']
-    if sys.version_info.major == 3:
-        perms = int("0o755", 8)
-    else:
-        perms = int("0755", 8)
-    path = os.path.dirname(os.path.realpath(__file__))
-    shell_path = os.path.join(path, 'shellfiles/')
-    files = os.listdir(shell_path)
-    os.chmod(shell_path, perms)
-    for file in files:
-        try:
-            os.chmod(f'{shell_path}{file}', perms)
-        except Exception as e:
-            raise e
-    for file in executed_files:
-        try:
-            os.chmod(f'{path}/{file}', perms)
-        except Exception as e:
-            raise e
+# @pytest.fixture(autouse=True)
+# def execution_test_script_perms():
+#     executed_files = ['executor_args_check.py', 'simple_R_script.r',
+#                       'simple_stata_script.do', 'memory_usage_array.py',
+#                       'remote_sleep_and_write.py', 'kill.py', 'exceed_mem.py']
+#     if sys.version_info.major == 3:
+#         perms = int("0o755", 8)
+#     else:
+#         perms = int("0755", 8)
+#     path = os.path.dirname(os.path.realpath(__file__))
+#     shell_path = os.path.join(path, 'shellfiles/')
+#     files = os.listdir(shell_path)
+#     os.chmod(shell_path, perms)
+#     for file in files:
+#         try:
+#             os.chmod(f'{shell_path}{file}', perms)
+#         except Exception as e:
+#             raise e
+#     for file in executed_files:
+#         try:
+#             os.chmod(f'{path}/{file}', perms)
+#         except Exception as e:
+#             raise e
 
 
 @pytest.fixture

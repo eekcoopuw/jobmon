@@ -9,14 +9,13 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon import __version__
 from jobmon.client import shared_requester
-from jobmon.client_config import client_config
 from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.requester import Requester
 from jobmon.client.workflow.workflow_run import WorkflowRun
 from jobmon.client.workflow.task_dag import DagExecutionStatus, TaskDag
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -125,15 +124,6 @@ class Workflow(object):
             seconds_until_timeout=seconds_until_timeout
         )
         self.resume = resume
-
-        # if the user wants to specify the reconciliation and heartbeat rate,
-        # as well as buffer time, they can do so here
-        if reconciliation_interval:
-            client_config.reconciliation_interval = reconciliation_interval
-        if heartbeat_interval:
-            client_config.heartbeat_interval = heartbeat_interval
-        if report_by_buffer:
-            client_config.report_by_buffer = report_by_buffer
 
         if workflow_args:
             self.workflow_args = workflow_args

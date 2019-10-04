@@ -1,11 +1,13 @@
+import atexit
 import logging
 from multiprocessing import JoinableQueue, Process, Queue
 import os
 import time
 from typing import List, Optional
 
-from jobmon.execution.strategies import (Executor, JobInstanceExecutorInfo,
-                                         ExecutorParameters)
+from jobmon.execution.strategies.base import (Executor,
+                                              JobInstanceExecutorInfo,
+                                              ExecutorParameters)
 from jobmon.execution.worker_node.execution_wrapper import (unwrap,
                                                             parse_arguments)
 from jobmon.models.job_instance_status import JobInstanceStatus
@@ -93,17 +95,18 @@ class MultiprocessExecutor(Executor):
         self.task_queue: JoinableQueue = JoinableQueue()
         self.response_queue: Queue = Queue()
 
-    def start(self) -> None:
+    def start(self, jobmon_command=None) -> None:
         """fire up N task consuming processes using Multiprocessing. number of
         consumers is controlled by parallelism."""
+        # set jobmon command if provided
         self.consumers = [
             Consumer(task_queue=self.task_queue,
                      response_queue=self.response_queue)
             for i in range(self._parallelism)
         ]
-
         for w in self.consumers:
             w.start()
+        super().start(jobmon_command=jobmon_command)
 
     def stop(self) -> None:
         """terminate consumers and call sync 1 final time."""

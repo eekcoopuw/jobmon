@@ -1,12 +1,13 @@
 import os
 from typing import Optional, List
 
-from jobmon.execution.strategies import (Executor, JobInstanceExecutorInfo,
-                                         ExecutorParameters)
+from jobmon.execution.strategies.base import (Executor,
+                                              JobInstanceExecutorInfo,
+                                              ExecutorParameters)
 from jobmon.execution.worker_node.execution_wrapper import (unwrap,
                                                             parse_arguments)
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.client.client_logging import ClientLogging as logging
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,6 @@ class SequentialExecutor(Executor):
         self.stdout = stdout
         self.project = project
         self.working_dir = working_dir
-
-    def start(self):
-        pass
 
     def stop(self):
         pass
@@ -40,7 +38,7 @@ class SequentialExecutor(Executor):
         logger.debug(command)
 
         # add an executor id to the environment
-        os.environ["JOB_ID"] = self._next_executor_id
+        os.environ["JOB_ID"] = str(self._next_executor_id)
         executor_id = self._next_executor_id
         self._next_executor_id += 1
 

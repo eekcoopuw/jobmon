@@ -1,13 +1,11 @@
+import atexit
 import os
 import pkg_resources
 import shutil
-from typing import List, Tuple, Dict, Optional, Union
+import logging
+from typing import List, Tuple, Dict, Optional, Union, Type
 
-from jobmon.execution import config
-from jobmon.execution.strategies.sge.sge_parameters import SGEParameters
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.client.client_logging import ClientLogging as logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +14,7 @@ class ExecutorParameters:
     """Base parameter class for executors, each executor has specific '
     parameters and must validate them accordingly"""
 
-    _strategies = {'SGEExecutor': SGEParameters}
+    _strategies: dict = {}
 
     def __init__(self,
                  num_cores: Optional[int] = None,
@@ -58,7 +56,7 @@ class ExecutorParameters:
         self._resource_scales = resource_scales
 
         StrategyCls = self._strategies.get(executor_class)
-        self._strategy: Optional[SGEParameters] = None
+        self._strategy: Optional[Type[ExecutorParameters]] = None
         if StrategyCls is not None:
             StrategyCls.set_executor_parameters_strategy(self)
 
@@ -159,20 +157,26 @@ class Executor:
 
     def __init__(self, *args, **kwargs) -> None:
         self.temp_dir: Optional[str] = None
+        self.started = False
+        atexit.register(self.stop)
         logger.info("Initializing {}".format(self.__class__.__name__))
 
-    def start(self):
-        raise NotImplementedError
+    def start(self, jobmon_command=None):
+        self.jobmon_command = jobmon_command
+        self.started = True
 
     def stop(self):
-        raise NotImplementedError
+        self.started = False
 
     @property
     def jobmon_command(self):
-        jobmon_command = config.jobmon_command
-        if not jobmon_command:
-            jobmon_command = shutil.which("jobmon_command")
-        return jobmon_command
+        return self._jobmon_command
+
+    @jobmon_command.setter
+    def jobmon_command(self, val):
+        if val is None:
+            val = shutil.which("jobmon_command")
+        self._jobmon_command = val
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters) -> int:
@@ -211,6 +215,7 @@ class Executor:
         raise NotImplementedError
 
     def build_wrapped_command(self, command: str, job_instance_id: int,
+                              heartbeat_interval: int, report_by_buffer: float,
                               last_nodename: Optional[str] = None,
                               last_process_group_id: Optional[int] = None
                               ) -> str:
@@ -233,8 +238,8 @@ class Executor:
             "--expected_jobmon_version",
             pkg_resources.get_distribution("jobmon").version,
             "--executor_class", self.__class__.__name__,
-            "--heartbeat_interval", config.heartbeat_interval,
-            "--report_by_buffer", config.report_by_buffer
+            "--heartbeat_interval", heartbeat_interval,
+            "--report_by_buffer", report_by_buffer
         ]
         if self.temp_dir and 'stata' in command:
             wrapped_cmd.extend(["--temp_dir", self.temp_dir])

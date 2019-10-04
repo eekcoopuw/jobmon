@@ -3,7 +3,7 @@ from getpass import getuser
 
 from jobmon.client import shared_requester
 from jobmon.models.task_dag import TaskDagMeta
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,7 @@ from typing import Optional
 from jobmon.exceptions import ReturnCodes
 from jobmon.execution.worker_node.worker_node_job_instance import (
     WorkerNodeJobInstance)
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.execution.worker_node import NodeLogging as logging
 
 
 logger = logging.getLogger()
@@ -86,6 +86,7 @@ def unwrap(job_instance_id: int, command: str, expected_jobmon_version: str,
 
     # set ENV variables in case tasks need to access them
     os.environ["JOBMON_JOB_INSTANCE_ID"] = str(job_instance_id)
+    print(os.environ)
 
     # identify executor class
     if executor_class == "SequentialExecutor":

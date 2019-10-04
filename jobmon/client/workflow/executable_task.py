@@ -1,14 +1,13 @@
 from functools import partial
 import hashlib
-import logging
 
 from typing import Optional, List, Dict, Callable, Union
 
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
-from jobmon.execution.strategies import ExecutorParameters
+from jobmon.execution.strategies.base import ExecutorParameters
 from jobmon.client.job_management.swarm_job import SwarmJob
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 
 
 logger = logging.getLogger(__name__)

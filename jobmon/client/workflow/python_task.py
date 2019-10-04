@@ -3,7 +3,7 @@ from typing import Optional
 
 from jobmon.client.workflow.executable_task import ExecutableTask
 from jobmon.execution.strategies.base import ExecutorParameters
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 
 
 logger = logging.getLogger(__name__)

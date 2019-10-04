@@ -4,16 +4,14 @@ from typing import Dict
 
 
 from jobmon.client import shared_requester
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 from jobmon.client.job_management.job_factory import JobFactory
 from jobmon.client.job_management.swarm_job import SwarmJob
 from jobmon.client.workflow.executable_task import BoundTask, ExecutableTask
-from jobmon.models.job_status import JobStatus
-from jobmon.client.swarm.executors.base import ExecutorParameters
-
-
 from jobmon.exceptions import CallableReturnedInvalidObject
+from jobmon.execution.strategies.base import ExecutorParameters
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
+from jobmon.models.job_status import JobStatus
 
 
 logger = logging.getLogger(__name__)
@@ -140,6 +138,13 @@ class JobListManager(object):
             request_type='post')
         return rc
 
+    def _log_dag_heartbeat(self) -> None:
+        """Logs a dag heartbeat"""
+        return self.requester.send_request(
+            app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
+            message={},
+            request_type='post')
+
     def get_job_statuses(self):
         """Query the database for the status of all jobs"""
         if self.last_sync:
@@ -223,6 +228,7 @@ class JobListManager(object):
                                    "Submitted tasks will still run, but the "
                                    "workflow will need to be restarted."
                                    .format(timeout))
+            self._log_dag_heartbeat()
             jobs = self.get_job_statuses()
             completed, failed, adjusting = (
                 self.parse_adjusting_done_and_errors(jobs))

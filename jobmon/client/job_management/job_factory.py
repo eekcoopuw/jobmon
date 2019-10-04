@@ -2,7 +2,7 @@ from http import HTTPStatus as StatusCodes
 
 from jobmon.client import shared_requester
 from jobmon.client.job_management.swarm_job import SwarmJob
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import job_attribute
 

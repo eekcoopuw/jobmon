@@ -2,11 +2,29 @@ import logging
 import requests
 from tenacity import retry, wait_exponential, retry_if_result, stop_after_delay
 
-
-from jobmon.client_config import client_config
-
+from jobmon import config
 
 logger = logging.getLogger(__name__)
+
+
+class ConnectionConfig(object):
+    """
+    This is intended to be a singleton. Any other usage should be done with
+    CAUTION.
+    """
+
+    @classmethod
+    def from_defaults(cls):
+        return cls(host=config.jobmon_server_sqdn,
+                   port=config.jobmon_service_port)
+
+    def __init__(self, host, port):
+        self.host = host
+        self.port = port
+
+    @property
+    def url(self):
+        return "http://{h}:{p}".format(h=self.host, p=self.port)
 
 
 def is_5XX(result):

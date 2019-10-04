@@ -3,9 +3,10 @@ import socket
 import traceback
 from typing import Optional, Union, Tuple, Dict
 
-from jobmon.requester import Requester, shared_requester
-from jobmon.execution.strategies import JobInstanceExecutorInfo
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.requester import Requester, ConnectionConfig
+
+from jobmon.execution.strategies.base import JobInstanceExecutorInfo
+from jobmon.execution.worker_node import NodeLogging as logging
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +16,10 @@ class WorkerNodeJobInstance:
     def __init__(self,
                  job_instance_id: int,
                  job_instance_executor_info: JobInstanceExecutorInfo,
+                 requester: Requester = Requester(
+                     ConnectionConfig.from_defaults().url),
                  nodename: Optional[str] = None,
-                 process_group_id: Optional[int] = None,
-                 requester: Requester = shared_requester):
+                 process_group_id: Optional[int] = None):
         """
         The JobInstanceIntercom is a mechanism whereby a running job_instance
         can communicate back to the JobStateManager to log its status, errors,
@@ -37,7 +39,7 @@ class WorkerNodeJobInstance:
         self._nodename = nodename
         self._process_group_id = process_group_id
         self.executor = job_instance_executor_info
-        self.requester = shared_requester
+        self.requester = requester
         logger.debug("Instantiated JobInstanceIntercom")
 
     @property

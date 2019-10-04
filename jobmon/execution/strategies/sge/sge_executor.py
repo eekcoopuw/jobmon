@@ -1,6 +1,7 @@
 import os
 from subprocess import check_output
 import traceback
+import logging
 from typing import List, Tuple, Dict, Optional
 
 from cluster_utils.io import makedirs_safely
@@ -11,7 +12,6 @@ from jobmon.execution.strategies.base import (
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
-from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

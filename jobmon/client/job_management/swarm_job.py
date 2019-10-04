@@ -1,4 +1,4 @@
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 from jobmon.serializers import SerializeSwarmJob
 
 logger = logging.getLogger(__name__)

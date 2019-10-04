@@ -1,12 +1,10 @@
-from typing import Optional, List
+from typing import Optional
 
 from jobmon.requester import Requester
-from jobmon.execution import shared_requester
-from jobmon.execution.strategies import ExecutorParameters
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
+from jobmon.execution.strategies.base import ExecutorParameters
 from jobmon.models.job_status import JobStatus
 from jobmon.serializers import SerializeExecutorJob
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.execution.scheduler import SchedulerLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -24,9 +22,9 @@ class ExecutorJob:
                  command: str,
                  status: str,
                  executor_parameters: ExecutorParameters,
+                 requester: Requester,
                  last_nodename: Optional[str] = None,
-                 last_process_group_id: Optional[int] = None,
-                 requester: Requester = shared_requester):
+                 last_process_group_id: Optional[int] = None):
         """
         This is a Job object used on the RESTful API client side
         when constructing job instances.
@@ -40,10 +38,10 @@ class ExecutorJob:
             status: job status  associated with this job
             executor_parameters: Executor parameters class associated with the
                 current executor for this job
+            requester: requester for communicating with central services
             last_nodename: where this job last executed
             last_process_group_id: what was the linux process group id of the
                 last instance of this job
-            requester: requester for communicating with central services
         """
 
         self.dag_id = dag_id
@@ -63,7 +61,7 @@ class ExecutorJob:
     def from_wire(cls,
                   wire_tuple: tuple,
                   executor_class: str,
-                  requester: Requester = shared_requester
+                  requester: Requester
                   ) -> 'ExecutorJob':
         """construct instance from wire format the JQS gives
 

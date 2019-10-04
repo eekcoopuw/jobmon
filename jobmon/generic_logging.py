@@ -5,7 +5,7 @@ from logging.handlers import SysLogHandler
 from jobmon import config
 
 
-class ClientLogging():
+class GenericLogging():
     # Constants
     CRITICAL: int = logging.CRITICAL
     ERROR: int = logging.ERROR
@@ -21,12 +21,12 @@ class ClientLogging():
     @staticmethod
     def attach_log_handler(tag: str):
         logger = logging.getLogger()
-        logger.setLevel(ClientLogging._logLevel)
-        formatter = logging.Formatter(tag + ClientLogging._format)
+        logger.setLevel(GenericLogging._logLevel)
+        formatter = logging.Formatter(tag + GenericLogging._format)
         hs = logging.StreamHandler()
         hs.setFormatter(formatter)
         logger.addHandler(hs)
-        if ClientLogging._syslogAttached:
+        if GenericLogging._syslogAttached:
             p = socket.SOCK_DGRAM
             if config.rsyslog_protocol == "TCP":
                 p = socket.SOCK_STREAM

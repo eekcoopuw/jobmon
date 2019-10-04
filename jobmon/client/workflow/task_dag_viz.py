@@ -1,7 +1,7 @@
 import os
 import graphviz as gv
 
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import SwarmLogging as logging
 
 
 logger = logging.getLogger(__name__)
