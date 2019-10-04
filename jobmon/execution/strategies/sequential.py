@@ -1,30 +1,57 @@
+from collections import OrderedDict
 import os
-from typing import Optional, List
+from typing import Optional, List, Tuple
+import sys
 
 from jobmon.execution.strategies.base import (Executor,
                                               JobInstanceExecutorInfo,
                                               ExecutorParameters)
 from jobmon.execution.worker_node.execution_wrapper import (unwrap,
                                                             parse_arguments)
+from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.job_instance_status import JobInstanceStatus
 import logging
 
 logger = logging.getLogger(__name__)
 
 
+class LimitedSizeDict(OrderedDict):
+    def __init__(self, *args, **kwds):
+        self.size_limit = kwds.pop("size_limit", None)
+        OrderedDict.__init__(self, *args, **kwds)
+        self._check_size_limit()
+
+    def __setitem__(self, key, value):
+        OrderedDict.__setitem__(self, key, value)
+        self._check_size_limit()
+
+    def _check_size_limit(self):
+        if self.size_limit is not None:
+            while len(self) > self.size_limit:
+                self.popitem(last=False)
+
+
 class SequentialExecutor(Executor):
 
-    def __init__(self, stderr=None, stdout=None, project=None,
-                 working_dir=None, *args, **kwargs):
+    def __init__(self, exit_info_queue_size: int = 1000, *args, **kwargs):
+        """
+        Args:
+            exit_info_queue_size: how many exit codes to retain
+        """
         super().__init__(*args, **kwargs)
         self._next_executor_id = 1
-        self.stderr = stderr
-        self.stdout = stdout
-        self.project = project
-        self.working_dir = working_dir
+        self._exit_info = LimitedSizeDict(size_limit=exit_info_queue_size)
 
-    def stop(self):
-        pass
+    def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
+        try:
+            exit_code = self._exit_info[executor_id]
+            if exit_code == 199:
+                msg = "job was in kill self state"
+                return JobInstanceStatus.UNKNOWN_ERROR, msg
+            else:
+                return JobInstanceStatus.UNKNOWN_ERROR, f"found {exit_code}"
+        except KeyError:
+            raise RemoteExitInfoNotAvailable
 
     def get_actual_submitted_or_running(self) -> List[int]:
         running = os.environ.get("JOB_ID")
@@ -42,8 +69,16 @@ class SequentialExecutor(Executor):
         executor_id = self._next_executor_id
         self._next_executor_id += 1
 
-        # run the job
-        unwrap(**parse_arguments(command))
+        # run the job and log the exit code
+        try:
+            exit_code = unwrap(**parse_arguments(command))
+        except SystemExit as e:
+            if e.code == 199:
+                exit_code = e.code
+            else:
+                sys.exit(e.code)
+
+        self._exit_info[executor_id] = exit_code
         return executor_id
 
 

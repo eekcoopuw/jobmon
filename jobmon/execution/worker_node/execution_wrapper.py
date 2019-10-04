@@ -5,7 +5,6 @@ import pkg_resources
 import os
 from queue import Queue
 import shlex
-import signal
 import subprocess
 import sys
 import traceback
@@ -51,7 +50,7 @@ def kill_self(child_process: subprocess.Popen = None):
     processes and then self, will show up as an exit code 299 in qacct"""
     if child_process:
         child_process.kill()
-    sys.exit(signal.SIGKILL)
+    sys.exit(199)
 
 
 def parse_arguments(argstr=None):

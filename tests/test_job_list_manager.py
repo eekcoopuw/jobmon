@@ -101,20 +101,44 @@ def sequential_scheduler_jlm(real_jsm_jqs, monkeypatch, db_cfg, real_dag_id,
     config.jobmon_service_port = real_jsm_jqs["JOBMON_PORT"]
 
     # build sequential scheduler
-    from jobmon.execution.scheduler.execution_config import ExecutionConfig
-    from jobmon.execution.strategies.sequential import SequentialExecutor
-    cfg = ExecutionConfig.from_defaults()
-    cfg.reconciliation_interval = 4
-    cfg.heartbeat_interval = 2
-    cfg.report_by_buffer = 2.1
-    executor = SequentialExecutor()
-    scheduler = SingleDagScheduler(
-        executor, cfg, db_cfg["server_config"].conn_str, real_dag_id)
+    scheduler = sequential_scheduler_instance(
+        real_jsm_jqs["JOBMON_HOST"], real_jsm_jqs["JOBMON_PORT"], 4, 2, 2.1,
+        db_cfg["server_config"].conn_str, real_dag_id)
 
     yield scheduler, JobListManager(real_dag_id)
     scheduler.stop()
     config.jobmon_server_sqdn = None
     config.jobmon_service_port = None
+
+
+def run_sequential_scheduler_instance(host, port, reconciliation_interval,
+                                      heartbeat_interval, report_by_buffer,
+                                      url, dag_id):
+    scheduler = sequential_scheduler_instance(
+        host, port, reconciliation_interval, heartbeat_interval,
+        report_by_buffer)
+    scheduler.run()
+
+
+@pytest.fixture(scope='function')
+def sequential_scheduler_process_jlm(real_jsm_jqs, monkeypatch, db_cfg,
+                                     real_dag_id, client_env):
+    import multiprocessing as mp
+    import time
+
+    monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
+    monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
+
+    ctx = mp.get_context('spawn')
+    p1 = ctx.Process(target=run_sequential_scheduler_instance,
+                     args=(real_jsm_jqs["JOBMON_HOST"],
+                           real_jsm_jqs["JOBMON_PORT"],
+                           4, 2, 2.1, db_cfg["server_config"].conn_str,
+                           real_dag_id))
+    p1.start()
+    time.sleep(10)
+    yield JobListManager(real_dag_id)
+    p1.terminate()
 
 
 def test_sync(sequential_scheduler_jlm):
@@ -229,18 +253,26 @@ def test_server_502(sequential_scheduler_jlm):
             jlm.get_job_statuses()
 
 
-def test_ji_unknown_state(sequential_scheduler_jlm):
+def test_ji_unknown_state(sequential_scheduler_process_jlm, db_cfg):
     """should try to log a report by date after being set to the U state and
     fail"""
-    scheduler, jlm = sequential_scheduler_jlm
+    def query_till_running(db_cfg):
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
+        with app.app_context():
+            resp = DB.session.execute(
+                """SELECT status, executor_id FROM job_instance"""
+            ).fetchall()[-1]
+            DB.session.commit()
+        return resp
 
+    jlm = sequential_scheduler_jlm
     job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
                              executor_class="SequentialExecutor"))
     jlm.adjust_resources_and_queue(job)
-    jids = scheduler.instantiate_queued_jobs()
-
     jlm._sync()
     resp = query_till_running(db_cfg)
+
     while resp.status != 'R':
         resp = query_till_running(db_cfg)
     app = db_cfg["app"]
@@ -264,21 +296,3 @@ def test_ji_unknown_state(sequential_scheduler_jlm):
             sleep(3)
     # 9 indicates sigkill signal was sent as expected
     assert '9' in exit_status
-
-
-# def test_context_args(jlm_sge_no_daemon, db_cfg, caplog):
-#     caplog.set_level(logging.DEBUG)
-
-#     jlm = jlm_sge_no_daemon
-#     jif = jlm.job_instance_factory
-
-#     job = jlm.bind_task(
-#         Task(command="sge_foobar",
-#              name="test_context_args", num_cores=2, m_mem_free='4G',
-#              max_runtime_seconds='1000',
-#              context_args={'sge_add_args': '-a foo'}))
-
-#     jlm.adjust_resources_and_queue(job)
-#     jif.instantiate_queued_jobs()
-
-#     assert "-a foo" in caplog.text

@@ -256,7 +256,7 @@ def sequential_scheduler_process(real_jsm_jqs, monkeypatch):
     monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
 
     ctx = mp.get_context('spawn')
-    p1 = ctx.Process(target=run_multiprocess_scheduler_instance,
+    p1 = ctx.Process(target=run_sequential_scheduler_instance,
                      args=(real_jsm_jqs["JOBMON_HOST"],
                            real_jsm_jqs["JOBMON_PORT"],
                            4, 2, 2.1))
