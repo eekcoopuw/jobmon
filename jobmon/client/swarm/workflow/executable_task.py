@@ -65,7 +65,7 @@ class ExecutableTask(object):
 
         return True
 
-    def __init__(self, command: str,
+    def __init__(self, command: str = None,
                  upstream_tasks: Optional[List["ExecutableTask"]] = None,
                  env_variables: Optional[Dict[str, str]] = None,
                  name: Optional[str] = None,
@@ -80,7 +80,8 @@ class ExecutableTask(object):
                  hard_limits: Optional[bool] = False,
                  executor_class: str = 'SGEExecutor',
                  executor_parameters:
-                 Optional[Union[ExecutorParameters, Callable]] = None):
+                 Optional[Union[ExecutorParameters, Callable]] = None,
+                 **kwargs):
         """
         Create a task
 
@@ -127,6 +128,9 @@ class ExecutableTask(object):
            see is_valid_job_name
 
         """
+        self.kwargs = kwargs
+        if command is None:
+            command = self.mk_cmd()
         if env_variables:
             env_str = ' '.join('{}={}'.format(key, val) for key, val
                                in env_variables.items())
@@ -231,6 +235,9 @@ class ExecutableTask(object):
         for attribute_type in dict_of_attributes:
             self.job_attributes[attribute_type] = dict_of_attributes[
                 attribute_type]
+
+    def mk_cmd(self):
+        raise NotImplementedError
 
     def __eq__(self, other):
         """
