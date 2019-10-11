@@ -18,7 +18,8 @@ class DeploymentConfig(object):
                    jobmon_service_user_pwd=config.jobmon_service_user_pwd,
                    existing_network=config.existing_network,
                    same_host=config.same_host,
-                   existing_db=config.existing_db
+                   existing_db=config.existing_db,
+                   db_only=config.db_only
                    )
 
     def __init__(self, jobmon_service_port, external_db_port,
@@ -26,7 +27,7 @@ class DeploymentConfig(object):
                  jobmon_version, slack_token, wf_slack_channel,
                  node_slack_channel, monitor_port,
                  jobmon_service_user_pwd, existing_network,
-                 same_host, existing_db):
+                 same_host, existing_db, db_only):
         self.jobmon_service_port = jobmon_service_port
         self.external_db_port = external_db_port
         self.external_db_host = external_db_host
@@ -41,6 +42,7 @@ class DeploymentConfig(object):
         self.existing_network = existing_network
         self.same_host = same_host
         self.existing_db = existing_db
+        self.db_only = db_only
 
     @property
     def compose_project_name(self):

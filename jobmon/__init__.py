@@ -5,4 +5,4 @@ del get_versions
 
 config = SetupCfg()
 
-RELEASE_NAME = "emu"
+RELEASE_NAME = "fruitbat"

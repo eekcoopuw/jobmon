@@ -13,7 +13,7 @@ CREATE TABLE `job_instance`(
   `dag_id` int(11) NOT NULL,
   `executor_parameter_set_id` int(11) DEFAULT NULL,
   `usage_str` varchar(250) DEFAULT NULL,
-  `nodename` varchar(50) DEFAULT NULL,
+  `nodename` varchar(150) DEFAULT NULL,
   `process_group_id` int(11) DEFAULT NULL,
   `wallclock` varchar(50) DEFAULT NULL,
   `maxrss` varchar(50) DEFAULT NULL,

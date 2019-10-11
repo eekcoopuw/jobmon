@@ -55,7 +55,7 @@ class JobInstance(DB.Model):
 
     # usage
     usage_str = DB.Column(DB.String(250))
-    nodename = DB.Column(DB.String(50))
+    nodename = DB.Column(DB.String(150))
     process_group_id = DB.Column(DB.Integer)
     wallclock = DB.Column(DB.String(50))
     maxrss = DB.Column(DB.String(50))

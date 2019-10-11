@@ -12,7 +12,7 @@ class SetupCfg:
             cls.__singleton = super().__new__(cls)
         return cls.__singleton
 
-    def __init__(self, test_mode=None, existing_db=None, same_host=None,
+    def __init__(self, test_mode=None, existing_db=None, same_host=None, db_only=None,
                  slack_token=None, slack_api_url=None, wf_slack_channel=None,
                  node_slack_channel=None, jobmon_server_hostname=None,
                  jobmon_server_sqdn=None, jobmon_service_port=None,
@@ -36,6 +36,7 @@ class SetupCfg:
         self.test_mode = test_mode
         self.existing_db = existing_db
         self.same_host = same_host
+        self.db_only = db_only
         self.slack_token = slack_token
         self.slack_api_url = slack_api_url
         self.wf_slack_channel = wf_slack_channel
@@ -67,9 +68,11 @@ class SetupCfg:
     @test_mode.setter
     def test_mode(self, val):
         if val is None:
-            val = self._env.get("TEST_MODE") == "True"
+            val = self._env.get("TEST_MODE")
         if val is None:
-            val = self._config["basic values"].getboolean("test_mode")
+            val = self._config["basic values"]["test_mode"] == "True"
+        else:
+            val = val == "True"
         self._is_test_mode = val
 
     @property
@@ -79,9 +82,11 @@ class SetupCfg:
     @existing_db.setter
     def existing_db(self, val):
         if val is None:
-            val = self._env.get("EXISTING_DB") == "True"
+            val = self._env.get("EXISTING_DB")
         if val is None:
-            val = self._config["basic values"].getboolean("existing_db")
+            val = self._config["basic values"]["existing_db"] == "True"
+        else:
+            val = val == "True"
         self._existing_db = val
 
     @property
@@ -91,10 +96,26 @@ class SetupCfg:
     @same_host.setter
     def same_host(self, val):
         if val is None:
-            val = self._env.get("SAME_HOST") == "True"
+            val = self._env.get("SAME_HOST")
         if val is None:
-            val = self._config["basic values"].getboolean("same_host")
+            val = self._config["basic values"]["same_host"] == "True"
+        else:
+            val = val == "True"
         self._same_host = val
+
+    @property
+    def db_only(self) -> bool:
+        return self._db_only
+
+    @db_only.setter
+    def db_only(self, val):
+        if val is None:
+            val = self._env.get("DB_ONLY")
+        if val is None:
+            val = self._config["basic values"]["db_only"] == "True"
+        else:
+            val = val == "True"
+        self._db_only = val
 
     @property
     def slack_token(self) -> str:
@@ -369,7 +390,7 @@ class SetupCfg:
             val = self._env.get("RSYSLOG_PORT")
         if val is None:
             val = self._config["rsyslog"]["port"]
-        self._rsyslog_port = val
+        self._rsyslog_port = int(val)
 
     @property
     def rsyslog_protocol(self) -> int:
