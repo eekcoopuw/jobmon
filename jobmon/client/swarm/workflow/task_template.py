@@ -1,21 +1,23 @@
 from string import Formatter
-from typing import List
+from typing import Optional, List, Callable, Union
 
+from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 
 
 class TaskTemplate:
 
-    def __init__(self, name: str, tool: str, command_template: str,
-                 dag_args: List[str], data_args: List[str], op_args: List[str]
-                 ):
+    def __init__(self, tool: str, name: str, command_template: str,
+                 node_args: List[str] = [], data_args: List[str] = [],
+                 op_args: List[str] = []):
+
         # task template keys
-        self.name = name
         self.tool = tool
+        self.name = name
 
         # command strucuture
         self.command_template = command_template
-        self.dag_args = dag_args
+        self.node_args = node_args
         self.data_args = data_args
         self.op_args = op_args
 
@@ -26,15 +28,16 @@ class TaskTemplate:
              if i[1] is not None])
 
     @property
-    def dag_args(self):
-        return self._dag_args
+    def node_args(self):
+        return self._node_args
 
-    @dag_args.setter
-    def dag_args(self, val):
+    @node_args.setter
+    def node_args(self, val):
         val = set(val)
         if not self.template_key_set.issuperset(val):
-            raise ValueError("template_key_set must be a superset of dag_args")
-        self._structural_args = val
+            raise ValueError(
+                "template_key_set must be a superset of node_args")
+        self._node_args = val
 
     @property
     def data_args(self):
@@ -59,25 +62,35 @@ class TaskTemplate:
             raise ValueError("template_key_set must be a superset of op_args")
         self._op_args = val
 
-    def get_command(self, **kwargs):
-        return self.command_template.format(**kwargs)
+    def get_task(self,
+                 executor_parameters: Union[ExecutorParameters, Callable],
+                 name: Optional[str] = None,
+                 upstream_tasks: Optional[List["ExecutableTask"]] = None,
+                 max_attempts: Optional[int] = 3,
+                 job_attributes: Optional[dict] = None,
+                 **kwargs):
 
+        if self.template_key_set != set(kwargs.keys()):
+            raise ValueError(
+                f"unexpected kwargs. expected {self.template_key_set} -"
+                f"recieved {set(kwargs.keys())}")
 
-def _command(self):
-    return self.task_template.get_command(**self.kwargs)
+        command = self.command_template.format(**kwargs)
 
+        # construct node here
+        node_arg_vals = {k: v for k, v in kwargs.items()
+                         if k in self.node_args}
 
-class Tool:
-
-    def __init__(self, name="unknown"):
-        self.name = name
-
-    def get_task_type(
-            self, task_class_name, command_template: str,
-            dag_args: List[str], data_args: List[str], op_args: List[str]):
-        tt = TaskTemplate(task_class_name, self.name, command_template,
-                          dag_args, data_args, op_args)
-        task_type = type(task_class_name, (ExecutableTask,),
-                         {"mk_cmd": _command,
-                          "task_template": tt})
-        return task_type
+        # build task
+        data_arg_vals = {k: v for k, v in kwargs.items()
+                         if k in self.data_args}
+        task = ExecutableTask(
+            command=command,
+            node_arg_vals=node_arg_vals,
+            data_arg_vals=data_arg_vals,
+            executor_parameters=executor_parameters,
+            name=name,
+            upstream_tasks=upstream_tasks,
+            max_attempts=max_attempts,
+            job_attributes=job_attributes)
+        return task
