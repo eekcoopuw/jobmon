@@ -29,6 +29,7 @@ class JobFactory(object):
             tag (str, default None): a group identifier
 
         """
+        logger.info("Create job for dag_id {}".format(self.dag_id))
         rc, response = self.requester.send_request(
             app_route='/job',
             message={'dag_id': self.dag_id,
@@ -50,6 +51,7 @@ class JobFactory(object):
         Args:
             job_id (int): the id of the job to be queued
         """
+        logger.info("Queue job jid {}".format(job_id))
         rc, _ = self.requester.send_request(
             app_route='/job/{}/queue'.format(job_id),
             message={},
@@ -60,6 +62,7 @@ class JobFactory(object):
 
     def reset_jobs(self):
         """Reset all incomplete jobs of a dag_id, identified by self.dag_id"""
+        logger.info("Reset jobs for dag_id {}".format(self.dag_id))
         rc, _ = self.requester.send_request(
             app_route='/task_dag/{}/reset_incomplete_jobs'.format(self.dag_id),
             message={},
@@ -86,6 +89,9 @@ class JobFactory(object):
                         value should be convertible to int
                         or be string for TAG attribute
         """
+        logger.info("Add job attribute for job_id: {jid} attribute_type: {attribute_type} value: {v}".format(
+            jid=job_id, attribute_type=attribute_type, v=value
+        ))
         user_cant_config = [job_attribute.WALLCLOCK, job_attribute.CPU,
                             job_attribute.IO, job_attribute.MAXRSS]
         if attribute_type in user_cant_config:

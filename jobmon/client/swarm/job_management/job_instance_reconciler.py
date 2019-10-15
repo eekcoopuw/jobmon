@@ -186,6 +186,7 @@ class JobInstanceReconciler(object):
             job_instance_id (int): id for the job_instance that has timed out
             hostname (str): host where the job_instance was running
         """
+        logger.info("log timeout hostname jiid: {j} host: {h}".format(j=job_instance_id, h=hostname))
         return self.requester.send_request(
             app_route=f'/job_instance/{job_instance_id}/log_nodename',
             message={'nodename': hostname},

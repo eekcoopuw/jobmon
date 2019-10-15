@@ -195,13 +195,13 @@ class HealthMonitor(object):
                 request_type='put')
             wf = wfr.workflow
             dag = wf.task_dag
-            msg = ("Lost contact with Workflow Run #{wfr_id}:\n"
+            msg = ("{v} Lost contact with Workflow Run #{wfr_id}:\n"
                    "    running on host: {hostname}\n"
                    "    PID: {pid}\n"
                    "    workflow_id: {wf_id}\n"
                    "    workflow_args: {wf_args}\n"
                    "    task_dag id: {dag_id}\n"
-                   "    task_dag name: {dag_name}".format(
+                   "    task_dag name: {dag_name}".format(v=__version__,
                        wfr_id=wfr.id, hostname=wfr.hostname, pid=wfr.pid,
                        wf_id=wf.id, wf_args=wf.workflow_args,
                        dag_id=dag.dag_id, dag_name=dag.name))
