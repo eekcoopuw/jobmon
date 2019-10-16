@@ -1,3 +1,3 @@
 from jobmon.client.client_logging import ClientLogging
 
-ClientLogging.attach_log_handler("JOBMON_SWARM")
+ClientLogging.attach_log_handler("JOBMON_SWARM Michelle")

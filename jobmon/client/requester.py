@@ -1,14 +1,15 @@
-import logging
 import requests
 from tenacity import retry, wait_exponential, retry_if_result, stop_after_delay
+from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
-
+logging.attach_log_handler("JOBMON_NODE Client Michelle")
 
 def is_5XX(result):
     '''
     return True if get_content result has 5XX status '''
+    logger.debug("is_5XX")
     status = result[0]
     is_bad = status > 499 and status < 600
     return is_bad
@@ -18,6 +19,7 @@ def raise_if_exceed_retry(retry_state):
     '''
     if we trigger retry error, raise informative RuntimeError
     '''
+    logger.info("exceed retry")
     status, content = retry_state.outcome.result()
     raise RuntimeError(
         f'Exceeded HTTP request retry budget. '
@@ -100,6 +102,7 @@ class Requester(object):
         return status_code, content
 
     def build_full_url(self, app_route):
+        logger.info(self.url + app_route)
         return self.url + app_route
 
 
@@ -111,4 +114,5 @@ def get_content(response):
             content = response.json
     else:
         content = response.content
+    logger.debug("response status: {s}; content: {c}".format(s=response.status_code, c=response.status_code))
     return response.status_code, content

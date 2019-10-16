@@ -5,4 +5,4 @@ del get_versions
 
 RELEASE_NAME = "fruitbat"
 
-ClientLogging.attach_log_handler("JOBMON_NODE")
+ClientLogging.attach_log_handler("JOBMON_NODE Michelle")

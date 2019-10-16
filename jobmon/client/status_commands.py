@@ -3,6 +3,11 @@ import pandas as pd
 from typing import List, Tuple
 
 from jobmon.client import shared_requester
+from jobmon.client.client_logging import ClientLogging as logging
+
+
+logger = logging.getLogger(__name__)
+logging.attach_log_handler("JOBMON_NODE Client Michelle")
 
 
 def workflow_status(workflow_id: List[int] = [], user: List[str] = []
@@ -16,6 +21,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = []
     Returns:
         dataframe of all workflows and their status
     """
+    logger.debug("workflow_status workflow_id:{}".format(str(workflow_id)))
     msg: dict = {}
     if workflow_id:
         msg["workflow_id"] = workflow_id
@@ -41,6 +47,7 @@ def workflow_jobs(workflow_id: int, status: str = None) -> pd.DataFrame:
     Returns:
         Dataframe of jobs for a given workflow
     """
+    logger.info("workflow id: {}".format(workflow_id))
     msg = {}
     if status:
         msg["status"] = status.upper()
@@ -61,6 +68,7 @@ def job_status(job_id: int) -> Tuple[str, pd.DataFrame]:
     Returns:
         Job status and job_instance metadata
     """
+    logger.info("job_status job_id:{}".format(job_id))
     rc, res = shared_requester.send_request(
         app_route=f"/job/{job_id}/status",
         message={},
