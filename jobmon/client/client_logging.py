@@ -14,7 +14,7 @@ class ClientLogging():
     DEBUG: int = logging.DEBUG
     NOTSET: int = logging.NOTSET
 
-    _format: str = ': %(asctime)s [%(name)-12s] %(module)s %(levelname)-8s %(threadName)s: %(message)s'
+    _format: str = ': -Michelle- %(asctime)s [%(name)-12s] %(module)s %(levelname)-8s %(threadName)s: %(message)s'
     _logLevel: int = DEBUG
     _syslogAttached: bool = config.use_rsyslog
 

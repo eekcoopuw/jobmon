@@ -4,7 +4,7 @@ from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
-logging.attach_log_handler("JOBMON_NODE Client Michelle")
+logging.attach_log_handler("JOBMON_NODE")
 
 def is_5XX(result):
     '''

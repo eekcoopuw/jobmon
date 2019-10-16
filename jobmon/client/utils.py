@@ -11,7 +11,7 @@ from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
-logging.attach_log_handler("JOBMON_NODE Client Michelle")
+logging.attach_log_handler("JOBMON_NODE")
 
 SSH_KEYFILE_NAME = "jobmonauto_id_rsa"
 _home_dir = os.path.realpath(os.path.expanduser("~"))
