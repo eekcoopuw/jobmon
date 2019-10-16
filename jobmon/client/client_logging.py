@@ -1,6 +1,7 @@
 import logging
 import socket
 from logging.handlers import SysLogHandler
+import getpass
 
 from jobmon import config
 
@@ -14,7 +15,7 @@ class ClientLogging():
     DEBUG: int = logging.DEBUG
     NOTSET: int = logging.NOTSET
 
-    _format: str = ': -Michelle- %(asctime)s [%(name)-12s] %(module)s %(levelname)-8s %(threadName)s: %(message)s'
+    _format: str = ' %(asctime)s [%(name)-12s] %(module)s %(levelname)-8s %(threadName)s: %(message)s'
     _logLevel: int = DEBUG
     _syslogAttached: bool = config.use_rsyslog
 
@@ -22,7 +23,8 @@ class ClientLogging():
     def attach_log_handler(tag: str):
         logger = logging.getLogger()
         logger.setLevel(ClientLogging._logLevel)
-        formatter = logging.Formatter(tag + ClientLogging._format)
+        username = getpass.getuser()
+        formatter = logging.Formatter(tag + ": " + username + ClientLogging._format)
         hs = logging.StreamHandler()
         hs.setFormatter(formatter)
         logger.addHandler(hs)
