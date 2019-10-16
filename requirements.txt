@@ -2,6 +2,7 @@ sphinx
 sphinx-autodoc-typehints
 sphinx_rtd_theme
 pytest
+pymysql
 cluster_utils
 flask
 flask_cors

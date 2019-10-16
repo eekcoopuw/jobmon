@@ -14,7 +14,7 @@ from time import sleep
 import pytest
 import requests
 
-from cluster_utils.ephemerdb import create_ephemerdb
+from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
 
 from jobmon.client import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
@@ -28,7 +28,7 @@ def ephemera():
     because the ephemera db has to be started before any other code
     imports the_server_config
     """
-    edb = create_ephemerdb(elevated_privileges=True, using_mariadb=True)
+    edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
     edb.db_name = "docker"
     conn_str = edb.start()
     # use the ephemera db root privileges (root: singularity_root) otherwise
