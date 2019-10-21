@@ -25,6 +25,7 @@ from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
+from jobmon.models.node import Node
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
@@ -104,6 +105,28 @@ def add_job():
 
     job_dct = job.to_wire_as_swarm_job()
     resp = jsonify(job_dct=job_dct)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/node', methods=['POST'])
+def add_node():
+    """Add a new node to the database
+
+    Args:
+        node_arg_hash: unique identifier of all NodeArgs associated with a node
+        task_template_version_id: version id of the task_template a node
+                                  belongs to.
+    """
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+    node = Node(task_template_version_id=data['task_template_version_id'],
+                node_arg_hash=data['node_arg_hash'])
+    DB.session.add(node)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    DB.session.commit()
+    resp = jsonify(node_id=node.id)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -1081,6 +1104,30 @@ def get_log_level():
     level: str = logging.getLevelName()
     logger.debug(level)
     resp = jsonify({'level': level})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/node', methods=['GET'])
+def get_node():
+    """Get a node:
+
+    Args:
+        node_arg_hash: unique identifier of all NodeArgs associated with a node
+        task_template_version_id: version id of the task_template a node
+                                  belongs to.
+    """
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+    result = DB.session.query(Node).filter(
+        Node.node_arg_hash == data['node_arg_hash'],
+        Node.task_template_version_id == data['task_template_version_id']
+    ).one_or_none()
+    if result is None:
+        resp = jsonify({'node_id': None})
+    else:
+        resp = jsonify({'node_id': result.id})
     resp.status_code = StatusCodes.OK
     return resp
 
