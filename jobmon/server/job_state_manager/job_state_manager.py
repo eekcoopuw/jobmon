@@ -131,7 +131,6 @@ def add_node_and_node_args():
     DB.session.commit()
 
     # add node_args
-    node_args = data['node_args']
     for arg_id, value in data['node_args']:
         logger.info(f'Adding node_arg with node_id: {node.id}, '
                     f'arg_id: {arg_id}, and val: {value}')
