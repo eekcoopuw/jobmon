@@ -29,6 +29,7 @@ install_requires = [
     'cluster_utils',
     'requests',
     'paramiko',
+    'tabulate',
     'tenacity']
 
 setup(
