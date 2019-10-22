@@ -26,6 +26,7 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.node import Node
+from jobmon.models.node_args import NodeArg
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
@@ -110,7 +111,7 @@ def add_job():
 
 
 @jsm.route('/node', methods=['POST'])
-def add_node():
+def add_node_and_node_args():
     """Add a new node to the database
 
     Args:
@@ -121,11 +122,25 @@ def add_node():
     logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
+
+    # add node
     node = Node(task_template_version_id=data['task_template_version_id'],
                 node_arg_hash=data['node_arg_hash'])
     DB.session.add(node)
     logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
+
+    # add node_args
+    node_args = data['node_args']
+    for arg_id, value in data['node_args']:
+        logger.info(f'Adding node_arg with node_id: {node.id}, '
+                    f'arg_id: {arg_id}, and val: {value}')
+        node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)
+        DB.session.add(node_arg)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    DB.session.commit()
+
+    # return result
     resp = jsonify(node_id=node.id)
     resp.status_code = StatusCodes.OK
     return resp

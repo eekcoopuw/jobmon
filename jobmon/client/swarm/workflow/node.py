@@ -51,10 +51,13 @@ class Node(object):
         """
         node_id = self._get_node_id()
         if node_id is None:
-            node_id = self._insert_node()
+            node_id = self._insert_node_and_node_args()
         return node_id
 
     def _get_node_id(self) -> int:
+        logger.info(f'Get node with node_args_hash: {self.node_args_hash} and'
+                    f' task_template_version_id: '
+                    f'{self.task_template_version_id}')
         return_code, response = self.requester.send_request(
             app_route='/node',
             message={
@@ -69,12 +72,17 @@ class Node(object):
             raise ValueError(f'Unexpected status code {return_code} from GET '
                              f'request through route /node')
 
-    def _insert_node(self) -> int:
+    def _insert_node_and_node_args(self) -> int:
+        logger.info(f'Insert node with node_args_hash: {self.node_args_hash}, '
+                    f'task_template_version_id: '
+                    f'{self.task_template_version_id}, and nodes args: '
+                    f'{self.node_args}')
         return_code, response = self.requester.send_request(
             app_route='/node',
             message={
                 'task_template_version_id': str(self.task_template_version_id),
-                'node_arg_hash': str(self.node_args_hash)
+                'node_arg_hash': str(self.node_args_hash),
+                'node_args': self.node_args
             },
             request_type='post'
         )

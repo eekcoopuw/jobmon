@@ -1,7 +1,7 @@
 from jobmon.models import DB
 
 
-class NodeArgs(DB.Model):
+class NodeArg(DB.Model):
 
     __tablename__ = 'node_args'
 
