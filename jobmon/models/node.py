@@ -1,7 +1,7 @@
 from jobmon.models import DB
 
 
-class Node(DB.model):
+class Node(DB.Model):
 
     __tablename__ = 'node'
 
