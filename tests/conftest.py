@@ -14,8 +14,7 @@ from time import sleep
 import pytest
 import requests
 
-from cluster_utils.ephemerdb import create_ephemerdb
-from cluster_utils.ephemerdb import MARIADB
+from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
 
 from jobmon.client import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
