@@ -307,6 +307,7 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                                 hostname
                                 source activate ${project_name}_build${python_major_version} &> /dev/null
                                 python setup.py sdist
+                                twine upload --repository ihme-artifactory ./dist/*
                                 mv ./dist/* /ihme/pypi/
                             """
                         }
@@ -405,7 +406,9 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                         } else {
                            sh """
                                 source activate ${project_name}_build${python_major_version} &> /dev/null
-                                twine upload --repository ihme-artifactory dist/*
+                                python setup.py sdist
+                                twine upload --repository ihme-artifactory ./dist/*
+                                mv ./dist/* /ihme/pypi/
                             """
                         }
                     }

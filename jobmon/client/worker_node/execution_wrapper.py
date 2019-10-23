@@ -60,6 +60,7 @@ def unwrap():
     # Similar to a stub or a container
 
     # parse arguments
+    logger.info("unwrap")
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)
