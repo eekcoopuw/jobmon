@@ -17,8 +17,8 @@ class Node(object):
                  node_args: Dict, requester: Requester = shared_requester):
         """
         Args:
-            task_template_version_id:
-            node_args:
+            task_template_version_id: The associated task_template_version_id.
+            node_args: key-value pairs of arg_id and a value
         """
         self.node_id = None  # node_id of None implies that it is unbound
         self.task_template_version_id = task_template_version_id
@@ -59,8 +59,8 @@ class Node(object):
         return_code, response = self.requester.send_request(
             app_route='/node',
             message={
-                'task_template_version_id': str(self.task_template_version_id),
-                'node_arg_hash': str(self.node_args_hash)
+                'task_template_version_id': self.task_template_version_id,
+                'node_args_hash': self.node_args_hash
             },
             request_type='get'
         )
@@ -75,8 +75,8 @@ class Node(object):
         return_code, response = self.requester.send_request(
             app_route='/node',
             message={
-                'task_template_version_id': str(self.task_template_version_id),
-                'node_arg_hash': str(self.node_args_hash),
+                'task_template_version_id': self.task_template_version_id,
+                'node_args_hash': self.node_args_hash,
                 'node_args': self.node_args
             },
             request_type='post'

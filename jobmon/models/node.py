@@ -10,4 +10,4 @@ class Node(DB.model):
         DB.Integer,
         DB.ForeignKey('task_template_version.id')
     )
-    node_arg_hash = DB.Column(DB.Integer)
+    node_args_hash = DB.Column(DB.Integer)

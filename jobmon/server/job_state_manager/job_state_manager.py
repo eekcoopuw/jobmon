@@ -125,7 +125,7 @@ def add_node_and_node_args():
 
     # add node
     node = Node(task_template_version_id=data['task_template_version_id'],
-                node_arg_hash=data['node_arg_hash'])
+                node_arg_hash=data['node_args_hash'])
     DB.session.add(node)
     logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
@@ -1135,7 +1135,7 @@ def get_node():
     data = request.get_json()
     logger.debug(data)
     result = DB.session.query(Node).filter(
-        Node.node_arg_hash == data['node_arg_hash'],
+        Node.node_arg_hash == data['node_args_hash'],
         Node.task_template_version_id == data['task_template_version_id']
     ).one_or_none()
     if result is None:
