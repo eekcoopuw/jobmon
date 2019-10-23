@@ -4,7 +4,7 @@ from typing import Dict
 
 from flask import jsonify, request, Blueprint
 from sqlalchemy.orm import contains_eager
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from jobmon.models import DB
 from jobmon.models.attributes.job_attribute import JobAttribute
@@ -464,14 +464,28 @@ def get_most_recent_ji_error(job_id: int):
     """
 
     logger.debug(logging.myself())
-    msg = DB.session.query(JobInstance).filter_by(job_id=job_id)\
-                          .order_by(JobInstance.job_instance_id.desc())\
-                          .join(JobInstanceErrorLog)\
-                          .options(contains_eager(JobInstance.job_instance_id))\
-                          .with_entities(JobInstanceErrorLog.description)\
-                          .first()
+    logging.logParameter("job_id", job_id)
+
+    query = """
+        SELECT
+            jiel.*
+        FROM
+            job_instance ji
+        JOIN
+            job_instance_error_log jiel
+            ON ji.job_instance_id = jiel.job_instance_id
+        WHERE
+            ji.job_id = :job_id
+        ORDER BY
+            ji.job_instance_id desc, jiel.id desc
+        LIMIT 1"""
+    ji_error = DB.session.query(JobInstanceErrorLog).from_statement(
+        text(query)).params(job_id=job_id).one_or_none()
     DB.session.commit()
-    resp = jsonify({"error_description": msg})
+    if ji_error is not None:
+        resp = jsonify({"error_description": ji_error.description})
+    else:
+        resp = jsonify({"error_description": ""})
     resp.status_code = StatusCodes.OK
     return resp
 
