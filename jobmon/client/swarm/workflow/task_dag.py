@@ -347,9 +347,9 @@ class TaskDag(object):
         """
         logger.debug("Adding Task {}".format(task))
         if task.hash in self.tasks:
-            raise ValueError("A task with hash '{}' already exists. All tasks "
-                             "in a workflow must have unique commands"
-                             .format(task.hash))
+            raise ValueError(f"A task with hash {task.hash} already exists. "
+                             f"All tasks in a workflow must have unique "
+                             f"commands. Your command was: {task.command}")
         self.tasks[task.hash] = task
         self.tags.add(task.tag)
         logger.debug("Task {} added".format(task.hash))

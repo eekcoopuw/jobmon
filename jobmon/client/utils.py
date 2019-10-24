@@ -1,5 +1,4 @@
 import itertools
-import logging
 import os
 import subprocess
 from typing import Tuple
@@ -8,8 +7,11 @@ from paramiko.client import SSHClient, WarningPolicy
 
 from cluster_utils.io import check_permissions, InvalidPermissions
 from jobmon.exceptions import UnsafeSSHDirectory
+from jobmon.client.client_logging import ClientLogging as logging
+
 
 logger = logging.getLogger(__name__)
+logging.attach_log_handler("JOBMON_NODE")
 
 SSH_KEYFILE_NAME = "jobmonauto_id_rsa"
 _home_dir = os.path.realpath(os.path.expanduser("~"))
@@ -26,6 +28,7 @@ def confirm_correct_perms(perm_dict=None):
     Raises:
         UnsafeSSHDirectory
     """
+    logger.debug("confirm_correct_perms")
     if perm_dict is None:
         perm_dict = _get_ssh_permission_dict()
 
@@ -55,6 +58,7 @@ def gently_kill_command(id: int) -> str:
     likely to leave orphans:
     kill SIGTERM; sleep 5; kill SIGKILL
     """
+    logger.debug("gently_kill_command id:{}".format(id))
     return f'kill -SIGTERM {id}; sleep 10; kill -SIGKILL {id}'
 
 
@@ -66,6 +70,7 @@ def kill_remote_process(hostname: str, pid: int) -> Tuple[int, str, str]:
     :param pid: Process id
     :return: exit_code, stdout_str, stderr_str
     """
+    logger.info("kill_remote_process hostname: {h} pid: {p}".format(h=hostname, p=pid))
     return _run_remote_command(hostname, gently_kill_command(pid))
 
 
@@ -78,10 +83,13 @@ def kill_remote_process_group(hostname: str, pgid: int) ->\
 
     :return: exit_code, stdout_str, stderr_str
     """
+    logger.info("kill_remote_process_group")
+    logger.debug("hostname: {h} pgid: {p}".format(h=hostname, p=pgid))
     return _run_remote_command(hostname, gently_kill_command(pgid))
 
 
 def _get_ssh_permission_dict():
+    logger.info("_get_ssh_permission_dict")
     ssh_safety_lookup = {}
 
     # get the allowed values for home folder. '7' for the user '0, 1, 4, 5' for
@@ -112,6 +120,7 @@ def _run_remote_command(hostname: str, command: str) -> Tuple[int, str, str]:
 
     :returns exit_code, stdout_str, stderr_str
     """
+    logger.info(" _run_remote_command")
     keyfile = _setup_keyfile()
     client = SSHClient()
     client.set_missing_host_key_policy(WarningPolicy)
@@ -125,6 +134,7 @@ def _run_remote_command(hostname: str, command: str) -> Tuple[int, str, str]:
 
 
 def _setup_keyfile():
+    logger.info("_setup_keyfile")
     if not _keyfile_exists():
         logger.debug(
             "{} not found. Create it for the user.".format(_ssh_keyfile))

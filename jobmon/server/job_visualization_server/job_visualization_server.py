@@ -191,6 +191,10 @@ def get_workflow_status():
         # remap to viz statuses
         df.STATUS.replace(to_replace=_viz_label_mapping, inplace=True)
 
+        # aggregate totals by workflow and status
+        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS"]
+                        ).agg({'JOBS': 'sum', 'RETRIES': 'sum'})
+
         # pivot wide by job status
         jobs = df.pivot_table(
             values="JOBS",
@@ -202,12 +206,12 @@ def get_workflow_status():
                 jobs[col] = 0
         jobs = jobs[_viz_order]
 
-        # aggregate totals by workflow
-        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]
-                        ).agg({'JOBS': 'sum', 'RETRIES': 'sum'})
+        # aggregate again without status to get the totals by workflow
+        retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]
+                             ).agg({'JOBS': 'sum', 'RETRIES': 'sum'})
 
         # combine datasets
-        df = pd.concat([jobs, df], axis=1)
+        df = pd.concat([jobs, retries], axis=1)
 
         # compute pcts and format
         for col in _viz_order:
