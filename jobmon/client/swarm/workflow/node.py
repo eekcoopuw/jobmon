@@ -28,8 +28,8 @@ class Node(object):
         self.requester = requester
 
     def bind(self) -> int:
-        """Retrieve an id for a matching node_arg_hash in the database. If it
-        doesn't exist, first create one."""
+        """Retrieve an id for a matching node in the database. If it doesn't
+        exist, first create one."""
         node_id = self._get_node_id()
         if node_id is None:
             logger.info(f'node_id for node: {self} not found, creating a new'

@@ -7,7 +7,9 @@ from jobmon.client.swarm.workflow.node import Node
 
 
 def test_node(env_var):
-    """tests Node.bind() and /node GET and POST routes"""
+    """tests Node.bind() - checks that a node created for the first time
+    creates a new db entry, and if it gets bound again a new entry
+    won't be created"""
 
     node_1 = Node(task_template_version_id=1,
                   node_args={1: 3, 2: 2006, 4: 'aggregate'})
