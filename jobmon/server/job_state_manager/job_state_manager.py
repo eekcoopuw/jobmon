@@ -19,13 +19,14 @@ from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.tool import Tool
+from jobmon.models.tool_version import ToolVersion
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
@@ -72,6 +73,36 @@ def _is_alive():
     logmsg = "{}: Responder received is_alive?".format(os.getpid())
     logger.debug(logmsg)
     resp = jsonify(msg="Yes, I am alive")
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/tool', methods=['POST'])
+def add_tool():
+    """Add a tool to the database"""
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+    tool = Tool(name=data["name"])
+    DB.session.add(tool)
+    DB.session.commit()
+    tool = tool.to_wire_as_client_tool()
+    resp = jsonify(tool=tool)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/tool_version', methods=['POST'])
+def add_tool_version():
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+    tool_version = ToolVersion(
+        tool_id=data["tool_id"])
+    DB.session.add(tool_version)
+    DB.session.commit()
+    tool_version = tool_version.to_wire_as_client_tool_version()
+    resp = jsonify(tool_version=tool_version)
     resp.status_code = StatusCodes.OK
     return resp
 

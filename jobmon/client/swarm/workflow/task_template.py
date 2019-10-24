@@ -7,13 +7,13 @@ from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 
 class TaskTemplate:
 
-    def __init__(self, tool: str, name: str, command_template: str,
+    def __init__(self, tool: str, template_name: str, command_template: str,
                  node_args: List[str] = [], data_args: List[str] = [],
                  op_args: List[str] = []):
 
         # task template keys
         self.tool = tool
-        self.name = name
+        self.template_name = template_name
 
         # command strucuture
         self.command_template = command_template
