@@ -1150,30 +1150,6 @@ def get_log_level():
     return resp
 
 
-@jsm.route('/node', methods=['GET'])
-def get_node():
-    """Get a node:
-
-    Args:
-        node_args_hash: unique identifier of all NodeArgs associated with a node
-        task_template_version_id: version id of the task_template a node
-                                  belongs to.
-    """
-    logger.info(logging.myself())
-    data = request.args
-    logger.debug(data)
-    result = DB.session.query(Node).filter(
-        Node.node_args_hash == data['node_args_hash'],
-        Node.task_template_version_id == data['task_template_version_id']
-    ).one_or_none()
-    if result is None:
-        resp = jsonify({'node_id': None})
-    else:
-        resp = jsonify({'node_id': result.id})
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jsm.route('/log_level/<level>', methods=['POST'])
 def set_log_level(level):
     """Change log level
