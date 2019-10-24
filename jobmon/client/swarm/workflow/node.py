@@ -1,4 +1,5 @@
 import hashlib
+import json
 
 from http import HTTPStatus as StatusCodes
 from typing import Dict
@@ -77,7 +78,7 @@ class Node(object):
             message={
                 'task_template_version_id': self.task_template_version_id,
                 'node_args_hash': self.node_args_hash,
-                'node_args': self.node_args
+                'node_args': json.dumps(self.node_args)
             },
             request_type='post'
         )

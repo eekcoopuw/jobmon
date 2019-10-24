@@ -115,9 +115,11 @@ def add_node_and_node_args():
     """Add a new node to the database
 
     Args:
-        node_arg_hash: unique identifier of all NodeArgs associated with a node
+        node_args_hash: unique identifier of all NodeArgs associated with a
+                        node.
         task_template_version_id: version id of the task_template a node
                                   belongs to.
+        node_args: key-value pairs of arg_id and a value.
     """
     logger.info(logging.myself())
     data = request.get_json()
@@ -125,13 +127,14 @@ def add_node_and_node_args():
 
     # add node
     node = Node(task_template_version_id=data['task_template_version_id'],
-                node_arg_hash=data['node_args_hash'])
+                node_args_hash=data['node_args_hash'])
     DB.session.add(node)
     logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.commit()
 
     # add node_args
-    for arg_id, value in data['node_args']:
+    node_args = json.loads(data['node_args'])
+    for arg_id, value in node_args.items():
         logger.info(f'Adding node_arg with node_id: {node.id}, '
                     f'arg_id: {arg_id}, and val: {value}')
         node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)
@@ -1152,15 +1155,15 @@ def get_node():
     """Get a node:
 
     Args:
-        node_arg_hash: unique identifier of all NodeArgs associated with a node
+        node_args_hash: unique identifier of all NodeArgs associated with a node
         task_template_version_id: version id of the task_template a node
                                   belongs to.
     """
     logger.info(logging.myself())
-    data = request.get_json()
+    data = request.args
     logger.debug(data)
     result = DB.session.query(Node).filter(
-        Node.node_arg_hash == data['node_args_hash'],
+        Node.node_args_hash == data['node_args_hash'],
         Node.task_template_version_id == data['task_template_version_id']
     ).one_or_none()
     if result is None:

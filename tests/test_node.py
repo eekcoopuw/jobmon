@@ -1,10 +1,12 @@
+import json
+
 from http import HTTPStatus as StatusCodes
 
 from jobmon.client import shared_requester
 from jobmon.client.swarm.workflow.node import Node
 
 
-def test_node(real_jsm_jqs):
+def test_node(env_var):
     """tests Node.bind() and /node GET and POST routes"""
 
     node_1 = Node(task_template_version_id=1,
@@ -20,29 +22,29 @@ def test_node(real_jsm_jqs):
     assert node_1_id == node_2_id
 
 
-def test_node_get_route(real_jsm_jqs):
+def test_node_get_route(env_var):
     node = Node(task_template_version_id=1,
-                  node_args={1: 3, 2: 2006, 4: 'aggregate'})
+                node_args={1: 3, 2: 2006, 4: 'aggregate'})
     return_code, response = shared_requester.send_request(
         app_route='/node',
         message={
-            'task_template_version_id': node.task_template_version_id,
-            'node_args_hash': node.node_args_hash
+            'task_template_version_id': str(node.task_template_version_id),
+            'node_args_hash': str(node.node_args_hash)
         },
         request_type='get'
     )
     assert return_code == StatusCodes.OK
 
 
-def test_node_post_route(real_jsm_jqs):
+def test_node_post_route(env_var):
     node = Node(task_template_version_id=1,
                 node_args={1: 3, 2: 2006, 4: 'aggregate'})
     return_code, response = shared_requester.send_request(
         app_route='/node',
         message={
-            'task_template_version_id': node.task_template_version_id,
-            'node_args_hash': node.node_args_hash,
-            'node_args': node.node_args
+            'task_template_version_id': str(node.task_template_version_id),
+            'node_args_hash': str(node.node_args_hash),
+            'node_args': json.dumps(node.node_args)
         },
         request_type='post'
     )
