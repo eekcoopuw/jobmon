@@ -425,6 +425,31 @@ def log_error_reconciler(job_instance_id: int):
     return resp
 
 
+@jsm.route('/job_instance/<job_instance_id>/log_error_health_monitor',
+           methods=['POST'])
+def log_error_health_monitor(job_instance_id: int):
+    """Log a job_instance as errored
+    Args:
+        job_instance:
+        data:
+        oom_killed: whether or not given job errored due to an oom-kill event
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("job_instance_id", job_instance_id))
+    data = request.get_json()
+    error_state = data['error_state']
+    error_message = data.get('error_message', 'Health monitor synced the state from QPID')
+    executor_id = data.get('executor_id', None)
+    nodename = data.get('nodename', None)
+    logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
+    logger.debug("data:" + str(data))
+
+    ji = _get_job_instance(DB.session, job_instance_id)
+
+    resp = _log_error(ji, error_state, error_message, executor_id, nodename)
+    return resp
+
+
 @jsm.route('/job_instance/<job_instance_id>/log_no_exec_id', methods=['POST'])
 def log_no_exec_id(job_instance_id):
     logger.info(logging.myself())
