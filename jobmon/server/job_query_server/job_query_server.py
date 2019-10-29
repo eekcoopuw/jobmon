@@ -17,6 +17,8 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.node import Node
 from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.tool import Tool
+from jobmon.models.tool_version import ToolVersion
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
@@ -54,6 +56,47 @@ def get_time(session):
     time = session.execute("select UTC_TIMESTAMP as time").fetchone()['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     return time
+
+
+@jqs.route('/tool/<tool_name>', methods=['GET'])
+def get_tool(tool_name: str):
+    logger.info(logging.myself())
+    logging.logParameter("tool_name", tool_name)
+    query = """
+        SELECT
+            tool.*
+        FROM
+            tool
+        WHERE
+            name = :tool_name"""
+    tool = DB.session.query(Tool).from_statement(
+        text(query)).params(tool_name=tool_name).one_or_none()
+    DB.session.commit()
+    if tool:
+        tool = tool.to_wire_as_client_tool()
+    resp = jsonify(tool=tool)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/tool/<tool_id>/tool_versions', methods=['GET'])
+def get_tool_versions(tool_id):
+    logger.info(logging.myself())
+    logging.logParameter("tool_id", tool_id)
+    query = """
+        SELECT
+            tool_version.*
+        FROM
+            tool_version
+        WHERE
+            tool_id = :tool_id"""
+    tool_versions = DB.session.query(ToolVersion).from_statement(
+        text(query)).params(tool_id=tool_id).all()
+    DB.session.commit()
+    tool_versions = [t.to_wire_as_client_tool_version() for t in tool_versions]
+    resp = jsonify(tool_versions=tool_versions)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jqs.route('/workflow/<workflow_id>/workflow_attribute', methods=['GET'])

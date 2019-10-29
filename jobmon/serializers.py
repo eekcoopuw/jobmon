@@ -69,3 +69,25 @@ class SerializeExecutorJobInstance:
         executor_id = int(wire_tuple[1]) if wire_tuple[1] else None
         return {"job_instance_id": int(wire_tuple[0]),
                 "executor_id": executor_id}
+
+
+class SerializeClientTool:
+
+    @staticmethod
+    def to_wire(id: int, name: str) -> tuple:
+        return (id, name)
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple):
+        return {"id": int(wire_tuple[0]), "name": wire_tuple[1]}
+
+
+class SerializeClientToolVersion:
+
+    @staticmethod
+    def to_wire(id: int, tool_id: int) -> tuple:
+        return (id, tool_id)
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple):
+        return {"id": int(wire_tuple[0]), "tool_id": int(wire_tuple[1])}

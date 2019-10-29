@@ -1,8 +1,7 @@
 from functools import partial
 import hashlib
-import logging
 
-from typing import Optional, List, Dict, Callable, Union
+from typing import Optional, List, Callable, Union
 
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.models.job_status import JobStatus
@@ -65,22 +64,15 @@ class ExecutableTask(object):
 
         return True
 
-    def __init__(self, command: str,
-                 upstream_tasks: Optional[List["ExecutableTask"]] = None,
-                 env_variables: Optional[Dict[str, str]] = None,
+    def __init__(self,
+                 command: str,
+                 node_arg_vals: dict,
+                 data_arg_vals: dict,
+                 executor_parameters: Union[ExecutorParameters, Callable],
                  name: Optional[str] = None,
-                 num_cores: Optional[int] = None,
-                 max_runtime_seconds: Optional[int] = None,
-                 queue: Optional[str] = None, max_attempts: Optional[int] = 3,
-                 j_resource: bool = False, tag: Optional[str] = None,
-                 context_args: Optional[dict] = None,
-                 resource_scales: Dict = None,
-                 job_attributes: Optional[dict] = None,
-                 m_mem_free: Optional[str] = None,
-                 hard_limits: Optional[bool] = False,
-                 executor_class: str = 'SGEExecutor',
-                 executor_parameters:
-                 Optional[Union[ExecutorParameters, Callable]] = None):
+                 upstream_tasks: Optional[List["ExecutableTask"]] = None,
+                 max_attempts: Optional[int] = 3,
+                 job_attributes: Optional[dict] = None):
         """
         Create a task
 
@@ -89,9 +81,6 @@ class ExecutableTask(object):
                 Should include all parameters. Two Tasks are equal (__eq__)
                 iff they have the same command
             upstream_tasks: Task objects that must be run prior to this
-            env_variables: any environment variable that should be set
-                for this job, in the form of a key: value pair.
-                This will be prepended to the command.
             name: name that will be visible in qstat for this job
             num_cores: number of cores to request on the cluster
             m_mem_free: amount of memory in gbs, tbs, or mbs, G, T, or M,
@@ -127,10 +116,6 @@ class ExecutableTask(object):
            see is_valid_job_name
 
         """
-        if env_variables:
-            env_str = ' '.join('{}={}'.format(key, val) for key, val
-                               in env_variables.items())
-            command = ' '.join([env_str, command])
         self.command = command
 
         # Hash must be an integer, in order for it to be returned by __hash__
@@ -143,8 +128,6 @@ class ExecutableTask(object):
             self.name = "task_{}".format(self.hash)
         else:
             self.name = name
-        self.hash_name = self.name  # for backwards compatibility
-        self.tag = tag
 
         ExecutableTask.is_valid_job_name(self.name)
 
@@ -157,17 +140,7 @@ class ExecutableTask(object):
             self.job_attributes = job_attributes
         else:
             self.job_attributes = {}
-        if executor_parameters is None:
-            executor_parameters = ExecutorParameters(
-                num_cores=num_cores,
-                m_mem_free=m_mem_free,
-                max_runtime_seconds=max_runtime_seconds,
-                queue=queue,
-                j_resource=j_resource,
-                context_args=context_args,
-                resource_scales=resource_scales,
-                hard_limits=hard_limits,
-                executor_class=executor_class)
+
         if isinstance(executor_parameters, ExecutorParameters):
             # if the resources have already been defined, function returns
             # itself upon evalutaion
@@ -279,7 +252,8 @@ class BoundTask(object):
         else:
             self.executor_parameters = None
 
-        self.bound_parameters = [] # once the callable is evaluated, the resources should be saved here
+        # once the callable is evaluated, the resources should be saved here
+        self.bound_parameters: list = []
 
         if task:
             self.hash = task.hash

@@ -16,7 +16,10 @@ class Node(object):
 
     def __init__(self, task_template_version_id: int,
                  node_args: Dict, requester: Requester = shared_requester):
-        """
+        """A node represents an individual node for a Dag.
+        A node stores node arguments and can register itself with the database
+        via the Jobmon Query Service and the Jobmon State Manager.
+
         Args:
             task_template_version_id: The associated task_template_version_id.
             node_args: key-value pairs of arg_id and a value

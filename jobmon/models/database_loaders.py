@@ -17,6 +17,8 @@ from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_status import JobStatus
 from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.tool import Tool
+from jobmon.models.tool_version import ToolVersion
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
@@ -167,6 +169,8 @@ def clean_job_db(db):
     _truncate(db, WorkflowAttribute)
     _truncate(db, Workflow)
     _truncate(db, TaskDagMeta)
+    _truncate(db, Tool)
+    _truncate(db, ToolVersion)
 
     # And turn the constraints back on again!
     db.session.execute("SET FOREIGN_KEY_CHECKS = 1")
