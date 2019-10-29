@@ -143,7 +143,7 @@ class ExecutableTask(object):
 
         if isinstance(executor_parameters, ExecutorParameters):
             # if the resources have already been defined, function returns
-            # itself upon evalutaion
+            # itself upon evaluation
             is_valid, msg = executor_parameters.is_valid()
             if not is_valid:
                 logger.warning(msg)

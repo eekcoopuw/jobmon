@@ -2,7 +2,7 @@ import hashlib
 import json
 
 from http import HTTPStatus as StatusCodes
-from typing import Dict
+from typing import Dict, List, Optional
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 class Node(object):
 
     def __init__(self, task_template_version_id: int,
-                 node_args: Dict, requester: Requester = shared_requester):
+                 node_args: Dict,
+                 requester: Optional[Requester] = shared_requester,
+                 upstream_nodes: Optional[List["Node"]] = None):
         """A node represents an individual node for a Dag.
         A node stores node arguments and can register itself with the database
         via the Jobmon Query Service and the Jobmon State Manager.
@@ -23,12 +25,22 @@ class Node(object):
         Args:
             task_template_version_id: The associated task_template_version_id.
             node_args: key-value pairs of arg_id and a value
+            requester: placeholder
+            upstream_nodes: placeholder
+            downstream_nodes: placeholder
         """
         self.node_id = None  # node_id of None implies that it is unbound
         self.task_template_version_id = task_template_version_id
         self.node_args = node_args
         self.node_args_hash = self._hash_node_args()
         self.requester = requester
+        self.upstream_nodes = set()
+        self.downstream_nodes = set()
+
+        if upstream_nodes is not None:
+            [self.upstream_nodes.add(node) for node in upstream_nodes]
+            [node.downstream_nodes.add(self) for node in upstream_nodes]
+
 
     def bind(self) -> int:
         """Retrieve an id for a matching node in the database. If it doesn't
@@ -90,6 +102,18 @@ class Node(object):
         else:
             raise ValueError(f'Unexpected status code {return_code} from POST '
                              f'request through route /node')
+
+    def add_upstream_node(self, upstream_node):
+        pass
+
+    def add_upstream_nodes(self, upstream_node):
+        pass
+
+    def add_downstream_node(self, downstream_node):
+        pass
+
+    def add_downstream_nodes(self, downstream_node):
+        pass
 
     def __str__(self) -> str:
         return (f'node_id: {self.node_id}, '

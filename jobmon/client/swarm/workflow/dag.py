@@ -1,6 +1,8 @@
 from jobmon.client.swarm.workflow.node import Node
 
 # what do we do with edges? What is in charge of them?
+#   node gets edge info from tasks,
+#     dag inserts edges from nodes into edge table
 
 
 class Dag(object):
@@ -20,6 +22,7 @@ class Dag(object):
         #   needs a GET route
         # if no dag id, insert
         #   needs a POST route
+        #   add nodes with upstream and downstreams to edge table
         pass
 
     def __hash__(self):
@@ -29,3 +32,15 @@ class Dag(object):
         #   nodes could be the same but their
         #   upstream/downstream different right?
         pass
+
+    # old stuff to reference
+    # @property
+    # def hash(self):
+    #     hashval = hashlib.sha1()
+    #     for task_hash in sorted(self.tasks):
+    #         hashval.update(bytes("{:x}".format(task_hash).encode('utf-8')))
+    #         task = self.tasks[task_hash]
+    #         for dtask in sorted(task.downstream_tasks):
+    #             hashval.update(
+    #                 bytes("{:x}".format(dtask.hash).encode('utf-8')))
+    #     return hashval.hexdigest()
