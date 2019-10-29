@@ -24,6 +24,8 @@ from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
+from jobmon.models.node import Node
+from jobmon.models.node_args import NodeArg
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
@@ -135,6 +137,44 @@ def add_job():
 
     job_dct = job.to_wire_as_swarm_job()
     resp = jsonify(job_dct=job_dct)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/node', methods=['POST'])
+def add_node_and_node_args():
+    """Add a new node to the database
+
+    Args:
+        node_args_hash: unique identifier of all NodeArgs associated with a
+                        node.
+        task_template_version_id: version id of the task_template a node
+                                  belongs to.
+        node_args: key-value pairs of arg_id and a value.
+    """
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+
+    # add node
+    node = Node(task_template_version_id=data['task_template_version_id'],
+                node_args_hash=data['node_args_hash'])
+    DB.session.add(node)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    DB.session.commit()
+
+    # add node_args
+    node_args = json.loads(data['node_args'])
+    for arg_id, value in node_args.items():
+        logger.info(f'Adding node_arg with node_id: {node.id}, '
+                    f'arg_id: {arg_id}, and val: {value}')
+        node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)
+        DB.session.add(node_arg)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    DB.session.commit()
+
+    # return result
+    resp = jsonify(node_id=node.id)
     resp.status_code = StatusCodes.OK
     return resp
 

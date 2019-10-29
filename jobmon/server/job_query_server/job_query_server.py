@@ -15,6 +15,7 @@ from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
+from jobmon.models.node import Node
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
@@ -488,9 +489,9 @@ def get_resources(executor_id):
     :return:
     """
     logger.debug(logging.myself())
-    query = f"select m_mem_free, num_cores, max_runtime_seconds from " \
-        f"job_instance, job where job_instance.job_id=job.job_id " \
-        f"and executor_id = {executor_id}"
+    query = f"SELECT m_mem_free, num_cores, max_runtime_seconds FROM " \
+        f"job_instance, job WHERE job_instance.job_id=job.job_id " \
+        f"AND executor_id = {executor_id}"
     res = DB.session.execute(query).fetchone()
     DB.session.commit()
     resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
@@ -542,7 +543,7 @@ def get_executor_id(job_instance_id: int):
     :return: executor_id
     """
     logger.debug(logging.myself())
-    sql = "select executor_id from job_instance where job_instance_id={}".format(job_instance_id)
+    sql = "SELECT executor_id FROM job_instance WHERE job_instance_id={}".format(job_instance_id)
     try:
         res = DB.session.execute(sql).fetchone()
         DB.session.commit()
@@ -555,6 +556,39 @@ def get_executor_id(job_instance_id: int):
         return resp
 
 
+@jqs.route('/node', methods=['GET'])
+def get_node():
+    """Get a node:
+
+    Args:
+        node_args_hash: unique identifier of all NodeArgs associated with a node
+        task_template_version_id: version id of the task_template a node
+                                  belongs to.
+    """
+    logger.info(logging.myself())
+    data = request.args
+    logger.debug(data)
+
+    query = """
+        SELECT id
+        FROM node
+        WHERE node_args_hash = :node_args_hash 
+            AND task_template_version_id = :task_template_version_id
+        LIMIT 1"""
+
+    result = DB.session.query(Node).from_statement(text(query)).params(
+        node_args_hash=data['node_args_hash'],
+        task_template_version_id=data['task_template_version_id']
+    ).one_or_none()
+
+    if result is None:
+        resp = jsonify({'node_id': None})
+    else:
+        resp = jsonify({'node_id': result.id})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/job_instance/<job_instance_id>/get_nodename', methods=['GET'])
 def get_nodename(job_instance_id: int):
     """
@@ -564,7 +598,7 @@ def get_nodename(job_instance_id: int):
     :return: nodename
     """
     logger.debug(logging.myself())
-    sql = "select nodename from job_instance where job_instance_id={}".format(job_instance_id)
+    sql = "SELECT nodename FROM job_instance WHERE job_instance_id={}".format(job_instance_id)
     try:
         res = DB.session.execute(sql).fetchone()
         DB.session.commit()
@@ -586,7 +620,7 @@ def get_ji_error(job_instance_id: int):
     :return:
     """
     logger.debug(logging.myself())
-    query = f"select description from job_instance_error_log where job_instance_id = {job_instance_id};"
+    query = f"SELECT description FROM job_instance_error_log WHERE job_instance_id = {job_instance_id};"
     result = DB.session.execute(query)
     errors = []
     for r in result:

@@ -470,7 +470,7 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
                  'cpu': '00:00:00',
                  'io': '1'},
         request_type='post')
-    # open new session on the db and ensure job stats are being loggged
+    # open new session on the db and ensure job stats are being logged
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
