@@ -19,7 +19,7 @@ for file in `cat $ALL_GROUPS` ; do
 done
 
 echo "test groups:"
-cat groups
+cat $ALL_GROUPS
 echo "Use ps to track progress"
 
 #rm $ALL_GROUPS
