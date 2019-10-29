@@ -145,6 +145,13 @@ class JobListManager(object):
             request_type='post'
         )
 
+    def update_f_jobs_in_dag_to_e(self, dag_id: int):
+        self.requester.send_request(
+            app_route=f'/task_dag/{dag_id}/update_jobs_status',
+            message={"status_from": "F", "status_to": "E"},
+            request_type="post"
+        )
+
     def adjust_resources(self, task, *args, **kwargs):
         """Function from Job Instance Factory that adjusts resources and then
         queues them, this should also incorporate resource binding if they
