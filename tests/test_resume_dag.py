@@ -8,6 +8,9 @@ from cluster_utils.io import makedirs_safely
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
+from jobmon.client.swarm.workflow.bash_task import BashTask
+from jobmon.client.swarm.executors.sge import SGEExecutor
+from jobmon.models.job import Job
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -97,3 +100,30 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
     assert all_previously_complete == 2
     assert all_completed == 3
     assert all_failed == 0
+
+
+@pytest.mark.qsubs_jobs
+def test_reset_running_jobs_false(real_dag, db_cfg):
+    name1 = 'over_runtime_task1'
+    task_1 = BashTask(command='sleep 10', name=name1, max_runtime_seconds=1)
+    real_dag.add_task(task_1)
+    name2 = 'over_runtime_task2'
+    task_2 = BashTask(command='sleep 9', name=name2, max_runtime_seconds=1)
+    real_dag.add_task(task_2)
+    real_dag._execute()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        job1 = DB.session.query(Job).filter_by(name=name1).first()
+        assert job1.status == 'F'
+        job2 = DB.session.query(Job).filter_by(name=name1).first()
+        assert job2.status == 'F'
+
+    real_dag._set_fail_after_n_executions(None)
+    real_dag.bind_to_db(real_dag.dag_id, reset_running_jobs=False)
+    with app.app_context():
+        job1 = DB.session.query(Job).filter_by(name=name1).first()
+        assert job1.status == 'E'
+        job2 = DB.session.query(Job).filter_by(name=name1).first()
+        assert job2.status == 'E'
