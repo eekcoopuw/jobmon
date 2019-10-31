@@ -18,3 +18,5 @@ class ToolVersion(DB.Model):
 
     # ORM relationships
     tool = DB.relationship("Tool", back_populates="tool_versions")
+    task_templates = DB.relationship(
+        "TaskTemplate", back_populates="tool_versions")

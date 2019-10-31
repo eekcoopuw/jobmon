@@ -17,6 +17,8 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.node import Node
 from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.task_template import TaskTemplate
+from jobmon.models.task_template_version import TaskTemplateVersion
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
 from jobmon.models.workflow import Workflow
@@ -95,6 +97,66 @@ def get_tool_versions(tool_id):
     DB.session.commit()
     tool_versions = [t.to_wire_as_client_tool_version() for t in tool_versions]
     resp = jsonify(tool_versions=tool_versions)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/task_template/<task_template_name>', methods=['GET'])
+def get_task_template(task_template_name: str):
+    logger.info(logging.myself())
+    tool_version_id = request.args.get("tool_version_id")
+    logger.debug(tool_version_id)
+
+    query = """
+    SELECT
+        task_template.*
+    FROM task_template
+    WHERE
+        tool_version_id = :tool_version_id
+        AND name = :name
+    """
+    tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
+        tool_version_id=tool_version_id,
+        name=task_template_name).one_or_none()
+    if tt is not None:
+        task_template_id = tt.id
+    else:
+        task_template_id = None
+
+    resp = jsonify(task_template_id=task_template_id)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/task_template/<task_template_id>/version', methods=['GET'])
+def get_task_template_version(task_template_id: int):
+    logger.info(logging.myself())
+    command_template = request.args.get("command_template")
+    arg_mapping_hash = request.args.get("arg_mapping_hash")
+    logger.debug(command_template, arg_mapping_hash)
+
+    # get task template version object
+    query = """
+    SELECT
+        task_template_version.*
+    FROM task_template_version
+    WHERE
+        task_template_id = :task_template_id
+        AND command_template = :command_template
+        AND arg_mapping_hash = :arg_mapping_hash
+    """
+    ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query))\
+        .params(
+            task_template_id=task_template_id,
+            command_template=command_template,
+            arg_mapping_hash=arg_mapping_hash).one_or_none()
+
+    if ttv is not None:
+        wire_obj = ttv.to_wire_as_client_task_template_version()
+    else:
+        wire_obj = None
+
+    resp = jsonify(task_template_version=wire_obj)
     resp.status_code = StatusCodes.OK
     return resp
 

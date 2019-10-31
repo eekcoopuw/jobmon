@@ -59,7 +59,6 @@ class Tool:
 
         # also create a new version
         cls._create_new_tool_version(tool_id, requester)
-
         # return instance of new tool
         return cls(name)
 
@@ -77,6 +76,7 @@ class Tool:
 
     @property
     def active_tool_version_id(self):
+        """tool version id to use when spawning task templates"""
         return self._active_tool_version_id
 
     @active_tool_version_id.setter
@@ -92,11 +92,32 @@ class Tool:
             tool_version_id: int = val
         self._active_tool_version_id = tool_version_id
 
-    def get_task_type(self, template_name, command_template: str,
-                      node_args: List[str], data_args: List[str],
-                      op_args: List[str]) -> TaskTemplate:
-        tt = TaskTemplate(self.name, template_name, command_template,
-                          node_args, data_args, op_args)
+    def get_task_template(self, template_name, command_template: str,
+                          node_args: List[str], task_args: List[str],
+                          op_args: List[str]) -> TaskTemplate:
+        """create or get task a task template
+
+        Args:
+            template_name: the name of this task template.
+            command_template: an abstract command representing a task, where
+                the arguments to the command have defined names but the values
+                are not assigned. eg:
+                    '{python} {script} --data {data} --para {para} {verbose}'
+            node_args: any named arguments in command_template that make the
+                command unique within this template for a given workflow run.
+                Generally these are arguments that can be parallelized over.
+            task_args: any named arguments in command_template that make the
+                command unique across workflows if the node args are the same
+                as a previous workflow. Generally these are arguments about
+                data moving though the task.
+            op_args: any named arguments in command_template that can change
+                without changing the identity of the task. Generally these
+                are things like the task executable location or the verbosity
+                of the script.
+        """
+        tt = TaskTemplate(self.active_tool_version_id, template_name,
+                          command_template, node_args, task_args, op_args,
+                          self.requester)
         return tt
 
     def _get_tool_version_ids(self) -> List[int]:

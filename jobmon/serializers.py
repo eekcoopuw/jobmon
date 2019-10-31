@@ -17,7 +17,7 @@ class SerializeExecutorJob:
                 last_process_group_id, hard_limits)
 
     @staticmethod
-    def kwargs_from_wire(wire_tuple: tuple):
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
         # coerce types for all nullables that are cast
         # using ast.literal_eval is a potential security issue but was the only
         # solution I could find to turning the data into json twice
@@ -52,7 +52,7 @@ class SerializeSwarmJob:
         return (job_id, job_hash, status)
 
     @staticmethod
-    def kwargs_from_wire(wire_tuple: tuple):
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
         return {"job_id": int(wire_tuple[0]),
                 "job_hash": int(wire_tuple[1]),
                 "status": wire_tuple[2]}
@@ -65,7 +65,7 @@ class SerializeExecutorJobInstance:
         return (job_instance_id, executor_id)
 
     @staticmethod
-    def kwargs_from_wire(wire_tuple: tuple):
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
         executor_id = int(wire_tuple[1]) if wire_tuple[1] else None
         return {"job_instance_id": int(wire_tuple[0]),
                 "executor_id": executor_id}
@@ -78,7 +78,7 @@ class SerializeClientTool:
         return (id, name)
 
     @staticmethod
-    def kwargs_from_wire(wire_tuple: tuple):
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
         return {"id": int(wire_tuple[0]), "name": wire_tuple[1]}
 
 
@@ -89,5 +89,17 @@ class SerializeClientToolVersion:
         return (id, tool_id)
 
     @staticmethod
-    def kwargs_from_wire(wire_tuple: tuple):
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
         return {"id": int(wire_tuple[0]), "tool_id": int(wire_tuple[1])}
+
+
+class SerializeClientTaskTemplateVersion:
+
+    @staticmethod
+    def to_wire(task_template_version_id: int, id_name_map: dict) -> tuple:
+        return (task_template_version_id, id_name_map)
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        return {"task_template_version_id": int(wire_tuple[0]),
+                "id_name_map": wire_tuple[1]}
