@@ -1274,3 +1274,76 @@ def test_special_chars(real_dag_id, testing_chars, comment, replaced):
         assert s.encode("latin1", "replace").decode("utf-8") in msg["errors"]
     else:
         assert s in msg["errors"]
+
+
+def test_jsm_update_jobs_status(real_dag_id, db_cfg):
+    # add job
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': HASH,
+                 'command': 'baz',
+                 'max_attempts': 1,
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 20,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
+        message={},
+        request_type='post')
+
+    # check job status
+    code, response = req.send_request(
+        app_route='/job/{}/status'.format(swarm_job.job_id),
+        message={},
+        request_type='get')
+    assert code == 200
+    assert response['status'] == 'Q'
+
+    # change job status to F
+    code, response = req.send_request(
+        app_route=f'/task_dag/{real_dag_id}/update_jobs_status',
+        message={"status_from": "Q", "status_to": "F"},
+        request_type="post"
+    )
+    assert code == 200
+
+    # check job status
+    code, response = req.send_request(
+        app_route='/job/{}/status'.format(swarm_job.job_id),
+        message={},
+        request_type='get')
+    assert code == 200
+    assert response['status'] == 'F'
+
+    # change job status to E
+    code, response = req.send_request(
+        app_route=f'/task_dag/{real_dag_id}/update_jobs_status',
+        message={"status_from": "F", "status_to": "E"},
+        request_type="post"
+    )
+    assert code == 200
+
+    # check job status
+    code, response = req.send_request(
+        app_route='/job/{}/status'.format(swarm_job.job_id),
+        message={},
+        request_type='get')
+    assert code == 200
+    assert response['status'] == 'E'

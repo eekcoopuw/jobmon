@@ -101,6 +101,8 @@ class TaskDag(object):
             # Reset any jobs hung up in not-DONE states
             if reset_running_jobs:
                 self.job_list_manager.reset_jobs()
+            else:
+                self.job_list_manager.update_f_jobs_in_dag_to_e(dag_id)
 
             self.dag_id = dag_id
         else:

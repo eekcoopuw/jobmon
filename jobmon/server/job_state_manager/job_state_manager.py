@@ -591,6 +591,26 @@ def log_executor_report_by(dag_id):
     return resp
 
 
+@jsm.route('/task_dag/<dag_id>/update_jobs_status', methods=['POST'])
+def flip_status_f_to_e(dag_id: int):
+    """Update the job status from F to E for resume
+
+    Args:
+        dag_id: id of the dag to move to running
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("dag_id", dag_id))
+    data = request.get_json()
+    s_from = data["status_from"]
+    s_to = data["status_to"]
+    query = f"UPDATE job SET status=\'{s_to}\' WHERE dag_id={dag_id} AND status=\'{s_from}\'"
+    DB.session.execute(query)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jsm.route('/job_instance/<job_instance_id>/log_report_by', methods=['POST'])
 def log_ji_report_by(job_instance_id):
     """Log a job_instance as being responsive with a new report_by_date, this

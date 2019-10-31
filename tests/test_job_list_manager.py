@@ -12,10 +12,6 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 
-from tests.timeout_and_skip import timeout_and_skip
-
-from functools import partial
-
 
 class Task(ExecutableTask):
     """Test version of the Task class for use in this module"""

@@ -553,3 +553,27 @@ def get_ji_error(job_instance_id: int):
     resp = jsonify({'errors': errors})
     resp.status_code = StatusCodes.OK
     return resp
+
+@jqs.route('/job/<job_id>/status', methods=['GET'])
+def get_job_status(job_id: int):
+    """
+    Route to determine the cause of the most recent job_instance's error
+    :param job_id:
+    :return: error message
+    """
+
+    logger.debug(logging.myself())
+    logging.logParameter("job_id", job_id)
+
+    query = "SELECT status FROM job WHERE job_id = {}".format(job_id)
+    result = DB.session.execute(query)
+    for r in result:
+        status = r[0]
+    DB.session.commit()
+    if status is not None:
+        resp = jsonify({"status": status})
+        resp.status_code = StatusCodes.OK
+    else:
+        resp = jsonify({"status": None, "error_msg": "Job not found"})
+        resp.status_code = StatusCodes.NO_CONTENT
+    return resp
