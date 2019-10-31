@@ -90,6 +90,14 @@ Spinning down a database
 2. Used "docker stop <container_id>" to stop the container.
 
 
+Archiving a volume-based database
+*********************************
+
+For versions <=1.0.3.
+
+Refer to db_archiving/create_archive_db.sh for instructions
+
+
 Removing a deprecated database
 ******************************
 
