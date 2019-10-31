@@ -273,9 +273,11 @@ def add_update_workflow_run():
                              working_dir=data['working_dir'],
                              project=data['project'],
                              slack_channel=data['slack_channel'],
-                             executor_class=data['executor_class'])
+                             executor_class=data['executor_class'],
+                             jobmon_version=data['jobmon_version'])
         workflow = DB.session.query(Workflow).\
             filter(Workflow.id == data['workflow_id']).first()
+        logger.debug(logging.logParameter("jobmon_version", data['jobmon_version']))
         # Set all previous runs to STOPPED
         for run in workflow.workflow_runs:
             run.status = WorkflowRunStatus.STOPPED

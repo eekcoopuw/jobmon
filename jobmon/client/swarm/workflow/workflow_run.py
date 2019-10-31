@@ -13,6 +13,7 @@ from jobmon.client.utils import kill_remote_process
 from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.client_logging import ClientLogging as logging
+from jobmon import __version__
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,7 @@ class WorkflowRun(object):
     def __init__(self, workflow_id, stderr, stdout, project,
                  slack_channel='jobmon-alerts', executor_class='SGEExecutor',
                  working_dir=None, reset_running_jobs=True,
-                 requester=shared_requester):
+                 jobmon_version=__version__, requester=shared_requester):
         self.workflow_id = workflow_id
         self.requester = requester
         self.stderr = stderr
@@ -43,6 +44,7 @@ class WorkflowRun(object):
         self.executor_class = executor_class
         self.working_dir = working_dir
         self.kill_previous_workflow_runs(reset_running_jobs)
+        self.jobmon_version = jobmon_version
         rc, response = self.requester.send_request(
             app_route='/workflow_run',
             message={'workflow_id': workflow_id,
@@ -54,7 +56,8 @@ class WorkflowRun(object):
                      'project': project,
                      'slack_channel': slack_channel,
                      'executor_class': executor_class,
-                     'working_dir': working_dir},
+                     'working_dir': working_dir,
+                     'jobmon_version': jobmon_version},
             request_type='post')
         wfr_id = response['workflow_run_id']
         if rc != StatusCodes.OK:

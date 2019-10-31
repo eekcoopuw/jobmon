@@ -38,10 +38,13 @@ def ephemera():
 
     # load schema
     here = os.path.dirname(__file__)
-    schema_dir = os.path.join(here, "..",
+    create_dir = os.path.join(here, "..",
                               "jobmon/server/deployment/container/db")
-    schema_files = glob.glob(os.path.join(schema_dir, "*.sql"))
-    for file in sorted(schema_files):
+    upgrade_dir = os.path.join(here, "..",
+                              "jobmon/server/deployment/container/db/upgrade")
+    create_files = glob.glob(os.path.join(create_dir, "*.sql"))
+    upgrade_files = glob.glob(os.path.join(upgrade_dir, "*.sql"))
+    for file in sorted(create_files + upgrade_files):
         edb.execute_sql_script(file)
 
     # get connection info
