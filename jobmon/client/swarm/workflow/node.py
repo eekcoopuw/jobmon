@@ -6,10 +6,10 @@ from typing import Dict, List, Optional
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.client_logging import ClientLogging as Logging
 
 
-logger = logging.getLogger(__name__)
+logger = Logging.getLogger(__name__)
 
 
 class Node(object):
@@ -24,10 +24,8 @@ class Node(object):
 
         Args:
             task_template_version_id: The associated task_template_version_id.
-            node_args: key-value pairs of arg_id and a value
-            requester: placeholder
-            upstream_nodes: placeholder
-            downstream_nodes: placeholder
+            node_args: key-value pairs of arg_id and a value.
+            upstream_nodes: list of nodes that this node is dependent on.
         """
         self.node_id = None  # node_id of None implies that it is unbound
         self.task_template_version_id = task_template_version_id
@@ -39,8 +37,8 @@ class Node(object):
 
         if upstream_nodes is not None:
             [self.upstream_nodes.add(node) for node in upstream_nodes]
+            # Add this node to the upstream nodes' downstream
             [node.downstream_nodes.add(self) for node in upstream_nodes]
-
 
     def bind(self) -> int:
         """Retrieve an id for a matching node in the database. If it doesn't
@@ -53,7 +51,6 @@ class Node(object):
         else:
             logger.info(f'Found node_id: {node_id} for node: {self}, binding '
                         f'node.')
-
         self.node_id = node_id
         return node_id
 
@@ -103,20 +100,24 @@ class Node(object):
             raise ValueError(f'Unexpected status code {return_code} from POST '
                              f'request through route /node')
 
-    def add_upstream_node(self, upstream_node):
-        pass
+    def add_upstream_node(self, upstream_node: "Node"):
+        """Add a node to this one's upstream Nodes."""
+        self.upstream_nodes.add(upstream_node)
+        # Add this node to the upstream nodes' downstream
+        upstream_node.downstream_nodes.add(self)
 
-    def add_upstream_nodes(self, upstream_node):
-        pass
-
-    def add_downstream_node(self, downstream_node):
-        pass
-
-    def add_downstream_nodes(self, downstream_node):
-        pass
+    def add_upstream_nodes(self, upstream_nodes: List["Node"]):
+        """Add many nodes to this one's upstream Nodes."""
+        [self.add_upstream_node(node) for node in upstream_nodes]
 
     def __str__(self) -> str:
         return (f'node_id: {self.node_id}, '
                 f'task_template_version_id: {self.task_template_version_id}, '
                 f'node_args: {self.node_args}, '
                 f'node_args_hash: {self.node_args_hash}')
+
+    def __eq__(self, other: "Node") -> bool:
+        return hash(self) == hash(other)
+
+    def __lt__(self, other: "Node") -> bool:
+        return hash(self) < hash(other)

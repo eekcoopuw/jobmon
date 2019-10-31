@@ -557,8 +557,8 @@ def get_executor_id(job_instance_id: int):
 
 
 @jqs.route('/node', methods=['GET'])
-def get_node():
-    """Get a node:
+def get_node_id():
+    """Get a node id: If a matching node isn't found, return None.
 
     Args:
         node_args_hash: unique identifier of all NodeArgs associated with a node

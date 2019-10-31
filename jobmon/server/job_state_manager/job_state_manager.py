@@ -143,7 +143,7 @@ def add_job():
 
 @jsm.route('/node', methods=['POST'])
 def add_node_and_node_args():
-    """Add a new node to the database
+    """Add a new node to the database.
 
     Args:
         node_args_hash: unique identifier of all NodeArgs associated with a
