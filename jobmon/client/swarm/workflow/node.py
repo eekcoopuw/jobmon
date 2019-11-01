@@ -27,7 +27,7 @@ class Node(object):
             node_args: key-value pairs of arg_id and a value.
             upstream_nodes: list of nodes that this node is dependent on.
         """
-        self.node_id = None  # node_id of None implies that it is unbound
+        self.node_id = None  # None implies that it is unbound
         self.task_template_version_id = task_template_version_id
         self.node_args = node_args
         self.node_args_hash = self._hash_node_args()
@@ -41,18 +41,18 @@ class Node(object):
             [node.downstream_nodes.add(self) for node in upstream_nodes]
 
     def bind(self) -> int:
-        """Retrieve an id for a matching node in the database. If it doesn't
+        """Retrieve an id for a matching node from the server. If it doesn't
         exist, first create one."""
         node_id = self._get_node_id()
         if node_id is None:
             logger.info(f'node_id for node: {self} not found, creating a new'
-                        f'entry in the database and binding node.')
+                        f'entry and binding node.')
             node_id = self._insert_node_and_node_args()
         else:
             logger.info(f'Found node_id: {node_id} for node: {self}, binding '
                         f'node.')
         self.node_id = node_id
-        return node_id
+        return self.node_id
 
     def _hash_node_args(self) -> int:
         """a node_arg_hash is a hash of the encoded result of the args and
@@ -81,7 +81,9 @@ class Node(object):
             return response['node_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from GET '
-                             f'request through route /node')
+                             f'request through route /node. Expected code 200.'
+                             f' Response content:'
+                             f' {response}')
 
     def _insert_node_and_node_args(self) -> int:
         logger.info(f'Insert node: {self}')
@@ -98,7 +100,8 @@ class Node(object):
             return response['node_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from POST '
-                             f'request through route /node')
+                             f'request through route /node. Expected code 200.'
+                             f' Response content: {response}')
 
     def add_upstream_node(self, upstream_node: "Node"):
         """Add a node to this one's upstream Nodes."""
