@@ -4,7 +4,7 @@ import json
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-from jobmon.client.swarm.workflow.node import Node
+from jobmon.client.swarm.workflow.clientnode import ClientNode
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.client_logging import ClientLogging as Logging
@@ -16,7 +16,7 @@ from jobmon.client.client_logging import ClientLogging as Logging
 logger = Logging.getLogger(__name__)
 
 
-class Dag(object):
+class ClientDag(object):
     """Stores Nodes, talks to the server in regard to itself"""
 
     def __init__(self, requester: Optional[Requester] = shared_requester):
@@ -24,7 +24,7 @@ class Dag(object):
         self.nodes = set()
         self.requester = requester
 
-    def add_node(self, node: Node):
+    def add_node(self, node: ClientNode):
         """Add a node to this dag."""
         # wf.add_task should call Node.add_node() and pass the tasks' node
         self.nodes.add(node)
@@ -57,7 +57,7 @@ class Dag(object):
         dag_hash = hash(self)
         logger.info(f'Querying for dag with hash: {dag_hash}')
         return_code, response = self.requester.send_request(
-            app_route=f'/dag/{dag_hash}',
+            app_route=f'/client_dag/{dag_hash}',
             request_type='get'
         )
         if return_code == StatusCodes.OK:
@@ -72,7 +72,7 @@ class Dag(object):
         dag_hash = hash(self)
         logger.info(f'Inserting dag with hash: {dag_hash}')
         return_code, response = self.requester.send_request(
-            app_route=f'/dag/{dag_hash}',
+            app_route=f'/client_dag/{dag_hash}',
             request_type='post'
         )
         if return_code == StatusCodes.OK:
@@ -95,7 +95,7 @@ class Dag(object):
                 'downstream_nodes': node.downstream_nodes
             }
         return_code, response = self.requester.send_request(
-            app_route=f'/dag/{self.dag_id}',
+            app_route=f'/edge/{self.dag_id}',
             message={
                 'nodes_and_edges': json.dumps(nodes_and_edges)
             },
@@ -112,11 +112,9 @@ class Dag(object):
         Uses Depth First Search on each node to detect a back edge.
 
         Immediately raises an error if it finds a cycle"""
-        def dfs():
 
         for node in self.nodes:
-            pass
-
+            node_list
 
     def __hash__(self) -> str:
         """Determined by hashing all sorted node hashes and their downstream"""

@@ -142,7 +142,7 @@ def add_job():
 
 
 @jsm.route('/node', methods=['POST'])
-def add_node_and_node_args():
+def add_client_node_and_node_args():
     """Add a new node to the database.
 
     Args:
@@ -178,6 +178,14 @@ def add_node_and_node_args():
     resp.status_code = StatusCodes.OK
     return resp
 
+@jsm.route('/dag/<dag_hash>', methods=['POST'])
+def add_client_dag():
+    """Add a new dag to the database.
+
+    Args:
+        dag_hash: unique identifier of the dag, included in route
+    """
+    
 
 @jsm.route('/task_dag', methods=['POST'])
 def add_task_dag():

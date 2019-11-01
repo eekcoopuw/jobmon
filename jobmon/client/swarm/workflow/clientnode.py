@@ -12,12 +12,12 @@ from jobmon.client.client_logging import ClientLogging as Logging
 logger = Logging.getLogger(__name__)
 
 
-class Node(object):
+class ClientNode(object):
 
     def __init__(self, task_template_version_id: int,
                  node_args: Dict,
                  requester: Optional[Requester] = shared_requester,
-                 upstream_nodes: Optional[List["Node"]] = None):
+                 upstream_nodes: Optional[List["ClientNode"]] = None):
         """A node represents an individual node for a Dag.
         A node stores node arguments and can register itself with the database
         via the Jobmon Query Service and the Jobmon State Manager.
@@ -103,13 +103,13 @@ class Node(object):
                              f'request through route /node. Expected code 200.'
                              f' Response content: {response}')
 
-    def add_upstream_node(self, upstream_node: "Node"):
+    def add_upstream_node(self, upstream_node: "ClientNode"):
         """Add a node to this one's upstream Nodes."""
         self.upstream_nodes.add(upstream_node)
         # Add this node to the upstream nodes' downstream
         upstream_node.downstream_nodes.add(self)
 
-    def add_upstream_nodes(self, upstream_nodes: List["Node"]):
+    def add_upstream_nodes(self, upstream_nodes: List["ClientNode"]):
         """Add many nodes to this one's upstream Nodes."""
         [self.add_upstream_node(node) for node in upstream_nodes]
 
@@ -119,8 +119,8 @@ class Node(object):
                 f'node_args: {self.node_args}, '
                 f'node_args_hash: {self.node_args_hash}')
 
-    def __eq__(self, other: "Node") -> bool:
+    def __eq__(self, other: "ClientNode") -> bool:
         return hash(self) == hash(other)
 
-    def __lt__(self, other: "Node") -> bool:
+    def __lt__(self, other: "ClientNode") -> bool:
         return hash(self) < hash(other)
