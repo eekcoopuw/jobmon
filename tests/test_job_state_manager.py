@@ -18,15 +18,10 @@ from jobmon.models.job_status import JobStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow import Workflow
 from jobmon.models.attributes.constants import job_attribute
-from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.serializers import SerializeExecutorJobInstance
 
 HASH = 12345
 SECOND_HASH = 12346
-
-
-logger = logging.getLogger(__name__)
-
 
 @pytest.fixture(scope='session')
 def jsm_jqs(ephemera):
@@ -1232,8 +1227,6 @@ def _get_ords(s):
                                                     ("𝄀 𝄁 𝄂 𝄃 𝄄 𝄅 𝄆 𝄇 𝄈 𝄉 𝄊 𝄋 𝄌 𝄍 𝄎 𝄏 𝄐 𝄑 𝄒 𝄓 𝄔 𝄕", "UTF-8 Musical", True)
                                                     ])
 def test_special_chars(real_dag_id, testing_chars, comment, replaced):
-    logger.info("Testing {c} {s}({ords})".format(c=comment, s=testing_chars, ords=_get_ords(testing_chars)))
-    logger.debug("Lenth of input data" + str(len(testing_chars)))
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',

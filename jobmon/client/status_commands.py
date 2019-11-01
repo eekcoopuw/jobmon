@@ -7,7 +7,6 @@ from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
-logging.attach_log_handler("JOBMON_NODE")
 
 
 def workflow_status(workflow_id: List[int] = [], user: List[str] = []
@@ -21,7 +20,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = []
     Returns:
         dataframe of all workflows and their status
     """
-    logger.debug("workflow_status workflow_id:{}".format(str(workflow_id)))
+    logger.info("workflow_status workflow_id:{}".format(str(workflow_id)))
     msg: dict = {}
     if workflow_id:
         msg["workflow_id"] = workflow_id
@@ -34,6 +33,8 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = []
         app_route="/workflow_status",
         message=msg,
         request_type="get")
+    logger.info("HTML reture code: {}".rc)
+    logger.debug("Response: {}".format(res))
     return pd.read_json(res["workflows"])
 
 
@@ -56,6 +57,8 @@ def workflow_jobs(workflow_id: int, status: str = None) -> pd.DataFrame:
         app_route=f"/workflow/{workflow_id}/workflow_jobs",
         message=msg,
         request_type="get")
+    logger.info("HTML reture code: {}".rc)
+    logger.debug("Response: {}".format(res))
     return pd.read_json(res["workflow_jobs"])
 
 
@@ -73,4 +76,6 @@ def job_status(job_id: int) -> Tuple[str, pd.DataFrame]:
         app_route=f"/job/{job_id}/status",
         message={},
         request_type="get")
+    logger.info("HTML reture code: {}".rc)
+    logger.debug("Response: {}".format(res))
     return res["job_state"], pd.read_json(res["job_instance_status"])

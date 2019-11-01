@@ -1,7 +1,7 @@
-import logging
 import os
 
 from jobmon import config
+from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__file__)
 
@@ -27,6 +27,7 @@ class ClientConfig(object):
 
     @classmethod
     def from_defaults(cls):
+        logger.info("from_defaults")
         return cls(host=config.jobmon_server_sqdn,
                    port=config.jobmon_service_port,
                    jobmon_command=derive_jobmon_command_from_env(),
