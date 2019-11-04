@@ -4,7 +4,7 @@ from http import HTTPStatus as StatusCodes
 import json
 import os
 import socket
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 import traceback
 from typing import Optional
 import warnings
@@ -17,6 +17,8 @@ from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
+from jobmon.models.dag import Dag
+from jobmon.models.edge import Edge
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.models.job import Job
@@ -178,14 +180,64 @@ def add_client_node_and_node_args():
     resp.status_code = StatusCodes.OK
     return resp
 
+
 @jsm.route('/dag/<dag_hash>', methods=['POST'])
-def add_client_dag():
+def add_client_dag(dag_hash):
     """Add a new dag to the database.
 
     Args:
         dag_hash: unique identifier of the dag, included in route
     """
-    
+    logger.info(logging.myself())
+
+    # # check that dag doesn't already exist
+    # query = """SELECT id FROM dag WHERE :dag_hash = hash LIMIT 1"""
+    #
+    # result = DB.session.query(Dag).from_statement(text(query)).params(
+    #     dag_hash=dag_hash
+    # ).one_or_none()
+
+    # add dag
+    dag = Dag(hash=dag_hash)
+    DB.session.add(dag)
+    DB.session.commit()
+
+    # return result
+    resp = jsonify(dag_id=dag.id)
+    resp.status_code = StatusCodes.OK
+
+    return resp
+
+
+@jsm.route('/edge/<dag_id>', methods=['POST'])
+def add_edges(dag_id):
+    """Add a group of edges to the database.
+
+    Args:
+        dag_id: identifies the dag whose edges are being inserted
+        nodes_and_edges: a json object with the following format:
+            {
+                node_id: {
+                    'upstream_nodes': [node_id, node_id, node_id],
+                    'downstream_nodes': [node_id, node_id]
+                },
+                node_id: {...},
+                ...
+            }
+    """
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+
+    for node_id, edges in data.items():
+        edge = Edge(dag_id=dag_id,
+                    node_id=node_id,
+                    upstream_nodes=str(edges['upstream_nodes']),
+                    downstream_nodes=str(edges['downstream_nodes']))
+        DB.session.add(edge)
+        DB.session.commit()
+
+    return '', StatusCodes.OK
 
 @jsm.route('/task_dag', methods=['POST'])
 def add_task_dag():

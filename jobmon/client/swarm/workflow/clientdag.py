@@ -32,7 +32,6 @@ class ClientDag(object):
     def bind(self):
         """Retrieve an id for a matching dag from the server. If it doesn't
         exist, first create one, including its edges."""
-        self.validate()
 
         if len(self.nodes) == 0:
             raise RuntimeError('No nodes were found in the dag. An empty dag '
@@ -90,9 +89,15 @@ class ClientDag(object):
         # the wire as json
         nodes_and_edges = {}
         for node in self.nodes:
+            # get the node ids for all upstream and downstream nodes
+            upstream_nodes = [upstream_node.node_id
+                              for upstream_node in node.upstream_nodes]
+            downstream_nodes = [downstream_node.node_id
+                                for downstream_node in node.downstream_nodes]
+
             nodes_and_edges[node.node_id] = {
-                'upstream_nodes': node.upstream_nodes,
-                'downstream_nodes': node.downstream_nodes
+                'upstream_nodes': upstream_nodes,
+                'downstream_nodes': downstream_nodes
             }
         return_code, response = self.requester.send_request(
             app_route=f'/edge/{self.dag_id}',
@@ -106,15 +111,6 @@ class ClientDag(object):
                              f'request through route /dag/{self.dag_id} . '
                              f'Expected code 200. Response content: '
                              f'{response}')
-
-    def validate(self) -> bool:
-        """Is this actually a directed acyclical graph?
-        Uses Depth First Search on each node to detect a back edge.
-
-        Immediately raises an error if it finds a cycle"""
-
-        for node in self.nodes:
-            node_list
 
     def __hash__(self) -> str:
         """Determined by hashing all sorted node hashes and their downstream"""

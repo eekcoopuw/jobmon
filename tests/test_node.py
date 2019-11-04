@@ -2,7 +2,7 @@ from jobmon.client.swarm.workflow.clientnode import ClientNode
 
 
 def test_node(env_var):
-    """tests Node.bind() - checks that a node created for the first time
+    """tests ClientNode.bind() - checks that a node created for the first time
     creates a new db entry, and if it gets bound again a new entry
     won't be created"""
 
