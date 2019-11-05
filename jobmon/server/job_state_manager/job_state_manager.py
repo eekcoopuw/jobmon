@@ -27,7 +27,7 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.node import Node
-from jobmon.models.node_args import NodeArg
+from jobmon.models.node_arg import NodeArg
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
@@ -231,6 +231,7 @@ def add_edges(dag_id):
         DB.session.commit()
 
     return '', StatusCodes.OK
+
 
 @jsm.route('/task_dag', methods=['POST'])
 def add_task_dag():

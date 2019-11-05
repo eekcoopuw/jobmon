@@ -3,8 +3,8 @@
 --
 use `docker`;
 
-DROP TABLE IF EXISTS `node_args`;
-CREATE TABLE `node_args` (
+DROP TABLE IF EXISTS `node_arg`;
+CREATE TABLE `node_arg` (
   `node_id` INTEGER NOT NULL,
   `arg_id` INTEGER NOT NULL,
   `val` varchar(1000) NOT NULL,

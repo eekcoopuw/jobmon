@@ -33,19 +33,19 @@ class ClientDag(object):
             raise RuntimeError('No nodes were found in the dag. An empty dag '
                                'cannot be bound.')
 
-        dag_id = self._get_dag_id()
+        self.dag_id = self._get_dag_id()
         dag_hash = hash(self)
-        if dag_id is None:
+        if self.dag_id is None:
             logger.info(f'dag_id for dag with hash: {dag_hash} not found, '
                         f'creating a new entry and binding the dag.')
-            dag_id = self._insert_dag()
+            self.dag_id = self._insert_dag()
             logger.info(f'Inserting edges for dag with hash: {dag_hash}.')
             # insert edges
             self._insert_edges()
         else:
-            logger.info(f'Found dag_id: {dag_id} for dag with hash: '
+            logger.info(f'Found dag_id: {self.dag_id} for dag with hash: '
                         f'{dag_hash}')
-        self.dag_id = dag_id
+        logger.debug(f'dag_id is: {self.dag_id}')
         return self.dag_id
 
     def _get_dag_id(self):
@@ -66,7 +66,7 @@ class ClientDag(object):
 
     def _insert_dag(self):
         dag_hash = hash(self)
-        logger.info(f'Inserting dag with hash: {dag_hash}')
+
         return_code, response = self.requester.send_request(
             app_route=f'/client_dag/{dag_hash}',
             message={},
@@ -84,9 +84,10 @@ class ClientDag(object):
         logger.info(f'Inserting edges into dag with id {self.dag_id}')
 
         # convert the set into a dictionary that can be dumped and sent over
-        # the wire as json
+        # as json
         nodes_and_edges = {}
-        # need to handle case where node doesn't have upstream and/pr downstream
+        import pdb; pdb.set_trace()
+        # need to handle case where node doesn't have upstream and/or downstream
         for node in self.nodes:
             # get the node ids for all upstream and downstream nodes
             upstream_nodes = [upstream_node.node_id
@@ -98,11 +99,12 @@ class ClientDag(object):
                 'upstream_nodes': upstream_nodes,
                 'downstream_nodes': downstream_nodes
             }
+        pdb.set_trace()
+        message = {'nodes_and_edges': json.dumps(nodes_and_edges)}
+        logger.debug(f'message included in edge post request: {message}')
         return_code, response = self.requester.send_request(
             app_route=f'/edge/{self.dag_id}',
-            message={
-                'nodes_and_edges': json.dumps(nodes_and_edges)
-            },
+            message=message,
             request_type='post'
         )
         if return_code != StatusCodes.OK:

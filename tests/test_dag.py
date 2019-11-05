@@ -9,13 +9,14 @@ def test_dag(env_var):
     # create nodes for populate dag
     node_1 = ClientNode(task_template_version_id=1,
                         node_args={1: 1, 2: 2006, 4: 'female'})
-
+    node_1.bind()
     node_2 = ClientNode(task_template_version_id=1,
                         node_args={1: 2, 2: 2006, 4: 'male'})
-
+    node_2.bind()
     node_3 = ClientNode(task_template_version_id=1,
                         node_args={1: 3, 2: 2006, 4: 'both_sex'},
                         upstream_nodes=[node_1, node_2])
+    node_3.bind()
 
     dag_1 = ClientDag()
     # add nodes to dag
