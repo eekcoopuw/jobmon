@@ -118,15 +118,18 @@ class ExecutorJobInstance:
         if self.executor_id is None:
             raise ValueError("executor_id cannot be None during log_error")
         executor_id: int = self.executor_id
+        logger.info("log_error for executor_id {}".format(executor_id))
         try:
             error_state, msg = self.executor.get_remote_exit_info(executor_id)
         except RemoteExitInfoNotAvailable:
-            msg = ("Unknow error caused job to be lost")
+            msg = ("Unknown error caused job to be lost")
+            logger.warning(msg)
             error_state = JobInstanceStatus.UNKNOWN_ERROR
 
         # this is the 'happy' path. The executor gives us a concrete error for
         # the lost job
         if error_state == JobInstanceStatus.RESOURCE_ERROR:
+            logger.info("log_error resource error for executor_id {}".format(executor_id))
             message = {
                 "error_message": msg,
                 "error_state": error_state,
@@ -135,6 +138,9 @@ class ExecutorJobInstance:
         # this is the 'unhappy' path. We are giving up discovering the exit
         # state and moving the job into unknown error state
         else:
+            logger.info("Giving up discovering the exit state for executor_id {id} with error_state {s}".format(
+                id=executor_id, s=error_state
+            ))
             message = {
                 "error_message": msg,
                 "error_state": error_state

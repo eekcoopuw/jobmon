@@ -40,12 +40,15 @@ class WorkerNodeJobInstance:
         self._process_group_id = process_group_id
         self.executor = job_instance_executor_info
         self.requester = requester
-        logger.debug("Instantiated JobInstanceIntercom")
+        logger.info("Instantiated JobInstanceIntercom")
+        logger.info(
+            f"job_instance_id: {job_instance_id}; nodename: + {nodename}")
 
     @property
     def executor_id(self) -> Optional[int]:
         if self._executor_id is None and self.executor.executor_id is not None:
             self._executor_id = self.executor.executor_id
+        logger.info("executor_id: " + str(self._executor_id))
         return self._executor_id
 
     @property
@@ -108,6 +111,7 @@ class WorkerNodeJobInstance:
         job_instance
         """
         try:
+            logger.info("Log usage for jid {}".format(self.job_instance_id))
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io']
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
@@ -133,7 +137,7 @@ class WorkerNodeJobInstance:
         message = {'nodename': self.nodename,
                    'process_group_id': str(self.process_group_id),
                    'next_report_increment': next_report_increment}
-        logger.debug(f'executor_id is {self.executor_id}')
+        logger.info(f'Log running for executor_id {self.executor_id}')
         if self.executor_id is not None:
             message['executor_id'] = str(self.executor_id)
         else:
@@ -147,6 +151,7 @@ class WorkerNodeJobInstance:
 
     def log_report_by(self, next_report_increment: Union[int, float]) -> int:
         """Log the heartbeat to show that the job instance is still alive"""
+        logger.info("log_report_by for exec id {}".format(self.executor_id))
         message: Dict = {"next_report_increment": next_report_increment}
         if self.executor_id is not None:
             message['executor_id'] = str(self.executor_id)
@@ -159,6 +164,7 @@ class WorkerNodeJobInstance:
         return rc
 
     def in_kill_self_state(self) -> bool:
+        logger.info("kill_self for jid {}".format(self.job_instance_id))
         rc, resp = self.requester.send_request(
             app_route=f'/job_instance/{self.job_instance_id}/kill_self',
             message={},

@@ -1,7 +1,6 @@
 import os
 from functools import partial
 from time import sleep
-
 import pytest
 
 from jobmon.client.swarm.executors import sge_utils as sge
@@ -19,8 +18,9 @@ path_to_file = os.path.dirname(__file__)
 @pytest.mark.parametrize('mem', ['6G', '6GB', '150MB', '200M'])
 @pytest.mark.parametrize('queue', ['all.q'])
 def test_new_cluster_with_new_params(jlm_sge_daemon, mem, queue):
+    j_name = "sge_foobar"
     task = Task(command=sge.true_path("tests/shellfiles/jmtest.sh"),
-                name="sge_foobar", executor_class='SGEExecutor',
+                name=j_name, executor_class='SGEExecutor',
                 m_mem_free=mem,
                 num_cores=1,
                 queue=queue,
@@ -32,13 +32,15 @@ def test_new_cluster_with_new_params(jlm_sge_daemon, mem, queue):
 
     def valid_command_check(jlm_sge_daemon):
         jlm_sge_daemon._sync()
+        print("all_done: " + str(jlm_sge_daemon.all_done))
+        print("all_error: " + str(jlm_sge_daemon.all_error))
         if len(jlm_sge_daemon.all_done) == 1:
             # Success
             return True
         else:
             return False
 
-    timeout_and_skip(step_size=10, max_time=120, max_qw=1,
+    timeout_and_skip(step_size=10, max_time=120, max_qw=1, job_name=j_name,
                      partial_test_function=partial(
                          valid_command_check,
                          jlm_sge_daemon=jlm_sge_daemon))
@@ -231,3 +233,4 @@ def test_mem_exceeds_limit_cant_scale(jlm_sge_no_daemon, db_cfg):
         assert job.executor_parameter_set.m_mem_free == 0.6
         assert job.executor_parameter_set.max_runtime_seconds == 60
         DB.session.commit()
+

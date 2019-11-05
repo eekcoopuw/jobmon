@@ -25,7 +25,7 @@ class _LogLevelSingleton:
         return _LogLevelSingleton.__instance
 
     def set_log_level(self, level: int):
-        self.log_level_flask = self.log_level_flask
+        self.log_level_flask = level
 
     def set_log_level_flask(self, level: int):
         self.log_level_flask = level
@@ -38,6 +38,11 @@ class _LogLevelSingleton:
 
 
 class jobmonLogging:
+
+    def __init__(self):
+        # This does nothing but keep sphinx happy
+        pass
+
     # Constants
     # This is to make the jsm and jqm code easier to read
     CRITICAL: int = logging.CRITICAL
@@ -60,8 +65,8 @@ class jobmonLogging:
 
         :return: the package name and the method name for logging purpose
         """
-        return (jobmonLogging.TAG + ": ----" + inspect.stack()[1][1] + "----" +
-                inspect.stack()[1][3])
+        return (jobmonLogging.TAG + ": ----" + str(inspect.stack()[1][1]) + "----" +
+                str(inspect.stack()[1][3]))
 
     @staticmethod
     def createFlaskLoggers():

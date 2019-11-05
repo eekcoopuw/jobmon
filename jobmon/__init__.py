@@ -5,3 +5,4 @@ del get_versions
 from jobmon.setup_config import SetupCfg
 
 config = SetupCfg()
+RELEASE_NAME = "fruitbat"

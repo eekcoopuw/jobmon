@@ -266,6 +266,7 @@ class JobInstanceSGEInfo(JobInstanceExecutorInfo):
             jid = os.environ.get('JOB_ID')
             if jid:
                 self._executor_id = int(jid)
+        logger.info("executor_id: {}".format(self._executor_id))
         return self._executor_id
 
     def get_usage_stats(self) -> Dict:

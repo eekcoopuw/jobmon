@@ -10,6 +10,7 @@ from jobmon.client.utils import kill_remote_process
 from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client import SwarmLogging as logging
+from jobmon import __version__
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +32,7 @@ class WorkflowRun(object):
     def __init__(self, workflow_id, stderr, stdout, project,
                  slack_channel='jobmon-alerts', executor_class='SGEExecutor',
                  working_dir=None, reset_running_jobs=True,
-                 requester=shared_requester):
+                 jobmon_version=__version__, requester=shared_requester):
         self.workflow_id = workflow_id
         self.requester = requester
         self.stderr = stderr
@@ -40,6 +41,7 @@ class WorkflowRun(object):
         self.executor_class = executor_class
         self.working_dir = working_dir
         self.kill_previous_workflow_runs(reset_running_jobs)
+        self.jobmon_version = jobmon_version
         rc, response = self.requester.send_request(
             app_route='/workflow_run',
             message={'workflow_id': workflow_id,
@@ -51,7 +53,8 @@ class WorkflowRun(object):
                      'project': project,
                      'slack_channel': slack_channel,
                      'executor_class': executor_class,
-                     'working_dir': working_dir},
+                     'working_dir': working_dir,
+                     'jobmon_version': jobmon_version},
             request_type='post')
         wfr_id = response['workflow_run_id']
         if rc != StatusCodes.OK:
@@ -113,33 +116,33 @@ class WorkflowRun(object):
         else:
             kill_remote_process(wf_run['hostname'], wf_run['pid'])
             logger.info(f"Kill previous workflow runs: {workflow_run_id}")
-            # if reset_running_jobs:
-                # if wf_run['executor_class'] == "SequentialExecutor":
-                #     from jobmon.client.swarm.executors.sequential import \
-                #         SequentialExecutor
-                #     previous_executor = SequentialExecutor()
-                # elif wf_run['executor_class'] == "SGEExecutor":
-                #     from jobmon.client.swarm.executors.sge import SGEExecutor
-                #     previous_executor = SGEExecutor()
-                # elif wf_run['executor_class'] == "DummyExecutor":
-                #     from jobmon.client.swarm.executors.dummy import \
-                #         DummyExecutor
-                #     previous_executor = DummyExecutor()
-                # else:
-                #     raise ValueError("{} is not supported by this version of "
-                #                      "jobmon".format(wf_run['executor_class']))
-                # # get job instances of workflow run
-                # _, response = self.requester.send_request(
-                #     app_route=f'/workflow_run/{workflow_run_id}/job_instance',
-                #     message={},
-                #     request_type='get')
-                # job_instances = [ExecutorJobInstance.from_wire(
-                #     ji, executor=previous_executor)
-                #     for ji in response['job_instances']]
-                # jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
-                #                     for ji in job_instances]
-                # if job_instances:
-                #     previous_executor.terminate_job_instances(jiid_exid_tuples)
+            if reset_running_jobs:
+                if wf_run['executor_class'] == "SequentialExecutor":
+                    from jobmon.client.swarm.executors.sequential import \
+                        SequentialExecutor
+                    previous_executor = SequentialExecutor()
+                elif wf_run['executor_class'] == "SGEExecutor":
+                    from jobmon.client.swarm.executors.sge import SGEExecutor
+                    previous_executor = SGEExecutor()
+                elif wf_run['executor_class'] == "DummyExecutor":
+                    from jobmon.client.swarm.executors.dummy import \
+                        DummyExecutor
+                    previous_executor = DummyExecutor()
+                else:
+                    raise ValueError("{} is not supported by this version of "
+                                     "jobmon".format(wf_run['executor_class']))
+                # get job instances of workflow run
+                _, response = self.requester.send_request(
+                    app_route=f'/workflow_run/{workflow_run_id}/job_instance',
+                    message={},
+                    request_type='get')
+                job_instances = [ExecutorJobInstance.from_wire(
+                    ji, executor=previous_executor)
+                    for ji in response['job_instances']]
+                jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
+                                    for ji in job_instances]
+                if job_instances:
+                    previous_executor.terminate_job_instances(jiid_exid_tuples)
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
                 message={'workflow_run_id': workflow_run_id,

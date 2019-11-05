@@ -78,6 +78,7 @@ class ExecutorJob:
         kwargs = SerializeExecutorJob.kwargs_from_wire(wire_tuple)
 
         # instantiate job
+        logger.info("Instantiate job jid {}".format(kwargs["job_id"]))
         executor_job = cls(
             dag_id=kwargs["dag_id"],
             job_id=kwargs["job_id"],

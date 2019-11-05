@@ -117,6 +117,48 @@ each node where the code executes.
     Errors with a return code of 199 indicate an issue occurring within Jobmon
     itself.
 
+Jobmon Status Commands
+=======================================
+Jobmon status commands are available as of version 1.1.0. The Jobmon status
+commands allow you to check that status of your workflows and jobs from the
+command line.
+
+To use the status commands:
+    1. Open a new terminal window
+    2. SSH in to the cluster
+    3. qlogin
+    4. Activate the same conda environment that your jobs are running in
+
+Both conda environments must also be running the same version of Jobmon.
+
+There are currently three supported commands:
+
+**workflow_status**
+    Entering ``jobmon workflow_status`` in to the command line will show you
+    a table of how many jobs are in each state within that workflow. You
+    can specify the workflow by user using the -u flag. For example:
+    ``jobmon workflow-status -u user``. You can also specify the workflow
+    using the -w flag. For example: ``jobmon workflow_status -u user -w 9876``.
+    You can also use the -w flag to specify multiple workflows at the same
+    time. For example if you have one workflow named 9876 and one
+    workflow named 1234 you would enter ``jobmon workflow_status -w 9876 1234``.
+
+**workflow_jobs**
+    Entering ``jobmon workflow_jobs`` in to the command line will show you
+    the status of specific jobs in a given workflow. You can specify which
+    workflow with the -w flag. For example: ``jobmon workflow_jobs -w 9876``.
+    You can also add a -s flag to only query jobs that are in a certain
+    state. For example: ``jobmon workflow -w 9876 -s PENDING`` will query all
+    jobs within workflow 9876 that have the pending status.
+
+**job_status**
+    Entering ``jobmon job_status`` in to the command line will show you the
+    state of each job instance for a certain job. You may specify the job
+    by adding a -j flag. For example: ``jobmon job_status -j 1234``.
+
+Possible States: PENDING, RUNNING, DONE, FATAL
+
+
 Restart Tasks and Resume Workflows
 =======================================
 
@@ -257,7 +299,7 @@ For example ::
 Making Workflow Fail On First Failure
 =======================================
 
-On occassion, a user might want to see how far a workflow can get before it fails,
+On occasion, a user might want to see how far a workflow can get before it fails,
 or want to immediately see where problem spots are. To do this, the user can just
 instantiate the workflow with fail_fast set to True. Then add tasks to the workflow
 as normal, and the workflow will fail on the first failure.

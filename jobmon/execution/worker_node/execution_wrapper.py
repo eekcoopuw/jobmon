@@ -18,7 +18,7 @@ from jobmon.execution.worker_node.worker_node_job_instance import (
 from jobmon.execution.worker_node import NodeLogging as logging
 
 
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
 
 
 def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
@@ -33,6 +33,7 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
 
     # read 100 bytes at a time so the pipe never deadlocks even if someone
     # tries to print a dataframe into stderr
+    logger.info("enqueue_stderr")
     block_reader = partial(stderr.read, 100)
     for new_block in iter(block_reader, ''):
 
@@ -48,6 +49,7 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
 def kill_self(child_process: subprocess.Popen = None):
     """If the worker has received a signal to kill itself, kill the child
     processes and then self, will show up as an exit code 299 in qacct"""
+    logger.info("kill_self")
     if child_process:
         child_process.kill()
     sys.exit(199)
@@ -56,6 +58,7 @@ def kill_self(child_process: subprocess.Popen = None):
 def parse_arguments(argstr=None):
 
     # parse arguments
+    logger.info("unwrap")
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)

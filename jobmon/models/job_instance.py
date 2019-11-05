@@ -51,11 +51,11 @@ class JobInstance(DB.Model):
     executor_parameter_set_id = DB.Column(
         DB.Integer,
         DB.ForeignKey('executor_parameter_set.id'),
-        nullable=False)
+        nullable=True)
 
     # usage
     usage_str = DB.Column(DB.String(250))
-    nodename = DB.Column(DB.String(50))
+    nodename = DB.Column(DB.String(150))
     process_group_id = DB.Column(DB.Integer)
     wallclock = DB.Column(DB.String(50))
     maxrss = DB.Column(DB.String(50))

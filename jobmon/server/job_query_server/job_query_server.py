@@ -41,7 +41,7 @@ def _is_alive():
 
 @jqs.route("/time", methods=['GET'])
 def get_utc_now():
-    time = DB.session.execute("select UTC_TIMESTAMP as time").fetchone()
+    time = DB.session.execute("SELECT UTC_TIMESTAMP AS time").fetchone()
     time = time['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     DB.session.commit()
@@ -51,7 +51,7 @@ def get_utc_now():
 
 
 def get_time(session):
-    time = session.execute("select UTC_TIMESTAMP as time").fetchone()['time']
+    time = session.execute("SELECT UTC_TIMESTAMP AS time").fetchone()['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     return time
 
@@ -417,6 +417,19 @@ def is_workflow_running(workflow_id):
     return resp
 
 
+@jqs.route('/workflow_run/<workflow_run_id>/jobmon_version', methods=['GET'])
+def get_jobmon_version(workflow_run_id):
+    logger.debug(logging.myself())
+    logging.logParameter("workflow_run_id", workflow_run_id)
+    query = f"SELECT jobmon_version FROM " \
+        f"workflow_run WHERE workflow_run.id = {workflow_run_id}"
+    res = DB.session.execute(query).fetchone()
+    DB.session.commit()
+    resp = jsonify({'jobmon_version': res[0]})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/workflow_run/<workflow_run_id>/job_instance', methods=['GET'])
 def get_job_instances_of_workflow_run(workflow_run_id):
     """Get all job_instances of a particular workflow run
@@ -463,9 +476,9 @@ def get_resources(executor_id):
     :return:
     """
     logger.debug(logging.myself())
-    query = f"select m_mem_free, num_cores, max_runtime_seconds from " \
-        f"job_instance, job where job_instance.job_id=job.job_id " \
-        f"and executor_id = {executor_id}"
+    query = f"SELECT m_mem_free, num_cores, max_runtime_seconds FROM " \
+        f"job_instance, job WHERE job_instance.job_id=job.job_id " \
+        f"AND executor_id = {executor_id}"
     res = DB.session.execute(query).fetchone()
     DB.session.commit()
     resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
@@ -482,14 +495,28 @@ def get_most_recent_ji_error(job_id: int):
     """
 
     logger.debug(logging.myself())
-    msg = DB.session.query(JobInstance).filter_by(job_id=job_id)\
-        .order_by(JobInstance.job_instance_id.desc())\
-        .join(JobInstanceErrorLog)\
-        .options(contains_eager(JobInstance.job_instance_id))\
-        .with_entities(JobInstanceErrorLog.description)\
-        .first()
+    logging.logParameter("job_id", job_id)
+
+    query = """
+        SELECT
+            jiel.*
+        FROM
+            job_instance ji
+        JOIN
+            job_instance_error_log jiel
+            ON ji.job_instance_id = jiel.job_instance_id
+        WHERE
+            ji.job_id = :job_id
+        ORDER BY
+            ji.job_instance_id desc, jiel.id desc
+        LIMIT 1"""
+    ji_error = DB.session.query(JobInstanceErrorLog).from_statement(
+        text(query)).params(job_id=job_id).one_or_none()
     DB.session.commit()
-    resp = jsonify({"error_description": msg})
+    if ji_error is not None:
+        resp = jsonify({"error_description": ji_error.description})
+    else:
+        resp = jsonify({"error_description": ""})
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -503,7 +530,7 @@ def get_executor_id(job_instance_id: int):
     :return: executor_id
     """
     logger.debug(logging.myself())
-    sql = "select executor_id from job_instance where job_instance_id={}".format(job_instance_id)
+    sql = "SELECT executor_id FROM job_instance WHERE job_instance_id={}".format(job_instance_id)
     try:
         res = DB.session.execute(sql).fetchone()
         DB.session.commit()
@@ -525,7 +552,7 @@ def get_nodename(job_instance_id: int):
     :return: nodename
     """
     logger.debug(logging.myself())
-    sql = "select nodename from job_instance where job_instance_id={}".format(job_instance_id)
+    sql = "SELECT nodename FROM job_instance WHERE job_instance_id={}".format(job_instance_id)
     try:
         res = DB.session.execute(sql).fetchone()
         DB.session.commit()
@@ -537,3 +564,23 @@ def get_nodename(job_instance_id: int):
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
         return resp
 
+
+@jqs.route('/job_instance/<job_instance_id>/get_errors', methods=['GET'])
+def get_ji_error(job_instance_id: int):
+    """
+    This route is created for testing purpose
+
+    :param executor_id:
+    :return:
+    """
+    logger.debug(logging.myself())
+    query = f"SELECT description FROM job_instance_error_log WHERE job_instance_id = {job_instance_id};"
+    result = DB.session.execute(query)
+    errors = []
+    for r in result:
+        errors.append(r[0])
+    DB.session.commit()
+    logger.debug(errors)
+    resp = jsonify({'errors': errors})
+    resp.status_code = StatusCodes.OK
+    return resp

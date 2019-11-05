@@ -15,7 +15,7 @@ pytest_plugins = ['helpers_namespace']
 import pytest
 import requests
 
-from cluster_utils.ephemerdb import create_ephemerdb
+from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
 
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ def ephemera():
     because the ephemera db has to be started before any other code
     imports the_server_config
     """
-    edb = create_ephemerdb(elevated_privileges=True)
+    edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
     edb.db_name = "docker"
     conn_str = edb.start()
     # use the ephemera db root privileges (root: singularity_root) otherwise
@@ -37,10 +37,13 @@ def ephemera():
 
     # load schema
     here = os.path.dirname(__file__)
-    schema_dir = os.path.join(here, "..",
+    create_dir = os.path.join(here, "..",
                               "jobmon/server/deployment/container/db")
-    schema_files = glob.glob(os.path.join(schema_dir, "*.sql"))
-    for file in sorted(schema_files):
+    upgrade_dir = os.path.join(here, "..",
+                              "jobmon/server/deployment/container/db/upgrade")
+    create_files = glob.glob(os.path.join(create_dir, "*.sql"))
+    upgrade_files = glob.glob(os.path.join(upgrade_dir, "*.sql"))
+    for file in sorted(create_files + upgrade_files):
         edb.execute_sql_script(file)
 
     # get connection info

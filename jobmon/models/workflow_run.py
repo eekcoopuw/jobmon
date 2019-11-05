@@ -25,7 +25,7 @@ class WorkflowRun(DB.Model):
                        DB.ForeignKey('workflow_run_status.id'),
                        nullable=False,
                        default=WorkflowRunStatus.RUNNING)
-
+    jobmon_version = DB.Column(DB.String(150), default='UNKNOWN')
     workflow = DB.relationship("Workflow", backref="workflow_runs", lazy=True)
 
     @classmethod
@@ -59,4 +59,5 @@ class WorkflowRun(DB.Model):
             'slack_channel': self.slack_channel,
             'executor_class': self.executor_class,
             'status': self.status,
+            'jobmon_version': self.jobmon_version
         }

@@ -9,9 +9,18 @@ CREATE TABLE `workflow_attribute` (
   `workflow_id` int(11) DEFAULT NULL,
   `attribute_type` int(11) DEFAULT NULL,
   `value` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`id`),
+  `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
+  PRIMARY KEY (`id`, `partition_date`),
   KEY `workflow_id` (`workflow_id`),
-  KEY `attribute_type` (`attribute_type`),
-  CONSTRAINT `workflow_attribute_ibfk_1` FOREIGN KEY (`workflow_id`) REFERENCES `workflow` (`id`),
-  CONSTRAINT `workflow_attribute_ibfk_2` FOREIGN KEY (`attribute_type`) REFERENCES `workflow_attribute_type` (`id`)
-) ENGINE=InnoDB;
+  KEY `attribute_type` (`attribute_type`)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+/*!50100 PARTITION BY RANGE (UNIX_TIMESTAMP(partition_date))
+( PARTITION p201908 VALUES LESS THAN (UNIX_TIMESTAMP('2019-09-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201909 VALUES LESS THAN (UNIX_TIMESTAMP('2019-10-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201910 VALUES LESS THAN (UNIX_TIMESTAMP('2019-11-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201911 VALUES LESS THAN (UNIX_TIMESTAMP('2019-12-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p201912 VALUES LESS THAN (UNIX_TIMESTAMP('2020-01-01 00:00:00'))ENGINE = InnoDB,
+PARTITION p202001 VALUES LESS THAN (UNIX_TIMESTAMP('2020-02-01 00:00:00'))ENGINE = InnoDB,
+PARTITION future VALUES LESS THAN MAXVALUE ENGINE = InnoDB
+
+)*/;

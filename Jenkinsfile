@@ -86,6 +86,8 @@ def createSetupCfgFile() {
         test_mode=\${test_mode}
         existing_db=\${existing_db}
         same_host=\${same_host}
+        db_only=\${db_only}
+        use_rsyslog=\${use_rsyslog}
         slack_token=\${slack_token}
         slack_api_url=\${slack_api_url}
         wf_slack_channel=\${wf_slack_channel}
@@ -110,8 +112,14 @@ def createSetupCfgFile() {
         jobmon_service_user_pwd=\${jobmon_service_user_pwd}
 
         [same host]
-        existing_network=\${existing_network}" > /tmp/jobmon.cfg
-    '''
+        existing_network=\${existing_network}
+
+
+        [rsyslog]
+        host=\${rs_host}
+        port=\${rs_port}
+        protocol=\${rs_protocol}"> /tmp/jobmon.cfg
+        '''
 }
 
 def cloneRepoToBuild(project_name, suffix="") {
@@ -299,6 +307,7 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                                 hostname
                                 source activate ${project_name}_build${python_major_version} &> /dev/null
                                 python setup.py sdist
+                                twine upload --repository ihme-artifactory ./dist/*
                                 mv ./dist/* /ihme/pypi/
                             """
                         }
@@ -397,7 +406,9 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                         } else {
                            sh """
                                 source activate ${project_name}_build${python_major_version} &> /dev/null
-                                twine upload --repository ihme-artifactory dist/*
+                                python setup.py sdist
+                                twine upload --repository ihme-artifactory ./dist/*
+                                mv ./dist/* /ihme/pypi/
                             """
                         }
                     }
