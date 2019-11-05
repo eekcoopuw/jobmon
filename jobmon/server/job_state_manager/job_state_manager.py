@@ -300,10 +300,9 @@ def add_edges(dag_id):
 
     logger.debug(f'Data received to add_edges: {data} with type: {type(data)}')
 
-    #data = json.loads(data['nodes_and_edges'])
-
     for node_id, edges in data.items():
-        logger.debug(f'!!Edges: {edges}')
+        logger.debug(f'Edges: {edges}')
+
         if len(edges['upstream_nodes']) == 0:
             upstream_nodes = None
         else:
