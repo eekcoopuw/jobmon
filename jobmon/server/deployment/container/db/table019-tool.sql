@@ -12,6 +12,6 @@ CREATE TABLE `tool`(
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 LOCK TABLES `tool` WRITE;
-INSERT INTO `tool` VALUES ('1','unknown');
+INSERT INTO `tool` VALUES (1,'unknown');
 UNLOCK TABLES;
 
