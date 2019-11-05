@@ -13,9 +13,7 @@ from jobmon.client.swarm.job_management.executor_job import ExecutorJob
 from jobmon.client.swarm.job_management.executor_job_instance import (
     ExecutorJobInstance)
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
-from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.attributes.constants import qsub_attribute
-from jobmon.models.job_status import JobStatus
 from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)

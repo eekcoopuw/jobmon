@@ -14,7 +14,6 @@ from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.client_logging import ClientLogging as logging
 
-
 logger = logging.getLogger(__name__)
 
 

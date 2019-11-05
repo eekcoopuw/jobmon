@@ -17,7 +17,6 @@ from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client.client_logging import ClientLogging as logging
 
-
 logger = logging.getLogger(__name__)
 
 

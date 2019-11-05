@@ -1,6 +1,5 @@
 from functools import partial
 import hashlib
-import logging
 
 from typing import Optional, List, Dict, Callable, Union
 
@@ -9,7 +8,6 @@ from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.client.client_logging import ClientLogging as logging
-
 
 logger = logging.getLogger(__name__)
 

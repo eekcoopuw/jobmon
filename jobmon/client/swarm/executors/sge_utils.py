@@ -6,7 +6,6 @@ import os
 import re
 import subprocess
 from typing import List, Dict, Tuple
-
 import numpy as np
 
 from jobmon.client.client_logging import ClientLogging as logging

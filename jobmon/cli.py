@@ -50,7 +50,7 @@ class CLI(object):
                              "'started'. Got {}".format(args.service))
 
     def test_connection(self, args):
-        from jobmon.client import shared_requester
+        from jobmon.client.swarm import shared_requester
 
         # check the server's is_alive? route
         shared_requester.send_request(app_route='/', request_type='get')

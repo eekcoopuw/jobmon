@@ -1,9 +1,4 @@
-import logging
-
 import jobmon.client.swarm.workflow.executable_task as etk
-
-logger = logging.getLogger(__name__)
-
 
 class SleepAndWriteFileMockTask(etk.ExecutableTask):
     """

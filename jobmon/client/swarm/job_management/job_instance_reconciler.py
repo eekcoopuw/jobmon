@@ -13,7 +13,6 @@ from jobmon.client.swarm.job_management.executor_job_instance import (
     ExecutorJobInstance)
 from jobmon.client.client_logging import ClientLogging as logging
 
-
 logger = logging.getLogger(__name__)
 
 
