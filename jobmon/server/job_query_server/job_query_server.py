@@ -359,7 +359,7 @@ def get_suspicious_job_instances(dag_id):
     return resp
 
 
-@jqs.route('/client_dag/<dag_hash>')
+@jqs.route('/client_dag/<dag_hash>', methods=['GET'])
 def get_client_dag_id(dag_hash):
     """Get a dag id: If a matching dag isn't found, return None.
 

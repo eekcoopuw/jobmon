@@ -181,7 +181,7 @@ def add_client_node_and_node_args():
     return resp
 
 
-@jsm.route('/dag/<dag_hash>', methods=['POST'])
+@jsm.route('/client_dag/<dag_hash>', methods=['POST'])
 def add_client_dag(dag_hash):
     """Add a new dag to the database.
 
@@ -189,13 +189,6 @@ def add_client_dag(dag_hash):
         dag_hash: unique identifier of the dag, included in route
     """
     logger.info(logging.myself())
-
-    # # check that dag doesn't already exist
-    # query = """SELECT id FROM dag WHERE :dag_hash = hash LIMIT 1"""
-    #
-    # result = DB.session.query(Dag).from_statement(text(query)).params(
-    #     dag_hash=dag_hash
-    # ).one_or_none()
 
     # add dag
     dag = Dag(hash=dag_hash)
@@ -232,8 +225,8 @@ def add_edges(dag_id):
     for node_id, edges in data.items():
         edge = Edge(dag_id=dag_id,
                     node_id=node_id,
-                    upstream_nodes=str(edges['upstream_nodes']),
-                    downstream_nodes=str(edges['downstream_nodes']))
+                    upstream_nodes=edges['upstream_nodes'],
+                    downstream_nodes=edges['downstream_nodes'])
         DB.session.add(edge)
         DB.session.commit()
 

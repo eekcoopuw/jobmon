@@ -124,3 +124,6 @@ class ClientNode(object):
 
     def __lt__(self, other: "ClientNode") -> bool:
         return hash(self) < hash(other)
+
+    def __hash__(self) -> int:
+        return self.node_args_hash

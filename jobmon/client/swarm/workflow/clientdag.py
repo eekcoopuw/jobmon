@@ -9,10 +9,6 @@ from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.client_logging import ClientLogging as Logging
 
-# what do we do with edges? What is in charge of them?
-#   node gets edge info from tasks,
-#     dag inserts edges from nodes into edge table
-
 logger = Logging.getLogger(__name__)
 
 
@@ -57,13 +53,14 @@ class ClientDag(object):
         logger.info(f'Querying for dag with hash: {dag_hash}')
         return_code, response = self.requester.send_request(
             app_route=f'/client_dag/{dag_hash}',
+            message={},  # shared_requester requires a message
             request_type='get'
         )
         if return_code == StatusCodes.OK:
             return response['dag_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from GET '
-                             f'request through route /dag/{dag_hash} . '
+                             f'request through route /client_dag/{dag_hash} . '
                              f'Expected code 200. Response content: '
                              f'{response}')
 
@@ -72,13 +69,14 @@ class ClientDag(object):
         logger.info(f'Inserting dag with hash: {dag_hash}')
         return_code, response = self.requester.send_request(
             app_route=f'/client_dag/{dag_hash}',
+            message={},
             request_type='post'
         )
         if return_code == StatusCodes.OK:
             return response['dag_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from POST '
-                             f'request through route /dag/{dag_hash} . '
+                             f'request through route /client_dag/{dag_hash} . '
                              f'Expected code 200. Response content: '
                              f'{response}')
 
@@ -88,6 +86,7 @@ class ClientDag(object):
         # convert the set into a dictionary that can be dumped and sent over
         # the wire as json
         nodes_and_edges = {}
+        # need to handle case where node doesn't have upstream and/pr downstream
         for node in self.nodes:
             # get the node ids for all upstream and downstream nodes
             upstream_nodes = [upstream_node.node_id
@@ -108,11 +107,11 @@ class ClientDag(object):
         )
         if return_code != StatusCodes.OK:
             raise ValueError(f'Unexpected status code {return_code} from POST '
-                             f'request through route /dag/{self.dag_id} . '
-                             f'Expected code 200. Response content: '
+                             f'request through route /client_dag/{self.dag_id}'
+                             f' . Expected code 200. Response content: '
                              f'{response}')
 
-    def __hash__(self) -> str:
+    def __hash__(self) -> int:
         """Determined by hashing all sorted node hashes and their downstream"""
         hash_value = hashlib.sha1()
         if len(self.nodes) > 0:  # if the dag is empty, we want to skip this
@@ -125,4 +124,4 @@ class ClientDag(object):
                         bytes("{:x}".format(
                             downstream_node.node_args_hash).encode('utf-8'))
                     )
-        return hash_value.hexdigest()
+        return int(hash_value.hexdigest(), 16)
