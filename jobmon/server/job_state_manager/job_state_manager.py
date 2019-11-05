@@ -9,9 +9,14 @@ import traceback
 from typing import Optional
 import warnings
 import sqlalchemy
+from sqlalchemy.sql import text
 
 from jobmon import config
 from jobmon.models import DB
+from jobmon.models.arg import Arg
+from jobmon.models.arg_type import ArgType
+from jobmon.models.command_template_arg_type_mapping import \
+    CommandTemplateArgTypeMapping
 from jobmon.models.attributes.constants import job_attribute, qsub_attribute
 from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
@@ -29,6 +34,8 @@ from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.node import Node
 from jobmon.models.node_arg import NodeArg
 from jobmon.models.task_dag import TaskDagMeta
+from jobmon.models.task_template import TaskTemplate
+from jobmon.models.task_template_version import TaskTemplateVersion
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
@@ -107,6 +114,75 @@ def add_tool_version():
     DB.session.commit()
     tool_version = tool_version.to_wire_as_client_tool_version()
     resp = jsonify(tool_version=tool_version)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/task_template', methods=['POST'])
+def add_task_template():
+    """Add a tool to the database"""
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+    tt = TaskTemplate(tool_version_id=data["tool_version_id"],
+                      name=data["name"])
+    DB.session.add(tt)
+    DB.session.commit()
+    resp = jsonify(task_template_id=tt.id)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+def _add_or_get_arg(name):
+    try:
+        query = """
+        SELECT id, name
+        FROM arg
+        WHERE name = :name
+        """
+        arg = DB.session.query(TaskTemplate).from_statement(text(query))\
+            .params(name=name).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        DB.session.rollback()
+        arg = Arg(name=name)
+        DB.session.add(arg)
+        DB.session.commit()
+    return arg
+
+
+@jsm.route('/task_template/<task_template_id>/add_version', methods=['POST'])
+def add_task_template_version(task_template_id: int):
+    """Add a tool to the database"""
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+
+    # create task template version if we didn't find a match
+    arg_mapping_dct: dict = {ArgType.NODE_ARG: [],
+                             ArgType.TASK_ARG: [],
+                             ArgType.OP_ARG: []}
+    for arg_name in data["node_args"]:
+        arg_mapping_dct[ArgType.NODE_ARG].append(_add_or_get_arg(arg_name))
+    for arg_name in data["task_args"]:
+        arg_mapping_dct[ArgType.TASK_ARG].append(_add_or_get_arg(arg_name))
+    for arg_name in data["op_args"]:
+        arg_mapping_dct[ArgType.OP_ARG].append(_add_or_get_arg(arg_name))
+    ttv = TaskTemplateVersion(task_template_id=task_template_id,
+                              command_template=data["command_template"],
+                              arg_mapping_hash=data["arg_mapping_hash"])
+    DB.session.add(ttv)
+    DB.session.flush()
+    for arg_type_id in arg_mapping_dct.keys():
+        for arg in arg_mapping_dct[arg_type_id]:
+            ctatm = CommandTemplateArgTypeMapping(
+                task_template_version_id=ttv.id,
+                arg_id=arg.id,
+                arg_type_id=arg_type_id)
+            DB.session.add(ctatm)
+    DB.session.commit()
+
+    resp = jsonify(
+        task_template_version=ttv.to_wire_as_client_task_template_version())
     resp.status_code = StatusCodes.OK
     return resp
 
