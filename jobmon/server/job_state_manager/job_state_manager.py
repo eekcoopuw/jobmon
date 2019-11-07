@@ -295,14 +295,28 @@ def add_edges(dag_id):
             }
     """
     logger.info(logging.myself())
+
     data = request.get_json()
-    logger.debug(data)
+
+    logger.debug(f'Data received to add_edges: {data} with type: {type(data)}')
 
     for node_id, edges in data.items():
+        logger.debug(f'Edges: {edges}')
+
+        if len(edges['upstream_nodes']) == 0:
+            upstream_nodes = None
+        else:
+            upstream_nodes = str(edges['upstream_nodes'])
+
+        if len(edges['downstream_nodes']) == 0:
+            downstream_nodes = None
+        else:
+            downstream_nodes = str(edges['downstream_nodes'])
+
         edge = Edge(dag_id=dag_id,
                     node_id=node_id,
-                    upstream_nodes=edges['upstream_nodes'],
-                    downstream_nodes=edges['downstream_nodes'])
+                    upstream_nodes=upstream_nodes,
+                    downstream_nodes=downstream_nodes)
         DB.session.add(edge)
         DB.session.commit()
 

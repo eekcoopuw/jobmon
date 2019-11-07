@@ -1,5 +1,5 @@
 --
--- Table structure for table `node_args`
+-- Table structure for table `node_arg`
 --
 use `docker`;
 

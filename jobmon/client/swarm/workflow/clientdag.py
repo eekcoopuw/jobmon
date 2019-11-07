@@ -22,7 +22,7 @@ class ClientDag(object):
 
     def add_node(self, node: ClientNode):
         """Add a node to this dag."""
-        # wf.add_task should call Node.add_node() and pass the tasks' node
+        # wf.add_task should call ClientNode.add_node() + pass the tasks' node
         self.nodes.add(node)
 
     def bind(self):
@@ -86,8 +86,7 @@ class ClientDag(object):
         # convert the set into a dictionary that can be dumped and sent over
         # as json
         nodes_and_edges = {}
-        import pdb; pdb.set_trace()
-        # need to handle case where node doesn't have upstream and/or downstream
+
         for node in self.nodes:
             # get the node ids for all upstream and downstream nodes
             upstream_nodes = [upstream_node.node_id
@@ -99,12 +98,12 @@ class ClientDag(object):
                 'upstream_nodes': upstream_nodes,
                 'downstream_nodes': downstream_nodes
             }
-        pdb.set_trace()
-        message = {'nodes_and_edges': json.dumps(nodes_and_edges)}
-        logger.debug(f'message included in edge post request: {message}')
+
+        logger.debug(f'message included in edge post request: '
+                     f'{nodes_and_edges}')
         return_code, response = self.requester.send_request(
             app_route=f'/edge/{self.dag_id}',
-            message=message,
+            message=nodes_and_edges,
             request_type='post'
         )
         if return_code != StatusCodes.OK:
