@@ -12,4 +12,4 @@ CREATE TABLE `arg`(
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- create our unique constraints
-ALTER TABLE `arg` ADD CONSTRAINT `uc_arg_name` UNIQUE (`name`);
+ALTER TABLE `arg` ADD CONSTRAINT `uc_arg` UNIQUE (`name`);

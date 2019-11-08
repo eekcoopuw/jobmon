@@ -1,5 +1,6 @@
 import logging
-from datetime import datetime
+
+from sqlalchemy.sql import func
 
 from jobmon.models import DB
 
@@ -14,11 +15,8 @@ class TaskInstanceErrorLog(DB.Model):
     __tablename__ = 'task_instance_error_log'
 
     id = DB.Column(DB.Integer, primary_key=True)
-    task_instance_id = DB.Column(
-        DB.Integer,
-        DB.ForeignKey('task_instance.id'),
-        nullable=False)
-    error_time = DB.Column(DB.DateTime, default=datetime.utcnow)
+    task_instance_id = DB.Column(DB.Integer, DB.ForeignKey('task_instance.id'))
+    error_time = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     description = DB.Column(DB.Text(collation='utf8_general_ci'))
 
     task_instance = DB.relationship("TaskInstance", back_populates="errors")

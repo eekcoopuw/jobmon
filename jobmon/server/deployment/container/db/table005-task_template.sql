@@ -14,8 +14,8 @@ CREATE TABLE `task_template`(
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 
--- Add our foreign key constraints
-ALTER TABLE `task_template` ADD CONSTRAINT `fk_task_template_tool_version_id` FOREIGN KEY (`tool_version_id`) REFERENCES `docker`.`tool_version` (`id`);
+-- add index on our fake foreign key
+ALTER TABLE `task_template` ADD INDEX `ix_tool_version_id` (`tool_version_id`);
 
--- create our unique constraints
+-- add unique constraint
 ALTER TABLE `task_template` ADD CONSTRAINT `uc_tool_version_id_name` UNIQUE (`tool_version_id`, `name`);

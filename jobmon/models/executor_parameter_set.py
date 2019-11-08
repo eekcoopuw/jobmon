@@ -1,9 +1,4 @@
-import logging
-
 from jobmon.models import DB
-
-
-logger = logging.getLogger(__name__)
 
 
 class ExecutorParameterSet(DB.Model):
@@ -12,10 +7,9 @@ class ExecutorParameterSet(DB.Model):
     __tablename__ = 'executor_parameter_set'
 
     id = DB.Column(DB.Integer, primary_key=True)
-    task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'), nullable=False)
+    task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'))
     parameter_set_type = DB.Column(
-        DB.String(1), DB.ForeignKey('executor_parameter_set_type.id'),
-        nullable=False)
+        DB.String(1), DB.ForeignKey('executor_parameter_set_type.id'))
 
     # enforce runtime limit if executor implements terminate_timed_out_jobs
     max_runtime_seconds = DB.Column(DB.Integer, default=None)
@@ -23,6 +17,7 @@ class ExecutorParameterSet(DB.Model):
     # free text field of arguments passed unaltered to executor
     context_args = DB.Column(DB.String(1000), default=None)
     resource_scales = DB.Column(DB.String(1000), default=None)
+
     # sge specific parameters
     queue = DB.Column(DB.String(255), default=None)
     num_cores = DB.Column(DB.Integer, default=None)

@@ -23,27 +23,20 @@ class Task(DB.Model):
     def to_wire_as_swarm_task(self):
         pass
 
-    id = DB.Column(DB.Integer, primary_key=True, nullable=False)
-    # TODO: add foreign key to workflow
-    workflow_id = DB.Column(DB.Integer, nullable=False)
-    node_id = DB.Column(DB.Integer, DB.ForeignKey('node.id'), nullable=False)
-    task_arg_hash = DB.Column(DB.Integer, nullable=False)
+    id = DB.Column(DB.Integer, primary_key=True)
+    workflow_id = DB.Column(DB.Integer, DB.ForeignKey('workflow.id'))
+    node_id = DB.Column(DB.Integer, DB.ForeignKey('node.id'))
+    task_arg_hash = DB.Column(DB.Integer)
     name = DB.Column(DB.String(255))
     command = DB.Column(DB.Text)
     executor_parameter_set_id = DB.Column(
-        DB.Integer,
-        DB.ForeignKey('executor_parameter_set.id'),
+        DB.Integer, DB.ForeignKey('executor_parameter_set.id'),
         default=None)
     num_attempts = DB.Column(DB.Integer, default=0)
     max_attempts = DB.Column(DB.Integer, default=1)
-    # TODO: add foreign key to task status
-    status = DB.Column(
-        DB.String(1),
-        DB.ForeignKey('task_status.id'),
-        nullable=False)
+    status = DB.Column(DB.String(1), DB.ForeignKey('task_status.id'))
     submitted_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
-    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP(),
-                            index=True)
+    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
     # ORM relationships
     task_instances = DB.relationship("TaskInstance", back_populates="task")

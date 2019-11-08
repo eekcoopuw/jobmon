@@ -22,11 +22,9 @@ class TaskInstance(DB.Model):
     workflow_run_id = DB.Column(DB.Integer)
     executor_type = DB.Column(DB.String(50))
     executor_id = DB.Column(DB.Integer, index=True)
-    task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'), nullable=False)
+    task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'))
     executor_parameter_set_id = DB.Column(
-        DB.Integer,
-        DB.ForeignKey('executor_parameter_set.id'),
-        nullable=False)  # TODO: figure out if this should be nullable
+        DB.Integer, DB.ForeignKey('executor_parameter_set.id'))
 
     # usage
     nodename = DB.Column(DB.String(150))
@@ -39,11 +37,8 @@ class TaskInstance(DB.Model):
     io = DB.Column(DB.String(50))
 
     # status/state
-    status = DB.Column(
-        DB.String(1),
-        DB.ForeignKey('task_instance_status.id'),
-        default=TaskInstanceStatus.INSTANTIATED,
-        nullable=False)
+    status = DB.Column(DB.String(1), DB.ForeignKey('task_instance_status.id'),
+                       default=TaskInstanceStatus.INSTANTIATED)
     submitted_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     report_by_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())

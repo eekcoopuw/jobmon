@@ -21,4 +21,4 @@ class TaskInstanceStatus(DB.Model):
     DONE = 'D'
 
     id = DB.Column(DB.String(1), primary_key=True)
-    label = DB.Column(DB.String(150), nullable=False)
+    label = DB.Column(DB.String(150))
