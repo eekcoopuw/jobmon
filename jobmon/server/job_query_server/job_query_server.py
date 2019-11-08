@@ -9,6 +9,7 @@ from sqlalchemy.sql import func, text
 from jobmon.models import DB
 from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
+from jobmon.models.dag import Dag
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.models.job import Job
 from jobmon.models.job_status import JobStatus
@@ -420,6 +421,29 @@ def get_suspicious_job_instances(dag_id):
     return resp
 
 
+@jqs.route('/client_dag/<dag_hash>', methods=['GET'])
+def get_client_dag_id(dag_hash):
+    """Get a dag id: If a matching dag isn't found, return None.
+
+    Args:
+        dag_hash: unique identifier of the dag, included in route
+    """
+    logger.info(logging.myself())
+
+    query = """SELECT id FROM dag WHERE :dag_hash = hash LIMIT 1"""
+
+    result = DB.session.query(Dag).from_statement(text(query)).params(
+        dag_hash=dag_hash
+    ).one_or_none()
+
+    if result is None:
+        resp = jsonify({'dag_id': None})
+    else:
+        resp = jsonify({'dag_id': result.id})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/dag', methods=['GET'])
 def get_dags_by_inputs():
     """
@@ -619,8 +643,8 @@ def get_executor_id(job_instance_id: int):
 
 
 @jqs.route('/node', methods=['GET'])
-def get_node():
-    """Get a node:
+def get_client_node_id():
+    """Get a node id: If a matching node isn't found, return None.
 
     Args:
         node_args_hash: unique identifier of all NodeArgs associated with a node

@@ -4,7 +4,7 @@ from http import HTTPStatus as StatusCodes
 import json
 import os
 import socket
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 import traceback
 from typing import Optional
 import warnings
@@ -22,6 +22,8 @@ from jobmon.models.attributes.job_attribute import JobAttribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
 from jobmon.models.attributes.workflow_run_attribute import \
     WorkflowRunAttribute
+from jobmon.models.dag import Dag
+from jobmon.models.edge import Edge
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.models.job import Job
@@ -30,7 +32,7 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.node import Node
-from jobmon.models.node_args import NodeArg
+from jobmon.models.node_arg import NodeArg
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.task_template import TaskTemplate
 from jobmon.models.task_template_version import TaskTemplateVersion
@@ -218,8 +220,8 @@ def add_job():
 
 
 @jsm.route('/node', methods=['POST'])
-def add_node_and_node_args():
-    """Add a new node to the database
+def add_client_node_and_node_args():
+    """Add a new node to the database.
 
     Args:
         node_args_hash: unique identifier of all NodeArgs associated with a
@@ -253,6 +255,72 @@ def add_node_and_node_args():
     resp = jsonify(node_id=node.id)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@jsm.route('/client_dag/<dag_hash>', methods=['POST'])
+def add_client_dag(dag_hash):
+    """Add a new dag to the database.
+
+    Args:
+        dag_hash: unique identifier of the dag, included in route
+    """
+    logger.info(logging.myself())
+
+    # add dag
+    dag = Dag(hash=dag_hash)
+    DB.session.add(dag)
+    DB.session.commit()
+
+    # return result
+    resp = jsonify(dag_id=dag.id)
+    resp.status_code = StatusCodes.OK
+
+    return resp
+
+
+@jsm.route('/edge/<dag_id>', methods=['POST'])
+def add_edges(dag_id):
+    """Add a group of edges to the database.
+
+    Args:
+        dag_id: identifies the dag whose edges are being inserted
+        nodes_and_edges: a json object with the following format:
+            {
+                node_id: {
+                    'upstream_nodes': [node_id, node_id, node_id],
+                    'downstream_nodes': [node_id, node_id]
+                },
+                node_id: {...},
+                ...
+            }
+    """
+    logger.info(logging.myself())
+
+    data = request.get_json()
+
+    logger.debug(f'Data received to add_edges: {data} with type: {type(data)}')
+
+    for node_id, edges in data.items():
+        logger.debug(f'Edges: {edges}')
+
+        if len(edges['upstream_nodes']) == 0:
+            upstream_nodes = None
+        else:
+            upstream_nodes = str(edges['upstream_nodes'])
+
+        if len(edges['downstream_nodes']) == 0:
+            downstream_nodes = None
+        else:
+            downstream_nodes = str(edges['downstream_nodes'])
+
+        edge = Edge(dag_id=dag_id,
+                    node_id=node_id,
+                    upstream_nodes=upstream_nodes,
+                    downstream_nodes=downstream_nodes)
+        DB.session.add(edge)
+        DB.session.commit()
+
+    return '', StatusCodes.OK
 
 
 @jsm.route('/task_dag', methods=['POST'])
