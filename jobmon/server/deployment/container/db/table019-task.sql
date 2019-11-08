@@ -1,15 +1,15 @@
 --
--- Table structure for table `job`
+-- Table structure for table `task`
 --
 use `docker`;
 
-DROP TABLE IF EXISTS `job`;
-CREATE TABLE `job` (
-  `job_id` int(11) NOT NULL AUTO_INCREMENT,
-  `dag_id` int(11) DEFAULT NULL,
-  `job_hash` varchar(255) NOT NULL,
+DROP TABLE IF EXISTS `task`;
+CREATE TABLE `task` (
+  `task_id` int(11) NOT NULL AUTO_INCREMENT,
+  `workflow_id` int(11) DEFAULT NULL,
+  `node_id` int(11) DEFAULT NULL,
+  `task_arg_hash` varchar(255) NOT NULL,
   `name` varchar(255) DEFAULT NULL,
-  `tag` varchar(255) DEFAULT NULL,
   `command` text,
   `executor_parameter_set_id` int(11) DEFAULT NULL,
   `num_attempts` int(11) DEFAULT NULL,
@@ -18,9 +18,9 @@ CREATE TABLE `job` (
   `submitted_date` datetime DEFAULT NULL,
   `status_date` datetime DEFAULT NULL,
   `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
-  PRIMARY KEY (`job_id`, `partition_date`),
-  KEY `ix_dag_id_status_date` (`dag_id`,`status_date`),
-  KEY `ix_job_status_date` (`status_date`),
+  PRIMARY KEY (`id`, `partition_date`),
+  KEY `ix_workflow_id_status_date` (`workflow_id`,`status_date`),
+  KEY `ix_task_status_date` (`status_date`),
   KEY `executor_parameter_set_id` (`executor_parameter_set_id`),
   KEY `status` (`status`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8

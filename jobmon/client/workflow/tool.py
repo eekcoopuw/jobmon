@@ -2,7 +2,7 @@ from typing import List, Union
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
-from jobmon.client.swarm.workflow.task_template import TaskTemplate
+from jobmon.client.workflow.task_template import TaskTemplate
 # from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.serializers import SerializeClientTool, SerializeClientToolVersion
 

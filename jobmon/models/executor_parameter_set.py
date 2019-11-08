@@ -1,7 +1,6 @@
 import logging
 
 from jobmon.models import DB
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 
 
 logger = logging.getLogger(__name__)
@@ -13,7 +12,7 @@ class ExecutorParameterSet(DB.Model):
     __tablename__ = 'executor_parameter_set'
 
     id = DB.Column(DB.Integer, primary_key=True)
-    job_id = DB.Column(DB.Integer, DB.ForeignKey('job.job_id'), nullable=False)
+    task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'), nullable=False)
     parameter_set_type = DB.Column(
         DB.String(1), DB.ForeignKey('executor_parameter_set_type.id'),
         nullable=False)
@@ -32,7 +31,7 @@ class ExecutorParameterSet(DB.Model):
     hard_limits = DB.Column(DB.Boolean, default=None)
 
     # ORM relationships
-    job = DB.relationship("Job", foreign_keys=[job_id])
+    task = DB.relationship("Task", foreign_keys=[task_id])
 
     def activate(self):
-        self.job.executor_parameter_set_id = self.id
+        self.task.executor_parameter_set_id = self.id

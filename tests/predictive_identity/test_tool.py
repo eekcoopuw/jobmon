@@ -1,6 +1,6 @@
 import pytest
 
-from jobmon.client.swarm.workflow.tool import Tool, InvalidToolVersionError
+from jobmon.client.workflow.tool import Tool, InvalidToolVersionError
 
 
 def test_create_tool(db_cfg, env_var):

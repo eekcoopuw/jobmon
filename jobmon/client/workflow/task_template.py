@@ -6,7 +6,7 @@ from jobmon.serializers import SerializeClientTaskTemplateVersion
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors.base import ExecutorParameters
-from jobmon.client.swarm.workflow.executable_task import ExecutableTask
+from jobmon.client.workflow.task import Task
 
 
 class TaskTemplateVersion:
@@ -98,14 +98,14 @@ class TaskTemplate:
                 "Cannot set node_args. node_args must be declared during "
                 "instantiation")
         val = set(val)
-        if not self.template_key_set.issuperset(val):
+        if not self.template_args.issuperset(val):
             raise ValueError(
                 "The format keys declared in command_template must be as a "
                 "superset of the keys declared in node_args. Values recieved "
                 f"were --- \ncommand_template is: {self.command_template}. "
-                f"\ncommand_template format keys are {self.template_key_set}. "
+                f"\ncommand_template format keys are {self.template_args}. "
                 f"\nnode_args is: {val}. \nmissing format keys in "
-                f"command_template are {set(val) - self.template_key_set}.")
+                f"command_template are {set(val) - self.template_args}.")
         self._node_args = val
 
     @property
@@ -122,14 +122,14 @@ class TaskTemplate:
                 "Cannot set task_args. task_args must be declared during "
                 "instantiation")
         val = set(val)
-        if not self.template_key_set.issuperset(val):
+        if not self.template_args.issuperset(val):
             raise ValueError(
                 "The format keys declared in command_template must be as a "
                 "superset of the keys declared in task_args. Values recieved "
                 f"were --- \ncommand_template is: {self.command_template}. "
-                f"\ncommand_template format keys are {self.template_key_set}. "
+                f"\ncommand_template format keys are {self.template_args}. "
                 f"\nnode_args is: {val}. \nmissing format keys in "
-                f"command_template are {set(val) - self.template_key_set}.")
+                f"command_template are {set(val) - self.template_args}.")
         self._task_args = val
 
     @property
@@ -146,23 +146,23 @@ class TaskTemplate:
                 "Cannot set op_args. op_args must be declared during "
                 "instantiation")
         val = set(val)
-        if not self.template_key_set.issuperset(val):
+        if not self.template_args.issuperset(val):
             raise ValueError(
                 "The format keys declared in command_template must be as a "
                 "superset of the keys declared in op_args. Values recieved "
                 f"were --- \ncommand_template is: {self.command_template}. "
-                f"\ncommand_template format keys are {self.template_key_set}. "
+                f"\ncommand_template format keys are {self.template_args}. "
                 f"\nnode_args is: {val}. \nmissing format keys in "
-                f"command_template are {set(val) - self.template_key_set}.")
+                f"command_template are {set(val) - self.template_args}.")
         self._op_args = val
 
     def create_task(self,
                     executor_parameters: Union[ExecutorParameters, Callable],
                     name: Optional[str] = None,
-                    upstream_tasks: Optional[List["ExecutableTask"]] = None,
+                    upstream_tasks: Optional[List["Task"]] = None,
                     max_attempts: Optional[int] = 3,
                     job_attributes: Optional[dict] = None,
-                    **kwargs) -> ExecutableTask:
+                    **kwargs) -> Task:
         """Create an instance of a task associated with this template
 
         Args:
@@ -191,7 +191,7 @@ class TaskTemplate:
         # build task
         data_arg_vals = {k: v for k, v in kwargs.items()
                          if k in self.task_args}
-        task = ExecutableTask(
+        task = Task(
             command=command,
             node_arg_vals=node_arg_vals,
             data_arg_vals=data_arg_vals,

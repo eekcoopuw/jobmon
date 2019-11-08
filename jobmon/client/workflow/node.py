@@ -1,23 +1,30 @@
+from __future__ import annotations
+
 import hashlib
 import json
 
 from http import HTTPStatus as StatusCodes
-from typing import Dict, List, Optional
+from typing import Dict, List, Set, TYPE_CHECKING
 
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.client_logging import ClientLogging as Logging
 
 
+if TYPE_CHECKING:
+    from jobmon.client.workflow.task import Task
+
+
 logger = Logging.getLogger(__name__)
 
 
-class ClientNode(object):
+class Node:
 
-    def __init__(self, task_template_version_id: int,
+    def __init__(self,
+                 task_template_version_id: int,
                  node_args: Dict,
-                 requester: Optional[Requester] = shared_requester,
-                 upstream_nodes: Optional[List["ClientNode"]] = None):
+                 task: Task,
+                 requester: Requester = shared_requester):
         """A node represents an individual node for a Dag.
         A node stores node arguments and can register itself with the database
         via the Jobmon Query Service and the Jobmon State Manager.
@@ -27,18 +34,19 @@ class ClientNode(object):
             node_args: key-value pairs of arg_id and a value.
             upstream_nodes: list of nodes that this node is dependent on.
         """
-        self.node_id = None  # None implies that it is unbound
         self.task_template_version_id = task_template_version_id
         self.node_args = node_args
         self.node_args_hash = self._hash_node_args()
         self.requester = requester
-        self.upstream_nodes = set()
-        self.downstream_nodes = set()
+        self.upstream_nodes: Set[Node] = set()
+        self.downstream_nodes: Set[Node] = set()
 
-        if upstream_nodes is not None:
-            [self.upstream_nodes.add(node) for node in upstream_nodes]
-            # Add this node to the upstream nodes' downstream
-            [node.downstream_nodes.add(self) for node in upstream_nodes]
+    @property
+    def node_id(self) -> int:
+        if not hasattr(self, "_node_id"):
+            raise AttributeError(
+                "node_id cannot be accessed before node is bound")
+        return self._node_id
 
     def bind(self) -> int:
         """Retrieve an id for a matching node from the server. If it doesn't
@@ -51,7 +59,7 @@ class ClientNode(object):
         else:
             logger.info(f'Found node_id: {node_id} for node: {self}, binding '
                         f'node.')
-        self.node_id = node_id
+        self._node_id = node_id
         return self.node_id
 
     def _hash_node_args(self) -> int:
@@ -103,26 +111,36 @@ class ClientNode(object):
                              f'request through route /node. Expected code 200.'
                              f' Response content: {response}')
 
-    def add_upstream_node(self, upstream_node: "ClientNode"):
+    def add_upstream_node(self, upstream_node: Node) -> None:
         """Add a node to this one's upstream Nodes."""
         self.upstream_nodes.add(upstream_node)
         # Add this node to the upstream nodes' downstream
         upstream_node.downstream_nodes.add(self)
 
-    def add_upstream_nodes(self, upstream_nodes: List["ClientNode"]):
+    def add_upstream_nodes(self, upstream_nodes: List[Node]) -> None:
         """Add many nodes to this one's upstream Nodes."""
-        [self.add_upstream_node(node) for node in upstream_nodes]
+        for node in upstream_nodes:
+            self.add_upstream_node(node)
+
+    def add_downstream_node(self, downstream_node: Node) -> None:
+        """Add a node to this one's downstream Nodes."""
+        self.downstream_nodes.add(downstream_node)
+        # avoid endless recursion, set directly
+        downstream_node.downstream_nodes.add(self)
+
+    def add_downstream_nodes(self, downstream_nodes: List[Node]) -> None:
+        for node in downstream_nodes:
+            self.add_downstream_node(node)
 
     def __str__(self) -> str:
-        return (f'node_id: {self.node_id}, '
-                f'task_template_version_id: {self.task_template_version_id}, '
+        return (f'task_template_version_id: {self.task_template_version_id}, '
                 f'node_args: {self.node_args}, '
                 f'node_args_hash: {self.node_args_hash}')
 
-    def __eq__(self, other: "ClientNode") -> bool:
+    def __eq__(self, other: Node) -> bool:
         return hash(self) == hash(other)
 
-    def __lt__(self, other: "ClientNode") -> bool:
+    def __lt__(self, other: Node) -> bool:
         return hash(self) < hash(other)
 
     def __hash__(self) -> int:

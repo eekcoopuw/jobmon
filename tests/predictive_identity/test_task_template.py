@@ -1,6 +1,6 @@
 import pytest
 
-from jobmon.client.swarm.workflow.tool import Tool
+from jobmon.client.workflow.tool import Tool
 
 
 @pytest.fixture(scope='function')

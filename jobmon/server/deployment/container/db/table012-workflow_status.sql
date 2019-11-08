@@ -1,3 +1,4 @@
+
 --
 -- Table structure for table `workflow_status`
 --

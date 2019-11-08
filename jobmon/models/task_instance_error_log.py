@@ -6,19 +6,19 @@ from jobmon.models import DB
 logger = logging.getLogger(__name__)
 
 
-class JobInstanceErrorLog(DB.Model):
+class TaskInstanceErrorLog(DB.Model):
     """The table in the database that logs the error messages for
-    job_instances
+    task_instances
     """
 
-    __tablename__ = 'job_instance_error_log'
+    __tablename__ = 'task_instance_error_log'
 
     id = DB.Column(DB.Integer, primary_key=True)
-    job_instance_id = DB.Column(
+    task_instance_id = DB.Column(
         DB.Integer,
-        DB.ForeignKey('job_instance.job_instance_id'),
+        DB.ForeignKey('task_instance.id'),
         nullable=False)
     error_time = DB.Column(DB.DateTime, default=datetime.utcnow)
     description = DB.Column(DB.Text(collation='utf8_general_ci'))
 
-    job_instance = DB.relationship("JobInstance", back_populates="errors")
+    task_instance = DB.relationship("TaskInstance", back_populates="errors")

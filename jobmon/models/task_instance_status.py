@@ -5,12 +5,12 @@ from jobmon.models import DB
 logger = logging.getLogger(__name__)
 
 
-class JobInstanceStatus(DB.Model):
+class TaskInstanceStatus(DB.Model):
     """The table in the database that holds on the possible statuses for
     JobInstance
     """
 
-    __tablename__ = 'job_instance_status'
+    __tablename__ = 'task_instance_status'
     INSTANTIATED = 'I'
     NO_EXECUTOR_ID = 'W'
     SUBMITTED_TO_BATCH_EXECUTOR = 'B'

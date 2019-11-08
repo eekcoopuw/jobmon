@@ -1,10 +1,9 @@
 import hashlib
-import json
 
 from http import HTTPStatus as StatusCodes
-from typing import Optional
+from typing import Optional, Set
 
-from jobmon.client.swarm.workflow.clientnode import ClientNode
+from jobmon.client.workflow.node import Node
 from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.client_logging import ClientLogging as Logging
@@ -12,20 +11,26 @@ from jobmon.client.client_logging import ClientLogging as Logging
 logger = Logging.getLogger(__name__)
 
 
-class ClientDag(object):
+class Dag(object):
     """Stores Nodes, talks to the server in regard to itself"""
 
-    def __init__(self, requester: Optional[Requester] = shared_requester):
-        self.dag_id = None  # None implies that it is unbound
-        self.nodes = set()
+    def __init__(self, requester: Requester = shared_requester):
+        self.nodes: Set[Node] = set()
         self.requester = requester
 
-    def add_node(self, node: ClientNode):
+    @property
+    def dag_id(self) -> int:
+        if not hasattr(self, "_dag_id"):
+            raise AttributeError(
+                "_dag_id cannot be accessed before dag is bound")
+        return self._dag_id
+
+    def add_node(self, node: Node) -> None:
         """Add a node to this dag."""
         # wf.add_task should call ClientNode.add_node() + pass the tasks' node
         self.nodes.add(node)
 
-    def bind(self):
+    def bind(self) -> int:
         """Retrieve an id for a matching dag from the server. If it doesn't
         exist, first create one, including its edges."""
 
@@ -33,22 +38,23 @@ class ClientDag(object):
             raise RuntimeError('No nodes were found in the dag. An empty dag '
                                'cannot be bound.')
 
-        self.dag_id = self._get_dag_id()
+        dag_id = self._get_dag_id()
         dag_hash = hash(self)
-        if self.dag_id is None:
+        if dag_id is None:
             logger.info(f'dag_id for dag with hash: {dag_hash} not found, '
                         f'creating a new entry and binding the dag.')
-            self.dag_id = self._insert_dag()
+            self._dag_id = self._insert_dag()
             logger.info(f'Inserting edges for dag with hash: {dag_hash}.')
             # insert edges
             self._insert_edges()
         else:
+            self._dag_id = dag_id
             logger.info(f'Found dag_id: {self.dag_id} for dag with hash: '
                         f'{dag_hash}')
         logger.debug(f'dag_id is: {self.dag_id}')
         return self.dag_id
 
-    def _get_dag_id(self):
+    def _get_dag_id(self) -> Optional[int]:
         dag_hash = hash(self)
         logger.info(f'Querying for dag with hash: {dag_hash}')
         return_code, response = self.requester.send_request(
@@ -64,7 +70,7 @@ class ClientDag(object):
                              f'Expected code 200. Response content: '
                              f'{response}')
 
-    def _insert_dag(self):
+    def _insert_dag(self) -> int:
         dag_hash = hash(self)
 
         return_code, response = self.requester.send_request(
@@ -80,7 +86,7 @@ class ClientDag(object):
                              f'Expected code 200. Response content: '
                              f'{response}')
 
-    def _insert_edges(self):
+    def _insert_edges(self) -> None:
         logger.info(f'Inserting edges into dag with id {self.dag_id}')
 
         # convert the set into a dictionary that can be dumped and sent over
@@ -117,12 +123,8 @@ class ClientDag(object):
         hash_value = hashlib.sha1()
         if len(self.nodes) > 0:  # if the dag is empty, we want to skip this
             for node in sorted(self.nodes):
-                hash_value.update(
-                    bytes("{:x}".format(node.node_args_hash).encode('utf-8'))
-                )
+                hash_value.update(str(hash(node)).encode('utf-8'))
                 for downstream_node in sorted(node.downstream_nodes):
                     hash_value.update(
-                        bytes("{:x}".format(
-                            downstream_node.node_args_hash).encode('utf-8'))
-                    )
+                        str(hash(downstream_node)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
