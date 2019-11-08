@@ -6,12 +6,12 @@ use `docker`;
 DROP TABLE IF EXISTS `job_instance_error_log`;
 CREATE TABLE `job_instance_error_log` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `job_instance_id` int(11) NOT NULL,
+  `task_instance_id` int(11) NOT NULL,
   `error_time` datetime DEFAULT NULL,
   `description` text,
   `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
   PRIMARY KEY (`id`, `partition_date`),
-  KEY `job_instance_id` (`job_instance_id`)
+  KEY `ix_task_instance_id` (`task_instance_id`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 /*!50100 PARTITION BY RANGE (UNIX_TIMESTAMP(partition_date))
 ( PARTITION p201908 VALUES LESS THAN (UNIX_TIMESTAMP('2019-09-01 00:00:00'))ENGINE = InnoDB,

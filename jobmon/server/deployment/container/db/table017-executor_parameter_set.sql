@@ -6,7 +6,7 @@ use `docker`;
 DROP TABLE IF EXISTS `executor_parameter_set`;
 CREATE TABLE `executor_parameter_set` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
-  `job_id` int(11) NOT NULL,
+  `task_id` int(11) NOT NULL,
   `parameter_set_type` varchar(1) NOT NULL,
   `max_runtime_seconds` int(11) DEFAULT NULL,
   `context_args` varchar(1000) DEFAULT NULL,
@@ -18,8 +18,8 @@ CREATE TABLE `executor_parameter_set` (
   `hard_limits` tinyint(1) DEFAULT NULL,
   `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
   PRIMARY KEY (`id`, `partition_date`),
-  KEY `parameter_set_type` (`parameter_set_type`),
-  KEY `job_id` (`job_id`)
+  KEY `ix_parameter_set_type` (`parameter_set_type`),
+  KEY `ix_task_id` (`task_id`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 /*!50100 PARTITION BY RANGE (UNIX_TIMESTAMP(partition_date))
 ( PARTITION p201908 VALUES LESS THAN (UNIX_TIMESTAMP('2019-09-01 00:00:00'))ENGINE = InnoDB,

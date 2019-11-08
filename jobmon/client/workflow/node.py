@@ -10,7 +10,6 @@ from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.client_logging import ClientLogging as Logging
 
-
 if TYPE_CHECKING:
     from jobmon.client.workflow.task import Task
 

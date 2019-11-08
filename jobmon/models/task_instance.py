@@ -29,9 +29,9 @@ class TaskInstance(DB.Model):
         nullable=False)  # TODO: figure out if this should be nullable
 
     # usage
-    usage_str = DB.Column(DB.String(250))
     nodename = DB.Column(DB.String(150))
     process_group_id = DB.Column(DB.Integer)
+    usage_str = DB.Column(DB.String(250))
     wallclock = DB.Column(DB.String(50))
     maxrss = DB.Column(DB.String(50))
     maxpss = DB.Column(DB.String(50))
