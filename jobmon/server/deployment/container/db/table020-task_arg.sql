@@ -4,6 +4,7 @@
 use `docker`;
 
 DROP TABLE IF EXISTS `task_arg`;
+
 CREATE TABLE `task_arg` (
   `task_id` INTEGER NOT NULL,
   `arg_id` INTEGER NOT NULL,

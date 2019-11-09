@@ -4,6 +4,7 @@
 use `docker`;
 
 DROP TABLE IF EXISTS `executor_parameter_set_type`;
+
 CREATE TABLE `executor_parameter_set_type` (
   `id` varchar(1) NOT NULL,
   `label` varchar(150) NOT NULL,

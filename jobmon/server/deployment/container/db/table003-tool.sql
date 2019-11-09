@@ -6,7 +6,7 @@ use `docker`;
 DROP TABLE IF EXISTS `tool`;
 
 CREATE TABLE `tool`(
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` INTEGER NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

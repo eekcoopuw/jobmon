@@ -4,12 +4,14 @@
 use `docker`;
 
 DROP TABLE IF EXISTS `tool_version`;
+
 CREATE TABLE `tool_version`(
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` INTEGER NOT NULL AUTO_INCREMENT,
   `tool_id` int(11) NOT NULL,
   PRIMARY KEY (`id`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- add index on our fake foreign key
 ALTER TABLE `tool_version` ADD INDEX `ix_tool_id` (`tool_id`);
 
 LOCK TABLES `tool_version` WRITE;

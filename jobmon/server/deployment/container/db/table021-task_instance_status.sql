@@ -5,6 +5,7 @@
 use `docker`;
 
 DROP TABLE IF EXISTS `task_instance_status`;
+
 CREATE TABLE `task_instance_status` (
   `id` varchar(1) NOT NULL,
   `label` varchar(150) NOT NULL,

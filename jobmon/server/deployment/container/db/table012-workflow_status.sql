@@ -5,6 +5,7 @@
 use `docker`;
 
 DROP TABLE IF EXISTS `workflow_status`;
+
 CREATE TABLE `workflow_status` (
   `id` varchar(1) NOT NULL,
   `label` varchar(150) NOT NULL,

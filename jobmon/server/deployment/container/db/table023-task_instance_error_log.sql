@@ -1,17 +1,17 @@
 --
--- Table structure for table `job_instance_error_log`
+-- Table structure for table `task_instance_error_log`
 --
 use `docker`;
 
-DROP TABLE IF EXISTS `job_instance_error_log`;
-CREATE TABLE `job_instance_error_log` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `task_instance_id` int(11) NOT NULL,
+DROP TABLE IF EXISTS `task_instance_error_log`;
+
+CREATE TABLE `task_instance_error_log` (
+  `id` INTEGER NOT NULL AUTO_INCREMENT,
+  `task_instance_id` INTEGER NOT NULL,
   `error_time` datetime DEFAULT NULL,
   `description` text,
   `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
   PRIMARY KEY (`id`, `partition_date`),
-  KEY `ix_task_instance_id` (`task_instance_id`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 /*!50100 PARTITION BY RANGE (UNIX_TIMESTAMP(partition_date))
 ( PARTITION p201908 VALUES LESS THAN (UNIX_TIMESTAMP('2019-09-01 00:00:00'))ENGINE = InnoDB,
@@ -22,3 +22,5 @@ PARTITION p201912 VALUES LESS THAN (UNIX_TIMESTAMP('2020-01-01 00:00:00'))ENGINE
 PARTITION p202001 VALUES LESS THAN (UNIX_TIMESTAMP('2020-02-01 00:00:00'))ENGINE = InnoDB,
 PARTITION future VALUES LESS THAN MAXVALUE ENGINE = InnoDB
 )*/;
+
+ALTER TABLE `task_instance_error_log` ADD INDEX `ix_task_instance_id` (`task_instance_id`);
