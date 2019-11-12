@@ -6,7 +6,6 @@ from jobmon.models.attributes.constants import job_attribute
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.client.client_logging import ClientLogging as logging
 
-
 logger = logging.getLogger(__name__)
 
 

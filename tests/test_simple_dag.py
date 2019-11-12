@@ -1,4 +1,4 @@
-import logging
+
 import os
 import pytest
 from subprocess import check_output
@@ -15,7 +15,6 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
-logger = logging.getLogger(__name__)
 path_to_file = os.path.dirname(__file__)
 
 # All Tests are written from the point of view of the Swarm, i.e the job
@@ -79,6 +78,7 @@ def test_empty_real_dag(real_dag):
 @pytest.mark.qsubs_jobs
 def test_one_task(tmp_out_dir, real_dag):
     """Create a real_dag with one Task and execute it"""
+
     root_out_dir = "{}/mocks/test_one_task".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
@@ -163,7 +163,7 @@ def test_three_linear_tasks(tmp_out_dir, real_dag):
     real_dag.add_task(task_c)
     task_c.add_upstream(task_b)  # Exercise add_upstream post-instantiation
 
-    logger.debug("real_dag: {}".format(real_dag))
+    print("real_dag: {}".format(real_dag))
     (rc, num_completed, num_previously_complete, num_failed) = \
         real_dag._execute()
     assert rc == DagExecutionStatus.SUCCEEDED
@@ -237,7 +237,7 @@ def test_fork_and_join_tasks(tmp_out_dir, real_dag):
     )
     real_dag.add_task(task_d)
 
-    logger.info("real_dag: {}".format(real_dag))
+    print("real_dag: {}".format(real_dag))
 
     (rc, num_completed, num_previously_complete, num_failed) = \
         real_dag._execute()
@@ -314,7 +314,7 @@ def test_fork_and_join_tasks_with_fatal_error(tmp_out_dir, real_dag):
     )
     real_dag.add_task(task_d)
 
-    logger.info("real_dag: {}".format(real_dag))
+    print("real_dag: {}".format(real_dag))
 
     (rc, num_completed, num_previously_complete, num_failed) = \
         real_dag._execute()
@@ -396,7 +396,7 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, tmp_out_dir,
     )
     real_dag.add_task(task_d)
 
-    logger.info("real_dag: {}".format(real_dag))
+    print("real_dag: {}".format(real_dag))
 
     (rc, num_completed, num_previously_complete, num_failed) = \
         real_dag._execute()
@@ -503,7 +503,7 @@ def test_bushy_real_dag(tmp_out_dir, real_dag):
     )
     real_dag.add_task(task_d)
 
-    logger.info("real_dag: {}".format(real_dag))
+    print("real_dag: {}".format(real_dag))
 
     (rc, num_completed, num_previously_complete, num_failed) = \
         real_dag._execute()

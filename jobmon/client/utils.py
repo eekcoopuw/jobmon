@@ -11,7 +11,6 @@ from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
-logging.attach_log_handler("JOBMON_NODE")
 
 SSH_KEYFILE_NAME = "jobmonauto_id_rsa"
 _home_dir = os.path.realpath(os.path.expanduser("~"))
@@ -28,7 +27,7 @@ def confirm_correct_perms(perm_dict=None):
     Raises:
         UnsafeSSHDirectory
     """
-    logger.debug("confirm_correct_perms")
+    logger.info("confirm_correct_perms")
     if perm_dict is None:
         perm_dict = _get_ssh_permission_dict()
 
@@ -48,6 +47,7 @@ def confirm_correct_perms(perm_dict=None):
                 d=directory, p=perm_dict[directory])
 
     if errors:
+        logger.error(str(errors))
         raise UnsafeSSHDirectory(errors)
 
 
@@ -84,7 +84,7 @@ def kill_remote_process_group(hostname: str, pgid: int) ->\
     :return: exit_code, stdout_str, stderr_str
     """
     logger.info("kill_remote_process_group")
-    logger.debug("hostname: {h} pgid: {p}".format(h=hostname, p=pgid))
+    logger.info("hostname: {h} pgid: {p}".format(h=hostname, p=pgid))
     return _run_remote_command(hostname, gently_kill_command(pgid))
 
 

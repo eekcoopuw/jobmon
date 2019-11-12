@@ -4,5 +4,3 @@ __version__ = get_versions()['version']
 del get_versions
 
 RELEASE_NAME = "fruitbat"
-
-ClientLogging.attach_log_handler("JOBMON_NODE")

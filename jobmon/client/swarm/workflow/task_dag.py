@@ -8,7 +8,6 @@ from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.task_dag_factory import TaskDagMetaFactory
 from jobmon.client.client_logging import ClientLogging as logging
 
-
 logger = logging.getLogger(__name__)
 
 

@@ -4,7 +4,6 @@ from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.client_logging import ClientLogging as logging
 
-
 logger = logging.getLogger(__name__)
 
 

@@ -9,7 +9,6 @@ from jobmon.client.swarm.executors import sge_utils
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.models.job import Job
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 

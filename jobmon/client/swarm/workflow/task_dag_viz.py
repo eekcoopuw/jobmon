@@ -3,7 +3,6 @@ import graphviz as gv
 
 from jobmon.client.client_logging import ClientLogging as logging
 
-
 logger = logging.getLogger(__name__)
 
 
