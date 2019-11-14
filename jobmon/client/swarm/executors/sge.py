@@ -1,11 +1,9 @@
 import os
 from subprocess import check_output
-import traceback
 from typing import List, Tuple, Dict, Optional
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
                                            sge_utils, ExecutorParameters)
@@ -18,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 ERROR_SGE_JID = -99999
 ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
+
 
 class SGEExecutor(Executor):
     def __init__(self,
@@ -51,17 +50,9 @@ class SGEExecutor(Executor):
             return sge_jid
 
         except Exception as e:
-            stack = traceback.format_exc()
-            logger.error(f"*** Caught during qsub {e}")
-            logger.error(f"Traceback {stack}")
-            logger.error("qsub response: {resp}")
-            msg = (
-                f"Error in executor {self.__class__.__name__}, {str(self)} "
-                f"while executing command {qsub_cmd}: \n{stack}")
-            shared_requester.send_request(
-                app_route="/error_logger",
-                message={"traceback": msg},
-                request_type="post")
+            logger.error(
+                f"Error in {self.__class__.__name__} while running {qsub_cmd}:"
+                f"\n{e}")
             if isinstance(e, ValueError):
                 raise e
             return qsub_attribute.NO_EXEC_ID
@@ -90,7 +81,7 @@ class SGEExecutor(Executor):
         return self._execute_sge(qsub_command)
 
     def get_actual_submitted_or_running(self) -> List[int]:
-        qstat_dict= sge_utils.qstat()
+        qstat_dict = sge_utils.qstat()
         executor_ids = list(qstat_dict.keys())
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids

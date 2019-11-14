@@ -1,11 +1,9 @@
 import os
 import subprocess
-import traceback
 from typing import Optional
 
 from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
                                            ExecutorParameters)
-from jobmon.client import shared_requester
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.client.client_logging import ClientLogging as logging
 
@@ -37,16 +35,9 @@ class SequentialExecutor(Executor):
             # submit the job
             subprocess.check_output(command, shell=True, env=env)
         except Exception as e:
-            logger.error(e)
-            stack = traceback.format_exc()
-            msg = (
-                f"Error in {self.__class__.__name__}, {str(self)} "
-                f"while running {command}:"
-                f"\n{stack}")
-            shared_requester.send_request(
-                app_route="/error_logger",
-                message={"traceback": msg},
-                request_type="post")
+            logger.error(
+                f"Error in {self.__class__.__name__} while running {command}:"
+                f"\n{e}")
         return executor_id
 
 

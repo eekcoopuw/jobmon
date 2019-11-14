@@ -1,8 +1,6 @@
-from builtins import str
 from http import HTTPStatus as StatusCodes
 import threading
 from time import sleep
-import traceback
 from typing import Optional, List
 import _thread
 
@@ -72,27 +70,18 @@ class JobInstanceFactory(object):
             poll_interval (int, optional): how often you want this function to
                 poll for newly ready jobs
         """
-        logger.info("Polling for and instantiating queued jobs at {}s "
-                    "intervals".format(poll_interval))
+        logger.info(
+            f"Polling for and instantiating queued jobs at {poll_interval}s "
+            "intervals")
         while True and not self._stop_event.is_set():
             try:
-                logger.debug("Queuing at interval {}s".format(poll_interval))
+                logger.info(f"Queuing jobs for dag_id {self.dag_id} at"
+                            f" interval: {poll_interval}s")
                 self.instantiate_queued_jobs()
                 sleep(poll_interval)
             except Exception as e:
-                msg = "About to raise Keyboard Interrupt signal {}".format(e)
+                msg = f"About to raise Keyboard Interrupt signal {e}"
                 logger.error(msg)
-                stack = traceback.format_exc()
-                # Also write to stdout because this is a serious problem
-                print(msg, stack)
-                # Also send to server
-                msg = (
-                    f"Error in {self.__class__.__name__}, {str(self)} "
-                    f"in instantiate_queued_jobs_periodically: \n{stack}")
-                shared_requester.send_request(
-                    app_route="/error_logger",
-                    message={"traceback": msg},
-                    request_type="post")
                 _thread.interrupt_main()
                 self._stop_event.set()
                 raise
@@ -101,17 +90,14 @@ class JobInstanceFactory(object):
         """Pull all jobs that are ready, create job instances for them, and
         thereby run them
         """
-        logger.debug("JIF: Instantiating Queued Jobs")
         jobs = self._get_jobs_queued_for_instantiation()
-        logger.debug("JIF: Found {} Queued Jobs".format(len(jobs)))
+        logger.info(f"Found {len(jobs)} jobs queued for instantiation")
         job_instance_ids = []
         for job in jobs:
             job_instance = self._create_job_instance(job)
             if job_instance:
                 job_instance_ids.append(job_instance.job_instance_id)
-
-        logger.debug("JIF: Returning {} Instantiated Jobs".format(
-            len(job_instance_ids)))
+        logger.debug(f"Returning {len(job_instance_ids)} Instantiated Jobs")
         return job_instance_ids
 
     def set_executor(self, executor: Executor) -> None:
@@ -143,15 +129,11 @@ class JobInstanceFactory(object):
             job_instance = ExecutorJobInstance.register_job_instance(
                 job.job_id, self.executor)
         except Exception as e:
-            logger.error(e)
-            stack = traceback.format_exc()
             msg = (
-                f"Error while creating job instances {self.__class__.__name__}"
-                f", {str(self)} while submitting jid {job.job_id}: \n{stack}")
-            shared_requester.send_request(
-                app_route="/error_logger",
-                message={"traceback": stack},
-                request_type="post")
+                f"Error while creating job instances for dag_id {self.dag_id}"
+                f". Submitting jid {job.job_id} caused the following error:"
+                f"\n{e}")
+            logger.error(msg)
             # we can't do anything more at this point so must return None
             return None
 

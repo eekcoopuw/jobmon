@@ -2,7 +2,6 @@ from http import HTTPStatus as StatusCodes
 import threading
 import _thread
 from time import sleep
-import traceback
 from typing import Optional, List
 
 from jobmon.client import shared_requester, client_config
@@ -73,30 +72,17 @@ class JobInstanceReconciler(object):
             f"{self.reconciliation_interval} intervals and updating the report"
             f" by date at {self.report_by_buffer} times the heartbeat "
             f"interval: {self.heartbeat_interval}")
-
         while True and not self._stop_event.is_set():
             try:
-                logger.debug(
-                    f"Reconciling at interval {self.reconciliation_interval}s")
+                logger.info(f"Reconciling dag_id {self.dag_id} at interval: "
+                            f"{self.reconciliation_interval}s")
                 # if your executor has the possiblity of timed out jobs still
                 # running, terminate them here
                 self.reconcile()
                 sleep(self.reconciliation_interval)
             except Exception as e:
-                msg = f"About to raise Keyboard Interrupt signal {e}"
+                msg = f"About to raise Keyboard Interrupt signal. Error: \n{e}"
                 logger.error(msg)
-                stack = traceback.format_exc()
-                logger.error(stack)
-                # Also write to stdout because this is a serious problem
-                print(msg, stack)
-                # Also send to server
-                msg = (
-                    f"Error in {self.__class__.__name__}, {str(self)} "
-                    f"in reconcile_periodically: \n{stack}")
-                shared_requester.send_request(
-                    app_route="/error_logger",
-                    message={"traceback": msg},
-                    request_type="post")
                 _thread.interrupt_main()
                 self._stop_event.set()
                 raise
