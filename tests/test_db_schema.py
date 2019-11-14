@@ -31,3 +31,15 @@ def test_dag_id_column_index_in_job_instance(db_cfg):
         for c in JobInstance.__table__.columns:
             if c.name.lower() == 'dag_id':
                 assert c.index is True
+
+
+def test_maxpss_in_job_instance(db_cfg):
+    """Test the db schema change of GBDSCI-2313"""
+    app = db_cfg["app"]
+    column_found = False
+    with app.app_context():
+        for c in JobInstance.__table__.columns:
+            if c.name.lower() == 'maxpss':
+                column_found = True
+                break
+    assert column_found
