@@ -991,18 +991,16 @@ def update_job(job_id):
     logger.debug(logging.logParameter("job_id", job_id))
 
     data = request.get_json()
-    tag = data.get('tag', None)
     max_attempts = data.get('max_attempts', 3)
 
     update_job = """
                  UPDATE job
-                 SET tag=:tag, max_attempts=:max_attempts
+                 SET max_attempts=:max_attempts
                  WHERE job_id=:job_id
                  """
     logger.debug(logging.logParameter("DB.session", DB.session))
     DB.session.execute(update_job,
-                       {"tag": tag,
-                        "max_attempts": max_attempts,
+                       {"max_attempts": max_attempts,
                         "job_id": job_id})
     DB.session.commit()
     resp = jsonify()
@@ -1075,9 +1073,9 @@ def reset_job(job_id):
     return resp
 
 
-@jsm.route('/task_dag/<dag_id>/reset_incomplete_jobs', methods=['POST'])
-def reset_incomplete_jobs(dag_id):
-    """Reset all jobs of a dag and change their statuses
+@jsm.route('/task_dag/<dag_id>/reset_incomplete_tasks', methods=['POST'])
+def reset_incomplete_tasks(dag_id):
+    """Reset all tasks of a dag and change their statuses
     Args:
 
         dag_id: id of the dag to reset

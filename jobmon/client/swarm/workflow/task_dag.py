@@ -5,8 +5,8 @@ from collections import OrderedDict
 
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.models.job_status import JobStatus
-from jobmon.client.swarm.workflow.task_dag_factory import TaskDagMetaFactory
 from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.swarm.job_management.job_instance_state_controller import JobInstanceStateController
 
 
 logger = logging.getLogger(__name__)
@@ -42,12 +42,12 @@ class TaskDag(object):
 
         self.name = name
 
-        self.tasks = OrderedDict()  # {job_hash: ExecutableTask}
+        #self.tasks = OrderedDict()  # {job_hash: ExecutableTask}
         self.bound_tasks = None
         self.top_fringe = []
         self.fail_after_n_executions = None
 
-        self.tags = set()
+        #self.tags = set()
 
         self.fail_fast = fail_fast
 
@@ -55,15 +55,15 @@ class TaskDag(object):
         self.job_instantiation_interval = job_instantiation_interval
         self.seconds_until_timeout = seconds_until_timeout
 
-    def _set_fail_after_n_executions(self, n):
-        """
-        For use during testing, force the TaskDag to 'fall over' after n
-        executions, so that the resume case can be tested.
-
-        In every non-test case, self.fail_after_n_executions will be None, and
-        so the 'fall over' will not be triggered in production.
-        """
-        self.fail_after_n_executions = n
+    # def _set_fail_after_n_executions(self, n):
+    #     """
+    #     For use during testing, force the TaskDag to 'fall over' after n
+    #     executions, so that the resume case can be tested.
+    #
+    #     In every non-test case, self.fail_after_n_executions will be None, and
+    #     so the 'fall over' will not be triggered in production.
+    #     """
+    #     self.fail_after_n_executions = n
 
     @property
     def is_bound(self):
@@ -73,48 +73,55 @@ class TaskDag(object):
         else:
             return False
 
-    def bind_to_db(self, dag_id=None, reset_running_jobs=True):
-        """
-        Binds the dag to the database and starts Job Management services.
-        The Job_List_Manger is stopped and discarded in _clean_up_after_run
-
-        Args:
-            dag_id (int): Defaults to None, in which case a new dag_id is
-                created
-            reset_running_jobs (bool) : Set this to true in the "cold resume"
-                use case, where the human operator knows that there are no
-                jobs running, in which case reset their statuses in the
-                database
-        """
-        if dag_id:
-            self.job_list_manager = JobListManager(
-                dag_id, executor=self.executor, start_daemons=True,
-                job_instantiation_interval=self.job_instantiation_interval)
-
-            for _, task in self.tasks.items():
-                self.job_list_manager.bind_task(task)
-
-            # We only want to reset jobs in the cold-resume case. In
-            # the hot-resume case, we want to allow running jobs to continue
-            # and only pickup failed / not-yet-run jobs
-            #
-            # Reset any jobs hung up in not-DONE states
-            if reset_running_jobs:
-                self.job_list_manager.reset_jobs()
-
-            self.dag_id = dag_id
-        else:
-            tdf = TaskDagMetaFactory()
-            self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
-                                            user=getpass.getuser())
-            self.job_list_manager = JobListManager(
-                self.meta.dag_id, executor=self.executor, start_daemons=True)
-            self.dag_id = self.meta.dag_id
-
-            # Bind all the tasks to the job_list_manager
-            for _, task in self.tasks.items():
-                self.job_list_manager.bind_task(task)
-        self.bound_tasks = self.job_list_manager.bound_tasks
+    # def bind_to_db(self, dag_id=None, reset_running_jobs=True):
+    #     """
+    #     Binds the dag to the database and starts Job Management services.
+    #     The Job_List_Manger is stopped and discarded in _clean_up_after_run
+    #
+    #     Args:
+    #         dag_id (int): Defaults to None, in which case a new dag_id is
+    #             created
+    #         reset_running_jobs (bool) : Set this to true in the "cold resume"
+    #             use case, where the human operator knows that there are no
+    #             jobs running, in which case reset their statuses in the
+    #             database
+    #     """
+    #     if dag_id:
+    #         self.job_instance_state_controller = JobInstanceStateController(
+    #             dag_id, executor=self.executor, start_daemons=True,
+    #             job_instantiation_interval=self.job_instantiation_interval
+    #         )
+    #         self.job_list_manager = JobListManager(
+    #             self.meta.dag_id, executor=self.executor)
+    #
+    #         for _, task in self.tasks.items():
+    #             self.job_list_manager.bind_task(task)
+    #
+    #         # We only want to reset jobs in the cold-resume case. In
+    #         # the hot-resume case, we want to allow running jobs to continue
+    #         # and only pickup failed / not-yet-run jobs
+    #         #
+    #         # Reset any jobs hung up in not-DONE states
+    #         if reset_running_jobs:
+    #             self.job_list_manager.reset_jobs()
+    #
+    #         self.dag_id = dag_id
+    #     else:
+    #         tdf = TaskDagMetaFactory()
+    #         self.meta = tdf.create_task_dag(name=self.name, dag_hash=self.hash,
+    #                                         user=getpass.getuser())
+    #         self.job_instance_state_controller = JobInstanceStateController(
+    #             dag_id, executor=self.executor, start_daemons=True,
+    #             job_instantiation_interval=self.job_instantiation_interval
+    #         )
+    #         self.job_list_manager = JobListManager(
+    #             self.meta.dag_id, executor=self.executor)
+    #         self.dag_id = self.meta.dag_id
+    #
+    #         # Bind all the tasks to the job_list_manager
+    #         for _, task in self.tasks.items():
+    #             self.job_list_manager.bind_task(task)
+    #     self.bound_tasks = self.job_list_manager.bound_tasks
 
     def validate(self, raises=True):
         """
@@ -155,8 +162,8 @@ class TaskDag(object):
         return True
 
     def disconnect(self):
-        if self.job_list_manager:
-            self.job_list_manager.disconnect()
+        if self.job_instance_state_controller:
+            self.job_instance_state_controller.disconnect()
 
     def _execute(self):
         """
@@ -235,7 +242,7 @@ class TaskDag(object):
                 fringe = list(set(fringe + task_to_add))
             if (self.fail_after_n_executions is not None and
                     n_executions >= self.fail_after_n_executions):
-                self.job_list_manager.disconnect()
+                self.job_instance_state_controller.disconnect()
                 raise ValueError("Dag asked to fail after {} executions. "
                                  "Failing now".format(n_executions))
 
@@ -255,13 +262,13 @@ class TaskDag(object):
             if self.fail_fast:
                 logger.info("Failing after first failure, as requested")
             logger.info("DAG execute finished, failed {}".format(all_failed))
-            self.job_list_manager.disconnect()
+            self.job_instance_state_controller.disconnect()
             return (DagExecutionStatus.FAILED, num_new_completed,
                     len(previously_completed), len(all_failed))
         else:
             logger.info("DAG execute finished successfully, {} jobs"
                         .format(num_new_completed))
-            self.job_list_manager.disconnect()
+            self.job_instance_state_controller.disconnect()
             return (DagExecutionStatus.SUCCEEDED, num_new_completed,
                     len(previously_completed), len(all_failed))
 
@@ -288,40 +295,40 @@ class TaskDag(object):
         """
         Make sure all the threads are stopped. The JLM is created in bind_db
         """
-        self.job_list_manager.disconnect()
+        self.job_instance_state_controller.disconnect()
 
-    def reconnect(self) -> None:
-        if self.job_list_manager:
-            self.job_list_manager.connect()
+    # def reconnect(self) -> None:
+    #     if self.job_instance_state_controller:
+    #         self.job_instance_state_controller.connect()
 
-    def propagate_results(self, task):
-        """
-        For all its downstream tasks, is that task now ready to run?
-        Also marks the Task as DONE
-
-        Args:
-            task: The task that just completed
-        Returns:
-            Tasks to be added to the fringe
-        """
-        new_fringe = []
-
-        logger.debug("Propagate {}".format(task))
-        for downstream in task.downstream_tasks:
-            logger.debug("  downstream {}".format(downstream))
-            downstream_done = (downstream.status == JobStatus.DONE)
-            if (not downstream_done and downstream.status ==
-                JobStatus.REGISTERED):
-                if downstream.all_upstreams_done:
-                    logger.debug("  and add to fringe")
-                    new_fringe += [downstream]  # make sure there's no dups
-                    # else Nothing - that Task ain't ready yet
-                else:
-                    logger.debug("  not ready yet")
-            else:
-                logger.debug("  not ready yet or already queued. Status is {}"
-                             .format(downstream.status))
-        return new_fringe
+    # def propagate_results(self, task):
+    #     """
+    #     For all its downstream tasks, is that task now ready to run?
+    #     Also marks the Task as DONE
+    #
+    #     Args:
+    #         task: The task that just completed
+    #     Returns:
+    #         Tasks to be added to the fringe
+    #     """
+    #     new_fringe = []
+    #
+    #     logger.debug("Propagate {}".format(task))
+    #     for downstream in task.downstream_tasks:
+    #         logger.debug("  downstream {}".format(downstream))
+    #         downstream_done = (downstream.status == JobStatus.DONE)
+    #         if (not downstream_done and downstream.status ==
+    #             JobStatus.REGISTERED):
+    #             if downstream.all_upstreams_done:
+    #                 logger.debug("  and add to fringe")
+    #                 new_fringe += [downstream]  # make sure there's no dups
+    #                 # else Nothing - that Task ain't ready yet
+    #             else:
+    #                 logger.debug("  not ready yet")
+    #         else:
+    #             logger.debug("  not ready yet or already queued. Status is {}"
+    #                          .format(downstream.status))
+    #     return new_fringe
 
     def _find_task(self, task_hash):
         """
@@ -333,41 +340,41 @@ class TaskDag(object):
         """
         return self.tasks[task_hash]
 
-    def add_task(self, task):
-        """
-        Set semantics - add tasks once only, based on hash name.
-        Also creates the job. If is_new has no task_id then
-        creates task_id and writes it onto object.
+    # def add_task(self, task):
+    #     """
+    #     Set semantics - add tasks once only, based on hash name.
+    #     Also creates the job. If is_new has no task_id then
+    #     creates task_id and writes it onto object.
+    #
+    #     Returns:
+    #        The Job
+    #
+    #     Raises:
+    #         ValueError if a task is trying to be added but it already exists
+    #     """
+    #     logger.debug("Adding Task {}".format(task))
+    #     if task.hash in self.tasks:
+    #         raise ValueError(f"A task with hash {task.hash} already exists. "
+    #                          f"All tasks in a workflow must have unique "
+    #                          f"commands. Your command was: {task.command}")
+    #     self.tasks[task.hash] = task
+    #     self.tags.add(task.tag)
+    #     logger.debug("Task {} added".format(task.hash))
+    #     return task
 
-        Returns:
-           The Job
+    # def add_tasks(self, tasks):
+    #     for task in tasks:
+    #         self.add_task(task)
 
-        Raises:
-            ValueError if a task is trying to be added but it already exists
-        """
-        logger.debug("Adding Task {}".format(task))
-        if task.hash in self.tasks:
-            raise ValueError(f"A task with hash {task.hash} already exists. "
-                             f"All tasks in a workflow must have unique "
-                             f"commands. Your command was: {task.command}")
-        self.tasks[task.hash] = task
-        self.tags.add(task.tag)
-        logger.debug("Task {} added".format(task.hash))
-        return task
-
-    def add_tasks(self, tasks):
-        for task in tasks:
-            self.add_task(task)
-
-    def _set_top_fringe(self):
-        self.top_fringe = []
-        for task in self.bound_tasks.values():
-            unfinished_upstreams = [u for u in task.upstream_tasks
-                                    if u.status != JobStatus.DONE]
-            if not unfinished_upstreams and \
-                    task.status == JobStatus.REGISTERED:
-                self.top_fringe += [task]
-        return self.top_fringe
+    # def _set_top_fringe(self):
+    #     self.top_fringe = []
+    #     for task in self.bound_tasks.values():
+    #         unfinished_upstreams = [u for u in task.upstream_tasks
+    #                                 if u.status != JobStatus.DONE]
+    #         if not unfinished_upstreams and \
+    #                 task.status == JobStatus.REGISTERED:
+    #             self.top_fringe += [task]
+    #     return self.top_fringe
 
     def __repr__(self):
         """
@@ -381,13 +388,13 @@ class TaskDag(object):
         s += "]"
         return s
 
-    @property
-    def hash(self):
-        hashval = hashlib.sha1()
-        for task_hash in sorted(self.tasks):
-            hashval.update(bytes("{:x}".format(task_hash).encode('utf-8')))
-            task = self.tasks[task_hash]
-            for dtask in sorted(task.downstream_tasks):
-                hashval.update(
-                    bytes("{:x}".format(dtask.hash).encode('utf-8')))
-        return hashval.hexdigest()
+    # @property
+    # def hash(self):
+    #     hashval = hashlib.sha1()
+    #     for task_hash in sorted(self.tasks):
+    #         hashval.update(bytes("{:x}".format(task_hash).encode('utf-8')))
+    #         task = self.tasks[task_hash]
+    #         for dtask in sorted(task.downstream_tasks):
+    #             hashval.update(
+    #                 bytes("{:x}".format(dtask.hash).encode('utf-8')))
+    #     return hashval.hexdigest()

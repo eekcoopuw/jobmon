@@ -1,21 +1,28 @@
 from datetime import datetime
 import getpass
 import hashlib
+from collections import OrderedDict
 from http import HTTPStatus as StatusCodes
 import os
+from typing import Dict
 import uuid
 
 from cluster_utils.io import makedirs_safely
 
 import jobmon
 from jobmon.client import shared_requester, client_config
-from jobmon.models.attributes.constants import workflow_attribute
+from jobmon.client.client_logging import ClientLogging as logging
 from jobmon.client.requester import Requester
-from jobmon.client.swarm.workflow.workflow_run import WorkflowRun
-from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus, TaskDag
+from jobmon.client.swarm.job_management.job_instance_state_controller import \
+    JobInstanceStateController
+from jobmon.client.swarm.workflow.executable_task import ExecutableTask
+from jobmon.client.swarm.workflow.bound_task import BoundTask
+from jobmon.client.swarm.workflow.workflow_run import WorkflowRun, WorkflowRunExecutionStatus
+from jobmon.client.swarm.workflow.task_dag import TaskDag
+from jobmon.exceptions import InvalidResponse
+from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -119,11 +126,18 @@ class Workflow(object):
 
         self.reset_running_jobs = reset_running_jobs
 
-        self.task_dag = TaskDag(
-            executor=self.executor,
-            fail_fast=fail_fast,
-            seconds_until_timeout=seconds_until_timeout
-        )
+        self.tasks = OrderedDict() # hash to task object mapping
+        self.bound_tasks: Dict[int, BoundTask] = {} # hash to bound task object mapping
+        self.fail_fast = fail_fast
+        self.seconds_until_timeout = seconds_until_timeout
+
+        self.job_instance_state_controller = None
+
+        # self.task_dag = TaskDag(
+        #     executor=self.executor,
+        #     fail_fast=fail_fast,
+        #     seconds_until_timeout=seconds_until_timeout
+        # )
         self.resume = resume
 
         # if the user wants to specify the reconciliation and heartbeat rate,
@@ -193,6 +207,17 @@ class Workflow(object):
                 "Workflow is not yet bound")
 
     @property
+    def dag_hash(self):
+        hashval = hashlib.sha1()
+        for task_hash in sorted(self.tasks):
+            hashval.update(bytes("{:x}".format(task_hash).encode('utf-8')))
+            task = self.tasks[task_hash]
+            for dtask in sorted(task.downstream_tasks):
+                hashval.update(
+                    bytes("{:x}".format(dtask.hash).encode('utf-8')))
+        return hashval.hexdigest()
+
+    @property
     def id(self):
         """Return the workflow_id of this workflow"""
         if self.is_bound:
@@ -221,12 +246,91 @@ class Workflow(object):
                 "Workflow is not yet bound")
 
     def add_task(self, task):
-        """Add a task to the workflow to be executed"""
-        return self.task_dag.add_task(task)
+        """Add a task to the workflow to be executed.
+           Set semantics - add tasks once only, based on hash name. Also
+           creates the job. If is_no has no task_id the creates task_id and
+           writes it onto object.
+        """
+        logger.debug(f"Adding Task {task}")
+        if task.hash in self.tasks:
+            raise ValueError(f"A task with hash {task.hash} already exists. "
+                             f"All tasks in a workflow must have unique "
+                             f"commands. Your command was: {task.command}")
+        self.tasks[task.hash] = task
+        logger.debug(f"Task {task.hash} added")
+
+        return task
 
     def add_tasks(self, tasks):
         """Add a list of task to the workflow to be executed"""
-        self.task_dag.add_tasks(tasks)
+        for task in tasks:
+            self.add_task(task)
+
+    def _create_dag(self):
+        """Creates a new DAG"""
+        logger.debug("Creating new dag")
+        rc, response = self.requester.send_request(
+            app_route='/task_dag',
+            message={'name': self.name, 'user': getpass.getuser(),
+                     'dag_hash': self.dag_hash,
+                     'created_date': str(datetime.utcnow())},
+            request_type='post')
+        dag_id = response['dag_id']
+        logger.debug(f"New dag created with id: {self.dag_id}")
+        return dag_id
+
+    def _bind_dag(self):
+        """
+        Binds the dag to the database
+        :return:
+        """
+        if self.dag_id:
+            for _, task in self.tasks.items():
+                self._bind_task(task, self.dag_id)
+            if self.reset_running_jobs:
+                self._reset_tasks()
+        else:
+            dag_id = self._create_dag()
+            for _, task in self.tasks.items():
+                self._bind_task(task, dag_id)
+            return dag_id
+
+    def _bind_task(self, task: ExecutableTask, dag_id: int):
+        if task.hash in self.bound_tasks:
+            logger.info("Task already bound and has a hash, retrieving from "
+                        "db and making sure updated parameters are bound")
+            bound_task = self.bound_tasks[task.hash]
+            bound_task.update_task(task.max_attempts)
+        else:
+            swarm_task = task.create_bound_task(dag_id, self.requester)
+            bound_task = BoundTask(client_task=task, bound_task=swarm_task,
+                                   requester=self.requester)
+            # using sets so that a bound task will only be added if it is not
+            # already there
+            for upstream in task.upstream_tasks:
+                if upstream.hash in self.bound_tasks:
+                    bound_task.upstream_bound_tasks.add(self.bound_tasks[upstream.hash])
+                    self.bound_tasks[upstream.hash].downstream_bound_tasks.add(bound_task)
+            self.bound_tasks[bound_task.hash] = bound_task
+
+        for attribute in task.job_attributes:
+            logger.info(f"Add job attribute for job_id : {bound_task.job_id}, "
+                        f"attribute_type: {attribute}, value: "
+                        f"{task.job_attributes[attribute]}")
+            bound_task.add_job_attribute(attribute,
+                                         task.job_attributes[attribute])
+        return bound_task
+
+    def _reset_tasks(self):
+        """Reset all incomplete jobs of a dag_id, identified by self.dag_id"""
+        logger.info(f"Reset tasks for dag_id {self.dag_id}")
+        rc, _ = self.requester.send_request(
+            app_route='/task_dag/{}/reset_incomplete_tasks'.format(self.dag_id),
+            message={},
+            request_type='post')
+        if rc != StatusCodes.OK:
+            raise InvalidResponse(f"{rc}: Could not reset tasks")
+        return rc
 
     def _bind(self):
         """
@@ -235,7 +339,8 @@ class Workflow(object):
         second or subsequent execution they will have been stopped.
         """
         if self.is_bound:
-            self.task_dag.reconnect()
+            self.job_instance_state_controller.connect()
+            # self.task_dag.reconnect()
         self._matching_wf_args_diff_hash()
         potential_wfs = self._matching_workflows()
         if len(potential_wfs) > 0 and not self.resume:
@@ -254,20 +359,24 @@ class Workflow(object):
                 0]
             if self.wf_dao.status == WorkflowStatus.DONE:
                 raise WorkflowAlreadyComplete
-            self.task_dag.bind_to_db(
-                self.dag_id,
-                reset_running_jobs=self.reset_running_jobs
-            )
+            # self.task_dag.bind_to_db(
+            #     self.dag_id,
+            #     reset_running_jobs=self.reset_running_jobs
+            # )
+
+            # bind tasks with existing dag id
+            self._bind_dag()
         elif len(potential_wfs) == 0:
             # Bind the dag ...
-            self.task_dag.bind_to_db(
-                reset_running_jobs=self.reset_running_jobs
-            )
+            # self.task_dag.bind_to_db(
+            #     reset_running_jobs=self.reset_running_jobs
+            # )
+            dag_id = self._bind_dag()
 
             # Create new workflow in Database
             rc, response = self.requester.send_request(
                 app_route='/workflow',
-                message={'dag_id': str(self.task_dag.dag_id),
+                message={'dag_id': str(dag_id),
                          'workflow_args': self.workflow_args,
                          'workflow_hash': self._compute_hash(),
                          'name': self.name,
@@ -291,17 +400,23 @@ class Workflow(object):
         hashval = hashlib.sha1()
         hashval.update(
             bytes(self.workflow_args.encode('utf-8')))
-        hashval.update(
-            bytes(self.task_dag.hash.encode('utf-8')))
+        hashval.update(bytes(self.dag_hash.encode('utf-8')))
+        # hashval.update(
+        #     bytes(self.task_dag.hash.encode('utf-8')))
         return hashval.hexdigest()
 
     def _create_workflow_run(self):
         """Create new workflow in the db"""
         self.workflow_run = WorkflowRun(
-            self.id, self.stderr, self.stdout, self.project,
+            self.id, self.dag_id, self.stderr, self.stdout, self.project,
+            self.job_instance_state_controller,
             executor_class=self.executor_class,
             reset_running_jobs=self.reset_running_jobs,
-            working_dir=self.working_dir)
+            working_dir=self.working_dir,
+            requester=self.requester,
+            bound_tasks=self.bound_tasks,
+            fail_fast=self.fail_fast,
+            seconds_until_timeout=self.seconds_until_timeout)
 
     def _error(self):
         """Update the workflow as errored"""
@@ -338,7 +453,7 @@ class Workflow(object):
         """Find all matching dag_ids for this task_dag_hash"""
         rc, response = self.requester.send_request(
             app_route='/dag',
-            message={'dag_hash': self.task_dag.hash},
+            message={'dag_hash': self.dag_hash},
             request_type='get')
         dag_ids = response['dag_ids']
         return dag_ids
@@ -402,31 +517,31 @@ class Workflow(object):
             self._bind()
         self._create_workflow_run()
         self._set_executor_temp_dir()
-        dag_status, n_new_done, n_prev_done, n_failed = (
-            self.task_dag._execute_interruptible())
+        wfr_status, n_new_done, n_prev_done, n_failed = (
+            self.workflow_run.execute_interruptible())
 
-        if dag_status == DagExecutionStatus.SUCCEEDED:
+        if wfr_status == WorkflowRunExecutionStatus.SUCCEEDED:
             self._done()
-        elif dag_status == DagExecutionStatus.FAILED:
+        elif wfr_status == WorkflowRunExecutionStatus.FAILED:
             self._error()
-        elif dag_status == DagExecutionStatus.STOPPED_BY_USER:
+        elif wfr_status == WorkflowRunExecutionStatus.STOPPED_BY_USER:
             self._stopped()
         else:
             raise RuntimeError("Received unknown response from "
-                               "TaskDag._execute()")
+                               "WorkflowRun._execute()")
 
         self.report(
-            dag_status, n_new_done, n_prev_done, n_failed)
-        return dag_status
+            wfr_status, n_new_done, n_prev_done, n_failed)
+        return wfr_status
 
     def report(self, dag_status, n_new_done, n_prev_done, n_failed):
         """Return the status of this workflow"""
-        if dag_status == DagExecutionStatus.SUCCEEDED:
+        if dag_status == WorkflowRunExecutionStatus.SUCCEEDED:
             logger.info(
                 "Workflow finished successfully!")
             logger.info("# finished jobs: {}".format(
                 n_new_done + n_prev_done))
-        elif dag_status == DagExecutionStatus.FAILED:
+        elif dag_status == WorkflowRunExecutionStatus.FAILED:
             logger.info(
                 "Workflow FAILED")
             logger.info(
@@ -435,7 +550,7 @@ class Workflow(object):
                         .format(n_prev_done))
             logger.info(
                 "# failed jobs: {}".format(n_failed))
-        elif dag_status == DagExecutionStatus.STOPPED_BY_USER:
+        elif dag_status == WorkflowRunExecutionStatus.STOPPED_BY_USER:
             logger.info(
                 "Workflow STOPPED_BY_USER")
             logger.info(
