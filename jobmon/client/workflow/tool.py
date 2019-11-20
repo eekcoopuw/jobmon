@@ -55,10 +55,12 @@ class Tool:
             app_route="/tool",
             message={"name": name},
             request_type='post')
-        tool_id = SerializeClientTool.kwargs_from_wire(res["tool"])["id"]
 
-        # also create a new version
-        cls._create_new_tool_version(tool_id, requester)
+        if res["tool"] is not None:
+            tool_id = SerializeClientTool.kwargs_from_wire(res["tool"])["id"]
+            # also create a new version
+            cls._create_new_tool_version(tool_id, requester)
+
         # return instance of new tool
         return cls(name)
 

@@ -26,7 +26,7 @@ class Task(DB.Model):
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_id = DB.Column(DB.Integer, DB.ForeignKey('workflow.id'))
     node_id = DB.Column(DB.Integer, DB.ForeignKey('node.id'))
-    task_arg_hash = DB.Column(DB.Integer)
+    task_args_hash = DB.Column(DB.Integer)
     name = DB.Column(DB.String(255))
     command = DB.Column(DB.Text)
     executor_parameter_set_id = DB.Column(

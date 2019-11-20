@@ -58,15 +58,15 @@ class Dag(object):
         dag_hash = hash(self)
         logger.info(f'Querying for dag with hash: {dag_hash}')
         return_code, response = self.requester.send_request(
-            app_route=f'/client_dag/{dag_hash}',
-            message={},  # shared_requester requires a message
+            app_route=f'/dag',
+            message={"dag_hash": dag_hash},
             request_type='get'
         )
         if return_code == StatusCodes.OK:
             return response['dag_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from GET '
-                             f'request through route /client_dag/{dag_hash} . '
+                             f'request through route /dag/{dag_hash} . '
                              f'Expected code 200. Response content: '
                              f'{response}')
 
@@ -74,15 +74,15 @@ class Dag(object):
         dag_hash = hash(self)
 
         return_code, response = self.requester.send_request(
-            app_route=f'/client_dag/{dag_hash}',
-            message={},
+            app_route='/dag',
+            message={"dag_hash": dag_hash},
             request_type='post'
         )
         if return_code == StatusCodes.OK:
             return response['dag_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from POST '
-                             f'request through route /client_dag/{dag_hash} . '
+                             f'request through route /dag/{dag_hash} . '
                              f'Expected code 200. Response content: '
                              f'{response}')
 
@@ -114,7 +114,7 @@ class Dag(object):
         )
         if return_code != StatusCodes.OK:
             raise ValueError(f'Unexpected status code {return_code} from POST '
-                             f'request through route /client_dag/{self.dag_id}'
+                             f'request through route /dag/{self.dag_id}'
                              f' . Expected code 200. Response content: '
                              f'{response}')
 

@@ -2,15 +2,13 @@ from __future__ import annotations
 
 from functools import partial
 import hashlib
-
+from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union
 
+from jobmon.client import shared_requester
+from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors.base import ExecutorParameters
-
-from jobmon.models.attributes.constants import job_attribute
-
 from jobmon.client.client_logging import ClientLogging as logging
-
 from jobmon.client.workflow.node import Node
 
 
@@ -64,7 +62,8 @@ class Task:
                  name: Optional[str] = None,
                  max_attempts: Optional[int] = 3,
                  upstream_tasks: List[Task] = [],
-                 job_attributes: Optional[dict] = None):
+                 job_attributes: Optional[dict] = None,
+                 requester: Requester = shared_requester):
         """
         Create a task
 
@@ -108,6 +107,8 @@ class Task:
            see is_valid_job_name
 
         """
+        self.requester = requester
+
         # pre bind hash defining attributes
         self.task_args = task_args
         self.task_args_hash = self._hash_task_args()
@@ -168,7 +169,13 @@ class Task:
         self._workflow_id = val
 
     def bind(self) -> int:
-        pass
+        task_id = self._get_task_id()
+        if task_id is None:
+            task_id = self._add_task()
+        else:
+            self._update_task_parameters()
+        self._task_id = task_id
+        return task_id
 
     def add_upstream(self, ancestor: Task):
         """
@@ -186,38 +193,6 @@ class Task:
         """
         self.node.add_downstream_node(descendent.node)
 
-    def add_job_attribute(self, attribute_type, value):
-        """
-        Add an attribute and value (key, value pair) to track in the task,
-        throw an error if the attribute or value isn't the right type or
-        if it is for usage data, which is not configured on the user side
-        """
-        user_cant_config = [job_attribute.WALLCLOCK, job_attribute.CPU,
-                            job_attribute.IO, job_attribute.MAXRSS]
-        if attribute_type in user_cant_config:
-            raise ValueError(
-                "Invalid attribute configuration for {} with name: {}, "
-                "user input not used to configure attribute value".format(
-                    attribute_type, type(attribute_type).__name__))
-        elif not isinstance(attribute_type, int):
-            raise ValueError("Invalid attribute_type: {}, {}"
-                             .format(attribute_type,
-                                     type(attribute_type).__name__))
-        elif (not attribute_type == job_attribute.TAG and not int(value))\
-                or (attribute_type == job_attribute.TAG and
-                    not isinstance(value, str)):
-            raise ValueError("Invalid value type: {}, {}"
-                             .format(value,
-                                     type(value).__name__))
-
-        else:
-            self.job_attributes[attribute_type] = value
-
-    def add_job_attributes(self, dict_of_attributes):
-        for attribute_type in dict_of_attributes:
-            self.job_attributes[attribute_type] = dict_of_attributes[
-                attribute_type]
-
     def _hash_task_args(self) -> int:
         """a task_arg_hash is a hash of the encoded result of the args and
         values concatenated together"""
@@ -230,6 +205,59 @@ class Task:
         hash_value = int(hashlib.sha1(''.join(arg_ids + arg_values).encode(
             'utf-8')).hexdigest(), 16)
         return hash_value
+
+    def _get_task_id(self) -> Optional[int]:
+        return_code, response = self.requester.send_request(
+            app_route='/task',
+            message={
+                'workflow_id': self.workflow_id,
+                'node_id': self.node.node_id,
+                'task_args_hash': self.task_args_hash
+            },
+            request_type='get'
+        )
+        if return_code != StatusCodes.OK:
+            raise ValueError(f'Unexpected status code {return_code} from GET '
+                             f'request through route /task. Expected code 200.'
+                             f' Response content: {response}')
+        return response['task_id']
+
+    def _update_task_parameters(self):
+        app_route = f'/task/{self.task_id}/update_parameters'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={
+                'name': self.name,
+                'command': self.command,
+                'max_attempts': self.max_attempts
+            },
+            request_type='put'
+        )
+        if return_code != StatusCodes.OK:
+            raise ValueError(f'Unexpected status code {return_code} from PUT '
+                             f'request through route {app_route}. Expected '
+                             f'code 200. Response content: {response}')
+
+    def _add_task(self) -> int:
+        app_route = f'/add_task'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={
+                'workflow_id': self.workflow_id,
+                'node_id': self.node.node_id,
+                'task_args_hash': self.task_args_hash,
+                'name': self.name,
+                'command': self.command,
+                'max_attempts': self.max_attempts,
+                'task_args': self.task_args
+            },
+            request_type='post'
+        )
+        if return_code != StatusCodes.OK:
+            raise ValueError(f'Unexpected status code {return_code} from PUT '
+                             f'request through route {app_route}. Expected '
+                             f'code 200. Response content: {response}')
+        return response["task_id"]
 
     def __eq__(self, other: Task) -> bool:
         return hash(self) == hash(other)

@@ -159,7 +159,7 @@ class TaskTemplate:
     def create_task(self,
                     executor_parameters: Union[ExecutorParameters, Callable],
                     name: Optional[str] = None,
-                    upstream_tasks: Optional[List["Task"]] = None,
+                    upstream_tasks: List["Task"] = [],
                     max_attempts: Optional[int] = 3,
                     job_attributes: Optional[dict] = None,
                     **kwargs) -> Task:
@@ -184,21 +184,22 @@ class TaskTemplate:
 
         command = self.command_template.format(**kwargs)
 
-        # construct node here
-        node_arg_vals = {k: v for k, v in kwargs.items()
-                         if k in self.node_args}
+        # arg id name mappings
+        node_args = {self.arg_id_name_map[k]: v
+                     for k, v in kwargs.items() if k in self.node_args}
+        task_args = {self.arg_id_name_map[k]: v
+                     for k, v in kwargs.items() if k in self.task_args}
 
         # build task
-        data_arg_vals = {k: v for k, v in kwargs.items()
-                         if k in self.task_args}
         task = Task(
             command=command,
-            node_arg_vals=node_arg_vals,
-            data_arg_vals=data_arg_vals,
+            task_template_version_id=self.task_template_version_id,
+            node_args=node_args,
+            task_args=task_args,
             executor_parameters=executor_parameters,
             name=name,
-            upstream_tasks=upstream_tasks,
             max_attempts=max_attempts,
+            upstream_tasks=upstream_tasks,
             job_attributes=job_attributes)
         return task
 

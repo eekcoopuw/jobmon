@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-
 from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Set, TYPE_CHECKING
 

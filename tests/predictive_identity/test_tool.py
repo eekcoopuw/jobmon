@@ -11,6 +11,7 @@ def test_create_tool(db_cfg, env_var):
     # check that a tool version got created
     assert len(t1.tool_version_ids) == 1
 
+    # check that we can initialize with just the name
     t2 = Tool("foo")
     assert t2.id == t1.id
     assert t2.active_tool_version_id == t1.active_tool_version_id

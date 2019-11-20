@@ -6,10 +6,10 @@ use `docker`;
 DROP TABLE IF EXISTS `task`;
 
 CREATE TABLE `task` (
-  `task_id` INTEGER NOT NULL AUTO_INCREMENT,
+  `id` INTEGER NOT NULL AUTO_INCREMENT,
   `workflow_id` INTEGER DEFAULT NULL,
   `node_id` INTEGER DEFAULT NULL,
-  `task_arg_hash` varchar(150) NOT NULL,
+  `task_args_hash` varchar(150) NOT NULL,
   `name` varchar(250) DEFAULT NULL,
   `command` text,
   `executor_parameter_set_id` INTEGER DEFAULT NULL,

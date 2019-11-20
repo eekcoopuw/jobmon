@@ -1,23 +1,19 @@
 import sys
 from typing import Optional, List, Dict, Callable, Union
 
-from jobmon.client.swarm.workflow.executable_task import ExecutableTask
-from jobmon.client.swarm.workflow.task_template import TaskTemplate
+from jobmon.client.workflow.task import Task
+from jobmon.client.workflow.tool import Tool
 from jobmon.client.swarm.executors.base import ExecutorParameters
-from jobmon.client.client_logging import ClientLogging as logging
 
 
-logger = logging.getLogger(__name__)
-
-
-class PythonTask(ExecutableTask):
+class PythonTask(Task):
 
     _python_task_template_registry: dict = {}
     current_python = sys.executable
 
     def __init__(self, path_to_python_binary=current_python, script=None,
                  args=None,
-                 upstream_tasks: Optional[List[ExecutableTask]] = None,
+                 upstream_tasks: List[Task] = [],
                  env_variables: Optional[Dict[str, str]] = None,
                  name: Optional[str] = None,
                  num_cores: Optional[int] = None,
@@ -30,7 +26,7 @@ class PythonTask(ExecutableTask):
                  job_attributes: Optional[dict] = None,
                  m_mem_free: Optional[str] = None,
                  hard_limits: Optional[bool] = False,
-                 executor_class: str = 'SGEExecutor',
+                 executor_class: str = 'DummyExecutor',
                  executor_parameters:
                  Optional[Union[ExecutorParameters, Callable]] = None):
         """
@@ -83,16 +79,16 @@ class PythonTask(ExecutableTask):
         try:
             task_template = self._python_task_template_registry[script]
         except KeyError:
-            task_template = TaskTemplate(
-                tool="unknown",
-                name=script,
+            tool = Tool("unknown")
+            task_template = tool.get_task_template(
+                template_name=script,
                 command_template=(
                     "{env_variables} "
                     "{path_to_python_binary} "
                     f"{script} "
                     "{command_line_args}"),
                 node_args=["env_variables", "command_line_args"],
-                data_args=[],
+                task_args=[],
                 op_args=["path_to_python_binary"])
             self._add_task_template_to_registry(script, task_template)
 
@@ -112,8 +108,8 @@ class PythonTask(ExecutableTask):
         # build node arg dict
         node_arg_vals = {}
         if env_variables is not None:
-            env_str = ' '.join('{}={}'.format(key, val) for key, val
-                               in env_variables.items())
+            env_str = ' '.join(
+                '{}={}'.format(key, val) for key, val in env_variables.items())
         else:
             env_str = ""
         node_arg_vals["env_variables"] = env_str
@@ -128,14 +124,19 @@ class PythonTask(ExecutableTask):
             env_variables=env_str, path_to_python_binary=path_to_python_binary,
             command_line_args=command_line_args)
 
+        # arg id name mappings
+        node_args = {task_template.arg_id_name_map[k]: v
+                     for k, v in node_arg_vals.items()}
+
         super().__init__(
             command=command,
-            node_arg_vals=node_arg_vals,
-            data_arg_vals={},
+            task_template_version_id=task_template.task_template_version_id,
+            node_args=node_args,
+            task_args={},
             executor_parameters=executor_parameters,
             name=name,
-            upstream_tasks=upstream_tasks,
             max_attempts=max_attempts,
+            upstream_tasks=upstream_tasks,
             job_attributes=job_attributes)
 
     @classmethod
