@@ -11,9 +11,8 @@ class TaskTemplate(DB.Model):
         pass
 
     id = DB.Column(DB.Integer, primary_key=True)
-    tool_version_id = DB.Column(DB.Integer, DB.ForeignKey('tool_version.id'),
-                                nullable=False)
-    name = DB.Column(DB.String(255), nullable=False)
+    tool_version_id = DB.Column(DB.Integer, DB.ForeignKey('tool_version.id'))
+    name = DB.Column(DB.String(255))
 
     # orm relationship
     tool_versions = DB.relationship(

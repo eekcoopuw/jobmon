@@ -13,7 +13,7 @@ class ArgType(DB.Model):
         pass
 
     id = DB.Column(DB.Integer, primary_key=True)
-    name = DB.Column(DB.String(255), nullable=False)
+    name = DB.Column(DB.String(255))
 
     command_template_arg_type_mappings = DB.relationship(
         "CommandTemplateArgTypeMapping", back_populates="argument_type")
