@@ -16,14 +16,14 @@ class TaskTemplateVersion(DB.Model):
         return SerializeClientTaskTemplateVersion.to_wire(self.id, id_name_map)
 
     id = DB.Column(DB.Integer, primary_key=True)
-    task_template_id = DB.Column(DB.Integer, DB.ForeignKey('task_template.id'),
-                                 nullable=False)
-    command_template = DB.Column(DB.String(2000), nullable=False)
-    arg_mapping_hash = DB.Column(DB.Integer, nullable=False)
+    task_template_id = DB.Column(DB.Integer, DB.ForeignKey('task_template.id'))
+    command_template = DB.Column(DB.Text(collation='utf8_general_ci'))
+    arg_mapping_hash = DB.Column(DB.Integer)
 
     # orm relationship
     task_template = DB.relationship(
-        "TaskTemplate", back_populates="task_template_versions")
+        "TaskTemplate",
+        back_populates="task_template_versions")
     command_template_arg_type_mappings = DB.relationship(
-        "CommandTemplateArgTypeMapping", back_populates="task_template_version"
-    )
+        "CommandTemplateArgTypeMapping",
+        back_populates="task_template_version")

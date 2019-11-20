@@ -1,11 +1,12 @@
 import pytest
+import uuid
 
-from jobmon.client.swarm.workflow.tool import Tool
+from jobmon.client.workflow.tool import Tool
 
 
 @pytest.fixture(scope='function')
-def tool():
-    return Tool.create_tool(name="foo")
+def tool(env_var):
+    return Tool.create_tool(name=str(uuid.uuid4()))
 
 
 def test_create_and_get_task_template(db_cfg, env_var, tool):
