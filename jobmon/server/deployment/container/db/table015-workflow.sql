@@ -15,6 +15,7 @@ CREATE TABLE `workflow` (
   `created_date` datetime DEFAULT NULL,
   `status_date` datetime DEFAULT NULL,
   `status` varchar(1) NOT NULL,
+  `heartbeat_date` datetime DEFAULT NULL,
   `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
   PRIMARY KEY (`id`, `partition_date`),
   KEY `dag_id` (`dag_id`),

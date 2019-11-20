@@ -18,7 +18,6 @@ from jobmon.client.swarm.job_management.job_instance_state_controller import \
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 from jobmon.client.swarm.workflow.bound_task import BoundTask
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRun, WorkflowRunExecutionStatus
-from jobmon.client.swarm.workflow.task_dag import TaskDag
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.workflow import Workflow as WorkflowDAO
@@ -270,10 +269,7 @@ class Workflow(object):
         """Creates a new DAG"""
         logger.debug("Creating new dag")
         rc, response = self.requester.send_request(
-            app_route='/task_dag',
-            message={'name': self.name, 'user': getpass.getuser(),
-                     'dag_hash': self.dag_hash,
-                     'created_date': str(datetime.utcnow())},
+            app_route=f'/client_dag/{self.dag_hash}',
             request_type='post')
         dag_id = response['dag_id']
         logger.debug(f"New dag created with id: {self.dag_id}")
@@ -340,7 +336,6 @@ class Workflow(object):
         """
         if self.is_bound:
             self.job_instance_state_controller.connect()
-            # self.task_dag.reconnect()
         self._matching_wf_args_diff_hash()
         potential_wfs = self._matching_workflows()
         if len(potential_wfs) > 0 and not self.resume:
@@ -359,24 +354,17 @@ class Workflow(object):
                 0]
             if self.wf_dao.status == WorkflowStatus.DONE:
                 raise WorkflowAlreadyComplete
-            # self.task_dag.bind_to_db(
-            #     self.dag_id,
-            #     reset_running_jobs=self.reset_running_jobs
-            # )
 
             # bind tasks with existing dag id
             self._bind_dag()
         elif len(potential_wfs) == 0:
-            # Bind the dag ...
-            # self.task_dag.bind_to_db(
-            #     reset_running_jobs=self.reset_running_jobs
-            # )
+            # Create and bind the new dag ...
             dag_id = self._bind_dag()
 
             # Create new workflow in Database
             rc, response = self.requester.send_request(
                 app_route='/workflow',
-                message={'dag_id': str(dag_id),
+                message={'dag_id': str(self.dag_id),
                          'workflow_args': self.workflow_args,
                          'workflow_hash': self._compute_hash(),
                          'name': self.name,
@@ -388,6 +376,9 @@ class Workflow(object):
             raise RuntimeError("Multiple matching Workflows found {}. "
                                "Workflows should be unique on TaskDag and "
                                "WorkflowArgs".format(potential_wfs))
+        if not self.job_instance_state_controller:
+            self.job_instance_state_controller = JobInstanceStateController(
+                dag_id=self.dag_id, executor=self.executor, start_daemons=True)
 
     def _done(self):
         """Update the workflow as done"""
@@ -401,8 +392,6 @@ class Workflow(object):
         hashval.update(
             bytes(self.workflow_args.encode('utf-8')))
         hashval.update(bytes(self.dag_hash.encode('utf-8')))
-        # hashval.update(
-        #     bytes(self.task_dag.hash.encode('utf-8')))
         return hashval.hexdigest()
 
     def _create_workflow_run(self):

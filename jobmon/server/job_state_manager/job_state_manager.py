@@ -33,7 +33,6 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance_error_log import JobInstanceErrorLog
 from jobmon.models.node import Node
 from jobmon.models.node_arg import NodeArg
-from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.task_template import TaskTemplate
 from jobmon.models.task_template_version import TaskTemplateVersion
 from jobmon.models.tool import Tool
@@ -285,7 +284,7 @@ def add_edges(dag_id):
     Args:
         dag_id: identifies the dag whose edges are being inserted
         nodes_and_edges: a json object with the following format:
-            {
+            {jobmon/server/deployment/container/db/table015-workflow.sql
                 node_id: {
                     'upstream_nodes': [node_id, node_id, node_id],
                     'downstream_nodes': [node_id, node_id]
@@ -321,31 +320,6 @@ def add_edges(dag_id):
         DB.session.commit()
 
     return '', StatusCodes.OK
-
-
-@jsm.route('/task_dag', methods=['POST'])
-def add_task_dag():
-    """Add a task_dag to the database
-
-    Args:
-        name: name for the task_dag
-        user: name of the user of the dag
-        dag_hash: unique hash for the task_dag
-    """
-    logger.info(logging.myself())
-    data = request.get_json(force=True)
-    logger.debug(data)
-    dag = TaskDagMeta(
-        name=data['name'],
-        user=data['user'],
-        dag_hash=data['dag_hash'])
-    DB.session.add(dag)
-    logger.debug(logging.logParameter("DB.session", DB.session))
-    DB.session.commit()
-    dag_id = dag.dag_id
-    resp = jsonify(dag_id=dag_id)
-    resp.status_code = StatusCodes.OK
-    return resp
 
 
 def _get_workflow_run_id(job):

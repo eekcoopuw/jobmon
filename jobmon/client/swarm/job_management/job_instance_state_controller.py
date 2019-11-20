@@ -1,5 +1,6 @@
 from threading import Event, Thread
 
+from jobmon.client.client_logging import ClientLogging as logging
 from jobmon.client.swarm.job_management.job_instance_factory import JobInstanceFactory
 from jobmon.client.swarm.job_management.job_instance_reconciler import JobInstanceReconciler
 
@@ -36,6 +37,8 @@ class JobInstanceStateController(object):
             dag_id=dag_id,
             executor=executor,
             stop_event=self._stop_event)
+        self.jif_process = None
+        self.jir_process = None
 
         self.job_instantiation_interval = job_instantiation_interval
         if start_daemons:

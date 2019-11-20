@@ -190,10 +190,10 @@ class JobInstance(DB.Model):
         """Ensure the JobInstance status transition is valid"""
         if self.status in self.__class__.kill_self_states and \
                 new_state is JobInstanceStatus.RUNNING:
-            raise KillSelfTransition('JobInstance', self.job_instance_id,
+            raise KillSelfTransition('JobInstance', self.task_instance_id,
                                      self.status, new_state)
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition('JobInstance', self.job_instance_id,
+            raise InvalidStateTransition('JobInstance', self.task_instance_id,
                                          self.status, new_state)
 
     def _is_timely_transition(self, new_state):
