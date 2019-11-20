@@ -30,6 +30,9 @@ from jobmon.models.task_template import TaskTemplate
 from jobmon.models.task_template_version import TaskTemplateVersion
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
+from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
+from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.workflow import Workflow
 
 from jobmon.server.server_logging import jobmonLogging as logging
 
@@ -249,7 +252,7 @@ def add_edges(dag_id):
     Args:
         dag_id: identifies the dag whose edges are being inserted
         nodes_and_edges: a json object with the following format:
-            {
+            {jobmon/server/deployment/container/db/table015-workflow.sql
                 node_id: {
                     'upstream_nodes': [node_id, node_id, node_id],
                     'downstream_nodes': [node_id, node_id]
@@ -283,6 +286,21 @@ def add_edges(dag_id):
         DB.session.commit()
 
     return '', StatusCodes.OK
+
+def _get_workflow_run_id(job):
+    """Return the workflow_run_id by job_id"""
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("job_id", job.job_id))
+    wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
+    if not wf:
+        DB.session.commit()
+        return None  # no workflow has started, so no workflow run
+    wf_run = (DB.session.query(WorkflowRunDAO).
+              filter_by(workflow_id=wf.id).
+              order_by(WorkflowRunDAO.id.desc()).first())
+    wf_run_id = wf_run.id
+    DB.session.commit()
+    return wf_run_id
 
 
 @jsm.route('/task', methods=['POST'])
@@ -341,7 +359,6 @@ def update_task_parameters(task_id):
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
-
 
 # def _get_workflow_run_id(job):
 #     """Return the workflow_run_id by job_id"""

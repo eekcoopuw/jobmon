@@ -1,13 +1,13 @@
 from functools import partial
 import hashlib
-
+from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union
 
-from jobmon.models.attributes.constants import job_attribute
-from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.executors.base import ExecutorParameters
-from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.exceptions import InvalidResponse
+from jobmon.models.attributes.constants import job_attribute
 
 
 logger = logging.getLogger(__name__)
@@ -229,59 +229,25 @@ class ExecutableTask(object):
         return "[Task: hash={hs}, '{name}']". \
             format(hs=self.hash, name=self.name)
 
-
-class BoundTask(object):
-    """The class that bridges the gap between a task and it's bound Job"""
-
-    def __init__(self, task, job: SwarmJob, job_list_manager):
+    def create_bound_task(self, dag_id, requester):
         """
-        Link task and job
+        Create a job entry in the database.
 
-        Args
-            task (obj): obj of a class inherited from ExecutableTask
-            job (obj): obj of type models.Job
-            job_list_manager (obj): obj of type JobListManager
+        Args:
+            dag_id (int): id for job to be associated with
+            requester (obj): requester obj from workflow to make request to
+
         """
-        self.job_id = job.job_id
-        self.status = job.status
+        logger.info(f"Create job for dag_id {dag_id}")
+        rc, response = requester.send_request(
+            app_route='/job',
+            message={'dag_id': dag_id,
+                     'name': self.name,
+                     'job_hash': self.hash,
+                     'command': self.command,
+                     'max_attempts': self.max_attempts},
+            request_type='post')
+        if rc != StatusCodes.OK:
+            raise InvalidResponse(f"{rc}: Could not create_bound_task {self.name}")
 
-        self._jlm = job_list_manager
-        self._task = task
-        if task:
-            self.executor_parameters = task.executor_parameters
-        else:
-            self.executor_parameters = None
-
-        # once the callable is evaluated, the resources should be saved here
-        self.bound_parameters: list = []
-
-        if task:
-            self.hash = task.hash
-        else:
-            self.hash = None
-
-    @property
-    def is_bound(self):
-        return (self._task is not None) and (self.hash is not None)
-
-    @property
-    def all_upstreams_done(self):
-        """Return a bool of if upstreams are done or not"""
-        return all([u.is_done for u in self.upstream_tasks])
-
-    @property
-    def is_done(self):
-        """Return a book of if this job is done or now"""
-        return self.status == JobStatus.DONE
-
-    @property
-    def downstream_tasks(self):
-        """Return list of downstream tasks"""
-        return [self._jlm.bound_task_from_task(task)
-                for task in self._task.downstream_tasks]
-
-    @property
-    def upstream_tasks(self):
-        """Return a list of upstream tasks"""
-        return [self._jlm.bound_task_from_task(task)
-                for task in self._task.upstream_tasks]
+        return SwarmJob.from_wire(response['job_dct'])
