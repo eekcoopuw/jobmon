@@ -119,6 +119,9 @@ class JobInstance(DB.Model):
         # 2) worker node detects a resource error
         (JobInstanceStatus.RUNNING, JobInstanceStatus.RESOURCE_ERROR),
 
+        # job instance is set to kill self for one reason or another
+        (JobInstanceStatus.RUNNING, JobInstanceStatus.KILL_SELF),
+
         # job instance finishes normally (happy path)
         (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)
     ]
@@ -162,12 +165,20 @@ class JobInstance(DB.Model):
         # remote exit status but can't find it so logs an unknown error.
         # The worker finishes gracefully before reconciler can log an unknown
         # error
-        (JobInstanceStatus.DONE, JobInstanceStatus.UNKNOWN_ERROR)
+        (JobInstanceStatus.DONE, JobInstanceStatus.UNKNOWN_ERROR),
+
+        # kill_self transition types that shouldn't happen
+        (JobInstanceStatus.ERROR, JobInstanceStatus.KILL_SELF),
+        (JobInstanceStatus.KILL_SELF, JobInstanceStatus.DONE),
+        (JobInstanceStatus.KILL_SELF, JobInstanceStatus.ERROR),
+        (JobInstanceStatus.KILL_SELF, JobInstanceStatus.RESOURCE_ERROR),
+        (JobInstanceStatus.RESOURCE_ERROR, JobInstanceStatus.KILL_SELF),
     ]
 
     kill_self_states = [JobInstanceStatus.NO_EXECUTOR_ID,
                         JobInstanceStatus.UNKNOWN_ERROR,
-                        JobInstanceStatus.RESOURCE_ERROR]
+                        JobInstanceStatus.RESOURCE_ERROR,
+                        JobInstanceStatus.KILL_SELF]
 
     error_states = [JobInstanceStatus.NO_EXECUTOR_ID, JobInstanceStatus.ERROR,
                     JobInstanceStatus.UNKNOWN_ERROR,

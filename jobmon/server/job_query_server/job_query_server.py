@@ -251,7 +251,7 @@ def get_timed_out_executor_ids(dag_id):
          JobInstanceStatus.RUNNING])). \
         join(ExecutorParameterSet). \
         options(contains_eager(JobInstance.executor_parameter_set)). \
-        filter(ExecutorParameterSet.max_runtime_seconds != None). \
+        filter(ExecutorParameterSet.max_runtime_seconds is not None). \
         filter(
         func.timediff(func.UTC_TIMESTAMP(), JobInstance.status_date) >
         func.SEC_TO_TIME(ExecutorParameterSet.max_runtime_seconds)). \

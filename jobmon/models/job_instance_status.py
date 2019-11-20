@@ -19,6 +19,7 @@ class JobInstanceStatus(DB.Model):
     UNKNOWN_ERROR = 'U'
     ERROR = 'E'
     DONE = 'D'
+    KILL_SELF = 'K'
 
     id = DB.Column(DB.String(1), primary_key=True)
     label = DB.Column(DB.String(150), nullable=False)

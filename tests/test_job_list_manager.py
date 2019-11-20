@@ -270,19 +270,20 @@ def test_job_instance_bad_qsub_parse(jlm_sge_no_daemon, db_cfg, monkeypatch,
            "Using (-33333), and moving to 'W' state" in caplog.text
 
 
+def query_till_running(db_cfg):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        resp = DB.session.execute(
+            """SELECT status, executor_id FROM job_instance"""
+        ).fetchall()[-1]
+        DB.session.commit()
+    return resp
+
+
 def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
     """should try to log a report by date after being set to the L state and
     fail"""
-    def query_till_running(db_cfg):
-        app = db_cfg["app"]
-        DB = db_cfg["DB"]
-        with app.app_context():
-            resp = DB.session.execute(
-                """SELECT status, executor_id FROM job_instance"""
-            ).fetchall()[-1]
-            DB.session.commit()
-        return resp
-
     jlm = jlm_sge_no_daemon
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
@@ -303,6 +304,47 @@ def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
         DB.session.execute("""
             UPDATE job_instance
             SET status = 'U'
+            WHERE job_instance_id = {}""".format(jids[0]))
+        DB.session.commit()
+    exec_id = resp.executor_id
+    exit_status = None
+    tries = 1
+    while exit_status is None and tries < 10:
+        try:
+            exit_status = check_output(
+                f"qacct -j {exec_id} | grep exit_status",
+                shell=True, universal_newlines=True)
+        except Exception:
+            tries += 1
+            sleep(3)
+    # 9 indicates sigkill signal was sent as expected
+    assert '9' in exit_status
+
+
+def test_ji_kill_self_state(jlm_sge_no_daemon, db_cfg):
+    """Job instance should poll for for a job state KILL_SELF and kill
+    itself. Basically test_ji_unknown_state but setting K state instead
+    """
+    jlm = jlm_sge_no_daemon
+    jif = jlm.job_instance_factory
+    job = jlm.bind_task(Task(command="sleep 60", name="kill_self_task",
+                             num_cores=1, max_runtime_seconds=120,
+                             m_mem_free='600M'))
+    jlm.adjust_resources_and_queue(job)
+    jids = jif.instantiate_queued_jobs()
+    jlm._sync()
+    resp = query_till_running(db_cfg)
+    count = 0
+    while resp.status != 'R' and count < 20:
+        resp = query_till_running(db_cfg)
+        sleep(10)
+        count = count + 1
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        DB.session.execute("""
+            UPDATE job_instance
+            SET status = 'K'
             WHERE job_instance_id = {}""".format(jids[0]))
         DB.session.commit()
     exec_id = resp.executor_id

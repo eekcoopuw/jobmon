@@ -4,7 +4,6 @@ import traceback
 from typing import Optional, Union, Tuple, Dict
 
 from jobmon.client import shared_requester
-from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import JobInstanceExecutorInfo
 from jobmon.client.client_logging import ClientLogging as logging
 
@@ -140,7 +139,7 @@ class WorkerNodeJobInstance:
         else:
             logger.info("No Job ID was found in the qsub env at this time")
         rc, resp = self.requester.send_request(
-            app_route=(f'/job_instance/{self.job_instance_id}/log_running'),
+            app_route=f'/job_instance/{self.job_instance_id}/log_running',
             message=message,
             request_type='post')
         logger.debug(f"Response from log_running was: {resp}")
@@ -155,7 +154,7 @@ class WorkerNodeJobInstance:
         else:
             logger.info("No Job ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=(f'/job_instance/{self.job_instance_id}/log_report_by'),
+            app_route=f'/job_instance/{self.job_instance_id}/log_report_by',
             message=message,
             request_type='post')
         return rc
