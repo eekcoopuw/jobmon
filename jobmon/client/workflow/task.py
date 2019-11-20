@@ -239,7 +239,7 @@ class Task:
                              f'code 200. Response content: {response}')
 
     def _add_task(self) -> int:
-        app_route = f'/add_task'
+        app_route = f'/task'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={

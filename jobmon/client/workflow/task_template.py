@@ -205,8 +205,9 @@ class TaskTemplate:
 
     def _get_task_template_id(self) -> int:
         _, res = self.requester.send_request(
-            app_route=f"/task_template/{self.template_name}",
-            message={"tool_version_id": self.tool_version_id},
+            app_route=f"/task_template",
+            message={"tool_version_id": self.tool_version_id,
+                     "task_template_name": self.template_name},
             request_type='get')
 
         if res["task_template_id"] is not None:

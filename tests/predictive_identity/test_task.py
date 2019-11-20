@@ -74,56 +74,69 @@ def test_hashing_bash_characters(env_var):
     assert a.is_valid_job_name(a.name)
 
 
-# def test_bash_task_args(db_cfg, env_var):
-#     from jobmon.client.workflow.templates.bash_task import BashTask
-#     app = db_cfg["app"]
-#     DB = db_cfg["DB"]
+def test_bash_task_bind(db_cfg, env_var):
+    from jobmon.client.workflow.templates.bash_task import BashTask
+    from jobmon.models.task import Task
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
 
-#     a = BashTask(command="echo 'Hello Jobmon'", num_cores=1, m_mem_free='2G',
-#                  max_attempts=1)
-#     a.bind()
+    a = BashTask(command="echo 'Hello Jobmon'", max_attempts=1,
+                 executor_class="DummyExecutor")
+    a.workflow_id = 1
+    a.node.bind()
+    a.bind()
 
-#     with app.app_context():
-#         job = DB.session.query(Job).filter_by(job_id=job_id).all()
-#         num_cores = job[0].executor_parameter_set.num_cores
-#         m_mem_free = job[0].executor_parameter_set.m_mem_free
-#         max_attempts = job[0].max_attempts
-#         DB.session.commit()
-#         # check all job args
-#         assert num_cores == 1
-#         assert m_mem_free == 2
-#         assert max_attempts == 1
+    with app.app_context():
+        task = DB.session.query(Task).filter_by(id=a.task_id).one()
 
+        # check all task args
+        assert task.workflow_id == 1
+        assert task.node_id == a.node.node_id
+        assert task.name == a.name
+        assert task.command == a.command
+        assert task.num_attempts == 0
+        assert task.max_attempts == a.max_attempts
 
-# def test_python_task_equality():
-#     a = PythonTask(script='~/runme.py', args=[1])
-#     a_again = PythonTask(script='~/runme.py', args=[1])
-#     assert a == a_again
-
-#     b = PythonTask(script='~/runme.py', args=[2], upstream_tasks=[a, a_again])
-#     assert b != a
-#     assert len(b.upstream_tasks) == 1
+        DB.session.commit()
 
 
-# def test_python_task_args(db_cfg, jlm_sge_no_daemon):
-#     app = db_cfg["app"]
-#     DB = db_cfg["DB"]
-#     a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
-#                    num_cores=1, m_mem_free='2G', max_attempts=1)
-#     job = jlm_sge_no_daemon.bind_task(a)
-#     job_id = job.job_id
-#     jlm_sge_no_daemon.adjust_resources_and_queue(job)
+def test_python_task_equality(env_var):
+    from jobmon.client.workflow.templates.python_task import PythonTask
 
-#     with app.app_context():
-#         job = DB.session.query(Job).filter_by(job_id=job_id).all()
-#         command = job[0].command
-#         num_cores = job[0].executor_parameter_set.num_cores
-#         m_mem_free = job[0].executor_parameter_set.m_mem_free
-#         max_attempts = job[0].max_attempts
-#         DB.session.commit()
-#         # check all job args
-#         assert command == 'OP_NUM_THREADS=1 {} ~/runme.py'.format(
-#             sys.executable)
-#         assert num_cores == 1
-#         assert m_mem_free == 2
-#         assert max_attempts == 1
+    a = PythonTask(script='~/runme.py', args=[1])
+    a_again = PythonTask(script='~/runme.py', args=[1])
+    assert a == a_again
+
+    b = PythonTask(script='~/runme.py', args=[2], upstream_tasks=[a, a_again])
+    assert b != a
+    assert len(b.node.upstream_nodes) == 1
+    assert b.node.task_template_version_id == a.node.task_template_version_id
+
+
+def test_python_task_args(db_cfg, env_var):
+    from jobmon.client.workflow.templates.python_task import PythonTask
+    from jobmon.models.task import Task
+    import sys
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
+    a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
+                   num_cores=1, m_mem_free='2G', max_attempts=1)
+    a.workflow_id = 1
+    a.node.bind()
+    a.bind()
+
+    with app.app_context():
+        task = DB.session.query(Task).filter_by(id=a.task_id).one()
+
+        # check all task args
+        assert task.workflow_id == 1
+        assert task.node_id == a.node.node_id
+        assert task.name == a.name
+        assert task.command == a.command
+        assert task.num_attempts == 0
+        assert task.max_attempts == a.max_attempts
+
+        # check all job args
+        assert a.command == f'OP_NUM_THREADS=1 {sys.executable} ~/runme.py'

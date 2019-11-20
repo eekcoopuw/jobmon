@@ -123,6 +123,7 @@ class PythonTask(Task):
         command = task_template.command_template.format(
             env_variables=env_str, path_to_python_binary=path_to_python_binary,
             command_line_args=command_line_args)
+        command = command.strip()
 
         # arg id name mappings
         node_args = {task_template.arg_id_name_map[k]: v
