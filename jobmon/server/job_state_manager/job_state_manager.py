@@ -562,6 +562,18 @@ def log_dag_heartbeat(dag_id):
         WHERE dag_id in (:dag_id)"""
     DB.session.execute(query, params)
     DB.session.commit()
+    # quick fix for GBDSCI-2321, release 1.1.2 only:
+    # set workflow run to running when logging heartbeat so if a resumed
+    # workflow errors out due to a heartbeat from a previous workflow run
+    # it will be corrected.
+    query = """
+        UPDATE workflow_run wr
+        SET wr.status = 'R'
+        JOIN workflow w ON wr.workflow_id = w.id
+        WHERE w.dag_id = :dag_id """
+    DB.session.execute(query, params)
+    DB.session.commit()
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp

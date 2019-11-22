@@ -2,6 +2,9 @@ import logging
 import os
 import pytest
 import sys
+import time
+
+from datetime import datetime, timedelta
 
 from cluster_utils.io import makedirs_safely
 
@@ -10,6 +13,7 @@ from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.models.job import Job
+from jobmon.models.workflow_status import WorkflowStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -126,3 +130,62 @@ def test_reset_running_jobs_false(real_dag, db_cfg):
         assert job1.status == 'E'
         job2 = DB.session.query(Job).filter_by(name=name1).first()
         assert job2.status == 'E'
+
+
+@pytest.mark.qsubs_jobs
+def test_resume_dag_heartbeat_race_condition(simple_workflow, db_cfg):
+    # testing the fix for the following:
+    # GBDSCI-2321, release 1.1.2 only:
+    # set workflow run to running when logging heartbeat so if a resumed
+    # workflow errors out due to a heartbeat from a previous workflow run
+    # it will be corrected.
+    app = db_cfg['app']
+    DB = db_cfg['DB']
+
+    with app.app_context():
+        # wait for workflow to complete
+        tries = 0
+        while True:
+            if simple_workflow.status == WorkflowStatus.DONE:
+                break
+            elif tries > 5:
+                # raise error? or something else?
+                pass
+            else:
+                tries += 1
+                time.sleep(5)
+
+        # mark workflow as failed
+        query = """
+            UPDATE workflow
+            SET workflow_status = 'E'
+            WHERE dag_id = :dag_id
+        """
+        DB.session.execute(query, {'dag_id': simple_workflow.dag_id})
+
+        # mark one job status as failed
+
+        # then change the heartbeat date to simulate the race condition
+        query = """
+            UPDATE task_dag
+            SET heartbeat_date = :new_time, 
+            WHERE dag_id = :dag_id
+        """
+        new_time = datetime.utcnow() - timedelta(minutes=15)
+        DB.session.execute(query, {'new_time': new_time,
+                                   'dag_id': simple_workflow.dag_id})
+        DB.commit()
+        #
+        # now try and resume the workflow
+        simple_workflow.resume = True
+        simple_workflow.reset_running_jobs = True
+        simple_workflow.execute()
+
+        # check that new
+
+        # check what..?
+        # that it is in error state?
+        # assert workflow.status == WorkflowStatus.ERROR  ??
+        # then changes to running after first heartbeat?
+        # assert heartbeat_date > workflow_created_date ??
+
