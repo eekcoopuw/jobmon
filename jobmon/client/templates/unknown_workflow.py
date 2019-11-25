@@ -13,8 +13,8 @@ import jobmon
 from jobmon.client import shared_requester, client_config
 from jobmon.client.client_logging import ClientLogging as logging
 from jobmon.client.requester import Requester
-from jobmon.client.swarm.job_management.job_instance_state_controller import \
-    JobInstanceStateController
+from jobmon.client.swarm.job_management.task_instance_state_controller import \
+    TaskInstanceStateController
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 from jobmon.client.swarm.workflow.bound_task import BoundTask
 from jobmon.client.swarm.workflow.workflow_run import WorkflowRun, WorkflowRunExecutionStatus
@@ -310,11 +310,11 @@ class Workflow(object):
             self.bound_tasks[bound_task.hash] = bound_task
 
         for attribute in task.job_attributes:
-            logger.info(f"Add job attribute for job_id : {bound_task.job_id}, "
-                        f"attribute_type: {attribute}, value: "
+            logger.info(f"Add job attribute for task_id : {bound_task.task_id}"
+                        f", attribute_type: {attribute}, value: "
                         f"{task.job_attributes[attribute]}")
-            bound_task.add_job_attribute(attribute,
-                                         task.job_attributes[attribute])
+            bound_task.add_task_attribute(attribute,
+                                          task.job_attributes[attribute])
         return bound_task
 
     def _reset_tasks(self):
@@ -377,8 +377,8 @@ class Workflow(object):
                                "Workflows should be unique on TaskDag and "
                                "WorkflowArgs".format(potential_wfs))
         if not self.job_instance_state_controller:
-            self.job_instance_state_controller = JobInstanceStateController(
-                dag_id=self.dag_id, executor=self.executor, start_daemons=True)
+            self.job_instance_state_controller = TaskInstanceStateController(
+                dag_id=self.dag_id, workflow_id=self.id, executor=self.executor, start_daemons=True)
 
     def _done(self):
         """Update the workflow as done"""

@@ -8,6 +8,7 @@ from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.models.task_status import TaskStatus
+from jobmon.serializers import SerializeExecutorTask, SerializeSwarmTask
 
 
 logger = logging.getLogger(__name__)
@@ -18,10 +19,33 @@ class Task(DB.Model):
     __tablename__ = "task"
 
     def to_wire_as_executor_task(self):
-        pass
+        lnode, lpgid = self._last_instance_procinfo()
+        serialized = SerializeExecutorTask.to_wire(
+            task_id=self.id,
+            workflow_id=self.workflow_id,
+            node_id=self.node_id,
+            task_args_hash=self.task_args_hash,
+            name=self.name,
+            command=self.command,
+            status=self.status,
+            max_runtime_seconds=self.executor_parameter_set.max_runtime_seconds,
+            context_args=self.executor_parameter_set.context_args,
+            resource_scales=self.executor_parameter_set.resource_scales,
+            queue=self.executor_parameter_set.queue,
+            num_cores=self.executor_parameter_set.num_cores,
+            m_mem_free=self.executor_parameter_set.m_mem_free,
+            j_resource=self.executor_parameter_set.j_resource,
+            hard_limits=self.executor_parameter_set.hard_limits,
+            last_nodename=lnode,
+            last_process_group_id=lpgid)
+        return serialized
 
     def to_wire_as_swarm_task(self):
-        pass
+        serialized = SerializeSwarmTask.to_wire(
+            task_id=self.id,
+            task_args_hash=self.task_args_hash,
+            status=self.status)
+        return serialized
 
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_id = DB.Column(DB.Integer, DB.ForeignKey('workflow.id'))

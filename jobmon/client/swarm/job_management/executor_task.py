@@ -4,23 +4,24 @@ from jobmon.client import shared_requester
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import ExecutorParameters
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
-from jobmon.models.job_status import JobStatus
-from jobmon.serializers import SerializeExecutorJob
+from jobmon.models.task_status import TaskStatus
+from jobmon.serializers import SerializeExecutorTask
 from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
 
 
-class ExecutorJob:
+class ExecutorTask:
 
     # this API should always match what's returned by
-    # serializers.SerializeExecutorJob
+    # serializers.SerializeExecutorTask
     def __init__(self,
-                 dag_id: int,
-                 job_id: int,
+                 task_id: int,
+                 workflow_id: int,
+                 node_id: int,
+                 task_args_hash: int,
                  name: str,
-                 job_hash: int,
                  command: str,
                  status: str,
                  executor_parameters: ExecutorParameters,
@@ -28,28 +29,29 @@ class ExecutorJob:
                  last_process_group_id: Optional[int] = None,
                  requester: Requester = shared_requester):
         """
-        This is a Job object used on the RESTful API client side
-        when constructing job instances.
+        This is a Task object used on the RESTful API client side
+        when constructing task instances.
 
         Args:
-            dag_id: dag_id associated with this job
-            job_id: job_id associated with this job
-            name: name associated with this job
-            job_hash: hash of command for this job
+            task_id: job_id associated with this task
+            workflow_id: workflow_id associated with this task
+            node_id: node_id assocaiated with this task
+            task_args_hash: hash of command for this task
+            name: name associated with this task
             command: what command to run when executing
-            status: job status  associated with this job
+            status: job status  associated with this task
             executor_parameters: Executor parameters class associated with the
-                current executor for this job
-            last_nodename: where this job last executed
+                current executor for this task
+            last_nodename: where this task last executed
             last_process_group_id: what was the linux process group id of the
-                last instance of this job
+                last instance of this task
             requester: requester for communicating with central services
         """
-
-        self.dag_id = dag_id
-        self.job_id = job_id
+        self.task_id = task_id
+        self.workflow_id = workflow_id
+        self.node_id = node_id
+        self.task_args_hash = task_args_hash
         self.name = name
-        self.job_hash = job_hash
         self.command = command
         self.status = status
         self.last_nodename = last_nodename
@@ -64,28 +66,29 @@ class ExecutorJob:
                   wire_tuple: tuple,
                   executor_class: str,
                   requester: Requester = shared_requester
-                  ) -> 'ExecutorJob':
+                  ) -> 'ExecutorTask':
         """construct instance from wire format the JQS gives
 
         Args:
             wire_tuple (tuple): tuple representing the wire format for this
-                job. format = serializers.SerializeExecutorJob.to_wire()
-            executor_class (str): which executor class this job instance is
+                task. format = serializers.SerializeExecutorTask.to_wire()
+            executor_class (str): which executor class this task instance is
                 being run on
             requester (Requester, shared_requester): requester for
                 communicating with central services
         """
 
         # convert wire tuple into dictionary of kwargs
-        kwargs = SerializeExecutorJob.kwargs_from_wire(wire_tuple)
+        kwargs = SerializeExecutorTask.kwargs_from_wire(wire_tuple)
 
         # instantiate job
-        logger.info("Instantiate job jid {}".format(kwargs["job_id"]))
-        executor_job = cls(
-            dag_id=kwargs["dag_id"],
-            job_id=kwargs["job_id"],
+        logger.info("Instantiate task tid {}".format(kwargs["task_id"]))
+        executor_task = cls(
+            task_id=kwargs["task_id"],
+            workflow_id=kwargs["workflow_id"],
+            node_id=kwargs["node_id"],
+            task_args_hash=kwargs["task_args_hash"],
             name=kwargs["name"],
-            job_hash=kwargs["job_hash"],
             command=kwargs["command"],
             status=kwargs["status"],
             last_nodename=kwargs["last_nodename"],
@@ -101,13 +104,13 @@ class ExecutorJob:
                 resource_scales=kwargs["resource_scales"],
                 hard_limits=kwargs["hard_limits"]),
             requester=requester)
-        return executor_job
+        return executor_task
 
-    def queue_job(self) -> None:
-        """Transition a job to the Queued for Instantiation status"""
-        app_route = f"/job/{self.job_id}/queue"
+    def queue_task(self) -> None:
+        """Transition a task to the Queued for Instantiation status"""
+        app_route = f"/task/{self.task_id}/queue"
         rc, _ = self.requester.send_request(
             app_route=app_route,
             message={},
             request_type='post')
-        self.status == JobStatus.QUEUED_FOR_INSTANTIATION
+        self.status == TaskStatus.QUEUED_FOR_INSTANTIATION

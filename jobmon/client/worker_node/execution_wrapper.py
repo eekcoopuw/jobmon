@@ -12,8 +12,8 @@ from threading import Thread
 from time import sleep, time
 
 from jobmon.exceptions import ReturnCodes
-from jobmon.client.worker_node.worker_node_job_instance import (
-    WorkerNodeJobInstance)
+from jobmon.client.worker_node.worker_node_task_instance import (
+    WorkerNodeTaskInstance)
 from jobmon.client.worker_node._logging import NodeLogging as logging
 
 logger = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ def unwrap():
     # parse arguments
     logger.info("unwrap")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--job_instance_id", required=True, type=int)
+    parser.add_argument("--task_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)
     parser.add_argument("--expected_jobmon_version", required=True)
     parser.add_argument("--executor_class", required=True)
@@ -76,21 +76,21 @@ def unwrap():
     args = vars(parser.parse_args())
 
     # set ENV variables in case tasks need to access them
-    os.environ["JOBMON_JOB_INSTANCE_ID"] = str(args["job_instance_id"])
+    os.environ["JOBMON_TASK_INSTANCE_ID"] = str(args["task_instance_id"])
 
     # identify executor class
     if args["executor_class"] == "SequentialExecutor":
         from jobmon.client.swarm.executors.sequential import \
-            JobInstanceSequentialInfo as JobInstanceExecutorInfo
+            TaskInstanceSequentialInfo as TaskInstanceExecutorInfo
     elif args["executor_class"] == "SGEExecutor":
-        from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo \
-            as JobInstanceExecutorInfo
+        from jobmon.client.swarm.executors.sge import TaskInstanceSGEInfo \
+            as TaskInstanceExecutorInfo
     elif args["executor_class"] == "DummyExecutor":
-        from jobmon.client.swarm.executors import JobInstanceExecutorInfo
+        from jobmon.client.swarm.executors import TaskInstanceExecutorInfo
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(
             args["executor_class"]))
-    ji_executor_info = JobInstanceExecutorInfo()
+    ti_executor_info = TaskInstanceExecutorInfo()
 
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
@@ -103,14 +103,14 @@ def unwrap():
         logger.error(msg)
         sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
 
-    worker_node_job_instance = WorkerNodeJobInstance(
-        job_instance_id=args["job_instance_id"],
-        job_instance_executor_info=ji_executor_info)
+    worker_node_task_instance = WorkerNodeTaskInstance(
+        task_instance_id=args["task_instance_id"],
+        task_instance_executor_info=ti_executor_info)
 
     # if it logs running and is in the 'W' or 'U' state then it will go
     # through the full process of trying to change states and receive a
     # special exception to signal that it can't run and should kill itself
-    rc, kill = worker_node_job_instance.log_running(next_report_increment=(
+    rc, kill = worker_node_task_instance.log_running(next_report_increment=(
         args['heartbeat_interval'] * args['report_by_buffer']))
     if kill == 'True':
         kill_self()
@@ -140,10 +140,10 @@ def unwrap():
                 #  get the error that the log running route gets, so just
                 # check the database and kill if its status means it should
                 #  be killed
-                if worker_node_job_instance.in_kill_self_state():
+                if worker_node_task_instance.in_kill_self_state():
                     kill_self(child_process=proc)
                 else:
-                    worker_node_job_instance.log_report_by(
+                    worker_node_task_instance.log_report_by(
                         next_report_increment=(args['heartbeat_interval'] *
                                                args['report_by_buffer']))
 
@@ -165,16 +165,16 @@ def unwrap():
 
     # post stats usage. this is a non critical error so catch all exceptions
     try:
-        worker_node_job_instance.log_job_stats()
+        worker_node_task_instance.log_task_stats()
     except (NotImplementedError, Exception) as e:
         logger.error(e)
 
     # check return code
     if returncode != ReturnCodes.OK:
-        worker_node_job_instance.log_error(error_message=str(stderr),
-                                           exit_status=returncode)
+        worker_node_task_instance.log_error(error_message=str(stderr),
+                                            exit_status=returncode)
     else:
-        worker_node_job_instance.log_done()
+        worker_node_task_instance.log_done()
 
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting

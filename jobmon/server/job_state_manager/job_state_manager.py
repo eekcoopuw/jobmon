@@ -1,21 +1,30 @@
+from datetime import datetime
 from flask import jsonify, request, Blueprint
 from http import HTTPStatus as StatusCodes
 import json
 import os
 import socket
 from sqlalchemy.sql import func, text
-import traceback
 import sqlalchemy
 from sqlalchemy.sql import text
+import traceback
+from typing import Optional
+import warnings
 
 from jobmon import config
 from jobmon.models import DB
 from jobmon.models.arg import Arg
 from jobmon.models.arg_type import ArgType
+from jobmon.models.attributes.constants import qsub_attribute, task_instance_attribute
+from jobmon.models.attributes.task_attribute import TaskAttribute
+from jobmon.models.attributes.task_instance_attribute import TaskInstanceAttribute
+from jobmon.models.attributes.workflow_run_attribute import \
+    WorkflowRunAttribute
 from jobmon.models.command_template_arg_type_mapping import \
     CommandTemplateArgTypeMapping
 from jobmon.models.dag import Dag
 from jobmon.models.edge import Edge
+from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.node import Node
@@ -33,9 +42,8 @@ from jobmon.models.tool_version import ToolVersion
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
-
 from jobmon.server.server_logging import jobmonLogging as logging
-
+from jobmon.server.server_side_exception import log_and_raise
 
 jsm = Blueprint("job_state_manager", __name__)
 
@@ -287,21 +295,6 @@ def add_edges(dag_id):
 
     return '', StatusCodes.OK
 
-def _get_workflow_run_id(job):
-    """Return the workflow_run_id by job_id"""
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("job_id", job.job_id))
-    wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
-    if not wf:
-        DB.session.commit()
-        return None  # no workflow has started, so no workflow run
-    wf_run = (DB.session.query(WorkflowRunDAO).
-              filter_by(workflow_id=wf.id).
-              order_by(WorkflowRunDAO.id.desc()).first())
-    wf_run_id = wf_run.id
-    DB.session.commit()
-    return wf_run_id
-
 
 @jsm.route('/task', methods=['POST'])
 def add_task():
@@ -360,65 +353,65 @@ def update_task_parameters(task_id):
     resp.status_code = StatusCodes.OK
     return resp
 
-# def _get_workflow_run_id(job):
-#     """Return the workflow_run_id by job_id"""
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_id", job.job_id))
-#     wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
-#     if not wf:
-#         DB.session.commit()
-#         return None  # no workflow has started, so no workflow run
-#     wf_run = (DB.session.query(WorkflowRunDAO).
-#               filter_by(workflow_id=wf.id).
-#               order_by(WorkflowRunDAO.id.desc()).first())
-#     wf_run_id = wf_run.id
-#     DB.session.commit()
-#     return wf_run_id
+
+def _get_workflow_run_id(job):
+    """Return the workflow_run_id by job_id"""
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("job_id", job.job_id))
+    wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
+    if not wf:
+        DB.session.commit()
+        return None  # no workflow has started, so no workflow run
+    wf_run = (DB.session.query(WorkflowRunDAO).
+              filter_by(workflow_id=wf.id).
+              order_by(WorkflowRunDAO.id.desc()).first())
+    wf_run_id = wf_run.id
+    DB.session.commit()
+    return wf_run_id
 
 
-# @jsm.route('/job_instance', methods=['POST'])
-# def add_job_instance():
-#     """Add a job_instance to the database
+@jsm.route('/task_instance', methods=['POST'])
+def add_task_instance():
+    """Add a task_instance to the database
 
-#     Args:
-#         job_id (int): unique id for the job
-#         executor_type (str): string name of the executor type used
-#     """
-#     logger.info(logging.myself())
-#     data = request.get_json()
-#     logger.debug(data)
-#     logger.debug("Add JI for job {}".format(data['job_id']))
+    Args:
+        task_id (int): unique id for the task
+        executor_type (str): string name of the executor type used
+    """
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+    logger.debug("Add TI for task {}".format(data['task_id']))
 
-#     # query job
-#     job = DB.session.query(Job).filter_by(job_id=data['job_id']).first()
-#     DB.session.commit()
+    # query task
+    task = DB.session.query(Task).filter_by(id=data['task_id']).first()
+    DB.session.commit()
 
-#     # create job_instance from job parameters
-#     job_instance = JobInstance(
-#         executor_type=data['executor_type'],
-#         job_id=data['job_id'],
-#         dag_id=job.dag_id,
-#         workflow_run_id=_get_workflow_run_id(job),
-#         executor_parameter_set_id=job.executor_parameter_set_id)
-#     DB.session.add(job_instance)
-#     DB.session.commit()
+    # create task_instance from task parameters
+    task_instance = TaskInstance(
+        executor_type=data['executor_type'],
+        id=data['task_id'],
+        workflow_run_id=_get_workflow_run_id(task),
+        executor_parameter_set_id=task.executor_parameter_set_id)
+    DB.session.add(task_instance)
+    DB.session.commit()
 
-#     try:
-#         job_instance.job.transition(JobStatus.INSTANTIATED)
-#     except InvalidStateTransition:
-#         if job_instance.job.status == JobStatus.INSTANTIATED:
-#             msg = ("Caught InvalidStateTransition. Not transitioning job "
-#                    "{}'s job_instance_id {} from I to I"
-#                    .format(data['job_id'], job_instance.job_instance_id))
-#             logger.warning(msg)
-#         else:
-#             raise
-#     finally:
-#         DB.session.commit()
-#     resp = jsonify(
-#         job_instance=job_instance.to_wire_as_executor_job_instance())
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    try:
+        task_instance.task.transition(TaskStatus.INSTANTIATED)
+    except InvalidStateTransition:
+        if task_instance.job.status == TaskStatus.INSTANTIATED:
+            msg = ("Caught InvalidStateTransition. Not transitioning task "
+                   "{}'s task_instance_id {} from I to I"
+                   .format(data['task_id'], task_instance.id))
+            logger.warning(msg)
+        else:
+            raise
+    finally:
+        DB.session.commit()
+    resp = jsonify(
+        task_instance=task_instance.to_wire_as_executor_task_instance())
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 # @jsm.route('/workflow', methods=['POST', 'PUT'])
@@ -459,197 +452,197 @@ def update_task_parameters(task_id):
 #     return resp
 
 
-# @jsm.route('/error_logger', methods=['POST'])
-# def workflow_error_logger():
-#     logger.info(logging.myself())
-#     data = request.get_json()
-#     logger.error(data["traceback"])
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
+@jsm.route('/error_logger', methods=['POST'])
+def workflow_error_logger():
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.error(data["traceback"])
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-# @jsm.route('/workflow_run', methods=['POST', 'PUT'])
-# def add_update_workflow_run():
-#     """Add a workflow to the database or update it (via PUT)
+@jsm.route('/workflow_run', methods=['POST', 'PUT'])
+def add_update_workflow_run():
+    """Add a workflow to the database or update it (via PUT)
 
-#     Args:
-#         workflow_id (int): workflow_id to which this workflow_run is attached
-#         user (str): name of the user of the workflow
-#         hostname (str): host on which this workflow_run was run
-#         pid (str): process_id where this workflow_run is/was run
-#         stderr (str): where stderr should be directed
-#         stdout (str): where stdout should be directed
-#         project (str): sge project where this workflow_run should be run
-#         slack_channel (str): channel where this workflow_run should send
-#             notifications
-#         resource adjustment (float): rate at which the resources will be
-#             increased if the jobs fail from under-requested resources
-#         any other Workflow attributes you want to set
-#     """
-#     logger.info(logging.myself())
-#     data = request.get_json()
-#     logger.debug(data)
-#     if request.method == 'POST':
-#         wfr = WorkflowRunDAO(workflow_id=data['workflow_id'],
-#                              user=data['user'],
-#                              hostname=data['hostname'],
-#                              pid=data['pid'],
-#                              stderr=data['stderr'],
-#                              stdout=data['stdout'],
-#                              working_dir=data['working_dir'],
-#                              project=data['project'],
-#                              slack_channel=data['slack_channel'],
-#                              executor_class=data['executor_class'])
-#         workflow = DB.session.query(Workflow).\
-#             filter(Workflow.id == data['workflow_id']).first()
-#         # Set all previous runs to STOPPED
-#         for run in workflow.workflow_runs:
-#             run.status = WorkflowRunStatus.STOPPED
-#         DB.session.add(wfr)
-#         logger.debug(logging.logParameter("DB.session", DB.session))
-#     else:
-#         wfr = DB.session.query(WorkflowRunDAO).\
-#             filter(WorkflowRunDAO.id == data['workflow_run_id']).first()
-#         for key, val in data.items():
-#             setattr(wfr, key, val)
-#     DB.session.commit()
-#     wfr_id = wfr.id
-#     resp = jsonify(workflow_run_id=wfr_id)
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-# @jsm.route('/job_instance/<job_instance_id>/log_done', methods=['POST'])
-# def log_done(job_instance_id):
-#     """Log a job_instance as done
-#     Args:
-
-#         job_instance_id: id of the job_instance to log done
-#     """
-#     logger.info(logging.myself())
-#     data = request.get_json()
-#     logger.debug(logging.myself())
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     logger.debug("Log DONE for JI {}".format(job_instance_id))
-#     logger.debug("Data: " + str(data))
-#     ji = _get_job_instance(DB.session, job_instance_id)
-#     if data.get('executor_id', None) is not None:
-#         ji.executor_id = data['executor_id']
-#     if data.get('nodename', None) is not None:
-#         ji.nodename = data['nodename']
-#     logger.debug("log_done nodename: {}".format(ji.nodename))
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     msg = _update_job_instance_state(
-#         ji, JobInstanceStatus.DONE)
-#     DB.session.commit()
-#     resp = jsonify(message=msg)
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    Args:
+        workflow_id (int): workflow_id to which this workflow_run is attached
+        user (str): name of the user of the workflow
+        hostname (str): host on which this workflow_run was run
+        pid (str): process_id where this workflow_run is/was run
+        stderr (str): where stderr should be directed
+        stdout (str): where stdout should be directed
+        project (str): sge project where this workflow_run should be run
+        slack_channel (str): channel where this workflow_run should send
+            notifications
+        resource adjustment (float): rate at which the resources will be
+            increased if the jobs fail from under-requested resources
+        any other Workflow attributes you want to set
+    """
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
+    if request.method == 'POST':
+        wfr = WorkflowRunDAO(workflow_id=data['workflow_id'],
+                             user=data['user'],
+                             hostname=data['hostname'],
+                             pid=data['pid'],
+                             stderr=data['stderr'],
+                             stdout=data['stdout'],
+                             working_dir=data['working_dir'],
+                             project=data['project'],
+                             slack_channel=data['slack_channel'],
+                             executor_class=data['executor_class'])
+        workflow = DB.session.query(Workflow).\
+            filter(Workflow.id == data['workflow_id']).first()
+        # Set all previous runs to STOPPED
+        for run in workflow.workflow_runs:
+            run.status = WorkflowRunStatus.STOPPED
+        DB.session.add(wfr)
+        logger.debug(logging.logParameter("DB.session", DB.session))
+    else:
+        wfr = DB.session.query(WorkflowRunDAO).\
+            filter(WorkflowRunDAO.id == data['workflow_run_id']).first()
+        for key, val in data.items():
+            setattr(wfr, key, val)
+    DB.session.commit()
+    wfr_id = wfr.id
+    resp = jsonify(workflow_run_id=wfr_id)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-# def _log_error(ji: JobInstance,
-#                error_state: int,
-#                error_msg: str,
-#                executor_id: Optional[int] = None,
-#                nodename: Optional[str] = None
-#                ):
-#     if nodename is not None:
-#         ji.nodename = nodename
-#     if executor_id is not None:
-#         ji.executor_id = executor_id
+@jsm.route('/task_instance/<task_instance_id>/log_done', methods=['POST'])
+def log_done(task_instance_id):
+    """Log a task_instance as done
+    Args:
 
-#     try:
-#         error = JobInstanceErrorLog(job_instance_id=ji.job_instance_id,
-#                                        description=error_msg)
-#         DB.session.add(error)
-#         msg = _update_job_instance_state(ji, error_state)
-#         DB.session.commit()
-#         resp = jsonify(message=msg)
-#         resp.status_code = StatusCodes.OK
-#     except InvalidStateTransition as e:
-#         DB.session.rollback()
-#         logger.warning(str(e))
-#         log_msg = f"JSM::log_error(), reason={msg}"
-#         warnings.warn(log_msg)
-#         logger.debug(log_msg)
-#         raise
-#     except Exception as e:
-#         DB.session.rollback()
-#         logger.warning(str(e))
-#         raise
+        task_instance_id: id of the task_instance to log done
+    """
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(logging.myself())
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    logger.debug("Log DONE for TI {}".format(task_instance_id))
+    logger.debug("Data: " + str(data))
+    ti = _get_task_instance(DB.session, task_instance_id)
+    if data.get('executor_id', None) is not None:
+        ti.executor_id = data['executor_id']
+    if data.get('nodename', None) is not None:
+        ti.nodename = data['nodename']
+    logger.debug("log_done nodename: {}".format(ti.nodename))
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    msg = _update_task_instance_state(
+        ti, TaskInstanceStatus.DONE)
+    DB.session.commit()
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-#     return resp
+def _log_error(ti: TaskInstance,
+               error_state: int,
+               error_msg: str,
+               executor_id: Optional[int] = None,
+               nodename: Optional[str] = None
+               ):
+    if nodename is not None:
+        ti.nodename = nodename
+    if executor_id is not None:
+        ti.executor_id = executor_id
+
+    try:
+        error = TaskInstanceErrorLog(task_instance_id=ti.id,
+                                     description=error_msg)
+        DB.session.add(error)
+        msg = _update_task_instance_state(ti, error_state)
+        DB.session.commit()
+        resp = jsonify(message=msg)
+        resp.status_code = StatusCodes.OK
+    except InvalidStateTransition as e:
+        DB.session.rollback()
+        logger.warning(str(e))
+        log_msg = f"JSM::log_error(), reason={msg}"
+        warnings.warn(log_msg)
+        logger.debug(log_msg)
+        raise
+    except Exception as e:
+        DB.session.rollback()
+        logger.warning(str(e))
+        raise
+
+    return resp
 
 
-# @jsm.route('/job_instance/<job_instance_id>/log_error_worker_node',
-#            methods=['POST'])
-# def log_error_worker_node(job_instance_id: int):
-#     """Log a job_instance as errored
-#     Args:
+@jsm.route('/task_instance/<task_instance_id>/log_error_worker_node',
+           methods=['POST'])
+def log_error_worker_node(task_instance_id: int):
+    """Log a task_instance as errored
+    Args:
 
-#         job_instance_id (str): id of the job_instance to log done
-#         error_message (str): message to log as error
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     data = request.get_json()
-#     error_state = data["error_state"]
-#     error_message = data["error_message"]
-#     logger.debug(error_message)
-#     logger.debug(str(len(error_message)))
-#     executor_id = data.get('executor_id', None)
-#     nodename = data.get("nodename", None)
-#     logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
-#     logger.debug("data:" + str(data))
+        task_instance_id (str): id of the task_instance to log done
+        error_message (str): message to log as error
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    data = request.get_json()
+    error_state = data["error_state"]
+    error_message = data["error_message"]
+    logger.debug(error_message)
+    logger.debug(str(len(error_message)))
+    executor_id = data.get('executor_id', None)
+    nodename = data.get("nodename", None)
+    logger.debug(f"Log ERROR for TI:{task_instance_id},"
+                 f" message={error_message}")
+    logger.debug("data:" + str(data))
 
-#     ji = _get_job_instance(DB.session, job_instance_id)
-#     try:
-#         resp = _log_error(ji, error_state, error_message, executor_id, nodename)
-#         return resp
-#     except sqlalchemy.exc.OperationalError as e:
-#         # modify the error message and retry
-#         new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-#         resp = _log_error(ji, error_state, new_msg, executor_id, nodename)
-#         return resp
+    ti = _get_task_instance(DB.session, task_instance_id)
+    try:
+        resp = _log_error(ti, error_state, error_message, executor_id, nodename)
+        return resp
+    except sqlalchemy.exc.OperationalError as e:
+        # modify the error message and retry
+        new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+        resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
+        return resp
 
 
-# @jsm.route('/job_instance/<job_instance_id>/log_error_reconciler',
-#            methods=['POST'])
-# def log_error_reconciler(job_instance_id: int):
-#     """Log a job_instance as errored
-#     Args:
-#         job_instance:
-#         data:
-#         oom_killed: whether or not given job errored due to an oom-kill event
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     data = request.get_json()
-#     error_state = data['error_state']
-#     error_message = data['error_message']
-#     executor_id = data.get('executor_id', None)
-#     nodename = data.get('nodename', None)
-#     logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
-#     logger.debug("data:" + str(data))
+@jsm.route('/task_instance/<task_instance_id>/log_error_reconciler',
+           methods=['POST'])
+def log_error_reconciler(task_instance_id: int):
+    """Log a task_instance as errored
+    Args:
+        task_instance_id (int): id for task instance
+        data:
+        oom_killed: whether or not given job errored due to an oom-kill event
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    data = request.get_json()
+    error_state = data['error_state']
+    error_message = data['error_message']
+    executor_id = data.get('executor_id', None)
+    nodename = data.get('nodename', None)
+    logger.debug(f"Log ERROR for TI:{task_instance_id} message={error_message}")
+    logger.debug("data:" + str(data))
 
-#     ji = _get_job_instance(DB.session, job_instance_id)
+    ti = _get_task_instance(DB.session, task_instance_id)
 
-#     # make sure the job hasn't logged a new heartbeat since we began
-#     # reconciliation
-#     if ji.report_by_date <= datetime.utcnow():
-#         try:
-#             resp = _log_error(ji, error_state, error_message, executor_id,
-#                               nodename)
-#         except sqlalchemy.exc.OperationalError as e:
-#             # modify the error message and retry
-#             new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-#             resp = _log_error(ji, error_state, new_msg, executor_id, nodename)
-#     else:
-#         resp = jsonify()
-#         resp.status_code = StatusCodes.OK
-#     return resp
+    # make sure the task hasn't logged a new heartbeat since we began
+    # reconciliation
+    if ti.report_by_date <= datetime.utcnow():
+        try:
+            resp = _log_error(ti, error_state, error_message, executor_id,
+                              nodename)
+        except sqlalchemy.exc.OperationalError as e:
+            # modify the error message and retry
+            new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+            resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
+    else:
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
+    return resp
 
 
 # @jsm.route('/job_instance/<job_instance_id>/log_error_health_monitor',
@@ -677,25 +670,25 @@ def update_task_parameters(task_id):
 #     return resp
 
 
-# @jsm.route('/job_instance/<job_instance_id>/log_no_exec_id', methods=['POST'])
-# def log_no_exec_id(job_instance_id):
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     logger.debug(f"Log NO EXECUTOR ID for JI {job_instance_id}")
-#     data = request.get_json()
-#     if data['executor_id'] == qsub_attribute.NO_EXEC_ID:
-#         logger.info("Qsub was unsuccessful and caused an exception")
-#     else:
-#         logger.info("Qsub may have run, but the job id could not be parsed "
-#                     "from the qsub response so no executor id can be assigned"
-#                     " at this time")
-#     ji = _get_job_instance(DB.session, job_instance_id)
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     msg = _update_job_instance_state(ji, JobInstanceStatus.NO_EXECUTOR_ID)
-#     DB.session.commit()
-#     resp = jsonify(message=msg)
-#     resp.status_code = StatusCodes.OK
-#     return resp
+@jsm.route('/task_instance/<task_instance_id>/log_no_exec_id', methods=['POST'])
+def log_no_exec_id(task_instance_id):
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}")
+    data = request.get_json()
+    if data['executor_id'] == qsub_attribute.NO_EXEC_ID:
+        logger.info("Qsub was unsuccessful and caused an exception")
+    else:
+        logger.info("Qsub may have run, but the sge job id could not be parsed"
+                    " from the qsub response so no executor id can be assigned"
+                    " at this time")
+    ti = _get_task_instance(DB.session, task_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_EXECUTOR_ID)
+    DB.session.commit()
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 # @jsm.route('/log_oom/<executor_id>', methods=['POST'])
@@ -723,270 +716,276 @@ def update_task_parameters(task_id):
 #     # return _log_error(job_instance=job_instance, data=data, oom_killed=True)
 
 
-# @jsm.route('/job_instance/<job_instance_id>/log_executor_id', methods=['POST'])
-# def log_executor_id(job_instance_id):
-#     """Log a job_instance's executor id
-#     Args:
+@jsm.route('/task_instance/<task_instance_id>/log_executor_id', methods=['POST'])
+def log_executor_id(task_instance_id):
+    """Log a task_instance's executor id
+    Args:
 
-#         job_instance_id: id of the job_instance to log
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     data = request.get_json()
-#     report_by_date = func.ADDTIME(
-#         func.UTC_TIMESTAMP(),
-#         func.SEC_TO_TIME(data["next_report_increment"]))
-#     logger.debug("Log EXECUTOR_ID for JI {}".format(job_instance_id))
-#     ji = _get_job_instance(DB.session, job_instance_id)
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     logger.info("in log_executor_id, ji is {}".format(repr(ji)))
-#     msg = _update_job_instance_state(
-#         ji, JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
-#     _update_job_instance(ji, executor_id=data['executor_id'],
-#                          report_by_date=report_by_date)
-#     DB.session.commit()
-#     resp = jsonify(message=msg)
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-# @jsm.route('/task_dag/<dag_id>/log_running', methods=['POST'])
-# def log_dag_running(dag_id: int):
-#     """Log a dag as running
-
-#     Args:
-#         dag_id: id of the dag to move to running
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("dag_id", dag_id))
-
-#     params = {"dag_id": int(dag_id)}
-#     query = """
-#         UPDATE workflow
-#         SET status = 'R'
-#         WHERE dag_id = :dag_id"""
-#     DB.session.execute(query, params)
-#     DB.session.commit()
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
+        task_instance_id: id of the task_instance to log
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    data = request.get_json()
+    report_by_date = func.ADDTIME(
+        func.UTC_TIMESTAMP(),
+        func.SEC_TO_TIME(data["next_report_increment"]))
+    logger.debug("Log EXECUTOR_ID for TI {}".format(task_instance_id))
+    ti = _get_task_instance(DB.session, task_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    logger.info("in log_executor_id, ti is {}".format(repr(ti)))
+    msg = _update_task_instance_state(
+        ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
+    _update_task_instance(ti, executor_id=data['executor_id'],
+                          report_by_date=report_by_date)
+    DB.session.commit()
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-# @jsm.route('/task_dag/<dag_id>/log_heartbeat', methods=['POST'])
-# def log_dag_heartbeat(dag_id):
-#     """Log a dag as being responsive, with a heartbeat
-#     Args:
+@jsm.route('/workflow/<workflow_id>/log_running', methods=['POST'])
+def log_workflow_running(workflow_id: int):
+    """Log a workflow as running
 
-#         dag id: id of the job_instance to log
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("dag_id", dag_id))
+    Args:
+        workflow_id: id of the workflow to move to running
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_id", workflow_id))
 
-#     params = {"dag_id": int(dag_id)}
-#     query = """
-#         UPDATE task_dag
-#         SET heartbeat_date = UTC_TIMESTAMP()
-#         WHERE dag_id in (:dag_id)"""
-#     DB.session.execute(query, params)
-#     DB.session.commit()
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-# @jsm.route('/task_dag/<dag_id>/log_executor_report_by', methods=['POST'])
-# def log_executor_report_by(dag_id):
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("dag_id", dag_id))
-#     data = request.get_json()
-
-#     params = {}
-#     for key in ["next_report_increment", "executor_ids"]:
-#         params[key] = data[key]
-
-#     if params["executor_ids"]:
-#         query = """
-#             UPDATE job_instance
-#             SET report_by_date = ADDTIME(
-#                 UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-#             WHERE executor_id in :executor_ids"""
-#         DB.session.execute(query, params)
-#         DB.session.commit()
-
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    params = {"workflow_id": int(workflow_id)}
+    query = """
+        UPDATE workflow
+        SET status = 'R'
+        WHERE id = :workflow_id"""
+    DB.session.execute(query, params)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-# @jsm.route('/job_instance/<job_instance_id>/log_report_by', methods=['POST'])
-# def log_ji_report_by(job_instance_id):
-#     """Log a job_instance as being responsive with a new report_by_date, this
-#     is done at the worker node heartbeat_interval rate, so it may not happen at
-#     the same rate that the reconciler updates batch submitted report_by_dates
-#     (also because it causes a lot of traffic if all workers are logging report
-#     _by_dates often compared to if the reconciler runs often)
-#     Args:
+@jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+def log_wfr_heartbeat(workflow_run_id):
+    """Log a workflow_run as being responsive, with a heartbeat
+    Args:
 
-#         job_instance_id: id of the job_instance to log
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     data = request.get_json()
-#     executor_id = data.get('executor_id', None)
-#     params = {}
-#     params["next_report_increment"] = data["next_report_increment"]
-#     params["job_instance_id"] = job_instance_id
-#     if executor_id is not None:
-#         params["executor_id"] = executor_id
-#         query = """
-#                 UPDATE job_instance
-#                 SET report_by_date = ADDTIME(
-#                     UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
-#                     executor_id = :executor_id
-#                 WHERE job_instance_id = :job_instance_id"""
-#     else:
-#         query = """
-#             UPDATE job_instance
-#             SET report_by_date = ADDTIME(
-#                 UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-#             WHERE job_instance_id = :job_instance_id"""
-#     DB.session.execute(query, params)
-#     DB.session.commit()
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
+        workflow_run_id: id of the workflow_run to log
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
+
+    params = {"workflow_run_id": int(workflow_run_id)}
+    query = """
+        UPDATE workflow_run
+        SET heartbeat_date = UTC_TIMESTAMP()
+        WHERE id in (:workflow_run_id)"""
+    DB.session.execute(query, params)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-# @jsm.route('/job_instance/<job_instance_id>/log_running', methods=['POST'])
-# def log_running(job_instance_id):
-#     """Log a job_instance as running
-#     Args:
+@jsm.route('/task_instance/log_executor_report_by',
+           methods=['POST'])
+def log_executor_report_by():
+    logger.info(logging.myself())
+    data = request.get_json()
 
-#         job_instance_id: id of the job_instance to log as running
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     data = request.get_json()
-#     logger.debug("Log RUNNING for JI {}".format(job_instance_id))
-#     ji = _get_job_instance(DB.session, job_instance_id)
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     msg = _update_job_instance_state(ji, JobInstanceStatus.RUNNING)
-#     if data.get('nodename', None) is not None:
-#         ji.nodename = data['nodename']
-#     logger.debug("log_running nodename: {}".format(ji.nodename))
-#     ji.process_group_id = data['process_group_id']
-#     ji.report_by_date = func.ADDTIME(
-#         func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
-#     if data.get('executor_id', None) is not None:
-#         ji.executor_id = data['executor_id']
-#     DB.session.commit()
-#     resp = jsonify(message=msg)
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    params = {}
+    for key in ["next_report_increment", "executor_ids"]:
+        params[key] = data[key]
+
+    if params["executor_ids"]:
+        query = """
+            UPDATE task_instance
+            SET report_by_date = ADDTIME(
+                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE executor_id in :executor_ids"""
+        DB.session.execute(query, params)
+        DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-# @jsm.route('/job_instance/<job_instance_id>/log_nodename', methods=['POST'])
-# def log_nodename(job_instance_id):
-#     """Log a job_instance's nodename'
-#     Args:
+@jsm.route('/task_instance/<task_instance_id>/log_report_by', methods=['POST'])
+def log_ti_report_by(task_instance_id):
+    """Log a task_instance as being responsive with a new report_by_date, this
+    is done at the worker node heartbeat_interval rate, so it may not happen at
+    the same rate that the reconciler updates batch submitted report_by_dates
+    (also because it causes a lot of traffic if all workers are logging report
+    _by_dates often compared to if the reconciler runs often)
+    Args:
 
-#         job_instance_id: id of the job_instance to log done
-#         nodename (str): name of the node on which the job_instance is running
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     data = request.get_json()
-#     logger.debug("Log nodename for JI {}".format(job_instance_id))
-#     ji = _get_job_instance(DB.session, job_instance_id)
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     logger.debug(" ;;;;;;;;;;; log_nodename nodename: {}".format(data[
-#         'nodename']))
-#     _update_job_instance(ji, nodename=data['nodename'])
-#     DB.session.commit()
-#     resp = jsonify(message='')
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-# @jsm.route('/job_instance/<job_instance_id>/log_usage', methods=['POST'])
-# def log_usage(job_instance_id):
-#     """Log the usage stats of a job_instance
-#     Args:
-
-#         job_instance_id: id of the job_instance to log done
-#         usage_str (str, optional): stats such as maxrss, etc
-#         wallclock (str, optional): wallclock of running job
-#         maxvmem (str, optional): max virtual memory used
-#         cpu (str, optional): cpu used
-#         io (str, optional): io used
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     data = request.get_json()
-#     if data.get('maxrss', None) is None:
-#         data['maxrss'] = '-1'
-
-#     keys_to_attrs = {data.get('usage_str', None): job_attribute.USAGE_STR,
-#                      data.get('wallclock', None): job_attribute.WALLCLOCK,
-#                      data.get('cpu', None): job_attribute.CPU,
-#                      data.get('io', None): job_attribute.IO,
-#                      data.get('maxrss', None): job_attribute.MAXRSS}
-
-#     logger.debug("usage_str is {}, wallclock is {}, maxrss is {}, cpu is {}, "
-#                  "io is {}".format(data.get('usage_str', None),
-#                                    data.get('wallclock', None),
-#                                    data.get('maxrss', None),
-#                                    data.get('cpu', None),
-#                                    data.get('io', None)))
-#     job_instance = _get_job_instance(DB.session, job_instance_id)
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     job_id = job_instance.job_id
-#     msg = _update_job_instance(job_instance,
-#                                usage_str=data.get('usage_str', None),
-#                                wallclock=data.get('wallclock', None),
-#                                maxrss=data.get('maxrss', None),
-#                                cpu=data.get('cpu', None),
-#                                io=data.get('io', None))
-#     for k in keys_to_attrs:
-#         logger.debug(
-#             'The value of {kval} being set in the attribute table is {k}'.
-#             format(kval=keys_to_attrs[k], k=k))
-#         if k is not None:
-#             ja = (JobAttribute(
-#                 job_id=job_id, attribute_type=keys_to_attrs[k], value=k))
-#             DB.session.add(ja)
-#         else:
-#             logger.debug('The value has not been set, nothing to upload')
-#     DB.session.commit()
-#     resp = jsonify(message=msg)
-#     resp.status_code = StatusCodes.OK
-#     return resp
+        task_instance_id: id of the task_instance to log
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    data = request.get_json()
+    executor_id = data.get('executor_id', None)
+    params = {}
+    params["next_report_increment"] = data["next_report_increment"]
+    params["task_instance_id"] = task_instance_id
+    if executor_id is not None:
+        params["executor_id"] = executor_id
+        query = """
+                UPDATE task_instance
+                SET report_by_date = ADDTIME(
+                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
+                    executor_id = :executor_id
+                WHERE task_instance_id = :task_instance_id"""
+    else:
+        query = """
+            UPDATE task_instance
+            SET report_by_date = ADDTIME(
+                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE task_instance_id = :task_instance_id"""
+    DB.session.execute(query, params)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-# @jsm.route('/job/<job_id>/queue', methods=['POST'])
-# def queue_job(job_id):
-#     """Queue a job and change its status
-#     Args:
+@jsm.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
+def log_running(task_instance_id):
+    """Log a task_instance as running
+    Args:
 
-#         job_id: id of the job to queue
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_id", job_id))
-#     job = DB.session.query(Job)\
-#         .filter_by(job_id=job_id).first()
-#     try:
-#         job.transition(JobStatus.QUEUED_FOR_INSTANTIATION)
-#     except InvalidStateTransition:
-#         if job.status == JobStatus.QUEUED_FOR_INSTANTIATION:
-#             msg = ("Caught InvalidStateTransition. Not transitioning job "
-#                    "{} from Q to Q".format(job_id))
-#             logger.warning(msg)
-#         else:
-#             raise
-#     DB.session.commit()
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
+        task_instance_id: id of the task_instance to log as running
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    data = request.get_json()
+    logger.debug("Log RUNNING for TI {}".format(task_instance_id))
+    ti = _get_task_instance(DB.session, task_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
+    if data.get('nodename', None) is not None:
+        ti.nodename = data['nodename']
+    logger.debug("log_running nodename: {}".format(ti.nodename))
+    ti.process_group_id = data['process_group_id']
+    ti.report_by_date = func.ADDTIME(
+        func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
+    if data.get('executor_id', None) is not None:
+        ti.executor_id = data['executor_id']
+    DB.session.commit()
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/task_instance/<task_instance_id>/log_nodename', methods=['POST'])
+def log_nodename(task_instance_id):
+    """Log a task_instance's nodename'
+    Args:
+        task_instance_id: id of the task_instance to log done
+        nodename (str): name of the node on which the task_instance is running
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    data = request.get_json()
+    logger.debug("Log nodename for TI {}".format(task_instance_id))
+    ti = _get_task_instance(DB.session, task_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    logger.debug("log_nodename nodename: {}".format(data['nodename']))
+    _update_task_instance(ti, nodename=data['nodename'])
+    DB.session.commit()
+    DB.session.commit()
+    resp = jsonify(message='')
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/task_instance/<task_instance_id>/log_usage', methods=['POST'])
+def log_usage(task_instance_id):
+    """Log the usage stats of a task_instance
+    Args:
+
+        task_instance_id: id of the task_instance to log done
+        usage_str (str, optional): stats such as maxrss, etc
+        wallclock (str, optional): wallclock of running job
+        maxrss (str, optional): max resident set size mem used
+        maxpss (str, optional): max proportional set size mem used
+        cpu (str, optional): cpu used
+        io (str, optional): io used
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    data = request.get_json()
+    if data.get('maxrss', None) is None:
+        data['maxrss'] = '-1'
+
+    keys_to_attrs = {data.get('usage_str', None):
+                     task_instance_attribute.USAGE_STR,
+                     data.get('wallclock', None):
+                         task_instance_attribute.WALLCLOCK,
+                     data.get('cpu', None): task_instance_attribute.CPU,
+                     data.get('io', None): task_instance_attribute.IO,
+                     data.get('maxrss', None): task_instance_attribute.MAXRSS,
+                     data.get('maxpss', None): task_instance_attribute.MAXPSS}
+
+    logger.debug("usage_str is {}, wallclock is {}, maxrss is {}, "
+                 "maxpss is {}, cpu is {}, io is {}"
+                 .format(data.get('usage_str', None),
+                         data.get('wallclock', None),
+                         data.get('maxrss', None),
+                         data.get('maxpss', None),
+                         data.get('cpu', None),
+                         data.get('io', None)))
+    task_instance = _get_task_instance(DB.session, task_instance_id)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    task_id = task_instance.job_id
+    msg = _update_task_instance(task_instance,
+                                usage_str=data.get('usage_str', None),
+                                wallclock=data.get('wallclock', None),
+                                maxrss=data.get('maxrss', None),
+                                maxpss=data.get('maxpss', None),
+                                cpu=data.get('cpu', None),
+                                io=data.get('io', None))
+    for k in keys_to_attrs:
+        logger.debug(
+            'The value of {kval} being set in the attribute table is {k}'.
+            format(kval=keys_to_attrs[k], k=k))
+        if k is not None:
+            ta = (TaskInstanceAttribute(
+                  task_id=task_id, attribute_type=keys_to_attrs[k], value=k))
+            DB.session.add(ta)
+        else:
+            logger.debug('The value has not been set, nothing to upload')
+    DB.session.commit()
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/task/<task_id>/queue', methods=['POST'])
+def queue_task(task_id):
+    """Queue a task and change its status
+    Args:
+
+        task_id: id of the task to queue
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_id", task_id))
+    task = DB.session.query(Task)\
+        .filter_by(id=task_id).first()
+    try:
+        task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
+    except InvalidStateTransition:
+        if task.status == TaskStatus.QUEUED_FOR_INSTANTIATION:
+            msg = ("Caught InvalidStateTransition. Not transitioning task "
+                   "{} from Q to Q".format(task_id))
+            logger.warning(msg)
+        else:
+            raise
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 # @jsm.route('/job/<job_id>/update_job', methods=['POST'])
@@ -1022,51 +1021,51 @@ def update_task_parameters(task_id):
 #     return resp
 
 
-# @jsm.route('/job/<job_id>/update_resources', methods=['POST'])
-# def update_job_resources(job_id):
-#     """ Change the resources set for a given job
+@jsm.route('/task/<task_id>/update_resources', methods=['POST'])
+def update_task_resources(task_id):
+    """ Change the resources set for a given task
 
-#     Args:
-#         job_id (int): id of the job for which resources will be changed
-#         parameter_set_type (str): parameter set type for this job
-#         max_runtime_seconds (int, optional): amount of time job is allowed to
-#             run for
-#         context_args (dict, optional): unstructured parameters to pass to
-#             executor
-#         queue (str, optional): sge queue to submit jobs to
-#         num_cores (int, optional): how many cores to get from sge
-#         m_mem_free ():
-#         j_resource (bool, optional): whether to request access to the j drive
-#         resource_scales (dict): values to scale by upon resource error
-#         hard_limit (bool): whether to move queues if requester resources exceed
-#             queue limits
-#     """
+    Args:
+        task_id (int): id of the task for which resources will be changed
+        parameter_set_type (str): parameter set type for this task
+        max_runtime_seconds (int, optional): amount of time task is allowed to
+            run for
+        context_args (dict, optional): unstructured parameters to pass to
+            executor
+        queue (str, optional): sge queue to submit tasks to
+        num_cores (int, optional): how many cores to get from sge
+        m_mem_free ():
+        j_resource (bool, optional): whether to request access to the j drive
+        resource_scales (dict): values to scale by upon resource error
+        hard_limit (bool): whether to move queues if requester resources exceed
+            queue limits
+    """
 
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_id", job_id))
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_id", task_id))
 
-#     data = request.get_json()
-#     parameter_set_type = data["parameter_set_type"]
+    data = request.get_json()
+    parameter_set_type = data["parameter_set_type"]
 
-#     exec_params = ExecutorParameterSet(
-#         job_id=job_id,
-#         parameter_set_type=parameter_set_type,
-#         max_runtime_seconds=data.get('max_runtime_seconds', None),
-#         context_args=data.get('context_args', None),
-#         queue=data.get('queue', None),
-#         num_cores=data.get('num_cores', None),
-#         m_mem_free=data.get('m_mem_free', 2),
-#         j_resource=data.get('j_resource', False),
-#         resource_scales=data.get('resource_scales', None),
-#         hard_limits=data.get('hard_limits', False))
-#     DB.session.add(exec_params)
-#     DB.session.flush()  # get auto increment
-#     exec_params.activate()
-#     DB.session.commit()
+    exec_params = ExecutorParameterSet(
+        task_id=task_id,
+        parameter_set_type=parameter_set_type,
+        max_runtime_seconds=data.get('max_runtime_seconds', None),
+        context_args=data.get('context_args', None),
+        queue=data.get('queue', None),
+        num_cores=data.get('num_cores', None),
+        m_mem_free=data.get('m_mem_free', 2),
+        j_resource=data.get('j_resource', False),
+        resource_scales=data.get('resource_scales', None),
+        hard_limits=data.get('hard_limits', False))
+    DB.session.add(exec_params)
+    DB.session.flush()  # get auto increment
+    exec_params.activate()
+    DB.session.commit()
 
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 # @jsm.route('/job/<job_id>/reset', methods=['POST'])
@@ -1147,19 +1146,20 @@ def update_task_parameters(task_id):
 #     return resp
 
 
-# def _get_job_instance(session, job_instance_id):
-#     """Return a JobInstance from the database
+def _get_task_instance(session, task_instance_id):
+    """Return a TaskInstance from the database
 
-#     Args:
-#         session: DB.session or Session object to use to connect to the db
-#         job_instance_id (int): job_instance_id with which to query the database
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("session", session))
-#     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-#     job_instance = session.query(JobInstance).filter_by(
-#         job_instance_id=job_instance_id).first()
-#     return job_instance
+    Args:
+        session: DB.session or Session object to use to connect to the db
+        task_instance_id (int): task_instance_id with which to query the
+        database
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("session", session))
+    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
+    task_instance = session.query(TaskInstance).filter_by(
+        id=task_instance_id).first()
+    return task_instance
 
 
 # def _get_job_instance_by_executor_id(session, executor_id):
@@ -1177,80 +1177,78 @@ def update_task_parameters(task_id):
 #     return job_instance
 
 
-# def _update_job_instance_state(job_instance, status_id):
-#     """Advance the states of job_instance and it's associated Job,
-#     return any messages that should be published based on
-#     the transition
+def _update_task_instance_state(task_instance, status_id):
+    """Advance the states of task_instance and it's associated Task,
+    return any messages that should be published based on
+    the transition
 
-#     Args:
-#         job_instance (obj) object of time models.JobInstance
-#         status_id (int): id of the status to which to transition
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(f"Update JI state {status_id} for {job_instance}")
-#     response = ""
-#     try:
-#         job_instance.transition(status_id)
-#     except InvalidStateTransition:
-#         if job_instance.status == status_id:
-#             # It was already in that state, just log it
-#             msg = f"Attempting to transition to existing state." \
-#                 f"Not transitioning job, jid= " \
-#                 f"{job_instance.job_instance_id}" \
-#                 f"from {job_instance.status} to {status_id}"
-#             logger.warning(msg)
-#         else:
-#             # Tried to move to an illegal state
-#             msg = f"Illegal state transition. " \
-#                 f"Not transitioning job, jid= " \
-#                 f"{job_instance.job_instance_id}, " \
-#                 f"from {job_instance.status} to {status_id}"
-#             # log_and_raise(msg, logger)
-#             logger.error(msg)
-#     except KillSelfTransition:
-#         msg = f"kill self, cannot transition " \
-#               f"jid={job_instance.job_instance_id}"
-#         logger.warning(msg)
-#         response = "kill self"
-#     except Exception as e:
-#         msg = f"General exception in _update_job_instance_state, " \
-#             f"jid {job_instance}, transitioning to {job_instance}. " \
-#             f"Not transitioning job. {e}"
-#         log_and_raise(msg, logger)
+    Args:
+        task_instance (obj) object of time models.TaskInstance
+        status_id (int): id of the status to which to transition
+    """
+    logger.info(logging.myself())
+    logger.debug(f"Update TI state {status_id} for {task_instance}")
+    response = ""
+    try:
+        task_instance.transition(status_id)
+    except InvalidStateTransition:
+        if task_instance.status == status_id:
+            # It was already in that state, just log it
+            msg = f"Attempting to transition to existing state." \
+                f"Not transitioning task, tid= " \
+                f"{task_instance.id} from {task_instance.status} to " \
+                f"{status_id}"
+            logger.warning(msg)
+        else:
+            # Tried to move to an illegal state
+            msg = f"Illegal state transition. Not transitioning task, " \
+                f"tid={task_instance.id}, from {task_instance.status} to " \
+                f"{status_id}"
+            logger.error(msg)
+    except KillSelfTransition:
+        msg = f"kill self, cannot transition " \
+              f"tid={task_instance.id}"
+        logger.warning(msg)
+        response = "kill self"
+    except Exception as e:
+        msg = f"General exception in _update_task_instance_state, " \
+            f"jid {task_instance}, transitioning to {task_instance}. " \
+            f"Not transitioning task. {e}"
+        log_and_raise(msg, logger)
 
-#     job = job_instance.job
+    task = task_instance.task
 
-#     # ... see tests/tests_job_state_manager.py for Event example
-#     if job.status in [JobStatus.DONE, JobStatus.ERROR_FATAL]:
-#         to_publish = mogrify(job.dag_id, (job.job_id, job.status))
-#         return to_publish
-#     else:
-#         return response
+    # ... see tests/tests_job_state_manager.py for Event example
+    if task.status in [TaskStatus.DONE, TaskStatus.ERROR_FATAL]:
+        to_publish = mogrify(task.dag_id, (task.id, task.status))
+        return to_publish
+    else:
+        return response
 
 
-# def _update_job_instance(job_instance, **kwargs):
-#     """Set attributes on a job_instance, primarily status
+def _update_task_instance(task_instance, **kwargs):
+    """Set attributes on a task_instance, primarily status
 
-#     Args:
-#         job_instance (obj): object of type models.JobInstance
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_instance", job_instance))
-#     logger.debug("Update JI  {}".format(job_instance))
-#     status_requested = kwargs.get('status', None)
-#     logger.debug(logging.logParameter("status_requested", status_requested))
-#     if status_requested is not None:
-#         logger.debug("status_requested:{s}; job_instance.status:{j}".format
-#                      (s=status_requested, j=job_instance.status))
-#         if status_requested == job_instance.status:
-#             kwargs.pop(status_requested)
-#             logger.debug("Caught InvalidStateTransition. Not transitioning "
-#                          "job_instance {} from {} to {}."
-#                          .format(job_instance.job_instance_id,
-#                                  job_instance.status, status_requested))
-#     for k, v in kwargs.items():
-#         setattr(job_instance, k, v)
-#     return
+    Args:
+        task_instance (obj): object of type models.TaskInstance
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_instance", task_instance))
+    logger.debug("Update TI  {}".format(task_instance))
+    status_requested = kwargs.get('status', None)
+    logger.debug(logging.logParameter("status_requested", status_requested))
+    if status_requested is not None:
+        logger.debug(f"status_requested:{status_requested}; "
+                     f"task_instance.status:{task_instance.status}")
+        if status_requested == task_instance.status:
+            kwargs.pop(status_requested)
+            logger.debug("Caught InvalidStateTransition. Not transitioning "
+                         "task_instance {} from {} to {}."
+                         .format(task_instance.task_instance_id,
+                                 task_instance.status, status_requested))
+    for k, v in kwargs.items():
+        setattr(task_instance, k, v)
+    return
 
 
 # @jsm.route('/workflow_attribute', methods=['POST'])
@@ -1277,52 +1275,52 @@ def update_task_parameters(task_id):
 #     return resp
 
 
-# @jsm.route('/workflow_run_attribute', methods=['POST'])
-# def add_workflow_run_attribute():
-#     """Set attributes on a workflow_run
+@jsm.route('/workflow_run_attribute', methods=['POST'])
+def add_workflow_run_attribute():
+    """Set attributes on a workflow_run
 
-#     Args:
-#         workflow_run_id (int): id of the workflow_run on which to set
-#         attributes
-#         attribute_type (obj): object of type WorkflowRunAttribute
-#         value (str): value of the WorkflowRunAttribute to add
-#     """
-#     logger.info(logging.myself())
-#     data = request.get_json()
-#     workflow_run_attribute = WorkflowRunAttribute(
-#         workflow_run_id=data['workflow_run_id'],
-#         attribute_type=data['attribute_type'],
-#         value=data['value'])
-#     logger.debug(workflow_run_attribute)
-#     DB.session.add(workflow_run_attribute)
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     DB.session.commit()
-#     resp = jsonify({'workflow_run_attribute_id': workflow_run_attribute.id})
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    Args:
+        workflow_run_id (int): id of the workflow_run on which to set
+        attributes
+        attribute_type (obj): object of type WorkflowRunAttribute
+        value (str): value of the WorkflowRunAttribute to add
+    """
+    logger.info(logging.myself())
+    data = request.get_json()
+    workflow_run_attribute = WorkflowRunAttribute(
+        workflow_run_id=data['workflow_run_id'],
+        attribute_type=data['attribute_type'],
+        value=data['value'])
+    logger.debug(workflow_run_attribute)
+    DB.session.add(workflow_run_attribute)
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    DB.session.commit()
+    resp = jsonify({'workflow_run_attribute_id': workflow_run_attribute.id})
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-# @jsm.route('/job_attribute', methods=['POST'])
-# def add_job_attribute():
-#     """Set attributes on a job
+@jsm.route('/task_attribute', methods=['POST'])
+def add_task_attribute():
+    """Set attributes on a task
 
-#     Args:
-#         job_id (int): id of the job on which to set attributes
-#         attribute_type (obj): object of type JobAttribute
-#         value (str): value of the JobAttribute to add
-#     """
-#     logger.info(logging.myself())
-#     data = request.get_json()
-#     job_attribute = JobAttribute(
-#         job_id=data['job_id'],
-#         attribute_type=data['attribute_type'],
-#         value=data['value'])
-#     logger.debug(job_attribute)
-#     DB.session.add(job_attribute)
-#     DB.session.commit()
-#     resp = jsonify({'job_attribute_id': job_attribute.id})
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    Args:
+        task_id (int): id of the task on which to set attributes
+        attribute_type (obj): object of type TaskAttribute
+        value (str): value of the TaskAttribute to add
+    """
+    logger.info(logging.myself())
+    data = request.get_json()
+    task_attribute = TaskAttribute(
+        task_id=data['task_id'],
+        attribute_type=data['attribute_type'],
+        value=data['value'])
+    logger.debug(task_attribute)
+    DB.session.add(task_attribute)
+    DB.session.commit()
+    resp = jsonify({'task_attribute_id': task_attribute.id})
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jsm.route('/log_level', methods=['GET'])

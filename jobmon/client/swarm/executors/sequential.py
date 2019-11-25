@@ -3,10 +3,10 @@ import subprocess
 import traceback
 from typing import Optional
 
-from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
+from jobmon.client.swarm.executors import (Executor, TaskInstanceExecutorInfo,
                                            ExecutorParameters)
 from jobmon.client import shared_requester
-from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.client.client_logging import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class SequentialExecutor(Executor):
         return executor_id
 
 
-class JobInstanceSequentialInfo(JobInstanceExecutorInfo):
+class TaskInstanceSequentialInfo(TaskInstanceExecutorInfo):
 
     def __init__(self) -> None:
         self._executor_id: Optional[int] = None
@@ -58,10 +58,10 @@ class JobInstanceSequentialInfo(JobInstanceExecutorInfo):
     @property
     def executor_id(self) -> Optional[int]:
         if self._executor_id is None:
-            jid = os.environ.get('JOB_ID')
-            if jid:
-                self._executor_id = int(jid)
+            tid = os.environ.get('JOB_ID')
+            if tid:
+                self._executor_id = int(tid)
         return self._executor_id
 
     def get_exit_info(self, exit_code, error_msg):
-        return JobInstanceStatus.ERROR, error_msg
+        return TaskInstanceStatus.ERROR, error_msg

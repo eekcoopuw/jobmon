@@ -9,33 +9,34 @@ from jobmon.client import shared_requester, client_config
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
-from jobmon.client.swarm.job_management.executor_job_instance import (
-    ExecutorJobInstance)
+from jobmon.client.swarm.job_management.executor_task_instance import (
+    ExecutorTaskInstance)
 from jobmon.client.client_logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
 
 
-class JobInstanceReconciler(object):
-    """The JobInstanceReconciler is a mechanism by which the
+class TaskInstanceReconciler(object):
+    """The TaskInstanceReconciler is a mechanism by which the
     JobStateManager and JobQueryServer make sure the database in sync with
-    jobs in qstat
+    sge jobs in qstat
 
     Args:
-        dag_id (int): the id for the dag to run
+        workflow_run_id (int): id of the workflow run the task instances are
+            associated with
         executor (Executor, default SequentialExecutor): obj of type
             Executor
         stop_event (threading.Event, default None): stop signal
     """
 
     def __init__(self,
-                 dag_id: int,
+                 workflow_run_id: int,
                  executor: Optional[Executor] = None,
                  stop_event: Optional[threading.Event] = None,
                  requester: Requester = shared_requester) -> None:
 
-        self.dag_id = dag_id
+        self.workflow_run_id = workflow_run_id
         self.requester = requester
         self.reconciliation_interval = client_config.reconciliation_interval
         self.report_by_buffer = client_config.report_by_buffer
@@ -54,23 +55,23 @@ class JobInstanceReconciler(object):
 
     def set_executor(self, executor: Executor) -> None:
         """
-        Sets the executor that will be used for all jobs queued downstream
+        Sets the executor that will be used for all tasks queued downstream
         of the set event.
 
         Args:
-            executor (Executor): Any callable that takes a Job and returns
+            executor (Executor): Any callable that takes a Task and returns
                 either None or an Int. If Int is returned, this is assumed
-                to be the JobInstances executor_id, and will be registered
+                to be the TaskInstances executor_id, and will be registered
                 with the JobStateManager as such.
         """
         self.executor = executor
 
     def reconcile_periodically(self) -> None:
-        """Running in a thread, this function allows the JobInstanceReconciler
-        to periodically reconcile all jobs against 'qstat'
+        """Running in a thread, this function allows the TaskInstanceReconciler
+        to periodically reconcile all tasks against 'qstat'
         """
         logger.info(
-            f"Reconciling jobs against 'qstat' at "
+            f"Reconciling tasks against 'qstat' at "
             f"{self.reconciliation_interval} intervals and updating the report"
             f" by date at {self.report_by_buffer} times the heartbeat "
             f"interval: {self.heartbeat_interval}")
@@ -102,46 +103,47 @@ class JobInstanceReconciler(object):
                 self._stop_event.set()
                 raise
 
-    def terminate_timed_out_jobs(self) -> None:
+    def terminate_timed_out_tasks(self) -> None:
         """
-        If the executor does not automatically kill timed out jobs, make sure
+        If the executor does not automatically kill timed out tasks, make sure
         they have been terminated using this function
         """
         try:
             rc, response = self.requester.send_request(
-                app_route=f'/dag/{self.dag_id}/get_timed_out_executor_ids',
+                app_route=f'/workflow_run/{self.workflow_run_id}'
+                f'/get_timed_out_executor_ids',
                 message={},
                 request_type='get')
-            to_jobs = response['jiid_exid_tuples']
+            to_tasks = response['tiid_exid_tuples']
             if rc != StatusCodes.OK:
-                to_jobs = []
+                to_tasks = []
         except TypeError:
-            to_jobs = []
+            to_tasks = []
         try:
-            terminated = self.executor.terminate_job_instances(to_jobs)
+            terminated = self.executor.terminate_task_instances(to_tasks)
         except NotImplementedError:
             logger.warning("{} does not implement reconciliation methods"
                            .format(self.executor.__class__.__name__))
             terminated = []
 
         # log the hostname in case we need to terminate it remotely later
-        for job_instance_id, hostname in terminated:
-            self._log_timeout_hostname(job_instance_id, hostname)
+        for task_instance_id, hostname in terminated:
+            self._log_timeout_hostname(task_instance_id, hostname)
 
     def reconcile(self) -> None:
-        """Identifies submitted to batch and running jobs that have missed
+        """Identifies submitted to batch and running tasks that have missed
         their report_by_date and reports their disappearance back to the
         JobStateManager so they can either be retried or flagged as
         fatal errors
         """
-        self._log_dag_heartbeat()
+        self._log_workflow_run_heartbeat()
         self._log_executor_report_by()
-        self._account_for_lost_job_instances()
+        self._account_for_lost_task_instances()
 
-    def _log_dag_heartbeat(self) -> None:
+    def _log_workflow_run_heartbeat(self) -> None:
         """Logs a dag heartbeat"""
         return self.requester.send_request(
-            app_route='/task_dag/{}/log_heartbeat'.format(self.dag_id),
+            app_route=f'/workflow_run/{self.workflow_run_id}/log_heartbeat',
             message={},
             request_type='post')
 
@@ -153,41 +155,43 @@ class JobInstanceReconciler(object):
         except NotImplementedError:
             logger.warning(
                 f"{self.executor.__class__.__name__} does not implement "
-                "reconciliation methods. If a job instance does not register a"
-                " heartbeat from a worker process in "
-                f"{next_report_increment}s the job instance will be "
-                "moved to error state.")
+                f"reconciliation methods. If a task instance does not register"
+                f" a heartbeat from a worker process in "
+                f"{next_report_increment}s the task instance will be moved to "
+                f"error state.")
             actual = []
         rc, response = self.requester.send_request(
-            app_route=f'/task_dag/{self.dag_id}/log_executor_report_by',
+            app_route=f'/task_instance/log_executor_report_by',
             message={'executor_ids': actual,
                      'next_report_increment': next_report_increment},
             request_type='post')
 
-    def _account_for_lost_job_instances(self) -> None:
+    def _account_for_lost_task_instances(self) -> None:
         rc, response = self.requester.send_request(
-            app_route=f'/dag/{self.dag_id}/get_suspicious_job_instances',
+            app_route=f'/worklfow_run/{self.workflow_run_id}'
+            f'/get_suspicious_task_instances',
             message={},
             request_type='get')
         if rc != StatusCodes.OK:
-            lost_job_instances: List[ExecutorJobInstance] = []
+            lost_task_instances: List[ExecutorTaskInstance] = []
         else:
-            lost_job_instances = [
-                ExecutorJobInstance.from_wire(ji, self.executor)
-                for ji in response["job_instances"]
+            lost_task_instances = [
+                ExecutorTaskInstance.from_wire(ti, self.executor)
+                for ti in response["task_instances"]
             ]
-        for executor_job_instance in lost_job_instances:
-            executor_job_instance.log_error()
+        for executor_task_instance in lost_task_instances:
+            executor_task_instance.log_error()
 
-    def _log_timeout_hostname(self, job_instance_id: int, hostname: str
+    def _log_timeout_hostname(self, task_instance_id: int, hostname: str
                               ) -> None:
         """Logs the hostname for any job that has timed out
         Args:
-            job_instance_id (int): id for the job_instance that has timed out
-            hostname (str): host where the job_instance was running
+            task_instance_id (int): id for the task_instance that has timed out
+            hostname (str): host where the job was running
         """
-        logger.info("log timeout hostname jiid: {j} host: {h}".format(j=job_instance_id, h=hostname))
+        logger.info(f"log timeout hostname tiid: {task_instance_id} "
+                    f"host: {hostname}")
         return self.requester.send_request(
-            app_route=f'/job_instance/{job_instance_id}/log_nodename',
+            app_route=f'/task_instance/{task_instance_id}/log_nodename',
             message={'nodename': hostname},
             request_type='post')

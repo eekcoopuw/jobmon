@@ -7,10 +7,10 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon.client import shared_requester
 from jobmon.client.utils import confirm_correct_perms
-from jobmon.client.swarm.executors import (Executor, JobInstanceExecutorInfo,
+from jobmon.client.swarm.executors import (Executor, TaskInstanceExecutorInfo,
                                            sge_utils, ExecutorParameters)
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
-from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
 from jobmon.client.client_logging import ClientLogging as logging
 
@@ -45,7 +45,7 @@ class SGEExecutor(Executor):
                 sge_jid = int(resp.split()[idx + 1])
             else:
                 logger.error(f"The qsub was successfully submitted, but the "
-                             f"job id could not be parsed from the response: "
+                             f"task id could not be parsed from the response: "
                              f"{resp}")
                 sge_jid = qsub_attribute.UNPARSABLE
             return sge_jid
@@ -95,31 +95,31 @@ class SGEExecutor(Executor):
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids
 
-    def terminate_job_instances(self, jiid_exid_tuples: List[Tuple[int, int]]
-                                ) -> List[Tuple[int, str]]:
-        """Only terminate the job instances that are running, not going to
-        kill the jobs that are actually still in a waiting or transitioning
+    def terminate_task_instances(self, tiid_exid_tuples: List[Tuple[int, int]]
+                                 ) -> List[Tuple[int, str]]:
+        """Only terminate the task instances that are running, not going to
+        kill the jobs that are actually still in a waiting or a transitioning
         state"""
-        logger.debug(f"Going to terminate: {jiid_exid_tuples}")
-        if len(jiid_exid_tuples) == 0:
+        logger.debug(f"Going to terminate: {tiid_exid_tuples}")
+        if len(tiid_exid_tuples) == 0:
             return []
         sge_jobs = sge_utils.qstat()
-        deleted_jis = []
+        deleted_tis = []
         exec_ids_for_deletion = []
-        for el in jiid_exid_tuples:
-            jiid = el[0]
+        for el in tiid_exid_tuples:
+            tiid = el[0]
             exec_id = el[1]
             logger.debug(f"exec: {exec_id}, qstat: {sge_jobs}")
             if exec_id in sge_jobs:
                 job_info = sge_jobs[exec_id]
                 if job_info['status'] not in ['hqw', 'qw', 'hRwq', 't']:
-                    deleted_jis.append((int(jiid), job_info['hostname']))
+                    deleted_tis.append((int(tiid), job_info['hostname']))
                     exec_ids_for_deletion.append(exec_id)
-        logger.debug(f"jis for deletion {deleted_jis}, exec_ids for qdel: "
+        logger.debug(f"tis for deletion {deleted_tis}, exec_ids for qdel: "
                      f"{exec_ids_for_deletion}")
         if len(exec_ids_for_deletion) > 0:
             sge_utils.qdel(exec_ids_for_deletion)
-        return deleted_jis
+        return deleted_tis
 
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
         """return the exit state associated with a given exit code"""
@@ -127,14 +127,14 @@ class SGEExecutor(Executor):
         logger.debug(f"exit_status info: {exit_code}")
         if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
             if 'over runtime' in reason:
-                msg = ("Job killed because it exceeded max_runtime. "
-                       f"{self.__class__.__name__} accounting discovered exit code"
-                       f":{exit_code}.")
+                msg = ("Task Instance killed because it exceeded max_runtime. "
+                       f"{self.__class__.__name__} accounting discovered exit "
+                       f"code:{exit_code}.")
             else:
-                msg = ("Insufficient resources requested. Job was lost. "
-                       f"{self.__class__.__name__} accounting discovered exit code"
-                       f":{exit_code}.")
-            return JobInstanceStatus.RESOURCE_ERROR, msg
+                msg = ("Insufficient resources requested. Task was lost. "
+                       f"{self.__class__.__name__} accounting discovered exit "
+                       f"code:{exit_code}.")
+            return TaskInstanceStatus.RESOURCE_ERROR, msg
         elif exit_code == ReturnCodes.WORKER_NODE_ENV_FAILURE:
             msg = "There is a discrepancy between the environment that your " \
                   "workflow swarm node is accessing and the environment that " \
@@ -147,7 +147,7 @@ class SGEExecutor(Executor):
                   f"to use. {self.__class__.__name__} accounting discovered " \
                   f"exit code: {exit_code}"
             # TODO change this to a fatal error so they can't attempt a retry
-            return JobInstanceStatus.UNKNOWN_ERROR, msg
+            return TaskInstanceStatus.UNKNOWN_ERROR, msg
         else:
             raise RemoteExitInfoNotAvailable
 
@@ -165,7 +165,7 @@ class SGEExecutor(Executor):
                             project: Optional[str] = None,
                             working_dir: Optional[str] = None
                             ) -> str:
-        """Process the Job's context_args, which are assumed to be
+        """Process the Task's context_args, which are assumed to be
         a json-serialized dictionary
         """
 
@@ -255,7 +255,7 @@ class SGEExecutor(Executor):
         return qsub_cmd
 
 
-class JobInstanceSGEInfo(JobInstanceExecutorInfo):
+class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
 
     def __init__(self) -> None:
         self._executor_id: Optional[int] = None
@@ -263,9 +263,9 @@ class JobInstanceSGEInfo(JobInstanceExecutorInfo):
     @property
     def executor_id(self) -> Optional[int]:
         if self._executor_id is None:
-            jid = os.environ.get('JOB_ID')
-            if jid:
-                self._executor_id = int(jid)
+            sge_jid = os.environ.get('JOB_ID')
+            if sge_jid:
+                self._executor_id = int(sge_jid)
         logger.info("executor_id: {}".format(self._executor_id))
         return self._executor_id
 
@@ -277,7 +277,7 @@ class JobInstanceSGEInfo(JobInstanceExecutorInfo):
             msg = (f"Insufficient resources requested. Found exit code: "
                    f"{exit_code}. Application returned error message:\n" +
                    error_msg)
-            return JobInstanceStatus.RESOURCE_ERROR, msg
+            return TaskInstanceStatus.RESOURCE_ERROR, msg
         elif exit_code == ReturnCodes.WORKER_NODE_ENV_FAILURE:
             msg = "There is a discrepancy between the environment that your " \
                   "workflow swarm node is accessing and the environment that " \
@@ -290,6 +290,6 @@ class JobInstanceSGEInfo(JobInstanceExecutorInfo):
                   f"to use. {self.__class__.__name__} accounting discovered " \
                   f"exit code: {exit_code}"
             # TODO change this to a fatal error so they can't attempt a retry
-            return JobInstanceStatus.UNKNOWN_ERROR, msg
+            return TaskInstanceStatus.UNKNOWN_ERROR, msg
         else:
-            return JobInstanceStatus.ERROR, error_msg
+            return TaskInstanceStatus.ERROR, error_msg
