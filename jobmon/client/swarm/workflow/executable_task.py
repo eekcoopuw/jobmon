@@ -5,7 +5,7 @@ from typing import Optional, List, Callable, Union
 
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.client_logging import ClientLogging as logging
-from jobmon.client.swarm.job_management.swarm_task import SwarmTask
+from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import job_attribute
 
@@ -82,18 +82,8 @@ class ExecutableTask(object):
                 iff they have the same command
             upstream_tasks: Task objects that must be run prior to this
             name: name that will be visible in qstat for this job
-            num_cores: number of cores to request on the cluster
-            m_mem_free: amount of memory in gbs, tbs, or mbs, G, T, or M,
-                to request on the fair cluster.
             max_attempts: number of attempts to allow the cluster to try
                 before giving up. Default is 3
-            max_runtime_seconds: how long the job should be allowed to run
-                before the executor kills it. Default is None, for indefinite.
-            tag: a group identifier. Currently just used for visualization.
-                All tasks with the same tag will be colored the same in a
-                TaskDagViz instance. Default is None.
-            queue: queue of cluster nodes to submit this task to. Must be
-                a valid queue, as defined by "qconf -sql"
             job_attributes: any attributes that will be
                 tracked. Once the task becomes a job and receives a job_id,
                 these attributes will be used for the job_factory
@@ -173,7 +163,7 @@ class ExecutableTask(object):
         # avoid endless recursion, set directly
         descendent.upstream_tasks.add(self)
 
-    def add_job_attribute(self, attribute_type, value):
+    def add_task_attribute(self, attribute_type: int, value):
         """
         Add an attribute and value (key, value pair) to track in the task,
         throw an error if the attribute or value isn't the right type or

@@ -988,37 +988,37 @@ def queue_task(task_id):
     return resp
 
 
-# @jsm.route('/job/<job_id>/update_job', methods=['POST'])
-# def update_job(job_id):
-#     """
-#     Change the non-dag forming job parameters before resuming
-#     Args:
-#         job_id (int): id of the job for which parameters are updated
-#         tag (str): a group identifier
-#         max_attempts (int): maximum numver of attempts before sending the job
-#             to the ERROR FATAL state
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_id", job_id))
+@jsm.route('/task/<task_id>/update_task', methods=['POST'])
+def update_task(task_id):
+    """
+    Change the non-dag forming task parameters before resuming
+    Args:
+        task_id (int): id of the task for which parameters are updated
+        tag (str): a group identifier
+        max_attempts (int): maximum numver of attempts before sending the task
+            to the ERROR FATAL state
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_id", task_id))
 
-#     data = request.get_json()
-#     tag = data.get('tag', None)
-#     max_attempts = data.get('max_attempts', 3)
+    data = request.get_json()
+    tag = data.get('tag', None)
+    max_attempts = data.get('max_attempts', 3)
 
-#     update_job = """
-#                  UPDATE job
-#                  SET tag=:tag, max_attempts=:max_attempts
-#                  WHERE job_id=:job_id
-#                  """
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     DB.session.execute(update_job,
-#                        {"tag": tag,
-#                         "max_attempts": max_attempts,
-#                         "job_id": job_id})
-#     DB.session.commit()
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    update_job = """
+                 UPDATE task
+                 SET tag=:tag, max_attempts=:max_attempts
+                 WHERE id=:task_id
+                 """
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    DB.session.execute(update_job,
+                       {"tag": tag,
+                        "max_attempts": max_attempts,
+                        "task_id": task_id})
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jsm.route('/task/<task_id>/update_resources', methods=['POST'])
@@ -1237,18 +1237,20 @@ def _update_task_instance(task_instance, **kwargs):
     logger.debug("Update TI  {}".format(task_instance))
     status_requested = kwargs.get('status', None)
     logger.debug(logging.logParameter("status_requested", status_requested))
+    msg = ""
     if status_requested is not None:
-        logger.debug(f"status_requested:{status_requested}; "
-                     f"task_instance.status:{task_instance.status}")
+        msg = f"status_requested:{status_requested}; task_instance.status: " \
+            f"{task_instance.status}"
+        logger.debug(msg)
         if status_requested == task_instance.status:
             kwargs.pop(status_requested)
-            logger.debug("Caught InvalidStateTransition. Not transitioning "
-                         "task_instance {} from {} to {}."
-                         .format(task_instance.task_instance_id,
-                                 task_instance.status, status_requested))
+            msg = f"Caught InvalidStateTransition. Not transitioning " \
+                  f"task_instance {task_instance.id}, from " \
+                  f"{task_instance.status} to {status_requested}"
+            logger.debug(msg)
     for k, v in kwargs.items():
         setattr(task_instance, k, v)
-    return
+    return msg
 
 
 # @jsm.route('/workflow_attribute', methods=['POST'])

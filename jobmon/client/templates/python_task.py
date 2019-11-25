@@ -47,9 +47,6 @@ class PythonTask(Task):
                 before giving up. Default is 3
             max_runtime_seconds: how long the job should be allowed to run
                 before the executor kills it. Default is None, for indefinite.
-            tag: a group identifier. Currently just used for visualization.
-                All tasks with the same tag will be colored the same in a
-                TaskDagViz instance. Default is None.
             queue: queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
             task_attributes: any attributes that will be

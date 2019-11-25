@@ -16,8 +16,8 @@ from jobmon.client.requester import Requester
 from jobmon.client.swarm.job_management.task_instance_state_controller import \
     TaskInstanceStateController
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
-from jobmon.client.swarm.workflow.bound_task import BoundTask
-from jobmon.client.swarm.workflow.workflow_run import WorkflowRun, WorkflowRunExecutionStatus
+from jobmon.client.swarm.swarm_task import SwarmTask
+from jobmon.client.swarm.workflow_run import WorkflowRun, WorkflowRunExecutionStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.workflow import Workflow as WorkflowDAO
@@ -126,7 +126,7 @@ class Workflow(object):
         self.reset_running_jobs = reset_running_jobs
 
         self.tasks = OrderedDict()  # hash to task object mapping
-        self.bound_tasks: Dict[int, BoundTask] = {}  # hash to bound task object mapping
+        self.bound_tasks: Dict[int, SwarmTask] = {}  # hash to bound task object mapping
         self.fail_fast = fail_fast
         self.seconds_until_timeout = seconds_until_timeout
 
@@ -299,7 +299,11 @@ class Workflow(object):
             bound_task.update_task(task.max_attempts)
         else:
             swarm_task = task.create_bound_task(dag_id, self.requester)
-            bound_task = BoundTask(client_task=task, bound_task=swarm_task,
+            bound_task = SwarmTask(task_id=swarm_task.task_id,
+                                   status=swarm_task.status,
+                                   executor_parameters=task.executor_parameters,
+                                   task_args_hash=task.hash,
+                                   max_attempts=task.max_attempts,
                                    requester=self.requester)
             # using sets so that a bound task will only be added if it is not
             # already there
