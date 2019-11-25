@@ -98,10 +98,11 @@ def get_tool_versions(tool_id):
     return resp
 
 
-@jqs.route('/task_template/<task_template_name>', methods=['GET'])
-def get_task_template(task_template_name: str):
+@jqs.route('/task_template', methods=['GET'])
+def get_task_template():
     logger.info(logging.myself())
     tool_version_id = request.args.get("tool_version_id")
+    name = request.args.get("task_template_name")
     logger.debug(tool_version_id)
 
     query = """
@@ -114,7 +115,7 @@ def get_task_template(task_template_name: str):
     """
     tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
         tool_version_id=tool_version_id,
-        name=task_template_name).one_or_none()
+        name=name).one_or_none()
     if tt is not None:
         task_template_id = tt.id
     else:
@@ -214,7 +215,7 @@ def get_dag_id():
     return resp
 
 
-@jqs.route('/node', methods=['GET'])
+@jqs.route('/task', methods=['GET'])
 def get_task_id():
     logger.info(logging.myself())
     data = request.args

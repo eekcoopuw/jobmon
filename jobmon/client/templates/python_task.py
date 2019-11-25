@@ -1,29 +1,26 @@
+import sys
 from typing import Optional, List, Dict, Callable, Union
 
-from jobmon.client.workflow.task import Task
-from jobmon.client.workflow.tool import Tool
+from jobmon.client.internals.task import Task
+from jobmon.client.internals.tool import Tool
 from jobmon.client.swarm.executors.base import ExecutorParameters
 
 
-class BashTask(Task):
+class PythonTask(Task):
 
-    _tool = Tool("unknown")
-    _task_template = _tool.get_task_template(
-        template_name="bash_template",
-        command_template="{env_variables} {command}",
-        node_args=["env_variables", "command"],
-        task_args=[],
-        op_args=[])
+    _python_task_template_registry: dict = {}
+    current_python = sys.executable
 
-    def __init__(self,
-                 command: str,
+    def __init__(self, path_to_python_binary=current_python, script=None,
+                 args=None,
                  upstream_tasks: List[Task] = [],
                  env_variables: Optional[Dict[str, str]] = None,
                  name: Optional[str] = None,
                  num_cores: Optional[int] = None,
                  max_runtime_seconds: Optional[int] = None,
-                 queue: Optional[str] = None, max_attempts: Optional[int] = 3,
-                 j_resource: bool = False, tag: Optional[str] = None,
+                 queue: Optional[str] = None,
+                 max_attempts: Optional[int] = 3,
+                 j_resource: bool = False,
                  context_args: Optional[dict] = None,
                  resource_scales: Dict = None,
                  task_attributes: Optional[dict] = None,
@@ -75,6 +72,26 @@ class BashTask(Task):
                 paremeters class
             """
 
+        # script cannot be None at this point
+        if script is None:
+            raise ValueError("script cannot be None")
+
+        try:
+            task_template = self._python_task_template_registry[script]
+        except KeyError:
+            tool = Tool("unknown")
+            task_template = tool.get_task_template(
+                template_name=script,
+                command_template=(
+                    "{env_variables} "
+                    "{path_to_python_binary} "
+                    f"{script} "
+                    "{command_line_args}"),
+                node_args=["env_variables", "command_line_args"],
+                task_args=[],
+                op_args=["path_to_python_binary"])
+            self._add_task_template_to_registry(script, task_template)
+
         # construct deprecated API for executor_parameters
         if executor_parameters is None:
             executor_parameters = ExecutorParameters(
@@ -97,19 +114,24 @@ class BashTask(Task):
             env_str = ""
         node_arg_vals["env_variables"] = env_str
 
-        # build command
-        node_arg_vals["command"] = command
-        command = self._task_template.command_template.format(
-            env_variables=env_str, command=command)
+        if args is not None:
+            command_line_args = ' '.join([str(x) for x in args])
+        else:
+            command_line_args = ""
+        node_arg_vals["command_line_args"] = command_line_args
+
+        command = task_template.command_template.format(
+            env_variables=env_str, path_to_python_binary=path_to_python_binary,
+            command_line_args=command_line_args)
+        command = command.strip()
 
         # arg id name mappings
-        node_args = {self._task_template.arg_id_name_map[k]: v
+        node_args = {task_template.arg_id_name_map[k]: v
                      for k, v in node_arg_vals.items()}
 
         super().__init__(
             command=command,
-            task_template_version_id=(
-                self._task_template.task_template_version_id),
+            task_template_version_id=task_template.task_template_version_id,
             node_args=node_args,
             task_args={},
             executor_parameters=executor_parameters,
@@ -117,3 +139,7 @@ class BashTask(Task):
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
             task_attributes=task_attributes)
+
+    @classmethod
+    def _add_task_template_to_registry(cls, script, task_template):
+        cls._python_task_template_registry[script] = task_template

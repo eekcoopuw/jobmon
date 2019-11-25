@@ -1,15 +1,10 @@
 import requests
 from tenacity import retry, wait_exponential, retry_if_result, stop_after_delay
-from jobmon.client.client_logging import ClientLogging as logging
 
-
-logger = logging.getLogger(__name__)
-logging.attach_log_handler("JOBMON_NODE")
 
 def is_5XX(result):
     '''
     return True if get_content result has 5XX status '''
-    logger.debug("is_5XX")
     status = result[0]
     is_bad = status > 499 and status < 600
     return is_bad
@@ -19,7 +14,6 @@ def raise_if_exceed_retry(retry_state):
     '''
     if we trigger retry error, raise informative RuntimeError
     '''
-    logger.info("exceed retry")
     status, content = retry_state.outcome.result()
     raise RuntimeError(
         f'Exceeded HTTP request retry budget. '
@@ -35,9 +29,10 @@ class Requester(object):
 
     """
 
-    def __init__(self, url):
+    def __init__(self, url, logger):
         """set class defaults. attempt to connect with server."""
         self.url = url
+        self.logger = logger
 
     @retry(
         wait=wait_exponential(max=10),
@@ -95,24 +90,26 @@ class Requester(object):
         else:
             r = requests.put(route, json=message,
                              headers={'Content-Type': 'application/json'})
-        status_code, content = get_content(r)
+        status_code, content = self.get_content(r)
         if content:
             if verbose is True:
-                logger.debug(f"Received: {content}")
+                self.logger.debug(f"Received: {content}")
         return status_code, content
 
     def build_full_url(self, app_route):
-        logger.info(self.url + app_route)
+        self.logger.info(self.url + app_route)
         return self.url + app_route
 
-
-def get_content(response):
-    if 'application/json' in response.headers.get('Content-Type'):
-        try:
-            content = response.json()
-        except TypeError:  # for test_client, response.json is a dict not fn
-            content = response.json
-    else:
-        content = response.content
-    logger.debug("response status: {s}; content: {c}".format(s=response.status_code, c=response.status_code))
-    return response.status_code, content
+    def get_content(self, response):
+        if 'application/json' in response.headers.get('Content-Type'):
+            try:
+                content = response.json()
+            # for test_client, response.json is a dict not fn
+            except TypeError:
+                content = response.json
+        else:
+            content = response.content
+        self.logger.debug(
+            f"response status: {response.status_code}; "
+            f"content: {response.status_code}")
+        return response.status_code, content
