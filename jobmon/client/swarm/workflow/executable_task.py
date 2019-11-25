@@ -5,7 +5,7 @@ from typing import Optional, List, Callable, Union
 
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.client_logging import ClientLogging as logging
-from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.client.swarm.job_management.swarm_task import SwarmTask
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import job_attribute
 
@@ -250,4 +250,4 @@ class ExecutableTask(object):
         if rc != StatusCodes.OK:
             raise InvalidResponse(f"{rc}: Could not create_bound_task {self.name}")
 
-        return SwarmJob.from_wire(response['job_dct'])
+        return SwarmTask.from_wire(response['job_dct'])

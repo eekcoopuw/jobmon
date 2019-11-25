@@ -9,19 +9,19 @@ import socket
 import time
 
 from jobmon.client import shared_requester
-from jobmon.client.swarm.job_management.executor_job_instance import \
-    ExecutorJobInstance
-from jobmon.client.swarm.job_management.job_instance_state_controller import \
-    JobInstanceStateController
+from jobmon.client.swarm.job_management.executor_task_instance import \
+    ExecutorTaskInstance
+from jobmon.client.swarm.job_management.task_instance_state_controller import \
+    TaskInstanceStateController
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.executors.sge_utils import get_project_limits
-from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.client.swarm.job_management.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow.bound_task import BoundTask
 from jobmon.client.utils import kill_remote_process
 from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
-from jobmon.models.job_status import JobStatus
+from jobmon.models.task_status import TaskStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.client_logging import ClientLogging as logging
 
@@ -67,7 +67,7 @@ class WorkflowRun(object):
         self.working_dir = working_dir
 
         # parameters for execution and state tracking
-        self.bound_tasks = bound_tasks
+        self.bound_tasks = bound_tasks  # task hash to BoundTask obj mapping
         self.fail_fast = fail_fast
         self.fail_after_n_executions = None
         self.last_sync = None
@@ -93,24 +93,14 @@ class WorkflowRun(object):
         if rc != StatusCodes.OK:
             raise ValueError(f"Invalid Response to add_workflow_run: {rc}")
         self.id = wfr_id
-        if self.executor_class == "SGEExecutor":
-            self.add_project_limit_attribute('start')
 
     @property
-    def active_jobs(self):
+    def active_tasks(self):
         """List of tasks that are listed as Registered, Done or Error_Fatal"""
-        return [task for job_id, task in self.bound_tasks.items()
-                if task.status not in [JobStatus.REGISTERED,
-                                       JobStatus.DONE,
-                                       JobStatus.ERROR_FATAL]]
-
-    def add_project_limit_attribute(self, timing):
-        if timing == 'start':
-            atype = workflow_run_attribute.SLOT_LIMIT_AT_START
-        else:
-            atype = workflow_run_attribute.SLOT_LIMIT_AT_END
-        limits = get_project_limits(self.project)
-        self.add_workflow_run_attribute(attribute_type=atype, value=limits)
+        return [task for hash, task in self.bound_tasks.items()
+                if task.status not in [TaskStatus.REGISTERED,
+                                       TaskStatus.DONE,
+                                       TaskStatus.ERROR_FATAL]]
 
     def check_if_workflow_is_running(self):
         """Query the JQS to see if the workflow is currently running"""
@@ -171,18 +161,18 @@ class WorkflowRun(object):
                 else:
                     raise ValueError("{} is not supported by this version of "
                                      "jobmon".format(wf_run['executor_class']))
-                # get job instances of workflow run
+                # get task instances of workflow run
                 _, response = self.requester.send_request(
-                    app_route=f'/workflow_run/{workflow_run_id}/job_instance',
+                    app_route=f'/workflow_run/{workflow_run_id}/task_instance',
                     message={},
                     request_type='get')
-                job_instances = [ExecutorJobInstance.from_wire(
-                    ji, executor=previous_executor)
-                    for ji in response['job_instances']]
-                jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
-                                    for ji in job_instances]
-                if job_instances:
-                    previous_executor.terminate_job_instances(jiid_exid_tuples)
+                task_instances = [ExecutorTaskInstance.from_wire(
+                    ti, executor=previous_executor)
+                    for ti in response['task_instances']]
+                tiid_exid_tuples = [(ti.task_instance_id, ti.executor_id)
+                                    for ti in task_instances]
+                if task_instances:
+                    previous_executor.terminate_task_instances(tiid_exid_tuples)
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
                 message={'workflow_run_id': workflow_run_id,
@@ -191,20 +181,14 @@ class WorkflowRun(object):
 
     def update_done(self):
         """Update the status of the workflow_run as done"""
-        if self.executor_class == "SGEExecutor":
-            self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.DONE)
 
     def update_error(self):
         """Update the status of the workflow_run as errored"""
-        if self.executor_class == "SGEExecutor":
-            self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.ERROR)
 
     def update_stopped(self):
         """Update the status of the workflow_run as stopped"""
-        if self.executor_class == "SGEExecutor":
-            self.add_project_limit_attribute('end')
         self._update_status(WorkflowRunStatus.STOPPED)
 
     def _update_status(self, status):
@@ -303,7 +287,7 @@ class WorkflowRun(object):
         :return:
             A triple: True, len(all_completed_tasks), len(all_failed_tasks)
         """
-        self.log_dag_running()
+        self.log_workflow_running()
         previously_completed = copy.copy(self.all_done)
         self._set_top_fringe()
 
@@ -317,7 +301,7 @@ class WorkflowRun(object):
 
         # These are all Tasks.
         # While there is something ready to be run, or something is running
-        while fringe or self.active_jobs:
+        while fringe or self.active_tasks:
             # Everything in the fringe should be run or skipped,
             # they either have no upstreams, or all upstreams are marked DONE
             # in this execution
@@ -341,7 +325,7 @@ class WorkflowRun(object):
             completed_tasks, failed_tasks = self._block_until_any_done_or_error(
                 timeout=self.seconds_until_timeout)
             for task in completed_tasks:
-                n_executions +=1
+                n_executions += 1
             if failed_tasks and self.fail_fast is True:
                 break  # fail out early
             logger.debug(f"Return from blocking call, completed: "
@@ -383,45 +367,45 @@ class WorkflowRun(object):
             return (WorkflowRunExecutionStatus.SUCCEEDED, num_new_completed,
                     len(previously_completed), len(all_failed))
 
-
     def _set_top_fringe(self):
         self.top_fringe = []
         for task in self.bound_tasks.values():
             unfinished_upstreams = [u for u in task.upstream_tasks
-                                    if u.status != JobStatus.DONE]
+                                    if u.status != TaskStatus.DONE]
             if not unfinished_upstreams and \
-                    task.status == JobStatus.REGISTERED:
+                    task.status == TaskStatus.REGISTERED:
                 self.top_fringe += [task]
         return self.top_fringe
 
-    def log_dag_running(self) -> None:
+    def log_workflow_running(self) -> None:
         rc, _ = self.requester.send_request(
-            app_route=f'/task_dag/{self.dag_id}/log_running',
+            app_route=f'/workflow/{self.workflow_id}/log_running',
             message={},
             request_type='post')
         return rc
 
     def _clean_up_after_run(self) -> None:
         """
-            Make sure all the threads are stopped. The JLM is created in bind_db
+            Make sure all the threads are stopped. The JLM is created in
+            bind_db
         """
         self.job_instance_state_controller.disconnect()
 
     def _adjust_resources_and_queue(self, bound_task: BoundTask):
-        job_id = bound_task.job_id
+        task_id = bound_task.task_id
         # Create original and validated entries if no params are bound yet
         if not bound_task.bound_parameters:
-            self._bind_parameters(job_id, ExecutorParameterSetType.ORIGINAL,
+            self._bind_parameters(task_id, ExecutorParameterSetType.ORIGINAL,
                                   bound_task=bound_task)
-            self._bind_parameters(job_id, ExecutorParameterSetType.VALIDATED,
+            self._bind_parameters(task_id, ExecutorParameterSetType.VALIDATED,
                                   bound_task=bound_task)
         else:
-            self._bind_parameters(job_id, ExecutorParameterSetType.ADJUSTED,
+            self._bind_parameters(task_id, ExecutorParameterSetType.ADJUSTED,
                                   bound_task=bound_task)
-        logger.debug(f"Queueing job id: {job_id}")
-        bound_task.queue_job()
+        logger.debug(f"Queueing task id: {task_id}")
+        bound_task.queue_task()
 
-    def _bind_parameters(self, job_id: int,
+    def _bind_parameters(self, task_id: int,
                          executor_parameter_set_type: ExecutorParameterSetType,
                          **kwargs):
         bound_task = kwargs.get("bound_task")
@@ -436,11 +420,11 @@ class WorkflowRun(object):
 
         if executor_parameter_set_type == ExecutorParameterSetType.VALIDATED:
             resources.validate()
-        self._add_parameters(job_id, resources, executor_parameter_set_type)
+        self._add_parameters(task_id, resources, executor_parameter_set_type)
 
-    def _add_parameters(self, job_id: int,
+    def _add_parameters(self, task_id: int,
                         executor_parameters: ExecutorParameters,
-                        parameter_set_type:ExecutorParameterSetType =
+                        parameter_set_type: ExecutorParameterSetType =
                         ExecutorParameterSetType.VALIDATED):
         """Add an entry for the validated parameters to the database and
            activate them"""
@@ -448,12 +432,12 @@ class WorkflowRun(object):
         msg.update(executor_parameters.to_wire())
 
         self.requester.send_request(
-            app_route=f'/job/{job_id}/update_resources',
+            app_route=f'/job/{task_id}/update_resources',
             message=msg,
             request_type='post')
 
     def _block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
-        """Block code execution until a job is done or errored"""
+        """Block code execution until a task is done or errored"""
         time_since_last_update = 0
         while True:
             if time_since_last_update > timeout:
@@ -462,8 +446,8 @@ class WorkflowRun(object):
                                    f"seconds). Submitted tasks will still run,"
                                    f" but the workflow will need to be "
                                    f"restarted.")
-            jobs = self._get_task_statuses()
-            completed, failed, adjusting = self._parse_adjusting_done_and_errors(jobs)
+            tasks = self._get_task_statuses()
+            completed, failed, adjusting = self._parse_adjusting_done_and_errors(tasks)
             if adjusting:
                 for task in adjusting:
                     # change callable to adjustment function
@@ -483,24 +467,24 @@ class WorkflowRun(object):
         """Query the database for the status of all jobs"""
         if self.last_sync:
             rc, response = self.requester.send_request(
-                app_route=f'/dag/{self.dag_id}/job_status',
+                app_route=f'/workflow/{self.workflow_id}/task_status',
                 message={'last_sync': str(self.last_sync)},
                 request_type='get'
             )
         else:
             rc, response = self.requester.send_request(
-                app_route=f'/dag/{self.dag_id}/job_status',
+                app_route=f'/workflow/{self.workflow_id}/task_status',
                 message={},
                 request_type='get')
-        logger.debug(f"Workflow run: get_job_statuses(): rc is {rc} and "
+        logger.debug(f"Workflow run: get_task_statuses(): rc is {rc} and "
                      f"response is {response}")
         utcnow = response['time']
         self.last_sync = utcnow
 
-        tasks = [SwarmJob.from_wire(task) for task in response['job_dcts']]
+        tasks = [SwarmTask.from_wire(task) for task in response['task_dcts']]
         for task in tasks:
-            if task.job_hash in self.bound_tasks.keys():
-                self.bound_tasks[task.job_hash].status = task.status
+            if task.task_args_hash in self.bound_tasks.keys():
+                self.bound_tasks[task.task_args_hash].status = task.status
             else:
                 # This should really only happen the first time
                 # _sync() is called when resuming a WF/DAG. This
@@ -512,10 +496,9 @@ class WorkflowRun(object):
                 # be subject to removal altogether if it can be
                 # determined that there is a better way to determine
                 # previous state in resume cases
-                self.bound_tasks[task.job_hash] = BoundTask(client_task=None,
-                                                            bound_task=task)
+                self.bound_tasks[task.task_args_hash] = \
+                    BoundTask(client_task=None, bound_task=task)
         return tasks
-
 
     def _parse_adjusting_done_and_errors(self, tasks):
         """Separate out the done jobs from the errored ones
@@ -527,17 +510,18 @@ class WorkflowRun(object):
         adjusting_tasks = set()
         for task in tasks:
             bound_task = self.bound_tasks[task.job_hash]
-            if bound_task.status == JobStatus.DONE and bound_task not in \
+            if bound_task.status == TaskStatus.DONE and bound_task not in \
                     self.all_done:
                 completed_tasks.add(bound_task)
-            elif (bound_task.status == JobStatus.ERROR_FATAL and bound_task
+            elif (bound_task.status == TaskStatus.ERROR_FATAL and bound_task
                   not in self.all_error and bound_task.is_bound):
                 # if the task is not yet bound, then we must be resuming the
                 # workflow. In that case, we do not want to account for this
                 # task in our current list of failures as it will be reset
                 # and retried... i.e. move on to the else: continue
                 failed_tasks.add(bound_task)
-            elif bound_task.status == JobStatus.ADJUSTING_RESOURCES and bound_task.is_bound:
+            elif bound_task.status == TaskStatus.ADJUSTING_RESOURCES and \
+                    bound_task.is_bound:
                 adjusting_tasks.add(bound_task)
             else:
                 continue
@@ -556,7 +540,7 @@ class WorkflowRun(object):
         exec_param_set = task.bound_parameters[-1]
         only_scale = list(exec_param_set.resource_scales.keys())
         rc, msg = self.requester.send_request(
-            app_route=f'/job/{task.job_id}/most_recent_ji_error',
+            app_route=f'/task/{task.task_id}/most_recent_ti_error',
             message={},
             request_type='get')
         if 'exceed_max_runtime' in msg and 'max_runtime_seconds' in only_scale:
@@ -579,9 +563,9 @@ class WorkflowRun(object):
         logger.debug(f"Propagate {task}")
         for downstream in task.downstream_tasks:
             logger.debug(f"downstream {downstream}")
-            downstream_done = (downstream.status == JobStatus.DONE)
+            downstream_done = (downstream.status == TaskStatus.DONE)
             if (not downstream_done and
-                    downstream.status == JobStatus.REGISTERED):
+                    downstream.status == TaskStatus.REGISTERED):
                 if downstream.all_upstreams_done:
                     logger.debug(" and add to fringe")
                     new_fringe += [downstream] # make sure there's no dups

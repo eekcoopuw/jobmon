@@ -200,7 +200,7 @@ class TaskTemplate:
             name=name,
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
-            job_attributes=job_attributes)
+            task_attributes=job_attributes)
         return task
 
     def _get_task_template_id(self) -> int:

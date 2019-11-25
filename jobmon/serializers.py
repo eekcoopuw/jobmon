@@ -2,19 +2,19 @@ from typing import Union
 import ast
 
 
-class SerializeExecutorJob:
+class SerializeExecutorTask:
 
     @staticmethod
-    def to_wire(dag_id: int, job_id: int, name: str, job_hash: int,
-                command: str, status: str, max_runtime_seconds: int,
-                context_args: str, resource_scales: str, queue: str,
-                num_cores: int, m_mem_free: str, j_resource: str,
-                last_nodename: str, last_process_group_id: int,
-                hard_limits: str) -> tuple:
-        return (dag_id, job_id, name, job_hash, command, status,
-                max_runtime_seconds, context_args, resource_scales, queue,
-                num_cores, m_mem_free, j_resource, last_nodename,
-                last_process_group_id, hard_limits)
+    def to_wire(task_id: int, workflow_id: int, node_id: int,
+                task_args_hash: int, name: str, command: str, status: str,
+                max_runtime_seconds: int, context_args: str,
+                resource_scales: str, queue: str, num_cores: int,
+                m_mem_free: str, j_resource: str, hard_limits: str,
+                last_nodename: str, last_process_group_id: int) -> tuple:
+        return (task_id, workflow_id, node_id, task_args_hash, name, command,
+                status, max_runtime_seconds, context_args, resource_scales,
+                queue, num_cores, m_mem_free, j_resource, hard_limits,
+                last_nodename, last_process_group_id)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -22,52 +22,54 @@ class SerializeExecutorJob:
         # using ast.literal_eval is a potential security issue but was the only
         # solution I could find to turning the data into json twice
         context_args = ast.literal_eval(
-            wire_tuple[7]) if wire_tuple[7] else None
-        num_cores = int(wire_tuple[10]) if wire_tuple[10] else None
-        m_mem_free = float(wire_tuple[11]) if wire_tuple[11] else None
-        last_process_group_id = int(wire_tuple[14]) if wire_tuple[14] else None
+            wire_tuple[8]) if wire_tuple[8] else None
+        num_cores = int(wire_tuple[11]) if wire_tuple[11] else None
+        m_mem_free = float(wire_tuple[12]) if wire_tuple[12] else None
+        last_process_group_id = int(wire_tuple[16]) if wire_tuple[16] else None
 
-        return {"dag_id": int(wire_tuple[0]),
-                "job_id": int(wire_tuple[1]),
-                "name": wire_tuple[2],
-                "job_hash": int(wire_tuple[3]),
-                "command": wire_tuple[4],
-                "status": wire_tuple[5],
-                "max_runtime_seconds": int(wire_tuple[6]),
+        return {"task_id": int(wire_tuple[0]),
+                "workflow_id": int(wire_tuple[1]),
+                "node_id": int(wire_tuple[2]),
+                "task_args_hash": int(wire_tuple[3]),
+                "name": wire_tuple[4],
+                "command": wire_tuple[5],
+                "status": wire_tuple[6],
+                "max_runtime_seconds": int(wire_tuple[7]),
                 "context_args": context_args,
-                "resource_scales": ast.literal_eval(wire_tuple[8]),
-                "queue": wire_tuple[9],
+                "resource_scales": ast.literal_eval(wire_tuple[9]),
+                "queue": wire_tuple[10],
                 "num_cores": num_cores,
                 "m_mem_free": m_mem_free,
-                "j_resource": wire_tuple[12],
-                "last_nodename": wire_tuple[13],
-                "last_process_group_id": last_process_group_id,
-                "hard_limits": wire_tuple[15]}
+                "j_resource": wire_tuple[13],
+                "hard_limits": wire_tuple[14],
+                "last_nodename": wire_tuple[15],
+                "last_process_group_id": last_process_group_id
+                }
 
 
-class SerializeSwarmJob:
+class SerializeSwarmTask:
 
     @staticmethod
-    def to_wire(job_id: int, job_hash: int, status: str) -> tuple:
-        return (job_id, job_hash, status)
+    def to_wire(task_id: int, task_args_hash: int, status: str) -> tuple:
+        return task_id, task_args_hash, status
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        return {"job_id": int(wire_tuple[0]),
-                "job_hash": int(wire_tuple[1]),
+        return {"task_id": int(wire_tuple[0]),
+                "task_args_hash": int(wire_tuple[1]),
                 "status": wire_tuple[2]}
 
 
-class SerializeExecutorJobInstance:
+class SerializeExecutorTaskInstance:
 
     @staticmethod
-    def to_wire(job_instance_id: int, executor_id: Union[int, None]) -> tuple:
-        return (job_instance_id, executor_id)
+    def to_wire(task_instance_id: int, executor_id: Union[int, None]) -> tuple:
+        return task_instance_id, executor_id
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         executor_id = int(wire_tuple[1]) if wire_tuple[1] else None
-        return {"job_instance_id": int(wire_tuple[0]),
+        return {"task_instance_id": int(wire_tuple[0]),
                 "executor_id": executor_id}
 
 

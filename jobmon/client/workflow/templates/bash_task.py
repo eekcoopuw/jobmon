@@ -26,7 +26,7 @@ class BashTask(Task):
                  j_resource: bool = False, tag: Optional[str] = None,
                  context_args: Optional[dict] = None,
                  resource_scales: Dict = None,
-                 job_attributes: Optional[dict] = None,
+                 task_attributes: Optional[dict] = None,
                  m_mem_free: Optional[str] = None,
                  hard_limits: Optional[bool] = False,
                  executor_class: str = 'DummyExecutor',
@@ -55,7 +55,7 @@ class BashTask(Task):
                 TaskDagViz instance. Default is None.
             queue: queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
-            job_attributes: any attributes that will be
+            task_attributes: any attributes that will be
                 tracked. Once the task becomes a job and receives a job_id,
                 these attributes will be used for the job_factory
                 add_job_attribute function
@@ -116,4 +116,4 @@ class BashTask(Task):
             name=name,
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
-            job_attributes=job_attributes)
+            task_attributes=task_attributes)

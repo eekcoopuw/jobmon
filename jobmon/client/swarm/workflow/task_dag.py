@@ -6,7 +6,7 @@ from collections import OrderedDict
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.models.job_status import JobStatus
 from jobmon.client.client_logging import ClientLogging as logging
-from jobmon.client.swarm.job_management.job_instance_state_controller import JobInstanceStateController
+from jobmon.client.swarm.job_management.task_instance_state_controller import TaskInstanceStateController
 
 
 logger = logging.getLogger(__name__)
@@ -161,141 +161,141 @@ class TaskDag(object):
                 return False
         return True
 
-    def disconnect(self):
-        if self.job_instance_state_controller:
-            self.job_instance_state_controller.disconnect()
-
-    def _execute(self):
-        """
-        Take a concrete DAG and queue all the Tasks that are not DONE.
-
-        Uses forward chaining from initial fringe, hence out-of-date is not
-        applied transitively backwards through the graph. It could also use
-        backward chaining from an identified goal node, the effect is
-        identical.
-
-        The internal data structures are lists, but might need to be changed to
-        be better at scaling.
-
-        Conceptually:
-        Mark all Tasks as not tried for this execution
-        while the fringe is not empty:
-          if the job is DONE, skip it and add its downstreams to the fringe
-          if not, queue it
-          wait for some jobs to complete
-          rinse and repeat
-
-        Returns:
-            A triple: True, len(all_completed_tasks), len(all_failed_tasks)
-        """
-        if not self.is_bound:
-            self.bind_to_db()
-        self.job_list_manager.log_dag_running()
-
-        previously_completed = copy.copy(self.job_list_manager.all_done)
-        self._set_top_fringe()
-
-        logger.debug("self.fail_after_n_executions is {}"
-                     .format(self.fail_after_n_executions))
-        fringe = copy.copy(self.top_fringe)
-
-        n_executions = 0
-
-        logger.debug("Execute DAG {}".format(self))
-        # These are all Tasks.
-        # While there is something ready to be run, or something is running
-        while fringe or self.job_list_manager.active_jobs:
-            # Everything in the fringe should be run or skipped,
-            # they either have no upstreams, or all upstreams are marked DONE
-            # in this execution
-
-            while fringe:
-                # Get the front of the queue, add to the end.
-                # That ensures breadth-first behavior, which is likely to
-                # maximize parallelism
-                task = fringe.pop(0)
-                # Start the new jobs ASAP
-                if task.is_done:
-                    raise RuntimeError("Invalid DAG. Encountered a DONE node.")
-                else:
-                    logger.debug("Instantiating resources for newly ready "
-                                 "task and changing it to the queued state {}"
-                                 .format(task))
-                    self.job_list_manager.adjust_resources_and_queue(task)
-
-            # TBD timeout?
-            # An exception is raised if the runtime exceeds the timeout limit
-            completed_tasks, failed_tasks = (
-                self.job_list_manager.block_until_any_done_or_error(
-                    timeout=self.seconds_until_timeout))
-            for task in completed_tasks:
-                n_executions += 1
-            if failed_tasks and self.fail_fast is True:
-                break  # fail out early
-            logger.debug(
-                "Return from blocking call, completed: {}, failed: {}".format(
-                    [t.job_id for t in completed_tasks],
-                    [t.job_id for t in failed_tasks]))
-
-            for task in completed_tasks:
-                task_to_add = self.propagate_results(task)
-                fringe = list(set(fringe + task_to_add))
-            if (self.fail_after_n_executions is not None and
-                    n_executions >= self.fail_after_n_executions):
-                self.job_instance_state_controller.disconnect()
-                raise ValueError("Dag asked to fail after {} executions. "
-                                 "Failing now".format(n_executions))
-
-        # END while fringe or all_running
-
-        # To be a dynamic-DAG  tool, we must be prepared for the DAG to have
-        # changed. In general we would recompute forward from the the fringe.
-        # Not efficient, but correct. A more efficient algorithm would be to
-        # check the nodes that were added to see if they should be in the
-        # fringe, or if they have potentially affected the status of Tasks that
-        # were done (error case - disallowed??)
-
-        all_completed = self.job_list_manager.all_done
-        num_new_completed = len(all_completed) - len(previously_completed)
-        all_failed = self.job_list_manager.all_error
-        if all_failed:
-            if self.fail_fast:
-                logger.info("Failing after first failure, as requested")
-            logger.info("DAG execute finished, failed {}".format(all_failed))
-            self.job_instance_state_controller.disconnect()
-            return (DagExecutionStatus.FAILED, num_new_completed,
-                    len(previously_completed), len(all_failed))
-        else:
-            logger.info("DAG execute finished successfully, {} jobs"
-                        .format(num_new_completed))
-            self.job_instance_state_controller.disconnect()
-            return (DagExecutionStatus.SUCCEEDED, num_new_completed,
-                    len(previously_completed), len(all_failed))
-
-    def _execute_interruptible(self):
-        keep_running = True
-        while keep_running:
-            try:
-                return self._execute()
-            except KeyboardInterrupt:
-                confirm = input("Are you sure you want to exit (y/n): ")
-                confirm = confirm.lower().strip()
-                if confirm == "y":
-                    keep_running = False
-                    self.disconnect()
-                    return (DagExecutionStatus.STOPPED_BY_USER,
-                            len(self.job_list_manager.all_done), None, None)
-                else:
-                    print("Continuing jobmon execution...")
-            finally:
-                # In a finally block so clean up always occurs
-                self._clean_up_after_run()
-
-    def _clean_up_after_run(self) -> None:
-        """
-        Make sure all the threads are stopped. The JLM is created in bind_db
-        """
-        self.job_instance_state_controller.disconnect()
+    # def disconnect(self):
+    #     if self.job_instance_state_controller:
+    #         self.job_instance_state_controller.disconnect()
+    #
+    # def _execute(self):
+    #     """
+    #     Take a concrete DAG and queue all the Tasks that are not DONE.
+    #
+    #     Uses forward chaining from initial fringe, hence out-of-date is not
+    #     applied transitively backwards through the graph. It could also use
+    #     backward chaining from an identified goal node, the effect is
+    #     identical.
+    #
+    #     The internal data structures are lists, but might need to be changed to
+    #     be better at scaling.
+    #
+    #     Conceptually:
+    #     Mark all Tasks as not tried for this execution
+    #     while the fringe is not empty:
+    #       if the job is DONE, skip it and add its downstreams to the fringe
+    #       if not, queue it
+    #       wait for some jobs to complete
+    #       rinse and repeat
+    #
+    #     Returns:
+    #         A triple: True, len(all_completed_tasks), len(all_failed_tasks)
+    #     """
+    #     if not self.is_bound:
+    #         self.bind_to_db()
+    #     self.job_list_manager.log_workflow_running()
+    #
+    #     previously_completed = copy.copy(self.job_list_manager.all_done)
+    #     self._set_top_fringe()
+    #
+    #     logger.debug("self.fail_after_n_executions is {}"
+    #                  .format(self.fail_after_n_executions))
+    #     fringe = copy.copy(self.top_fringe)
+    #
+    #     n_executions = 0
+    #
+    #     logger.debug("Execute DAG {}".format(self))
+    #     # These are all Tasks.
+    #     # While there is something ready to be run, or something is running
+    #     while fringe or self.job_list_manager.active_tasks:
+    #         # Everything in the fringe should be run or skipped,
+    #         # they either have no upstreams, or all upstreams are marked DONE
+    #         # in this execution
+    #
+    #         while fringe:
+    #             # Get the front of the queue, add to the end.
+    #             # That ensures breadth-first behavior, which is likely to
+    #             # maximize parallelism
+    #             task = fringe.pop(0)
+    #             # Start the new jobs ASAP
+    #             if task.is_done:
+    #                 raise RuntimeError("Invalid DAG. Encountered a DONE node.")
+    #             else:
+    #                 logger.debug("Instantiating resources for newly ready "
+    #                              "task and changing it to the queued state {}"
+    #                              .format(task))
+    #                 self.job_list_manager.adjust_resources_and_queue(task)
+    #
+    #         # TBD timeout?
+    #         # An exception is raised if the runtime exceeds the timeout limit
+    #         completed_tasks, failed_tasks = (
+    #             self.job_list_manager.block_until_any_done_or_error(
+    #                 timeout=self.seconds_until_timeout))
+    #         for task in completed_tasks:
+    #             n_executions += 1
+    #         if failed_tasks and self.fail_fast is True:
+    #             break  # fail out early
+    #         logger.debug(
+    #             "Return from blocking call, completed: {}, failed: {}".format(
+    #                 [t.job_id for t in completed_tasks],
+    #                 [t.job_id for t in failed_tasks]))
+    #
+    #         for task in completed_tasks:
+    #             task_to_add = self.propagate_results(task)
+    #             fringe = list(set(fringe + task_to_add))
+    #         if (self.fail_after_n_executions is not None and
+    #                 n_executions >= self.fail_after_n_executions):
+    #             self.job_instance_state_controller.disconnect()
+    #             raise ValueError("Dag asked to fail after {} executions. "
+    #                              "Failing now".format(n_executions))
+    #
+    #     # END while fringe or all_running
+    #
+    #     # To be a dynamic-DAG  tool, we must be prepared for the DAG to have
+    #     # changed. In general we would recompute forward from the the fringe.
+    #     # Not efficient, but correct. A more efficient algorithm would be to
+    #     # check the nodes that were added to see if they should be in the
+    #     # fringe, or if they have potentially affected the status of Tasks that
+    #     # were done (error case - disallowed??)
+    #
+    #     all_completed = self.job_list_manager.all_done
+    #     num_new_completed = len(all_completed) - len(previously_completed)
+    #     all_failed = self.job_list_manager.all_error
+    #     if all_failed:
+    #         if self.fail_fast:
+    #             logger.info("Failing after first failure, as requested")
+    #         logger.info("DAG execute finished, failed {}".format(all_failed))
+    #         self.job_instance_state_controller.disconnect()
+    #         return (DagExecutionStatus.FAILED, num_new_completed,
+    #                 len(previously_completed), len(all_failed))
+    #     else:
+    #         logger.info("DAG execute finished successfully, {} jobs"
+    #                     .format(num_new_completed))
+    #         self.job_instance_state_controller.disconnect()
+    #         return (DagExecutionStatus.SUCCEEDED, num_new_completed,
+    #                 len(previously_completed), len(all_failed))
+    #
+    # def _execute_interruptible(self):
+    #     keep_running = True
+    #     while keep_running:
+    #         try:
+    #             return self._execute()
+    #         except KeyboardInterrupt:
+    #             confirm = input("Are you sure you want to exit (y/n): ")
+    #             confirm = confirm.lower().strip()
+    #             if confirm == "y":
+    #                 keep_running = False
+    #                 self.disconnect()
+    #                 return (DagExecutionStatus.STOPPED_BY_USER,
+    #                         len(self.job_list_manager.all_done), None, None)
+    #             else:
+    #                 print("Continuing jobmon execution...")
+    #         finally:
+    #             # In a finally block so clean up always occurs
+    #             self._clean_up_after_run()
+    #
+    # def _clean_up_after_run(self) -> None:
+    #     """
+    #     Make sure all the threads are stopped. The JLM is created in bind_db
+    #     """
+    #     self.job_instance_state_controller.disconnect()
 
     # def reconnect(self) -> None:
     #     if self.job_instance_state_controller:
@@ -330,15 +330,15 @@ class TaskDag(object):
     #                          .format(downstream.status))
     #     return new_fringe
 
-    def _find_task(self, task_hash):
-        """
-        Args:
-           hash:
-
-        Return:
-            The Task with that hash
-        """
-        return self.tasks[task_hash]
+    # def _find_task(self, task_hash):
+    #     """
+    #     Args:
+    #        hash:
+    #
+    #     Return:
+    #         The Task with that hash
+    #     """
+    #     return self.tasks[task_hash]
 
     # def add_task(self, task):
     #     """

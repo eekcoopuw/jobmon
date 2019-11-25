@@ -153,12 +153,12 @@ class ExecutorParameters:
 
 class Executor:
     """Base class for executors. Subclasses are required to implement an
-    execute() method that takes a JobInstance, constructs a
+    execute() method that takes a TaskInstance, constructs a
     jobmon-interpretable executable command (typically using this base class's
     build_wrapped_command()), and optionally returns an executor_id.
 
     Also optional, get_actual_submitted_or_running() and
-    terminate_job_instances() are recommended in case jobs fail in ways
+    terminate_task_instances() are recommended in case jobs fail in ways
     that they are unable to contact Jobmon re: the reasons for their failure.
     These methods will allow jobmon to identify jobs that have been lost
     and retry them.
@@ -179,14 +179,14 @@ class Executor:
         command.
 
         Optionally, return an (int) executor_id which the subclass could
-        use at a later time to identify the associated JobInstance, terminate
+        use at a later time to identify the associated TaskInstance, terminate
         it, monitor for missingness, or collect usage statistics. If the
         subclass does not intend to offer those functionalities, this method
         can return None.
 
         Args:
             command: command to be run
-            name: name of job
+            name: name of task
             executor_parameters: executor specific requested resources
 
         """
@@ -198,14 +198,14 @@ class Executor:
     def get_actual_submitted_or_running(self) -> List[int]:
         raise NotImplementedError
 
-    def terminate_job_instances(self, jiid_exid_tuples: List[Tuple[int, int]]
-                                ) -> List[Tuple[int, str]]:
-        """If implemented, return a list of (job_instance_id, hostname) tuples
-        for any job_instances that are terminated
+    def terminate_task_instances(self, tiid_exid_tuples: List[Tuple[int, int]]
+                                 ) -> List[Tuple[int, str]]:
+        """If implemented, return a list of (task_instance_id, hostname) tuples
+        for any task_instances that are terminated
         """
         raise NotImplementedError
 
-    def build_wrapped_command(self, command: str, job_instance_id: int,
+    def build_wrapped_command(self, command: str, task_instance_id: int,
                               last_nodename: Optional[str] = None,
                               last_process_group_id: Optional[int] = None
                               ) -> str:
@@ -214,8 +214,8 @@ class Executor:
         the monitor server.
         Args:
             command: command to run the desired job
-            job_instance_id: id for the given instance of this job
-            last_nodename: nodename that ran the prior instance of the job
+            task_instance_id: id for the given instance of this task
+            last_nodename: nodename that ran the prior instance of the task
             last_process_group_id: pgid to be used for qdelling
 
         Returns:
@@ -228,7 +228,7 @@ class Executor:
         wrapped_cmd = [
             jobmon_command,
             "--command", f"'{command}'",
-            "--job_instance_id", job_instance_id,
+            "--task_instance_id", task_instance_id,
             "--expected_jobmon_version", pkg_resources.get_distribution("jobmon").version,
             "--executor_class", self.__class__.__name__,
             "--heartbeat_interval", client_config.heartbeat_interval,
@@ -249,14 +249,14 @@ class Executor:
         os.environ["JOBMON_TEMP_DIR"] = self.temp_dir
 
 
-class JobInstanceExecutorInfo:
+class TaskInstanceExecutorInfo:
     """Base class defining interface for gathering executor specific info
     in the execution_wrapper.
 
     While not required, implementing get_usage_stats() will allow collection
     of CPU/memory utilization stats for each job.
 
-    Get exit info is used to determine the error type if the job hits a
+    Get exit info is used to determine the error type if the task hits a
     system error of some variety.
     """
 

@@ -49,36 +49,6 @@ def true_path(file_or_dir=None, executable=None):
     return f.strip(' \t\r\n')
 
 
-def get_project_limits(project):
-    """This function uses the qconf call from the toolbox to get project_limits
-    from the cluster.
-    See /share/local/IT/scripts/cluster_projects_report_admin.sh
-    The shell script only works on prod.
-    To get the fair cluster share for a given project send a get request to:
-    https://toolbox.ihme.washington.edu/cluster/fair/allocations
-    these shares are not enforced if the cluster is free though
-    """
-    if not project:
-        project = 'ihme_general'
-    if "el7" in os.environ["SGE_ENV"]:
-        """project limits are not enforced on the fair cluster if other
-        projects are not using the resources so global limit is assigned"""
-        return 10000
-    else:
-        call = ("""qconf -srqs | egrep -A 1 -i "TRUE" | grep -i limit | grep """ +
-                project + """| sort | sed -e "s/^.*limit//" -e "s/projects//g" -e "s/users//" -e "s/to slots//g" -e "s/ =/:/g"| tr -s " " | awk -F':' '{printf "%5d", $2}' | sort -k 2 -n -r | pr -W 95 -T -t --columns 1""")
-        project_limit = subprocess.check_output(call, shell=True)
-    try:
-        return int(project_limit)
-    except ValueError as e:
-        logger.info("Could not get project slot limits, if you are on the "
-                    "dev cluster this is fine because there are no set "
-                    "project limits. Res is {}. ValueError is {}"
-                    .format(project_limit, e))
-    # enforces a default limit since dev does not have project limits
-    return 200
-
-
 def qstat(status: str=None, pattern: str=None, user: str=None,
           jids: List[int]=None) -> Dict:
     """parse sge qstat information into a Dictionary keyed by executor_id
@@ -259,7 +229,7 @@ def qstat_usage(jids):
     """get usage details for list of jobs
 
     Args:
-        jids (list): list of jobs to get usage details for
+        jids (list): list of sge jobs to get usage details for
 
     Returns:
         Usage details.

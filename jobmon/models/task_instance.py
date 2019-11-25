@@ -6,7 +6,7 @@ from jobmon.models import DB
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.models.task_status import TaskStatus
-# from jobmon.serializers import SerializeExecutorJobInstance
+from jobmon.serializers import SerializeExecutorTaskInstance
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +16,8 @@ class TaskInstance(DB.Model):
     __tablename__ = "task_instance"
 
     def to_wire_as_executor_task_instance(self):
-        pass
+        return SerializeExecutorTaskInstance.to_wire(self.id,
+                                                     self.executor_id)
 
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_run_id = DB.Column(DB.Integer)

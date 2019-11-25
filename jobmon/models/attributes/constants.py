@@ -30,7 +30,7 @@ workflow_run_attribute = AttributeDictionary({
     'SLOT_LIMIT_AT_START': 13,
     'SLOT_LIMIT_AT_END': 14})
 
-job_attribute = AttributeDictionary({
+task_instance_attribute = AttributeDictionary({
     'NUM_LOCATIONS': 1,
     'NUM_DRAWS': 2,
     'NUM_AGE_GROUPS': 3,
@@ -47,8 +47,9 @@ job_attribute = AttributeDictionary({
     'CPU': 14,
     'IO': 15,
     'MAXRSS': 16,
-    'USAGE_STR': 17,
-    'DISPLAY_GROUP': 18
+    'MAXPSS': 17,
+    'USAGE_STR': 18,
+    'DISPLAY_GROUP': 19
 })
 
 qsub_attribute = AttributeDictionary({

@@ -62,7 +62,7 @@ class Task:
                  name: Optional[str] = None,
                  max_attempts: Optional[int] = 3,
                  upstream_tasks: List[Task] = [],
-                 job_attributes: Optional[dict] = None,
+                 task_attributes: Optional[dict] = None,
                  requester: Requester = shared_requester):
         """
         Create a task
@@ -85,7 +85,7 @@ class Task:
                 TaskDagViz instance. Default is None.
             queue: queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
-            job_attributes: any attributes that will be
+            task_attributes: any attributes that will be
                 tracked. Once the task becomes a job and receives a job_id,
                 these attributes will be used for the job_factory
                 add_job_attribute function
@@ -144,10 +144,10 @@ class Task:
             # if a callable was provided instead
             self.executor_parameters = partial(executor_parameters, self)
 
-        if job_attributes:
-            self.job_attributes = job_attributes
+        if task_attributes:
+            self.task_attributes = task_attributes
         else:
-            self.job_attributes = {}
+            self.task_attributes = {}
 
     @property
     def task_id(self) -> int:

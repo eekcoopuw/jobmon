@@ -28,7 +28,6 @@ class Workflow(DB.Model):
                        default=WorkflowStatus.CREATED)
     created_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
-    heartbeat_date = DB.Column(DB.DateTime, default=datetime.utcnow)
 
     dag = DB.relationship(
         "Dag", back_populates="workflow")
