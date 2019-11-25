@@ -4,9 +4,9 @@ from typing import Optional, List, Callable, Union
 
 from jobmon.serializers import SerializeClientTaskTemplateVersion
 from jobmon.client import shared_requester
-from jobmon.client.requester import Requester
+from jobmon.client.task import Task
+from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.executors.base import ExecutorParameters
-from jobmon.client.workflow.task import Task
 
 
 class TaskTemplateVersion:

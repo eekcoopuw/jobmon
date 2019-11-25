@@ -125,8 +125,8 @@ class Workflow(object):
 
         self.reset_running_jobs = reset_running_jobs
 
-        self.tasks = OrderedDict() # hash to task object mapping
-        self.bound_tasks: Dict[int, BoundTask] = {} # hash to bound task object mapping
+        self.tasks = OrderedDict()  # hash to task object mapping
+        self.bound_tasks: Dict[int, BoundTask] = {}  # hash to bound task object mapping
         self.fail_fast = fail_fast
         self.seconds_until_timeout = seconds_until_timeout
 

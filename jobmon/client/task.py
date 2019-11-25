@@ -6,10 +6,10 @@ from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union
 
 from jobmon.client import shared_requester
-from jobmon.client.requester import Requester
+from jobmon.client._logging import ClientLogging as logging
+from jobmon.client.node import Node
+from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.executors.base import ExecutorParameters
-from jobmon.client.client_logging import ClientLogging as logging
-from jobmon.client.workflow.node import Node
 
 
 logger = logging.getLogger(__name__)

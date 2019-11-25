@@ -3,11 +3,10 @@ import pandas as pd
 from typing import List, Tuple
 
 from jobmon.client import shared_requester
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client._logging import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)
-logging.attach_log_handler("JOBMON_NODE")
 
 
 def workflow_status(workflow_id: List[int] = [], user: List[str] = []

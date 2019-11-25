@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from typing import List, Union
 
 from jobmon.client import shared_requester
-from jobmon.client.requester import Requester
-from jobmon.client.workflow.task_template import TaskTemplate
+from jobmon.client.task_template import TaskTemplate
+from jobmon.client.requests.requester import Requester
 # from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.serializers import SerializeClientTool, SerializeClientToolVersion
 
@@ -39,7 +41,7 @@ class Tool:
 
     @classmethod
     def create_tool(cls, name: str, requester: Requester = shared_requester
-                    ) -> "Tool":
+                    ) -> Tool:
         """create a new tool in the jobmon database
 
         Args:

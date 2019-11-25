@@ -6,14 +6,14 @@ from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Set, TYPE_CHECKING
 
 from jobmon.client import shared_requester
-from jobmon.client.requester import Requester
-from jobmon.client.client_logging import ClientLogging as Logging
+from jobmon.client._logging import ClientLogging as logging
+from jobmon.client.requests.requester import Requester
 
 if TYPE_CHECKING:
-    from jobmon.client.workflow.task import Task
+    from jobmon.client.internals.task import Task
 
 
-logger = Logging.getLogger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class Node:
