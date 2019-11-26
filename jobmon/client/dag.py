@@ -54,6 +54,9 @@ class Dag(object):
         logger.debug(f'dag_id is: {self.dag_id}')
         return self.dag_id
 
+    def validate(self):
+        pass
+
     def _get_dag_id(self) -> Optional[int]:
         dag_hash = hash(self)
         logger.info(f'Querying for dag with hash: {dag_hash}')

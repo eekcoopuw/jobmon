@@ -45,14 +45,13 @@ class WorkflowRun(object):
     this is not enforced via any database constraints.
     """
 
-    def __init__(self, workflow_id, dag_id, stderr, stdout, project,
+    def __init__(self, workflow_id, stderr, stdout, project,
                  job_instance_state_controller,
                  slack_channel='jobmon-alerts',
                  executor_class='SGEExecutor', working_dir=None,
                  reset_running_jobs=True, requester=shared_requester,
                  bound_tasks={}, fail_fast=False, seconds_until_timeout=36000):
         self.workflow_id = workflow_id
-        self.dag_id = dag_id
         self.requester = requester
         self.stderr = stderr
         self.stdout = stdout
@@ -258,8 +257,7 @@ class WorkflowRun(object):
         fringe = copy.copy(self.top_fringe)
         n_executions = 0
 
-        logger.debug(f"Executing Workflow Run {self.id} with Dag Id "
-                     f"{self.dag_id}")
+        logger.debug(f"Executing Workflow Run {self.id}")
 
         # These are all Tasks.
         # While there is something ready to be run, or something is running

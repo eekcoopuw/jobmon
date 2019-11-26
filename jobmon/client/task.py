@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import partial
 import hashlib
 from http import HTTPStatus as StatusCodes
-from typing import Optional, List, Callable, Union
+from typing import Optional, List, Callable, Union, Tuple
 
 from jobmon.client import shared_requester
 from jobmon.client._logging import ClientLogging as logging
@@ -205,7 +205,7 @@ class Task:
             'utf-8')).hexdigest(), 16)
         return hash_value
 
-    def _get_task_id_and_status(self) -> Optional[int]:
+    def _get_task_id_and_status(self) -> Tuple[Optional[int], Optional[str]]:
         return_code, response = self.requester.send_request(
             app_route='/task',
             message={

@@ -1,17 +1,18 @@
 from collections import OrderedDict
 import hashlib
 from http import HTTPStatus as StatusCodes
-from typing import Optional
+from typing import Optional, List, Tuple
 import uuid
 
 from jobmon.client import shared_requester
 from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.dag import Dag
 from jobmon.client.requests.requester import Requester
-from jobmon.client.task import Task
-from jobmon.exceptions import WorkflowAlreadyExists
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
+from jobmon.client.task import Task
+from jobmon.exceptions import WorkflowAlreadyExists, WorkflowAlreadyComplete
+from jobmon.models.workflow_status import WorkflowStatus
 
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,7 @@ class Workflow(object):
                  workflow_args: str = None,
                  name: str = "",
                  description: str = "",
+                 resume=ResumeStatus.DONT_RESUME,
                  requester: Requester = shared_requester):
         """
         Args:
@@ -86,10 +88,9 @@ class Workflow(object):
         self.workflow_args = workflow_args
         self.name = name
         self.description = description
-        self.status = None
+        self.resume = resume
 
-        self.requester = requester
-
+        self._dag = Dag()
         # hash to task object mapping
         self.tasks: OrderedDict = OrderedDict()
 
@@ -104,6 +105,8 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
+
+        self.requester = requester
 
     @property
     def is_bound(self):
@@ -124,7 +127,7 @@ class Workflow(object):
         if not self.is_bound:
             raise AttributeError(
                 "dag_id cannot be accessed before workflow is bound")
-        return self._node.dag_id
+        return self._dag.dag_id
 
     def add_task(self, task: Task):
         """Add a task to the workflow to be executed.
@@ -133,47 +136,77 @@ class Workflow(object):
            writes it onto object.
         """
         logger.debug(f"Adding Task {task}")
-        if task.hash in self.tasks:
-            raise ValueError(f"A task with hash {task.hash} already exists. "
+        if hash(task) in self.tasks.keys():
+            raise ValueError(f"A task with hash {hash(task)} already exists. "
                              f"All tasks in a workflow must have unique "
                              f"commands. Your command was: {task.command}")
         self.tasks[hash(task)] = task
-        logger.debug(f"Task {task.hash} added")
+        self._dag.add_node(task.node)
+        logger.debug(f"Task {hash(task)} added")
 
         return task
 
-    def add_tasks(self, tasks: Task):
+    def add_tasks(self, tasks: List[Task]):
         """Add a list of task to the workflow to be executed"""
         for task in tasks:
             self.add_task(task)
 
-    def bind(self):
-        """add tasks and workflow to database"""
+    def _bind(self, resume):
+        # short circuit if already bound
         if self.is_bound:
             return
 
-        # create DAG
-        dag = Dag()
+        # check if workflow is valid
+        self._dag.validate()  # this does nothing at the moment
+        self._matching_wf_args_diff_hash()
 
-        # bind nodes and add to DAG
-        for task in self.tasks.values():
-            node = task.node
+        # bind structural elements to db
+        for node in self._dag.nodes:
             node.bind()
-            dag.add_node(task.node)
+        self._dag.bind()
 
-        # bind DAG/add edges to db
-        dag.bind()
+        # bind workflow
+        workflow_id, status = self._get_workflow_id_and_status()
+        if workflow_id is not None:
+            if resume:
+                if status == WorkflowStatus.DONE:
+                    raise WorkflowAlreadyComplete
 
-        # get workflow_id
-        workflow_id = self._get_workflow_id()
-        if workflow_id is None:
+                if status == WorkflowStatus.RUNNING:
+                    # tell a previous workflow_run to kill itself
+                    self._set_workflow_run_state()
+                    # go into wait loop waiting for workflow to move to error
+
+                if status == WorkflowStatus.CREATED:
+                    # here we can directly set the workflow state because the
+                    # workflow_run hasn't started yet
+                    self._set_workflow_state()
+
+                # what happens if the workflow is in other states? should we
+                # make a workflow run here? when do tasks get reset?
+            else:
+                raise WorkflowAlreadyExists(
+                    "This workflow already exist. If you are trying to "
+                    "resume a workflow, please set the resume flag  of the"
+                    " workflow. If you are not trying to resume a "
+                    "workflow, make sure the workflow args are unique or "
+                    "the tasks are unique")
+        else:
             workflow_id = self._add_workflow()
+            status = WorkflowStatus.REGISTERED
         self._workflow_id = workflow_id
 
         # add tasks to workflow
-        for task in self.tasks.values():
-            task.workflow_id = self.workflow_id
-            task.bind()
+        try:
+            for task in self.tasks.values():
+                task.workflow_id = self.workflow_id
+                task.bind()
+        except Exception:
+            # set to aborted unless we are getting 500s
+            pass
+        else:
+            # set to bound unless we are getting 500s
+            pass
 
     def run(self,
             fail_fast: bool = False,
@@ -181,21 +214,36 @@ class Workflow(object):
             resume: bool = ResumeStatus.DONT_RESUME,
             reset_running_jobs: bool = True):
 
+        # bind to database
+        self._bind(resume)
+
+        # create swarmtasks
         swarm_tasks = []
         for task in self.tasks.values():
             swarm_tasks.append(self._create_swarm_task(task))
 
+        # create workflow_run and execute it
         wfr = self._create_workflow_run()
         wfr.execute_interruptible()
 
-    def _create_swarm_task(self, task: Task) -> SwarmTask:
-        swarm_task = SwarmTask()
-        return swarm_task
+    def _matching_wf_args_diff_hash(self):
+        """Check """
+        rc, response = self.requester.send_request(
+            app_route='/workflow/workflow_args',
+            message={'workflow_args': str(self.workflow_args)},
+            request_type='get')
+        bound_workflow_hashes = response['workflow_hashes']
+        for hash in bound_workflow_hashes:
+            if hash(self) != hash[0]:
+                raise WorkflowAlreadyExists(
+                    "The unique workflow_args already belong to a workflow "
+                    "that contains different tasks than the workflow you are "
+                    "creating, either change your workflow args so that they "
+                    "are unique for this set of tasks, or make sure your tasks"
+                    " match the workflow you are trying to resume")
 
-    def _create_workflow_run(self) -> WorkflowRun:
-        return WorkflowRun()
-
-    def _get_workflow_id(self) -> Optional[int]:
+    def _get_workflow_id_and_status(self) -> Tuple[Optional[int],
+                                                   Optional[str]]:
         return_code, response = self.requester.send_request(
             app_route='/workflow',
             message={
@@ -206,7 +254,10 @@ class Workflow(object):
             raise ValueError(f'Unexpected status code {return_code} from GET '
                              f'request through route /workflow. Expected code '
                              f'200. Response content: {response}')
-        return response['workflow_id']
+        return response['workflow_id'], response["status"]
+
+    def _set_previous_workflow_run_state(self, new_state):
+        pass
 
     def _add_workflow(self) -> int:
         app_route = f'/workflow'
@@ -222,27 +273,18 @@ class Workflow(object):
                              f'code 200. Response content: {response}')
         return response["workflow_id"]
 
-    def _matching_wf_args_diff_hash(self):
-        """Check """
-        workflow_hash = self._compute_hash()
-        rc, response = self.requester.send_request(
-            app_route='/workflow/workflow_args',
-            message={'workflow_args': str(self.workflow_args)},
-            request_type='get')
-        bound_workflow_hashes = response['workflow_hashes']
-        for hash in bound_workflow_hashes:
-            if workflow_hash != hash[0]:
-                raise WorkflowAlreadyExists(
-                    "The unique workflow_args already belong to a workflow "
-                    "that contains different tasks than the workflow you are "
-                    "creating, either change your workflow args so that they "
-                    "are unique for this set of tasks, or make sure your tasks"
-                    " match the workflow you are trying to resume")
+    def _create_swarm_task(self, task: Task) -> SwarmTask:
+        swarm_task = SwarmTask()
+        return swarm_task
+
+    def _create_workflow_run(self) -> WorkflowRun:
+        return WorkflowRun(
+            workflow_id=self.workflow_id)
 
     def __hash__(self) -> int:
         hash_value = hashlib.sha1()
         hash_value.update(self.workflow_args.encode('utf-8'))
-        hash_value.update(str(hash(self.dag)).encode('utf-8'))
+        hash_value.update(str(hash(self._dag)).encode('utf-8'))
         tasks = sorted(self.tasks.values())
         if len(tasks) > 0:  # if there are no tasks, we want to skip this
             for task in tasks:

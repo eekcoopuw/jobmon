@@ -36,3 +36,7 @@ class CallableReturnedInvalidObject(Exception):
 
 class WorkflowAlreadyExists(Exception):
     pass
+
+
+class WorkflowAlreadyComplete(Exception):
+    pass
