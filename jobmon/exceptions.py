@@ -1,4 +1,3 @@
-from logging import Handler
 
 
 class ReturnCodes(object):
@@ -19,47 +18,7 @@ class ReturnCodes(object):
     # exit codes that were returned in qacct
 
 
-class ServerRunning(Exception):
-    pass
-
-
-class ServerStartLocked(Exception):
-    pass
-
-
-class CannotConnectToCentralJobMonitor(Exception):
-    pass
-
-
-class CentralJobMonitorNotAlive(Exception):
-    pass
-
-
-class NoResponseReceived(Exception):
-    pass
-
-
-class NoSocket(Exception):
-    pass
-
-
-class InvalidRequest(Exception):
-    pass
-
-
 class InvalidResponse(Exception):
-    pass
-
-
-class InvalidAction(Exception):
-    pass
-
-
-class NoDatabase(Exception):
-    pass
-
-
-class SGENotAvailable(Exception):
     pass
 
 
@@ -72,4 +31,8 @@ class RemoteExitInfoNotAvailable(Exception):
 
 
 class CallableReturnedInvalidObject(Exception):
+    pass
+
+
+class WorkflowAlreadyExists(Exception):
     pass
