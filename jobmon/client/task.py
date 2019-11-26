@@ -10,6 +10,7 @@ from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.node import Node
 from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.executors.base import ExecutorParameters
+from jobmon.models.task_status import TaskStatus
 
 
 logger = logging.getLogger(__name__)
@@ -62,45 +63,29 @@ class Task:
                  name: Optional[str] = None,
                  max_attempts: Optional[int] = 3,
                  upstream_tasks: List[Task] = [],
-                 task_attributes: Optional[dict] = None,
                  requester: Requester = shared_requester):
         """
         Create a task
 
         Args:
-            command: the unique command for this Task, also readable by humans
-                Should include all parameters. Two Tasks are equal (__eq__)
-                iff they have the same command
-            upstream_tasks: Task objects that must be run prior to this
-            name: name that will be visible in qstat for this job
-            num_cores: number of cores to request on the cluster
-            m_mem_free: amount of memory in gbs, tbs, or mbs, G, T, or M,
-                to request on the fair cluster.
-            max_attempts: number of attempts to allow the cluster to try
+            command (str): the unique command for this Task, also readable by
+                humans. Should include all parameters. Two Tasks are equal
+                (__eq__) iff they have the same command
+            task_template_version_id (int): identifer for the associated
+                Task Template
+            node_args (dict): Task arguments that identify a unique node
+                in the DAG
+            task_args (dict): Task arguments that make the command unique
+                across workflows usually pertaining to data flowing through
+                the task
+            executor_parameters: callable to be evaluated and assign
+                resources or static instance of ExecutorParameters class
+            name (str): name that will be visible in qstat for this job
+            upstream_tasks (List): Task objects that must be run prior to this
+            max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 3
-            max_runtime_seconds: how long the job should be allowed to run
-                before the executor kills it. Default is None, for indefinite.
-            tag: a group identifier. Currently just used for visualization.
-                All tasks with the same tag will be colored the same in a
-                TaskDagViz instance. Default is None.
-            queue: queue of cluster nodes to submit this task to. Must be
-                a valid queue, as defined by "qconf -sql"
-            task_attributes: any attributes that will be
-                tracked. Once the task becomes a job and receives a job_id,
-                these attributes will be used for the job_factory
-                add_job_attribute function
-            j_resource: whether this task is using the j-drive or not
-            context_args: additional args to be passed to the executor
-            resource_scales: for each resource, a scaling value (between 0 and 1)
-                can be provided so that different resources get scaled differently.
-                Default is {'m_mem_free': 0.5, 'max_runtime_seconds': 0.5},
-                only resources that are provided will ever get adjusted
-            hard_limits: if the user wants jobs to stay on the chosen queue
-                and not expand if resources are exceeded, set this to true
-            executor_class: the type of executor so we can instantiate the
-                executor parameters properly
-            executor_parameters: an instance of executor
-                paremeters class
+            requester (Requester): requester to communicate with the flask
+                services
 
         Raise:
            ValueError: If the hashed command is not allowed as an SGE job name;
@@ -127,6 +112,10 @@ class Task:
         # number of attempts
         self.max_attempts = max_attempts
 
+        # upstream and downstream task relationships
+        self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
+        self.downstream_tasks: set = set()
+
         for task in upstream_tasks:
             self.add_upstream(task)
 
@@ -144,17 +133,19 @@ class Task:
             # if a callable was provided instead
             self.executor_parameters = partial(executor_parameters, self)
 
-        if task_attributes:
-            self.task_attributes = task_attributes
-        else:
-            self.task_attributes = {}
-
     @property
     def task_id(self) -> int:
         if not hasattr(self, "_task_id"):
             raise AttributeError(
                 "task_id cannot be accessed before task is bound")
         return self._task_id
+
+    @property
+    def status(self):
+        if not hasattr(self, "_status"):
+            raise AttributeError("status cannot be accessed before task is "
+                                 "bound")
+        return self._status
 
     @property
     def workflow_id(self) -> int:
@@ -169,12 +160,14 @@ class Task:
         self._workflow_id = val
 
     def bind(self) -> int:
-        task_id = self._get_task_id()
+        task_id, status = self._get_task_id_and_status()
         if task_id is None:
             task_id = self._add_task()
+            status = TaskStatus.REGISTERED
         else:
             self._update_task_parameters()
         self._task_id = task_id
+        self._status = status
         return task_id
 
     def add_upstream(self, ancestor: Task):
@@ -183,6 +176,9 @@ class Task:
         task will only be added once. Symmetrically, this method also adds this
         Task as a downstream on the ancestor.
         """
+        self.upstream_tasks.add(ancestor)
+        ancestor.downstream_tasks.add(self)
+
         self.node.add_upstream_node(ancestor.node)
 
     def add_downstream(self, descendent: Task):
@@ -191,6 +187,9 @@ class Task:
         task will only be added once. Symmetrically, this method also adds this
         Task as an upstream on the ancestor.
         """
+        self.downstream_tasks.add(descendent)
+        descendent.upstream_tasks.add(self)
+
         self.node.add_downstream_node(descendent.node)
 
     def _hash_task_args(self) -> int:
@@ -206,7 +205,7 @@ class Task:
             'utf-8')).hexdigest(), 16)
         return hash_value
 
-    def _get_task_id(self) -> Optional[int]:
+    def _get_task_id_and_status(self) -> Optional[int]:
         return_code, response = self.requester.send_request(
             app_route='/task',
             message={
@@ -220,7 +219,7 @@ class Task:
             raise ValueError(f'Unexpected status code {return_code} from GET '
                              f'request through route /task. Expected code 200.'
                              f' Response content: {response}')
-        return response['task_id']
+        return response['task_id'], response['task_status']
 
     def _update_task_parameters(self):
         app_route = f'/task/{self.task_id}/update_parameters'

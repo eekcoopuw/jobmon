@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from http import HTTPStatus as StatusCodes
 from typing import Dict, Optional
+from typing import Dict
 import uuid
 
 from jobmon.client import shared_requester
@@ -83,12 +84,20 @@ class Workflow(object):
         self.workflow_args = workflow_args
         self.name = name
         self.description = description
+<<<<<<< HEAD
         self.status = "G"
+=======
+>>>>>>> c1dbbf6f55254fc0b4a942c4fb5530b1bb9f0b4f
 
         self.requester = requester
 
         # hash to task object mapping
         self.tasks: OrderedDict = OrderedDict()
+<<<<<<< HEAD
+=======
+        # hash to bound task object mapping
+        self.bound_tasks: Dict[int, SwarmTask] = {}
+>>>>>>> c1dbbf6f55254fc0b4a942c4fb5530b1bb9f0b4f
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -102,6 +111,7 @@ class Workflow(object):
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
 
+<<<<<<< HEAD
     @property
     def workflow_id(self) -> int:
         if not hasattr(self, "_workflow_id"):
@@ -116,12 +126,15 @@ class Workflow(object):
                 "dag_id cannot be accessed before workflow is bound")
         return self._node.dag_id
 
+=======
+>>>>>>> c1dbbf6f55254fc0b4a942c4fb5530b1bb9f0b4f
     def run(self,
             fail_fast: bool = False,
             seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME,
             reset_running_jobs: bool = True):
         pass
+<<<<<<< HEAD
 
     def add_task(self, task: Task):
         """Add a task to the workflow to be executed.
@@ -201,3 +214,5 @@ class Workflow(object):
 
     def __hash__(self) -> int:
         pass
+=======
+>>>>>>> c1dbbf6f55254fc0b4a942c4fb5530b1bb9f0b4f

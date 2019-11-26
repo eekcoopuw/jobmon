@@ -16,10 +16,7 @@ from jobmon.models import DB
 from jobmon.models.arg import Arg
 from jobmon.models.arg_type import ArgType
 from jobmon.models.attributes.constants import qsub_attribute, task_instance_attribute
-from jobmon.models.attributes.task_attribute import TaskAttribute
 from jobmon.models.attributes.task_instance_attribute import TaskInstanceAttribute
-from jobmon.models.attributes.workflow_run_attribute import \
-    WorkflowRunAttribute
 from jobmon.models.command_template_arg_type_mapping import \
     CommandTemplateArgTypeMapping
 from jobmon.models.dag import Dag
@@ -988,37 +985,37 @@ def queue_task(task_id):
     return resp
 
 
-# @jsm.route('/job/<job_id>/update_job', methods=['POST'])
-# def update_job(job_id):
-#     """
-#     Change the non-dag forming job parameters before resuming
-#     Args:
-#         job_id (int): id of the job for which parameters are updated
-#         tag (str): a group identifier
-#         max_attempts (int): maximum numver of attempts before sending the job
-#             to the ERROR FATAL state
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("job_id", job_id))
+@jsm.route('/task/<task_id>/update_task', methods=['POST'])
+def update_task(task_id):
+    """
+    Change the non-dag forming task parameters before resuming
+    Args:
+        task_id (int): id of the task for which parameters are updated
+        tag (str): a group identifier
+        max_attempts (int): maximum numver of attempts before sending the task
+            to the ERROR FATAL state
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_id", task_id))
 
-#     data = request.get_json()
-#     tag = data.get('tag', None)
-#     max_attempts = data.get('max_attempts', 3)
+    data = request.get_json()
+    tag = data.get('tag', None)
+    max_attempts = data.get('max_attempts', 3)
 
-#     update_job = """
-#                  UPDATE job
-#                  SET tag=:tag, max_attempts=:max_attempts
-#                  WHERE job_id=:job_id
-#                  """
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     DB.session.execute(update_job,
-#                        {"tag": tag,
-#                         "max_attempts": max_attempts,
-#                         "job_id": job_id})
-#     DB.session.commit()
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    update_job = """
+                 UPDATE task
+                 SET tag=:tag, max_attempts=:max_attempts
+                 WHERE id=:task_id
+                 """
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    DB.session.execute(update_job,
+                       {"tag": tag,
+                        "max_attempts": max_attempts,
+                        "task_id": task_id})
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jsm.route('/task/<task_id>/update_resources', methods=['POST'])
@@ -1237,91 +1234,20 @@ def _update_task_instance(task_instance, **kwargs):
     logger.debug("Update TI  {}".format(task_instance))
     status_requested = kwargs.get('status', None)
     logger.debug(logging.logParameter("status_requested", status_requested))
+    msg = ""
     if status_requested is not None:
-        logger.debug(f"status_requested:{status_requested}; "
-                     f"task_instance.status:{task_instance.status}")
+        msg = f"status_requested:{status_requested}; task_instance.status: " \
+            f"{task_instance.status}"
+        logger.debug(msg)
         if status_requested == task_instance.status:
             kwargs.pop(status_requested)
-            logger.debug("Caught InvalidStateTransition. Not transitioning "
-                         "task_instance {} from {} to {}."
-                         .format(task_instance.task_instance_id,
-                                 task_instance.status, status_requested))
+            msg = f"Caught InvalidStateTransition. Not transitioning " \
+                  f"task_instance {task_instance.id}, from " \
+                  f"{task_instance.status} to {status_requested}"
+            logger.debug(msg)
     for k, v in kwargs.items():
         setattr(task_instance, k, v)
-    return
-
-
-# @jsm.route('/workflow_attribute', methods=['POST'])
-# def add_workflow_attribute():
-#     """Set attributes on a workflow
-
-#     Args:
-#         workflow_id (int): id of the workflow on which to set attributes
-#         attribute_type (obj): object of type WorkflowAttribute
-#         value (str): value of the WorkflowAttribute to add
-#     """
-#     logger.info(logging.myself())
-#     data = request.get_json()
-#     workflow_attribute = WorkflowAttribute(
-#         workflow_id=data['workflow_id'],
-#         attribute_type=data['attribute_type'],
-#         value=data['value'])
-#     logger.debug(workflow_attribute)
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     DB.session.add(workflow_attribute)
-#     DB.session.commit()
-#     resp = jsonify({'workflow_attribute_id': workflow_attribute.id})
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-@jsm.route('/workflow_run_attribute', methods=['POST'])
-def add_workflow_run_attribute():
-    """Set attributes on a workflow_run
-
-    Args:
-        workflow_run_id (int): id of the workflow_run on which to set
-        attributes
-        attribute_type (obj): object of type WorkflowRunAttribute
-        value (str): value of the WorkflowRunAttribute to add
-    """
-    logger.info(logging.myself())
-    data = request.get_json()
-    workflow_run_attribute = WorkflowRunAttribute(
-        workflow_run_id=data['workflow_run_id'],
-        attribute_type=data['attribute_type'],
-        value=data['value'])
-    logger.debug(workflow_run_attribute)
-    DB.session.add(workflow_run_attribute)
-    logger.debug(logging.logParameter("DB.session", DB.session))
-    DB.session.commit()
-    resp = jsonify({'workflow_run_attribute_id': workflow_run_attribute.id})
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jsm.route('/task_attribute', methods=['POST'])
-def add_task_attribute():
-    """Set attributes on a task
-
-    Args:
-        task_id (int): id of the task on which to set attributes
-        attribute_type (obj): object of type TaskAttribute
-        value (str): value of the TaskAttribute to add
-    """
-    logger.info(logging.myself())
-    data = request.get_json()
-    task_attribute = TaskAttribute(
-        task_id=data['task_id'],
-        attribute_type=data['attribute_type'],
-        value=data['value'])
-    logger.debug(task_attribute)
-    DB.session.add(task_attribute)
-    DB.session.commit()
-    resp = jsonify({'task_attribute_id': task_attribute.id})
-    resp.status_code = StatusCodes.OK
-    return resp
-
+    return msg
 
 @jsm.route('/log_level', methods=['GET'])
 def get_log_level():

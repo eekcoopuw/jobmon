@@ -115,7 +115,8 @@ class WorkerNodeTaskInstance:
         try:
             logger.info("Log usage for tid {}".format(self.task_instance_id))
             usage = self.executor.get_usage_stats()
-            dbukeys = ['usage_str', 'wallclock', 'maxrss', 'cpu', 'io', 'maxpss']
+            dbukeys = ['usage_str', 'wallclock', 'maxrss', 'maxpss', 'cpu',
+                       'io']
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
             rc, _ = self.requester.send_request(
                 app_route=f'/task_instance/{self.task_instance_id}/log_usage',

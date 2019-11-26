@@ -11,12 +11,8 @@ import time
 from jobmon.client import shared_requester
 from jobmon.client.swarm.job_management.executor_task_instance import \
     ExecutorTaskInstance
-from jobmon.client.swarm.job_management.task_instance_state_controller import \
-    TaskInstanceStateController
 from jobmon.client.swarm.executors.base import ExecutorParameters
-from jobmon.client.swarm.executors.sge_utils import get_project_limits
-from jobmon.client.swarm.job_management.swarm_task import SwarmTask
-from jobmon.client.swarm.workflow.bound_task import BoundTask
+from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.utils import kill_remote_process
 from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.models.attributes.constants import workflow_run_attribute
@@ -201,40 +197,6 @@ class WorkflowRun(object):
                      'status_date': str(datetime.utcnow())},
             request_type='put')
 
-    def add_workflow_run_attribute(self, attribute_type, value):
-        """
-        Create a workflow_run attribute entry in the database.
-
-        Args:
-            attribute_type (int): attribute_type id from
-                                  workflow_run_attribute_type table
-            value (int): value associated with attribute
-
-        Raises:
-            ValueError: If the args are not valid.
-                        attribute_type should be int and
-                        value should be convertible to int
-                        or be string for TAG attribute
-        """
-        if not isinstance(attribute_type, int):
-            raise ValueError("Invalid attribute_type: {}, {}"
-                             .format(attribute_type,
-                                     type(attribute_type).__name__))
-        elif (not attribute_type == workflow_run_attribute.TAG and not
-              int(value)) or (attribute_type == workflow_run_attribute.TAG and
-                              not isinstance(value, str)):
-            raise ValueError("Invalid value type: {}, {}"
-                             .format(value,
-                                     type(value).__name__))
-        else:
-            rc, workflow_run_attribute_id = self.requester.send_request(
-                app_route='/workflow_run_attribute',
-                message={'workflow_run_id': str(self.id),
-                         'attribute_type': str(attribute_type),
-                         'value': str(value)},
-                request_type='post')
-            return workflow_run_attribute_id
-
     def _set_fail_after_n_executions(self, n):
         """
         For use during testing, force the TaskDag to 'fall over' after n
@@ -391,7 +353,7 @@ class WorkflowRun(object):
         """
         self.job_instance_state_controller.disconnect()
 
-    def _adjust_resources_and_queue(self, bound_task: BoundTask):
+    def _adjust_resources_and_queue(self, bound_task: SwarmTask):
         task_id = bound_task.task_id
         # Create original and validated entries if no params are bound yet
         if not bound_task.bound_parameters:
@@ -497,7 +459,9 @@ class WorkflowRun(object):
                 # determined that there is a better way to determine
                 # previous state in resume cases
                 self.bound_tasks[task.task_args_hash] = \
-                    BoundTask(client_task=None, bound_task=task)
+                    SwarmTask(task=task.task_id, status=task.status,
+                              task_args_hash=task.task_args_hash,
+                              placeholder=True)
         return tasks
 
     def _parse_adjusting_done_and_errors(self, tasks):
@@ -551,7 +515,7 @@ class WorkflowRun(object):
         exec_param_set.adjust(**resources_adjusted)
         return exec_param_set
 
-    def _propagate_results(self, task: BoundTask):
+    def _propagate_results(self, task: SwarmTask):
         """
         For all its downstream tasks, is that task now ready to run?
         Also mark this Task as DONE

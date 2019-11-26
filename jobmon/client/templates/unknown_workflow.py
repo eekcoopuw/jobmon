@@ -15,9 +15,9 @@ from jobmon.client.client_logging import ClientLogging as logging
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.job_management.task_instance_state_controller import \
     TaskInstanceStateController
-from jobmon.client.swarm.workflow.executable_task import ExecutableTask
-from jobmon.client.swarm.workflow.bound_task import BoundTask
-from jobmon.client.swarm.workflow.workflow_run import WorkflowRun, WorkflowRunExecutionStatus
+from jobmon.client.task import Task
+from jobmon.client.swarm.swarm_task import SwarmTask
+from jobmon.client.swarm.workflow_run import WorkflowRun, WorkflowRunExecutionStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.workflow import Workflow as WorkflowDAO
@@ -126,17 +126,12 @@ class Workflow(object):
         self.reset_running_jobs = reset_running_jobs
 
         self.tasks = OrderedDict()  # hash to task object mapping
-        self.bound_tasks: Dict[int, BoundTask] = {}  # hash to bound task object mapping
+        self.bound_tasks: Dict[int, SwarmTask] = {}  # hash to bound task object mapping
         self.fail_fast = fail_fast
         self.seconds_until_timeout = seconds_until_timeout
 
         self.job_instance_state_controller = None
 
-        # self.task_dag = TaskDag(
-        #     executor=self.executor,
-        #     fail_fast=fail_fast,
-        #     seconds_until_timeout=seconds_until_timeout
-        # )
         self.resume = resume
 
         # if the user wants to specify the reconciliation and heartbeat rate,
@@ -282,24 +277,28 @@ class Workflow(object):
         """
         if self.dag_id:
             for _, task in self.tasks.items():
-                self._bind_task(task, self.dag_id)
+                self._bind_task(task)
             if self.reset_running_jobs:
                 self._reset_tasks()
         else:
             dag_id = self._create_dag()
             for _, task in self.tasks.items():
-                self._bind_task(task, dag_id)
+                self._bind_task(task)
             return dag_id
 
-    def _bind_task(self, task: ExecutableTask, dag_id: int):
-        if task.hash in self.bound_tasks:
+    def _bind_task(self, task: Task):
+        if task.task_args_hash in self.bound_tasks:
             logger.info("Task already bound and has a hash, retrieving from "
                         "db and making sure updated parameters are bound")
-            bound_task = self.bound_tasks[task.hash]
+            bound_task = self.bound_tasks[task.task_args_hash]
             bound_task.update_task(task.max_attempts)
         else:
-            swarm_task = task.create_bound_task(dag_id, self.requester)
-            bound_task = BoundTask(client_task=task, bound_task=swarm_task,
+            task.bind()
+            bound_task = SwarmTask(task_id=task.task_id,
+                                   status=task.status,
+                                   executor_parameters=task.executor_parameters,
+                                   task_args_hash=task.task_args_hash,
+                                   max_attempts=task.max_attempts,
                                    requester=self.requester)
             # using sets so that a bound task will only be added if it is not
             # already there
@@ -309,12 +308,6 @@ class Workflow(object):
                     self.bound_tasks[upstream.hash].downstream_bound_tasks.add(bound_task)
             self.bound_tasks[bound_task.hash] = bound_task
 
-        for attribute in task.job_attributes:
-            logger.info(f"Add job attribute for task_id : {bound_task.task_id}"
-                        f", attribute_type: {attribute}, value: "
-                        f"{task.job_attributes[attribute]}")
-            bound_task.add_task_attribute(attribute,
-                                          task.job_attributes[attribute])
         return bound_task
 
     def _reset_tasks(self):
@@ -548,46 +541,3 @@ class Workflow(object):
     def run(self):
         """Alias for self.execute"""
         return self.execute()
-
-    def is_valid_attribute(self, attribute_type, value):
-        """
-        - attribute_type has to be an int
-        - for now, value can only be str or int
-        - value has to be int or convertible to int,
-          except when the attribute_type is a tag
-        - value can be any string when attribute_type is a tag
-
-        Args:
-            attribute_type (int): attribute_type id from
-                                   workflow_run_attribute_type table
-            value (int): value associated with attribute
-        Returns:
-            True (or raises)
-        Raises:
-            ValueError: if the args for add_attribute is not valid.
-        """
-        if not isinstance(attribute_type, int):
-            raise ValueError("Invalid attribute_type: {}, {}"
-                             .format(attribute_type,
-                                     type(attribute_type).__name__))
-        elif not attribute_type == workflow_attribute.TAG and not int(value):
-            raise ValueError("Invalid value type: {}, {}"
-                             .format(value,
-                                     type(value).__name__))
-        return True
-
-    def add_workflow_attribute(self, attribute_type, value):
-        """Create workflow attribute entry in workflow_attribute table"""
-        self.is_valid_attribute(
-            attribute_type, value)
-        if self.is_bound:
-            rc, response = self.requester.send_request(
-                app_route='/workflow_attribute',
-                message={'workflow_id': str(self.id),
-                         'attribute_type': str(attribute_type),
-                         'value': str(value)},
-                request_type='post')
-            return response['workflow_attribute_id']
-        else:
-            raise AttributeError(
-                "Workflow is not yet bound")

@@ -124,7 +124,7 @@ class Node:
         """Add a node to this one's downstream Nodes."""
         self.downstream_nodes.add(downstream_node)
         # avoid endless recursion, set directly
-        downstream_node.downstream_nodes.add(self)
+        downstream_node.upstream_nodes.add(self)
 
     def add_downstream_nodes(self, downstream_nodes: List[Node]) -> None:
         for node in downstream_nodes:
