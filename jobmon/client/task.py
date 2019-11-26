@@ -63,7 +63,6 @@ class Task:
                  name: Optional[str] = None,
                  max_attempts: Optional[int] = 3,
                  upstream_tasks: List[Task] = [],
-                 task_attributes: Optional[dict] = None,
                  requester: Requester = shared_requester):
         """
         Create a task
@@ -76,17 +75,15 @@ class Task:
                 Task Template
             node_args (dict): Task arguments that identify a unique node
                 in the DAG
-            task_args (dict): Task arguments that identify
+            task_args (dict): Task arguments that make the command unique
+                across workflows usually pertaining to data flowing through
+                the task
             executor_parameters: callable to be evaluated and assign
                 resources or static instance of ExecutorParameters class
             name (str): name that will be visible in qstat for this job
             upstream_tasks (List): Task objects that must be run prior to this
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 3
-            task_attributes (dict): any attributes that will be
-                tracked. Once the task becomes a job and receives a job_id,
-                these attributes will be used for the job_factory
-                add_job_attribute function
             requester (Requester): requester to communicate with the flask
                 services
 
@@ -135,11 +132,6 @@ class Task:
         else:
             # if a callable was provided instead
             self.executor_parameters = partial(executor_parameters, self)
-
-        if task_attributes:
-            self.task_attributes = task_attributes
-        else:
-            self.task_attributes = {}
 
     @property
     def task_id(self) -> int:
@@ -255,7 +247,8 @@ class Task:
                 'task_args_hash': self.task_args_hash,
                 'name': self.name,
                 'command': self.command,
-                'max_attempts': self.max_attempts
+                'max_attempts': self.max_attempts,
+                'task_args': self.task_args
             },
             request_type='post'
         )

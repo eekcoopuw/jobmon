@@ -16,10 +16,7 @@ from jobmon.models import DB
 from jobmon.models.arg import Arg
 from jobmon.models.arg_type import ArgType
 from jobmon.models.attributes.constants import qsub_attribute, task_instance_attribute
-from jobmon.models.attributes.task_attribute import TaskAttribute
 from jobmon.models.attributes.task_instance_attribute import TaskInstanceAttribute
-from jobmon.models.attributes.workflow_run_attribute import \
-    WorkflowRunAttribute
 from jobmon.models.command_template_arg_type_mapping import \
     CommandTemplateArgTypeMapping
 from jobmon.models.dag import Dag
@@ -1251,79 +1248,6 @@ def _update_task_instance(task_instance, **kwargs):
     for k, v in kwargs.items():
         setattr(task_instance, k, v)
     return msg
-
-
-# @jsm.route('/workflow_attribute', methods=['POST'])
-# def add_workflow_attribute():
-#     """Set attributes on a workflow
-
-#     Args:
-#         workflow_id (int): id of the workflow on which to set attributes
-#         attribute_type (obj): object of type WorkflowAttribute
-#         value (str): value of the WorkflowAttribute to add
-#     """
-#     logger.info(logging.myself())
-#     data = request.get_json()
-#     workflow_attribute = WorkflowAttribute(
-#         workflow_id=data['workflow_id'],
-#         attribute_type=data['attribute_type'],
-#         value=data['value'])
-#     logger.debug(workflow_attribute)
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     DB.session.add(workflow_attribute)
-#     DB.session.commit()
-#     resp = jsonify({'workflow_attribute_id': workflow_attribute.id})
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-@jsm.route('/workflow_run_attribute', methods=['POST'])
-def add_workflow_run_attribute():
-    """Set attributes on a workflow_run
-
-    Args:
-        workflow_run_id (int): id of the workflow_run on which to set
-        attributes
-        attribute_type (obj): object of type WorkflowRunAttribute
-        value (str): value of the WorkflowRunAttribute to add
-    """
-    logger.info(logging.myself())
-    data = request.get_json()
-    workflow_run_attribute = WorkflowRunAttribute(
-        workflow_run_id=data['workflow_run_id'],
-        attribute_type=data['attribute_type'],
-        value=data['value'])
-    logger.debug(workflow_run_attribute)
-    DB.session.add(workflow_run_attribute)
-    logger.debug(logging.logParameter("DB.session", DB.session))
-    DB.session.commit()
-    resp = jsonify({'workflow_run_attribute_id': workflow_run_attribute.id})
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jsm.route('/task_attribute', methods=['POST'])
-def add_task_attribute():
-    """Set attributes on a task
-
-    Args:
-        task_id (int): id of the task on which to set attributes
-        attribute_type (obj): object of type TaskAttribute
-        value (str): value of the TaskAttribute to add
-    """
-    logger.info(logging.myself())
-    data = request.get_json()
-    task_attribute = TaskAttribute(
-        task_id=data['task_id'],
-        attribute_type=data['attribute_type'],
-        value=data['value'])
-    logger.debug(task_attribute)
-    DB.session.add(task_attribute)
-    DB.session.commit()
-    resp = jsonify({'task_attribute_id': task_attribute.id})
-    resp.status_code = StatusCodes.OK
-    return resp
-
 
 @jsm.route('/log_level', methods=['GET'])
 def get_log_level():
