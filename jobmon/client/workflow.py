@@ -85,7 +85,7 @@ class Workflow(object):
         # hash to task object mapping
         self.tasks: OrderedDict = OrderedDict()
         # hash to bound task object mapping
-        self.bound_tasks: Dict[int, BoundTask] = {}
+        self.bound_tasks: Dict[int, SwarmTask] = {}
 
         if workflow_args:
             self.workflow_args = workflow_args

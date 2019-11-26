@@ -216,13 +216,13 @@ def get_dag_id():
 
 
 @jqs.route('/task', methods=['GET'])
-def get_task_id():
+def get_task_id_and_status():
     logger.info(logging.myself())
     data = request.args
     logger.debug(data)
 
     query = """
-        SELECT task.id
+        SELECT task.id, task.status
         FROM task
         WHERE
             workflow_id = :workflow_id
@@ -237,9 +237,9 @@ def get_task_id():
 
     # send back json
     if result is None:
-        resp = jsonify({'task_id': None})
+        resp = jsonify({'task_id': None, 'task_status': None})
     else:
-        resp = jsonify({'task_id': result.id})
+        resp = jsonify({'task_id': result.id, 'task_status': result.status})
     resp.status_code = StatusCodes.OK
     return resp
 
