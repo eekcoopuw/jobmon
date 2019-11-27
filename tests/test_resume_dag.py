@@ -5,6 +5,8 @@ import sys
 import time
 
 from datetime import datetime, timedelta
+from http import HTTPStatus as StatusCodes
+from sqlalchemy.sql import text
 
 from cluster_utils.io import makedirs_safely
 
@@ -13,7 +15,11 @@ from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.models.job import Job
+from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.models.workflow_run import WorkflowRun
+from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.task_dag import TaskDagMeta
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 logger = logging.getLogger(__name__)
@@ -149,43 +155,66 @@ def test_resume_dag_heartbeat_race_condition(simple_workflow, db_cfg):
             if simple_workflow.status == WorkflowStatus.DONE:
                 break
             elif tries > 5:
+                # cluster was probably busy or busted so the workflow never
+                # finished
                 # raise error? or something else?
-                pass
+                raise RuntimeError('Test exceeded wait time. The cluster is '
+                                   'likely busy.')
             else:
                 tries += 1
                 time.sleep(5)
 
-        # mark workflow as failed
-        query = """
-            UPDATE workflow
-            SET workflow_status = 'E'
-            WHERE dag_id = :dag_id
-        """
-        DB.session.execute(query, {'dag_id': simple_workflow.dag_id})
-
-        # mark one job status as failed
-
-        # then change the heartbeat date to simulate the race condition
-        query = """
+        # change the heartbeat date to simulate a heartbeat from an old dag
+        set_new_heartbeat_date = """
             UPDATE task_dag
-            SET heartbeat_date = :new_time, 
+            SET heartbeat_date = :new_time 
             WHERE dag_id = :dag_id
         """
         new_time = datetime.utcnow() - timedelta(minutes=15)
-        DB.session.execute(query, {'new_time': new_time,
-                                   'dag_id': simple_workflow.dag_id})
-        DB.commit()
-        #
-        # now try and resume the workflow
-        simple_workflow.resume = True
-        simple_workflow.reset_running_jobs = True
-        simple_workflow.execute()
+        DB.session.execute(set_new_heartbeat_date,
+                           {'new_time': new_time,
+                            'dag_id': simple_workflow.dag_id})
+        DB.session.commit()
 
-        # check that new
+        with app.app_context():
+            # confirm that the health monitor thinks the workflow is lost
+            get_heartbeat_date = """
+                SELECT * 
+                FROM task_dag
+                WHERE dag_id = :dag_id
+            """
+            heartbeat_result = DB.session.query(TaskDagMeta).from_statement(
+                text(get_heartbeat_date)
+            ).params(dag_id=simple_workflow.task_dag.dag_id).one_or_none()
+            # DB.session.commit()
+            heartbeat_date = heartbeat_result.heartbeat_date
+            time_since_last_heartbeat = (datetime.utcnow() - heartbeat_date)
+            # 90 seconds is the default threshold
+            is_lost = time_since_last_heartbeat.total_seconds() > 90
 
-        # check what..?
-        # that it is in error state?
-        # assert workflow.status == WorkflowStatus.ERROR  ??
-        # then changes to running after first heartbeat?
-        # assert heartbeat_date > workflow_created_date ??
+            assert is_lost
 
+        # at this point the health monitor would transition the workflow to
+        # error state, so we will do that
+        assert simple_workflow.status == 'D'
+        simple_workflow._update_status(WorkflowStatus.ERROR)
+        assert simple_workflow.status == 'E'
+
+        # pretend the workflow resumed and reconciler now logs heartbeats for
+        # the first time but late - the workflow has been transitioned to error
+        # state. This should change the workflow_run back to running
+        simple_workflow.requester.send_request(
+            app_route=f'/task_dag/{simple_workflow.dag_id}/log_heartbeat',
+            message={},
+            request_type='post')
+        # get workflow_run status
+        with app.app_context():
+            get_workflow_run_status = """
+                SELECT status 
+                FROM workflow_run
+                WHERE id = {}
+            """.format(simple_workflow.workflow_run.id)
+            workflow_run_status = DB.session.execute(
+                get_workflow_run_status).fetchone().status
+
+            assert workflow_run_status == 'R'

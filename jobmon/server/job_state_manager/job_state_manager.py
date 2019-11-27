@@ -568,9 +568,10 @@ def log_dag_heartbeat(dag_id):
     # it will be corrected.
     query = """
         UPDATE workflow_run wr
+        INNER JOIN workflow w ON wr.workflow_id = w.id
         SET wr.status = 'R'
-        JOIN workflow w ON wr.workflow_id = w.id
-        WHERE w.dag_id = :dag_id """
+        WHERE w.dag_id = :dag_id
+        ORDER BY wr.created_date DESC LIMIT 1"""
     DB.session.execute(query, params)
     DB.session.commit()
 
