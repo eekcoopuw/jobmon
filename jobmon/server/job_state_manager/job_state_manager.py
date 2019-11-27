@@ -36,9 +36,9 @@ from jobmon.models.task_template import TaskTemplate
 from jobmon.models.task_template_version import TaskTemplateVersion
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
+from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.models.workflow import Workflow
 from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.server.server_side_exception import log_and_raise
 
@@ -411,42 +411,25 @@ def add_task_instance():
     return resp
 
 
-# @jsm.route('/workflow', methods=['POST', 'PUT'])
-# def add_update_workflow():
-#     """Add a workflow to the database or update it (via PUT)
+@jsm.route('/workflow', methods=['POST'])
+def add_workflow():
+    """Add a workflow to the database or update it (via PUT)"""
+    logger.info(logging.myself())
+    data = request.get_json()
+    logger.debug(data)
 
-#     Args:
-#         dag_id (int): dag_id to which this workflow is attached
-#         workflow_args: unique args for the workflow
-#         workflow_hash: unique hash for the workflow
-#         name (str): name for the workflow
-#         user (str): name of the user of the workflow
-#         description (str): string description of the workflow, optional
-#         any other Workflow attributes you want to set
-#     """
-#     logger.info(logging.myself())
-#     data = request.get_json()
-#     logger.debug(data)
-#     if request.method == 'POST':
-#         wf = Workflow(dag_id=data['dag_id'],
-#                       workflow_args=data['workflow_args'],
-#                       workflow_hash=data['workflow_hash'],
-#                       name=data['name'],
-#                       user=data['user'],
-#                       description=data.get('description', ""))
-#         DB.session.add(wf)
-#         logger.debug(logging.logParameter("DB.session", DB.session))
-#     else:
-#         wf_id = data.pop('wf_id')
-#         wf = DB.session.query(Workflow).\
-#             filter(Workflow.id == wf_id).first()
-#         for key, val in data.items():
-#             setattr(wf, key, val)
-#     DB.session.commit()
-#     wf_dct = wf.to_wire()
-#     resp = jsonify(workflow_dct=wf_dct)
-#     resp.status_code = StatusCodes.OK
-#     return resp
+    workflow = Workflow(tool_version_id=data['tool_version_id'],
+                        dag_id=data['dag_id'],
+                        workflow_arg_hash=data['workflow_arg_hash'],
+                        task_hash=data['task_hash'],
+                        description=data['description'],
+                        name=data["name"])
+    DB.session.add(workflow)
+    DB.session.commit()
+
+    resp = jsonify(workflow_id=workflow.id)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jsm.route('/error_logger', methods=['POST'])

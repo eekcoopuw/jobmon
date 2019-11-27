@@ -1,4 +1,3 @@
-from collections import OrderedDict
 import hashlib
 from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Tuple
@@ -49,10 +48,9 @@ class Workflow(object):
 
     def __init__(self,
                  tool_version_id: int,
-                 workflow_args: str = None,
+                 workflow_args: Optional[str] = None,
                  name: str = "",
                  description: str = "",
-                 resume=ResumeStatus.DONT_RESUME,
                  requester: Requester = shared_requester):
         """
         Args:
@@ -85,14 +83,12 @@ class Workflow(object):
                 and then we will register that it as lost
         """
         self.tool_version_id = tool_version_id
-        self.workflow_args = workflow_args
         self.name = name
         self.description = description
-        self.resume = resume
 
         self._dag = Dag()
-        # hash to task object mapping
-        self.tasks: OrderedDict = OrderedDict()
+        # hash to task object mapping. ensure only 1
+        self.tasks: dict = {}
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -105,6 +101,8 @@ class Workflow(object):
                         " make workflow_args a meaningful unique identifier. "
                         "Then add the same tasks to this workflow"
                         .format(self.workflow_args))
+        self.workflow_args_hash = int(
+            hashlib.sha1(self.workflow_args.encode('utf-8')).hexdigest(), 16)
 
         self.requester = requester
 
@@ -129,6 +127,15 @@ class Workflow(object):
                 "dag_id cannot be accessed before workflow is bound")
         return self._dag.dag_id
 
+    @property
+    def task_hash(self):
+        hash_value = hashlib.sha1()
+        tasks = sorted(self.tasks.values())
+        if len(tasks) > 0:  # if there are no tasks, we want to skip this
+            for task in tasks:
+                hash_value.update(str(hash(task)).encode('utf-8'))
+        return hash_value
+
     def add_task(self, task: Task):
         """Add a task to the workflow to be executed.
            Set semantics - add tasks once only, based on hash name. Also
@@ -151,7 +158,7 @@ class Workflow(object):
         for task in tasks:
             self.add_task(task)
 
-    def _bind(self, resume):
+    def _bind(self, resume, reset_running_jobs):
         # short circuit if already bound
         if self.is_bound:
             return
@@ -173,17 +180,22 @@ class Workflow(object):
                     raise WorkflowAlreadyComplete
 
                 if status == WorkflowStatus.RUNNING:
-                    # tell a previous workflow_run to kill itself
-                    self._set_workflow_run_state()
-                    # go into wait loop waiting for workflow to move to error
-
+                    # TODO
+                    # tell a previous workflow_run to kill itself.
+                    # go into wait loop waiting for workflow to move to error.
+                    # consider pulling code from
+                    # workflow_run.kill_previous_workflow_runs
+                    raise NotImplementedError
                 if status == WorkflowStatus.CREATED:
+                    # TODO
                     # here we can directly set the workflow state because the
-                    # workflow_run hasn't started yet
-                    self._set_workflow_state()
+                    # workflow_run hasn't started yet. There could be races so
+                    # needs to be carefully designed
+                    raise NotImplementedError
 
-                # what happens if the workflow is in other states? should we
-                # make a workflow run here? when do tasks get reset?
+                # TODO
+                # what happens if the workflow is in other states? what about
+                # if the previous workflow belongs to another user?
             else:
                 raise WorkflowAlreadyExists(
                     "This workflow already exist. If you are trying to "
@@ -198,6 +210,9 @@ class Workflow(object):
 
         # add tasks to workflow
         try:
+            # TODO: confirm executor parameters executor class matches
+            # job instance state controller executor type
+
             for task in self.tasks.values():
                 task.workflow_id = self.workflow_id
                 task.bind()
@@ -215,7 +230,7 @@ class Workflow(object):
             reset_running_jobs: bool = True):
 
         # bind to database
-        self._bind(resume)
+        self._bind(resume, reset_running_jobs)
 
         # create swarmtasks
         swarm_tasks = []
@@ -247,6 +262,10 @@ class Workflow(object):
         return_code, response = self.requester.send_request(
             app_route='/workflow',
             message={
+                "tool_version_id": self.tool_version_id,
+                "dag_id": self.dag_id,
+                "workflow_arg_hash": self.workflow_args_hash,
+                "task_hash": self.task_hash
             },
             request_type='get'
         )
@@ -256,14 +275,17 @@ class Workflow(object):
                              f'200. Response content: {response}')
         return response['workflow_id'], response["status"]
 
-    def _set_previous_workflow_run_state(self, new_state):
-        pass
-
     def _add_workflow(self) -> int:
         app_route = f'/workflow'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
+                "tool_version_id": self.tool_version_id,
+                "dag_id": self.dag_id,
+                "workflow_arg_hash": self.workflow_args_hash,
+                "task_hash": self.task_hash,
+                "description": self.description,
+                "name": self.name
             },
             request_type='post'
         )
@@ -281,12 +303,45 @@ class Workflow(object):
         return WorkflowRun(
             workflow_id=self.workflow_id)
 
-    def __hash__(self) -> int:
-        hash_value = hashlib.sha1()
-        hash_value.update(self.workflow_args.encode('utf-8'))
-        hash_value.update(str(hash(self._dag)).encode('utf-8'))
-        tasks = sorted(self.tasks.values())
-        if len(tasks) > 0:  # if there are no tasks, we want to skip this
-            for task in tasks:
-                hash_value.update(str(hash(task)).encode('utf-8'))
-        return int(hash_value.hexdigest(), 16)
+    # def _reset_tasks(self):
+    #     """Reset all incomplete jobs of a dag_id, identified by self.dag_id"""
+    #     logger.info(f"Reset tasks for dag_id {self.dag_id}")
+    #     rc, _ = self.requester.send_request(
+    #         app_route='/task_dag/{}/reset_incomplete_tasks'.format(self.dag_id),
+    #         message={},
+    #         request_type='post')
+    #     if rc != StatusCodes.OK:
+    #         raise InvalidResponse(f"{rc}: Could not reset tasks")
+    #     return rc
+
+    # def _update_status(self, status):
+    #     """Update the workflow with the status passed in"""
+    #     rc, response = self.requester.send_request(
+    #         app_route='/workflow',
+    #         message={'wf_id': str(self.id), 'status': status,
+    #                  'status_date': str(datetime.utcnow())},
+    #         request_type='put')
+    #     wf_dct = response['workflow_dct']
+    #     self.wf_dao = WorkflowDAO.from_wire(wf_dct)
+
+    # def report(self, dag_status, n_new_done, n_prev_done, n_failed):
+    #     """Return the status of this workflow"""
+    #     if dag_status == WorkflowRunExecutionStatus.SUCCEEDED:
+    #         logger.info(
+    #             "Workflow finished successfully!")
+    #         logger.info("# finished jobs: {}".format(
+    #             n_new_done + n_prev_done))
+    #     elif dag_status == WorkflowRunExecutionStatus.FAILED:
+    #         logger.info(
+    #             "Workflow FAILED")
+    #         logger.info(
+    #             "# finished jobs (this run): {}".format(n_new_done))
+    #         logger.info("# finished jobs (previous runs): {}"
+    #                     .format(n_prev_done))
+    #         logger.info(
+    #             "# failed jobs: {}".format(n_failed))
+    #     elif dag_status == WorkflowRunExecutionStatus.STOPPED_BY_USER:
+    #         logger.info(
+    #             "Workflow STOPPED_BY_USER")
+    #         logger.info(
+    #             "# finished jobs: {}", n_new_done)

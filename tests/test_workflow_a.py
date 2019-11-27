@@ -36,36 +36,36 @@ def test_wf_with_stata_temp_dir(env_var, db_cfg):
     assert success
 
 
-@pytest.mark.qsubs_jobs
-def test_wfargs_update(env_var, db_cfg):
-    # Create identical dags
-    t1 = BashTask("sleep 1", num_cores=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
+# @pytest.mark.qsubs_jobs
+# def test_wfargs_update(env_var, db_cfg):
+#     # Create identical dags
+#     t1 = BashTask("sleep 1", num_cores=1)
+#     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+#     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
 
-    t4 = BashTask("sleep 1", num_cores=1)
-    t5 = BashTask("sleep 2", upstream_tasks=[t4], num_cores=1)
-    t6 = BashTask("sleep 3", upstream_tasks=[t5], num_cores=1)
+#     t4 = BashTask("sleep 1", num_cores=1)
+#     t5 = BashTask("sleep 2", upstream_tasks=[t4], num_cores=1)
+#     t6 = BashTask("sleep 3", upstream_tasks=[t5], num_cores=1)
 
-    wfa1 = "v1"
-    wf1 = Workflow(wfa1)
-    wf1.add_tasks([t1, t2, t3])
-    wf1.execute()
+#     wfa1 = "v1"
+#     wf1 = Workflow(wfa1)
+#     wf1.add_tasks([t1, t2, t3])
+#     wf1.execute()
 
-    wfa2 = "v2"
-    wf2 = Workflow(wfa2)
-    wf2.add_tasks([t4, t5, t6])
-    wf2.execute()
+#     wfa2 = "v2"
+#     wf2 = Workflow(wfa2)
+#     wf2.add_tasks([t4, t5, t6])
+#     wf2.execute()
 
-    # Make sure the second Workflow has a distinct Workflow ID & WorkflowRun ID
-    assert wf1.id != wf2.id
+#     # Make sure the second Workflow has a distinct Workflow ID & WorkflowRun ID
+#     assert wf1.id != wf2.id
 
-    # Make sure the second Workflow has a distinct hash
-    assert wf1.hash != wf2.hash
+#     # Make sure the second Workflow has a distinct hash
+#     assert wf1.hash != wf2.hash
 
-    # Make sure the second Workflow has a distinct set of Jobs
-    assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
-                set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
+#     # Make sure the second Workflow has a distinct set of Jobs
+#     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
+#                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
 
 
 @pytest.mark.qsubs_jobs

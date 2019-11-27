@@ -1,4 +1,3 @@
-from datetime import datetime
 from sqlalchemy.sql import func
 
 from jobmon.models import DB
@@ -9,13 +8,6 @@ class Workflow(DB.Model):
 
     __tablename__ = 'workflow'
 
-    @classmethod
-    def from_wire(cls, dct):
-        pass
-
-    def to_wire(self):
-        pass
-
     id = DB.Column(DB.Integer, primary_key=True)
     tool_version_id = DB.Column(DB.Integer, DB.ForeignKey("tool_version.id"))
     dag_id = DB.Column(DB.Integer, DB.ForeignKey('dag.id'))
@@ -25,10 +17,14 @@ class Workflow(DB.Model):
     name = DB.Column(DB.String(150))
     status = DB.Column(DB.String(1),
                        DB.ForeignKey('workflow_status.id'),
-                       default=WorkflowStatus.CREATED)
+                       default=WorkflowStatus.REGISTERED)
     created_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
     dag = DB.relationship(
         "Dag", back_populates="workflow")
     # TODO: FSM transitions here
+
+    def transition(self, new_state):
+        self.status = new_state
+        self.status_date = func.UTC_TIMESTAMP()

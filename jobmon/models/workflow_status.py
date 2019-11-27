@@ -4,9 +4,11 @@ from jobmon.models import DB
 class WorkflowStatus(DB.Model):
     __tablename__ = 'workflow_status'
 
+    REGISTERED = 'G'
+    BOUND = 'B'
+    ABORTED = 'A'
     CREATED = 'C'
     RUNNING = 'R'
-    STOPPED = 'S'
     ERROR = 'E'
     DONE = 'D'
 

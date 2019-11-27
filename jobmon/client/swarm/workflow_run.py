@@ -70,7 +70,7 @@ class WorkflowRun(object):
         self.seconds_until_timeout = seconds_until_timeout
         self.job_instance_state_controller = job_instance_state_controller
 
-        self.kill_previous_workflow_runs(reset_running_jobs)
+        # self.kill_previous_workflow_runs(reset_running_jobs)
         rc, response = self.requester.send_request(
             app_route='/workflow_run',
             message={'workflow_id': workflow_id,
@@ -108,71 +108,71 @@ class WorkflowRun(object):
             raise ValueError("Invalid Response to is_workflow_running")
         return response['is_running'], response['workflow_run_dct']
 
-    def kill_previous_workflow_runs(self, reset_running_jobs):
-        """First check the database for last WorkflowRun... where we store a
-        hostname + pid + running_flag
+    # def kill_previous_workflow_runs(self, reset_running_jobs):
+    #     """First check the database for last WorkflowRun... where we store a
+    #     hostname + pid + running_flag
 
-        If in the database as 'running,' check the hostname
-        + pid to see if the process is actually still running:
+    #     If in the database as 'running,' check the hostname
+    #     + pid to see if the process is actually still running:
 
-            A) If so, kill those pids and any still running jobs
-            B) Then flip the database of the previous WorkflowRun to STOPPED
-        """
-        status, wf_run = self.check_if_workflow_is_running()
-        if not status:
-            return
-        workflow_run_id = wf_run['id']
-        if wf_run['user'] != getpass.getuser():
-            msg = ("Workflow_run_id {} for this workflow_id is still in "
-                   "running mode by user {}. Please ask this user to kill "
-                   "their processes. If they are using the SGE executor, "
-                   "please ask them to qdel their jobs. Be aware that if you "
-                   "restart this workflow prior to the other user killing "
-                   "theirs, this error will not re-raise but you may be "
-                   "creating orphaned processes and hard-to-find bugs"
-                   .format(workflow_run_id, wf_run['user']))
-            logger.error(msg)
-            _, _ = self.requester.send_request(
-                app_route='/workflow_run',
-                message={'workflow_run_id': workflow_run_id,
-                         'status': WorkflowRunStatus.STOPPED},
-                request_type='put')
-            raise RuntimeError(msg)
-        else:
-            kill_remote_process(wf_run['hostname'], wf_run['pid'])
-            logger.info(f"Kill previous workflow runs: {workflow_run_id}")
-            if reset_running_jobs:
-                if wf_run['executor_class'] == "SequentialExecutor":
-                    from jobmon.client.swarm.executors.sequential import \
-                        SequentialExecutor
-                    previous_executor = SequentialExecutor()
-                elif wf_run['executor_class'] == "SGEExecutor":
-                    from jobmon.client.swarm.executors.sge import SGEExecutor
-                    previous_executor = SGEExecutor()
-                elif wf_run['executor_class'] == "DummyExecutor":
-                    from jobmon.client.swarm.executors.dummy import \
-                        DummyExecutor
-                    previous_executor = DummyExecutor()
-                else:
-                    raise ValueError("{} is not supported by this version of "
-                                     "jobmon".format(wf_run['executor_class']))
-                # get task instances of workflow run
-                _, response = self.requester.send_request(
-                    app_route=f'/workflow_run/{workflow_run_id}/task_instance',
-                    message={},
-                    request_type='get')
-                task_instances = [ExecutorTaskInstance.from_wire(
-                    ti, executor=previous_executor)
-                    for ti in response['task_instances']]
-                tiid_exid_tuples = [(ti.task_instance_id, ti.executor_id)
-                                    for ti in task_instances]
-                if task_instances:
-                    previous_executor.terminate_task_instances(tiid_exid_tuples)
-            _, _ = self.requester.send_request(
-                app_route='/workflow_run',
-                message={'workflow_run_id': workflow_run_id,
-                         'status': WorkflowRunStatus.STOPPED},
-                request_type='put')
+    #         A) If so, kill those pids and any still running jobs
+    #         B) Then flip the database of the previous WorkflowRun to STOPPED
+    #     """
+    #     status, wf_run = self.check_if_workflow_is_running()
+    #     if not status:
+    #         return
+    #     workflow_run_id = wf_run['id']
+    #     if wf_run['user'] != getpass.getuser():
+    #         msg = ("Workflow_run_id {} for this workflow_id is still in "
+    #                "running mode by user {}. Please ask this user to kill "
+    #                "their processes. If they are using the SGE executor, "
+    #                "please ask them to qdel their jobs. Be aware that if you "
+    #                "restart this workflow prior to the other user killing "
+    #                "theirs, this error will not re-raise but you may be "
+    #                "creating orphaned processes and hard-to-find bugs"
+    #                .format(workflow_run_id, wf_run['user']))
+    #         logger.error(msg)
+    #         _, _ = self.requester.send_request(
+    #             app_route='/workflow_run',
+    #             message={'workflow_run_id': workflow_run_id,
+    #                      'status': WorkflowRunStatus.STOPPED},
+    #             request_type='put')
+    #         raise RuntimeError(msg)
+    #     else:
+    #         kill_remote_process(wf_run['hostname'], wf_run['pid'])
+    #         logger.info(f"Kill previous workflow runs: {workflow_run_id}")
+    #         if reset_running_jobs:
+    #             if wf_run['executor_class'] == "SequentialExecutor":
+    #                 from jobmon.client.swarm.executors.sequential import \
+    #                     SequentialExecutor
+    #                 previous_executor = SequentialExecutor()
+    #             elif wf_run['executor_class'] == "SGEExecutor":
+    #                 from jobmon.client.swarm.executors.sge import SGEExecutor
+    #                 previous_executor = SGEExecutor()
+    #             elif wf_run['executor_class'] == "DummyExecutor":
+    #                 from jobmon.client.swarm.executors.dummy import \
+    #                     DummyExecutor
+    #                 previous_executor = DummyExecutor()
+    #             else:
+    #                 raise ValueError("{} is not supported by this version of "
+    #                                  "jobmon".format(wf_run['executor_class']))
+    #             # get task instances of workflow run
+    #             _, response = self.requester.send_request(
+    #                 app_route=f'/workflow_run/{workflow_run_id}/task_instance',
+    #                 message={},
+    #                 request_type='get')
+    #             task_instances = [ExecutorTaskInstance.from_wire(
+    #                 ti, executor=previous_executor)
+    #                 for ti in response['task_instances']]
+    #             tiid_exid_tuples = [(ti.task_instance_id, ti.executor_id)
+    #                                 for ti in task_instances]
+    #             if task_instances:
+    #                 previous_executor.terminate_task_instances(tiid_exid_tuples)
+    #         _, _ = self.requester.send_request(
+    #             app_route='/workflow_run',
+    #             message={'workflow_run_id': workflow_run_id,
+    #                      'status': WorkflowRunStatus.STOPPED},
+    #             request_type='put')
 
     def update_done(self):
         """Update the status of the workflow_run as done"""

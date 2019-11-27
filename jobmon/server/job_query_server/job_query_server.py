@@ -19,6 +19,7 @@ from jobmon.models.task_template import TaskTemplate
 from jobmon.models.task_template_version import TaskTemplateVersion
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
+from jobmon.models.Workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.server_logging import jobmonLogging as logging
@@ -243,36 +244,40 @@ def get_task_id_and_status():
     resp.status_code = StatusCodes.OK
     return resp
 
-# # @jqs.route('/dag/<dag_id>/job', methods=['GET'])
-# # def get_jobs_by_status(dag_id):
-# #     """Returns all jobs in the database that have the specified status
 
-# #     Args:
-# #         status (str): status to query for
-# #         last_sync (datetime): time since when to get jobs
-# #     """
-# #     logger.debug(logging.myself())
-# #     logging.logParameter("dag_id", dag_id)
-# #     last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
-# #     time = get_time(DB.session)
-# #     if request.args.get('status', None) is not None:
-# #         jobs = DB.session.query(Job).filter(
-# #             Job.dag_id == dag_id,
-# #             Job.status == request.args['status'],
-# #             Job.status_date >= last_sync).all()
-# #     else:
-# #         jobs = DB.session.query(Job).filter(
-# #             Job.dag_id == dag_id,
-# #             Job.status_date >= last_sync).all()
-# #     DB.session.commit()
-# #     job_dcts = [j.to_wire() for j in jobs]
-# #     logger.info("job_attr_dct={}".format(job_dcts))
-# #     resp = jsonify(job_dcts=job_dcts, time=time)
-# #     resp.status_code = StatusCodes.OK
-# #     return resp
+@jqs.route('/workflow', methods=['GET'])
+def get_workflow_id_and_status():
+    logger.info(logging.myself())
+    data = request.args
+    logger.debug(data)
+
+    query = """
+        SELECT workflow.id, workflow.status
+        FROM workflow
+        WHERE
+            tool_version_id = :tool_version_id
+            AND dag_id = :dag_id
+            AND workflow_args_hash = :workflow_args_hash
+            AND task_hash = :task_hash
+    """
+    result = DB.session.query(Workflow).from_statement(text(query)).params(
+        tool_version_id=data['tool_version_id'],
+        dag_id=data['dag_id'],
+        workflow_args_hash=data['workflow_args_hash'],
+        task_hash=data['task_hash']
+    ).one_or_none()
+
+    # send back json
+    if result is None:
+        resp = jsonify({'task_id': None, 'task_status': None})
+    else:
+        resp = jsonify({'task_id': result.id, 'task_status': result.status})
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-@jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>', methods=['GET'])
+@jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
+           methods=['GET'])
 def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
     """Returns oldest n tasks (or all tasks if total queued tasks < n) to be
     instantiated. Because the SGE can only qsub tasks at a certain rate, and we
