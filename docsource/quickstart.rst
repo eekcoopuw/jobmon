@@ -12,8 +12,8 @@ To get started::
     If you get **Could not find a version that satisfies the requirement jobmon (from version: )** then create (or append) the following to ``~/.pip/pip.conf``::
 
         [global]
-        extra-index-url = http://pypi.services.ihme.washington.edu/simple
-        trusted-host = pypi.services.ihme.washington.edu
+		extra-index-url = http://pypi.services.ihme.washington.edu/simple
+		trusted-host = pypi.services.ihme.washington.edu
 
 .. note::
 
