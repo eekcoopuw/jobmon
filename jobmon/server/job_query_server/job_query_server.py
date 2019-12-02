@@ -554,6 +554,7 @@ def get_ji_error(job_instance_id: int):
     resp.status_code = StatusCodes.OK
     return resp
 
+
 @jqs.route('/job/<job_id>/status', methods=['GET'])
 def get_job_status(job_id: int):
     """
@@ -577,3 +578,27 @@ def get_job_status(job_id: int):
         resp = jsonify({"status": None, "error_msg": "Job not found"})
         resp.status_code = StatusCodes.NO_CONTENT
     return resp
+
+
+@jqs.route('/workflow/<workflow_id>/status', methods=['GET'])
+def get_workflow_status(workflow_id: int):
+    """
+    Route to determine the status of a given workflow
+    :param workflow_id:
+    :return: workflow status
+    """
+
+    logger.debug(logging.myself())
+    logging.logParameter("workflow_id", workflow_id)
+
+    query = "SELECT status FROM workflow WHERE id = {}".format(workflow_id)
+    result = DB.session.execute(query).fetchone()
+    DB.session.commit()
+    if len(result) > 0:
+        resp = jsonify(result[0])
+        resp.status_code = StatusCodes.OK
+        return resp
+    else:
+        resp = jsonify("No workflow found")
+        resp.status_code = StatusCodes.NO_CONTENT
+        return resp

@@ -1,1 +1,2 @@
 tests/test_workflow_a.py
+tests/test_job_query_server.py
