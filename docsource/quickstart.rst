@@ -459,16 +459,8 @@ task_dag
     Has every entry of task dags created, as identified by a dag_id and dag_hash
 workflow
     Has every workflow created, along with it's associated dag_id, and workflow_args
-workflow_attribute
-    Additional attributes that are being tracked for a given workflow
-workflow_attribute_type
-    The types of attributes that can be tracked for workflows
 workflow_run
     Has every run of a workflow, paired with it's workflow, as identified by workflow_id
-workflow_run_attribute
-    Additional attributes that are being tracked for a workflow run
-workflow_run_attribute_type
-    The types of attributes that can be tracked for workflow runs
 workflow_run_status
     Meta-data table that defines the four states of a Workflow Run
 workflow_status

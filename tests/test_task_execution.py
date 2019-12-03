@@ -14,8 +14,8 @@ from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.client.swarm.workflow.r_task import RTask
 from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
-from jobmon.client.swarm.job_management.executor_job_instance import (
-    ExecutorJobInstance)
+from jobmon.client.swarm.job_management.executor_task_instance import (
+    ExecutorTaskInstance)
 
 path_to_file = os.path.dirname(__file__)
 
@@ -344,7 +344,7 @@ def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
         assert all(['c2' in nodename for nodename in jids])
 
 
-class MockExecutorJobInstance(ExecutorJobInstance):
+class MockExecutorJobInstance(ExecutorTaskInstance):
     """mock so that when a normal job goes registers in batch it actually
        goes to W state"""
 
@@ -356,11 +356,11 @@ class MockExecutorJobInstance(ExecutorJobInstance):
 
 
 def test_job_in_w_logs(dag_factory, monkeypatch, capsys, db_cfg):
-    import jobmon.client.swarm.job_management.job_instance_factory
+    import jobmon.client.swarm.job_management.task_instance_factory
     """mocks a case where a job enters W state instead of B or R and then
     tries to log running"""
     monkeypatch.setattr(
-        jobmon.client.swarm.job_management.job_instance_factory,
+        jobmon.client.swarm.job_management.task_instance_factory,
         "ExecutorJobInstance",
         MockExecutorJobInstance)
     name = 'task_no_exec_id'
