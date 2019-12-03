@@ -1,8 +1,10 @@
 from threading import Event, Thread
 
-from jobmon.client.client_logging import ClientLogging as logging
-from jobmon.client.swarm.job_management.task_instance_factory import TaskInstanceFactory
-from jobmon.client.swarm.job_management.task_instance_reconciler import TaskInstanceReconciler
+from jobmon.client.swarm import SwarmLogging as logging
+from jobmon.client.swarm.job_management.task_instance_factory import \
+    TaskInstanceFactory
+from jobmon.client.swarm.job_management.task_instance_reconciler import \
+    TaskInstanceReconciler
 
 logger = logging.getLogger(__name__)
 

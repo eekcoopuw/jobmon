@@ -1,8 +1,8 @@
 import sys
 from typing import Optional, List, Dict, Callable, Union
 
-from jobmon.client.internals.task import Task
-from jobmon.client.internals.tool import Tool
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
 from jobmon.client.swarm.executors.base import ExecutorParameters
 
 
@@ -19,7 +19,7 @@ class PythonTask(Task):
                  num_cores: Optional[int] = None,
                  max_runtime_seconds: Optional[int] = None,
                  queue: Optional[str] = None,
-                 max_attempts: Optional[int] = 3,
+                 max_attempts: int = 3,
                  j_resource: bool = False,
                  context_args: Optional[dict] = None,
                  resource_scales: Dict = None,

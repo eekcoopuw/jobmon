@@ -143,7 +143,7 @@ def db_cfg(ephemera):
 @pytest.fixture(scope='function')
 def env_var(real_jsm_jqs, monkeypatch):
     from jobmon.client import shared_requester, client_config
-    from jobmon.client.config import ClientConfig
+    from jobmon.client.requests.config import ClientConfig
 
     cc = ClientConfig.from_defaults()
     cc.host = real_jsm_jqs["JOBMON_HOST"]

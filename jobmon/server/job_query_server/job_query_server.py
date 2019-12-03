@@ -19,7 +19,7 @@ from jobmon.models.task_template import TaskTemplate
 from jobmon.models.task_template_version import TaskTemplateVersion
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
-from jobmon.models.Workflow import Workflow
+from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.server_logging import jobmonLogging as logging
@@ -269,9 +269,36 @@ def get_workflow_id_and_status():
 
     # send back json
     if result is None:
-        resp = jsonify({'task_id': None, 'task_status': None})
+        resp = jsonify({'workflow_id': None, 'status': None})
     else:
-        resp = jsonify({'task_id': result.id, 'task_status': result.status})
+        resp = jsonify({'workflow_id': result.id,
+                        'status': result.status})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route('/workflow/<workflow_args_hash>', methods=['GET'])
+def get_matching_workflows_by_workflow_args(workflow_args_hash):
+    """
+    Return any dag hashes that are assigned to workflows with identical
+    workflow args
+    """
+    logger.debug(logging.myself())
+
+    query = """
+        SELECT workflow.task_hash, workflow.tool_version_id, dag.hash
+        FROM workflow
+        JOIN dag
+            ON workflow.dag_id = dag.id
+        WHERE
+            workflow.workflow_args_hash = :workflow_args_hash
+    """
+
+    res = DB.session.query(Workflow, Dag).from_statement(text(query)).params(
+        workflow_args_hash=workflow_args_hash).all()
+    DB.session.commit()
+    res = [(row.task_hash, row.tool_version_id, row.hash) for row in res]
+    resp = jsonify(matching_workflows=res)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -437,23 +464,6 @@ def get_suspicious_job_instances(workflow_run_id):
 #     DB.session.commit()
 #     dag_ids = [dag.dag_id for dag in dags]
 #     resp = jsonify(dag_ids=dag_ids)
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-# @jqs.route('/workflow/workflow_args', methods=['GET'])
-# def get_workflow_args():
-#     """
-#     Return any dag hashes that are assigned to workflows with identical
-#     workflow args
-#     """
-#     logger.debug(logging.myself())
-#     workflow_args = request.args['workflow_args']
-#     workflow_hashes = DB.session.query(Workflow).filter(
-#         Workflow.workflow_args == workflow_args).\
-#         with_entities(Workflow.workflow_hash).all()
-#     DB.session.commit()
-#     resp = jsonify(workflow_hashes=workflow_hashes)
 #     resp.status_code = StatusCodes.OK
 #     return resp
 

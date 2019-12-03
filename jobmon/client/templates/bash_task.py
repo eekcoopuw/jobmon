@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Callable, Union
 
-from jobmon.client.internals.task import Task
-from jobmon.client.internals.tool import Tool
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
 from jobmon.client.swarm.executors.base import ExecutorParameters
 
 
@@ -22,8 +22,10 @@ class BashTask(Task):
                  name: Optional[str] = None,
                  num_cores: Optional[int] = None,
                  max_runtime_seconds: Optional[int] = None,
-                 queue: Optional[str] = None, max_attempts: Optional[int] = 3,
-                 j_resource: bool = False, tag: Optional[str] = None,
+                 queue: Optional[str] = None,
+                 max_attempts: int = 3,
+                 j_resource: bool = False,
+                 tag: Optional[str] = None,
                  context_args: Optional[dict] = None,
                  resource_scales: Dict = None,
                  task_attributes: Optional[dict] = None,
@@ -115,5 +117,4 @@ class BashTask(Task):
             executor_parameters=executor_parameters,
             name=name,
             max_attempts=max_attempts,
-            upstream_tasks=upstream_tasks,
-            task_attributes=task_attributes)
+            upstream_tasks=upstream_tasks)

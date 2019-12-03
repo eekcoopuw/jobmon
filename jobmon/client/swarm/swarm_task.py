@@ -1,7 +1,7 @@
 from http import HTTPStatus as StatusCodes
-from typing import Callable
+from typing import Callable, Set
 
-from jobmon.client import shared_requester
+from jobmon.client.swarm import shared_requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.serializers import SerializeSwarmTask
 from jobmon.models.task_status import TaskStatus
@@ -32,8 +32,8 @@ class SwarmTask(object):
         self.task_id = task_id
         self.status = status
 
-        self.upstream_bound_tasks = set()
-        self.downstream_bound_tasks = set()
+        self.upstream_bound_tasks: Set["SwarmTask"] = set()
+        self.downstream_bound_tasks: Set["SwarmTask"] = set()
 
         self.executor_parameters = executor_parameters
         self.max_attempts = max_attempts

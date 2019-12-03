@@ -6,12 +6,12 @@ import traceback
 from typing import Optional, List
 
 from jobmon.client import shared_requester, client_config
-from jobmon.client.requester import Requester
+from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.executors import Executor
 from jobmon.client.swarm.executors.sequential import SequentialExecutor
 from jobmon.client.swarm.job_management.executor_task_instance import (
     ExecutorTaskInstance)
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.swarm import SwarmLogging as logging
 
 
 logger = logging.getLogger(__name__)

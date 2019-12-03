@@ -420,10 +420,11 @@ def add_workflow():
 
     workflow = Workflow(tool_version_id=data['tool_version_id'],
                         dag_id=data['dag_id'],
-                        workflow_arg_hash=data['workflow_arg_hash'],
+                        workflow_args_hash=data['workflow_args_hash'],
                         task_hash=data['task_hash'],
                         description=data['description'],
-                        name=data["name"])
+                        name=data["name"],
+                        workflow_args=data["workflow_args"])
     DB.session.add(workflow)
     DB.session.commit()
 

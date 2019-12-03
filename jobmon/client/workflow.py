@@ -134,7 +134,7 @@ class Workflow(object):
         if len(tasks) > 0:  # if there are no tasks, we want to skip this
             for task in tasks:
                 hash_value.update(str(hash(task)).encode('utf-8'))
-        return hash_value
+        return int(hash_value.hexdigest(), 16)
 
     def add_task(self, task: Task):
         """Add a task to the workflow to be executed.
@@ -158,7 +158,9 @@ class Workflow(object):
         for task in tasks:
             self.add_task(task)
 
-    def _bind(self, resume, reset_running_jobs):
+    def _bind(self,
+              resume: bool = ResumeStatus.DONT_RESUME,
+              reset_running_jobs: bool = True):
         # short circuit if already bound
         if self.is_bound:
             return
@@ -174,11 +176,13 @@ class Workflow(object):
 
         # bind workflow
         workflow_id, status = self._get_workflow_id_and_status()
+
+        # raise error if workflow exists and is done
+        if status == WorkflowStatus.DONE:
+            raise WorkflowAlreadyComplete
+
         if workflow_id is not None:
             if resume:
-                if status == WorkflowStatus.DONE:
-                    raise WorkflowAlreadyComplete
-
                 if status == WorkflowStatus.RUNNING:
                     # TODO
                     # tell a previous workflow_run to kill itself.
@@ -232,6 +236,7 @@ class Workflow(object):
         # bind to database
         self._bind(resume, reset_running_jobs)
 
+        raise ValueError
         # create swarmtasks
         swarm_tasks = []
         for task in self.tasks.values():
@@ -244,12 +249,15 @@ class Workflow(object):
     def _matching_wf_args_diff_hash(self):
         """Check """
         rc, response = self.requester.send_request(
-            app_route='/workflow/workflow_args',
-            message={'workflow_args': str(self.workflow_args)},
+            app_route=f'/workflow/{str(self.workflow_args_hash)}',
+            message={},
             request_type='get')
-        bound_workflow_hashes = response['workflow_hashes']
-        for hash in bound_workflow_hashes:
-            if hash(self) != hash[0]:
+        bound_workflow_hashes = response['matching_workflows']
+        for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
+            match = (
+                self.task_hash == task_hash and self.tool_version_id and
+                hash(self.dag) == dag_hash)
+            if match:
                 raise WorkflowAlreadyExists(
                     "The unique workflow_args already belong to a workflow "
                     "that contains different tasks than the workflow you are "
@@ -263,8 +271,8 @@ class Workflow(object):
             app_route='/workflow',
             message={
                 "tool_version_id": self.tool_version_id,
-                "dag_id": self.dag_id,
-                "workflow_arg_hash": self.workflow_args_hash,
+                "dag_id": self._dag.dag_id,
+                "workflow_args_hash": self.workflow_args_hash,
                 "task_hash": self.task_hash
             },
             request_type='get'
@@ -281,11 +289,12 @@ class Workflow(object):
             app_route=app_route,
             message={
                 "tool_version_id": self.tool_version_id,
-                "dag_id": self.dag_id,
-                "workflow_arg_hash": self.workflow_args_hash,
+                "dag_id": self._dag.dag_id,
+                "workflow_args_hash": self.workflow_args_hash,
                 "task_hash": self.task_hash,
                 "description": self.description,
-                "name": self.name
+                "name": self.name,
+                "workflow_args": self.workflow_args
             },
             request_type='post'
         )
@@ -296,12 +305,25 @@ class Workflow(object):
         return response["workflow_id"]
 
     def _create_swarm_task(self, task: Task) -> SwarmTask:
-        swarm_task = SwarmTask()
+        swarm_task = SwarmTask(
+            task_id=task.task_id,
+            status=task.status,
+            task_args_hash=task.task_args_hash,
+            executor_parameters=task.executor_parameters,
+            max_attempts=task.max_attempts)
         return swarm_task
 
     def _create_workflow_run(self) -> WorkflowRun:
         return WorkflowRun(
             workflow_id=self.workflow_id)
+
+    def __hash__(self):
+        hash_value = hashlib.sha1()
+        hash_value.update(str(hash(self.tool_version_id)).encode('utf-8'))
+        hash_value.update(str(self.workflow_args_hash).encode('utf-8'))
+        hash_value.update(str(self.task_hash).encode('utf-8'))
+        hash_value.update(str(hash(self._dag)).encode('utf-8'))
+        return int(hash_value.hexdigest(), 16)
 
     # def _reset_tasks(self):
     #     """Reset all incomplete jobs of a dag_id, identified by self.dag_id"""

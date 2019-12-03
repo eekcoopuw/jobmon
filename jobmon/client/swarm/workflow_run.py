@@ -8,18 +8,14 @@ import os
 import socket
 import time
 
-from jobmon.client import shared_requester
-from jobmon.client.swarm.job_management.executor_task_instance import \
-    ExecutorTaskInstance
+from jobmon.client.swarm import shared_requester
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.client.utils import kill_remote_process
 from jobmon.exceptions import CallableReturnedInvalidObject
-from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.task_status import TaskStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.swarm import SwarmLogging as logging
 
 
 logger = logging.getLogger(__name__)

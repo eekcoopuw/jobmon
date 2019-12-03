@@ -7,7 +7,7 @@ from jobmon.client.swarm.executors import (Executor, TaskInstanceExecutorInfo,
                                            ExecutorParameters)
 from jobmon.client import shared_requester
 from jobmon.models.task_instance_status import TaskInstanceStatus
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.swarm import SwarmLogging as logging
 
 logger = logging.getLogger(__name__)
 

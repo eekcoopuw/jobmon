@@ -15,6 +15,7 @@ class Workflow(DB.Model):
     task_hash = DB.Column(DB.Integer)
     description = DB.Column(DB.Text(collation='utf8_general_ci'))
     name = DB.Column(DB.String(150))
+    workflow_args = DB.Column(DB.Text(collation='utf8_general_ci'))
     status = DB.Column(DB.String(1),
                        DB.ForeignKey('workflow_status.id'),
                        default=WorkflowStatus.REGISTERED)

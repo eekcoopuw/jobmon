@@ -1,12 +1,11 @@
-from typing import Optional, List
+from typing import Optional
 
-from jobmon.client import shared_requester
-from jobmon.client.requester import Requester
+from jobmon.client.swarm import shared_requester
+from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.executors import ExecutorParameters
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.task_status import TaskStatus
 from jobmon.serializers import SerializeExecutorTask
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.swarm import SwarmLogging as logging
 
 
 logger = logging.getLogger(__name__)

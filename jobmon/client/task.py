@@ -61,7 +61,7 @@ class Task:
                  task_args: dict,
                  executor_parameters: Union[ExecutorParameters, Callable],
                  name: Optional[str] = None,
-                 max_attempts: Optional[int] = 3,
+                 max_attempts: int = 3,
                  upstream_tasks: List[Task] = [],
                  requester: Requester = shared_requester):
         """

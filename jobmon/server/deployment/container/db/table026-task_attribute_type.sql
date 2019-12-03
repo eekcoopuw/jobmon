@@ -23,7 +23,7 @@ PARTITION future VALUES LESS THAN MAXVALUE ENGINE = InnoDB
 
 
 LOCK TABLES `task_attribute_type` WRITE;
-INSERT INTO `task_attribute_type`
+INSERT INTO `task_attribute_type` (id, name, type)
 VALUES (1,'NUM_LOCATIONS','int'),(2,'NUM_DRAWS','int'),
 (3,'NUM_AGE_GROUPS','int'),(4,'NUM_YEARS','int'),(5,'NUM_RISKS','int'),
 (6,'NUM_CAUSES','int'),(7,'NUM_SEXES','int'),(8,'TAG','string'),

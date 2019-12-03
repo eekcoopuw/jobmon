@@ -1,12 +1,12 @@
 from typing import Optional
 
-from jobmon.client import shared_requester
-from jobmon.client.requester import Requester
+from jobmon.client.swarm import shared_requester
+from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.executors import Executor
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.serializers import SerializeExecutorTaskInstance
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.swarm import SwarmLogging as logging
 
 logger = logging.getLogger(__name__)
 

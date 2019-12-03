@@ -6,18 +6,18 @@ from typing import List, Tuple, Dict, Optional
 from cluster_utils.io import makedirs_safely
 
 from jobmon.client import shared_requester
-from jobmon.client.utils import confirm_correct_perms
 from jobmon.client.swarm.executors import (Executor, TaskInstanceExecutorInfo,
                                            sge_utils, ExecutorParameters)
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.swarm import SwarmLogging as logging
 
 logger = logging.getLogger(__name__)
 
 ERROR_SGE_JID = -99999
 ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
+
 
 class SGEExecutor(Executor):
     def __init__(self,
@@ -32,8 +32,6 @@ class SGEExecutor(Executor):
         self.working_dir = working_dir
 
         super().__init__(*args, **kwargs)
-
-        confirm_correct_perms()
 
     def _execute_sge(self, qsub_cmd) -> int:
         try:
@@ -90,7 +88,7 @@ class SGEExecutor(Executor):
         return self._execute_sge(qsub_command)
 
     def get_actual_submitted_or_running(self) -> List[int]:
-        qstat_dict= sge_utils.qstat()
+        qstat_dict = sge_utils.qstat()
         executor_ids = list(qstat_dict.keys())
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids

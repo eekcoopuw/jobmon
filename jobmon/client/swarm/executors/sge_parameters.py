@@ -1,7 +1,7 @@
 import os
 from typing import Tuple, Union, Dict, Optional
 
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.swarm import SwarmLogging as logging
 
 logger = logging.getLogger(__name__)
 
