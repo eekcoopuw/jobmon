@@ -7,6 +7,7 @@ from sqlalchemy.sql import func, text
 from typing import Dict
 
 from jobmon.models import DB
+from jobmon.models.attributes.task_attribute import TaskAttribute
 from jobmon.models.dag import Dag
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.models.node import Node
@@ -553,6 +554,22 @@ def kill_self(task_instance_id):
 #     resp = jsonify({'mem': res[0], 'cores': res[1], 'runtime': res[2]})
 #     resp.status_code = StatusCodes.OK
 #     return resp
+
+@jqs.route('/task/<task_id>/get_task_attributes', methods=['GET'])
+def get_task_attributes(task_id):
+    """Retrieves the attributes for a given task"""
+    query = """SELECT task_attribute.value, task_attribute_type.name
+               FROM task_attribute
+               JOIN task_attribute_type 
+               ON task_attribute.attribute_type = task_attribute_type.id
+               WHERE task_attribute.task_id =: task_id"""
+    attributes = DB.session.query(TaskAttribute).from_statement(text(query))\
+        .params(task_id=task_id)
+    DB.session.commit()
+    resp = jsonify({"task_attributes": attributes})
+    resp.status_code = StatusCodes.OK
+    return resp
+
 
 
 @jqs.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])

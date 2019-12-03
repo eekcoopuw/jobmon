@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import partial
 import hashlib
 from http import HTTPStatus as StatusCodes
-from typing import Optional, List, Callable, Union
+from typing import Optional, List, Callable, Union, Tuple
 
 from jobmon.client import shared_requester
 from jobmon.client._logging import ClientLogging as logging
@@ -63,6 +63,7 @@ class Task:
                  name: Optional[str] = None,
                  max_attempts: Optional[int] = 3,
                  upstream_tasks: List[Task] = [],
+                 task_attributes: Optional[Union[List, dict]] = {},
                  requester: Requester = shared_requester):
         """
         Create a task
@@ -84,6 +85,8 @@ class Task:
             upstream_tasks (List): Task objects that must be run prior to this
             max_attempts (int): number of attempts to allow the cluster to try
                 before giving up. Default is 3
+            task_attributes (list or dict): dictionary of attributes and their
+                values or list of attributes that will be assigned later
             requester (Requester): requester to communicate with the flask
                 services
 
@@ -118,6 +121,19 @@ class Task:
 
         for task in upstream_tasks:
             self.add_upstream(task)
+
+        if isinstance(task_attributes, List):
+            self.task_attributes = {}
+            for attr in task_attributes:
+                self.task_attributes[attr] = None
+        elif isinstance(task_attributes, dict):
+            self.task_attributes = {}
+            for attr in task_attributes:
+                self.task_attributes[str(attr)] = str(task_attributes[attr])
+        else:
+            raise ValueError("task_attributes must be provided as a list of "
+                             "attributes or a dictionary of attributes and "
+                             "their values")
 
         if isinstance(executor_parameters, ExecutorParameters):
             # if the resources have already been defined, function returns
@@ -164,6 +180,7 @@ class Task:
         if task_id is None:
             task_id = self._add_task()
             status = TaskStatus.REGISTERED
+
         else:
             self._update_task_parameters()
         self._task_id = task_id
@@ -228,7 +245,8 @@ class Task:
             message={
                 'name': self.name,
                 'command': self.command,
-                'max_attempts': self.max_attempts
+                'max_attempts': self.max_attempts,
+                'task_atributes': self.task_attributes
             },
             request_type='put'
         )
@@ -236,8 +254,9 @@ class Task:
             raise ValueError(f'Unexpected status code {return_code} from PUT '
                              f'request through route {app_route}. Expected '
                              f'code 200. Response content: {response}')
+        return response["task_attribute_ids"]
 
-    def _add_task(self) -> int:
+    def _add_task(self) -> Tuple[int, dict]:
         app_route = f'/task'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -248,7 +267,8 @@ class Task:
                 'name': self.name,
                 'command': self.command,
                 'max_attempts': self.max_attempts,
-                'task_args': self.task_args
+                'task_args': self.task_args,
+                'task_attributes': self.task_attributes
             },
             request_type='post'
         )
@@ -256,7 +276,29 @@ class Task:
             raise ValueError(f'Unexpected status code {return_code} from PUT '
                              f'request through route {app_route}. Expected '
                              f'code 200. Response content: {response}')
-        return response["task_id"]
+        return response["task_id"], response["task_attribute_ids"]
+
+    def add_attributes(self, task_attributes: dict):
+        """Function that users can call either to update values of existing
+        attributes or add new attributes"""
+        app_route = f'/task/{self.task_id}/task_attributes'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={"task_attributes": task_attributes},
+            request_type="put"
+        )
+        if return_code != StatusCodes.OK:
+            raise ValueError(f'Unexepected status code {return_code} from PUT '
+                             f'request through route {app_route}. Expected '
+                             f'code 200. Response content: {response}')
+
+    def add_attribute(self, attribute: str, value: str):
+        """Function that users can call to add a single attribute for a
+        task"""
+        self.task_attributes[str(attribute)] = str(value)
+        # if the task has already been bound, bind the attributes
+        if self._task_id:
+            self.add_attributes({str(attribute): str(value)})
 
     def __eq__(self, other: Task) -> bool:
         return hash(self) == hash(other)

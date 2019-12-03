@@ -1,8 +1,8 @@
 import sys
 from typing import Optional, List, Dict, Callable, Union
 
-from jobmon.client.internals.task import Task
-from jobmon.client.internals.tool import Tool
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
 from jobmon.client.swarm.executors.base import ExecutorParameters
 
 
@@ -11,9 +11,11 @@ class PythonTask(Task):
     _python_task_template_registry: dict = {}
     current_python = sys.executable
 
-    def __init__(self, path_to_python_binary=current_python, script=None,
+    def __init__(self, path_to_python_binary=current_python,
+                 script=None,
                  args=None,
                  upstream_tasks: List[Task] = [],
+                 task_attributes: Optional[Union[dict, List]] = {},
                  env_variables: Optional[Dict[str, str]] = None,
                  name: Optional[str] = None,
                  num_cores: Optional[int] = None,
@@ -23,7 +25,6 @@ class PythonTask(Task):
                  j_resource: bool = False,
                  context_args: Optional[dict] = None,
                  resource_scales: Dict = None,
-                 task_attributes: Optional[dict] = None,
                  m_mem_free: Optional[str] = None,
                  hard_limits: Optional[bool] = False,
                  executor_class: str = 'DummyExecutor',
@@ -36,6 +37,8 @@ class PythonTask(Task):
             script (str): the full path to the python code to run
             args (list): list of arguments to pass in to the script
             upstream_tasks: Task objects that must be run prior to this
+            task_attributes (dict or list): attributes and their values or 
+                just the attributes that will be given values later
             env_variables: any environment variable that should be set
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
@@ -49,10 +52,6 @@ class PythonTask(Task):
                 before the executor kills it. Default is None, for indefinite.
             queue: queue of cluster nodes to submit this task to. Must be
                 a valid queue, as defined by "qconf -sql"
-            task_attributes: any attributes that will be
-                tracked. Once the task becomes a job and receives a job_id,
-                these attributes will be used for the job_factory
-                add_job_attribute function
             j_resource: whether this task is using the j-drive or not
             context_args: additional args to be passed to the executor
             resource_scales: for each resource, a scaling value (between 0 and

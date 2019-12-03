@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, Callable, Union
 
-from jobmon.client.internals.task import Task
-from jobmon.client.internals.tool import Tool
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
 from jobmon.client.swarm.executors.base import ExecutorParameters
 
 
@@ -18,15 +18,16 @@ class BashTask(Task):
     def __init__(self,
                  command: str,
                  upstream_tasks: List[Task] = [],
+                 task_attributes: Optional[Union[List, Dict]] = {},
                  env_variables: Optional[Dict[str, str]] = None,
                  name: Optional[str] = None,
                  num_cores: Optional[int] = None,
                  max_runtime_seconds: Optional[int] = None,
-                 queue: Optional[str] = None, max_attempts: Optional[int] = 3,
-                 j_resource: bool = False, tag: Optional[str] = None,
+                 queue: Optional[str] = None,
+                 max_attempts: Optional[int] = 3,
+                 j_resource: bool = False,
                  context_args: Optional[dict] = None,
                  resource_scales: Dict = None,
-                 task_attributes: Optional[dict] = None,
                  m_mem_free: Optional[str] = None,
                  hard_limits: Optional[bool] = False,
                  executor_class: str = 'DummyExecutor',
@@ -34,31 +35,23 @@ class BashTask(Task):
                  Optional[Union[ExecutorParameters, Callable]] = None):
         """
         Args:
-            path_to_python_binary (str): the python install that should be used
-                Default is the Python install where Jobmon is installed
-            script (str): the full path to the python code to run
-            args (list): list of arguments to pass in to the script
+            command (str): the command to execute using a python binary
             upstream_tasks: Task objects that must be run prior to this
+            task_attributes (dict or list): attributes and their values or 
+                just the attributes that will be given values later
             env_variables: any environment variable that should be set
                 for this job, in the form of a key: value pair.
                 This will be prepended to the command.
             name: name that will be visible in qstat for this job
             num_cores: number of cores to request on the cluster
+            max_runtime_seconds: how long the job should be allowed to run
+                before the executor kills it. Default is None, for indefinite.
+            queue: queue of cluster nodes to submit this task to. Must be
+                a valid queue, as defined by "qconf -sql"
             m_mem_free: amount of memory in gbs, tbs, or mbs, G, T, or M,
                 to request on the fair cluster.
             max_attempts: number of attempts to allow the cluster to try
                 before giving up. Default is 3
-            max_runtime_seconds: how long the job should be allowed to run
-                before the executor kills it. Default is None, for indefinite.
-            tag: a group identifier. Currently just used for visualization.
-                All tasks with the same tag will be colored the same in a
-                TaskDagViz instance. Default is None.
-            queue: queue of cluster nodes to submit this task to. Must be
-                a valid queue, as defined by "qconf -sql"
-            task_attributes: any attributes that will be
-                tracked. Once the task becomes a job and receives a job_id,
-                these attributes will be used for the job_factory
-                add_job_attribute function
             j_resource: whether this task is using the j-drive or not
             context_args: additional args to be passed to the executor
             resource_scales: for each resource, a scaling value (between 0 and

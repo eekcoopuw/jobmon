@@ -11,7 +11,7 @@ from cluster_utils.io import makedirs_safely
 
 import jobmon
 from jobmon.client import shared_requester, client_config
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.requester import Requester
 from jobmon.client.swarm.job_management.task_instance_state_controller import \
     TaskInstanceStateController
@@ -19,7 +19,6 @@ from jobmon.client.task import Task
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun, WorkflowRunExecutionStatus
 from jobmon.exceptions import InvalidResponse
-from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
 
