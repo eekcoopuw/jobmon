@@ -9,17 +9,17 @@ import pytest
 
 from jobmon import config
 from jobmon.client import shared_requester as req
-from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
-from jobmon.models.job import Job
-from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.models.job_status import JobStatus
-from jobmon.models.job_instance import JobInstance
+from jobmon.models.task import Task
+from jobmon.models.task_instance_status import TaskInstanceStatus
+from jobmon.models.task_status import TaskStatus
+from jobmon.models.task_instance import TaskInstance
 from jobmon.models.workflow import Workflow
-from jobmon.models.attributes.constants import job_attribute
+from jobmon.models.attributes.constants import task_instance_attribute
 from jobmon.server.server_logging import jobmonLogging as logging
-from jobmon.serializers import SerializeExecutorJobInstance
+from jobmon.serializers import SerializeExecutorTaskInstance
 
 HASH = 12345
 SECOND_HASH = 12346
@@ -87,19 +87,19 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
     monkeypatch.setattr(requester, 'get_content', get_flask_content)
 
 
-def test_get_workflow_run_id(db_cfg, real_dag_id):
+def test_get_workflow_run_id(db_cfg, real_wf_id):
     from jobmon.server.job_state_manager.job_state_manager import \
         _get_workflow_run_id
     user = getpass.getuser()
     # add job
     _, response = req.send_request(
-        app_route='/job',
+        app_route='/task',
         message={'name': 'bar',
-                 'job_hash': HASH,
+                 'task_args_hash': HASH,
                  'command': 'baz',
-                 'dag_id': str(real_dag_id)},
+                 'workflow_id': str(real_wf_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     # add workflow
     _, response = req.send_request(
@@ -135,8 +135,9 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
     DB = db_cfg["DB"]
 
     with app.app_context():
-        job = DB.session.query(Job).filter_by(job_id=swarm_job.job_id).first()
-        assert wf_run_id == _get_workflow_run_id(job)
+        task = DB.session.query(Task).filter_by(task_id=swarm_job.task_id)\
+            .first()
+        assert wf_run_id == _get_workflow_run_id(task)
 
 
 def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):
@@ -157,12 +158,12 @@ def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):
                  'command': 'baz',
                  'dag_id': str(dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
     app = db_cfg["app"]
     DB = db_cfg["DB"]
 
     with app.app_context():
-        job = DB.session.query(Job).filter_by(job_id=swarm_job.job_id).first()
+        job = DB.session.query(Task).filter_by(job_id=swarm_job.job_id).first()
         assert not _get_workflow_run_id(job)
 
 
@@ -175,7 +176,7 @@ def test_jsm_valid_done(real_dag_id, db_cfg):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -203,7 +204,7 @@ def test_jsm_valid_done(real_dag_id, db_cfg):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+    job_instance_id = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
 
     # do job logging
@@ -243,7 +244,7 @@ def test_jsm_valid_error(real_dag_id, db_cfg):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -271,7 +272,7 @@ def test_jsm_valid_error(real_dag_id, db_cfg):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+    job_instance_id = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
 
     # do job logging
@@ -290,7 +291,7 @@ def test_jsm_valid_error(real_dag_id, db_cfg):
         app_route=f'/job_instance/{job_instance_id}/log_error_worker_node',
         message={'error_message': "this is an error message",
                  'executor_id': str(12345),
-                 'error_state': JobInstanceStatus.ERROR,
+                 'error_state': TaskInstanceStatus.ERROR,
                  'nodename': socket.getfqdn()},
         request_type='post')
     req.send_request(
@@ -321,7 +322,7 @@ def test_invalid_transition(real_dag_id, no_requests_jsm_jqs):
                  'command': 'baz',
                  'dag_id': str(dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
     _, response = req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
         message={
@@ -348,7 +349,7 @@ def test_invalid_transition(real_dag_id, no_requests_jsm_jqs):
 
 def test_untimely_transition(real_dag_id, db_cfg):
     from jobmon.server.job_state_manager.job_state_manager import \
-        _get_job_instance
+        _get_task_instance
 
     # add job
     _, response = req.send_request(
@@ -358,7 +359,7 @@ def test_untimely_transition(real_dag_id, db_cfg):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -386,7 +387,7 @@ def test_untimely_transition(real_dag_id, db_cfg):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+    job_instance_id = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
 
     # the job hits a race and reports running before the executor logs
@@ -408,8 +409,8 @@ def test_untimely_transition(real_dag_id, db_cfg):
     DB = db_cfg["DB"]
     app = db_cfg["app"]
     with app.app_context():
-        ji = _get_job_instance(DB.session, job_instance_id)
-        assert ji.status == JobInstanceStatus.RUNNING
+        ji = _get_task_instance(DB.session, job_instance_id)
+        assert ji.status == TaskInstanceStatus.RUNNING
         assert ji.executor_id == 12345
 
 
@@ -422,7 +423,7 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -448,7 +449,7 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+    job_instance_id = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
 
     req.send_request(
@@ -474,8 +475,8 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        ji = DB.session.query(JobInstance).filter(
-            JobInstance.job_instance_id == job_instance_id).first()
+        ji = DB.session.query(TaskInstance).filter(
+            TaskInstance.job_instance_id == job_instance_id).first()
         assert ji.usage_str == 'used resources'
         assert ji.wallclock == '0'
         assert ji.maxrss == '1g'
@@ -499,7 +500,7 @@ def test_job_reset(db_cfg, real_dag_id):
                  'dag_id': str(real_dag_id),
                  'max_attempts': '3'},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -526,7 +527,7 @@ def test_job_reset(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    ji1 = SerializeExecutorJobInstance.kwargs_from_wire(
+    ji1 = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji1),
@@ -543,7 +544,7 @@ def test_job_reset(db_cfg, real_dag_id):
         app_route='/job_instance/{}/log_error_worker_node'.format(ji1),
         message={'error_message': "error 1",
                  'executor_id': str(12345),
-                 'error_state': JobInstanceStatus.ERROR,
+                 'error_state': TaskInstanceStatus.ERROR,
                  'nodename': socket.getfqdn()},
         request_type='post')
 
@@ -553,7 +554,7 @@ def test_job_reset(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    ji2 = SerializeExecutorJobInstance.kwargs_from_wire(
+    ji2 = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji2),
@@ -570,7 +571,7 @@ def test_job_reset(db_cfg, real_dag_id):
         app_route='/job_instance/{}/log_error_worker_node'.format(ji2),
         message={'error_message': "error 1",
                  'executor_id': str(12345),
-                 'error_state': JobInstanceStatus.ERROR,
+                 'error_state': TaskInstanceStatus.ERROR,
                  'nodename': socket.getfqdn()},
         request_type='post')
 
@@ -580,7 +581,7 @@ def test_job_reset(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    ji3 = SerializeExecutorJobInstance.kwargs_from_wire(
+    ji3 = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji3),
@@ -603,14 +604,14 @@ def test_job_reset(db_cfg, real_dag_id):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        jobs = DB.session.query(Job).filter_by(dag_id=real_dag_id,
+        jobs = DB.session.query(Task).filter_by(dag_id=real_dag_id,
                                                job_id=swarm_job.job_id).all()
         assert len(jobs) == 1
         job = jobs[0]
-        assert job.status == JobStatus.REGISTERED
+        assert job.status == TaskStatus.REGISTERED
         assert job.num_attempts == 0
         assert len(job.job_instances) == 3
-        assert all([ji.status == JobInstanceStatus.ERROR
+        assert all([ji.status == TaskInstanceStatus.ERROR
                     for ji in job.job_instances])
         errors = [e for ji in job.job_instances for e in ji.errors]
 
@@ -630,7 +631,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -657,7 +658,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    ji = SerializeExecutorJobInstance.kwargs_from_wire(
+    ji = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(ji),
@@ -680,12 +681,12 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
                  'io': '1'},
         request_type='post')
 
-    # open new session on the db and ensure job stats are being loggged
-    dict_of_attributes = {job_attribute.USAGE_STR: 'used resources',
-                          job_attribute.WALLCLOCK: '0',
-                          job_attribute.CPU: "00:00:00",
-                          job_attribute.IO: "1",
-                          job_attribute.MAXRSS: "1g"}
+    # open new session on the db and ensure job stats are being logged
+    dict_of_attributes = {task_instance_attribute.USAGE_STR: 'used resources',
+                          task_instance_attribute.WALLCLOCK: '0',
+                          task_instance_attribute.CPU: "00:00:00",
+                          task_instance_attribute.IO: "1",
+                          task_instance_attribute.MAXRSS: "1g"}
 
     req.send_request(
         app_route='/job_instance/{}/log_done'.format(ji),
@@ -804,7 +805,7 @@ def test_change_job_resources(db_cfg, real_dag_id):
                  'dag_id': str(real_dag_id),
                  'max_attempts': '3'},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
     _, response = req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
         message={'parameter_set_type': ExecutorParameterSetType.ADJUSTED,
@@ -835,7 +836,7 @@ def test_executor_id_logging(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -861,7 +862,7 @@ def test_executor_id_logging(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+    job_instance_id = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
@@ -886,8 +887,8 @@ def test_executor_id_logging(db_cfg, real_dag_id):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        ji = DB.session.query(JobInstance).filter(
-            JobInstance.job_instance_id == job_instance_id).first()
+        ji = DB.session.query(TaskInstance).filter(
+            TaskInstance.job_instance_id == job_instance_id).first()
         assert ji.nodename == socket.getfqdn()
         assert ji.executor_id == 54321
         DB.session.commit()
@@ -897,8 +898,8 @@ def test_executor_id_logging(db_cfg, real_dag_id):
                  'executor_id': str(55555)},
         request_type='post')
     with app.app_context():
-        ji = DB.session.query(JobInstance).filter(
-            JobInstance.job_instance_id == job_instance_id).first()
+        ji = DB.session.query(TaskInstance).filter(
+            TaskInstance.job_instance_id == job_instance_id).first()
         assert ji.status == 'R'
         assert ji.executor_id == 55555
         DB.session.commit()
@@ -907,8 +908,8 @@ def test_executor_id_logging(db_cfg, real_dag_id):
         message={'nodename': socket.getfqdn(), 'executor_id': str(98765)},
         request_type='post')
     with app.app_context():
-        ji = DB.session.query(JobInstance).filter(
-            JobInstance.job_instance_id == job_instance_id).first()
+        ji = DB.session.query(TaskInstance).filter(
+            TaskInstance.job_instance_id == job_instance_id).first()
         assert ji.status == 'D'
         assert ji.executor_id == 98765
         DB.session.commit()
@@ -923,7 +924,7 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -951,7 +952,7 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+    job_instance_id = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
 
     DB = db_cfg["DB"]
@@ -984,7 +985,7 @@ def test_log_error_reconciler(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -1012,7 +1013,7 @@ def test_log_error_reconciler(db_cfg, real_dag_id):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+    job_instance_id = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
     req.send_request(
         app_route=f'/job_instance/{job_instance_id}/log_executor_id',
@@ -1026,16 +1027,16 @@ def test_log_error_reconciler(db_cfg, real_dag_id):
         app_route=f'/job_instance/{job_instance_id}/log_error_reconciler',
         message={
             "error_message": "foo",
-            "error_state": JobInstanceStatus.UNKNOWN_ERROR
+            "error_state": TaskInstanceStatus.UNKNOWN_ERROR
         },
         request_type='post')
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        job_instance = DB.session.query(JobInstance).filter(
-            JobInstance.job_instance_id == job_instance_id).first()
+        job_instance = DB.session.query(TaskInstance).filter(
+            TaskInstance.job_instance_id == job_instance_id).first()
         assert job_instance.status == (
-            JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
+            TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
 
     # sleep till we are passed the next report increment then try again
     sleep(next_report_increment)
@@ -1043,16 +1044,16 @@ def test_log_error_reconciler(db_cfg, real_dag_id):
         app_route=f'/job_instance/{job_instance_id}/log_error_reconciler',
         message={
             "error_message": "foo",
-            "error_state": JobInstanceStatus.UNKNOWN_ERROR
+            "error_state": TaskInstanceStatus.UNKNOWN_ERROR
         },
         request_type='post')
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        job_instance = DB.session.query(JobInstance).filter(
-            JobInstance.job_instance_id == job_instance_id).first()
+        job_instance = DB.session.query(TaskInstance).filter(
+            TaskInstance.job_instance_id == job_instance_id).first()
         assert job_instance.status == (
-            JobInstanceStatus.UNKNOWN_ERROR)
+            TaskInstanceStatus.UNKNOWN_ERROR)
 
 
 def test_get_executor_id(db_cfg, real_dag_id):
@@ -1064,7 +1065,7 @@ def test_get_executor_id(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -1140,7 +1141,7 @@ def test_get_nodename(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
 
     req.send_request(
         app_route=f'/job/{swarm_job.job_id}/update_resources',
@@ -1242,7 +1243,7 @@ def test_special_chars(real_dag_id, testing_chars, comment, replaced):
                  'dag_id': str(real_dag_id),
                  'max_attempts': '3'},
         request_type='post')
-    swarm_job = SwarmJob.from_wire(response['job_dct'])
+    swarm_job = SwarmTask.from_wire(response['job_dct'])
     req.send_request(
         app_route='/job/{}/queue'.format(swarm_job.job_id),
         message={},
@@ -1254,7 +1255,7 @@ def test_special_chars(real_dag_id, testing_chars, comment, replaced):
         message={'job_id': str(swarm_job.job_id),
                  'executor_type': 'dummy_exec'},
         request_type='post')
-    ji1 = SerializeExecutorJobInstance.kwargs_from_wire(
+    ji1 = SerializeExecutorTaskInstance.kwargs_from_wire(
         response['job_instance'])["job_instance_id"]
     # Log some strange characters in the error
     s = f"{testing_chars} ({comment} {_get_ords(testing_chars)})"
@@ -1262,7 +1263,7 @@ def test_special_chars(real_dag_id, testing_chars, comment, replaced):
         app_route='/job_instance/{}/log_error_worker_node'.format(ji1),
         message={'error_message': s,
                  'executor_id': str(12345),
-                 'error_state': JobInstanceStatus.ERROR,
+                 'error_state': TaskInstanceStatus.ERROR,
                  'nodename': socket.getfqdn()},
         request_type='post')
     assert status == 200

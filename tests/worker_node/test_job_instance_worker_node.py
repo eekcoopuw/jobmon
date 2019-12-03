@@ -7,20 +7,20 @@ from unittest.mock import patch
 
 # This import is needed for the monkeypatch
 from jobmon.client import shared_requester, client_config
-from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo
-import jobmon.client.swarm.job_management.job_instance_factory
-import jobmon.client.swarm.job_management.executor_job_instance
-from jobmon.client.worker_node.worker_node_job_instance import (
-    WorkerNodeJobInstance)
+from jobmon.client.swarm.executors.sge import TaskInstanceSGEInfo
+import jobmon.client.swarm.job_management.task_instance_factory
+import jobmon.client.swarm.job_management.executor_task_instance
+from jobmon.client.worker_node.worker_node_task_instance import (
+    WorkerNodeTaskInstance)
 import jobmon.client.worker_node.execution_wrapper
-import jobmon.client.worker_node.worker_node_job_instance
+import jobmon.client.worker_node.worker_node_task_instance
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.exceptions import ReturnCodes
 
 error_raised = False
 
 
-class BadSGEExecutor(JobInstanceSGEInfo):
+class BadSGEExecutor(TaskInstanceSGEInfo):
     """Mock the intercom interface for testing purposes, specifically
     to raise exceptions"""
 
@@ -31,11 +31,11 @@ class BadSGEExecutor(JobInstanceSGEInfo):
 
 
 def test_bad_qstat_call(monkeypatch):
-    ji_intercom = WorkerNodeJobInstance(
-        job_instance_id=12345, job_instance_executor_info=BadSGEExecutor())
+    ji_intercom = WorkerNodeTaskInstance(
+        task_instance_id=12345, task_instance_executor_info=BadSGEExecutor())
 
     # The following should not throw
-    ji_intercom.log_job_stats()
+    ji_intercom.log_task_stats()
     # But check that it did
     assert error_raised
 
@@ -80,12 +80,12 @@ def test_workflow_wrong_jobmon_versions(monkeypatch, db_cfg, real_dag_id):
                          start_daemons=False)
     job = jlm.bind_task(task)
     jlm.adjust_resources_and_queue(job)
-    instantiated = jlm.job_instance_factory.instantiate_queued_jobs()
+    instantiated = jlm.job_instance_factory.instantiate_queued_tasks()
     jid = instantiated[0]
     status = query_until_error(db_cfg, jid)
     while status[0] != 'U':
         status = query_until_error(db_cfg, jid)
-        jlm.job_inst_reconciler._account_for_lost_job_instances()
+        jlm.job_inst_reconciler._account_for_lost_task_instances()
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():

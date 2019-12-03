@@ -7,6 +7,8 @@ from sqlalchemy.exc import IntegrityError
 # from jobmon.models.executor_parameter_set import ExecutorParameterSet
 # from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 # from jobmon.models.task_instance import TaskInstance
+from jobmon.models.attributes.task_instance_attribute_type import \
+    TaskInstanceAttributeType
 # from jobmon.models.tool import Tool
 # from jobmon.models.tool_version import ToolVersion
 # from jobmon.models.workflow import Workflow
@@ -31,70 +33,18 @@ def load_attribute_types(db):
     """loads attributes to their specific attribute_type table in db"""
     attribute_types = []
 
-    # load attribute_type and their type for workflow_attribute_type table
-    workflow_attributes = {'NUM_LOCATIONS': 'int',
-                           'NUM_DRAWS': 'int',
-                           'NUM_AGE_GROUPS': 'int',
-                           'NUM_YEARS': 'int',
-                           'NUM_RISKS': 'int',
-                           'NUM_CAUSES': 'int',
-                           'NUM_SEXES': 'int',
-                           'TAG': 'string',
-                           'NUM_MEASURES': 'int',
-                           'NUM_METRICS': 'int',
-                           'NUM_MOST_DETAILED_LOCATIONS': 'int',
-                           'NUM_AGGREGATE_LOCATIONS': 'int'}
-    for attribute in workflow_attributes:
-        workflow_attribute_types = WorkflowAttributeType(
-            name=attribute,
-            type=workflow_attributes[attribute])
-        attribute_types.append(workflow_attribute_types)
-
-    # load attribute_type and their type for workflow_run_attribute_type table
-    workflow_run_attributes = {'NUM_LOCATIONS': 'int',
-                               'NUM_DRAWS': 'int',
-                               'NUM_AGE_GROUPS': 'int',
-                               'NUM_YEARS': 'int',
-                               'NUM_RISKS': 'int',
-                               'NUM_CAUSES': 'int',
-                               'NUM_SEXES': 'int',
-                               'TAG': 'string',
-                               'NUM_MEASURES': 'int',
-                               'NUM_METRICS': 'int',
-                               'NUM_MOST_DETAILED_LOCATIONS': 'int',
-                               'NUM_AGGREGATE_LOCATIONS': 'int',
-                               'SLOT_LIMIT_AT_START': 'int',
-                               'SLOT_LIMIT_AT_END': 'int'}
-    for attribute in workflow_run_attributes:
-        workflow_run_attribute_types = WorkflowRunAttributeType(
-            name=attribute,
-            type=workflow_run_attributes[attribute])
-        attribute_types.append(workflow_run_attribute_types)
-
-    # load attribute_type and their type for job_attribute_type table
-    job_attributes = {'NUM_LOCATIONS': 'int',
-                      'NUM_DRAWS': 'int',
-                      'NUM_AGE_GROUPS': 'int',
-                      'NUM_YEARS': 'int',
-                      'NUM_RISKS': 'int',
-                      'NUM_CAUSES': 'int',
-                      'NUM_SEXES': 'int',
-                      'TAG': 'string',
-                      'NUM_MEASURES': 'int',
-                      'NUM_METRICS': 'int',
-                      'NUM_MOST_DETAILED_LOCATIONS': 'int',
-                      'NUM_AGGREGATE_LOCATIONS': 'int',
-                      'WALLCLOCK': 'string',
-                      'CPU': 'string',
-                      'IO': 'string',
-                      'MAXRSS': 'string',
-                      'USAGE_STR': 'string',
-                      }
-    for attribute in job_attributes:
-        job_attribute_types = JobAttributeType(
+    # load attribute_type and their type for task_instance_attribute_type table
+    task_instance_attributes = {'WALLCLOCK': 'string',
+                                'CPU': 'string',
+                                'IO': 'string',
+                                'MAXRSS': 'string',
+                                'MAXPSS': 'string',
+                                'USAGE_STR': 'string'}
+    for attribute in task_instance_attributes:
+        task_instance_attribute_types = TaskInstanceAttributeType(
                                 name=attribute,
-                                type=job_attributes[attribute])
-        attribute_types.append(job_attribute_types)
+                                type=task_instance_attributes[attribute])
+        attribute_types.append(task_instance_attribute_types)
 
     # add all attribute types to db
     db.session.add_all(attribute_types)

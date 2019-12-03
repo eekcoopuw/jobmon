@@ -16,6 +16,8 @@ from jobmon.models import DB
 from jobmon.models.arg import Arg
 from jobmon.models.arg_type import ArgType
 from jobmon.models.attributes.constants import qsub_attribute, task_instance_attribute
+from jobmon.models.attributes.task_attribute import TaskAttribute
+from jobmon.models.attributes.task_attribute_type import TaskAttributeType
 from jobmon.models.attributes.task_instance_attribute import TaskInstanceAttribute
 from jobmon.models.command_template_arg_type_mapping import \
     CommandTemplateArgTypeMapping
@@ -299,12 +301,13 @@ def add_task():
 
     Args:
         workflow_id: workflow this task is associated with
-        job_hash: structural node this task is associated with
+        node_id: structural node this task is associated with
         task_arg_hash: hash of the data args for this task
         name: task's name
         command: task's command
         max_attempts: how many times the job should be attempted
         task_args: dictionary of data args for this task
+        task_attributes: dictionary of attributes associated with the task
     """
     logger.info(logging.myself())
     data = request.get_json()
@@ -324,6 +327,13 @@ def add_task():
         task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
         DB.session.add(task_arg)
         DB.session.flush()
+    for name, val in data["task_attributes"].items():
+        type_id = _add_or_get_attribute_type(name)
+        task_attribute = TaskAttribute(task_id=task.id,
+                                       attribute_type=type_id,
+                                       value=val)
+        DB.session.add(task_attribute)
+        DB.session.flush()
     DB.session.commit()
 
     resp = jsonify(task_id=task.id)
@@ -335,9 +345,14 @@ def add_task():
 def update_task_parameters(task_id):
     logger.info(logging.myself())
     data = request.get_json()
-    data["task_id"] = task_id
     logger.debug(data)
 
+    for name, val in data["task_attributes"].items():
+        attribute_id = _add_or_update_attribute(task_id, name, val)
+        DB.session.flush()
+    data.pop("task_attributes")
+
+    data["task_id"] = task_id
     query = """
     UPDATE task
     SET name=:name, command=:command, max_attempts=:max_attempts
@@ -349,6 +364,60 @@ def update_task_parameters(task_id):
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
+
+
+def _add_or_get_attribute_type(name):
+    try:
+        query = """SELECT id, name
+        FROM task_attribute_type 
+        WHERE name = :name
+        """
+        attribute_type = DB.session.query(TaskAttributeType)\
+            .from_statement(text(query)).params(name=name).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        DB.session.rollback()
+        attribute_type = TaskAttributeType(name=name)
+        DB.session.add(attribute_type)
+        DB.session.commit()
+    return attribute_type.id
+
+
+def _add_or_update_attribute(task_id, name, value):
+    attribute_type = _add_or_get_attribute_type(name)
+    try:
+        # if the attribute was already set for the task, update it with the
+        # new value
+        query = """SELECT id
+        FROM task_attribute 
+        WHERE task_id = :task_id AND attribute_type = :attribute_id
+        """
+        attribute = DB.session.query(TaskAttribute)\
+            .from_statement(text(query))\
+            .params(task_id=task_id, attribute_type=attribute_type).one()
+        params = {"value": value, "attribute_id": attribute.id}
+        update_query = """UPDATE task_attribute
+                          SET value = :value
+                          WHERE attribute_id = :attribute_id
+                       """
+        DB.session.execute(update_query, params)
+    except sqlalchemy.orm.exc.NoResultFound:
+        DB.session.rollback()
+        attribute = TaskAttribute(task_id=task_id,
+                                  attribute_type=attribute_type,
+                                  value=value)
+        DB.session.add(attribute)
+        DB.session.commit()
+    return attribute.id
+
+
+@jsm.route('/task/<task_id>/task_attributes', methods='PUT')
+def update_task_attribute(task_id):
+    """Add or update attributes for a task"""
+    data = request.get_json()
+    attributes = data["task_attributes"]
+    # update existing attributes with their values
+    for name, val in attributes:
+        _add_or_update_attribute(task_id, name, val)
 
 
 def _get_workflow_run_id(job):

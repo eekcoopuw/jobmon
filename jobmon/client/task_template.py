@@ -159,9 +159,9 @@ class TaskTemplate:
     def create_task(self,
                     executor_parameters: Union[ExecutorParameters, Callable],
                     name: Optional[str] = None,
-                    upstream_tasks: List["Task"] = [],
+                    upstream_tasks: List[Task] = [],
+                    task_attributes: Optional[Union[List, dict]] = {},
                     max_attempts: Optional[int] = 3,
-                    job_attributes: Optional[dict] = None,
                     **kwargs) -> Task:
         """Create an instance of a task associated with this template
 
@@ -169,10 +169,10 @@ class TaskTemplate:
             executor_parameters: an instance of executor paremeters class
             name: a name associated with this specific task
             upstream_task: Task objects that must be run prior to this one
+            task_attributes (dict or list): attributes and their values or
+                just the attributes that will be given values later
             max_attempts: Number of attempts to try this task before giving up.
                 Default is 3.
-            job_attributes: any attributes associated with this task to be
-                tracked.
             **kwargs: values for each argument specified in command_template
 
         Returns: ExecutableTask
@@ -200,7 +200,7 @@ class TaskTemplate:
             name=name,
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
-            task_attributes=job_attributes)
+            task_attributes=task_attributes)
         return task
 
     def _get_task_template_id(self) -> int:

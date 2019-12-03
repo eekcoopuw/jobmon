@@ -2,6 +2,7 @@ from jobmon.models import DB
 
 
 class TaskInstanceAttributeType(DB.Model):
+    __tablename__ = 'task_instance_attribute_type'
 
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))
