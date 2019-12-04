@@ -13,11 +13,15 @@ class SleepAndWriteFileMockTask(etk.ExecutableTask):
                  command,
                  upstream_tasks=None,
                  fail_always=False,
+                 max_attempts=3,
+                 max_runtime_seconds=60,
                  fail_count=0
                  ):
-        etk.ExecutableTask.__init__(self, command, num_cores=1, m_mem_free='2G',
-                                    max_runtime_seconds='1000',
-                                    upstream_tasks=upstream_tasks)
+        etk.ExecutableTask.__init__(self, command, num_cores=1,
+                                    m_mem_free='2G',
+                                    max_runtime_seconds=max_runtime_seconds,
+                                    upstream_tasks=upstream_tasks,
+                                    max_attempts=max_attempts)
 
         # TBD validation using the types module.
         self.fail_always = fail_always

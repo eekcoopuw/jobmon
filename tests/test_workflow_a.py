@@ -19,13 +19,15 @@ from jobmon.client import shared_requester as req
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     ResumeStatus
+from tests.conftest import teardown_db
 import tests.workflow_utils as wu
 
 
 path_to_file = os.path.dirname(__file__)
 
 
-def test_wf_with_stata_temp_dir(env_var, db_cfg):
+def test_wf_with_stata_temp_dir(db_cfg, env_var):
+    teardown_db(db_cfg)
     t1 = StataTask(script='di "hello"', num_cores=1)
     t2 = StataTask(script='di "world"', upstream_tasks=[t1], num_cores=1)
 
@@ -34,10 +36,12 @@ def test_wf_with_stata_temp_dir(env_var, db_cfg):
 
     success = wf.run()
     assert success
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
-def test_wfargs_update(env_var, db_cfg):
+def test_wfargs_update(db_cfg, env_var):
+    teardown_db(db_cfg)
     # Create identical dags
     t1 = BashTask("sleep 1", num_cores=1)
     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
@@ -66,14 +70,16 @@ def test_wfargs_update(env_var, db_cfg):
     # Make sure the second Workflow has a distinct set of Jobs
     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
-def test_resource_arguments(env_var, db_cfg):
+def test_resource_arguments(db_cfg, env_var):
     """
     Test the parsing/serialization max run time and cores.
     90,000 seconds is deliberately longer than one day, testing a specific
     bug"""
+    teardown_db(db_cfg)
     t1 = BashTask("sleep 10",
                   queue='all.q',
                   max_runtime_seconds=90_000,
@@ -82,6 +88,7 @@ def test_resource_arguments(env_var, db_cfg):
     wf.add_tasks([t1])
     return_code = wf.execute()
     assert return_code == DagExecutionStatus.SUCCEEDED
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
@@ -166,6 +173,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     jlm = workflow.task_dag.job_list_manager
     for _, task in workflow.task_dag.tasks.items():
         assert jlm.status_from_task(task) == JobStatus.DONE
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
@@ -258,6 +266,7 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
         # WorkflowRuns..
         assert other_wfr.status == WorkflowRunStatus.STOPPED
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
@@ -322,6 +331,7 @@ def test_dag_reset(db_cfg, simple_workflow_w_errors):
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
 def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
@@ -342,9 +352,11 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
         # Make sure all their node names were recorded
         nodenames = [ji.nodename for ji in jis]
         assert nodenames and all(nodenames)
+    teardown_db(db_cfg)
 
 
 def test_subprocess_return_code_propagation(db_cfg, env_var):
+    teardown_db(db_cfg)
     task = BashTask("not_a_command 1", num_cores=1, m_mem_free='2G',
                     queue="all.q", j_resource=False)
 
@@ -373,10 +385,12 @@ def test_subprocess_return_code_propagation(db_cfg, env_var):
 
     # exit status should not be a success, expect failure
     assert exit_status != 0
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
-def test_fail_fast(env_var, db_cfg):
+def test_fail_fast(db_cfg, env_var):
+    teardown_db(db_cfg)
     t1 = BashTask("sleep 1", num_cores=1)
     t2 = BashTask("erroring_out 1", upstream_tasks=[t1], num_cores=1)
     t3 = BashTask("sleep 10", upstream_tasks=[t1], num_cores=1)
@@ -389,9 +403,11 @@ def test_fail_fast(env_var, db_cfg):
 
     assert len(workflow.task_dag.job_list_manager.all_error) == 1
     assert len(workflow.task_dag.job_list_manager.all_done) >= 2
+    teardown_db(db_cfg)
 
 
 def test_heartbeat(db_cfg, env_var, ephemera):
+    teardown_db(db_cfg)
     app = db_cfg["app"]
     app.config["SQLALCHEMY_ECHO"] = True
     DB = db_cfg["DB"]
@@ -461,3 +477,4 @@ def test_heartbeat(db_cfg, env_var, ephemera):
 
     # Must manully clean this one up because it was not executed.
     wu.cleanup_jlm(workflow)
+    teardown_db(db_cfg)

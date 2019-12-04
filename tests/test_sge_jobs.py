@@ -10,6 +10,7 @@ from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.utils import _run_remote_command
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
+from tests.conftest import teardown_db
 from tests.timeout_and_skip import timeout_and_skip
 
 path_to_file = os.path.dirname(__file__)
@@ -78,22 +79,26 @@ def test_context_args(db_cfg, jlm_sge_daemon):
                          context_args_check,
                          db_cfg=db_cfg,
                          job_id=job.job_id))
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip("Fails too often, needs a new approach")
 def test_intel_args_positive(db_cfg, job_list_manager_sge):
     # Positive test - we want Intel
+    teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
                                job_list_manager_sge,
                                test_name="test_intel_arg",
                                architecture_name="intel",
                                cluster_architecture_name="GenuineIntel",
                                )
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip("Fails too often, needs a new approach")
 def test_intel_args_negative(db_cfg, job_list_manager_sge):
     # Negative test - we don't want Intel
+    teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
                                job_list_manager_sge,
                                test_name="test_intel_arg",
@@ -101,20 +106,24 @@ def test_intel_args_negative(db_cfg, job_list_manager_sge):
                                cluster_architecture_name="AuthenticAMD",
                                yes_or_no=False
                                )
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip("Fails too often, needs a new approach")
 def test_amd_args_positive(db_cfg, job_list_manager_sge):
+    teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
                                job_list_manager_sge,
                                test_name="test_amd_arg",
                                architecture_name="amd",
                                cluster_architecture_name="AuthenticAMD"
                                )
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip("Fails too often, needs a new approach")
 def test_amd_args_negative(db_cfg, job_list_manager_sge):
+    teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
                                job_list_manager_sge,
                                test_name="test_amd_arg",
@@ -122,6 +131,7 @@ def test_amd_args_negative(db_cfg, job_list_manager_sge):
                                cluster_architecture_name="GenuineIntel",
                                yes_or_no=False
                                )
+    teardown_db(db_cfg)
 
 
 def architecture_specific_args(db_cfg,

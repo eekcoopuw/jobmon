@@ -27,7 +27,7 @@ from jobmon.server.config import ServerConfig
 #     for k, v in orig_vars.items():
 #         os.environ[k] = v
 #
-#
+# fixture only used by other functions that are commented out
 # @pytest.fixture
 # def clear_envvars():
 #
@@ -44,22 +44,22 @@ from jobmon.server.config import ServerConfig
 #     for k, v in orig_vars.items():
 #         os.environ[k] = v
 
-@pytest.fixture
-def envvars(monkeypatch):
-
-    conn_vars = {
-        "DB_HOST": "somehost",
-        "DB_PORT": "123456789",
-        "DB_USER": "foo",
-        "DB_PASS": "bar",
-        "DB_NAME": "baz",
-    }
-
-    # override env variable (monkeypatch will revert them at teardown)
-    for k, v in conn_vars.items():
-        monkeypatch.setenv(k, v)
-
-    yield conn_vars
+# @pytest.fixture
+# def envvars(monkeypatch):
+#
+#     conn_vars = {
+#         "DB_HOST": "somehost",
+#         "DB_PORT": "123456789",
+#         "DB_USER": "foo",
+#         "DB_PASS": "bar",
+#         "DB_NAME": "baz",
+#     }
+#
+#     # override env variable (monkeypatch will revert them at teardown)
+#     for k, v in conn_vars.items():
+#         monkeypatch.setenv(k, v)
+#
+#     yield conn_vars
 
 
 # def test_env_override_of_conn_str(envvars):

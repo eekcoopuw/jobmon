@@ -14,6 +14,7 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from .mock_sleep_and_write_task import SleepAndWriteFileMockTask
+from tests.conftest import teardown_db
 
 path_to_file = os.path.dirname(__file__)
 
@@ -347,6 +348,7 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, tmp_out_dir,
     One of the b-tasks fails once, so the retry handler should cover that, and
     the whole real_dag should complete
     """
+    teardown_db(db_cfg)
     root_out_dir = ("{}/mocks/test_fork_and_join_tasks_with_retryable_error"
                     .format(tmp_out_dir))
     makedirs_safely(root_out_dir)
@@ -437,6 +439,7 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, tmp_out_dir,
     kill_pgid_text = "--last_pgid {}".format(err_pgid)
     assert sge_submit_cmd_contains(done_sge_id, kill_nn_text)
     assert sge_submit_cmd_contains(done_sge_id, kill_pgid_text)
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
@@ -543,6 +546,7 @@ def test_real_dag_logging(db_cfg, tmp_out_dir, real_dag):
     and makes sure the qstat usage details are automatically updated in the db,
     as well as the created_date for the real_dag
     """
+    teardown_db(db_cfg)
     root_out_dir = "{}/mocks/test_real_dag_logging".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     command_script = sge.true_path(f"{path_to_file}/remote_sleep_and_write.py")
@@ -571,6 +575,7 @@ def test_real_dag_logging(db_cfg, tmp_out_dir, real_dag):
         td = DB.session.query(TaskDagMeta).first()
         print(td.created_date)
         assert td.created_date  # this should not be empty
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip(reason="Too big to run by default, only run when "
@@ -585,6 +590,7 @@ def test_dag_logging_using_mem(db_cfg, tmp_out_dir, dag):
     and makes sure the qstat usage details are automatically updated in the db,
     as well as the created_date for the dag
     """
+    teardown_db(db_cfg)
     root_out_dir = "{}/mocks/test_dag_logging_using_mem".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     command_script = sge.true_path(f"{path_to_file}/memory_usage_array.py")
@@ -612,3 +618,4 @@ def test_dag_logging_using_mem(db_cfg, tmp_out_dir, dag):
         td = DB.session.query(TaskDagMeta).first()
         print(td.created_date)
         assert td.created_date  # this should not be emptp ji,y
+    teardown_db(db_cfg)

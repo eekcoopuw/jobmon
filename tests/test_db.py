@@ -8,10 +8,12 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
+from tests.conftest import teardown_db
 
 
 def test_job_submit_times(db_cfg):
     """Test that db datetimes aren't all the same..."""
+    teardown_db(db_cfg)
     app = db_cfg["app"]
     DB = db_cfg["DB"]
 
@@ -89,9 +91,11 @@ def test_job_submit_times(db_cfg):
         assert len(set([wf.created_date for wf in wfs])) == 2
         assert len(set([wfr.created_date for wfr in wfrs])) == 2
         assert len(set([j.submitted_date for j in jobs])) == 3
+    teardown_db(db_cfg)
 
 
 def test_job_executor_params_relationship(db_cfg):
+    teardown_db(db_cfg)
     app = db_cfg["app"]
     DB = db_cfg["DB"]
 
@@ -137,3 +141,4 @@ def test_job_executor_params_relationship(db_cfg):
 
         job = DB.session.query(Job).one()
         assert job.executor_parameter_set.max_runtime_seconds == 100
+    teardown_db(db_cfg)

@@ -12,6 +12,7 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
 
+from tests.conftest import teardown_db
 
 class Task(ExecutableTask):
     """Test version of the Task class for use in this module"""
@@ -38,6 +39,7 @@ def job_list_manager_daemon(real_dag_id):
 
 
 def test_sync(db_cfg, jlm_sge_no_daemon):
+    teardown_db(db_cfg)
     now = jlm_sge_no_daemon.last_sync
     assert now is not None
 
@@ -80,6 +82,7 @@ def test_sync(db_cfg, jlm_sge_no_daemon):
     new_now = jlm_sge_no_daemon.last_sync
     assert new_now > now
     assert len(jlm_sge_no_daemon.all_error) > 0
+    teardown_db(db_cfg)
 
 
 def test_invalid_command(job_list_manager):
@@ -222,8 +225,9 @@ def mock_parse_qsub_resp_error(cmd, shell=False, universal_newlines=True):
     return ("NO executor id here")
 
 
-def test_job_instance_qsub_error(jlm_sge_no_daemon, db_cfg, monkeypatch,
+def test_job_instance_qsub_error(db_cfg, jlm_sge_no_daemon, monkeypatch,
                                  caplog):
+    teardown_db(db_cfg)
     monkeypatch.setattr(jobmon.client.swarm.executors.sge,
                         "check_output", mock_qsub_error)
     jlm = jlm_sge_no_daemon
@@ -244,10 +248,12 @@ def test_job_instance_qsub_error(jlm_sge_no_daemon, db_cfg, monkeypatch,
     assert resp[-1].executor_id is None
     assert "Received -99999 meaning the job did not qsub properly, moving " \
            "to 'W' state" in caplog.text
+    teardown_db(db_cfg)
 
 
-def test_job_instance_bad_qsub_parse(jlm_sge_no_daemon, db_cfg, monkeypatch,
+def test_job_instance_bad_qsub_parse(db_cfg, jlm_sge_no_daemon, monkeypatch,
                                      caplog):
+    teardown_db(db_cfg)
     monkeypatch.setattr(jobmon.client.swarm.executors.sge,
                         "check_output", mock_parse_qsub_resp_error)
     jlm = jlm_sge_no_daemon
@@ -268,6 +274,7 @@ def test_job_instance_bad_qsub_parse(jlm_sge_no_daemon, db_cfg, monkeypatch,
     assert job_info[-1].status == 'F'
     assert "Got response from qsub but did not contain a valid executor_id. " \
            "Using (-33333), and moving to 'W' state" in caplog.text
+    teardown_db(db_cfg)
 
 
 def query_till_running(db_cfg):
@@ -281,9 +288,10 @@ def query_till_running(db_cfg):
     return resp
 
 
-def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
+def test_ji_unknown_state(db_cfg, jlm_sge_no_daemon):
     """should try to log a report by date after being set to the L state and
     fail"""
+    teardown_db(db_cfg)
     jlm = jlm_sge_no_daemon
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
@@ -319,12 +327,14 @@ def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
             sleep(3)
     # 9 indicates sigkill signal was sent as expected
     assert '9' in exit_status
+    teardown_db(db_cfg)
 
 
-def test_ji_kill_self_state(jlm_sge_no_daemon, db_cfg):
+def test_ji_kill_self_state(db_cfg, jlm_sge_no_daemon):
     """Job instance should poll for for a job state KILL_SELF and kill
     itself. Basically test_ji_unknown_state but setting K state instead
     """
+    teardown_db(db_cfg)
     jlm = jlm_sge_no_daemon
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="sleep 60", name="kill_self_task",
@@ -360,9 +370,11 @@ def test_ji_kill_self_state(jlm_sge_no_daemon, db_cfg):
             sleep(3)
     # 9 indicates sigkill signal was sent as expected
     assert '9' in exit_status
+    teardown_db(db_cfg)
 
 
-def test_context_args(jlm_sge_no_daemon, db_cfg, caplog):
+def test_context_args(db_cfg, jlm_sge_no_daemon, caplog):
+    teardown_db(db_cfg)
     caplog.set_level(logging.DEBUG)
 
     jlm = jlm_sge_no_daemon
@@ -378,3 +390,4 @@ def test_context_args(jlm_sge_no_daemon, db_cfg, caplog):
     jif.instantiate_queued_jobs()
 
     assert "-a foo" in caplog.text
+    teardown_db(db_cfg)
