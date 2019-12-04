@@ -575,7 +575,7 @@ def get_task_attributes(task_id):
     """Retrieves the attributes for a given task"""
     query = """SELECT task_attribute.value, task_attribute_type.name
                FROM task_attribute
-               JOIN task_attribute_type 
+               JOIN task_attribute_type
                ON task_attribute.attribute_type = task_attribute_type.id
                WHERE task_attribute.task_id =: task_id"""
     attributes = DB.session.query(TaskAttribute).from_statement(text(query))\

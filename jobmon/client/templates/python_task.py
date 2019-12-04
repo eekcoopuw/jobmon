@@ -1,8 +1,13 @@
 import sys
 from typing import Optional, List, Dict, Callable, Union
 
+<<<<<<< HEAD:jobmon/client/templates/python_task.py
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
+=======
+from jobmon.client.workflow.task import Task
+from jobmon.client.workflow.tool import Tool
+>>>>>>> f5c68387530f702a91f8ed26b22e9a5c14f26960:jobmon/client/workflow/templates/python_task.py
 from jobmon.client.swarm.executors.base import ExecutorParameters
 
 
@@ -15,7 +20,10 @@ class PythonTask(Task):
                  script=None,
                  args=None,
                  upstream_tasks: List[Task] = [],
+<<<<<<< HEAD:jobmon/client/templates/python_task.py
                  task_attributes: Optional[Union[dict, List]] = {},
+=======
+>>>>>>> f5c68387530f702a91f8ed26b22e9a5c14f26960:jobmon/client/workflow/templates/python_task.py
                  env_variables: Optional[Dict[str, str]] = None,
                  name: Optional[str] = None,
                  num_cores: Optional[int] = None,
@@ -134,7 +142,11 @@ class PythonTask(Task):
             name=name,
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
+<<<<<<< HEAD:jobmon/client/templates/python_task.py
             task_attributes=task_attributes)
+=======
+            job_attributes=job_attributes)
+>>>>>>> f5c68387530f702a91f8ed26b22e9a5c14f26960:jobmon/client/workflow/templates/python_task.py
 
     @classmethod
     def _add_task_template_to_registry(cls, script, task_template):

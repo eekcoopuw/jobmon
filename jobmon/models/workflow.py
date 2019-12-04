@@ -1,3 +1,5 @@
+
+from datetime import datetime
 from sqlalchemy.sql import func
 
 from jobmon.models import DB
@@ -7,6 +9,13 @@ from jobmon.models.workflow_status import WorkflowStatus
 class Workflow(DB.Model):
 
     __tablename__ = 'workflow'
+
+    @classmethod
+    def from_wire(cls, dct):
+        pass
+
+    def to_wire(self):
+        pass
 
     id = DB.Column(DB.Integer, primary_key=True)
     tool_version_id = DB.Column(DB.Integer, DB.ForeignKey("tool_version.id"))
@@ -19,6 +28,7 @@ class Workflow(DB.Model):
     status = DB.Column(DB.String(1),
                        DB.ForeignKey('workflow_status.id'),
                        default=WorkflowStatus.REGISTERED)
+    heartbeat_date = DB.Column(DB.DateTime, default=datetime.utcnow)
     created_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
@@ -29,3 +39,7 @@ class Workflow(DB.Model):
     def transition(self, new_state):
         self.status = new_state
         self.status_date = func.UTC_TIMESTAMP()
+
+    dag = DB.relationship(
+        "Dag", back_populates="workflow")
+    # TODO: FSM transitions here

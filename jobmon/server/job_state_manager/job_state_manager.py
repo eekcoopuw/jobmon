@@ -348,7 +348,7 @@ def update_task_parameters(task_id):
     logger.debug(data)
 
     for name, val in data["task_attributes"].items():
-        attribute_id = _add_or_update_attribute(task_id, name, val)
+        _add_or_update_attribute(task_id, name, val)
         DB.session.flush()
     data.pop("task_attributes")
 
@@ -369,7 +369,7 @@ def update_task_parameters(task_id):
 def _add_or_get_attribute_type(name):
     try:
         query = """SELECT id, name
-        FROM task_attribute_type 
+        FROM task_attribute_type
         WHERE name = :name
         """
         attribute_type = DB.session.query(TaskAttributeType)\
@@ -388,7 +388,7 @@ def _add_or_update_attribute(task_id, name, value):
         # if the attribute was already set for the task, update it with the
         # new value
         query = """SELECT id
-        FROM task_attribute 
+        FROM task_attribute
         WHERE task_id = :task_id AND attribute_type = :attribute_id
         """
         attribute = DB.session.query(TaskAttribute)\
