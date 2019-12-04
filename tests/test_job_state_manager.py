@@ -144,7 +144,6 @@ def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):
                  'created_date': str(datetime.utcnow())},
         request_type='post')
     dag_id = response['dag_id']
-
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'foobar',
@@ -1340,3 +1339,18 @@ def test_jsm_update_jobs_status(real_dag_id, db_cfg):
         request_type='get')
     assert code == 200
     assert response['status'] == 'E'
+
+
+def test_no_multi_wf_resume(db_cfg, simple_workflow):
+    dag_id = simple_workflow.dag_id
+    assert dag_id is not None
+    code, _ = req.send_request(
+        app_route='/task_dag/{}/log_running'.format(dag_id),
+        message={},
+        request_type='post')
+    assert code == 200
+    code, _ = req.send_request(
+        app_route='/task_dag/{}/log_running'.format(dag_id),
+        message={},
+        request_type='post')
+    assert code == 400

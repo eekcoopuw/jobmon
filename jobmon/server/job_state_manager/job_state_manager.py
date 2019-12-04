@@ -532,16 +532,34 @@ def log_dag_running(dag_id: int):
     """
     logger.info(logging.myself())
     logger.debug(logging.logParameter("dag_id", dag_id))
-
+    params = {"dag_id": int(dag_id)}
+    query = """
+        SELECT *
+        FROM workflow
+        WHERE dag_id = :dag_id
+        """
+    r = DB.session.execute(query, params)
+    if r.rowcount == 0:
+        # If there is no workflow, no need to update it.
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
+        DB.session.commit()
+        return resp
     params = {"dag_id": int(dag_id)}
     query = """
         UPDATE workflow
         SET status = 'R'
-        WHERE dag_id = :dag_id"""
-    DB.session.execute(query, params)
+        WHERE dag_id = :dag_id
+        AND status != 'R' """
+    r = DB.session.execute(query, params)
+    if r.rowcount == 0:
+        msg = f'The request failed because either dag_id {dag_id} does not exist or the dag has already been running.'
+        resp = jsonify(message=msg)
+        resp.status_code = StatusCodes.BAD_REQUEST
+    else:
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
     DB.session.commit()
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
     return resp
 
 
