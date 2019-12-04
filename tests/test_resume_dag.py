@@ -20,7 +20,7 @@ path_to_file = os.path.dirname(__file__)
 
 
 @pytest.mark.qsubs_jobs
-def test_resume_real_dag(real_dag, tmp_out_dir, db_cfg):
+def test_resume_real_dag(real_dag, tmp_out_dir):
     root_out_dir = "{}/mocks/test_resume_real_dag".format(tmp_out_dir)
     makedirs_safely(root_out_dir)
     command_script = sge_utils.true_path(f"{path_to_file}/remote_sleep_and_write.py")
@@ -76,11 +76,8 @@ def test_resume_real_dag(real_dag, tmp_out_dir, db_cfg):
                  .format(real_dag.fail_after_n_executions))
 
     # ensure real_dag officially "fell over"
-    #import pdb
-    #pdb.set_trace()
     with pytest.raises(ValueError):
         real_dag._execute()
-    #pdb.set_trace()
     # ensure the real_dag that "fell over" has 2 out of the 5 jobs complete
     logger.debug(f"All completed are {real_dag.job_list_manager.all_done}")
     bound_tasks = list(real_dag.job_list_manager.bound_tasks.values())
