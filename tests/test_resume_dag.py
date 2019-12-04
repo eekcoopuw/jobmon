@@ -157,7 +157,6 @@ def test_resume_dag_heartbeat_race_condition(simple_workflow, db_cfg):
             elif tries > 5:
                 # cluster was probably busy or busted so the workflow never
                 # finished
-                # raise error? or something else?
                 raise RuntimeError('Test exceeded wait time. The cluster is '
                                    'likely busy.')
             else:
