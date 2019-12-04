@@ -306,10 +306,10 @@ def get_job_instances_by_status(dag_id):
     logger.debug(logging.myself())
     logging.logParameter("dag_id", dag_id)
     query = """SELECT *
-                   FROM job_instance
-                   WHERE job_instance.dag_id = :dag_id
-                   AND job_instance.status in (:status_list)
-                """
+               FROM job_instance
+               WHERE job_instance.dag_id = :dag_id
+               AND job_instance.status in (:status_list)
+            """
     job_instances = DB.session.query(JobInstance).from_statement(text(query))\
         .params(dag_id=dag_id, status_list=request.args.getlist('status'))\
         .all()
@@ -326,14 +326,14 @@ def get_suspicious_job_instances(dag_id):
     # ignore job instances created after heartbeat began. We'll reconcile them
     # during the next reconciliation loop.
     query = """ SELECT job_instance.job_instance_id, job_instance.executor_id
-                    FROM job_instance 
-                    JOIN task_dag 
-                    ON job_instance.dag_id = task_dag.dag_id
-                    AND job_instance.dag_id = :dag_id
-                    AND job_instance.status in (:batch, :running)
-                    AND job_instance.submitted_date <= task_dag.heartbeat_date
-                    AND job_instance.report_by_date <= UTC_TIMESTAMP()
-                """
+                FROM job_instance 
+                JOIN task_dag 
+                ON job_instance.dag_id = task_dag.dag_id
+                AND job_instance.dag_id = :dag_id
+                AND job_instance.status in (:batch, :running)
+                AND job_instance.submitted_date <= task_dag.heartbeat_date
+                AND job_instance.report_by_date <= UTC_TIMESTAMP()
+            """
     rows = DB.session.query('job_instance_id', 'executor_id') \
         .from_statement(text(query)) \
         .params(dag_id=dag_id,
