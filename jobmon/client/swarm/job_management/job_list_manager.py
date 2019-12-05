@@ -176,7 +176,6 @@ class JobListManager(object):
             message={},
             request_type='post')
         if rc == StatusCodes.BAD_REQUEST:
-            #pass
             raise DagLogRunningException("Failed to log dag running. Received \"{}\" from server.".format(msg['message']))
         return rc
 
