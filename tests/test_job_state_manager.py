@@ -87,6 +87,7 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
 def test_get_workflow_run_id(db_cfg, real_dag_id):
     from jobmon.server.job_state_manager.job_state_manager import \
         _get_workflow_run_id
+    teardown_db(db_cfg)
     user = getpass.getuser()
     # add job
     _, response = req.send_request(
@@ -134,6 +135,7 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=swarm_job.job_id).first()
         assert wf_run_id == _get_workflow_run_id(job)
+    teardown_db(db_cfg)
 
 
 def test_get_workflow_run_id_no_workflow(db_cfg, real_dag_id):

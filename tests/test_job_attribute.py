@@ -117,7 +117,6 @@ def test_attributes_retrievable(db_cfg, env_var):
     stub_job = wf.task_dag.job_list_manager.hash_job_map[task.hash]
     job_id = stub_job.job_id
 
-
     return_code, resp = wf.requester.send_request(
         '/job/{}/job_attribute'.format(job_id),
         {'job_attribute_type': job_attribute.NUM_DRAWS}, 'get')
