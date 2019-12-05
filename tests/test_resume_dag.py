@@ -86,7 +86,6 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
     assert bound_tasks[2].status != JobStatus.DONE
     assert bound_tasks[3].status != JobStatus.DONE
     assert bound_tasks[4].status != JobStatus.DONE
-    #pdb.set_trace()
     # relaunch real_dag, and ensure all tasks are marked complete now.
     # the real_dag will keep track of all completed tasks from last run of
     # the real_dag, and so the number of all_completed will be all 5
