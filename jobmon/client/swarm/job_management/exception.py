@@ -1,2 +1,0 @@
-class DagLogRunningException(Exception):
-    pass
