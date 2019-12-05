@@ -10,6 +10,7 @@ from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.models.job import Job
 from tests.timeout_and_skip import timeout_and_skip
+from tests.conftest import teardown_db
 
 path_to_file = os.path.dirname(__file__)
 
@@ -48,7 +49,7 @@ def test_new_cluster_with_new_params(jlm_sge_daemon, mem, queue):
 
 @pytest.mark.cluster
 @pytest.mark.parametrize('mem', ['1TB', '513GB'])
-def test_big_memory_adjusted(mem, capsys):
+def test_big_memory_adjusted(mem):
     task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
                 name="invalid_memory", m_mem_free=mem, num_cores=8,
                 j_resource=True, queue='all.q', max_runtime_seconds=120)
@@ -182,7 +183,8 @@ def test_sec_exceeds_queue_hard(jlm_sge_no_daemon):
     assert resources.max_runtime_seconds == 259200
 
 
-def test_mem_exceeds_limit_cant_scale(jlm_sge_no_daemon, db_cfg):
+def test_mem_exceeds_limit_cant_scale(db_cfg, jlm_sge_no_daemon):
+    teardown_db(db_cfg)
     name = "mem_no_scale"
     job = jlm_sge_no_daemon.bind_task(
         PythonTask(script=sge.true_path(f"{path_to_file}/exceed_mem.py"),
@@ -233,4 +235,4 @@ def test_mem_exceeds_limit_cant_scale(jlm_sge_no_daemon, db_cfg):
         assert job.executor_parameter_set.m_mem_free == 0.6
         assert job.executor_parameter_set.max_runtime_seconds == 60
         DB.session.commit()
-
+    teardown_db(db_cfg)

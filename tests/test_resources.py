@@ -8,11 +8,13 @@ from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.exceptions import CallableReturnedInvalidObject
+from tests.conftest import teardown_db
 
 
 @pytest.mark.qsubs_jobs
-def test_callable_returns_exec_params(env_var, db_cfg):
+def test_callable_returns_exec_params(db_cfg, env_var):
     """Test when the provided callable returns the correct parameters"""
+    teardown_db(db_cfg)
     task = BashTask(name='good_callable_task', command='sleep 1',
                     max_attempts=2,
                     executor_parameters=resource_file_does_exist)
@@ -31,6 +33,7 @@ def test_callable_returns_exec_params(env_var, db_cfg):
             assert params['max_runtime_seconds'] == 30
             assert params['m_mem_free'] == 2
             assert params['num_cores'] == 1
+    teardown_db(db_cfg)
 
 
 def resource_file_does_exist(*args, **kwargs):
@@ -54,7 +57,8 @@ def resource_file_does_exist(*args, **kwargs):
 
 
 @pytest.mark.qsubs_jobs
-def test_callable_fails_bad_filepath(env_var, db_cfg):
+def test_callable_fails_bad_filepath(db_cfg, env_var):
+    teardown_db(db_cfg)
     task = BashTask(name='bad_callable_wrong_file', command='sleep 1',
                     max_attempts=2,
                     executor_parameters=resource_filepath_does_not_exist)
@@ -62,6 +66,7 @@ def test_callable_fails_bad_filepath(env_var, db_cfg):
     wf.add_task(task)
     with pytest.raises(FileNotFoundError):
         wf.run()
+    teardown_db(db_cfg)
 
 
 def resource_filepath_does_not_exist(*args, **kwargs):
@@ -72,7 +77,8 @@ def resource_filepath_does_not_exist(*args, **kwargs):
 
 
 @pytest.mark.qsubs_jobs
-def test_callable_returns_wrong_object(env_var, db_cfg):
+def test_callable_returns_wrong_object(db_cfg, env_var):
+    teardown_db(db_cfg)
     task = BashTask(name='bad_callable_wrong_return_obj', command='sleep 1',
                     max_attempts=2,
                     executor_parameters=wrong_return_params)
@@ -80,6 +86,7 @@ def test_callable_returns_wrong_object(env_var, db_cfg):
     wf.add_task(task)
     with pytest.raises(CallableReturnedInvalidObject):
         wf.run()
+    teardown_db(db_cfg)
 
 
 def wrong_return_params(*args, **kwargs):
@@ -88,7 +95,8 @@ def wrong_return_params(*args, **kwargs):
 
 
 @pytest.mark.qsubs_jobs
-def test_static_resource_assignment(env_var, db_cfg):
+def test_static_resource_assignment(db_cfg, env_var):
+    teardown_db(db_cfg)
     executor_parameters = ExecutorParameters(m_mem_free='1G',
                                              max_runtime_seconds=60,
                                              num_cores=1, queue='all.q')
@@ -97,10 +105,12 @@ def test_static_resource_assignment(env_var, db_cfg):
     wf = Workflow(workflow_args='static_resource_wf')
     wf.add_task(task)
     wf.run()
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
-def test_dynamic_resource_assignment(env_var, db_cfg):
+def test_dynamic_resource_assignment(db_cfg, env_var):
+    teardown_db(db_cfg)
     task = BashTask(name='dynamic_resource_task', command='sleep 1',
                     max_attempts=2, executor_parameters=assign_resources)
     wf = Workflow(workflow_args='dynamic_resource_wf')
@@ -118,6 +128,7 @@ def test_dynamic_resource_assignment(env_var, db_cfg):
         assert resp[0].max_runtime_seconds == 60
         assert resp[0].m_mem_free == 0.4
         assert resp[0].num_cores == 2
+    teardown_db(db_cfg)
 
 
 def assign_resources(*args, **kwargs):

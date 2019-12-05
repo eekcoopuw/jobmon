@@ -1,6 +1,7 @@
 from datetime import datetime
 import getpass
 import hashlib
+import logging
 import os
 import random
 import socket
@@ -19,6 +20,7 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow import Workflow
 from jobmon.models.attributes.constants import job_attribute
 from jobmon.serializers import SerializeExecutorJobInstance
+from tests.conftest import teardown_db
 
 HASH = 12345
 SECOND_HASH = 12346
@@ -134,9 +136,10 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
         assert wf_run_id == _get_workflow_run_id(job)
 
 
-def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):
+def test_get_workflow_run_id_no_workflow(db_cfg, real_dag_id):
     from jobmon.server.job_state_manager.job_state_manager import \
         _get_workflow_run_id
+    teardown_db(db_cfg)
     rc, response = req.send_request(
         app_route='/task_dag',
         message={'name': 'testing dag', 'user': 'pytest_user',
@@ -159,10 +162,12 @@ def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=swarm_job.job_id).first()
         assert not _get_workflow_run_id(job)
+    teardown_db(db_cfg)
 
 
-def test_jsm_valid_done(real_dag_id, db_cfg):
+def test_jsm_valid_done(db_cfg, real_dag_id):
     # add job
+    teardown_db(db_cfg)
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
@@ -226,10 +231,11 @@ def test_jsm_valid_done(real_dag_id, db_cfg):
         message={'job_instance_id': str(job_instance_id),
                  'nodename': socket.getfqdn()},
         request_type='post')
+    teardown_db(db_cfg)
 
 
-def test_jsm_valid_error(real_dag_id, db_cfg):
-
+def test_jsm_valid_error(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -295,10 +301,10 @@ def test_jsm_valid_error(real_dag_id, db_cfg):
                  'exit_status': 2,
                  'nodename': socket.getfqdn()},
         request_type='post')
+    teardown_db(db_cfg)
 
 
 def test_invalid_transition(real_dag_id, no_requests_jsm_jqs):
-
     # add dag
     rc, response = req.send_request(
         app_route='/task_dag',
@@ -341,10 +347,10 @@ def test_invalid_transition(real_dag_id, no_requests_jsm_jqs):
             request_type='post')
 
 
-def test_untimely_transition(real_dag_id, db_cfg):
+def test_untimely_transition(db_cfg, real_dag_id):
     from jobmon.server.job_state_manager.job_state_manager import \
         _get_job_instance
-
+    teardown_db(db_cfg)
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -406,10 +412,11 @@ def test_untimely_transition(real_dag_id, db_cfg):
         ji = _get_job_instance(DB.session, job_instance_id)
         assert ji.status == JobInstanceStatus.RUNNING
         assert ji.executor_id == 12345
+    teardown_db(db_cfg)
 
 
 def test_jsm_log_usage(db_cfg, real_dag_id):
-
+    teardown_db(db_cfg)
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
@@ -482,10 +489,11 @@ def test_jsm_log_usage(db_cfg, real_dag_id):
         app_route='/job_instance/{}/log_done'.format(job_instance_id),
         message={'nodename': socket.getfqdn()},
         request_type='post')
+    teardown_db(db_cfg)
 
 
 def test_job_reset(db_cfg, real_dag_id):
-
+    teardown_db(db_cfg)
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
@@ -614,10 +622,11 @@ def test_job_reset(db_cfg, real_dag_id):
         # job_instances don't hang around in unknown states upon RESET
         assert len(errors) == 5
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
 def test_jsm_submit_job_attr(db_cfg, real_dag_id):
-
+    teardown_db(db_cfg)
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
@@ -708,6 +717,7 @@ def test_jsm_submit_job_attr(db_cfg, real_dag_id):
             assert (dict_of_attributes[attribute_entry_type] ==
                     attribute_entry_value)
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
 def test_syslog_parameter(env_var):
@@ -739,6 +749,7 @@ def test_error_logger(env_var):
 
 
 def test_set_flask_log_level_seperately(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     print("----------------------------default------------------------")
     _, response = req.send_request(
         app_route='/job',
@@ -786,11 +797,13 @@ def test_set_flask_log_level_seperately(db_cfg, real_dag_id):
                  'command': 'baz',
                  'dag_id': str(real_dag_id)},
         request_type='post')
+    teardown_db(db_cfg)
 
 
 def test_change_job_resources(db_cfg, real_dag_id):
     """ test that resources can be set and then changed and show up properly
     in the DB"""
+    teardown_db(db_cfg)
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
@@ -820,9 +833,11 @@ def test_change_job_resources(db_cfg, real_dag_id):
         assert mem == 2
         assert cores == 3
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
 def test_executor_id_logging(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
@@ -907,9 +922,11 @@ def test_executor_id_logging(db_cfg, real_dag_id):
         assert ji.status == 'D'
         assert ji.executor_id == 98765
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
-def test_on_transition_get_kill(real_dag_id, db_cfg):
+def test_on_transition_get_kill(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -967,9 +984,11 @@ def test_on_transition_get_kill(real_dag_id, db_cfg):
                  'next_report_increment': 120},
         request_type='post')
     assert resp['message'] == 'kill self'
+    teardown_db(db_cfg)
 
 
 def test_log_error_reconciler(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     next_report_increment = 15
     # add job
     _, response = req.send_request(
@@ -1048,9 +1067,11 @@ def test_log_error_reconciler(db_cfg, real_dag_id):
             JobInstance.job_instance_id == job_instance_id).first()
         assert job_instance.status == (
             JobInstanceStatus.UNKNOWN_ERROR)
+    teardown_db(db_cfg)
 
 
 def test_get_executor_id(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -1124,9 +1145,11 @@ def test_get_executor_id(db_cfg, real_dag_id):
     )
     assert rc == 200
     assert int(response['executor_id']) == 12345
+    teardown_db(db_cfg)
 
 
 def test_get_nodename(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -1200,6 +1223,7 @@ def test_get_nodename(db_cfg, real_dag_id):
     )
     assert rc == 200
     assert response['nodename'] == "mimi.ilovecat.org"
+    teardown_db(db_cfg)
 
 
 def _get_ords(s):
@@ -1269,7 +1293,8 @@ def test_special_chars(real_dag_id, testing_chars, comment, replaced):
         assert s in msg["errors"]
 
 
-def test_jsm_update_jobs_status(real_dag_id, db_cfg):
+def test_jsm_update_jobs_status( db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     # add job
     _, response = req.send_request(
         app_route='/job',
@@ -1340,3 +1365,4 @@ def test_jsm_update_jobs_status(real_dag_id, db_cfg):
         request_type='get')
     assert code == 200
     assert response['status'] == 'E'
+    teardown_db(db_cfg)

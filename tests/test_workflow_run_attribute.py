@@ -4,9 +4,11 @@ from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.models.attributes.constants import workflow_run_attribute
+from tests.conftest import teardown_db
 
 
-def test_workflow_run_attribute(env_var, db_cfg):
+def test_workflow_run_attribute(db_cfg, env_var):
+    teardown_db(db_cfg)
     # create a workflow_run
     wfa = "test_workflow_run_attribute"
     workflow = Workflow(wfa)
@@ -49,9 +51,11 @@ def test_workflow_run_attribute(env_var, db_cfg):
 
         assert entry_type == workflow_run_attribute.NUM_DRAWS
         assert entry_value == "1000"
+    teardown_db(db_cfg)
 
 
-def test_workflow_run_attribute_input_error(env_var, db_cfg):
+def test_workflow_run_attribute_input_error(db_cfg, env_var):
+    teardown_db(db_cfg)
     # create a workflow_run
     wfa = "test_workflow_run_attribute_input_error"
     workflow = Workflow(wfa)
@@ -67,10 +71,12 @@ def test_workflow_run_attribute_input_error(env_var, db_cfg):
     assert "Invalid" in str(exc.value)
 
     workflow.task_dag.disconnect()
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
-def test_new_workflow_has_project_limit(env_var, db_cfg):
+def test_new_workflow_has_project_limit(db_cfg, env_var):
+    teardown_db(db_cfg)
     wfa = "test_new_workflow_has_project_limit"
     workflow = Workflow(wfa, project='proj_tools')
     t1 = BashTask("sleep 1", num_cores=1)
@@ -146,3 +152,4 @@ def test_new_workflow_has_project_limit(env_var, db_cfg):
         # slot limits
 
     workflow.task_dag.disconnect()
+    teardown_db(db_cfg)
