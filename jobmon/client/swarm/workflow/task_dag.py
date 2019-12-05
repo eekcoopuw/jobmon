@@ -184,8 +184,7 @@ class TaskDag(object):
         """
         if not self.is_bound:
             self.bind_to_db()
-        else:
-            self.job_list_manager.log_dag_running()
+        self.job_list_manager.log_dag_running()
 
         previously_completed = copy.copy(self.job_list_manager.all_done)
         self._set_top_fringe()
