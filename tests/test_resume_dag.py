@@ -175,45 +175,59 @@ def test_resume_dag_heartbeat_race_condition(simple_workflow, db_cfg):
                             'dag_id': simple_workflow.dag_id})
         DB.session.commit()
 
-        with app.app_context():
-            # confirm that the health monitor thinks the workflow is lost
-            get_heartbeat_date = """
-                SELECT * 
-                FROM task_dag
-                WHERE dag_id = :dag_id
-            """
-            heartbeat_result = DB.session.query(TaskDagMeta).from_statement(
-                text(get_heartbeat_date)
-            ).params(dag_id=simple_workflow.task_dag.dag_id).one_or_none()
-            # DB.session.commit()
-            heartbeat_date = heartbeat_result.heartbeat_date
-            time_since_last_heartbeat = (datetime.utcnow() - heartbeat_date)
-            # 90 seconds is the default threshold
-            is_lost = time_since_last_heartbeat.total_seconds() > 90
+    with app.app_context():
+        # confirm that the health monitor thinks the workflow is lost
+        get_heartbeat_date = """
+            SELECT * 
+            FROM task_dag
+            WHERE dag_id = :dag_id
+        """
+        heartbeat_result = DB.session.query(TaskDagMeta).from_statement(
+            text(get_heartbeat_date)
+        ).params(dag_id=simple_workflow.task_dag.dag_id).one_or_none()
+        DB.session.commit()
 
-            assert is_lost
+        heartbeat_date = heartbeat_result.heartbeat_date
+        time_since_last_heartbeat = (datetime.utcnow() - heartbeat_date)
+        # 90 seconds is the default threshold
+        is_lost = time_since_last_heartbeat.total_seconds() > 90
 
-        # at this point the health monitor would transition the workflow to
-        # error state, so we will do that
-        assert simple_workflow.status == 'D'
-        simple_workflow._update_status(WorkflowStatus.ERROR)
-        assert simple_workflow.status == 'E'
+        assert is_lost
 
-        # pretend the workflow resumed and reconciler now logs heartbeats for
-        # the first time but late - the workflow has been transitioned to error
-        # state. This should change the workflow_run back to running
-        simple_workflow.requester.send_request(
-            app_route=f'/task_dag/{simple_workflow.dag_id}/log_heartbeat',
-            message={},
-            request_type='post')
-        # get workflow_run status
-        with app.app_context():
-            get_workflow_run_status = """
-                SELECT status 
-                FROM workflow_run
-                WHERE id = {}
-            """.format(simple_workflow.workflow_run.id)
-            workflow_run_status = DB.session.execute(
-                get_workflow_run_status).fetchone().status
+    # at this point the health monitor would transition the workflow to
+    # error state, so we will do that
+    assert simple_workflow.status == 'D'
+    simple_workflow._update_status(WorkflowStatus.ERROR)
+    assert simple_workflow.status == 'E'
 
-            assert workflow_run_status == 'R'
+    # pretend the workflow resumed and reconciler now logs heartbeats for
+    # the first time but late - the workflow has been transitioned to error
+    # state. This should change the workflow_run back to running
+    simple_workflow.requester.send_request(
+        app_route=f'/task_dag/{simple_workflow.dag_id}/log_heartbeat',
+        message={},
+        request_type='post')
+    # get workflow_run status
+    with app.app_context():
+        get_workflow_run_status = """
+            SELECT status 
+            FROM workflow_run
+            WHERE id = {}
+        """.format(simple_workflow.workflow_run.id)
+        workflow_run_status = DB.session.execute(
+            get_workflow_run_status).fetchone().status
+
+        assert workflow_run_status == 'R'
+
+    with app.app_context():
+        query = """
+            SELECT wr.created_date, td.heartbeat_date
+            FROM workflow_run wr
+            JOIN workflow w ON wr.workflow_id = w.id
+            JOIN task_dag td ON td.dag_id = w.dag_id
+            WHERE w.dag_id = :dag_id
+            ORDER BY wr.created_date"""
+        result = DB.session.execute(query, {"dag_id": int(simple_workflow.dag_id)}).fetchall()
+        import pdb
+        #pdb.set_trace()
+        DB.session.commit()
