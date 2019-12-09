@@ -100,6 +100,7 @@ def test_intel_args_positive(db_cfg, job_list_manager_sge):
 def test_intel_args_negative(db_cfg, job_list_manager_sge):
     teardown_db(db_cfg)
     # Negative test - we don't want Intel
+    teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
                                job_list_manager_sge,
                                test_name="test_intel_arg",

@@ -522,4 +522,3 @@ def test_set_kill_self_state(real_dag_id, db_cfg):
 
     assert k_status_count[0] == 3
     teardown_db(db_cfg)
-
