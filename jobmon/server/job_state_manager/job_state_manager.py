@@ -556,15 +556,49 @@ def log_dag_heartbeat(dag_id):
     logger.debug(logging.logParameter("dag_id", dag_id))
 
     params = {"dag_id": int(dag_id)}
+
+    # quick fix for GBDSCI-2321, release 1.1.2
+    set_workflow_run_to_running(int(dag_id))
+
     query = """
         UPDATE task_dag
         SET heartbeat_date = UTC_TIMESTAMP()
         WHERE dag_id in (:dag_id)"""
     DB.session.execute(query, params)
     DB.session.commit()
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
+
+
+def set_workflow_run_to_running(dag_id):
+    """set workflow run to running when logging heartbeat so if a resumed
+    workflow errors out due to a heartbeat from a previous workflow run it will
+    be corrected.
+    """
+    # get the workflow_runs, heartbeat date and workflow_run created date
+    # where the workflow_run created date is newer that its heartbeat date
+    query = """
+        SELECT wr.id, wr.created_date, td.heartbeat_date
+        FROM workflow_run wr
+        JOIN workflow w ON wr.workflow_id = w.id
+        JOIN task_dag td ON td.dag_id = w.dag_id
+        WHERE w.dag_id = :dag_id AND wr.created_date > td.heartbeat_date"""
+    result = DB.session.execute(query, {'dag_id': dag_id}).fetchall()
+    DB.session.commit()
+
+    # if workflow_run created date is older than heartbeat date,
+    # don't set workflow run status to running, inversely, if the created date
+    # is newer than the heartbeat date, then set the workflow status to running
+    if result:
+        for workflow_run in result:
+            query = """
+                   UPDATE workflow_run wr
+                   SET wr.status = 'R'
+                   WHERE wr.id = :id"""
+            DB.session.execute(query, {'id': workflow_run.id})
+            DB.session.commit()
 
 
 @jsm.route('/task_dag/<dag_id>/log_executor_report_by', methods=['POST'])
