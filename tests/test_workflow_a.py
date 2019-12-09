@@ -21,6 +21,7 @@ from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     ResumeStatus
 from tests.conftest import teardown_db
 import tests.workflow_utils as wu
+from tests.conftest import teardown_db
 
 
 path_to_file = os.path.dirname(__file__)
@@ -285,17 +286,6 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
 
     with pytest.raises(WorkflowAlreadyComplete):
         workflow.execute()
-
-
-def test_force_new_workflow_instead_of_resume(simple_workflow):
-    # TODO (design): Is there ever a scenario where this is a good thing to do?
-    # This is more or less possible by updating WorkflowArgs... which I think
-    # is better practice than trying to create a new Workflow with identical
-    # args and DAG, which is a violation of our current concept of Workflow
-    # uniqueness. If we really want to all this behavior, we need to further
-    # refine that concept and potentially add another piece of information
-    # to the Workflow hash itself.
-    pass
 
 
 def test_dag_reset(db_cfg, simple_workflow_w_errors):

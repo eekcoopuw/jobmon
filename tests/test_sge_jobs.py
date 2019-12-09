@@ -12,6 +12,7 @@ from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
 from tests.conftest import teardown_db
 from tests.timeout_and_skip import timeout_and_skip
+from tests.conftest import teardown_db
 
 path_to_file = os.path.dirname(__file__)
 
@@ -97,6 +98,7 @@ def test_intel_args_positive(db_cfg, job_list_manager_sge):
 
 @pytest.mark.skip("Fails too often, needs a new approach")
 def test_intel_args_negative(db_cfg, job_list_manager_sge):
+    teardown_db(db_cfg)
     # Negative test - we don't want Intel
     teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
