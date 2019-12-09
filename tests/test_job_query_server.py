@@ -7,6 +7,7 @@ from jobmon.client import shared_requester as req
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.workflow import Workflow
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 import logging
 from jobmon.serializers import SerializeExecutorJobInstance
 from tests.conftest import teardown_db
@@ -224,7 +225,7 @@ def test_job_inst_wf_run(db_cfg, real_dag_id):
     teardown_db(db_cfg)
 
 
-def test_workflow_status(real_dag_id):
+def test_workflow_run_status(real_dag_id):
     rc, response = req.send_request(
         app_route='/workflow',
         message={'dag_id': real_dag_id,
@@ -236,8 +237,23 @@ def test_workflow_status(real_dag_id):
         request_type='post')
 
     wf = Workflow.from_wire(response['workflow_dct'])
+    rc, response = req.send_request(
+        app_route='/workflow_run',
+        message={'workflow_id': wf.id,
+                 'user': 'user',
+                 'hostname': 'test.host',
+                 'pid': '1234',
+                 'stderr':'/tmp',
+                 'stdout': '/tmp',
+                 'working_dir': '/tmp',
+                 'project': 'proj_tools',
+                 'slack_channel': 'jobmon_alerts',
+                 'executor_class': 'SGEExecutor'},
+        request_type='post'
+    )
+    wfr_id = response["workflow_run_id"]
     code, response = req.send_request(
-        app_route='/workflow/{}/status'.format(wf.id),
+        app_route='/workflow_run/{}/status'.format(wfr_id),
         message={},
         request_type='get')
-    assert response == 'C'
+    assert response == WorkflowRunStatus.RUNNING

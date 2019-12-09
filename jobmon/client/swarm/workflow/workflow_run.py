@@ -111,7 +111,7 @@ class WorkflowRun(object):
                 request_type='put')
             raise RuntimeError(msg)
         else:
-            # instead of killing the old workflow runs, mark them as CR or HR
+            # instead of killing the old workflow runs, mark them as CR or HR,
             logger.info(f"Kill previous workflow runs: {workflow_run_id}")
             if reset_running_jobs:
                 if wf_run['executor_class'] == "SequentialExecutor":
@@ -139,6 +139,9 @@ class WorkflowRun(object):
                 jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
                                     for ji in job_instances]
                 if job_instances:
+                    # TODO: check this function, make sure job instances get
+                    #  qdeled and then set to kill self and then kill this
+                    #  workflow run itself
                     previous_executor.terminate_job_instances(jiid_exid_tuples)
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',

@@ -364,9 +364,13 @@ def test_resume_workflow(db_cfg, env_var):
     workflow._create_workflow_run()
     wu.cleanup_jlm(workflow)
 
+
     # will fail here until workflow resume is rewired with CR and HR and it is
     # checked that the workflow run then stops all of its running processes
     # here and kills itself
+
+    # TODO check if job instances get qdeled and workflow run kills itself
+    #  with sigterm or sigkill
 
     # check if forked process was zombied
     res = subprocess.check_output(f"ps -ax | grep {p1.pid} | grep -v grep",

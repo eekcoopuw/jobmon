@@ -647,25 +647,28 @@ def get_job_status(job_id: int):
     return resp
 
 
-@jqs.route('/workflow/<workflow_id>/status', methods=['GET'])
-def get_workflow_status(workflow_id: int):
+@jqs.route('/workflow_run/<workflow_run_id>/status', methods=['GET'])
+def get_workflow_run_status(workflow_run_id: int):
     """
     Route to determine the status of a given workflow
-    :param workflow_id:
-    :return: workflow status
+    :param workflow_run_id:
+    :return: workflow run status
     """
 
     logger.debug(logging.myself())
-    logging.logParameter("workflow_id", workflow_id)
+    logging.logParameter("workflow_run_id", workflow_run_id)
 
-    query = "SELECT status FROM workflow WHERE id = {}".format(workflow_id)
-    result = DB.session.execute(query).fetchone()
+    query = "SELECT status " \
+            "FROM workflow_run " \
+            "WHERE id = :workflow_run_id"
+    result = DB.session.query(WorkflowRun).from_statement(text(query))\
+        .params(workflow_run_id=workflow_run_id).first()
     DB.session.commit()
     if len(result) > 0:
         resp = jsonify(result[0])
         resp.status_code = StatusCodes.OK
         return resp
     else:
-        resp = jsonify("No workflow found")
+        resp = jsonify("No workflow run found")
         resp.status_code = StatusCodes.NO_CONTENT
         return resp
