@@ -553,7 +553,7 @@ def log_dag_running(dag_id: int):
         AND status != 'R' """
     r = DB.session.execute(query, params)
     if r.rowcount == 0:
-        msg = f'The request failed because either dag_id {dag_id} does not exist or the dag has already been running.'
+        msg = f'The request failed because either dag_id {dag_id} does not exist or the dag is running.'
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.BAD_REQUEST
     else:
