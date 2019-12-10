@@ -9,12 +9,14 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.workflow import Workflow
 import logging
 from jobmon.serializers import SerializeExecutorJobInstance
+from tests.conftest import teardown_db
 
 
 logger = logging.getLogger(__name__)
 
 
 def test_job_status(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'bar',
@@ -28,6 +30,7 @@ def test_job_status(db_cfg, real_dag_id):
                                    message={}, request_type='get')
     assert response['job_dcts'][0][1] == '12334' and \
            len(response['job_dcts'][0]) == 3
+    teardown_db(db_cfg)
 
 
 def setup_running_job(db_cfg, real_dag_id):
@@ -84,6 +87,7 @@ def setup_running_job(db_cfg, real_dag_id):
 
 
 def test_timed_out_jobs(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     setup_running_job(db_cfg, real_dag_id)
 
     sleep(3)  # sleep 3 seconds to exceed the max runtime
@@ -94,9 +98,11 @@ def test_timed_out_jobs(db_cfg, real_dag_id):
         request_type='get')
 
     assert response['jiid_exid_tuples'][0] == [1, 12345]
+    teardown_db(db_cfg)
 
 
 def test_get_job_instances_by_status(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     setup_running_job(db_cfg, real_dag_id)
 
     _, response = req.send_request(
@@ -106,6 +112,7 @@ def test_get_job_instances_by_status(db_cfg, real_dag_id):
 
     assert response['job_instances'][0]['status'] == 'R'
     assert response['job_instances'][0]['dag_id'] == real_dag_id
+    teardown_db(db_cfg)
 
 
 def test_lost_job_instances(db_cfg, real_dag_id):
@@ -122,9 +129,9 @@ def test_lost_job_instances(db_cfg, real_dag_id):
     DB = db_cfg["DB"]
     with app.app_context():
         new_report_by = f"""UPDATE job_instance
-                           SET report_by_date = 
-                           SUBTIME(UTC_TIMESTAMP(), SEC_TO_TIME(60))
-                           WHERE dag_id = {real_dag_id}
+                            SET report_by_date = 
+                            SUBTIME(UTC_TIMESTAMP(), SEC_TO_TIME(60))
+                            WHERE dag_id = {real_dag_id}
                         """
         DB.session.execute(new_report_by)
         DB.session.commit()
@@ -136,6 +143,7 @@ def test_lost_job_instances(db_cfg, real_dag_id):
     )
     assert len(response['job_instances']) == 1
     assert response['job_instances'][0][1] == 12345
+    teardown_db(db_cfg)
 
 
 def create_workflow_runs(db_cfg, real_dag_id):
@@ -183,6 +191,7 @@ def create_workflow_runs(db_cfg, real_dag_id):
 
 
 def test_workflow_args(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     wf_id, wf_args, _, _ = create_workflow_runs(db_cfg, real_dag_id)
 
     rc, response = req.send_request(
@@ -191,9 +200,11 @@ def test_workflow_args(db_cfg, real_dag_id):
         request_type='get'
     )
     assert response['workflow_hashes'][0][0] == '123fe34gr'
+    teardown_db(db_cfg)
 
 
 def test_job_inst_wf_run(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
     wf_id, wf_args, wfr1, wfr2 = create_workflow_runs(db_cfg, real_dag_id)
     setup_running_job(db_cfg, real_dag_id)
 
@@ -210,6 +221,7 @@ def test_job_inst_wf_run(db_cfg, real_dag_id):
         request_type='get'
     )
     assert response['job_instances'][0][1] == 12345
+    teardown_db(db_cfg)
 
 
 def test_workflow_status(real_dag_id):

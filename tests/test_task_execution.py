@@ -16,6 +16,7 @@ from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.job_management.executor_job_instance import (
     ExecutorJobInstance)
+from tests.conftest import teardown_db
 
 path_to_file = os.path.dirname(__file__)
 
@@ -55,6 +56,7 @@ def get_task_status(real_dag, task):
 @pytest.mark.qsubs_jobs
 def test_bash_task(db_cfg, dag_factory):
     """Create a dag with one very simple BashTask and execute it"""
+    teardown_db(db_cfg)
     name = 'bash_task'
     task = BashTask(command="date", name=name, m_mem_free='1G', max_attempts=2,
                     num_cores=1, max_runtime_seconds=60)
@@ -79,11 +81,13 @@ def test_bash_task(db_cfg, dag_factory):
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
 def test_python_task(db_cfg, dag_factory, tmp_out_dir):
     """Execute a PythonTask"""
+    teardown_db(db_cfg)
     name = 'python_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
@@ -118,11 +122,13 @@ def test_python_task(db_cfg, dag_factory, tmp_out_dir):
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
+    teardown_db(db_cfg)
 
 
 def test_exceed_mem_task(db_cfg, dag_factory):
     """test that when a job exceeds the requested amount of memory on the fair
     cluster, it gets killed"""
+    teardown_db(db_cfg)
     name = 'mem_task'
     task = PythonTask(script=sge.true_path(f"{path_to_file}/exceed_mem.py"),
                       name=name, m_mem_free='130M', max_attempts=2,
@@ -148,9 +154,11 @@ def test_exceed_mem_task(db_cfg, dag_factory):
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
+    teardown_db(db_cfg)
 
 
 def test_exceed_runtime_task(db_cfg, dag_factory):
+    teardown_db(db_cfg)
     name = 'over_runtime_task'
     task = BashTask(command='sleep 10', name=name, max_runtime_seconds=5)
     executor = SGEExecutor(project='proj_tools')
@@ -172,12 +180,13 @@ def test_exceed_runtime_task(db_cfg, dag_factory):
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
+    teardown_db(db_cfg)
 
 
 def test_under_request_then_scale_resources(db_cfg, dag_factory):
     """test that when a task gets killed due to under requested memory, it
     tries again with additional memory added"""
-
+    teardown_db(db_cfg)
     name = 'mem_task'
     task = PythonTask(script=sge.true_path(f"{path_to_file}/exceed_mem.py"),
                       name=name, m_mem_free='600M', max_attempts=2,
@@ -205,11 +214,13 @@ def test_under_request_then_scale_resources(db_cfg, dag_factory):
         assert job.executor_parameter_set.max_runtime_seconds == 60
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
+    teardown_db(db_cfg)
 
 
 def test_kill_self_task(db_cfg, dag_factory):
     """test that when a task kills itself, it fails and the ji does not sit
     in Batch or Running forever"""
+    teardown_db(db_cfg)
     name = 'kill_self_task'
     task = PythonTask(script=sge.true_path(f"{path_to_file}/kill.py"),
                       name=name, m_mem_free='130M', max_attempts=2,
@@ -234,11 +245,13 @@ def test_kill_self_task(db_cfg, dag_factory):
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
 def test_R_task(db_cfg, dag_factory, tmp_out_dir):
     """Execute an RTask"""
+    teardown_db(db_cfg)
     name = 'r_task'
 
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
@@ -268,11 +281,13 @@ def test_R_task(db_cfg, dag_factory, tmp_out_dir):
 
     sge_jobname = match_name_to_sge_name(jid)
     assert sge_jobname == name
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
 def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
     """Execute a simple stata Task"""
+    teardown_db(db_cfg)
     name = 'stata_task'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
@@ -308,12 +323,14 @@ def test_stata_task(db_cfg, dag_factory, tmp_out_dir):
     assert os.path.exists(os.path.join(
         root_out_dir,
         "{jid}-simple_stata_script.log".format(jid=job_instance_id)))
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip("Need to use a specific queue for fair cluster so these "
                   "tests would only work on the prod cluster")
 @pytest.mark.qsubs_jobs
 def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
+    teardown_db(db_cfg)
     name = 'c2_nodes_only'
     root_out_dir = "{t}/mocks/{n}".format(t=tmp_out_dir, n=name)
     makedirs_safely(root_out_dir)
@@ -342,6 +359,7 @@ def test_specific_queue(db_cfg, dag_factory, tmp_out_dir):
         assert job.queue == 'all.q@@c2-nodes'
         jids = [ji.nodename for ji in job.job_instances]
         assert all(['c2' in nodename for nodename in jids])
+    teardown_db(db_cfg)
 
 
 class MockExecutorJobInstance(ExecutorJobInstance):
@@ -355,10 +373,11 @@ class MockExecutorJobInstance(ExecutorJobInstance):
         print(f"REAL EXEC ID is: {executor_id}")
 
 
-def test_job_in_w_logs(dag_factory, monkeypatch, capsys, db_cfg):
+def test_job_in_w_logs(db_cfg, dag_factory, monkeypatch, capsys):
     import jobmon.client.swarm.job_management.job_instance_factory
     """mocks a case where a job enters W state instead of B or R and then
     tries to log running"""
+    teardown_db(db_cfg)
     monkeypatch.setattr(
         jobmon.client.swarm.job_management.job_instance_factory,
         "ExecutorJobInstance",
@@ -386,3 +405,4 @@ def test_job_in_w_logs(dag_factory, monkeypatch, capsys, db_cfg):
             except CalledProcessError:
                 sleep(5)
                 tries += 1
+    teardown_db(db_cfg)

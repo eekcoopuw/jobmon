@@ -9,6 +9,7 @@ from jobmon.client.swarm.workflow.python_task import PythonTask
 from jobmon.client.swarm.workflow.r_task import RTask
 from jobmon.client.swarm.workflow.stata_task import StataTask
 from jobmon.models.job import Job
+from tests.conftest import teardown_db
 
 path_to_file = os.path.dirname(__file__)
 
@@ -71,6 +72,7 @@ def test_hashing_bash_characters():
 
 
 def test_bash_task_args(db_cfg, jlm_sge_no_daemon):
+    teardown_db(db_cfg)
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     a = BashTask(command="echo 'Hello Jobmon'", num_cores=1, m_mem_free='2G',
@@ -89,6 +91,7 @@ def test_bash_task_args(db_cfg, jlm_sge_no_daemon):
         assert num_cores == 1
         assert m_mem_free == 2
         assert max_attempts == 1
+    teardown_db(db_cfg)
 
 
 def test_python_task_equality():
@@ -102,6 +105,7 @@ def test_python_task_equality():
 
 
 def test_python_task_args(db_cfg, jlm_sge_no_daemon):
+    teardown_db(db_cfg)
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
@@ -123,9 +127,11 @@ def test_python_task_args(db_cfg, jlm_sge_no_daemon):
         assert num_cores == 1
         assert m_mem_free == 2
         assert max_attempts == 1
+    teardown_db(db_cfg)
 
 
 def test_r_task_args(db_cfg, jlm_sge_no_daemon):
+    teardown_db(db_cfg)
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     a = RTask(script=sge.true_path(f"{path_to_file}/simple_R_script.r"),
@@ -149,9 +155,11 @@ def test_r_task_args(db_cfg, jlm_sge_no_daemon):
         assert num_cores == 1
         assert m_mem_free == 2
         assert max_attempts == 1
+    teardown_db(db_cfg)
 
 
 def test_stata_task_args(db_cfg, jlm_sge_no_daemon):
+    teardown_db(db_cfg)
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     a = StataTask(script=sge.true_path(f"{path_to_file}/simple_stata_script.do"),
@@ -173,3 +181,4 @@ def test_stata_task_args(db_cfg, jlm_sge_no_daemon):
         assert num_cores == 1
         assert m_mem_free == 2
         assert max_attempts == 1
+    teardown_db(db_cfg)

@@ -18,6 +18,7 @@ from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
 
 from jobmon.client import BashTask
 from jobmon.client.swarm.workflow.workflow import Workflow
+from jobmon.models import database_loaders
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +39,13 @@ def ephemera():
 
     # load schema
     here = os.path.dirname(__file__)
-    schema_dir = os.path.join(here, "..",
+    create_dir = os.path.join(here, "..",
                               "jobmon/server/deployment/container/db")
-    schema_files = glob.glob(os.path.join(schema_dir, "*.sql"))
-    for file in sorted(schema_files):
+    upgrade_dir = os.path.join(here, "..",
+                              "jobmon/server/deployment/container/db/upgrade")
+    create_files = glob.glob(os.path.join(create_dir, "*.sql"))
+    upgrade_files = glob.glob(os.path.join(upgrade_dir, "*.sql"))
+    for file in sorted(create_files + upgrade_files):
         edb.execute_sql_script(file)
 
     # get connection info
@@ -113,11 +117,10 @@ def real_jsm_jqs(ephemera):
     p1.terminate()
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(scope='session')
 def db_cfg(ephemera):
     """This run at the beginning of every function to tear down the db
     of the previous test and restart it fresh"""
-    from jobmon.models import database_loaders
     from jobmon.models import DB
     from jobmon.server import create_app
     from jobmon.server.config import ServerConfig
@@ -135,12 +138,11 @@ def db_cfg(ephemera):
     app = create_app(server_config)
 
     yield {'app': app, 'DB': DB}
-
     with app.app_context():
         database_loaders.clean_job_db(DB)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(autouse=True) #scope='function')
 def env_var(real_jsm_jqs, monkeypatch):
     from jobmon.client import shared_requester, client_config
     from jobmon.client.config import ClientConfig
@@ -208,7 +210,7 @@ def jlm_sge_daemon(real_dag_id, tmpdir_factory):
     jlm.disconnect()
 
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def jlm_sge_no_daemon(real_dag_id, tmpdir_factory):
     from jobmon.client.swarm.executors.sge import SGEExecutor
     from jobmon.client.swarm.job_management.job_list_manager import \
@@ -237,6 +239,7 @@ def real_dag(db_cfg, env_var, request):
     executor = SGEExecutor(project='proj_tools')
     dag = TaskDag(name=request.node.name, executor=executor)
     yield dag
+
     if dag.job_list_manager:
         dag.job_list_manager.disconnect()
 
@@ -286,9 +289,10 @@ def execution_test_script_perms():
 
 
 @pytest.fixture
-def simple_workflow(env_var, db_cfg):
+def simple_workflow(db_cfg, env_var):
     from jobmon.client.swarm.workflow.bash_task import BashTask
     from jobmon.client.swarm.workflow.workflow import Workflow
+    teardown_db(db_cfg)
 
     t1 = BashTask("sleep 1", num_cores=1, m_mem_free='1G')
     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1, m_mem_free='1G')
@@ -302,8 +306,9 @@ def simple_workflow(env_var, db_cfg):
 
 
 @pytest.fixture
-def simple_workflow_w_errors(env_var, db_cfg):
+def simple_workflow_w_errors(db_cfg, env_var):
     # Used in test_workflow_[ab]
+    teardown_db(db_cfg)
     t1 = BashTask("sleep 1", num_cores=1, m_mem_free='2G', queue="all.q",
                   j_resource=False)
     t2 = BashTask("not_a_command 1", upstream_tasks=[t1], num_cores=1,
@@ -317,3 +322,10 @@ def simple_workflow_w_errors(env_var, db_cfg):
     workflow.add_tasks([t1, t2, t3, t4])
     workflow.execute()
     return workflow
+
+
+def teardown_db(db_cfg):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        database_loaders.clean_job_db(DB)

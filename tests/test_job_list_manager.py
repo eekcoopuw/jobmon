@@ -11,7 +11,13 @@ from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance import JobInstance
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask
+from jobmon.client import shared_requester as req
+from jobmon.models.workflow import Workflow
+from jobmon.client.swarm.job_management.swarm_job import SwarmJob
+from jobmon.serializers import SerializeExecutorJobInstance
+from tests.conftest import teardown_db
 
+from tests.conftest import teardown_db
 
 class Task(ExecutableTask):
     """Test version of the Task class for use in this module"""
@@ -38,6 +44,7 @@ def job_list_manager_daemon(real_dag_id):
 
 
 def test_sync(db_cfg, jlm_sge_no_daemon):
+    teardown_db(db_cfg)
     now = jlm_sge_no_daemon.last_sync
     assert now is not None
 
@@ -80,6 +87,7 @@ def test_sync(db_cfg, jlm_sge_no_daemon):
     new_now = jlm_sge_no_daemon.last_sync
     assert new_now > now
     assert len(jlm_sge_no_daemon.all_error) > 0
+    teardown_db(db_cfg)
 
 
 def test_invalid_command(job_list_manager):
@@ -222,8 +230,9 @@ def mock_parse_qsub_resp_error(cmd, shell=False, universal_newlines=True):
     return ("NO executor id here")
 
 
-def test_job_instance_qsub_error(jlm_sge_no_daemon, db_cfg, monkeypatch,
+def test_job_instance_qsub_error(db_cfg, jlm_sge_no_daemon, monkeypatch,
                                  caplog):
+    teardown_db(db_cfg)
     monkeypatch.setattr(jobmon.client.swarm.executors.sge,
                         "check_output", mock_qsub_error)
     jlm = jlm_sge_no_daemon
@@ -244,10 +253,12 @@ def test_job_instance_qsub_error(jlm_sge_no_daemon, db_cfg, monkeypatch,
     assert resp[-1].executor_id is None
     assert "Received -99999 meaning the job did not qsub properly, moving " \
            "to 'W' state" in caplog.text
+    teardown_db(db_cfg)
 
 
-def test_job_instance_bad_qsub_parse(jlm_sge_no_daemon, db_cfg, monkeypatch,
+def test_job_instance_bad_qsub_parse(db_cfg, jlm_sge_no_daemon, monkeypatch,
                                      caplog):
+    teardown_db(db_cfg)
     monkeypatch.setattr(jobmon.client.swarm.executors.sge,
                         "check_output", mock_parse_qsub_resp_error)
     jlm = jlm_sge_no_daemon
@@ -268,6 +279,7 @@ def test_job_instance_bad_qsub_parse(jlm_sge_no_daemon, db_cfg, monkeypatch,
     assert job_info[-1].status == 'F'
     assert "Got response from qsub but did not contain a valid executor_id. " \
            "Using (-33333), and moving to 'W' state" in caplog.text
+    teardown_db(db_cfg)
 
 
 def query_till_running(db_cfg):
@@ -281,13 +293,14 @@ def query_till_running(db_cfg):
     return resp
 
 
-def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
+def test_ji_unknown_state(db_cfg, jlm_sge_no_daemon):
     """should try to log a report by date after being set to the L state and
     fail"""
+    teardown_db(db_cfg)
     jlm = jlm_sge_no_daemon
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
-                             num_cores=1, max_runtime_seconds=120,
+                             num_cores=1, max_runtime_seconds=80,
                              m_mem_free='600M'))
     jlm.adjust_resources_and_queue(job)
     jids = jif.instantiate_queued_jobs()
@@ -298,6 +311,7 @@ def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
         resp = query_till_running(db_cfg)
         sleep(10)
         count = count + 1
+    assert resp.status == 'R', "Job never entered running state"
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
@@ -319,12 +333,14 @@ def test_ji_unknown_state(jlm_sge_no_daemon, db_cfg):
             sleep(3)
     # 9 indicates sigkill signal was sent as expected
     assert '9' in exit_status
+    teardown_db(db_cfg)
 
 
-def test_ji_kill_self_state(jlm_sge_no_daemon, db_cfg):
+def test_ji_kill_self_state(db_cfg, jlm_sge_no_daemon):
     """Job instance should poll for for a job state KILL_SELF and kill
     itself. Basically test_ji_unknown_state but setting K state instead
     """
+    teardown_db(db_cfg)
     jlm = jlm_sge_no_daemon
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="sleep 60", name="kill_self_task",
@@ -360,9 +376,11 @@ def test_ji_kill_self_state(jlm_sge_no_daemon, db_cfg):
             sleep(3)
     # 9 indicates sigkill signal was sent as expected
     assert '9' in exit_status
+    teardown_db(db_cfg)
 
 
-def test_context_args(jlm_sge_no_daemon, db_cfg, caplog):
+def test_context_args(db_cfg, jlm_sge_no_daemon, caplog):
+    teardown_db(db_cfg)
     caplog.set_level(logging.DEBUG)
 
     jlm = jlm_sge_no_daemon
@@ -378,3 +396,129 @@ def test_context_args(jlm_sge_no_daemon, db_cfg, caplog):
     jif.instantiate_queued_jobs()
 
     assert "-a foo" in caplog.text
+    teardown_db(db_cfg)
+
+
+def test_set_kill_self_state(real_dag_id, db_cfg):
+    teardown_db(db_cfg)
+    # Create workflow
+    rc, response = req.send_request(
+        app_route='/workflow',
+        message={'dag_id': real_dag_id,
+                 'workflow_args': 'test_dup_args',
+                 'workflow_hash': '123fe34gr',
+                 'name': 'dup_args',
+                 'description': '',
+                 'user': 'user'},
+        request_type='post')
+    wf = Workflow.from_wire(response['workflow_dct'])
+
+    # Create workflow_run
+    rc, response = req.send_request(
+        app_route='/workflow_run',
+        message={'workflow_id': wf.id,
+                 'user': 'user',
+                 'hostname': 'test.host.ihme.washington.edu',
+                 'pid': 123,
+                 'stderr': '/',
+                 'stdout': '/',
+                 'project': 'proj_tools',
+                 'slack_channel': '',
+                 'executor_class': 'SGEExecutor',
+                 'working_dir': '/'},
+        request_type='post')
+    wfr_id = response['workflow_run_id']
+
+    # Create a job and add it to workflow run
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': 12334,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    # Queue job for valid state transition
+    req.send_request(
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
+        message={},
+        request_type='post')
+
+    # Create first of three job_instances
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(swarm_job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    # Change status of first job_instance to "R"
+    with app.app_context():
+        query = """UPDATE job_instance
+                   SET status="R"
+                   WHERE job_instance_id = {job_instance_id}
+                   """.format(job_instance_id=job_instance_id)
+        DB.session.execute(query)
+        DB.session.commit()
+
+    # Create 2 of 3 job_instances
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(swarm_job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+
+    job_instance_id_2 = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+
+    # Update second job_instance status to "B"
+    with app.app_context():
+        query = """UPDATE job_instance
+                   SET status="B"
+                   WHERE job_instance_id = {job_instance_id}
+                   """.format(job_instance_id=job_instance_id_2)
+        DB.session.execute(query)
+        DB.session.commit()
+
+    # Create third job_instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(swarm_job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+
+    job_instance_id_3 = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+
+    # Update third job_instance status to "I"
+    with app.app_context():
+        query = """UPDATE job_instance
+                   SET status="I"
+                   WHERE job_instance_id = {job_instance_id}
+                   """.format(job_instance_id=job_instance_id_3)
+        DB.session.execute(query)
+        DB.session.commit()
+
+    # Change all states to "K"
+    req.send_request(
+        app_route='/job_instance/{}/nonterminal_to_k_status'.format(wfr_id),
+        message={},
+        request_type='post')
+
+    # Query for all job_instance that have K state, assert that it's 3
+    with app.app_context():
+        query = """SELECT COUNT(*)
+                   FROM job_instance
+                   WHERE workflow_run_id = {workflow_run_id}
+                   AND status = "K"
+                   """.format(workflow_run_id=wfr_id)
+        k_status_count = DB.session.execute(query).fetchone()
+        DB.session.commit()
+
+    assert k_status_count[0] == 3
+    teardown_db(db_cfg)

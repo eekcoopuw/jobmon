@@ -5,10 +5,12 @@ from jobmon.client.swarm.workflow.workflow import Workflow
 from jobmon.client import shared_requester as req
 from jobmon.models.attributes.constants import workflow_attribute
 from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
+from tests.conftest import teardown_db
 
 
 @pytest.mark.qsubs_jobs
 def test_workflow_attribute(db_cfg, env_var):
+    teardown_db(db_cfg)
     wfa = "workflow_with_attribute"
     workflow = Workflow(wfa)
     t1 = BashTask("sleep 1", num_cores=1)
@@ -37,10 +39,12 @@ def test_workflow_attribute(db_cfg, env_var):
 
         assert workflow_attribute_entry_type == workflow_attribute.NUM_YEARS
         assert workflow_attribute_entry_value == "100"
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
-def test_workflow_attribute_input_error(env_var, db_cfg):
+def test_workflow_attribute_input_error(db_cfg, env_var):
+    teardown_db(db_cfg)
     wfa = "workflow_with_wrong_arg_attribute"
     workflow = Workflow(wfa)
     t1 = BashTask("sleep 1", num_cores=1)
@@ -51,10 +55,12 @@ def test_workflow_attribute_input_error(env_var, db_cfg):
     with pytest.raises(ValueError) as exc:
         workflow.add_workflow_attribute(7.8, "dog")
     assert "Invalid attribute" in str(exc.value)
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
-def test_workflow_attribute_tag(env_var, db_cfg):
+def test_workflow_attribute_tag(db_cfg, env_var):
+    teardown_db(db_cfg)
     wfa = "workflow_with_tag_attribute"
     workflow = Workflow(wfa)
     t1 = BashTask("sleep 1", num_cores=1)
@@ -77,7 +83,13 @@ def test_workflow_attribute_tag(env_var, db_cfg):
         assert workflow_attribute_entry_value == "dog"
 
     # make sure we can get those attributes back
-    return_code, resp = req.send_request(
+    return_code, attr_resp = req.send_request(
         '/workflow/{}/workflow_attribute'.format(workflow.id),
         {'workflow_attribute_type': workflow_attribute.TAG}, 'get')
-    assert resp['workflow_attr_dct'][0]['value'] == 'dog'
+    assert attr_resp['workflow_attr_dct'][0]['value'] == 'dog'
+
+    return_code, no_attr_resp = req \
+        .send_request('/workflow/{}/workflow_attribute'
+                      .format(workflow.id), {}, 'get')
+    assert no_attr_resp['workflow_attr_dct'][0]['value'] == 'dog'
+    teardown_db(db_cfg)

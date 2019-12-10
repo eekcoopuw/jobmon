@@ -121,6 +121,8 @@ class JobInstance(DB.Model):
 
         # job instance is set to kill self for one reason or another
         (JobInstanceStatus.RUNNING, JobInstanceStatus.KILL_SELF),
+        (JobInstanceStatus.INSTANTIATED, JobInstanceStatus.KILL_SELF),
+        (JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR, JobInstanceStatus.KILL_SELF),
 
         # job instance finishes normally (happy path)
         (JobInstanceStatus.RUNNING, JobInstanceStatus.DONE)

@@ -50,44 +50,6 @@ def confirm_correct_perms(perm_dict=None):
         logger.error(str(errors))
         raise UnsafeSSHDirectory(errors)
 
-
-def gently_kill_command(id: int) -> str:
-    """
-    Best to use SIGTERM because it gives well-behaved processes a chance
-    to clean up their child processes before the hard kill. This is less
-    likely to leave orphans:
-    kill SIGTERM; sleep 5; kill SIGKILL
-    """
-    logger.debug("gently_kill_command id:{}".format(id))
-    return f'kill -SIGTERM {id}; sleep 10; kill -SIGKILL {id}'
-
-
-def kill_remote_process(hostname: str, pid: int) -> Tuple[int, str, str]:
-    """
-    Used during RESUME, not during RETRY.
-
-    :param hostname: the host on which to kill
-    :param pid: Process id
-    :return: exit_code, stdout_str, stderr_str
-    """
-    logger.info("kill_remote_process hostname: {h} pid: {p}".format(h=hostname, p=pid))
-    return _run_remote_command(hostname, gently_kill_command(pid))
-
-
-def kill_remote_process_group(hostname: str, pgid: int) ->\
-        Tuple[int, str, str]:
-    """
-    Now only used during RETRY on prod
-    :param hostname: the host on which to kill
-    :param pgid: process group id
-
-    :return: exit_code, stdout_str, stderr_str
-    """
-    logger.info("kill_remote_process_group")
-    logger.info("hostname: {h} pgid: {p}".format(h=hostname, p=pgid))
-    return _run_remote_command(hostname, gently_kill_command(pgid))
-
-
 def _get_ssh_permission_dict():
     logger.info("_get_ssh_permission_dict")
     ssh_safety_lookup = {}

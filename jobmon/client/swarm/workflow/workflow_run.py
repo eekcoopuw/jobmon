@@ -9,7 +9,6 @@ from jobmon.client import shared_requester
 from jobmon.client.swarm.job_management.executor_job_instance import \
     ExecutorJobInstance
 from jobmon.client.swarm.executors.sge_utils import get_project_limits
-from jobmon.client.utils import kill_remote_process
 from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.client_logging import ClientLogging as logging
@@ -112,7 +111,7 @@ class WorkflowRun(object):
                 request_type='put')
             raise RuntimeError(msg)
         else:
-            kill_remote_process(wf_run['hostname'], wf_run['pid'])
+            # instead of killing the old workflow runs, mark them as CR or HR
             logger.info(f"Kill previous workflow runs: {workflow_run_id}")
             if reset_running_jobs:
                 if wf_run['executor_class'] == "SequentialExecutor":
