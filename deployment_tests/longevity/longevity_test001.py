@@ -55,7 +55,7 @@ def create_bashtask(upstream_tasks):
     # Add time stamp to the cmd to make it unique in the wf.
     # The sleeprandom.sh does not require any args. The arg is to keep the wf happy.
     cmd = "{script} {something}".format(script=MYSCRIPT, something=time())
-    task = BashTask(cmd, upstream_tasks=upstream_tasks, num_cores=1, m_mem_free="10M")
+    task = BashTask(cmd, upstream_tasks=upstream_tasks, num_cores=1, m_mem_free="128M")
     return task
 
 def create_wf():
@@ -90,6 +90,22 @@ def create_wf():
     wf.execute()
 
 
+def create_simple_wf():
+    wf_name = "simple-wf-{}".format(NameGenerator.get())
+    user = getpass.getuser()
+    wf = Workflow(wf_name, wf_name,
+                  stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wf_name}",
+                  stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wf_name}",
+                  project="proj_tools")
+    tasks = []
+    for i in range(5):
+        cmd = "{script} {something}".format(script=MYSCRIPT, something=time())
+        task = BashTask(cmd, num_cores=1, m_mem_free="128M")
+        tasks.append(task)
+    wf.add_tasks(tasks)
+    wf.execute()
+
+
 def loop(duration):
     while time() - START_TIME < duration:
         create_wf()
@@ -107,9 +123,9 @@ if __name__ == "__main__":
     # Create a failed WF by modifying the sleeprandom.sh permission. This is for upgrading test to resume a
     # failed WF created in former version.
     os.system("chmod 400 {}".format(MYSCRIPT))
-    create_wf()
+    create_simple_wf()
     os.system("chmod 755 {}".format(MYSCRIPT))
-    
+
     # Continue creating wf for given times
     time_in_seconds = time_in_minutes * 60
     threads = []
