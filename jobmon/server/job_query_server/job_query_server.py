@@ -348,6 +348,24 @@ def get_suspicious_job_instances(dag_id):
     return resp
 
 
+@jqs.route('/workflow_run/<workflow_run_id>/job_instance_exec_ids',
+           methods=['GET'])
+def get_job_instance_executor_ids(workflow_run_id):
+    """Retrieves all of the executor_ids for the job instances in a given
+    workflow run to qdel them to ensure that nothing is running when a new
+    workflow run is created"""
+    query = """SELECT job_instance.executor_id
+               FROM job_instance
+               WHERE workflow_run_id = :workflow_run_id
+            """
+    exec_ids = DB.session.query('executor_id').from_statement(text(query))\
+        .params(workflow_run_id=workflow_run_id).all()
+    DB.session.commit()
+    resp = jsonify(executor_ids=[id[0] for id in exec_ids])
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/dag', methods=['GET'])
 def get_dags_by_inputs():
     """

@@ -90,8 +90,8 @@ class WorkflowRun(object):
             A) If so, kill those pids and any still running jobs
             B) Then flip the database of the previous WorkflowRun to STOPPED
         """
-        status, wf_run = self.check_if_workflow_is_running()
-        if not status:
+        running, wf_run = self.check_if_workflow_is_running()
+        if not running:
             return
         workflow_run_id = wf_run['id']
         if wf_run['user'] != getpass.getuser():

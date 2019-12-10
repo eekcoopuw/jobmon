@@ -301,6 +301,7 @@ class Workflow(object):
             executor_class=self.executor_class,
             reset_running_jobs=self.reset_running_jobs,
             working_dir=self.working_dir)
+        self.task_dag.workflow_run_id = self.workflow_run.id
 
     def _error(self):
         """Update the workflow as errored"""

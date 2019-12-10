@@ -72,6 +72,17 @@ class TaskDag(object):
         else:
             return False
 
+    @property
+    def workflow_run_id(self):
+        if not hasattr(self, "_workflow_run_id"):
+            raise AttributeError("workflow_run_id cannot be accessed before it"
+                                 " has been assigned")
+        return self._workflow_run_id
+
+    @workflow_run_id.setter
+    def workflow_run_id(self, val):
+        self._workflow_run_id = val
+
     def bind_to_db(self, dag_id=None, reset_running_jobs=True):
         """
         Binds the dag to the database and starts Job Management services.
@@ -184,6 +195,7 @@ class TaskDag(object):
         """
         if not self.is_bound:
             self.bind_to_db()
+        self.job_list_manager.workflow_run_id = self.workflow_run_id
         self.job_list_manager.log_dag_running()
 
         previously_completed = copy.copy(self.job_list_manager.all_done)

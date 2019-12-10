@@ -257,3 +257,140 @@ def test_workflow_run_status(real_dag_id):
         message={},
         request_type='get')
     assert response == WorkflowRunStatus.RUNNING
+
+
+def test_workflow_run_get_job_instance_exec_ids(real_dag_id):
+    rc, response = req.send_request(
+        app_route='/workflow',
+        message={'dag_id': real_dag_id,
+                 'workflow_args': 'test_exec_ids',
+                 'workflow_hash': '12erfd',
+                 'name': 'test_exec_ids',
+                 'description': '',
+                 'user': 'user'},
+        request_type='post'
+    )
+    wf = Workflow.from_wire(response['workflow_dct'])
+    rc, response = req.send_request(
+        app_route='/workflow_run',
+        message={'workflow_id': wf.id,
+                 'user': 'user',
+                 'hostname': 'test.host',
+                 'pid': '1234',
+                 'stderr': '/tmp',
+                 'stdout': '/tmp',
+                 'working_dir': '/tmp',
+                 'project': 'proj_tools',
+                 'slack_channel': 'jobmon_alerts',
+                 'executor_class': 'SGEExecutor'},
+        request_type='post'
+    )
+    wfr_id = response["workflow_run_id"]
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': 12334,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 2,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
+        message={},
+        request_type='post')
+
+    # add job instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(swarm_job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+
+    # do job logging
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345),
+                 'next_report_increment': 15},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.getfqdn(),
+                 'process_group_id': str(os.getpid()),
+                 'next_report_increment': 120},
+        request_type='post')
+
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar2',
+                 'job_hash': 123345,
+                 'command': 'baz2',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    swarm_job2 = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job2.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 2,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(swarm_job2.job_id),
+        message={},
+        request_type='post')
+
+    # add job instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(swarm_job2.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id2 = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+
+    # do job logging
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id2),
+        message={'executor_id': str(54321),
+                 'next_report_increment': 15},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id2),
+        message={'nodename': socket.getfqdn(),
+                 'process_group_id': str(os.getpid()),
+                 'next_report_increment': 120},
+        request_type='post')
+
+    rc, resp = req.send_request(
+        app_route=f'/workflow_run/{wfr_id}/job_instance_exec_ids',
+        message={},
+        request_type='get')
+
+    assert resp['executor_ids'] == [12345, 54321]
