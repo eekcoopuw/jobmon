@@ -104,6 +104,13 @@ if __name__ == "__main__":
                      "For example: python longevity_test001.py 60 \n"
                      "runs for an hour.")
 
+    # Create a failed WF by modifying the sleeprandom.sh permission. This is for upgrading test to resume a
+    # failed WF created in former version.
+    os.system("chmod 400 {}".format(MYSCRIPT))
+    create_wf()
+    os.system("chmod 755 {}".format(MYSCRIPT))
+    
+    # Continue creating wf for given times
     time_in_seconds = time_in_minutes * 60
     threads = []
     for i in range(TOTAL_THREADS):
