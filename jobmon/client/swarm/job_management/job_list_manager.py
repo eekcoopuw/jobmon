@@ -2,6 +2,7 @@ from functools import partial
 import time
 from threading import Event, Thread
 from typing import Dict
+from http import HTTPStatus as StatusCodes
 
 from jobmon.client import shared_requester
 from jobmon.models.job_status import JobStatus
@@ -17,6 +18,7 @@ from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.exceptions import DagLogRunningException
 
 logger = logging.getLogger(__name__)
 
@@ -169,10 +171,12 @@ class JobListManager(object):
         return exec_param_set
 
     def log_dag_running(self) -> None:
-        rc, _ = self.requester.send_request(
+        rc, msg = self.requester.send_request(
             app_route=f'/task_dag/{self.dag_id}/log_running',
             message={},
             request_type='post')
+        if rc == StatusCodes.BAD_REQUEST:
+            raise DagLogRunningException("Failed to log dag running. Received \"{}\" from server.".format(msg['message']))
         return rc
 
     def get_job_statuses(self):

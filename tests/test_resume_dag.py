@@ -88,7 +88,6 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
     # ensure real_dag officially "fell over"
     with pytest.raises(ValueError):
         real_dag._execute()
-
     # ensure the real_dag that "fell over" has 2 out of the 5 jobs complete
     logger.debug(f"All completed are {real_dag.job_list_manager.all_done}")
     bound_tasks = list(real_dag.job_list_manager.bound_tasks.values())
@@ -97,7 +96,6 @@ def test_resume_real_dag(real_dag, tmp_out_dir):
     assert bound_tasks[2].status != JobStatus.DONE
     assert bound_tasks[3].status != JobStatus.DONE
     assert bound_tasks[4].status != JobStatus.DONE
-
     # relaunch real_dag, and ensure all tasks are marked complete now.
     # the real_dag will keep track of all completed tasks from last run of
     # the real_dag, and so the number of all_completed will be all 5
