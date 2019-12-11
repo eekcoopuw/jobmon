@@ -97,6 +97,16 @@ class TaskDag(object):
                 database
         """
         if dag_id:
+            if self.job_list_manager:
+                # stop threads so nothing new can get instantiated
+                self.job_list_manager.disconnect()
+                # call route to set workflow run to CR state or HR state
+                if reset_running_jobs:
+                    self.job_list_manager.handle_wfrun_resume(
+                        WorkflowRunStatus.COLD_RESUME)
+                else:
+                    self.job_list_manager.handle_wfrun_resume(
+                        WorkflowRunStatus.HOT_RESUME)
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
                 job_instantiation_interval=self.job_instantiation_interval)

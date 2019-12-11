@@ -70,7 +70,8 @@ class JobListManager(object):
         self._sync()
 
         self.job_instantiation_interval = job_instantiation_interval
-        if start_daemons:
+        self.start_daemons = start_daemons
+        if self.start_daemons:
             self._start_job_instance_manager()
 
     @property
@@ -305,13 +306,23 @@ class JobListManager(object):
         logger.debug(f"Status for workflow run {self.workflow_run_id} is "
                      f"{response}")
         if response == WorkflowRunStatus.COLD_RESUME:
+            self.handle_wfrun_resume(WorkflowRunStatus.COLD_RESUME)
+            return True
+        elif response == WorkflowRunStatus.HOT_RESUME:
+            self.handle_wfrun_resume(WorkflowRunStatus.HOT_RESUME)
+            return True
+        else:
+            return False
+
+    def handle_wfrun_resume(self, status):
+        if status is WorkflowRunStatus.COLD_RESUME:
             logger.info("A Cold Resume has been set, the JLM will qdel any job"
                         " instances and set them to kill themselves for "
                         "safety, then it will tear down the JIF and JIR and "
                         f"exit from workflow run {self.workflow_run_id}")
             exec_ids = self.requester.send_request(
                 app_route=f'/workflow/{self.workflow_run_id}/job_instance_'
-                          f'exec_ids',
+                f'exec_ids',
                 message={},
                 request_type='get'
             )
@@ -327,16 +338,14 @@ class JobListManager(object):
             )
             logger.debug("Job instances set to kill themselves if qdel failed "
                          "and they enter a running state")
-            return True
-        elif response == WorkflowRunStatus.HOT_RESUME:
+        elif status is WorkflowRunStatus.HOT_RESUME:
             logger.info("A Hot Resume has been set, the JLM will leave any "
                         "running job instances so that they can complete, but "
                         "it will tear down the JIR and JIF threads and exit so"
                         " that no new job instances will be created for "
                         f"workflow run {self.workflow_run_id}")
-            return True
         else:
-            return False
+            logger.debug("A resume has not been set, continuing execution")
 
     def _create_job(self, *args, **kwargs):
         """Create a job by passing the job args/kwargs through to the
@@ -408,8 +417,10 @@ class JobListManager(object):
         self.jir_proc.start()
 
     def disconnect(self):
-        self._stop_event.set()
+        if self.start_daemons:
+            self._stop_event.set()
 
     def connect(self):
         self._stop_event = Event()
-        self._start_job_instance_manager()
+        if self.start_daemons:
+            self._start_job_instance_manager()
