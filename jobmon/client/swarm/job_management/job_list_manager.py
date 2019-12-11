@@ -179,9 +179,9 @@ class JobListManager(object):
             raise DagLogRunningException("Failed to log dag running. Received \"{}\" from server.".format(msg['message']))
         return rc
 
-    def get_job_statuses(self):
+    def get_job_statuses(self, last_sync=None):
         """Query the database for the status of all jobs"""
-        if self.last_sync:
+        if last_sync is not None:
             rc, response = self.requester.send_request(
                 app_route='/dag/{}/job_status'.format(self.dag_id),
                 message={'last_sync': str(self.last_sync)},
@@ -252,9 +252,11 @@ class JobListManager(object):
         jobs = self.get_job_statuses()
         self.parse_adjusting_done_and_errors(jobs)
 
-    def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
+    def block_until_any_done_or_error(self, timeout=36000, poll_interval=10,
+                                      full_sync_interval=600):
         """Block code execution until a job is done or errored"""
         time_since_last_update = 0
+        time_since_last_full_sync = 0
         while True:
             if time_since_last_update > timeout:
                 raise RuntimeError("Not all tasks completed within the given "
@@ -262,7 +264,11 @@ class JobListManager(object):
                                    "Submitted tasks will still run, but the "
                                    "workflow will need to be restarted."
                                    .format(timeout))
-            jobs = self.get_job_statuses()
+            if time_since_last_full_sync > full_sync_interval:
+                #  should get statuses from every job
+                jobs = self.get_job_statuses()
+            else:
+                jobs = self.get_job_statuses(self.last_sync)
             completed, failed, adjusting = self.parse_adjusting_done_and_errors(jobs)
             if adjusting:
                 for task in adjusting:
@@ -274,6 +280,7 @@ class JobListManager(object):
                 return completed, failed
             time.sleep(poll_interval)
             time_since_last_update += poll_interval
+            time_since_last_full_sync += poll_interval
 
     def _create_job(self, *args, **kwargs):
         """Create a job by passing the job args/kwargs through to the
