@@ -130,9 +130,9 @@ def test_lost_job_instances(db_cfg, real_dag_id):
     DB = db_cfg["DB"]
     with app.app_context():
         new_report_by = f"""UPDATE job_instance
-                           SET report_by_date = 
-                           SUBTIME(UTC_TIMESTAMP(), SEC_TO_TIME(60))
-                           WHERE dag_id = {real_dag_id}
+                            SET report_by_date = 
+                            SUBTIME(UTC_TIMESTAMP(), SEC_TO_TIME(60))
+                            WHERE dag_id = {real_dag_id}
                         """
         DB.session.execute(new_report_by)
         DB.session.commit()

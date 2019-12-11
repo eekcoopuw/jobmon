@@ -119,6 +119,7 @@ class Workflow(object):
         self.reset_running_jobs = reset_running_jobs
 
         self.task_dag = TaskDag(
+          	name=f'{self.name}',
             executor=self.executor,
             fail_fast=fail_fast,
             seconds_until_timeout=seconds_until_timeout

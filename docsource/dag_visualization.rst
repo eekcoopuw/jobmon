@@ -10,7 +10,7 @@ To do this is very simple. First you must have your workflow created and all tas
 
 ..code::
 
-    from jobmon.workflow.task_dag_viz import TaskDagViz
+    from jobmon.client.swarm.workflow.task_dag_viz import TaskDagViz
 
     TaskDagViz(workflow.task_dag, graph_outdir='path/to/my/outdir',
                output_format='svg').render()

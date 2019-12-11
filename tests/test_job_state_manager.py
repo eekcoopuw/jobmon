@@ -87,6 +87,7 @@ def no_requests_jsm_jqs(monkeypatch, jsm_jqs):
 def test_get_workflow_run_id(db_cfg, real_dag_id):
     from jobmon.server.job_state_manager.job_state_manager import \
         _get_workflow_run_id
+    teardown_db(db_cfg)
     user = getpass.getuser()
     # add job
     _, response = req.send_request(
@@ -134,6 +135,7 @@ def test_get_workflow_run_id(db_cfg, real_dag_id):
     with app.app_context():
         job = DB.session.query(Job).filter_by(job_id=swarm_job.job_id).first()
         assert wf_run_id == _get_workflow_run_id(job)
+    teardown_db(db_cfg)
 
 
 def test_get_workflow_run_id_no_workflow(db_cfg, real_dag_id):
@@ -147,7 +149,6 @@ def test_get_workflow_run_id_no_workflow(db_cfg, real_dag_id):
                  'created_date': str(datetime.utcnow())},
         request_type='post')
     dag_id = response['dag_id']
-
     _, response = req.send_request(
         app_route='/job',
         message={'name': 'foobar',
@@ -1365,4 +1366,21 @@ def test_jsm_update_jobs_status( db_cfg, real_dag_id):
         request_type='get')
     assert code == 200
     assert response['status'] == 'E'
+
+
+
+def test_no_multi_wf_resume(db_cfg, simple_workflow):
+    dag_id = simple_workflow.dag_id
+    assert dag_id is not None
+    code, _ = req.send_request(
+        app_route='/task_dag/{}/log_running'.format(dag_id),
+        message={},
+        request_type='post')
+    assert code == 200
+    code, _ = req.send_request(
+        app_route='/task_dag/{}/log_running'.format(dag_id),
+        message={},
+        request_type='post')
+    assert code == 400
     teardown_db(db_cfg)
+

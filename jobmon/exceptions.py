@@ -74,5 +74,10 @@ class RemoteExitInfoNotAvailable(Exception):
 class CallableReturnedInvalidObject(Exception):
     pass
 
+
+class DagLogRunningException(Exception):
+    pass
+
+
 class WorkflowRunKillSelf(Exception):
     pass

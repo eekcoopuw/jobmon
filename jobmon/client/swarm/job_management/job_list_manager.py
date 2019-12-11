@@ -2,6 +2,7 @@ from functools import partial
 import time
 from threading import Event, Thread
 from typing import Dict
+from http import HTTPStatus as StatusCodes
 
 from jobmon.client import shared_requester
 from jobmon.models.job_status import JobStatus
@@ -18,6 +19,7 @@ from jobmon.exceptions import CallableReturnedInvalidObject, WorkflowRunKillSelf
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.exceptions import DagLogRunningException
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +90,8 @@ class JobListManager(object):
 
     @workflow_run_id.setter
     def workflow_run_id(self, val):
+        logger.debug(f"Job List Manager has been assigned to workflow_run: "
+                     f"{val}")
         self._workflow_run_id = val
 
     def bind_task(self, task: ExecutableTask):
@@ -181,10 +185,12 @@ class JobListManager(object):
         return exec_param_set
 
     def log_dag_running(self) -> None:
-        rc, _ = self.requester.send_request(
+        rc, msg = self.requester.send_request(
             app_route=f'/task_dag/{self.dag_id}/log_running',
             message={},
             request_type='post')
+        if rc == StatusCodes.BAD_REQUEST:
+            raise DagLogRunningException("Failed to log dag running. Received \"{}\" from server.".format(msg['message']))
         return rc
 
     def get_job_statuses(self):
@@ -273,9 +279,10 @@ class JobListManager(object):
             workflow_run_resume_set = self._check_wfrun_resume_set()
             if workflow_run_resume_set:
                 self.disconnect()
-                raise WorkflowRunKillSelf("A resume has been set for this "
-                                          "workflow, this workflow run will "
-                                          "disconnect its threads and exit")
+                raise WorkflowRunKillSelf(f"A resume has been set for this"
+                                          f" workflow, workflow run "
+                                          f"{self.workflow_run_id} will "
+                                          f"disconnect its threads and exit")
             jobs = self.get_job_statuses()
             completed, failed, adjusting = self.parse_adjusting_done_and_errors(jobs)
             if adjusting:
@@ -295,25 +302,38 @@ class JobListManager(object):
             message={},
             request_type='get'
         )
+        logger.debug(f"Status for workflow run {self.workflow_run_id} is "
+                     f"{response}")
         if response == WorkflowRunStatus.COLD_RESUME:
             logger.info("A Cold Resume has been set, the JLM will qdel any job"
                         " instances and set them to kill themselves for "
                         "safety, then it will tear down the JIF and JIR and "
-                        "exit")
+                        f"exit from workflow run {self.workflow_run_id}")
             exec_ids = self.requester.send_request(
-                app_route=f'/workflow/{self.workflow_run_id}/job_instance_exec_ids',
+                app_route=f'/workflow/{self.workflow_run_id}/job_instance_'
+                          f'exec_ids',
                 message={},
                 request_type='get'
             )
             # qdel all job instances in this workflow run
             self.executor.terminate_all_jis_for_resume(exec_ids)
+
             # set all job instances to kill self
+            rc, response = self.requester.send_request(
+                app_route=f'/job_instance/{self.workflow_run_id}/'
+                f'nonterminal_to_k_status',
+                message={},
+                request_type='post'
+            )
+            logger.debug("Job instances set to kill themselves if qdel failed "
+                         "and they enter a running state")
             return True
         elif response == WorkflowRunStatus.HOT_RESUME:
             logger.info("A Hot Resume has been set, the JLM will leave any "
                         "running job instances so that they can complete, but "
                         "it will tear down the JIR and JIF threads and exit so"
-                        " that no new job instances will be created")
+                        " that no new job instances will be created for "
+                        f"workflow run {self.workflow_run_id}")
             return True
         else:
             return False
