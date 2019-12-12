@@ -13,6 +13,8 @@ class WorkflowRunStatus(DB.Model):
     STOPPED = 'S'
     ERROR = 'E'
     DONE = 'D'
+    COLD_RESUME = 'CR'
+    HOT_RESUME = 'HR'
 
     id = DB.Column(DB.String(1), primary_key=True)
     label = DB.Column(DB.String(150), nullable=False)

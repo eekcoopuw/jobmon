@@ -1383,8 +1383,8 @@ def set_log_level_flask(level):
            methods=['POST'])
 def ji_nonterminal_state_to_k_state(workflow_run_id: int):
     """
-    Route to get all job instances with a non-terminal state(B, I, R) and change
-    their state to "K"
+    Route to get all job instances with a non-terminal state(B, I, R) and
+    change their state to "K"
     :param workflow_run_id:
     :return: job_instance_id
     """
@@ -1392,10 +1392,11 @@ def ji_nonterminal_state_to_k_state(workflow_run_id: int):
     logger.debug(logging.myself())
     logging.logParameter("workflow_run_id", workflow_run_id)
 
-    params = {"workflow_run_id": int(workflow_run_id),
-              "batch_executor": str(JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
-              "instantiated": str(JobInstanceStatus.INSTANTIATED),
-              "running": str(JobInstanceStatus.RUNNING)}
+    params = {
+        "workflow_run_id": int(workflow_run_id),
+        "batch_executor": str(JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
+        "instantiated": str(JobInstanceStatus.INSTANTIATED),
+        "running": str(JobInstanceStatus.RUNNING)}
 
     query = """
             SELECT job_instance_id
@@ -1411,11 +1412,15 @@ def ji_nonterminal_state_to_k_state(workflow_run_id: int):
     DB.session.commit()
 
     if len(job_instances) > 0:
+        msg = []
         for job_instance_id in job_instances:
             ji = _get_job_instance(DB.session, job_instance_id)
-            msg = _update_job_instance_state(ji, JobInstanceStatus.KILL_SELF)
+            msg.append(job_instance_id)
+            _update_job_instance_state(ji, JobInstanceStatus.KILL_SELF)
             DB.session.commit()
-
+    else:
+        msg = f'No jobs with non-terminal state found for workflow_run_id:' \
+              f' {workflow_run_id}'
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
 

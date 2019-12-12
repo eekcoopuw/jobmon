@@ -93,7 +93,9 @@ class WorkflowRun(object):
         status, wf_run = self.check_if_workflow_is_running()
         if not status:
             return
+        # get the previous workflow run id if it's still running
         workflow_run_id = wf_run['id']
+
         if wf_run['user'] != getpass.getuser():
             msg = ("Workflow_run_id {} for this workflow_id is still in "
                    "running mode by user {}. Please ask this user to kill "
@@ -111,9 +113,9 @@ class WorkflowRun(object):
                 request_type='put')
             raise RuntimeError(msg)
         else:
-            # instead of killing the old workflow runs, mark them as CR or HR
-            logger.info(f"Kill previous workflow runs: {workflow_run_id}")
+            # mark the previous workflow run as CR or HR
             if reset_running_jobs:
+                # A cold resume
                 if wf_run['executor_class'] == "SequentialExecutor":
                     from jobmon.client.swarm.executors.sequential import \
                         SequentialExecutor
@@ -128,6 +130,25 @@ class WorkflowRun(object):
                 else:
                     raise ValueError("{} is not supported by this version of "
                                      "jobmon".format(wf_run['executor_class']))
+
+                # set non-terminal job instances to k state
+                logger.info(f'Setting job instances with B, I, and R state to'
+                            f' K for the following workflow_run_id: '
+                            f'{workflow_run_id}')
+                k_state_code, k_state_resp = self.requester.send_request(
+                    app_route=f'/job_instance/{workflow_run_id}/'
+                              f'nonterminal_to_k_status',
+                    message={},
+                    request_type='post'
+                )
+                if k_state_code != StatusCodes.OK:
+                    err_msg = f'Expected code {StatusCodes.OK} when setting ' \
+                              f'nonterminal job instances to K state, ' \
+                              f'instead got status: {k_state_code} with ' \
+                              f'the following response: {k_state_resp}'
+                    logger.error(err_msg)
+                    raise RuntimeError(err_msg)
+
                 # get job instances of workflow run
                 _, response = self.requester.send_request(
                     app_route=f'/workflow_run/{workflow_run_id}/job_instance',
@@ -140,11 +161,26 @@ class WorkflowRun(object):
                                     for ji in job_instances]
                 if job_instances:
                     previous_executor.terminate_job_instances(jiid_exid_tuples)
-            _, _ = self.requester.send_request(
-                app_route='/workflow_run',
-                message={'workflow_run_id': workflow_run_id,
-                         'status': WorkflowRunStatus.STOPPED},
-                request_type='put')
+
+                # set workflow_run status to cold resume
+                logger.info(f"Setting this workflow run status to "
+                            f"{WorkflowRunStatus.COLD_RESUME}: "
+                            f"{workflow_run_id}")
+                _, _ = self.requester.send_request(
+                    app_route='/workflow_run',
+                    message={'workflow_run_id': workflow_run_id,
+                             'status': WorkflowRunStatus.COLD_RESUME},
+                    request_type='put')
+            else:
+                # A hot resume
+                logger.info(f"Setting this workflow run status to "
+                            f"{WorkflowRunStatus.HOT_RESUME}: "
+                            f"{workflow_run_id}")
+                _, _ = self.requester.send_request(
+                    app_route='/workflow_run',
+                    message={'workflow_run_id': workflow_run_id,
+                             'status': WorkflowRunStatus.HOT_RESUME},
+                    request_type='put')
 
     def update_done(self):
         """Update the status of the workflow_run as done"""
