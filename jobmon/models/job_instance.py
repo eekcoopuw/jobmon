@@ -61,7 +61,6 @@ class JobInstance(DB.Model):
     maxrss = DB.Column(DB.String(50))
     cpu = DB.Column(DB.String(50))
     io = DB.Column(DB.String(50))
-    maxpss = DB.Column(DB.String(50))
 
     # status/state
     status = DB.Column(

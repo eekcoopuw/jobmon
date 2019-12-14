@@ -52,7 +52,7 @@ def test_sync(db_cfg, jlm_sge_no_daemon):
     job = jlm_sge_no_daemon.bind_task(
         Task(command='fizzbuzz', name='bar',
              m_mem_free='1G',
-             max_runtime_seconds='1000',
+             max_runtime_seconds=1000,
              num_cores=1))
     # create job instances
     jlm_sge_no_daemon.adjust_resources_and_queue(job)
@@ -167,7 +167,7 @@ def test_blocking_update_timeout(job_list_manager_daemon):
 def test_sge_valid_command(jlm_sge_no_daemon):
     job = jlm_sge_no_daemon.bind_task(
         Task(command="ls", name="sgefbb", num_cores=3,
-             max_runtime_seconds='1000', m_mem_free='600M'))
+             max_runtime_seconds=1000, m_mem_free='600M'))
     jlm_sge_no_daemon.adjust_resources_and_queue(job)
     jlm_sge_no_daemon.job_instance_factory.instantiate_queued_jobs()
     jlm_sge_no_daemon._sync()
@@ -238,7 +238,7 @@ def test_job_instance_qsub_error(db_cfg, jlm_sge_no_daemon, monkeypatch,
     jlm = jlm_sge_no_daemon
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
-                             max_runtime_seconds='1000', m_mem_free='600M'))
+                             max_runtime_seconds=1000, m_mem_free='600M'))
     jlm.adjust_resources_and_queue(job)
     jif.instantiate_queued_jobs()
     jlm._sync()
@@ -264,7 +264,7 @@ def test_job_instance_bad_qsub_parse(db_cfg, jlm_sge_no_daemon, monkeypatch,
     jlm = jlm_sge_no_daemon
     jif = jlm.job_instance_factory
     job = jlm.bind_task(Task(command="ls", name="sgefbb", num_cores=3,
-                             max_runtime_seconds='1000', m_mem_free='600M'))
+                             max_runtime_seconds=1000, m_mem_free='600M'))
     jlm.adjust_resources_and_queue(job)
     jif.instantiate_queued_jobs()
     jlm._sync()
@@ -389,7 +389,7 @@ def test_context_args(db_cfg, jlm_sge_no_daemon, caplog):
     job = jlm.bind_task(
         Task(command="sge_foobar",
              name="test_context_args", num_cores=2, m_mem_free='4G',
-             max_runtime_seconds='1000',
+             max_runtime_seconds=1000,
              context_args={'sge_add_args': '-a foo'}))
 
     jlm.adjust_resources_and_queue(job)
