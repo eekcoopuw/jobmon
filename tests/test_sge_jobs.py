@@ -21,7 +21,7 @@ def test_valid_command(real_dag_id, jlm_sge_daemon):
     job = jlm_sge_daemon.bind_task(
         Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
              name="sge_valid_command", num_cores=2, m_mem_free='4G',
-             max_runtime_seconds='1000',
+             max_runtime_seconds=1000,
              j_resource=True,
              max_attempts=1))
     jlm_sge_daemon.adjust_resources_and_queue(job)
@@ -51,7 +51,7 @@ def test_context_args(db_cfg, jlm_sge_daemon):
         Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
              name="test_context_args", num_cores=2, m_mem_free='4G',
              max_attempts=1,
-             max_runtime_seconds='1000',
+             max_runtime_seconds=1000,
              context_args={'sge_add_args': '-a {}'.format(delay_to)}))
     jlm_sge_daemon.adjust_resources_and_queue(job)
 
@@ -153,7 +153,7 @@ def architecture_specific_args(db_cfg,
              name=test_name,
              num_cores=1, m_mem_free='1G',
              max_attempts=1,
-             max_runtime_seconds='100',
+             max_runtime_seconds=100,
              context_args={
                  'sge_add_args': f"-l {architecture_name}{suffix}"}))
     job_list_manager_sge.adjust_resources_and_queue(job)
