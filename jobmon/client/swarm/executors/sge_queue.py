@@ -31,7 +31,7 @@ class SGEQueue:
 
 ONE_DAY = 24 * 60 * 60
 
-# The three queues
+# The three queues, max memory is below node memory size per INFRA suggestion
 
 SGE_ALL_Q = SGEQueue(name="all.q",
                      max_threads=56,
