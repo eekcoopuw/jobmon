@@ -28,6 +28,10 @@ class WorkflowAlreadyExists(Exception):
     pass
 
 
+class WorkflowStillRunning(Exception):
+    pass
+
+
 class ResumeStatus(object):
     RESUME = True
     DONT_RESUME = False
@@ -254,6 +258,20 @@ class Workflow(object):
                 0]
             if self.wf_dao.status == WorkflowStatus.DONE:
                 raise WorkflowAlreadyComplete
+            elif self.wf_dao.status == WorkflowStatus.RUNNING:
+                raise WorkflowStillRunning("You cannot resume a workflow if "
+                                           "previous workflow runs are still "
+                                           "going, please kill the previous "
+                                           "workflow run master (you can find "
+                                           "its process id in the database) "
+                                           "and make sure the workflow is in a"
+                                           " stopped state before you proceed "
+                                           "with your resume. If you have just"
+                                           " recently killed the previous "
+                                           "workflow, you may need to wait up "
+                                           "to 10 minutes while the health "
+                                           "monitor reconciles the dead "
+                                           "workflow runs")
             self.task_dag.bind_to_db(
                 self.dag_id,
                 reset_running_jobs=self.reset_running_jobs

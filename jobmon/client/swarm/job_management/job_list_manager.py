@@ -45,6 +45,7 @@ class JobListManager(object):
         """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
+        self.workflow_run_id = None
 
         self._stop_event = Event()
         self.job_instance_factory = JobInstanceFactory(
@@ -81,19 +82,6 @@ class JobListManager(object):
                 if task.status not in [JobStatus.REGISTERED,
                                        JobStatus.DONE,
                                        JobStatus.ERROR_FATAL]]
-
-    @property
-    def workflow_run_id(self):
-        if not hasattr(self, "_workflow_run_id"):
-            raise AttributeError("workflow_run_id cannot be accessed before it"
-                                 " has been assigned")
-        return self._workflow_run_id
-
-    @workflow_run_id.setter
-    def workflow_run_id(self, val):
-        logger.debug(f"Job List Manager has been assigned to workflow_run: "
-                     f"{val}")
-        self._workflow_run_id = val
 
     def bind_task(self, task: ExecutableTask):
         """Bind a task to the database, making it a job
@@ -191,7 +179,9 @@ class JobListManager(object):
             message={},
             request_type='post')
         if rc == StatusCodes.BAD_REQUEST:
-            raise DagLogRunningException("Failed to log dag running. Received \"{}\" from server.".format(msg['message']))
+            raise DagLogRunningException("Failed to log dag running. "
+                                         "Received \"{}\" from server."
+                                         .format(msg['message']))
         return rc
 
     def get_job_statuses(self):
@@ -298,21 +288,21 @@ class JobListManager(object):
             time_since_last_update += poll_interval
 
     def _check_wfrun_resume_set(self):
-        rc, response = self.requester.send_request(
-            app_route=f'/workflow_run/{self.workflow_run_id}/status',
-            message={},
-            request_type='get'
-        )
-        logger.debug(f"Status for workflow run {self.workflow_run_id} is "
-                     f"{response}")
-        if response == WorkflowRunStatus.COLD_RESUME:
-            self.handle_wfrun_resume(WorkflowRunStatus.COLD_RESUME)
-            return True
-        elif response == WorkflowRunStatus.HOT_RESUME:
-            self.handle_wfrun_resume(WorkflowRunStatus.HOT_RESUME)
-            return True
-        else:
-            return False
+        if self.workflow_run_id:
+            rc, response = self.requester.send_request(
+                app_route=f'/workflow_run/{self.workflow_run_id}/status',
+                message={},
+                request_type='get'
+            )
+            logger.debug(f"Status for workflow run {self.workflow_run_id} is "
+                         f"{response}")
+            if response == WorkflowRunStatus.COLD_RESUME:
+                self.handle_wfrun_resume(WorkflowRunStatus.COLD_RESUME)
+                return True
+            elif response == WorkflowRunStatus.HOT_RESUME:
+                self.handle_wfrun_resume(WorkflowRunStatus.HOT_RESUME)
+                return True
+        return False
 
     def handle_wfrun_resume(self, status):
         if status is WorkflowRunStatus.COLD_RESUME:
@@ -326,18 +316,18 @@ class JobListManager(object):
                 message={},
                 request_type='get'
             )
-            # qdel all job instances in this workflow run
-            self.executor.terminate_all_jis_for_resume(exec_ids)
-
             # set all job instances to kill self
-            rc, response = self.requester.send_request(
+            self.requester.send_request(
                 app_route=f'/job_instance/{self.workflow_run_id}/'
                 f'nonterminal_to_k_status',
                 message={},
                 request_type='post'
             )
-            logger.debug("Job instances set to kill themselves if qdel failed "
-                         "and they enter a running state")
+            logger.debug("Job instances set to kill themselves in case qdel "
+                         "failed")
+            # qdel all job instances in this workflow run
+            self.executor.terminate_all_jis_for_resume(exec_ids)
+
         elif status is WorkflowRunStatus.HOT_RESUME:
             logger.info("A Hot Resume has been set, the JLM will leave any "
                         "running job instances so that they can complete, but "

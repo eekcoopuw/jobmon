@@ -12,14 +12,16 @@ from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job import Job
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.job_instance import JobInstance
+from jobmon.models.job_status import JobStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow as WorkflowDAO
+from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
-    WorkflowAlreadyExists, ResumeStatus
+    WorkflowAlreadyExists, ResumeStatus, WorkflowStillRunning
 
 import tests.workflow_utils as wu
 from tests.conftest import teardown_db
@@ -321,75 +323,12 @@ def resumable_workflow():
     return workflow
 
 
-def hot_resumable_workflow():
-    from jobmon.client.swarm.workflow.bash_task import BashTask
-    from jobmon.client.swarm.workflow.workflow import Workflow
-    t1 = BashTask("sleep infinity", num_cores=1)
-    wfa = "my_simple_dag"
-    workflow = Workflow(wfa, project="proj_tools", resume=True,
-                        reset_running_jobs=False)
-    workflow.add_tasks([t1])
-    return workflow
-
-
-def test_cold_resume_workflow(db_cfg, env_var):
-    teardown_db(db_cfg)
-    wf = resumable_workflow()
-    wf.run()
-    wf_run1_id = wf.workflow_run.id
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        update = f"""UPDATE workflow_run 
-                     SET status = {WorkflowRunStatus.COLD_RESUME} 
-                     WHERE workflow_run.id = {wf_run1_id}
-                 """
-        DB.session.execute(update)
-        DB.session.commit()
-    with app.app_context():
-        query_wf = f"""SELECT status 
-                   FROM workflow
-                   WHERE workflow.id = {wf.id}"""
-        wf_status = DB.session.execute(query_wf).first()
-        import pdb
-        pdb.set_trace()
-        # just curious what state it gets set to
-
-        query_jis = f"""SELECT executor_id, status
-                        FROM job_instance
-                        WHERE workflow_run_id = {wf_run1_id}"""
-        job_instances = DB.session.execute(query_jis).fetchall()
-        assert len(job_instances) == 1
-        assert job_instances[0].status == 'K'
-        resp = subprocess.check_output(f'qacct -j '
-                                       f'{job_instances[0].executor_id}',
-                                       shell=True, universal_newlines=True)
-        import pdb
-        pdb.set_trace()
-        # make sure job instance was qdelled
-
-        query_jobs = f"""SELECT status FROM job WHERE dag_id = {wf.dag_id}"""
-        jobs = DB.session.execute(query_jobs).fetchall()
-        assert len(jobs) == 1
-
-        import pdb
-        pdb.set_trace()
-        # check status of job
-        DB.session.commit()
-    teardown_db(db_cfg)
-
-
 def run_workflow():
     workflow = resumable_workflow()
     workflow.execute()
 
 
-def run_hot_resumable_workflow():
-    workflow = hot_resumable_workflow()
-    workflow.execute()
-
-
-def test_resume_workflow(db_cfg, env_var):
+def test_resume_running_workflow_fails(db_cfg, env_var):
     teardown_db(db_cfg)
     # create a workflow in a separate process with 1 job that sleeps forever.
     # it must be in a separate process because resume will kill the process
@@ -418,14 +357,90 @@ def test_resume_workflow(db_cfg, env_var):
     if slept >= max_sleep and executor_id:
         sge_utils.qdel(executor_id)
         os.kill(p1.pid, signal.SIGKILL)
-        # p1.terminate()
+        p1.terminate()
         teardown_db(db_cfg)
         return
 
+    with pytest.raises(WorkflowStillRunning):
+        run_workflow()
+
+    # kill the workflow process and make sure that things get set to stopped
+    os.kill(p1.pid, signal.SIGTERM)
+    sleep (5)
+    os.kill(p1.pid, signal.SIGKILL)
+
+    wf_run_state = subprocess.check_output(f"ps -ax | grep {p1.pid} | "
+                                           f"grep -v grep", shell=True,
+                                           universal_newlines=True)
+    assert "Z" in wf_run_state # make sure workflow run got properly killed
+    teardown_db(db_cfg)
+
+
+def test_cold_resume_workflow(db_cfg, env_var):
+    teardown_db(db_cfg)
+    p1 = Process(target=run_workflow)
+    p1.start()
+
+    # poll till we confirm that job is running
+    session = db_cfg["DB"].session
+    with db_cfg["app"].app_context():
+        status = ""
+        executor_id = None
+        max_sleep = 180  # 3 min max till test fails
+        slept = 0
+        while status != "R" and slept <= max_sleep:
+            ji = session.query(JobInstance).one_or_none()
+            session.commit()
+            sleep(5)
+            slept += 5
+            if ji:
+                status = ji.status
+        if ji:
+            executor_id = ji.executor_id
+
+    # qdel job if the test timed out
+    if slept >= max_sleep and executor_id:
+        sge_utils.qdel(executor_id)
+        os.kill(p1.pid, signal.SIGKILL)
+        os.kill(p1.pid, signal.SIGTERM)
+        sleep(5)
+        os.kill(p1.pid, signal.SIGKILL)
+        teardown_db(db_cfg)
+        return
+
+    # need to manually set WFR and WF to stopped because health monitor is not
+    # running
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        wfr_update = f"""UPDATE workflow_run SET status = '{WorkflowRunStatus.STOPPED}'"""
+        wf_update = f"""UPDATE workflow SET status = '{WorkflowStatus.STOPPED}'"""
+        DB.session.execute(wfr_update)
+        DB.session.execute(wf_update)
+        DB.session.commit()
+        resp = DB.session.execute("""SELECT status FROM workflow_run""")\
+            .fetchall()
+        assert resp[0][0] == WorkflowRunStatus.STOPPED
+
+        resp2 = DB.session.execute("""SELECT status FROM workflow""")\
+            .fetchall()
+        assert resp2[0][0] == WorkflowStatus.STOPPED
+
     p2 = Process(target=run_workflow)
     p2.start()
-    # might need to wait for job instance to be created
 
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        num_wfr = 0
+        count = 0
+        while num_wfr != 2 and count < 10:
+            wfruns = DB.session.query(WorkflowRun).all()
+            num_wfr = len(wfruns)
+            DB.session.commit()
+            count = count + 1
+            sleep(5)
+        assert len(wfruns) == 2
     wfr_status_query = f"""SELECT status FROM workflow_run"""
     job_instance_query = f"""SELECT status, executor_id FROM job_instance"""
 
@@ -433,132 +448,179 @@ def test_resume_workflow(db_cfg, env_var):
     DB = db_cfg["DB"]
     with app.app_context():
         wf_run_status = DB.session.execute(wfr_status_query).fetchall()
-        import pdb
-        pdb.set_trace()
         assert len(wf_run_status) == 2
-        # check first workflow run is CR
-        # check second is Running
+        assert wf_run_status[0][0] == WorkflowRunStatus.COLD_RESUME
+        assert wf_run_status[1][0] == WorkflowRunStatus.RUNNING
+
+        wf_status = DB.session.execute("""SELECT status FROM workflow""")\
+            .fetchall()
+        assert len(wf_status) == 1
+        assert (wf_status)[0][0] == WorkflowStatus.RUNNING
+
         job_instances = DB.session.execute(job_instance_query).fetchall()
+        count = 5
+        while len(job_instances) != 2 and count > 0:
+            sleep(5)
+            count = count - 1
+            DB.session.commit()
+            job_instances = DB.session.execute(job_instance_query).fetchall()
         assert len(job_instances) == 2
         assert job_instances[0].status == JobInstanceStatus.KILL_SELF
         ji_state = subprocess.check_output(f'qacct -j '
                                            f'{job_instances[0].executor_id}',
                                            shell=True, universal_newlines=True)
-        import pdb
-        pdb.set_trace()
-        # check first job instance got qdeled
-        DB.session.commit()
-    wf_run_state = subprocess.check_output(f"ps -ax | grep {p1.pid} | "
-                                           f"grep -v grep", shell=True,
-                                           universal_newlines=True)
-    import pdb
-    pdb.set_trace()
-    # check that workflow run exited and jlm got killed, if there is a log
-    # path, check that to see if the workflow run announced its exit
-    p3 = Process(target=run_hot_resumable_workflow)
-    p3.start()
+        # make sure that the old job instance is dead
+        assert '137' in ji_state.split('exit_status')[1].split('\n')[0]
 
-    with app.app_context():
-        wf_run_status = DB.session.execute(wfr_status_query).fetchall()
-        assert len(wf_run_status) == 3
-        assert wf_run_status[0] == WorkflowRunStatus.COLD_RESUME
-        assert wf_run_status[1] == WorkflowRunStatus.HOT_RESUME
-        assert wf_run_status[2] == WorkflowRunStatus.RUNNING
-        job_instances = DB.session.execute(job_instance_query).fetchall()
-        assert len(job_instances) == 2
-        assert job_instances[1].status == JobInstanceStatus.RUNNING
-        # cleanup
-        sge_utils.qdel(job_instances[1].executor_id)
-        kill_final_wf = f"""UPDATE workflow_run " \
-            f"SET status = {WorkflowRunStatus.STOPPED} " \
-            f"WHERE status={WorkflowRunStatus.RUNNING}"""
-        DB.session.execute(kill_final_wf)
-        DB.session.flush()
-        end_workflow = f"""UPDATE workflow 
-                           SET status = {WorkflowStatus.FAILED}"""
-        DB.session.execute(end_workflow)
-        DB.session.flush()
-        import pdb
-        pdb.set_trace()
-        # just check that all the expected statuses are set
-        DB.session.commit()
-    import pdb
-    pdb.set_trace()
-    # make sure p1 and p2 are dead
-    os.kill(p3.pid, signal.SIGKILL)
+        job_status = DB.session.execute("""SELECT status FROM job""")\
+            .fetchall()
+        assert len(job_status) == 1
+        if job_status[0][0] == JobStatus.RUNNING:
+            subprocess.check_output(f"qdel {job_instances[1].executor_id}",
+                                    shell=True, universal_newlines=True)
+        else:
+            assert job_status[0][0] == JobStatus.INSTANTIATED
+
+    wf_run1_teardown = subprocess.check_output(f"ps -ax | grep {p1.pid} | "
+                                               f"grep -v grep", shell=True,
+                                               universal_newlines=True)
+    assert 'Z+' in wf_run1_teardown # make sure the initial workflow run exited
+
+    os.kill(p1.pid, signal.SIGTERM)
+    sleep(5)
+    os.kill(p1.pid, signal.SIGKILL)
+    os.kill(p2.pid, signal.SIGTERM)
+    sleep(5)
+    os.kill(p2.pid, signal.SIGKILL)
 
     teardown_db(db_cfg)
 
 
-# def test_resume_workflow(db_cfg, env_var):
-#     teardown_db(db_cfg)
-#     # create a workflow in a separate process with 1 job that sleeps forever.
-#     # it must be in a separate process because resume will kill the process
-#     # that the workflow is running on which would terminate the test process
-#     p1 = Process(target=run_workflow)
-#     p1.start()
-#
-#     # poll till we confirm that job is running
-#     session = db_cfg["DB"].session
-#     with db_cfg["app"].app_context():
-#         status = ""
-#         executor_id = None
-#         max_sleep = 180  # 3 min max till test fails
-#         slept = 0
-#         while status != "R" and slept <= max_sleep:
-#             ji = session.query(JobInstance).one_or_none()
-#             session.commit()
-#             sleep(5)
-#             slept += 5
-#             if ji:
-#                 status = ji.status
-#         if ji:
-#             executor_id = ji.executor_id
-#
-#     # qdel job if the test timed out
-#     if slept >= max_sleep and executor_id:
-#         sge_utils.qdel(executor_id)
-#         os.kill(p1.pid, signal.SIGKILL)
-#         # p1.terminate()
-#         teardown_db(db_cfg)
-#         return
-#
-#     # now create an identical workflow which should kill the previous job
-#     # and workflow process
-#     workflow = resumable_workflow()
-#     workflow._bind()
-#     workflow._create_workflow_run()
-#     wu.cleanup_jlm(workflow)
-#
-#
-#     # will fail here until workflow resume is rewired with CR and HR and it is
-#     # checked that the workflow run then stops all of its running processes
-#     # here and kills itself
-#
-#     # TODO check if job instances get qdeled and workflow run kills itself
-#     #  with sigterm or sigkill
-#
-#     # check if forked process was zombied
-#     res = subprocess.check_output(f"ps -ax | grep {p1.pid} | grep -v grep",
-#                                   shell=True, universal_newlines=True)
-#
-#     assert "Z" in res
-#     # Do not put +, when running in parallel it does not seem to be a
-#     # foreground process
-#     p1.join()
-#
-#     # check qstat to make sure jobs isn't pending or running any more.
-#     # There can be latency so wait at most 3 minutes for it's state
-#     # to update in SGE
-#     max_sleep = 180  # 3 min max till test fails
-#     slept = 0
-#     ex_id_list = sge_utils.qstat("pr").keys()
-#     while executor_id in ex_id_list and slept <= max_sleep:
-#         sleep(5)
-#         slept += 5
-#         ex_id_list = sge_utils.qstat("pr").keys()
-#     assert executor_id not in ex_id_list
-#     teardown_db(db_cfg)
+def hot_resumable_workflow():
+    from jobmon.client.swarm.workflow.bash_task import BashTask
+    from jobmon.client.swarm.workflow.workflow import Workflow
+    t1 = BashTask("sleep infinity", num_cores=1)
+    wfa = "my_simple_dag"
+    workflow = Workflow(wfa, project="proj_tools", resume=True,
+                        reset_running_jobs=False)
+    workflow.add_tasks([t1])
+    return workflow
+
+
+def run_hot_resumable_workflow():
+    workflow = hot_resumable_workflow()
+    workflow.execute()
+
+
+def test_hot_resume_workflow(db_cfg, env_var):
+    teardown_db(db_cfg)
+    p1 = Process(target=run_hot_resumable_workflow)
+    p1.start()
+
+    # poll till we confirm that job is running
+    session = db_cfg["DB"].session
+    with db_cfg["app"].app_context():
+        status = ""
+        executor_id = None
+        max_sleep = 180  # 3 min max till test fails
+        slept = 0
+        while status != "R" and slept <= max_sleep:
+            ji = session.query(JobInstance).one_or_none()
+            session.commit()
+            sleep(5)
+            slept += 5
+            if ji:
+                status = ji.status
+        if ji:
+            executor_id = ji.executor_id
+
+    # qdel job if the test timed out
+    if slept >= max_sleep and executor_id:
+        sge_utils.qdel(executor_id)
+        os.kill(p1.pid, signal.SIGTERM)
+        sleep(5)
+        os.kill(p1.pid, signal.SIGKILL)
+        p1.terminate()
+        teardown_db(db_cfg)
+        return
+
+    # need to manually set WFR and WF to stopped because health monitor is not
+    # running
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        wfr_update = f"""UPDATE workflow_run SET status = '{WorkflowRunStatus.STOPPED}'"""
+        wf_update = f"""UPDATE workflow SET status = '{WorkflowStatus.STOPPED}'"""
+        DB.session.execute(wfr_update)
+        DB.session.execute(wf_update)
+        DB.session.commit()
+        resp = DB.session.execute("""SELECT status FROM workflow_run""") \
+            .fetchall()
+        assert resp[0][0] == WorkflowRunStatus.STOPPED
+
+        resp2 = DB.session.execute("""SELECT status FROM workflow""") \
+            .fetchall()
+        assert resp2[0][0] == WorkflowStatus.STOPPED
+
+    p2 = Process(target=run_hot_resumable_workflow)
+    p2.start()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        num_wfr = 0
+        count = 0
+        while num_wfr != 2 and count < 10:
+            wfruns = DB.session.query(WorkflowRun).all()
+            num_wfr = len(wfruns)
+            DB.session.commit()
+            count = count + 1
+            sleep(5)
+        assert len(wfruns) == 2
+    wfr_status_query = f"""SELECT status FROM workflow_run"""
+    job_instance_query = f"""SELECT status, executor_id FROM job_instance"""
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        wf_run_status = DB.session.execute(wfr_status_query).fetchall()
+        assert len(wf_run_status) == 2
+        assert wf_run_status[0][0] == WorkflowRunStatus.HOT_RESUME
+        assert wf_run_status[1][0] == WorkflowRunStatus.RUNNING
+
+        wf_status = DB.session.execute("""SELECT status FROM workflow""") \
+            .fetchall()
+        assert len(wf_status) == 1
+        assert (wf_status)[0][0] == WorkflowStatus.RUNNING
+
+        # make sure running job instance did not get stopped and job continued
+        # to run
+        job_instances = DB.session.execute(job_instance_query).fetchall()
+        assert len(job_instances) == 1
+        assert job_instances[0].status == JobInstanceStatus.RUNNING
+
+        job_status = DB.session.execute(
+            """SELECT status FROM job""").fetchall()
+        assert len(job_status) == 1
+        assert job_status[0][0] == JobStatus.RUNNING
+
+        # qdel job instance to make sure it gets cleaned up
+        subprocess.check_output(f"qdel {job_instances[0].executor_id}",
+                                shell=True, universal_newlines=True)
+
+    wf_run1_teardown = subprocess.check_output(f"ps -ax | grep {p1.pid} | "
+                                               f"grep -v grep", shell=True,
+                                               universal_newlines=True)
+    assert 'Z+' in wf_run1_teardown # make sure the initial workflow run exited
+
+    os.kill(p1.pid, signal.SIGTERM)
+    sleep(5)
+    os.kill(p1.pid, signal.SIGKILL)
+    os.kill(p2.pid, signal.SIGTERM)
+    sleep(5)
+    os.kill(p2.pid, signal.SIGKILL)
+
+    teardown_db(db_cfg)
 
 
 def test_resource_scaling(db_cfg, env_var):

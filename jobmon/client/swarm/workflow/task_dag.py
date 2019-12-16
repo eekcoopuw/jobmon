@@ -5,6 +5,7 @@ from collections import OrderedDict
 
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.models.job_status import JobStatus
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.swarm.workflow.task_dag_factory import TaskDagMetaFactory
 from jobmon.client.client_logging import ClientLogging as logging
 
@@ -38,6 +39,7 @@ class TaskDag(object):
 
         self.dag_id = None
         self.job_list_manager = None
+        self._workflow_run_id = None
 
         self.name = name
 
@@ -74,14 +76,13 @@ class TaskDag(object):
 
     @property
     def workflow_run_id(self):
-        if not hasattr(self, "_workflow_run_id"):
-            raise AttributeError("workflow_run_id cannot be accessed before it"
-                                 " has been assigned")
         return self._workflow_run_id
 
     @workflow_run_id.setter
     def workflow_run_id(self, val):
         self._workflow_run_id = val
+        if self.job_list_manager:
+            self.job_list_manager.workflow_run_id = val
 
     def bind_to_db(self, dag_id=None, reset_running_jobs=True):
         """
@@ -97,16 +98,6 @@ class TaskDag(object):
                 database
         """
         if dag_id:
-            if self.job_list_manager:
-                # stop threads so nothing new can get instantiated
-                self.job_list_manager.disconnect()
-                # call route to set workflow run to CR state or HR state
-                if reset_running_jobs:
-                    self.job_list_manager.handle_wfrun_resume(
-                        WorkflowRunStatus.COLD_RESUME)
-                else:
-                    self.job_list_manager.handle_wfrun_resume(
-                        WorkflowRunStatus.HOT_RESUME)
             self.job_list_manager = JobListManager(
                 dag_id, executor=self.executor, start_daemons=True,
                 job_instantiation_interval=self.job_instantiation_interval)

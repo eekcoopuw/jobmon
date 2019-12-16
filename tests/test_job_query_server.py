@@ -204,6 +204,48 @@ def test_workflow_args(db_cfg, real_dag_id):
     teardown_db(db_cfg)
 
 
+def test_get_prev_wfrun(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
+    rc, response = req.send_request(
+        app_route='/workflow',
+        message={'dag_id': real_dag_id,
+                 'workflow_args': 'test_dup_args',
+                 'workflow_hash': '123fe34gr',
+                 'name': 'dup_args',
+                 'description': '',
+                 'user': 'user'},
+        request_type='post')
+    wf = Workflow.from_wire(response['workflow_dct'])
+
+    rc, response = req.send_request(
+        app_route=f'/workflow/{wf.id}/previous_workflow_run',
+        message={},
+        request_type='get')
+    assert len(response['workflow_run']) == 0
+
+    rc, response = req.send_request(
+        app_route='/workflow_run',
+        message={'workflow_id': wf.id,
+                 'user': 'user',
+                 'hostname': 'test.host.ihme.washington.edu',
+                 'pid': 123,
+                 'stderr': '/',
+                 'stdout': '/',
+                 'project': 'proj_tools',
+                 'slack_channel': '',
+                 'executor_class': 'SGEExecutor',
+                 'working_dir': '/'},
+        request_type='post')
+    wfr_id1 = response['workflow_run_id']
+
+    rc, response = req.send_request(
+        app_route=f'/workflow/{wf.id}/previous_workflow_run',
+        message={},
+        request_type='get')
+    assert wfr_id1 == response["workflow_run"]["id"]
+    teardown_db(db_cfg)
+
+
 def test_job_inst_wf_run(db_cfg, real_dag_id):
     teardown_db(db_cfg)
     wf_id, wf_args, wfr1, wfr2 = create_workflow_runs(db_cfg, real_dag_id)
