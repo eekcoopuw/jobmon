@@ -154,7 +154,7 @@ def architecture_specific_args(db_cfg,
              name=test_name,
              num_cores=1, m_mem_free='1G',
              max_attempts=1,
-             max_runtime_seconds='100',
+             max_runtime_seconds=100,
              context_args={
                  'sge_add_args': f"-l {architecture_name}{suffix}"}))
     job_list_manager_sge.adjust_resources_and_queue(job)
