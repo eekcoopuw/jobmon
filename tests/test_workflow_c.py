@@ -73,7 +73,7 @@ def test_resume_running_workflow_fails(db_cfg, env_var):
 
     # kill the workflow process and make sure that things get set to stopped
     os.kill(p1.pid, signal.SIGTERM)
-    sleep (5)
+    sleep(5)
     os.kill(p1.pid, signal.SIGKILL)
 
     wf_run_state = subprocess.check_output(f"ps -ax | grep {p1.pid} | "
@@ -191,7 +191,7 @@ def test_cold_resume_workflow(db_cfg, env_var):
     wf_run1_teardown = subprocess.check_output(f"ps -ax | grep {p1.pid} | "
                                                f"grep -v grep", shell=True,
                                                universal_newlines=True)
-    assert 'Z+' in wf_run1_teardown # make sure the initial workflow run exited
+    assert 'Z' in wf_run1_teardown # make sure the initial workflow run exited
 
     os.kill(p1.pid, signal.SIGTERM)
     sleep(5)
@@ -318,7 +318,7 @@ def test_hot_resume_workflow(db_cfg, env_var):
     wf_run1_teardown = subprocess.check_output(f"ps -ax | grep {p1.pid} | "
                                                f"grep -v grep", shell=True,
                                                universal_newlines=True)
-    assert 'Z+' in wf_run1_teardown # make sure the initial workflow run exited
+    assert 'Z' in wf_run1_teardown # make sure the initial workflow run exited
 
     os.kill(p1.pid, signal.SIGTERM)
     sleep(5)
