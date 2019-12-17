@@ -274,11 +274,6 @@ def add_update_workflow_run():
                              project=data['project'],
                              slack_channel=data['slack_channel'],
                              executor_class=data['executor_class'])
-        workflow = DB.session.query(Workflow).\
-            filter(Workflow.id == data['workflow_id']).first()
-        # Set all previous runs to STOPPED
-        for run in workflow.workflow_runs:
-            run.status = WorkflowRunStatus.STOPPED
         DB.session.add(wfr)
         logger.debug(logging.logParameter("DB.session", DB.session))
     else:
@@ -553,7 +548,8 @@ def log_dag_running(dag_id: int):
         AND status != 'R' """
     r = DB.session.execute(query, params)
     if r.rowcount == 0:
-        msg = f'The request failed because either dag_id {dag_id} does not exist or the dag is running.'
+        msg = f'The request failed because either dag_id {dag_id} does not ' \
+              f'exist or the dag is running.'
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.BAD_REQUEST
     else:
@@ -952,7 +948,7 @@ def reset_incomplete_jobs(dag_id):
             INSERT INTO job_instance_error_log
                 (job_instance_id, description, error_time)
             SELECT job_instance_id,
-            CONCAT('Job RESET requested setting to E from status of: ',
+            CONCAT('Job RESET requested setting to K from status of: ',
                    job_instance.status) as description,
             UTC_TIMESTAMP as error_time
             FROM job_instance
@@ -963,7 +959,7 @@ def reset_incomplete_jobs(dag_id):
     up_job_instance = """
         UPDATE job_instance
         JOIN job USING(job_id)
-        SET job_instance.status=:error_status,
+        SET job_instance.status=:kill_self_status,
             job_instance.status_date=UTC_TIMESTAMP
         WHERE job.dag_id=:dag_id
         AND job.status!=:done_status
@@ -984,7 +980,7 @@ def reset_incomplete_jobs(dag_id):
     DB.session.execute(
         up_job_instance,
         {"dag_id": dag_id,
-         "error_status": JobInstanceStatus.ERROR,
+         "kill_self_status": JobInstanceStatus.KILL_SELF,
          "done_status": JobStatus.DONE})
     DB.session.commit()
     resp = jsonify()

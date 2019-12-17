@@ -1,8 +1,5 @@
 import os
 import pytest
-import subprocess
-from time import sleep
-from multiprocessing import Process
 
 from jobmon.client import BashTask
 from jobmon.client import PythonTask
@@ -10,11 +7,9 @@ from jobmon.client import Workflow
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job import Job
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
@@ -308,87 +303,6 @@ def test_workflow_config_reconciliation():
     assert client_config.report_by_buffer == 5.1
     assert client_config.heartbeat_interval == 4
     assert client_config.reconciliation_interval == 3
-
-
-def resumable_workflow():
-    from jobmon.client.swarm.workflow.bash_task import BashTask
-    from jobmon.client.swarm.workflow.workflow import Workflow
-    t1 = BashTask("sleep infinity", num_cores=1)
-    wfa = "my_simple_dag"
-    workflow = Workflow(wfa, project="proj_tools", resume=True)
-    workflow.add_tasks([t1])
-    return workflow
-
-
-def run_workflow():
-    workflow = resumable_workflow()
-    workflow.execute()
-
-
-def test_resume_workflow(db_cfg, env_var):
-    teardown_db(db_cfg)
-    # create a workflow in a separate process with 1 job that sleeps forever.
-    # it must be in a separate process because resume will kill the process
-    # that the workflow is running on which would terminate the test process
-    p1 = Process(target=run_workflow)
-    p1.start()
-
-    # poll till we confirm that job is running
-    session = db_cfg["DB"].session
-    with db_cfg["app"].app_context():
-        status = ""
-        executor_id = None
-        max_sleep = 180  # 3 min max till test fails
-        slept = 0
-        while status != "R" and slept <= max_sleep:
-            ji = session.query(JobInstance).one_or_none()
-            session.commit()
-            sleep(5)
-            slept += 5
-            if ji:
-                status = ji.status
-        if ji:
-            executor_id = ji.executor_id
-
-    # qdel job if the test timed out
-    if slept >= max_sleep and executor_id:
-        sge_utils.qdel(executor_id)
-        p1.terminate()
-        teardown_db(db_cfg)
-        return
-
-    # now create an identical workflow which should kill the previous job
-    # and workflow process
-    workflow = resumable_workflow()
-    workflow._bind()
-    workflow._create_workflow_run()
-    wu.cleanup_jlm(workflow)
-
-    # will fail here until workflow resume is rewired with CR and HR and it is
-    # checked that the workflow run then stops all of its running processes
-    # here and kills itself
-
-    # check if forked process was zombied
-    res = subprocess.check_output(f"ps -ax | grep {p1.pid} | grep -v grep",
-                                  shell=True, universal_newlines=True)
-
-    assert "Z" in res
-    # Do not put +, when running in parallel it does not seem to be a
-    # foreground process
-    p1.join()
-
-    # check qstat to make sure jobs isn't pending or running any more.
-    # There can be latency so wait at most 3 minutes for it's state
-    # to update in SGE
-    max_sleep = 180  # 3 min max till test fails
-    slept = 0
-    ex_id_list = sge_utils.qstat("pr").keys()
-    while executor_id in ex_id_list and slept <= max_sleep:
-        sleep(5)
-        slept += 5
-        ex_id_list = sge_utils.qstat("pr").keys()
-    assert executor_id not in ex_id_list
-    teardown_db(db_cfg)
 
 
 def test_resource_scaling(db_cfg, env_var):
