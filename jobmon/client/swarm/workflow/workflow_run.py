@@ -148,6 +148,7 @@ class WorkflowRun(object):
             logger.info(f"Setting this workflow run status to "
                         f"{WorkflowRunStatus.COLD_RESUME}: "
                         f"{old_workflow_run_id}")
+
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
                 message={'workflow_run_id': old_workflow_run_id,

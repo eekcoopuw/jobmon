@@ -1417,7 +1417,6 @@ def ji_nonterminal_state_to_k_state(workflow_run_id: int):
     else:
         msg = f'No jobs with non-terminal state found for workflow_run_id:' \
               f' {workflow_run_id}'
-
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
 
