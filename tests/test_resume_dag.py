@@ -226,6 +226,4 @@ def test_resume_dag_heartbeat_race_condition(simple_workflow, db_cfg):
             WHERE w.dag_id = :dag_id
             ORDER BY wr.created_date"""
         result = DB.session.execute(query, {"dag_id": int(simple_workflow.dag_id)}).fetchall()
-        # import pdb
-        # pdb.set_trace()
         DB.session.commit()
