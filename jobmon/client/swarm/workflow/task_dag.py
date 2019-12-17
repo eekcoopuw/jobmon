@@ -5,6 +5,7 @@ from collections import OrderedDict
 
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.models.job_status import JobStatus
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.swarm.workflow.task_dag_factory import TaskDagMetaFactory
 from jobmon.client.client_logging import ClientLogging as logging
 
@@ -38,6 +39,7 @@ class TaskDag(object):
 
         self.dag_id = None
         self.job_list_manager = None
+        self._workflow_run_id = None
 
         self.name = name
 
@@ -71,6 +73,16 @@ class TaskDag(object):
             return True
         else:
             return False
+
+    @property
+    def workflow_run_id(self):
+        return self._workflow_run_id
+
+    @workflow_run_id.setter
+    def workflow_run_id(self, val):
+        self._workflow_run_id = val
+        if self.job_list_manager:
+            self.job_list_manager.workflow_run_id = val
 
     def bind_to_db(self, dag_id=None, reset_running_jobs=True):
         """
@@ -184,6 +196,7 @@ class TaskDag(object):
         """
         if not self.is_bound:
             self.bind_to_db()
+        self.job_list_manager.workflow_run_id = self.workflow_run_id
         self.job_list_manager.log_dag_running()
 
         previously_completed = copy.copy(self.job_list_manager.all_done)

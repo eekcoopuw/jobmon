@@ -348,6 +348,24 @@ def get_suspicious_job_instances(dag_id):
     return resp
 
 
+@jqs.route('/workflow_run/<workflow_run_id>/job_instance_exec_ids',
+           methods=['GET'])
+def get_job_instance_executor_ids(workflow_run_id):
+    """Retrieves all of the executor_ids for the job instances in a given
+    workflow run to qdel them to ensure that nothing is running when a new
+    workflow run is created"""
+    query = """SELECT job_instance.executor_id
+               FROM job_instance
+               WHERE workflow_run_id = :workflow_run_id
+            """
+    exec_ids = DB.session.query('executor_id').from_statement(text(query))\
+        .params(workflow_run_id=workflow_run_id).all()
+    DB.session.commit()
+    resp = jsonify(executor_ids=[id[0] for id in exec_ids])
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/dag', methods=['GET'])
 def get_dags_by_inputs():
     """
@@ -423,29 +441,27 @@ def get_workflows_by_inputs(dag_id):
         return '', StatusCodes.NO_CONTENT
 
 
-@jqs.route('/workflow/<workflow_id>/workflow_run', methods=['GET'])
-def is_workflow_running(workflow_id):
-    """Check if a previous workflow run for your user is still running
+@jqs.route('/workflow/<workflow_id>/previous_workflow_run', methods=['GET'])
+def get_previous_workflow_run(workflow_id):
+    """Get the previous workflow run to make sure that its job instances and
+    threads are terminated
 
-    Args:
-        workflow_id: id of the workflow to check if its previous workflow_runs
-        are running
+    Args: workflow_id: id of the workflow to check the previous workflow runs
     """
     logger.debug(logging.myself())
     logging.logParameter("workflow_id", workflow_id)
     query = """SELECT *
-                   FROM workflow_run wf_run
-                   WHERE wf_run.workflow_id = :workflow_id
-                   AND wf_run.status = :status
-                   ORDER BY wf_run.id DESC
-                """
-    wf_run = DB.session.query(WorkflowRun).from_statement(text(query)) \
-        .params(workflow_id=workflow_id,
-                status=WorkflowRunStatus.RUNNING).first()
+               FROM workflow_run
+               WHERE workflow_run.workflow_id = :workflow_id
+               ORDER BY workflow_run.id DESC
+            """
+    wf_run = DB.session.query(WorkflowRun).from_statement(text(query))\
+        .params(workflow_id=workflow_id).first()
     DB.session.commit()
     if not wf_run:
-        return jsonify(is_running=False, workflow_run_dct={})
-    resp = jsonify(is_running=True, workflow_run_dct=wf_run.to_wire())
+        resp = jsonify(workflow_run={})
+    else:
+        resp = jsonify(workflow_run=wf_run.to_wire())
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -460,9 +476,9 @@ def get_job_instances_of_workflow_run(workflow_run_id):
     logger.debug(logging.myself())
     logging.logParameter("workflow_run_id", workflow_run_id)
     query = """SELECT *
-                   FROM job_instance
-                   WHERE workflow_run_id=:workflow_run_id
-                """
+               FROM job_instance
+               WHERE workflow_run_id=:workflow_run_id
+            """
     jis = DB.session.query(JobInstance).from_statement(text(query)) \
         .params(workflow_run_id=workflow_run_id).all()
     jis = [ji.to_wire_as_executor_job_instance() for ji in jis]
@@ -647,25 +663,28 @@ def get_job_status(job_id: int):
     return resp
 
 
-@jqs.route('/workflow/<workflow_id>/status', methods=['GET'])
-def get_workflow_status(workflow_id: int):
+@jqs.route('/workflow_run/<workflow_run_id>/status', methods=['GET'])
+def get_workflow_run_status(workflow_run_id: int):
     """
     Route to determine the status of a given workflow
-    :param workflow_id:
-    :return: workflow status
+    :param workflow_run_id:
+    :return: workflow run status
     """
 
     logger.debug(logging.myself())
-    logging.logParameter("workflow_id", workflow_id)
+    logging.logParameter("workflow_run_id", workflow_run_id)
 
-    query = "SELECT status FROM workflow WHERE id = {}".format(workflow_id)
-    result = DB.session.execute(query).fetchone()
+    query = """SELECT status 
+               FROM workflow_run 
+               WHERE id = :id"""
+    result = DB.session.query('status').from_statement(text(query))\
+        .params(id=workflow_run_id).first()
     DB.session.commit()
     if len(result) > 0:
         resp = jsonify(result[0])
         resp.status_code = StatusCodes.OK
         return resp
     else:
-        resp = jsonify("No workflow found")
+        resp = jsonify("No workflow run found")
         resp.status_code = StatusCodes.NO_CONTENT
         return resp

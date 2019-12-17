@@ -78,3 +78,6 @@ class CallableReturnedInvalidObject(Exception):
 class DagLogRunningException(Exception):
     pass
 
+
+class WorkflowRunKillSelf(Exception):
+    pass

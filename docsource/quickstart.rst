@@ -164,8 +164,7 @@ Restart Tasks and Resume Workflows
 
 A Workflow allows for sophisticated tracking of how many times a DAG gets
 executed, who ran them and when.
-If on the old prod cluster it does uses ssh to kill off any job instances
-that might be left over from previous failed attempts. With a Workflow you can:
+With a Workflow you can:
 
 #. Re-use a set of Tasks
 #. Stop a set of Tasks mid-run and resume it (either intentionally or unfortunately, as
@@ -174,7 +173,8 @@ that might be left over from previous failed attempts. With a Workflow you can:
    identified and fixed the source of the error)
 #. Set stderr, stdout, working_dir, and project qsub arguments from the top level
 
-To resume the Workflow created above::
+To resume the Workflow created above, make sure that your previous workflow
+run process is dead (kill it using the pid from the workflow run table)::
 
     import getpass
     from jobmon.client.swarm.workflow.workflow import Workflow
@@ -201,6 +201,14 @@ To resume the Workflow created above::
 That's it. It is the same setup, just change the resume flag so that it is
 true (otherwise you will get an error that you are creating a workflow that
 already exists)
+
+For further configuration there are two types of resumes:
+    1.Cold Resume: all jobs are stopped and you are ok with resetting all
+    running jobs and killing any running job instances before restarting
+    (the default option)
+
+    2. Hot Resume: any jobs that are currently running will not be reset, and
+    any job instances that are currently running on the cluster will not be killed
 
 Behind the scenes, the Workflow will launch your Tasks as soon as each is
 ready to run (i.e. as soon as the Task's upstream dependencies are DONE). It

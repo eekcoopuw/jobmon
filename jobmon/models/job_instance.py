@@ -61,7 +61,6 @@ class JobInstance(DB.Model):
     maxrss = DB.Column(DB.String(50))
     cpu = DB.Column(DB.String(50))
     io = DB.Column(DB.String(50))
-    maxpss = DB.Column(DB.String(50))
 
     # status/state
     status = DB.Column(
@@ -182,9 +181,11 @@ class JobInstance(DB.Model):
                         JobInstanceStatus.RESOURCE_ERROR,
                         JobInstanceStatus.KILL_SELF]
 
-    error_states = [JobInstanceStatus.NO_EXECUTOR_ID, JobInstanceStatus.ERROR,
+    error_states = [JobInstanceStatus.NO_EXECUTOR_ID,
+                    JobInstanceStatus.ERROR,
                     JobInstanceStatus.UNKNOWN_ERROR,
-                    JobInstanceStatus.RESOURCE_ERROR]
+                    JobInstanceStatus.RESOURCE_ERROR,
+                    JobInstanceStatus.KILL_SELF]
 
     def transition(self, new_state):
         """Transition the JobInstance status"""

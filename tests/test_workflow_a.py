@@ -156,7 +156,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     with app.app_context():
         wf_run = (DB.session.query(WorkflowRunDAO).filter_by(
             id=stopped_wf.workflow_run.id).first())
-        assert wf_run.status == WorkflowRunStatus.STOPPED
+        assert wf_run.status == WorkflowRunStatus.COLD_RESUME
         wf_run_jobs = DB.session.query(JobInstance).filter_by(
             workflow_run_id=stopped_wf.workflow_run.id).all()
         assert all(job.status != JobInstanceStatus.RUNNING
@@ -263,9 +263,7 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
                      if wfrd.id != workflow.workflow_run.id][0]
         assert done_wfr.status == WorkflowRunStatus.DONE
 
-        # TODO: Improve design for STOPPED/ERROR states for both Workflows and
-        # WorkflowRuns..
-        assert other_wfr.status == WorkflowRunStatus.STOPPED
+        assert other_wfr.status == WorkflowRunStatus.COLD_RESUME
         DB.session.commit()
     teardown_db(db_cfg)
 

@@ -112,6 +112,16 @@ class SGEExecutor(Executor):
             sge_utils.qdel(exec_ids_for_deletion)
         return deleted_jis
 
+    def terminate_all_jis_for_resume(self, exec_ids: List[int]):
+        """Terminates all job instances that are in a non-terminal state so
+        that a resume can occur safely"""
+        logger.debug(f"Going to terminate: {exec_ids}")
+        if len(exec_ids) == 0:
+            return []
+        else:
+            sge_utils.qdel(exec_ids)
+
+
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
         """return the exit state associated with a given exit code"""
         exit_code, reason = sge_utils.qacct_exit_status(executor_id)
