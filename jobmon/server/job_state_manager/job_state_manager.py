@@ -274,11 +274,6 @@ def add_update_workflow_run():
                              project=data['project'],
                              slack_channel=data['slack_channel'],
                              executor_class=data['executor_class'])
-        workflow = DB.session.query(Workflow).\
-            filter(Workflow.id == data['workflow_id']).first()
-        # Set all previous runs to STOPPED
-        for run in workflow.workflow_runs:
-            run.status = WorkflowRunStatus.STOPPED
         DB.session.add(wfr)
         logger.debug(logging.logParameter("DB.session", DB.session))
     else:
@@ -553,7 +548,8 @@ def log_dag_running(dag_id: int):
         AND status != 'R' """
     r = DB.session.execute(query, params)
     if r.rowcount == 0:
-        msg = f'The request failed because either dag_id {dag_id} does not exist or the dag is running.'
+        msg = f'The request failed because either dag_id {dag_id} does not ' \
+              f'exist or the dag is running.'
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.BAD_REQUEST
     else:
@@ -952,7 +948,7 @@ def reset_incomplete_jobs(dag_id):
             INSERT INTO job_instance_error_log
                 (job_instance_id, description, error_time)
             SELECT job_instance_id,
-            CONCAT('Job RESET requested setting to E from status of: ',
+            CONCAT('Job RESET requested setting to K from status of: ',
                    job_instance.status) as description,
             UTC_TIMESTAMP as error_time
             FROM job_instance
@@ -963,7 +959,7 @@ def reset_incomplete_jobs(dag_id):
     up_job_instance = """
         UPDATE job_instance
         JOIN job USING(job_id)
-        SET job_instance.status=:error_status,
+        SET job_instance.status=:kill_self_status,
             job_instance.status_date=UTC_TIMESTAMP
         WHERE job.dag_id=:dag_id
         AND job.status!=:done_status
@@ -984,7 +980,7 @@ def reset_incomplete_jobs(dag_id):
     DB.session.execute(
         up_job_instance,
         {"dag_id": dag_id,
-         "error_status": JobInstanceStatus.ERROR,
+         "kill_self_status": JobInstanceStatus.KILL_SELF,
          "done_status": JobStatus.DONE})
     DB.session.commit()
     resp = jsonify()
@@ -1383,8 +1379,8 @@ def set_log_level_flask(level):
            methods=['POST'])
 def ji_nonterminal_state_to_k_state(workflow_run_id: int):
     """
-    Route to get all job instances with a non-terminal state(B, I, R) and change
-    their state to "K"
+    Route to get all job instances with a non-terminal state(B, I, R) and
+    change their state to "K"
     :param workflow_run_id:
     :return: job_instance_id
     """
@@ -1392,10 +1388,11 @@ def ji_nonterminal_state_to_k_state(workflow_run_id: int):
     logger.debug(logging.myself())
     logging.logParameter("workflow_run_id", workflow_run_id)
 
-    params = {"workflow_run_id": int(workflow_run_id),
-              "batch_executor": str(JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
-              "instantiated": str(JobInstanceStatus.INSTANTIATED),
-              "running": str(JobInstanceStatus.RUNNING)}
+    params = {
+        "workflow_run_id": int(workflow_run_id),
+        "batch_executor": str(JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
+        "instantiated": str(JobInstanceStatus.INSTANTIATED),
+        "running": str(JobInstanceStatus.RUNNING)}
 
     query = """
             SELECT job_instance_id
@@ -1411,11 +1408,15 @@ def ji_nonterminal_state_to_k_state(workflow_run_id: int):
     DB.session.commit()
 
     if len(job_instances) > 0:
+        msg = []
         for job_instance_id in job_instances:
             ji = _get_job_instance(DB.session, job_instance_id)
-            msg = _update_job_instance_state(ji, JobInstanceStatus.KILL_SELF)
+            msg.append(job_instance_id)
+            _update_job_instance_state(ji, JobInstanceStatus.KILL_SELF)
             DB.session.commit()
-
+    else:
+        msg = f'No jobs with non-terminal state found for workflow_run_id:' \
+              f' {workflow_run_id}'
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
 

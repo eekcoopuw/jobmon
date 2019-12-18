@@ -69,81 +69,100 @@ class WorkflowRun(object):
         limits = get_project_limits(self.project)
         self.add_workflow_run_attribute(attribute_type=atype, value=limits)
 
-    def check_if_workflow_is_running(self):
-        """Query the JQS to see if the workflow is currently running"""
-        rc, response = \
-            self.requester.send_request(
-                app_route='/workflow/{}/workflow_run'.format(self.workflow_id),
-                message={},
-                request_type='get')
+    def get_previous_workflow_run(self):
+        rc, response = self.requester.send_request(
+            app_route=f'/workflow/{self.workflow_id}/previous_workflow_run',
+            message={},
+            request_type='get')
         if rc != StatusCodes.OK:
-            raise ValueError("Invalid Response to is_workflow_running")
-        return response['is_running'], response['workflow_run_dct']
+            raise ValueError("Invalid Response to get_previous_workflow_run")
+        return response['workflow_run']
 
     def kill_previous_workflow_runs(self, reset_running_jobs):
         """First check the database for last WorkflowRun... where we store a
-        hostname + pid + running_flag
+        hostname + pid + running_flag. If there was a previous workflow run:
 
-        If in the database as 'running,' check the hostname
-        + pid to see if the process is actually still running:
-
-            A) If so, kill those pids and any still running jobs
-            B) Then flip the database of the previous WorkflowRun to STOPPED
+            A) Set the job instances to kill themselves in case qdel doesn't
+               work and they enter a running state (If its a Cold Resume)
+            B) Qdel all job instances from the prior workflow run (If its a
+               Cold Resume)
+            C) Mark the prior workflow run to Cold or Hot Resume in case it
+               is still running elsewhere (though it should have been stopped
+               in order to create a new workflow run) so that it will tear down
+                its threads and prevent any new job instance creation
         """
-        status, wf_run = self.check_if_workflow_is_running()
-        if not status:
+        old_wf_run = self.get_previous_workflow_run()
+        if len(old_wf_run) == 0:
             return
-        workflow_run_id = wf_run['id']
-        if wf_run['user'] != getpass.getuser():
-            msg = ("Workflow_run_id {} for this workflow_id is still in "
-                   "running mode by user {}. Please ask this user to kill "
-                   "their processes. If they are using the SGE executor, "
-                   "please ask them to qdel their jobs. Be aware that if you "
-                   "restart this workflow prior to the other user killing "
-                   "theirs, this error will not re-raise but you may be "
-                   "creating orphaned processes and hard-to-find bugs"
-                   .format(workflow_run_id, wf_run['user']))
-            logger.error(msg)
+        old_workflow_run_id = old_wf_run['id']
+        # instead of killing the old workflow runs, mark them as CR or HR,
+        logger.info(f"Set previous workflow run to resume: "
+                    f"{old_workflow_run_id}")
+        if reset_running_jobs:
+            if old_wf_run['executor_class'] == "SequentialExecutor":
+                from jobmon.client.swarm.executors.sequential import \
+                    SequentialExecutor
+                previous_executor = SequentialExecutor()
+            elif old_wf_run['executor_class'] == "SGEExecutor":
+                from jobmon.client.swarm.executors.sge import SGEExecutor
+                previous_executor = SGEExecutor()
+            elif old_wf_run['executor_class'] == "DummyExecutor":
+                from jobmon.client.swarm.executors.dummy import \
+                    DummyExecutor
+                previous_executor = DummyExecutor()
+            else:
+                raise ValueError("{} is not supported by this version of "
+                                 "jobmon".format(old_wf_run['executor_class']))
+            # set non-terminal job instances to k state
+            logger.info(f'Setting job instances with B, I, and R state to'
+                        f' K for the following workflow_run_id: '
+                        f'{old_workflow_run_id}')
+            k_state_code, k_state_resp = self.requester.send_request(
+                app_route=f'/job_instance/{old_workflow_run_id}/'
+                f'nonterminal_to_k_status',
+                message={},
+                request_type='post'
+            )
+            if k_state_code != StatusCodes.OK:
+                err_msg = f'Expected code {StatusCodes.OK} when setting ' \
+                    f'nonterminal job instances to K state, ' \
+                    f'instead got status: {k_state_code} with ' \
+                    f'the following response: {k_state_resp}'
+                logger.error(err_msg)
+                raise RuntimeError(err_msg)
+
+            # get all job instances from workflow run because even if they
+            # are in K state they may not have had qdel attempted yet
+            _, response = self.requester.send_request(
+                app_route=f'/workflow_run/{old_workflow_run_id}/job_instance',
+                message={},
+                request_type='get')
+            job_instances = [ExecutorJobInstance.from_wire(
+                ji, executor=previous_executor)
+                for ji in response['job_instances']]
+            jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
+                                for ji in job_instances]
+            if job_instances:
+                previous_executor.terminate_job_instances(jiid_exid_tuples)
+            # set workflow_run status to cold resume
+            logger.info(f"Setting this workflow run status to "
+                        f"{WorkflowRunStatus.COLD_RESUME}: "
+                        f"{old_workflow_run_id}")
+
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
-                message={'workflow_run_id': workflow_run_id,
-                         'status': WorkflowRunStatus.STOPPED},
+                message={'workflow_run_id': old_workflow_run_id,
+                         'status': WorkflowRunStatus.COLD_RESUME},
                 request_type='put')
-            raise RuntimeError(msg)
         else:
-            # instead of killing the old workflow runs, mark them as CR or HR
-            logger.info(f"Kill previous workflow runs: {workflow_run_id}")
-            if reset_running_jobs:
-                if wf_run['executor_class'] == "SequentialExecutor":
-                    from jobmon.client.swarm.executors.sequential import \
-                        SequentialExecutor
-                    previous_executor = SequentialExecutor()
-                elif wf_run['executor_class'] == "SGEExecutor":
-                    from jobmon.client.swarm.executors.sge import SGEExecutor
-                    previous_executor = SGEExecutor()
-                elif wf_run['executor_class'] == "DummyExecutor":
-                    from jobmon.client.swarm.executors.dummy import \
-                        DummyExecutor
-                    previous_executor = DummyExecutor()
-                else:
-                    raise ValueError("{} is not supported by this version of "
-                                     "jobmon".format(wf_run['executor_class']))
-                # get job instances of workflow run
-                _, response = self.requester.send_request(
-                    app_route=f'/workflow_run/{workflow_run_id}/job_instance',
-                    message={},
-                    request_type='get')
-                job_instances = [ExecutorJobInstance.from_wire(
-                    ji, executor=previous_executor)
-                    for ji in response['job_instances']]
-                jiid_exid_tuples = [(ji.job_instance_id, ji.executor_id)
-                                    for ji in job_instances]
-                if job_instances:
-                    previous_executor.terminate_job_instances(jiid_exid_tuples)
+            # A hot resume
+            logger.info(f"Setting this workflow run status to "
+                        f"{WorkflowRunStatus.HOT_RESUME}: "
+                        f"{old_workflow_run_id}")
             _, _ = self.requester.send_request(
                 app_route='/workflow_run',
-                message={'workflow_run_id': workflow_run_id,
-                         'status': WorkflowRunStatus.STOPPED},
+                message={'workflow_run_id': old_workflow_run_id,
+                         'status': WorkflowRunStatus.HOT_RESUME},
                 request_type='put')
 
     def update_done(self):

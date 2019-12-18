@@ -205,6 +205,14 @@ class Executor:
         """
         raise NotImplementedError
 
+    def terminate_all_jis_for_resume(self,
+                                     jiid_exid_tuples: List[Tuple[int, int]]
+                                     ) -> List[Tuple[int, str]]:
+        """If implemented, kill all job instances even if they are in a
+        transitioning or waiting state so that everything will be in a terminal
+         state when a resume workflow begins"""
+        raise NotImplementedError
+
     def build_wrapped_command(self, command: str, job_instance_id: int,
                               last_nodename: Optional[str] = None,
                               last_process_group_id: Optional[int] = None

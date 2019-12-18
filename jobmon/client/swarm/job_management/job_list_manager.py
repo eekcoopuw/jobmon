@@ -15,8 +15,9 @@ from jobmon.client.swarm.job_management.job_instance_reconciler import \
 from jobmon.client.swarm.workflow.executable_task import (BoundTask,
                                                           ExecutableTask)
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
-from jobmon.exceptions import CallableReturnedInvalidObject
+from jobmon.exceptions import CallableReturnedInvalidObject, WorkflowRunKillSelf
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.client_logging import ClientLogging as logging
 from jobmon.exceptions import DagLogRunningException
 
@@ -44,6 +45,7 @@ class JobListManager(object):
         """
         self.dag_id = dag_id
         self.job_factory = JobFactory(dag_id)
+        self.workflow_run_id = None
 
         self._stop_event = Event()
         self.job_instance_factory = JobInstanceFactory(
@@ -69,7 +71,8 @@ class JobListManager(object):
         self._sync()
 
         self.job_instantiation_interval = job_instantiation_interval
-        if start_daemons:
+        self.start_daemons = start_daemons
+        if self.start_daemons:
             self._start_job_instance_manager()
 
     @property
@@ -176,7 +179,9 @@ class JobListManager(object):
             message={},
             request_type='post')
         if rc == StatusCodes.BAD_REQUEST:
-            raise DagLogRunningException("Failed to log dag running. Received \"{}\" from server.".format(msg['message']))
+            raise DagLogRunningException("Failed to log dag running. "
+                                         "Received \"{}\" from server."
+                                         .format(msg['message']))
         return rc
 
     def get_job_statuses(self):
@@ -262,6 +267,13 @@ class JobListManager(object):
                                    "Submitted tasks will still run, but the "
                                    "workflow will need to be restarted."
                                    .format(timeout))
+            workflow_run_resume_set = self._check_wfrun_resume_set()
+            if workflow_run_resume_set:
+                self.disconnect()
+                raise WorkflowRunKillSelf(f"A resume has been set for this"
+                                          f" workflow, workflow run "
+                                          f"{self.workflow_run_id} will "
+                                          f"disconnect its threads and exit")
             jobs = self.get_job_statuses()
             completed, failed, adjusting = self.parse_adjusting_done_and_errors(jobs)
             if adjusting:
@@ -274,6 +286,56 @@ class JobListManager(object):
                 return completed, failed
             time.sleep(poll_interval)
             time_since_last_update += poll_interval
+
+    def _check_wfrun_resume_set(self):
+        if self.workflow_run_id:
+            rc, response = self.requester.send_request(
+                app_route=f'/workflow_run/{self.workflow_run_id}/status',
+                message={},
+                request_type='get'
+            )
+            logger.debug(f"Status for workflow run {self.workflow_run_id} is "
+                         f"{response}")
+            if response == WorkflowRunStatus.COLD_RESUME:
+                self.handle_wfrun_resume(WorkflowRunStatus.COLD_RESUME)
+                return True
+            elif response == WorkflowRunStatus.HOT_RESUME:
+                self.handle_wfrun_resume(WorkflowRunStatus.HOT_RESUME)
+                return True
+        return False
+
+    def handle_wfrun_resume(self, status):
+        if status is WorkflowRunStatus.COLD_RESUME:
+            logger.info("A Cold Resume has been set, the JLM will qdel any job"
+                        " instances and set them to kill themselves for "
+                        "safety, then it will tear down the JIF and JIR and "
+                        f"exit from workflow run {self.workflow_run_id}")
+            exec_ids = self.requester.send_request(
+                app_route=f'/workflow/{self.workflow_run_id}/job_instance_'
+                f'exec_ids',
+                message={},
+                request_type='get'
+            )
+            # set all job instances to kill self
+            self.requester.send_request(
+                app_route=f'/job_instance/{self.workflow_run_id}/'
+                f'nonterminal_to_k_status',
+                message={},
+                request_type='post'
+            )
+            logger.debug("Job instances set to kill themselves in case qdel "
+                         "failed")
+            # qdel all job instances in this workflow run
+            self.executor.terminate_all_jis_for_resume(exec_ids)
+
+        elif status is WorkflowRunStatus.HOT_RESUME:
+            logger.info("A Hot Resume has been set, the JLM will leave any "
+                        "running job instances so that they can complete, but "
+                        "it will tear down the JIR and JIF threads and exit so"
+                        " that no new job instances will be created for "
+                        f"workflow run {self.workflow_run_id}")
+        else:
+            logger.debug("A resume has not been set, continuing execution")
 
     def _create_job(self, *args, **kwargs):
         """Create a job by passing the job args/kwargs through to the
@@ -345,8 +407,10 @@ class JobListManager(object):
         self.jir_proc.start()
 
     def disconnect(self):
-        self._stop_event.set()
+        if self.start_daemons:
+            self._stop_event.set()
 
     def connect(self):
         self._stop_event = Event()
-        self._start_job_instance_manager()
+        if self.start_daemons:
+            self._start_job_instance_manager()

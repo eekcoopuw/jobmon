@@ -40,15 +40,15 @@ def test_dag_id_column_index_in_job_instance(db_cfg):
     teardown_db(db_cfg)
 
 
-def test_maxpss_in_job_instance(db_cfg):
-    """Test the db schema change of GBDSCI-2313"""
-    teardown_db(db_cfg)
-    app = db_cfg["app"]
-    column_found = False
-    with app.app_context():
-        for c in JobInstance.__table__.columns:
-            if c.name.lower() == 'maxpss':
-                column_found = True
-                break
-    assert column_found
-    teardown_db(db_cfg)
+# def test_maxpss_in_job_instance(db_cfg):
+#     """Test the db schema change of GBDSCI-2313"""
+#     teardown_db(db_cfg)
+#     app = db_cfg["app"]
+#     column_found = False
+#     with app.app_context():
+#         for c in JobInstance.__table__.columns:
+#             if c.name.lower() == 'maxpss':
+#                 column_found = True
+#                 break
+#     assert column_found
+#     teardown_db(db_cfg)

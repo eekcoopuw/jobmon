@@ -7,6 +7,7 @@ from jobmon.client import shared_requester as req
 from jobmon.client.swarm.job_management.swarm_job import SwarmJob
 from jobmon.models.job_instance_status import JobInstanceStatus
 from jobmon.models.workflow import Workflow
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 import logging
 from jobmon.serializers import SerializeExecutorJobInstance
 from tests.conftest import teardown_db
@@ -203,6 +204,48 @@ def test_workflow_args(db_cfg, real_dag_id):
     teardown_db(db_cfg)
 
 
+def test_get_prev_wfrun(db_cfg, real_dag_id):
+    teardown_db(db_cfg)
+    rc, response = req.send_request(
+        app_route='/workflow',
+        message={'dag_id': real_dag_id,
+                 'workflow_args': 'test_dup_args',
+                 'workflow_hash': '123fe34gr',
+                 'name': 'dup_args',
+                 'description': '',
+                 'user': 'user'},
+        request_type='post')
+    wf = Workflow.from_wire(response['workflow_dct'])
+
+    rc, response = req.send_request(
+        app_route=f'/workflow/{wf.id}/previous_workflow_run',
+        message={},
+        request_type='get')
+    assert len(response['workflow_run']) == 0
+
+    rc, response = req.send_request(
+        app_route='/workflow_run',
+        message={'workflow_id': wf.id,
+                 'user': 'user',
+                 'hostname': 'test.host.ihme.washington.edu',
+                 'pid': 123,
+                 'stderr': '/',
+                 'stdout': '/',
+                 'project': 'proj_tools',
+                 'slack_channel': '',
+                 'executor_class': 'SGEExecutor',
+                 'working_dir': '/'},
+        request_type='post')
+    wfr_id1 = response['workflow_run_id']
+
+    rc, response = req.send_request(
+        app_route=f'/workflow/{wf.id}/previous_workflow_run',
+        message={},
+        request_type='get')
+    assert wfr_id1 == response["workflow_run"]["id"]
+    teardown_db(db_cfg)
+
+
 def test_job_inst_wf_run(db_cfg, real_dag_id):
     teardown_db(db_cfg)
     wf_id, wf_args, wfr1, wfr2 = create_workflow_runs(db_cfg, real_dag_id)
@@ -224,7 +267,7 @@ def test_job_inst_wf_run(db_cfg, real_dag_id):
     teardown_db(db_cfg)
 
 
-def test_workflow_status(real_dag_id):
+def test_workflow_run_status(real_dag_id):
     rc, response = req.send_request(
         app_route='/workflow',
         message={'dag_id': real_dag_id,
@@ -236,8 +279,160 @@ def test_workflow_status(real_dag_id):
         request_type='post')
 
     wf = Workflow.from_wire(response['workflow_dct'])
+    rc, response = req.send_request(
+        app_route='/workflow_run',
+        message={'workflow_id': wf.id,
+                 'user': 'user',
+                 'hostname': 'test.host',
+                 'pid': '1234',
+                 'stderr':'/tmp',
+                 'stdout': '/tmp',
+                 'working_dir': '/tmp',
+                 'project': 'proj_tools',
+                 'slack_channel': 'jobmon_alerts',
+                 'executor_class': 'SGEExecutor'},
+        request_type='post'
+    )
+    wfr_id = response["workflow_run_id"]
     code, response = req.send_request(
-        app_route='/workflow/{}/status'.format(wf.id),
+        app_route='/workflow_run/{}/status'.format(wfr_id),
         message={},
         request_type='get')
-    assert response == 'C'
+    assert response == WorkflowRunStatus.RUNNING
+
+
+def test_workflow_run_get_job_instance_exec_ids(real_dag_id):
+    rc, response = req.send_request(
+        app_route='/workflow',
+        message={'dag_id': real_dag_id,
+                 'workflow_args': 'test_exec_ids',
+                 'workflow_hash': '12erfd',
+                 'name': 'test_exec_ids',
+                 'description': '',
+                 'user': 'user'},
+        request_type='post'
+    )
+    wf = Workflow.from_wire(response['workflow_dct'])
+    rc, response = req.send_request(
+        app_route='/workflow_run',
+        message={'workflow_id': wf.id,
+                 'user': 'user',
+                 'hostname': 'test.host',
+                 'pid': '1234',
+                 'stderr': '/tmp',
+                 'stdout': '/tmp',
+                 'working_dir': '/tmp',
+                 'project': 'proj_tools',
+                 'slack_channel': 'jobmon_alerts',
+                 'executor_class': 'SGEExecutor'},
+        request_type='post'
+    )
+    wfr_id = response["workflow_run_id"]
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar',
+                 'job_hash': 12334,
+                 'command': 'baz',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    swarm_job = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 2,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(swarm_job.job_id),
+        message={},
+        request_type='post')
+
+    # add job instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(swarm_job.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+
+    # do job logging
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id),
+        message={'executor_id': str(12345),
+                 'next_report_increment': 15},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id),
+        message={'nodename': socket.getfqdn(),
+                 'process_group_id': str(os.getpid()),
+                 'next_report_increment': 120},
+        request_type='post')
+
+    _, response = req.send_request(
+        app_route='/job',
+        message={'name': 'bar2',
+                 'job_hash': 123345,
+                 'command': 'baz2',
+                 'dag_id': str(real_dag_id)},
+        request_type='post')
+    swarm_job2 = SwarmJob.from_wire(response['job_dct'])
+
+    req.send_request(
+        app_route=f'/job/{swarm_job2.job_id}/update_resources',
+        message={
+            'parameter_set_type': 'O',
+            'max_runtime_seconds': 2,
+            'context_args': '{}',
+            'queue': 'all.q',
+            'num_cores': 2,
+            'm_mem_free': 1,
+            'j_resource': False,
+            'resource_scales': "{'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}",
+            'hard_limits': False},
+        request_type='post')
+
+    # queue job
+    req.send_request(
+        app_route='/job/{}/queue'.format(swarm_job2.job_id),
+        message={},
+        request_type='post')
+
+    # add job instance
+    _, response = req.send_request(
+        app_route='/job_instance',
+        message={'job_id': str(swarm_job2.job_id),
+                 'executor_type': 'dummy_exec'},
+        request_type='post')
+    job_instance_id2 = SerializeExecutorJobInstance.kwargs_from_wire(
+        response['job_instance'])["job_instance_id"]
+
+    # do job logging
+    req.send_request(
+        app_route='/job_instance/{}/log_executor_id'.format(job_instance_id2),
+        message={'executor_id': str(54321),
+                 'next_report_increment': 15},
+        request_type='post')
+    req.send_request(
+        app_route='/job_instance/{}/log_running'.format(job_instance_id2),
+        message={'nodename': socket.getfqdn(),
+                 'process_group_id': str(os.getpid()),
+                 'next_report_increment': 120},
+        request_type='post')
+
+    rc, resp = req.send_request(
+        app_route=f'/workflow_run/{wfr_id}/job_instance_exec_ids',
+        message={},
+        request_type='get')
+
+    assert resp['executor_ids'] == [12345, 54321]
