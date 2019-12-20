@@ -8,7 +8,6 @@ import socket
 from jobmon.client import shared_requester
 from jobmon.client.swarm.job_management.executor_job_instance import \
     ExecutorJobInstance
-from jobmon.client.swarm.executors.sge_utils import get_project_limits
 from jobmon.models.attributes.constants import workflow_run_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.client_logging import ClientLogging as logging
