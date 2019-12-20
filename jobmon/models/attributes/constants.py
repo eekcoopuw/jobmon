@@ -26,9 +26,8 @@ workflow_run_attribute = AttributeDictionary({
     'NUM_MEASURES': 9,
     'NUM_METRICS': 10,
     'NUM_MOST_DETAILED_LOCATIONS': 11,
-    'NUM_AGGREGATE_LOCATIONS': 12,
-    'SLOT_LIMIT_AT_START': 13,
-    'SLOT_LIMIT_AT_END': 14})
+    'NUM_AGGREGATE_LOCATIONS': 12
+    })
 
 job_attribute = AttributeDictionary({
     'NUM_LOCATIONS': 1,
