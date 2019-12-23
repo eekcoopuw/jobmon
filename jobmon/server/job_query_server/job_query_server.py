@@ -68,7 +68,7 @@ def get_workflow_attribute(workflow_id):
     logging.logParameter("workflow_id", workflow_id)
     workflow_attribute_type = request.args.get('workflow_attribute_type', None)
     if workflow_attribute_type:
-        query = """SELECT * 
+        query = """SELECT *
                            FROM workflow_attribute wf_attr
                            WHERE wf_attr.workflow_id = :workflow_id
                            AND wf_attr.attribute_type = :workflow_attribute_type"""
@@ -124,9 +124,9 @@ def get_job_attribute_by_workflow(workflow_id):
     else:
         query = """SELECT job_attribute.*
                            FROM job
-                           JOIN job_attribute 
+                           JOIN job_attribute
                            ON job.job_id = job_attribute.job_id
-                           JOIN workflow wf 
+                           JOIN workflow wf
                            ON job.dag_id = wf.dag_id
                            WHERE wf.id = :workflow_id
                         """
@@ -231,28 +231,45 @@ def get_jobs_by_status_only(dag_id):
         # docker.job where  docker.job.status="G" and docker.job.dag_id=1;
         # 0.000 sec vs 0.015 sec (result from MySQL WorkBench)
         # Thus move the dag_id in front of status in the filter
-        query = """SELECT job_id, status, job_hash
-                           FROM job
-                           WHERE dag_id = :dag_id
-                           AND status = :status
-                           AND status_date >= :last_sync
-                        """
+        query = """
+            SELECT
+                job_id, status, job_hash
+            FROM job
+            WHERE
+                dag_id = :dag_id
+                AND status = :status
+                AND status_date >= :last_sync"""
         rows = DB.session.query('job_id', 'status', 'job_hash').from_statement(
-            text(query)) \
-            .params(dag_id=dag_id, status=request.args['status'],
-                    last_sync=str(last_sync)).all()
+            text(query)).params(dag_id=dag_id, status=request.args['status'],
+                                last_sync=str(last_sync)).all()
+    elif request.args.getlist('job_ids'):
+        job_ids = [int(job_id) for job_id in request.args.getlist('job_ids')]
+        query = """
+            SELECT
+                job_id, status, job_hash
+            FROM job
+            WHERE
+                dag_id = :dag_id
+                AND (
+                    job_id in :job_ids
+                    OR status_date >= :last_sync)"""
+        rows = DB.session.query('job_id', 'status', 'job_hash').from_statement(
+            text(query)).params(dag_id=dag_id, job_ids=job_ids,
+                                last_sync=str(last_sync)).all()
     else:
-        query = """SELECT job_id, status, job_hash
-                           FROM job
-                           WHERE dag_id = :dag_id
-                           AND status_date >= :last_sync
-                        """
+        query = """
+            SELECT
+                job_id, status, job_hash
+            FROM job
+            WHERE
+                dag_id = :dag_id
+                AND status_date >= :last_sync"""
         rows = DB.session.query('job_id', 'status', 'job_hash').from_statement(
-            text(query)) \
-            .params(dag_id=dag_id, last_sync=str(last_sync)).all()
+            text(query)).params(dag_id=dag_id, last_sync=str(last_sync)).all()
     DB.session.commit()
     job_dcts = [Job(job_id=row.job_id, status=row.status,
-                job_hash=row.job_hash).to_wire_as_swarm_job() for row in rows]
+                    job_hash=row.job_hash).to_wire_as_swarm_job()
+                for row in rows]
     logger.info("job_attr_dct={}".format(job_dcts))
     resp = jsonify(job_dcts=job_dcts, time=str_time)
     resp.status_code = StatusCodes.OK
@@ -326,8 +343,8 @@ def get_suspicious_job_instances(dag_id):
     # ignore job instances created after heartbeat began. We'll reconcile them
     # during the next reconciliation loop.
     query = """ SELECT job_instance.job_instance_id, job_instance.executor_id
-                FROM job_instance 
-                JOIN task_dag 
+                FROM job_instance
+                JOIN task_dag
                 ON job_instance.dag_id = task_dag.dag_id
                 AND job_instance.dag_id = :dag_id
                 AND job_instance.status in (:batch, :running)
@@ -497,7 +514,7 @@ def kill_self(job_instance_id):
     query = f"""SELECT *
                     FROM job_instance
                     WHERE job_instance_id = :job_instance_id
-                    AND job_instance.status in 
+                    AND job_instance.status in
                     ({str(JobInstance.kill_self_states)[1:-1]})
                 """
     should_kill = DB.session.query(JobInstance).from_statement(text(query)) \
@@ -521,9 +538,9 @@ def get_resources(executor_id):
     :return:
     """
     logger.debug(logging.myself())
-    query = f"""SELECT m_mem_free, num_cores, max_runtime_seconds 
-                FROM job_instance, job 
-                WHERE job_instance.job_id=job.job_id AND 
+    query = f"""SELECT m_mem_free, num_cores, max_runtime_seconds
+                FROM job_instance, job
+                WHERE job_instance.job_id=job.job_id AND
                 executor_id = {executor_id}"""
     res = DB.session.execute(query).fetchone()
     DB.session.commit()
@@ -576,8 +593,8 @@ def get_executor_id(job_instance_id: int):
     :return: executor_id
     """
     logger.debug(logging.myself())
-    sql = """SELECT executor_id 
-             FROM job_instance 
+    sql = """SELECT executor_id
+             FROM job_instance
              WHERE job_instance_id={}""".format(job_instance_id)
     try:
         res = DB.session.execute(sql).fetchone()
@@ -600,8 +617,8 @@ def get_nodename(job_instance_id: int):
     :return: nodename
     """
     logger.debug(logging.myself())
-    sql = """SELECT nodename 
-             FROM job_instance 
+    sql = """SELECT nodename
+             FROM job_instance
              WHERE job_instance_id={}""".format(job_instance_id)
     try:
         res = DB.session.execute(sql).fetchone()
@@ -624,8 +641,8 @@ def get_ji_error(job_instance_id: int):
     :return:
     """
     logger.debug(logging.myself())
-    query = f"""SELECT description 
-                FROM job_instance_error_log 
+    query = f"""SELECT description
+                FROM job_instance_error_log
                 WHERE job_instance_id = {job_instance_id};"""
     result = DB.session.execute(query)
     errors = []
@@ -674,8 +691,8 @@ def get_workflow_run_status(workflow_run_id: int):
     logger.debug(logging.myself())
     logging.logParameter("workflow_run_id", workflow_run_id)
 
-    query = """SELECT status 
-               FROM workflow_run 
+    query = """SELECT status
+               FROM workflow_run
                WHERE id = :id"""
     result = DB.session.query('status').from_statement(text(query))\
         .params(id=workflow_run_id).first()

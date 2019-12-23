@@ -38,7 +38,8 @@ class WorkerNodeJobInstance:
         self.executor = job_instance_executor_info
         self.requester = shared_requester
         logger.info("Instantiated JobInstanceIntercom")
-        logger.info(f"job_instance_id: {job_instance_id}; nodename: + {nodename}")
+        logger.info(f"job_instance_id: {job_instance_id}; "
+                    f"nodename: + {nodename}")
 
     @property
     def executor_id(self) -> Optional[int]:
@@ -160,7 +161,7 @@ class WorkerNodeJobInstance:
         return rc
 
     def in_kill_self_state(self) -> bool:
-        logger.info("kill_self for jid {}".format(self.job_instance_id))
+        logger.info(f"kill_self for jid {self.job_instance_id}")
         rc, resp = self.requester.send_request(
             app_route=f'/job_instance/{self.job_instance_id}/kill_self',
             message={},

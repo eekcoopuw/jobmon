@@ -164,7 +164,7 @@ def test_resume_dag_heartbeat_race_condition(simple_workflow, db_cfg):
         # change the heartbeat date to simulate a heartbeat from an old dag
         set_new_heartbeat_date = """
             UPDATE task_dag
-            SET heartbeat_date = :new_time 
+            SET heartbeat_date = :new_time
             WHERE dag_id = :dag_id
         """
         new_time = datetime.utcnow() - timedelta(minutes=15)
@@ -176,7 +176,7 @@ def test_resume_dag_heartbeat_race_condition(simple_workflow, db_cfg):
     with app.app_context():
         # confirm that the health monitor thinks the workflow is lost
         get_heartbeat_date = """
-            SELECT * 
+            SELECT *
             FROM task_dag
             WHERE dag_id = :dag_id
         """
@@ -208,7 +208,7 @@ def test_resume_dag_heartbeat_race_condition(simple_workflow, db_cfg):
     # get workflow_run status
     with app.app_context():
         get_workflow_run_status = """
-            SELECT status 
+            SELECT status
             FROM workflow_run
             WHERE id = {}
         """.format(simple_workflow.workflow_run.id)

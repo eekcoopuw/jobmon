@@ -4,12 +4,14 @@ from io import TextIOBase
 import pkg_resources
 import os
 from queue import Queue
+import shlex
 import signal
 import subprocess
 import sys
 import traceback
 from threading import Thread
 from time import sleep, time
+from typing import Optional
 
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.worker_node.worker_node_job_instance import (
@@ -53,14 +55,10 @@ def kill_self(child_process: subprocess.Popen = None):
     sys.exit(signal.SIGKILL)
 
 
-def unwrap():
-
-    # This script executes on the target node and wraps the target application.
-    # Could be in any language, anything that can execute on linux.
-    # Similar to a stub or a container
+def parse_arguments(argstr=None):
 
     # parse arguments
-    logger.info("unwrap")
+    logger.info("parsing arguments")
     parser = argparse.ArgumentParser()
     parser.add_argument("--job_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)
@@ -69,72 +67,87 @@ def unwrap():
     parser.add_argument("--temp_dir", required=False)
     parser.add_argument("--last_nodename", required=False)
     parser.add_argument("--last_pgid", required=False)
-    parser.add_argument("--heartbeat_interval", default=90, type=int)
+    parser.add_argument("--heartbeat_interval", default=90, type=float)
     parser.add_argument("--report_by_buffer", default=3.1, type=float)
 
-    # makes a dict
-    args = vars(parser.parse_args())
+    if argstr is not None:
+        arglist = shlex.split(argstr)
+        args = parser.parse_args(arglist)
+    else:
+        args = parser.parse_args()
+
+    return vars(args)
+
+
+def unwrap(job_instance_id: int, command: str, expected_jobmon_version: str,
+           executor_class: str, temp_dir: Optional[str] = None,
+           last_nodename: str = None, last_pgid: str = None,
+           heartbeat_interval: float = 90,
+           report_by_buffer: float = 3.1):
+
+    # This script executes on the target node and wraps the target application.
+    # Could be in any language, anything that can execute on linux.
+    # Similar to a stub or a container
 
     # set ENV variables in case tasks need to access them
-    os.environ["JOBMON_JOB_INSTANCE_ID"] = str(args["job_instance_id"])
+    os.environ["JOBMON_JOB_INSTANCE_ID"] = str(job_instance_id)
 
     # identify executor class
-    if args["executor_class"] == "SequentialExecutor":
+    if executor_class == "SequentialExecutor":
         from jobmon.client.swarm.executors.sequential import \
             JobInstanceSequentialInfo as JobInstanceExecutorInfo
-    elif args["executor_class"] == "SGEExecutor":
+    elif executor_class == "SGEExecutor":
         from jobmon.client.swarm.executors.sge import JobInstanceSGEInfo \
             as JobInstanceExecutorInfo
-    elif args["executor_class"] == "DummyExecutor":
+    elif executor_class == "DummyExecutor":
         from jobmon.client.swarm.executors import JobInstanceExecutorInfo
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(
-            args["executor_class"]))
+            executor_class))
     ji_executor_info = JobInstanceExecutorInfo()
 
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
     version = pkg_resources.get_distribution("jobmon").version
-    if version != args['expected_jobmon_version']:
+    if version != expected_jobmon_version:
         msg = f"Your workflow master node is using, " \
-            f"{args['expected_jobmon_version']} and your worker node is using" \
+            f"{expected_jobmon_version} and your worker node is using" \
             f" {version}. Please check your bash profile "
         logger.error(msg)
         sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
 
     worker_node_job_instance = WorkerNodeJobInstance(
-        job_instance_id=args["job_instance_id"],
+        job_instance_id=job_instance_id,
         job_instance_executor_info=ji_executor_info)
 
     # if it logs running and is in the 'W' or 'U' state then it will go
     # through the full process of trying to change states and receive a
     # special exception to signal that it can't run and should kill itself
     rc, kill = worker_node_job_instance.log_running(next_report_increment=(
-        args['heartbeat_interval'] * args['report_by_buffer']))
+        heartbeat_interval * report_by_buffer))
     if kill == 'True':
         kill_self()
 
     try:
-
         # open subprocess using a process group so any children are also killed
         proc = subprocess.Popen(
-            args["command"],
-            cwd=args["temp_dir"],
+            command,
+            cwd=temp_dir,
             env=os.environ.copy(),
             stderr=subprocess.PIPE,
             shell=True,
             universal_newlines=True)
 
         # open thread for reading stderr eagerly
-        err_q = Queue()  # open queues for returning stderr to main thread
+        err_q: Queue = Queue()  # queues for returning stderr to main thread
         err_thread = Thread(target=enqueue_stderr, args=(proc.stderr, err_q))
         err_thread.daemon = True  # thread dies with the program
         err_thread.start()
 
-        last_heartbeat_time = time() - args['heartbeat_interval']
+        last_heartbeat_time = time() - heartbeat_interval
         while proc.poll() is None:
-            if (time() - last_heartbeat_time) >= args['heartbeat_interval']:
+            if (time() - last_heartbeat_time) >= heartbeat_interval:
 
                 # since the report by is not a state transition, it will not
                 #  get the error that the log running route gets, so just
@@ -144,8 +157,8 @@ def unwrap():
                     kill_self(child_process=proc)
                 else:
                     worker_node_job_instance.log_report_by(
-                        next_report_increment=(args['heartbeat_interval'] *
-                                               args['report_by_buffer']))
+                        next_report_increment=(heartbeat_interval *
+                                               report_by_buffer))
 
                 last_heartbeat_time = time()
             sleep(0.5)  # don't thrash CPU by polling as fast as possible
@@ -176,6 +189,17 @@ def unwrap():
     else:
         worker_node_job_instance.log_done()
 
+    return returncode
+
+
+def main():
+    kwargs = parse_arguments()
+    returncode = unwrap(**kwargs)
+
     # If there's nothing wrong with the unwrapping itself we want to propagate
     # the return code from the subprocess onward for proper reporting
     sys.exit(returncode)
+
+
+if __name__ == '__main__':
+    main()

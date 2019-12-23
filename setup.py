@@ -63,5 +63,5 @@ setup(
     entry_points={
         'console_scripts': [
             "jobmon=jobmon.cli:main",
-            "jobmon_command=jobmon.client.worker_node.execution_wrapper:unwrap"
+            "jobmon_command=jobmon.client.worker_node.execution_wrapper:main"
         ]})

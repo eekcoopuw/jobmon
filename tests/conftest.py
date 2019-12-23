@@ -142,7 +142,7 @@ def db_cfg(ephemera):
         database_loaders.clean_job_db(DB)
 
 
-@pytest.fixture(autouse=True) #scope='function')
+@pytest.fixture(autouse=True)  # scope='function')
 def env_var(real_jsm_jqs, monkeypatch):
     from jobmon.client import shared_requester, client_config
     from jobmon.client.config import ClientConfig

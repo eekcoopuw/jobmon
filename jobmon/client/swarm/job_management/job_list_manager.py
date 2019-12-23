@@ -1,7 +1,7 @@
 from functools import partial
 import time
 from threading import Event, Thread
-from typing import Dict
+from typing import Dict, List
 from http import HTTPStatus as StatusCodes
 
 from jobmon.client import shared_requester
@@ -184,24 +184,32 @@ class JobListManager(object):
                                          .format(msg['message']))
         return rc
 
-    def get_job_statuses(self):
-        """Query the database for the status of all jobs"""
-        if self.last_sync:
+    def get_job_statuses(self, last_sync=None, job_ids: List[int] = []
+                         ) -> List[SwarmJob]:
+        """Query the database for the status of all jobs and updates the
+        internal state of the JLM.
+
+        Args:
+            last_sync: only include updates in status after the last sync value
+            active_jobs: get statuses for all active jobs
+        """
+        if last_sync is not None:
             rc, response = self.requester.send_request(
                 app_route='/dag/{}/job_status'.format(self.dag_id),
-                message={'last_sync': str(self.last_sync)},
+                message={'last_sync': str(self.last_sync),
+                         'job_ids': job_ids},
                 request_type='get')
         else:
             rc, response = self.requester.send_request(
                 app_route='/dag/{}/job_status'.format(self.dag_id),
-                message={},
+                message={'job_ids': job_ids},
                 request_type='get')
         logger.debug("JLM::get_job_statuses(): rc is {} and response is {}".
                      format(rc, response))
         utcnow = response['time']
         self.last_sync = utcnow
-
         jobs = [SwarmJob.from_wire(job) for job in response['job_dcts']]
+
         for job in jobs:
             if job.job_id in self.bound_tasks.keys():
                 self.bound_tasks[job.job_id].status = job.status
@@ -257,9 +265,11 @@ class JobListManager(object):
         jobs = self.get_job_statuses()
         self.parse_adjusting_done_and_errors(jobs)
 
-    def block_until_any_done_or_error(self, timeout=36000, poll_interval=10):
+    def block_until_any_done_or_error(self, timeout=36000, poll_interval=10,
+                                      full_sync_interval=600):
         """Block code execution until a job is done or errored"""
         time_since_last_update = 0
+        time_since_last_full_sync = 0
         while True:
             if time_since_last_update > timeout:
                 raise RuntimeError("Not all tasks completed within the given "
@@ -274,7 +284,14 @@ class JobListManager(object):
                                           f" workflow, workflow run "
                                           f"{self.workflow_run_id} will "
                                           f"disconnect its threads and exit")
-            jobs = self.get_job_statuses()
+            if time_since_last_full_sync > full_sync_interval:
+                #  should get statuses from every job
+                logger.info("syncing full dag")
+                jobs = self.get_job_statuses(
+                    job_ids=[job.job_id for job in self.active_jobs])
+                time_since_last_full_sync = 0
+            else:
+                jobs = self.get_job_statuses(self.last_sync)
             completed, failed, adjusting = self.parse_adjusting_done_and_errors(jobs)
             if adjusting:
                 for task in adjusting:
@@ -286,6 +303,7 @@ class JobListManager(object):
                 return completed, failed
             time.sleep(poll_interval)
             time_since_last_update += poll_interval
+            time_since_last_full_sync += poll_interval
 
     def _check_wfrun_resume_set(self):
         if self.workflow_run_id:
@@ -365,7 +383,12 @@ class JobListManager(object):
     def reset_jobs(self):
         """Reset jobs by passing through to the JobFactory"""
         self.job_factory.reset_jobs()
-        self._sync()
+
+        # be careful about this code because order matters during resume. The
+        # resume behavior depends on this being fed a last_sync value so it
+        # doesn't re-pull done jobs
+        jobs = self.get_job_statuses(self.last_sync)
+        self.parse_adjusting_done_and_errors(jobs)
 
     def add_job_attribute(self, job_id, attribute_type, value):
         """Add a job_attribute to a job by passing thorugh to the JobFactory"""
