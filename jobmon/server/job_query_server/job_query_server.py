@@ -211,7 +211,7 @@ def get_queued_jobs(dag_id: int, n_queued_jobs: int) -> Dict:
     return resp
 
 
-@jqs.route('/dag/<dag_id>/job_status', methods=['GET'])
+@jqs.route('/dag/<dag_id>/job_status', methods=['POST'])
 def get_jobs_by_status_only(dag_id):
     """Returns all jobs in the database that have the specified status
 
@@ -221,7 +221,10 @@ def get_jobs_by_status_only(dag_id):
     """
     logger.debug(logging.myself())
     logging.logParameter("dag_id", dag_id)
-    last_sync = request.args.get('last_sync', '2010-01-01 00:00:00')
+    data = request.get_json()
+
+    last_sync = data.get('last_sync', '2010-01-01 00:00:00')
+    job_ids = data.get('job_ids', [])
     str_time = get_time(DB.session)
     if request.args.get('status', None) is not None:
         # select docker.job.job_id, docker.job.job_hash, docker.job.status from
@@ -240,10 +243,10 @@ def get_jobs_by_status_only(dag_id):
                 AND status = :status
                 AND status_date >= :last_sync"""
         rows = DB.session.query('job_id', 'status', 'job_hash').from_statement(
-            text(query)).params(dag_id=dag_id, status=request.args['status'],
+            text(query)).params(dag_id=dag_id, status=request['status'],
                                 last_sync=str(last_sync)).all()
-    elif request.args.getlist('job_ids'):
-        job_ids = [int(job_id) for job_id in request.args.getlist('job_ids')]
+    elif job_ids:
+        job_ids = [int(job_id) for job_id in job_ids]
         query = """
             SELECT
                 job_id, status, job_hash

@@ -198,12 +198,12 @@ class JobListManager(object):
                 app_route='/dag/{}/job_status'.format(self.dag_id),
                 message={'last_sync': str(self.last_sync),
                          'job_ids': job_ids},
-                request_type='get')
+                request_type='post')
         else:
             rc, response = self.requester.send_request(
                 app_route='/dag/{}/job_status'.format(self.dag_id),
                 message={'job_ids': job_ids},
-                request_type='get')
+                request_type='post')
         logger.debug("JLM::get_job_statuses(): rc is {} and response is {}".
                      format(rc, response))
         utcnow = response['time']
@@ -288,6 +288,7 @@ class JobListManager(object):
                 #  should get statuses from every job
                 logger.info("syncing full dag")
                 jobs = self.get_job_statuses(
+                    last_sync=self.last_sync,
                     job_ids=[job.job_id for job in self.active_jobs])
                 time_since_last_full_sync = 0
             else:

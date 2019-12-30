@@ -28,7 +28,7 @@ def test_job_status(db_cfg, real_dag_id):
     swarm_job = SwarmJob.from_wire(response['job_dct'])
 
     _, response = req.send_request(app_route=f'/dag/{real_dag_id}/job_status',
-                                   message={}, request_type='get')
+                                   message={}, request_type='post')
     assert response['job_dcts'][0][1] == '12334' and \
            len(response['job_dcts'][0]) == 3
     teardown_db(db_cfg)
@@ -130,7 +130,7 @@ def test_lost_job_instances(db_cfg, real_dag_id):
     DB = db_cfg["DB"]
     with app.app_context():
         new_report_by = f"""UPDATE job_instance
-                            SET report_by_date = 
+                            SET report_by_date =
                             SUBTIME(UTC_TIMESTAMP(), SEC_TO_TIME(60))
                             WHERE dag_id = {real_dag_id}
                         """
