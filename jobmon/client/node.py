@@ -10,7 +10,7 @@ from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.requests.requester import Requester
 
 if TYPE_CHECKING:
-    from jobmon.client.internals.task import Task
+    from jobmon.client.task import Task
 
 
 logger = logging.getLogger(__name__)

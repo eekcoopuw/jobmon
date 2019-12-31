@@ -368,7 +368,8 @@ def update_task_parameters(task_id):
 
 def _add_or_get_attribute_type(name):
     try:
-        query = """SELECT id, name
+        query = """
+        SELECT id, name
         FROM task_attribute_type
         WHERE name = :name
         """
@@ -387,9 +388,12 @@ def _add_or_update_attribute(task_id, name, value):
     try:
         # if the attribute was already set for the task, update it with the
         # new value
-        query = """SELECT id
+        query = """
+        SELECT id
         FROM task_attribute
-        WHERE task_id = :task_id AND attribute_type = :attribute_id
+        WHERE
+            task_id = :task_id
+            AND attribute_type = :attribute_id
         """
         attribute = DB.session.query(TaskAttribute)\
             .from_statement(text(query))\
@@ -420,22 +424,6 @@ def update_task_attribute(task_id):
         _add_or_update_attribute(task_id, name, val)
 
 
-def _get_workflow_run_id(job):
-    """Return the workflow_run_id by job_id"""
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("job_id", job.job_id))
-    wf = DB.session.query(Workflow).filter_by(dag_id=job.dag_id).first()
-    if not wf:
-        DB.session.commit()
-        return None  # no workflow has started, so no workflow run
-    wf_run = (DB.session.query(WorkflowRunDAO).
-              filter_by(workflow_id=wf.id).
-              order_by(WorkflowRunDAO.id.desc()).first())
-    wf_run_id = wf_run.id
-    DB.session.commit()
-    return wf_run_id
-
-
 @jsm.route('/task_instance', methods=['POST'])
 def add_task_instance():
     """Add a task_instance to the database
@@ -455,9 +443,9 @@ def add_task_instance():
 
     # create task_instance from task parameters
     task_instance = TaskInstance(
-        executor_type=data['executor_type'],
-        id=data['task_id'],
         workflow_run_id=_get_workflow_run_id(task),
+        executor_type=data['executor_type'],
+        task_id=data['task_id'],
         executor_parameter_set_id=task.executor_parameter_set_id)
     DB.session.add(task_instance)
     DB.session.commit()
@@ -502,63 +490,60 @@ def add_workflow():
     return resp
 
 
-@jsm.route('/error_logger', methods=['POST'])
-def workflow_error_logger():
-    logger.info(logging.myself())
-    data = request.get_json()
-    logger.error(data["traceback"])
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jsm.route('/workflow_run', methods=['POST', 'PUT'])
-def add_update_workflow_run():
-    """Add a workflow to the database or update it (via PUT)
-
-    Args:
-        workflow_id (int): workflow_id to which this workflow_run is attached
-        user (str): name of the user of the workflow
-        hostname (str): host on which this workflow_run was run
-        pid (str): process_id where this workflow_run is/was run
-        stderr (str): where stderr should be directed
-        stdout (str): where stdout should be directed
-        project (str): sge project where this workflow_run should be run
-        slack_channel (str): channel where this workflow_run should send
-            notifications
-        resource adjustment (float): rate at which the resources will be
-            increased if the jobs fail from under-requested resources
-        any other Workflow attributes you want to set
-    """
+@jsm.route('/workflow_run', methods=['POST'])
+def add_workflow_run():
     logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
-    if request.method == 'POST':
-        wfr = WorkflowRunDAO(workflow_id=data['workflow_id'],
-                             user=data['user'],
-                             hostname=data['hostname'],
-                             pid=data['pid'],
-                             stderr=data['stderr'],
-                             stdout=data['stdout'],
-                             working_dir=data['working_dir'],
-                             project=data['project'],
-                             slack_channel=data['slack_channel'],
-                             executor_class=data['executor_class'])
-        workflow = DB.session.query(Workflow).\
-            filter(Workflow.id == data['workflow_id']).first()
-        # Set all previous runs to STOPPED
-        for run in workflow.workflow_runs:
-            run.status = WorkflowRunStatus.STOPPED
-        DB.session.add(wfr)
-        logger.debug(logging.logParameter("DB.session", DB.session))
-    else:
-        wfr = DB.session.query(WorkflowRunDAO).\
-            filter(WorkflowRunDAO.id == data['workflow_run_id']).first()
-        for key, val in data.items():
-            setattr(wfr, key, val)
+
+    workflow_run = WorkflowRun(
+        workflow_id=data["workflow_id"],
+        user=data["user"],
+        executor_class=data["executor_class"],
+        jobmon_version=data["jobmon_version"],
+        status=WorkflowRunStatus.CREATED)
+    DB.session.add(workflow_run)
     DB.session.commit()
-    wfr_id = wfr.id
-    resp = jsonify(workflow_run_id=wfr_id)
+
+    # refresh in case of race condition
+    workflow = WorkflowRun.workflow
+    DB.session.refresh(workflow)  # TODO: consider refreshing with write lock
+
+    # try to transition the workflow. Send back any competing workflow_run_id
+    # and its status
+    try:
+        workflow.transition(WorkflowStatus.CREATED)
+        previous_wfr = []
+    except InvalidStateTransition:
+        created_states = [WorkflowStatus.CREATED]
+        active_states = [WorkflowStatus.BOUND, WorkflowStatus.RUNNING]
+        # a workflow is already in created state. thats a race condition. set
+        # workflow run status to error. leave workflow alone
+        if workflow.status in created_states:
+            workflow_run.status = WorkflowRunStatus.ERROR
+            DB.session.add(workflow_run)
+            DB.session.commit()
+            previous_wfr = [
+                (wfr.id, wfr.status) for wfr in workflow.workflow_runs
+                if wfr.status in created_states]
+        # a workflow is running or about to start
+        elif workflow.status in active_states:
+            # if resume is set return the workflow that was set to hot or cold
+            # resume
+            if data["resume"]:
+                resumed_wfr = workflow.resume(data["reset_running_jobs"])
+                previous_wfr = [(wfr.id, wfr.status) for wfr in resumed_wfr]
+            # otherwise return the workflow that is in an active state
+            else:
+                previous_wfr = [
+                    (wfr.id, wfr.status) for wfr in workflow.workflow_runs
+                    if wfr.status in active_states]
+        else:
+            logger.error("how did I get here? all other transitions are valid")
+
+    resp = jsonify(workflow_run_id=workflow_run.id,
+                   status=workflow_run.status,
+                   previous_wfr=previous_wfr)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -566,8 +551,8 @@ def add_update_workflow_run():
 @jsm.route('/task_instance/<task_instance_id>/log_done', methods=['POST'])
 def log_done(task_instance_id):
     """Log a task_instance as done
-    Args:
 
+    Args:
         task_instance_id: id of the task_instance to log done
     """
     logger.info(logging.myself())
@@ -793,26 +778,26 @@ def log_executor_id(task_instance_id):
     return resp
 
 
-@jsm.route('/workflow/<workflow_id>/log_running', methods=['POST'])
-def log_workflow_running(workflow_id: int):
-    """Log a workflow as running
+# @jsm.route('/workflow/<workflow_id>/log_running', methods=['POST'])
+# def log_workflow_running(workflow_id: int):
+#     """Log a workflow as running
 
-    Args:
-        workflow_id: id of the workflow to move to running
-    """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("workflow_id", workflow_id))
+#     Args:
+#         workflow_id: id of the workflow to move to running
+#     """
+#     logger.info(logging.myself())
+#     logger.debug(logging.logParameter("workflow_id", workflow_id))
 
-    params = {"workflow_id": int(workflow_id)}
-    query = """
-        UPDATE workflow
-        SET status = 'R'
-        WHERE id = :workflow_id"""
-    DB.session.execute(query, params)
-    DB.session.commit()
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
+#     params = {"workflow_id": int(workflow_id)}
+#     query = """
+#         UPDATE workflow
+#         SET status = 'R'
+#         WHERE id = :workflow_id"""
+#     DB.session.execute(query, params)
+#     DB.session.commit()
+#     resp = jsonify()
+#     resp.status_code = StatusCodes.OK
+#     return resp
 
 
 @jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
@@ -837,13 +822,13 @@ def log_wfr_heartbeat(workflow_run_id):
     return resp
 
 
-@jsm.route('/task_instance/log_executor_report_by',
+@jsm.route('/workflow_run/<workflow_run_id>/log_executor_report_by',
            methods=['POST'])
-def log_executor_report_by():
+def log_executor_report_by(workflow_run_id):
     logger.info(logging.myself())
     data = request.get_json()
 
-    params = {}
+    params = {"workflow_run_id": int(workflow_run_id)}
     for key in ["next_report_increment", "executor_ids"]:
         params[key] = data[key]
 
@@ -852,7 +837,9 @@ def log_executor_report_by():
             UPDATE task_instance
             SET report_by_date = ADDTIME(
                 UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-            WHERE executor_id in :executor_ids"""
+            WHERE
+                workflow_run_id = :workflow_run_id
+                AND executor_id in :executor_ids"""
         DB.session.execute(query, params)
         DB.session.commit()
 
@@ -1118,6 +1105,7 @@ def update_task_resources(task_id):
     return resp
 
 
+<<<<<<< HEAD
 # @jsm.route('/job/<job_id>/reset', methods=['POST'])
 # def reset_job(job_id):
 #     """Reset a job and change its status
@@ -1198,6 +1186,91 @@ def update_task_resources(task_id):
 
 def _get_task_instance(session, task_instance_id):
     """Return a TaskInstance from the database
+=======
+@jsm.route('/job/<job_id>/reset', methods=['POST'])
+def reset_job(job_id):
+    """Reset a job and change its status
+    Args:
+
+        job_id: id of the job to reset
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("job_id", job_id))
+    job = DB.session.query(Job).filter_by(job_id=job_id).first()
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    job.reset()
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/task_dag/<dag_id>/reset_incomplete_jobs', methods=['POST'])
+def reset_incomplete_jobs(dag_id):
+    """Reset all jobs of a dag and change their statuses
+    Args:
+
+        dag_id: id of the dag to reset
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("dag_id", dag_id))
+    time = get_time(DB.session)
+    up_job = """
+        UPDATE job
+        SET status=:registered_status, num_attempts=0, status_date='{}'
+        WHERE dag_id=:dag_id
+        AND job.status!=:done_status
+    """.format(time)
+    log_errors = """
+            INSERT INTO job_instance_error_log
+                (job_instance_id, description, error_time)
+            SELECT job_instance_id,
+<<<<<<< HEAD
+            CONCAT('Job RESET requested setting to E from status of: ', job_instance.status) as description,
+=======
+            CONCAT('Job RESET requested setting to E from status of: ',
+                   job_instance.status) as description,
+>>>>>>> b0360f6f49b60691035b97435a5d1d18f9da649a
+            UTC_TIMESTAMP as error_time
+            FROM job_instance
+            JOIN job USING(job_id)
+            WHERE job.dag_id=:dag_id
+            AND job.status!=:done_status
+        """
+    up_job_instance = """
+        UPDATE job_instance
+        JOIN job USING(job_id)
+        SET job_instance.status=:error_status,
+            job_instance.status_date=UTC_TIMESTAMP
+        WHERE job.dag_id=:dag_id
+        AND job.status!=:done_status
+    """
+    logger.debug("Query:\n{}".format(up_job))
+    logger.debug(logging.logParameter("DB.session", DB.session))
+    DB.session.execute(
+        up_job,
+        {"dag_id": dag_id,
+         "registered_status": JobStatus.REGISTERED,
+         "done_status": JobStatus.DONE})
+    logger.debug("Query:\n{}".format(log_errors))
+    DB.session.execute(
+        log_errors,
+        {"dag_id": dag_id,
+         "done_status": JobStatus.DONE})
+    logger.debug("Query:\n{}".format(up_job_instance))
+    DB.session.execute(
+        up_job_instance,
+        {"dag_id": dag_id,
+         "error_status": JobInstanceStatus.ERROR,
+         "done_status": JobStatus.DONE})
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+def _get_job_instance(session, job_instance_id):
+    """Return a JobInstance from the database
 
     Args:
         session: DB.session or Session object to use to connect to the db
@@ -1225,55 +1298,6 @@ def _get_task_instance(session, task_instance_id):
 #     job_instance = session.query(JobInstance).filter_by(
 #         executor_id=executor_id).first()
 #     return job_instance
-
-
-def _update_task_instance_state(task_instance, status_id):
-    """Advance the states of task_instance and it's associated Task,
-    return any messages that should be published based on
-    the transition
-
-    Args:
-        task_instance (obj) object of time models.TaskInstance
-        status_id (int): id of the status to which to transition
-    """
-    logger.info(logging.myself())
-    logger.debug(f"Update TI state {status_id} for {task_instance}")
-    response = ""
-    try:
-        task_instance.transition(status_id)
-    except InvalidStateTransition:
-        if task_instance.status == status_id:
-            # It was already in that state, just log it
-            msg = f"Attempting to transition to existing state." \
-                f"Not transitioning task, tid= " \
-                f"{task_instance.id} from {task_instance.status} to " \
-                f"{status_id}"
-            logger.warning(msg)
-        else:
-            # Tried to move to an illegal state
-            msg = f"Illegal state transition. Not transitioning task, " \
-                f"tid={task_instance.id}, from {task_instance.status} to " \
-                f"{status_id}"
-            logger.error(msg)
-    except KillSelfTransition:
-        msg = f"kill self, cannot transition " \
-              f"tid={task_instance.id}"
-        logger.warning(msg)
-        response = "kill self"
-    except Exception as e:
-        msg = f"General exception in _update_task_instance_state, " \
-            f"jid {task_instance}, transitioning to {task_instance}. " \
-            f"Not transitioning task. {e}"
-        log_and_raise(msg, logger)
-
-    task = task_instance.task
-
-    # ... see tests/tests_job_state_manager.py for Event example
-    if task.status in [TaskStatus.DONE, TaskStatus.ERROR_FATAL]:
-        to_publish = mogrify(task.dag_id, (task.id, task.status))
-        return to_publish
-    else:
-        return response
 
 
 def _update_task_instance(task_instance, **kwargs):

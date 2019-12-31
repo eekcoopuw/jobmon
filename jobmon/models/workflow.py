@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy.sql import func
 
 from jobmon.models import DB
+from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.workflow_status import WorkflowStatus
 
 
@@ -32,14 +33,60 @@ class Workflow(DB.Model):
     created_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
-    dag = DB.relationship(
-        "Dag", back_populates="workflow")
-    # TODO: FSM transitions here
+    dag = DB.relationship("Dag", back_populates="workflow")
+    workflow_runs = DB.relationship("WorkflowRun", backref="workflow",
+                                    lazy=True)
+
+    valid_transitions = [
+        # normal progression from registered to a workflow run has been created
+        (WorkflowStatus.REGISTERED, WorkflowStatus.CREATED),
+
+        # workflow encountered an error before a workflow run was created.
+        # TODO: this transition should probably be driven by the health monitor
+        (WorkflowStatus.REGISTERED, WorkflowStatus.ABORTED),
+
+        # a workflow aborted during task creation. new workflow launched, found
+        # existing workflow id and is creating a new workflow run
+        (WorkflowStatus.ABORTED, WorkflowStatus.CREATED),
+
+        # new workflow run created that resumes old failed workflow run
+        (WorkflowStatus.FAILED, WorkflowStatus.CREATED),
+
+        # Workflow run has been created then all tasks are bound. normal
+        # happy path
+        (WorkflowStatus.CREATED, WorkflowStatus.BOUND),
+
+        # Workflow run was created but workflow didn't add all tasks
+        # successfully or otherwise errored out before workflow was usable
+        (WorkflowStatus.CREATED, WorkflowStatus.ABORTED),
+
+        # Workflow was bound but didn't start running. eventually moved
+        # to failed.
+        # TODO: determine what drives this transition. perhaps health monitor
+        (WorkflowStatus.BOUND, WorkflowStatus.FAILED),
+
+        # workflow run was bound then started running. normal happy path
+        (WorkflowStatus.BOUND, WorkflowStatus.RUNNING),
+
+        # workflow run was running and then completed successfully
+        (WorkflowStatus.RUNNING, WorkflowStatus.DONE),
+
+        # workflow run was running and then failed with an error
+        (WorkflowStatus.RUNNING, WorkflowStatus.FAILED)]
 
     def transition(self, new_state):
+        self._validate_transition(new_state)
         self.status = new_state
         self.status_date = func.UTC_TIMESTAMP()
 
-    dag = DB.relationship(
-        "Dag", back_populates="workflow")
-    # TODO: FSM transitions here
+    def _validate_transition(self, new_state):
+        """Ensure the Job state transition is valid"""
+        if (self.status, new_state) not in self.valid_transitions:
+            raise InvalidStateTransition('Workflow', self.id, self.status,
+                                         new_state)
+
+    def resume(self, reset_running_jobs):
+        self._reset_stuff()
+
+    def _reset_stuff(self):
+        pass

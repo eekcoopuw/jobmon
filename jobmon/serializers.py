@@ -21,8 +21,11 @@ class SerializeExecutorTask:
         # coerce types for all nullables that are cast
         # using ast.literal_eval is a potential security issue but was the only
         # solution I could find to turning the data into json twice
+        max_runtime_seconds = int(wire_tuple[6]) if wire_tuple[6] else None
         context_args = ast.literal_eval(
             wire_tuple[8]) if wire_tuple[8] else None
+        resource_scales = ast.literal_eval(
+            wire_tuple[9]) if wire_tuple[9] else None
         num_cores = int(wire_tuple[11]) if wire_tuple[11] else None
         m_mem_free = float(wire_tuple[12]) if wire_tuple[12] else None
         last_process_group_id = int(wire_tuple[16]) if wire_tuple[16] else None
@@ -34,9 +37,9 @@ class SerializeExecutorTask:
                 "name": wire_tuple[4],
                 "command": wire_tuple[5],
                 "status": wire_tuple[6],
-                "max_runtime_seconds": int(wire_tuple[7]),
+                "max_runtime_seconds": max_runtime_seconds,
                 "context_args": context_args,
-                "resource_scales": ast.literal_eval(wire_tuple[9]),
+                "resource_scales": resource_scales,
                 "queue": wire_tuple[10],
                 "num_cores": num_cores,
                 "m_mem_free": m_mem_free,
@@ -50,14 +53,12 @@ class SerializeExecutorTask:
 class SerializeSwarmTask:
 
     @staticmethod
-    def to_wire(task_id: int, task_args_hash: int, status: str) -> tuple:
-        return task_id, task_args_hash, status
+    def to_wire(task_id: int, status: str) -> tuple:
+        return task_id, status
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        return {"task_id": int(wire_tuple[0]),
-                "task_args_hash": int(wire_tuple[1]),
-                "status": wire_tuple[2]}
+        return {"task_id": int(wire_tuple[0]), "status": wire_tuple[2]}
 
 
 class SerializeExecutorTaskInstance:

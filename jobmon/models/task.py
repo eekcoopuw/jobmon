@@ -1,5 +1,4 @@
 import logging
-from datetime import datetime
 
 from sqlalchemy.sql import func
 
@@ -43,7 +42,6 @@ class Task(DB.Model):
     def to_wire_as_swarm_task(self):
         serialized = SerializeSwarmTask.to_wire(
             task_id=self.id,
-            task_args_hash=self.task_args_hash,
             status=self.status)
         return serialized
 
@@ -99,7 +97,20 @@ class Task(DB.Model):
             self.num_attempts = self.num_attempts + 1
         self.status = new_state
 
-        self.status_date = datetime.utcnow()
+        self.status_date = func.UTC_TIMESTAMP()
+
+    def transition_after_task_instance_error(self, job_instance_error_state):
+        """Transition the Job to an error state"""
+        self.transition(TaskStatus.ERROR_RECOVERABLE)
+        if self.num_attempts >= self.max_attempts:
+            logger.debug("ZZZ GIVING UP Job {}".format(self.job_id))
+            self.transition(TaskStatus.ERROR_FATAL)
+        else:
+            if job_instance_error_state == TaskInstanceStatus.RESOURCE_ERROR:
+                self.transition(TaskStatus.ADJUSTING_RESOURCES)
+            else:
+                logger.debug("ZZZ retrying Job {}".format(self.job_id))
+                self.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
 
     def _last_instance_procinfo(self):
         """Retrieve all process information on the last run of this Task"""

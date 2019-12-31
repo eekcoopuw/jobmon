@@ -1,29 +1,35 @@
 import hashlib
 from http import HTTPStatus as StatusCodes
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Type, Dict
 import uuid
 
 from jobmon.client import shared_requester
 from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.dag import Dag
+from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
-from jobmon.exceptions import WorkflowAlreadyExists, WorkflowAlreadyComplete
+from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
+                               InvalidResponse, MultipleWorkflowRuns)
 from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 
 logger = logging.getLogger(__name__)
 
 
 class ResumeStatus(object):
+    """Enum of allowed resume statuses."""
+
     RESUME = True
     DONT_RESUME = False
 
 
 class Workflow(object):
-    """(aka Batch, aka Swarm)
+    """(aka Batch, aka Swarm).
+
     A Workflow is a framework by which a user may define the relationship
     between tasks and define the relationship between multiple runs of the same
     set of tasks. The great benefit of the Workflow is that it's resumable.
@@ -88,7 +94,8 @@ class Workflow(object):
 
         self._dag = Dag()
         # hash to task object mapping. ensure only 1
-        self.tasks: dict = {}
+        self.tasks: Dict[int, Task] = {}
+        self._swarm_tasks: dict = {}
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -158,15 +165,43 @@ class Workflow(object):
         for task in tasks:
             self.add_task(task)
 
-    def _bind(self,
-              resume: bool = ResumeStatus.DONT_RESUME,
-              reset_running_jobs: bool = True):
+    def set_executor(self, executor: Type[Executor] = None,
+                     executor_class: Optional[str] = 'SGEExecutor', *args,
+                     **kwargs):
+        self._executor: Type[Executor]
+        if executor is not None:
+            self._executor = executor
+        else:
+            # TODO: make default executor configurable from global config
+            pass
+
+    def run(self,
+            fail_fast: bool = False,
+            seconds_until_timeout: int = 36000,
+            resume: bool = ResumeStatus.DONT_RESUME,
+            reset_running_jobs: bool = True):
+
+        # bind to database
+        self._bind(resume)
+
+        # create workflow_run
+        wfr = self._create_workflow_run(resume, reset_running_jobs)
+
+        # start task instance scheduler
+        try:
+            self._start_task_instance_scheduler(wfr)
+            wfr.execute_interruptible(fail_fast)
+        finally:
+            # TODO: deal with task instance scheduler process if it was started
+            pass
+
+    def _bind(self, resume: bool = ResumeStatus.DONT_RESUME):
         # short circuit if already bound
         if self.is_bound:
             return
 
         # check if workflow is valid
-        self._dag.validate()  # this does nothing at the moment
+        self._dag.validate()  # TODO: this does nothing at the moment
         self._matching_wf_args_diff_hash()
 
         # bind structural elements to db
@@ -179,72 +214,20 @@ class Workflow(object):
 
         # raise error if workflow exists and is done
         if status == WorkflowStatus.DONE:
-            raise WorkflowAlreadyComplete
+            raise WorkflowAlreadyComplete(
+                f"Workflow id ({workflow_id}) is already in done state and "
+                "cannot be resumed")
 
-        if workflow_id is not None:
-            if resume:
-                if status == WorkflowStatus.RUNNING:
-                    # TODO
-                    # tell a previous workflow_run to kill itself.
-                    # go into wait loop waiting for workflow to move to error.
-                    # consider pulling code from
-                    # workflow_run.kill_previous_workflow_runs
-                    raise NotImplementedError
-                if status == WorkflowStatus.CREATED:
-                    # TODO
-                    # here we can directly set the workflow state because the
-                    # workflow_run hasn't started yet. There could be races so
-                    # needs to be carefully designed
-                    raise NotImplementedError
-
-                # TODO
-                # what happens if the workflow is in other states? what about
-                # if the previous workflow belongs to another user?
-            else:
-                raise WorkflowAlreadyExists(
-                    "This workflow already exist. If you are trying to "
-                    "resume a workflow, please set the resume flag  of the"
-                    " workflow. If you are not trying to resume a "
-                    "workflow, make sure the workflow args are unique or "
-                    "the tasks are unique")
+        if workflow_id is not None and not resume:
+            raise WorkflowAlreadyExists(
+                "This workflow already exist. If you are trying to "
+                "resume a workflow, please set the resume flag  of the"
+                " workflow. If you are not trying to resume a "
+                "workflow, make sure the workflow args are unique or "
+                "the tasks are unique")
         else:
             workflow_id = self._add_workflow()
-            status = WorkflowStatus.REGISTERED
         self._workflow_id = workflow_id
-
-        # add tasks to workflow
-        try:
-            # TODO: confirm executor parameters executor class matches
-            # job instance state controller executor type
-
-            for task in self.tasks.values():
-                task.workflow_id = self.workflow_id
-                task.bind()
-        except Exception:
-            # set to aborted unless we are getting 500s
-            pass
-        else:
-            # set to bound unless we are getting 500s
-            pass
-
-    def run(self,
-            fail_fast: bool = False,
-            seconds_until_timeout: int = 36000,
-            resume: bool = ResumeStatus.DONT_RESUME,
-            reset_running_jobs: bool = True):
-
-        # bind to database
-        self._bind(resume, reset_running_jobs)
-
-        raise ValueError
-        # create swarmtasks
-        swarm_tasks = []
-        for task in self.tasks.values():
-            swarm_tasks.append(self._create_swarm_task(task))
-
-        # create workflow_run and execute it
-        wfr = self._create_workflow_run()
-        wfr.execute_interruptible()
 
     def _matching_wf_args_diff_hash(self):
         """Check """
@@ -278,9 +261,10 @@ class Workflow(object):
             request_type='get'
         )
         if return_code != StatusCodes.OK:
-            raise ValueError(f'Unexpected status code {return_code} from GET '
-                             f'request through route /workflow. Expected code '
-                             f'200. Response content: {response}')
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from GET '
+                f'request through route /workflow. Expected code '
+                f'200. Response content: {response}')
         return response['workflow_id'], response["status"]
 
     def _add_workflow(self) -> int:
@@ -299,23 +283,79 @@ class Workflow(object):
             request_type='post'
         )
         if return_code != StatusCodes.OK:
-            raise ValueError(f'Unexpected status code {return_code} from PUT '
-                             f'request through route {app_route}. Expected '
-                             f'code 200. Response content: {response}')
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
         return response["workflow_id"]
 
-    def _create_swarm_task(self, task: Task) -> SwarmTask:
-        swarm_task = SwarmTask(
-            task_id=task.task_id,
-            status=task.status,
-            task_args_hash=task.task_args_hash,
-            executor_parameters=task.executor_parameters,
-            max_attempts=task.max_attempts)
-        return swarm_task
+    def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
+                             reset_running_jobs: bool = True) -> WorkflowRun:
+        swarm_tasks: Dict[int, SwarmTask] = {}
+        # create workflow run
+        wfr = WorkflowRun(
+            workflow_id=self.workflow_id,
+            executor_class=self._executor.__class__.__name__,
+            resume=resume,
+            reset_running_jobs=reset_running_jobs,
+            requester=self.requester)
 
-    def _create_workflow_run(self) -> WorkflowRun:
-        return WorkflowRun(
-            workflow_id=self.workflow_id)
+        try:
+            for task in self.tasks.values():
+                # bind tasks
+                task.workflow_id = self.workflow_id
+                task.bind()
+
+                # create swarmtasks
+                swarm_task = SwarmTask(
+                    task_id=task.task_id,
+                    status=task.status,
+                    task_args_hash=task.task_args_hash,
+                    executor_parameters=task.executor_parameters,
+                    max_attempts=task.max_attempts)
+                swarm_tasks[task.task_id] = swarm_task
+
+            # create relationships on swarm tasks
+            for task in self.tasks.values():
+                swarm_task = swarm_tasks[task.task_id]
+                swarm_task.upstream_swarm_tasks = set([
+                    swarm_tasks[t.task_id] for t in task.upstream_tasks])
+                swarm_task.downstream_swarm_tasks = set([
+                    swarm_tasks[t.task_id] for t in task.downstream_tasks])
+
+            # add swarm tasks to workflow run
+            wfr.swarm_tasks = swarm_tasks
+        except Exception:
+            # update status then raise
+            wfr.update_status(WorkflowRunStatus.ABORTED)
+            raise
+        else:
+            wfr.update_status(WorkflowRunStatus.BOUND)
+
+        return wfr
+
+    def _update_status(self, status):
+        """Update the workflow with the status passed in"""
+        app_route = f'/workflow/{self.workflow_id}/update_status'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={'status': status},
+            request_type='put')
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
+
+    def _start_task_instance_scheduler(self, workflow_run):
+        try:
+            pass
+        except KeyboardInterrupt:
+            workflow_run.update_status(WorkflowRunStatus.STOPPED)
+            raise
+        except Exception:
+            workflow_run.update_status(WorkflowRunStatus.ERROR)
+            raise
 
     def __hash__(self):
         hash_value = hashlib.sha1()
@@ -324,27 +364,6 @@ class Workflow(object):
         hash_value.update(str(self.task_hash).encode('utf-8'))
         hash_value.update(str(hash(self._dag)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
-
-    # def _reset_tasks(self):
-    #     """Reset all incomplete jobs of a dag_id, identified by self.dag_id"""
-    #     logger.info(f"Reset tasks for dag_id {self.dag_id}")
-    #     rc, _ = self.requester.send_request(
-    #         app_route='/task_dag/{}/reset_incomplete_tasks'.format(self.dag_id),
-    #         message={},
-    #         request_type='post')
-    #     if rc != StatusCodes.OK:
-    #         raise InvalidResponse(f"{rc}: Could not reset tasks")
-    #     return rc
-
-    # def _update_status(self, status):
-    #     """Update the workflow with the status passed in"""
-    #     rc, response = self.requester.send_request(
-    #         app_route='/workflow',
-    #         message={'wf_id': str(self.id), 'status': status,
-    #                  'status_date': str(datetime.utcnow())},
-    #         request_type='put')
-    #     wf_dct = response['workflow_dct']
-    #     self.wf_dao = WorkflowDAO.from_wire(wf_dct)
 
     # def report(self, dag_status, n_new_done, n_prev_done, n_failed):
     #     """Return the status of this workflow"""

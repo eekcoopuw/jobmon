@@ -59,6 +59,10 @@ class TaskInstance(DB.Model):
         # task instance submission hit weird bug and didn't get an executor_id
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.NO_EXECUTOR_ID),
 
+        # task instance is mid submission and a new workflow run starts and
+        # tells it to die
+        (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.KILL_SELF),
+
         # task instance logs running before submitted due to race condition
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.RUNNING),
 
@@ -77,6 +81,12 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
          TaskInstanceStatus.RESOURCE_ERROR),
 
+        # task instance is submitted to the batch executor waiting to start
+        # running. new workflow run is created and this task is told to kill
+        # itself
+        (TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+         TaskInstanceStatus.KILL_SELF),
+
         # task instance hits an application error (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.ERROR),
 
@@ -88,6 +98,10 @@ class TaskInstance(DB.Model):
         # resource error.
         # 2) worker node detects a resource error
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.RESOURCE_ERROR),
+
+        # task instance is running. another workflow run starts and tells it to
+        # die
+        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.KILL_SELF),
 
         # task instance finishes normally (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.DONE)
@@ -132,17 +146,31 @@ class TaskInstance(DB.Model):
         # remote exit status but can't find it so logs an unknown error.
         # The worker finishes gracefully before reconciler can log an unknown
         # error
-        (TaskInstanceStatus.DONE, TaskInstanceStatus.UNKNOWN_ERROR)
+        (TaskInstanceStatus.DONE, TaskInstanceStatus.UNKNOWN_ERROR),
+
+        # task is reset by workflow resume and worker finishes gracefully but
+        # resume won the race
+        (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.DONE),
+
+        # task is reset by workflow resume and worker finishes with application
+        # error but resume won the race
+        (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.ERROR),
+
+        # task is reset by workflow resume and reconciler or worker node
+        # discovers resource error, but resume won the race
+        (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.RESOURCE_ERROR)
     ]
 
     kill_self_states = [TaskInstanceStatus.NO_EXECUTOR_ID,
                         TaskInstanceStatus.UNKNOWN_ERROR,
-                        TaskInstanceStatus.RESOURCE_ERROR]
+                        TaskInstanceStatus.RESOURCE_ERROR,
+                        TaskInstanceStatus.KILL_SELF]
 
     error_states = [TaskInstanceStatus.NO_EXECUTOR_ID,
                     TaskInstanceStatus.ERROR,
                     TaskInstanceStatus.UNKNOWN_ERROR,
-                    TaskInstanceStatus.RESOURCE_ERROR]
+                    TaskInstanceStatus.RESOURCE_ERROR,
+                    TaskInstanceStatus.KILL_SELF]
 
     def transition(self, new_state):
         """Transition the TaskInstance status"""
@@ -160,7 +188,7 @@ class TaskInstance(DB.Model):
 
     def _validate_transition(self, new_state):
         """Ensure the TaskInstance status transition is valid"""
-        if self.status in self.__class__.kill_self_states and \
+        if self.status in self.kill_self_states and \
                 new_state is TaskInstanceStatus.RUNNING:
             raise KillSelfTransition('TaskInstance', self.id, self.status,
                                      new_state)

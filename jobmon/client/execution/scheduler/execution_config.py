@@ -3,6 +3,7 @@ import os
 
 from jobmon import config
 
+
 logger = logging.getLogger(__file__)
 
 
@@ -19,7 +20,7 @@ def derive_jobmon_command_from_env():
     return None
 
 
-class ClientConfig(object):
+class ExecutionConfig(object):
     """
     This is intended to be a singleton. Any other usage should be done with
     CAUTION.
@@ -27,23 +28,16 @@ class ClientConfig(object):
 
     @classmethod
     def from_defaults(cls):
-        return cls(host=config.jobmon_server_sqdn,
-                   port=config.jobmon_service_port,
-                   jobmon_command=derive_jobmon_command_from_env(),
+        return cls(jobmon_command=derive_jobmon_command_from_env(),
                    reconciliation_interval=config.reconciliation_interval,
                    heartbeat_interval=config.heartbeat_interval,
-                   report_by_buffer=config.report_by_buffer)
+                   report_by_buffer=config.report_by_buffer,
+                   n_queued=1000)
 
-    def __init__(self, host, port, jobmon_command, reconciliation_interval,
-                 heartbeat_interval, report_by_buffer):
-
-        self.host = host
-        self.port = port
+    def __init__(self, jobmon_command, reconciliation_interval,
+                 heartbeat_interval, report_by_buffer, n_queued):
         self.jobmon_command = jobmon_command
         self.reconciliation_interval = reconciliation_interval
         self.heartbeat_interval = heartbeat_interval
         self.report_by_buffer = report_by_buffer
-
-    @property
-    def url(self):
-        return "http://{h}:{p}".format(h=self.host, p=self.port)
+        self.n_queued = n_queued

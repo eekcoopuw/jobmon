@@ -158,6 +158,7 @@ class Task:
 
     @property
     def status(self):
+        # TODO: remove status from this object
         if not hasattr(self, "_status"):
             raise AttributeError("status cannot be accessed before task is "
                                  "bound")

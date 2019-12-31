@@ -1,12 +1,11 @@
+import atexit
 import os
 import pkg_resources
 import shutil
 from typing import List, Tuple, Dict, Optional, Type, Union
-from jobmon.client import client_config
-from jobmon.client.swarm.executors.sge_parameters import SGEParameters
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.client.swarm import SwarmLogging as logging
 
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +14,7 @@ class ExecutorParameters:
     """Base parameter class for executors, each executor has specific '
     parameters and must validate them accordingly"""
 
-    _strategies = {'SGEExecutor': SGEParameters}
+    _strategies: dict = {}
 
     def __init__(self,
                  num_cores: Optional[int] = None,
@@ -65,7 +64,7 @@ class ExecutorParameters:
         logger.debug("resource_scales: " + str(resource_scales))
 
         StrategyCls = self._strategies.get(executor_class)
-        self._strategy: Optional[SGEParameters] = None
+        self._strategy: Optional[Type[ExecutorParameters]] = None
         if StrategyCls is not None:
             StrategyCls.set_executor_parameters_strategy(self)
 
@@ -163,11 +162,29 @@ class Executor:
     These methods will allow jobmon to identify jobs that have been lost
     and retry them.
     """
-    ExecutorParameters_cls: Type[ExecutorParameters] = ExecutorParameters
 
     def __init__(self, *args, **kwargs) -> None:
         self.temp_dir: Optional[str] = None
+        self.started = False
+        atexit.register(self.stop)
         logger.info("Initializing {}".format(self.__class__.__name__))
+
+    def start(self, jobmon_command=None):
+        self.jobmon_command = jobmon_command
+        self.started = True
+
+    def stop(self):
+        self.started = False
+
+    @property
+    def jobmon_command(self):
+        return self._jobmon_command
+
+    @jobmon_command.setter
+    def jobmon_command(self, val):
+        if val is None:
+            val = shutil.which("jobmon_command")
+        self._jobmon_command = val
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters) -> int:
@@ -206,6 +223,7 @@ class Executor:
         raise NotImplementedError
 
     def build_wrapped_command(self, command: str, task_instance_id: int,
+                              heartbeat_interval: int, report_by_buffer: float,
                               last_nodename: Optional[str] = None,
                               last_process_group_id: Optional[int] = None
                               ) -> str:
@@ -222,17 +240,14 @@ class Executor:
             (str) unwrappable command
 
         """
-        jobmon_command = client_config.jobmon_command
-        if not jobmon_command:
-            jobmon_command = shutil.which("jobmon_command")
         wrapped_cmd = [
-            jobmon_command,
             "--command", f"'{command}'",
             "--task_instance_id", task_instance_id,
-            "--expected_jobmon_version", pkg_resources.get_distribution("jobmon").version,
+            "--expected_jobmon_version",
+            pkg_resources.get_distribution("jobmon").version,
             "--executor_class", self.__class__.__name__,
-            "--heartbeat_interval", client_config.heartbeat_interval,
-            "--report_by_buffer", client_config.report_by_buffer
+            "--heartbeat_interval", heartbeat_interval,
+            "--report_by_buffer", report_by_buffer
         ]
         if self.temp_dir and 'stata' in command:
             wrapped_cmd.extend(["--temp_dir", self.temp_dir])

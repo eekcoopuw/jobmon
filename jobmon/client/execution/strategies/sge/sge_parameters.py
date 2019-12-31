@@ -1,19 +1,11 @@
 import os
 from typing import Tuple, Union, Dict, Optional
 
-from jobmon.client.swarm import SwarmLogging as logging
+from jobmon.client._logging import ClientLogging as logging
+from jobmon.client.execution.strategies.sge_queue import SGE_ALL_Q, \
+    SGE_GEOSPATIAL_Q, SGE_I_Q, SGE_LONG_Q
 
 logger = logging.getLogger(__name__)
-
-MIN_MEMORY_GB = 0.128
-MAX_MEMORY_GB = 512
-
-MAX_CORES = 56
-MAX_CORES_GEOSPATIAL = 64
-MAX_CORES_C2 = 100
-
-MAX_RUNTIME_ALL = 259200
-MAX_RUNTIME_LONG = 1382400
 
 
 class SGEParameters:
@@ -73,6 +65,10 @@ class SGEParameters:
         if resource_scales is None:
             resource_scales = {'m_mem_free': 0.5, 'max_runtime_seconds': 0.5}
         self.resource_scales = resource_scales
+        self.max_memory_gb = None
+        self.min_memory_gb = None
+        self.max_cores = None
+        self.max_runtime = None
 
     @classmethod
     def set_executor_parameters_strategy(cls, executor_parameters):
@@ -104,11 +100,12 @@ class SGEParameters:
         If the object is valid, return an empty string, otherwise return an
         error message
         """
+        q_msg, queue = self._validate_queue()
+        self._set_max_limits(queue)
         cores_msg, _ = self._validate_num_cores()
         mem_msg, _ = self._validate_memory()
         runtime_msg, _ = self._validate_runtime()
         j_msg, _ = self._validate_j_resource()
-        q_msg, _ = self._validate_queue()
         scales_msg, _ = self._validate_resource_scales()
         if cores_msg or mem_msg or runtime_msg or j_msg or q_msg:
             msg = "You have one or more resource errors that was adjusted "
@@ -120,11 +117,12 @@ class SGEParameters:
         return msg
 
     def validate(self) -> None:
+        _, q = self._validate_queue()
+        self.queue = q
+        self._set_max_limits(q)
         _, cores = self._validate_num_cores()
         _, mem = self._validate_memory()
         _, j = self._validate_j_resource()
-        _, q = self._validate_queue()
-        self.queue = q
         # set queue so that runtime can be validated accordingly
         _, runtime = self._validate_runtime()
         _, resource_scales = self._validate_resource_scales()
@@ -169,17 +167,17 @@ class SGEParameters:
         logger.debug(f"scaling cores by {scale_by}")
         cores = int(self.num_cores *
                     (1 + float(self.resource_scales.get('num_cores', 0))))
-        if cores > MAX_CORES:
-            cores = MAX_CORES
+        if cores > self.max_cores:
+            cores = self.max_cores
         self.num_cores = cores
 
     def _scale_m_mem_free(self):
         scale_by = self.resource_scales.get('m_mem_free')
         logger.debug(f"scaling mem by {scale_by}")
-        mem = float(self.m_mem_free * \
-              (1 + float(self.resource_scales.get('m_mem_free', 0))))
-        if mem > MAX_MEMORY_GB:
-            mem = MAX_MEMORY_GB
+        mem = float(self.m_mem_free *
+                    (1 + float(self.resource_scales.get('m_mem_free', 0))))
+        if mem > self.max_memory_gb:
+            mem = self.max_memory_gb
         self.m_mem_free = mem
 
     def _scale_max_runtime_seconds(self):
@@ -189,14 +187,16 @@ class SGEParameters:
                       (1 + float(self.resource_scales.get('max_runtime_seconds', 0))))
 
         # check that new resources have not exceeded limits
-        if runtime > MAX_RUNTIME_ALL and 'all' in self.queue:
+        if runtime > self.max_runtime and 'all' in self.queue:
             if not self.hard_limits:
-                logger.debug("runtime exceeded limits of all.q, moving to long.q")
+                logger.debug(
+                    "runtime exceeded limits of all.q, moving to long.q")
                 self.queue = 'long.q'
-                if runtime > MAX_RUNTIME_LONG:
-                    runtime = MAX_RUNTIME_LONG
+                self._set_max_limits()
+                if runtime > self.max_runtime:
+                    runtime = self.max_runtime
             else:
-                runtime = MAX_RUNTIME_ALL
+                runtime = SGE_ALL_Q.max_runtime_seconds
 
         self.max_runtime_seconds = runtime
 
@@ -204,12 +204,7 @@ class SGEParameters:
         """Ensure cores requested isn't more than available on that
         node.
         """
-        max_cores = MAX_CORES
-        if self.queue is not None:
-            if 'c2' in self.queue:
-                max_cores = MAX_CORES_C2
-            elif self.queue == "geospatial.q":
-                max_cores = MAX_CORES_GEOSPATIAL
+        max_cores = self.max_cores
         if self.num_cores is None:
             return "\n Cores: No cores specified, setting num_cores to 1", 1
         elif self.num_cores not in range(1, max_cores + 1):
@@ -248,12 +243,12 @@ class SGEParameters:
         mem = self.m_mem_free
         if mem is None:
             mem = 1  # set to 1G
-        if mem < MIN_MEMORY_GB:
-            mem = MIN_MEMORY_GB
+        if mem < self.min_memory_gb:
+            mem = self.min_memory_gb
             return f"\n Memory: You requested below the minimum amount of " \
                    f"memory, set to {mem}", mem
-        if mem > MAX_MEMORY_GB:
-            mem = MAX_MEMORY_GB
+        if mem > self.max_memory_gb:
+            mem = self.max_memory_gb
             return f"\n Memory: You requested above the maximum amount of " \
                    f" memory, set to the max allowed which is {mem}", mem
         return "", mem
@@ -271,13 +266,13 @@ class SGEParameters:
                    f" Received {self.max_runtime_seconds}, " \
                    f"setting to 24 hours", (24 * 60 * 60)
         # make sure the time is below the cap if they provided a queue
-        if self.max_runtime_seconds > MAX_RUNTIME_LONG and 'long' in self.queue:
+        if self.max_runtime_seconds > SGE_LONG_Q.max_runtime_seconds and 'long' in self.queue:
             return f"Runtime exceeded maximum for long.q, setting to 16 days", \
-                   MAX_RUNTIME_LONG
-        elif self.max_runtime_seconds > MAX_RUNTIME_ALL and self.hard_limits:
+                SGE_LONG_Q.max_runtime_seconds
+        elif self.max_runtime_seconds > SGE_ALL_Q.max_runtime_seconds and self.hard_limits:
             return f"Runtime exceeded maximum for all.q and the user has set " \
                 f"hard_limits to be enforced, therefore max_runtime is being " \
-                f"capped at the all.q maximum", MAX_RUNTIME_ALL
+                f"capped at the all.q maximum", SGE_ALL_Q.max_runtime_seconds
         return "", self.max_runtime_seconds
 
     def _validate_j_resource(self) -> Tuple[str, bool]:
@@ -288,11 +283,15 @@ class SGEParameters:
 
     def _validate_queue(self) -> Tuple[str, Union[str, None]]:
         if self.max_runtime_seconds:
-            if self.max_runtime_seconds > MAX_RUNTIME_ALL and not \
+            if self.max_runtime_seconds > SGE_ALL_Q.max_runtime_seconds and not \
                     self.hard_limits:
                 if self.queue is None or 'long' not in self.queue:
                     return f"\n Queue: queue provided has insufficient " \
                            f"max runtime, moved to long.q", 'long.q'
+            elif self.queue is None and "el7" in self._cluster:
+                return f"\n Queue: no queue was provided, setting to all.q", \
+                       'all.q'
+
         elif self.queue is None and "el7" in self._cluster:
             return f"\n Queue: no queue was provided, setting to all.q", \
                    'all.q'
@@ -300,7 +299,8 @@ class SGEParameters:
 
     def _validate_resource_scales(self) -> Tuple[str, dict]:
         scales = self.resource_scales
-        valid_resource_keys = ['m_mem_free', 'max_runtime_seconds', 'num_cores']
+        valid_resource_keys = ['m_mem_free',
+                               'max_runtime_seconds', 'num_cores']
         msg = ""
         if scales:
             for key in scales:
@@ -316,3 +316,36 @@ class SGEParameters:
         else:
             scales = {}
         return msg, scales
+
+    def _set_max_limits(self, queue: str):
+        if queue == "all.q":
+            self.max_runtime = SGE_ALL_Q.max_runtime_seconds
+            self.max_memory_gb = SGE_ALL_Q.max_memory_gb
+            self.min_memory_gb = SGE_ALL_Q.min_memory_gb
+            self.max_cores = SGE_ALL_Q.max_threads
+
+        elif queue == "long.q":
+            self.max_runtime = SGE_LONG_Q.max_runtime_seconds
+            self.max_memory_gb = SGE_LONG_Q.max_memory_gb
+            self.min_memory_gb = SGE_LONG_Q.min_memory_gb
+            self.max_cores = SGE_ALL_Q.max_threads
+
+        elif queue == "geospatial.q":
+            self.max_runtime = SGE_GEOSPATIAL_Q.max_runtime_seconds
+            self.max_memory_gb = SGE_GEOSPATIAL_Q.max_memory_gb
+            self.min_memory_gb = SGE_GEOSPATIAL_Q.min_memory_gb
+            self.max_cores = SGE_GEOSPATIAL_Q.max_threads
+
+        elif queue == "i.q":
+            self.max_runtime = SGE_I_Q.max_runtime_seconds
+            self.max_memory_gb = SGE_I_Q.max_memory_gb
+            self.min_memory_gb = SGE_I_Q.min_memory_gb
+            self.max_cores = SGE_I_Q.max_threads
+
+        else:
+            logger.info("Unknown SGE queue name. Validating resources against "
+                        "all.q standards")
+            self.max_runtime = SGE_ALL_Q.max_runtime_seconds
+            self.max_memory_gb = SGE_ALL_Q.max_memory_gb
+            self.min_memory_gb = SGE_ALL_Q.min_memory_gb
+            self.max_cores = SGE_ALL_Q.max_threads

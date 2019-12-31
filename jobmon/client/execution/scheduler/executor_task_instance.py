@@ -8,6 +8,7 @@ from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.serializers import SerializeExecutorTaskInstance
 from jobmon.client.swarm import SwarmLogging as logging
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,15 +27,15 @@ class ExecutorTaskInstance:
     def __init__(self,
                  task_instance_id: int,
                  executor: Executor,
-                 executor_id: Optional[int] = None,
-                 requester: Requester = shared_requester):
+                 requester: Requester,
+                 executor_id: Optional[int] = None):
 
         self.task_instance_id = task_instance_id
         self.executor_id = executor_id
 
         # interfaces to the executor and server
         self.executor = executor
-        self.requester = shared_requester
+        self.requester = requester
 
     @classmethod
     def from_wire(cls,
@@ -51,6 +52,7 @@ class ExecutorTaskInstance:
                 being run on
             requester (Requester, shared_requester): requester for
                 communicating with central services
+                  requester: Requester
 
         Returns:
             ExecutorTaskInstance
@@ -64,19 +66,18 @@ class ExecutorTaskInstance:
     @classmethod
     def register_task_instance(cls,
                                task_id: int,
-                               executor: Executor
+                               executor: Executor,
+                               requester: Requester
                                ) -> "ExecutorTaskInstance":
         """register a new task instance for an existing task_id
 
         Args:
             task_id (int): the task_id to register this instance with
             executor (Executor): which executor to schedule this task on
-
-        Returns:
-            ExecutorJobInstance
+            requester: requester for communicating with central services
         """
 
-        rc, response = shared_requester.send_request(
+        rc, response = requester.send_request(
             app_route='/task_instance',
             message={'task_id': task_id,
                      'executor_type': executor.__class__.__name__},
@@ -87,7 +88,7 @@ class ExecutorTaskInstance:
         """register that submission failed with the central service
 
         Args:
-            executor_id (int): placeholder executor id. generall -9999
+            executor_id: placeholder executor id. generall -9999
         """
         self.executor_id = executor_id
         self.requester.send_request(
@@ -101,14 +102,15 @@ class ExecutorTaskInstance:
         """register the submission of a new task instance to batch execution
 
         Args:
-            executor (int): executor id created by executor for this task
+            executor_id (int): executor id created by executor for this task
                 instance
-            next_report_increment (float): how many seconds to wait for
-                report or status update before considering the job lost
+            next_report_increment: how many seconds to wait for
+                report or status update before considering the task lost
         """
         self.executor_id = executor_id
+        app_route = f'/task_instance/{self.task_instance_id}/log_executor_id'
         self.requester.send_request(
-            app_route=f'/task_instance/{self.task_instance_id}/log_executor_id',
+            app_route=app_route,
             message={'executor_id': str(executor_id),
                      'next_report_increment': next_report_increment},
             request_type='post')
@@ -122,21 +124,22 @@ class ExecutorTaskInstance:
         try:
             error_state, msg = self.executor.get_remote_exit_info(executor_id)
         except RemoteExitInfoNotAvailable:
-            msg = ("Unknown error caused job to be lost")
+            msg = ("Unknown error caused task to be lost")
             logger.warning(msg)
             error_state = TaskInstanceStatus.UNKNOWN_ERROR
 
         # this is the 'happy' path. The executor gives us a concrete error for
-        # the lost job
+        # the lost task
         if error_state == TaskInstanceStatus.RESOURCE_ERROR:
-            logger.info("log_error resource error for executor_id {}".format(executor_id))
+            logger.info(
+                f"log_error resource error for executor_id {executor_id}")
             message = {
                 "error_message": msg,
                 "error_state": error_state,
                 "executor_id": executor_id
             }
         # this is the 'unhappy' path. We are giving up discovering the exit
-        # state and moving the job into unknown error state
+        # state and moving the task into unknown error state
         else:
             logger.info(f"Giving up discovering the exit state for "
                         f"executor_id {executor_id} with error_state "
@@ -147,6 +150,7 @@ class ExecutorTaskInstance:
             }
         self.requester.send_request(
             app_route=(
-                f'/task_instance/{self.task_instance_id}/log_error_reconciler'),
+                f"/task_instance/{self.task_instance_id}/"
+                "log_error_reconciler"),
             message=message,
             request_type='post')

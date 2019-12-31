@@ -1,17 +1,17 @@
 import os
 from subprocess import check_output
 import traceback
+import logging
 from typing import List, Tuple, Dict, Optional
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon.client import shared_requester
-from jobmon.client.swarm.executors import (Executor, TaskInstanceExecutorInfo,
-                                           sge_utils, ExecutorParameters)
+from jobmon.client.execution.strategies import (
+    Executor, TaskInstanceExecutorInfo, sge_utils, ExecutorParameters)
+
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute
-from jobmon.client.swarm import SwarmLogging as logging
 
 logger = logging.getLogger(__name__)
 
@@ -43,23 +43,15 @@ class SGEExecutor(Executor):
                 sge_jid = int(resp.split()[idx + 1])
             else:
                 logger.error(f"The qsub was successfully submitted, but the "
-                             f"task id could not be parsed from the response: "
+                             f"job id could not be parsed from the response: "
                              f"{resp}")
                 sge_jid = qsub_attribute.UNPARSABLE
             return sge_jid
 
         except Exception as e:
-            stack = traceback.format_exc()
-            logger.error(f"*** Caught during qsub {e}")
-            logger.error(f"Traceback {stack}")
-            logger.error("qsub response: {resp}")
-            msg = (
-                f"Error in executor {self.__class__.__name__}, {str(self)} "
-                f"while executing command {qsub_cmd}: \n{stack}")
-            shared_requester.send_request(
-                app_route="/error_logger",
-                message={"traceback": msg},
-                request_type="post")
+            logger.error(
+                f"Error in {self.__class__.__name__} while running {qsub_cmd}:"
+                f"\n{e}")
             if isinstance(e, ValueError):
                 raise e
             return qsub_attribute.NO_EXEC_ID
@@ -73,7 +65,7 @@ class SGEExecutor(Executor):
                      f"{executor_parameters.j_resource},"
                      f" {executor_parameters.context_args}")
         qsub_command = self._build_qsub_command(
-            base_cmd=command,
+            base_cmd=self.jobmon_command + " " + command,
             name=name,
             mem=executor_parameters.m_mem_free,
             cores=executor_parameters.num_cores,
@@ -119,6 +111,15 @@ class SGEExecutor(Executor):
             sge_utils.qdel(exec_ids_for_deletion)
         return deleted_tis
 
+    def terminate_all_jis_for_resume(self, exec_ids: List[int]):
+        """Terminates all job instances that are in a non-terminal state so
+        that a resume can occur safely"""
+        logger.debug(f"Going to terminate: {exec_ids}")
+        if len(exec_ids) == 0:
+            return []
+        else:
+            sge_utils.qdel(exec_ids)
+
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
         """return the exit state associated with a given exit code"""
         exit_code, reason = sge_utils.qacct_exit_status(executor_id)
@@ -134,16 +135,17 @@ class SGEExecutor(Executor):
                        f"code:{exit_code}.")
             return TaskInstanceStatus.RESOURCE_ERROR, msg
         elif exit_code == ReturnCodes.WORKER_NODE_ENV_FAILURE:
-            msg = "There is a discrepancy between the environment that your " \
-                  "workflow swarm node is accessing and the environment that " \
-                  "your worker node is accessing, because of this they will " \
-                  "not be able to access the correct jobmon services." \
-                  " Please check that they are accessing the environments " \
-                  "as expected (check qsub that was submitted for hints). " \
-                  "CHECK YOUR BASH PROFILE as it may contain a path that " \
-                  "references a different version of jobmon than you intend " \
-                  f"to use. {self.__class__.__name__} accounting discovered " \
-                  f"exit code: {exit_code}"
+            msg = (
+                "There is a discrepancy between the environment that your "
+                "workflow swarm node is accessing and the environment that "
+                "your worker node is accessing, because of this they will "
+                "not be able to access the correct jobmon services."
+                " Please check that they are accessing the environments "
+                "as expected (check qsub that was submitted for hints). "
+                "CHECK YOUR BASH PROFILE as it may contain a path that "
+                "references a different version of jobmon than you intend "
+                f"to use. {self.__class__.__name__} accounting discovered "
+                f"exit code: {exit_code}")
             # TODO change this to a fatal error so they can't attempt a retry
             return TaskInstanceStatus.UNKNOWN_ERROR, msg
         else:
@@ -277,16 +279,17 @@ class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
                    error_msg)
             return TaskInstanceStatus.RESOURCE_ERROR, msg
         elif exit_code == ReturnCodes.WORKER_NODE_ENV_FAILURE:
-            msg = "There is a discrepancy between the environment that your " \
-                  "workflow swarm node is accessing and the environment that " \
-                  "your worker node is accessing, because of this they will " \
-                  "not be able to access the correct jobmon services." \
-                  " Please check that they are accessing the environments " \
-                  "as expected (check qsub that was submitted for hints). " \
-                  "CHECK YOUR BASH PROFILE as it may contain a path that " \
-                  "references a different version of jobmon than you intend " \
-                  f"to use. {self.__class__.__name__} accounting discovered " \
-                  f"exit code: {exit_code}"
+            msg = (
+                "There is a discrepancy between the environment that your "
+                "workflow swarm node is accessing and the environment that "
+                "your worker node is accessing, because of this they will "
+                "not be able to access the correct jobmon services."
+                " Please check that they are accessing the environments "
+                "as expected (check qsub that was submitted for hints). "
+                "CHECK YOUR BASH PROFILE as it may contain a path that "
+                "references a different version of jobmon than you intend "
+                f"to use. {self.__class__.__name__} accounting discovered "
+                f"exit code: {exit_code}")
             # TODO change this to a fatal error so they can't attempt a retry
             return TaskInstanceStatus.UNKNOWN_ERROR, msg
         else:

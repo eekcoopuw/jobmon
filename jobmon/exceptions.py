@@ -40,3 +40,7 @@ class WorkflowAlreadyExists(Exception):
 
 class WorkflowAlreadyComplete(Exception):
     pass
+
+
+class MultipleWorkflowRuns(Exception):
+    pass

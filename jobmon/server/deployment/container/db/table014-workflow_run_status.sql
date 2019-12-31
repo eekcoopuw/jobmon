@@ -12,5 +12,5 @@ CREATE TABLE `workflow_run_status` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 LOCK TABLES `workflow_run_status` WRITE;
-INSERT INTO `workflow_run_status` VALUES ('D','DONE'),('E','ERROR'),('R','RUNNING'),('S','STOPPED');
+INSERT INTO `workflow_run_status` VALUES ('C', 'CREATED'),('D','DONE'),('E','ERROR'),('R','RUNNING'),('S','STOPPED');
 UNLOCK TABLES;

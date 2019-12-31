@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 
-from jobmon.server.config import ServerConfig
+from jobmon.server.server_config import ServerConfig
 from jobmon.server.server_logging import jobmonLogging
 
 

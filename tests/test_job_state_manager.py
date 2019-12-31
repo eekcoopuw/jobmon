@@ -126,7 +126,8 @@ def test_get_workflow_run_id(db_cfg, real_wf_id):
                  'project': 'proj_tools',
                  'slack_channel': "",
                  'executor_class': 'SGEExecutor',
-                 'working_dir': ""},
+                 'working_dir': "",
+                 'jobmon_version': "0.0.1"},
         request_type='post')
     wf_run_id = response['workflow_run_id']
     # make sure that the wf run that was just created matches the one that
@@ -138,6 +139,14 @@ def test_get_workflow_run_id(db_cfg, real_wf_id):
         task = DB.session.query(Task).filter_by(task_id=swarm_job.task_id)\
             .first()
         assert wf_run_id == _get_workflow_run_id(task)
+
+    #Testing Jobmon Version
+    _, response = req.send_request(
+        app_route=f'/workflow_run/{wf_run_id}/jobmon_version',
+        message={},
+        request_type='get')
+    jobmon_version = response['jobmon_version']
+    assert jobmon_version == "0.0.1"
 
 
 def test_get_workflow_run_id_no_workflow(real_dag_id, db_cfg):

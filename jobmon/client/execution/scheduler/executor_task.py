@@ -24,9 +24,9 @@ class ExecutorTask:
                  command: str,
                  status: str,
                  executor_parameters: ExecutorParameters,
+                 requester: Requester,
                  last_nodename: Optional[str] = None,
-                 last_process_group_id: Optional[int] = None,
-                 requester: Requester = shared_requester):
+                 last_process_group_id: Optional[int] = None):
         """
         This is a Task object used on the RESTful API client side
         when constructing task instances.

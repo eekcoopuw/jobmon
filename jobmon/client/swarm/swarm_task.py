@@ -1,5 +1,5 @@
 from http import HTTPStatus as StatusCodes
-from typing import Callable, Set
+from typing import Callable, Set, Dict
 
 from jobmon.client.swarm import shared_requester
 from jobmon.exceptions import InvalidResponse
@@ -12,7 +12,7 @@ class SwarmTask(object):
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  executor_parameters: Callable = None, max_attempts: int = 3,
-                 placeholder: bool = False, requester=shared_requester):
+                 requester=shared_requester):
         """
         Link task and job
 
@@ -23,37 +23,29 @@ class SwarmTask(object):
             executor_parameters (Callable): callable to be executed when Task
                 is ready to be run and resources can be assigned
             max_attempts (int): maximum number of task_instances before failure
-            placeholder (bool): if this is a "shell" bound task from a
-                previous run of the same workflow to hold the spot with the
-                correct status or if it is really bound
             requester (Requester): requester to use to contact the flask
                 services
         """
         self.task_id = task_id
         self.status = status
 
-        self.upstream_bound_tasks: Set["SwarmTask"] = set()
-        self.downstream_bound_tasks: Set["SwarmTask"] = set()
+        self.upstream_swarm_tasks: Set["SwarmTask"] = set()
+        self.downstream_swarm_tasks: Set["SwarmTask"] = set()
 
         self.executor_parameters = executor_parameters
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
 
         self.requester = requester
-        self.placeholder = placeholder
 
         # once the callable is evaluated, the resources should be saved here
         self.bound_parameters: list = []
 
-    @classmethod
-    def from_wire(cls, wire_tuple: tuple):
+    @staticmethod
+    def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, "SwarmTask"]):
         kwargs = SerializeSwarmTask.kwargs_from_wire(wire_tuple)
-        return cls(task_id=kwargs["task_id"], status=kwargs["status"],
-                   task_args_hash=kwargs["task_args_hash"])
-
-    @property
-    def is_bound(self):
-        return not self.placeholder
+        swarm_tasks_dict[kwargs["task_id"]].status = kwargs["status"]
+        return swarm_tasks_dict[kwargs["task_id"]]
 
     @property
     def all_upstreams_done(self):
@@ -96,3 +88,6 @@ class SwarmTask(object):
             raise InvalidResponse(f"{rc}: Could not queue task")
         self.status = TaskStatus.QUEUED_FOR_INSTANTIATION
         return rc
+
+    def __hash__(self):
+        return self.task_id

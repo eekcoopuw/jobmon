@@ -3,18 +3,11 @@ import socket
 import traceback
 from typing import Optional, Union, Tuple, Dict
 
-<<<<<<< HEAD:jobmon/client/worker_node/worker_node_task_instance.py
-from jobmon.client import shared_requester
-from jobmon.client.requester import Requester
-from jobmon.client.swarm.executors import TaskInstanceExecutorInfo
-from jobmon.exceptions import ReturnCodes
-from jobmon.client.client_logging import ClientLogging as logging
-=======
-from jobmon.requester import Requester, ConnectionConfig
+from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
+from jobmon.client.requests.requester import Requester
+from jobmon.client.requests.connection_config import ConnectionConfig
 
-from jobmon.execution.strategies.base import JobInstanceExecutorInfo
-from jobmon.execution.worker_node import NodeLogging as logging
->>>>>>> executor-service:jobmon/execution/worker_node/worker_node_job_instance.py
+from jobmon.client.execution.worker_node import NodeLogging as logging
 
 logger = logging.getLogger(__name__)
 
@@ -22,15 +15,9 @@ logger = logging.getLogger(__name__)
 class WorkerNodeTaskInstance:
 
     def __init__(self,
-<<<<<<< HEAD:jobmon/client/worker_node/worker_node_task_instance.py
                  task_instance_id: int,
                  task_instance_executor_info: TaskInstanceExecutorInfo,
-=======
-                 job_instance_id: int,
-                 job_instance_executor_info: JobInstanceExecutorInfo,
-                 requester: Requester = Requester(
-                     ConnectionConfig.from_defaults().url),
->>>>>>> executor-service:jobmon/execution/worker_node/worker_node_job_instance.py
+                 requester: Optional[Requester] = None,
                  nodename: Optional[str] = None,
                  process_group_id: Optional[int] = None):
         """
@@ -49,21 +36,14 @@ class WorkerNodeTaskInstance:
         """
         self.task_instance_id = task_instance_id
         self._executor_id: Optional[int] = None
-        self._nodename = nodename
-        self._process_group_id = process_group_id
-<<<<<<< HEAD:jobmon/client/worker_node/worker_node_task_instance.py
+        self._nodename = None
+        self._process_group_id = None
         self.executor = task_instance_executor_info
-        self.requester = shared_requester
-        logger.info("Instantiated WorkerNodeTaskInstance")
-        logger.info(f"task_instance_id: {task_instance_id}; "
-                    f"nodename: + {nodename}")
-=======
-        self.executor = job_instance_executor_info
+        if requester is None:
+            requester = Requester(ConnectionConfig.from_defaults().url, logger)
         self.requester = requester
-        logger.info("Instantiated JobInstanceIntercom")
-        logger.info(
-            f"job_instance_id: {job_instance_id}; nodename: + {nodename}")
->>>>>>> executor-service:jobmon/execution/worker_node/worker_node_job_instance.py
+        logger.info(f"Instantiated WorkerNodeTaskInstance task_instance_id: "
+                    f" {task_instance_id}; nodename: + {nodename}")
 
     @property
     def executor_id(self) -> Optional[int]:
@@ -181,7 +161,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.info("No Task ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=(f'/task_instance/{self.task_instance_id}/log_report_by'),
+            app_route=f'/task_instance/{self.task_instance_id}/log_report_by',
             message=message,
             request_type='post')
         return rc
