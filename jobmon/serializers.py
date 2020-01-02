@@ -64,13 +64,15 @@ class SerializeSwarmTask:
 class SerializeExecutorTaskInstance:
 
     @staticmethod
-    def to_wire(task_instance_id: int, executor_id: Union[int, None]) -> tuple:
-        return task_instance_id, executor_id
+    def to_wire(task_instance_id: int, workflow_run_id: int,
+                executor_id: Union[int, None]) -> tuple:
+        return task_instance_id, workflow_run_id, executor_id
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        executor_id = int(wire_tuple[1]) if wire_tuple[1] else None
+        executor_id = int(wire_tuple[2]) if wire_tuple[2] else None
         return {"task_instance_id": int(wire_tuple[0]),
+                "workflow_run_id": int(wire_tuple[1]),
                 "executor_id": executor_id}
 
 

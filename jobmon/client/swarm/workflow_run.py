@@ -104,7 +104,7 @@ class WorkflowRun(object):
         """List of tasks that are listed as Registered, Done or Error_Fatal"""
         terminal_status = [
             TaskStatus.REGISTERED, TaskStatus.DONE, TaskStatus.ERROR_FATAL]
-        return [task for task in self.bound_tasks.values()
+        return [task for task in self.swarm_tasks.values()
                 if task.status not in terminal_status]
 
     def execute_interruptible(self, fail_fast: bool = False):
@@ -282,7 +282,7 @@ class WorkflowRun(object):
     def _bind_parameters(self, task_id: int,
                          executor_parameter_set_type: ExecutorParameterSetType,
                          **kwargs):
-        swarm_task = kwargs.get("bound_task")
+        swarm_task = kwargs.get("swarm_task")
         resources = swarm_task.executor_parameters(kwargs)
         if not isinstance(resources, ExecutorParameters):
             raise CallableReturnedInvalidObject(

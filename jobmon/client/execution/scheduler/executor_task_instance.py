@@ -1,9 +1,10 @@
+from http import HTTPStatus as StatusCodes
 from typing import Optional
 
 from jobmon.client.swarm import shared_requester
 from jobmon.client.requests.requester import Requester
-from jobmon.client.swarm.executors import Executor
-from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.client.execution.strategies.base import Executor
+from jobmon.exceptions import RemoteExitInfoNotAvailable, InvalidResponse
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.serializers import SerializeExecutorTaskInstance
 from jobmon.client.swarm import SwarmLogging as logging
@@ -26,11 +27,13 @@ class ExecutorTaskInstance:
 
     def __init__(self,
                  task_instance_id: int,
+                 workflow_run_id: int,
                  executor: Executor,
                  requester: Requester,
                  executor_id: Optional[int] = None):
 
         self.task_instance_id = task_instance_id
+        self.workflow_run_id = workflow_run_id
         self.executor_id = executor_id
 
         # interfaces to the executor and server
@@ -59,6 +62,7 @@ class ExecutorTaskInstance:
         """
         kwargs = SerializeExecutorTaskInstance.kwargs_from_wire(wire_tuple)
         return cls(task_instance_id=kwargs["task_instance_id"],
+                   workflow_run_id=kwargs["workflow_run_id"],
                    executor=executor,
                    executor_id=kwargs["executor_id"],
                    requester=requester)
@@ -66,6 +70,7 @@ class ExecutorTaskInstance:
     @classmethod
     def register_task_instance(cls,
                                task_id: int,
+                               workflow_run_id: int,
                                executor: Executor,
                                requester: Requester
                                ) -> "ExecutorTaskInstance":
@@ -77,24 +82,39 @@ class ExecutorTaskInstance:
             requester: requester for communicating with central services
         """
 
+        app_route = '/task_instance'
         rc, response = requester.send_request(
-            app_route='/task_instance',
+            app_route=app_route,
             message={'task_id': task_id,
+                     'workflow_run_id': workflow_run_id,
                      'executor_type': executor.__class__.__name__},
             request_type='post')
+        if rc != StatusCodes.OK:
+            message = (f"error in {app_route}. Received response code {rc}. "
+                       f"Response was {response}")
+            logger.error(message)
+            raise InvalidResponse(message)
+
         return cls.from_wire(response['task_instance'], executor=executor)
 
-    def register_no_exec_id(self, executor_id: int) -> None:
+    def register_no_executor_id(self, executor_id: int) -> None:
         """register that submission failed with the central service
 
         Args:
             executor_id: placeholder executor id. generall -9999
         """
         self.executor_id = executor_id
-        self.requester.send_request(
-            app_route=f'/task_instance/{self.task_instance_id}/log_no_exec_id',
+
+        app_route = (
+            f'/task_instance/{self.task_instance_id}/log_no_executor_id')
+        rc, response = self.requester.send_request(
+            app_route=app_route,
             message={'executor_id': executor_id},
             request_type='post')
+        if rc != StatusCodes.OK:
+            message = (f"error in {app_route}. Received response code {rc}. "
+                       f"Response was {response}")
+            logger.error(message)
 
     def register_submission_to_batch_executor(self, executor_id: int,
                                               next_report_increment: float
@@ -108,23 +128,28 @@ class ExecutorTaskInstance:
                 report or status update before considering the task lost
         """
         self.executor_id = executor_id
+
         app_route = f'/task_instance/{self.task_instance_id}/log_executor_id'
-        self.requester.send_request(
+        rc, response = self.requester.send_request(
             app_route=app_route,
             message={'executor_id': str(executor_id),
                      'next_report_increment': next_report_increment},
             request_type='post')
+        if rc != StatusCodes.OK:
+            message = (f"error in {app_route}. Received response code {rc}. "
+                       f"Response was {response}")
+            logger.error(message)
 
     def log_error(self) -> None:
         """Log an error from the executor loops"""
         if self.executor_id is None:
             raise ValueError("executor_id cannot be None during log_error")
         executor_id: int = self.executor_id
-        logger.info("log_error for executor_id {}".format(executor_id))
+        logger.info(f"log_error for executor_id {executor_id}")
         try:
             error_state, msg = self.executor.get_remote_exit_info(executor_id)
         except RemoteExitInfoNotAvailable:
-            msg = ("Unknown error caused task to be lost")
+            msg = ("Unknown error caused task instance to be lost")
             logger.warning(msg)
             error_state = TaskInstanceStatus.UNKNOWN_ERROR
 
@@ -148,9 +173,14 @@ class ExecutorTaskInstance:
                 "error_message": msg,
                 "error_state": error_state
             }
-        self.requester.send_request(
-            app_route=(
+
+        app_route = (
                 f"/task_instance/{self.task_instance_id}/"
-                "log_error_reconciler"),
+                "log_error_reconciler")
+        rc, response = self.requester.send_request(
+            app_route=app_route,
             message=message,
             request_type='post')
+        if rc != StatusCodes.OK:
+            logger.error(f"error in {app_route}. Received response code {rc}. "
+                         f"Response was {response}")

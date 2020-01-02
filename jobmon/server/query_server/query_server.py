@@ -25,7 +25,9 @@ from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.server_logging import jobmonLogging as logging
 
-jqs = Blueprint("job_query_server", __name__)
+
+# TODO: rename?
+jqs = Blueprint("query_server", __name__)
 
 logger = logging.getLogger(__name__)
 
@@ -304,61 +306,69 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash):
     return resp
 
 
-# @jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
-#            methods=['GET'])
-# def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
-#     """Returns oldest n tasks (or all tasks if total queued tasks < n) to be
-#     instantiated. Because the SGE can only qsub tasks at a certain rate, and we
-#     poll every 10 seconds, it does not make sense to return all tasks that are
-# =======
-# @jqs.route('/queued_jobs/<n_queued_jobs>', methods=['GET'])
-# def get_queued_jobs(n_queued_jobs: int) -> Dict:
-#     """Returns oldest n jobs (or all jobs if total queued jobs < n) to be
-#     instantiated. Because the SGE can only qsub jobs at a certain rate, and we
-#     poll every 10 seconds, it does not make sense to return all jobs that are
-# >>>>>>> executor-service
-#     queued because only a subset of them can actually be instantiated
-#     Args:
-#         last_sync (datetime): time since when to get tasks
-#     """
+# ############################ SCHEDULER ROUTES ###############################
+@jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
+           methods=['GET'])
+def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
+    """Returns oldest n tasks (or all tasks if total queued tasks < n) to be
+    instantiated. Because the SGE can only qsub tasks at a certain rate, and we
+    poll every 10 seconds, it does not make sense to return all tasks that are
+    queued because only a subset of them can actually be instantiated
+    Args:
+        last_sync (datetime): time since when to get tasks
+    """
 
-#     time = get_time(DB.session)
-# <<<<<<< HEAD
-#     tasks = DB.session.query(Task). \
-#         filter(
-#             Task.workflow_id == workflow_id,
-#             Task.status == TaskStatus.QUEUED_FOR_INSTANTIATION,
-#             Task.status_date >= last_sync).\
-#         order_by(Task.task_id).\
-#         limit(n_queued_tasks)
-# =======
+    # TODO: this is where we would filter by task priority
+    query = """
+        SELECT
+            task_instance.id, task_instance.workflow_run_id,
+            task_instance.executor_id
+        FROM
+            task
+        WHERE
+            task.workflow_id = :workflow_id
+            AND task.status = :task_status
+        ORDER BY task.task_id
+        LIMIT :n_queued_jobs"""
+    tasks = DB.session.query(Task).from_statement(text(query)).params(
+        workflow_id=workflow_id,
+        task_status=TaskStatus.QUEUED_FOR_INSTANTIATION,
+        n_queued_jobs=int(n_queued_tasks)
+    ).all()
+    DB.session.commit()
+    task_dcts = [t.to_wire_as_executor_task() for t in tasks]
+    resp = jsonify(task_dcts=task_dcts)
+    resp.status_code = StatusCodes.OK
+    return resp
 
-#     # TODO: this is where we would filter by workflow priority
-#     query = """
-#         SELECT
-#             job.*
-#         FROM
-#             job
-#         JOIN workflow
-#             on job.dag_id = workflow.dag_id
-#         WHERE
-#             workflow.status in :workflow_status
-#             AND job.status = :job_status
-#             AND job.status_date >= :last_sync
-#         ORDER BY job.job_id
-#         LIMIT :n_queued_jobs"""
-#     jobs = DB.session.query(Job).from_statement(text(query)).params(
-#         workflow_status=[WorkflowStatus.CREATED, WorkflowStatus.RUNNING],
-#         job_status=JobStatus.QUEUED_FOR_INSTANTIATION,
-#         last_sync=request.args.get('last_sync', '2010-01-01 00:00:00'),
-#         n_queued_jobs=int(n_queued_jobs)
-#     ).all()
-# >>>>>>> executor-service
-#     DB.session.commit()
-#     task_dcts = [t.to_wire_as_executor_task() for t in tasks]
-#     resp = jsonify(task_dcts=task_dcts, time=time)
-#     resp.status_code = StatusCodes.OK
-#     return resp
+
+@jqs.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
+           methods=['GET'])
+def get_suspicious_task_instances(workflow_run_id):
+    # query all job instances that are submitted to executor or running which
+    # haven't reported as alive in the allocated time.
+
+    query = """
+    SELECT
+        task_instance.id, task_instance.workflow_run_id,
+        task_instance.executor_id
+    FROM
+        task_instance
+    WHERE
+        task_instance.workflow_run_id = :workflow_run_id
+        AND task_instance.status in :active_tasks
+        AND task_instance.report_by_date <= UTC_TIMESTAMP()
+    """
+    rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
+        active_jobs=[TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                     TaskInstanceStatus.RUNNING],
+        workflow_run_id=workflow_run_id
+    ).all()
+    DB.session.commit()
+    resp = jsonify(task_instances=[ti.to_wire_as_executor_task_instance()
+                                   for ti in rows])
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 # @jqs.route('/workflow/<workflow_id>/task_status', methods=['GET'])
@@ -451,57 +461,6 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash):
 # #     resp.status_code = StatusCodes.OK
 # #     return resp
 
-
-# <<<<<<< HEAD
-# @jqs.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
-#            methods=['GET'])
-# def get_suspicious_job_instances(workflow_run_id):
-#     # query all task instances that are submitted to executor or running which
-# =======
-# # TODO: may want to filter this route by jobmon version or scheduler instance?
-# @jqs.route('/get_suspicious_job_instances', methods=['GET'])
-# def get_suspicious_job_instances():
-#     # query all job instances that are submitted to executor or running which
-# >>>>>>> executor-service
-#     # haven't reported as alive in the allocated time.
-#     # ignore task instances created after heartbeat began. We'll reconcile them
-#     # during the next reconciliation loop.
-# <<<<<<< HEAD
-#     rows = DB.session.query(TaskInstance).\
-#         filter_by(workflow_run_id=workflow_run_id).\
-#         filter(TaskInstance.status.in_([TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-#         TaskInstanceStatus.RUNNING])).\
-#         join(WorkflowRun, WorkflowRun.id == TaskInstance.workflow_run_id). \
-#         filter(TaskInstance.submitted_date <= WorkflowRun.heartbeat_date). \
-#         filter(TaskInstance.report_by_date <= func.UTC_TIMESTAMP()). \
-#         with_entities(TaskInstance.id, TaskInstance.executor_id). \
-#         all()
-#     DB.session.commit()
-#     task_instances = [TaskInstance(task_instance_id=row[0], executor_id=row[1])
-#                       for row in rows]
-#     resp = jsonify(task_instances=[ti.to_wire_as_executor_task_instance()
-#                                   for ti in task_instances])
-# =======
-
-#     query = """
-#     SELECT
-#         job_instance.job_instance_id, job_instance.executor_id
-#     FROM
-#         job_instance
-#     WHERE
-#         job_instance.status in :active_jobs
-#         AND job_instance.report_by_date <= UTC_TIMESTAMP()
-#     """
-#     rows = DB.session.query(JobInstance).from_statement(text(query)).params(
-#         active_jobs=[JobInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-#                      JobInstanceStatus.RUNNING]
-#     ).all()
-#     DB.session.commit()
-#     resp = jsonify(job_instances=[ji.to_wire_as_executor_job_instance()
-#                                   for ji in rows])
-# >>>>>>> executor-service
-#     resp.status_code = StatusCodes.OK
-#     return resp
 
 
 

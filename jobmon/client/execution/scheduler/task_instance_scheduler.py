@@ -12,6 +12,7 @@ from jobmon.client.execution.scheduler.executor_task_instance import \
     ExecutorTaskInstance
 from jobmon.client.requests.requester import Requester
 from jobmon.client.requests.connection_config import ConnectionConfig
+from jobmon.exceptions import InvalidResponse
 from jobmon.models.attributes.constants import qsub_attribute
 
 
@@ -20,12 +21,14 @@ logger = logging.getLogger(__name__)
 
 class TaskInstanceScheduler:
 
-    def __init__(self, workflow_id: int, executor: Executor,
+    def __init__(self, workflow_id: int, workflow_run_id: int,
+                 executor: Executor,
                  config: ExecutionConfig = ExecutionConfig.from_defaults(),
                  requester: Optional[Requester] = None):
 
         #
         self.workflow_id = workflow_id
+        self.workflow_run_id = workflow_run_id
         self.executor = executor
         self.config = config
         if requester is None:
@@ -111,14 +114,15 @@ class TaskInstanceScheduler:
         """
         try:
             task_instance = ExecutorTaskInstance.register_task_instance(
-                task.task_id, self.executor, self.requester)
+                task.task_id, self.workflow_run_id, self.executor,
+                self.requester)
+        except InvalidResponse:
+            # we can't do anything more at this point so must return None.
+            # error is already logged if invalid response
+            return None
         except Exception as e:
-            msg = (
-                f"Error while creating task instance for workflow_id "
-                f"{self.workflow_id}. Submitting tid {task.task_id} caused the"
-                f" following error:\n{e}")
-            logger.error(msg)
             # we can't do anything more at this point so must return None
+            logger.error(e)
             return None
 
         logger.debug("Executing {}".format(task.command))
@@ -127,7 +131,7 @@ class TaskInstanceScheduler:
         # TODO: remove last_nodename and last_process_group_id
         command = task_instance.executor.build_wrapped_command(
             command=task.command,
-            job_instance_id=task_instance.task_instance_id,
+            task_instance_id=task_instance.task_instance_id,
             heartbeat_interval=self.config.heartbeat_interval,
             report_by_buffer=self.config.report_by_buffer,
             last_nodename=task.last_nodename,
@@ -142,16 +146,15 @@ class TaskInstanceScheduler:
             name=task.name,
             executor_parameters=task.executor_parameters)
         if executor_id == qsub_attribute.NO_EXEC_ID:
-            if executor_id == qsub_attribute.NO_EXEC_ID:
-                logger.debug(f"Received {qsub_attribute.NO_EXEC_ID} meaning "
-                             f"the task did not qsub properly, moving "
-                             f"to 'W' state")
-                task_instance.register_no_exec_id(executor_id=executor_id)
+            logger.debug(f"Received {executor_id} meaning "
+                         f"the task did not qsub properly, moving "
+                         f"to 'W' state")
+            task_instance.register_no_executor_id(executor_id=executor_id)
         elif executor_id == qsub_attribute.UNPARSABLE:
             logger.debug(f"Got response from qsub but did not contain a "
                          f"valid executor_id. Using ({executor_id}), and "
                          f"moving to 'W' state")
-            task_instance.register_no_exec_id(executor_id=executor_id)
+            task_instance.register_no_executor_id(executor_id=executor_id)
         elif executor_id:
             task_instance.register_submission_to_batch_executor(
                 executor_id,
@@ -163,13 +166,14 @@ class TaskInstanceScheduler:
         return task_instance
 
     def _get_tasks_queued_for_instantiation(self) -> List[ExecutorTask]:
-        app_route = f"/workflow/{self.workflow_id}/queued_tasks"
+        app_route = f"/workflow/{self.workflow_id}/queued_tasks/1000"
         rc, response = self.requester.send_request(
             app_route=app_route,
             message={"n_queued": self.config.n_queued},
             request_type='get')
         if rc != StatusCodes.OK:
-            logger.error(f"error in {app_route}")
+            logger.error(f"error in {app_route}. Received response code {rc}. "
+                         f"Response was {response}")
             tasks: List[ExecutorTask] = []
         else:
             tasks = [
@@ -192,21 +196,31 @@ class TaskInstanceScheduler:
                 f"{next_report_increment}s the job instance will be "
                 "moved to error state.")
             actual = []
-        rc, response = self.requester.send_request(
-            app_route=f'/workflow/{self.workflow_id}/log_executor_report_by',
-            message={'executor_ids': actual,
-                     'next_report_increment': next_report_increment},
-            request_type='post')
+
+        if actual:
+            app_route = (
+                f'/workflow_run/{self.workflow_run_id}/log_executor_report_by')
+            rc, response = self.requester.send_request(
+                app_route=app_route,
+                message={'executor_ids': actual,
+                         'next_report_increment': next_report_increment},
+                request_type='post')
+            if rc != StatusCodes.OK:
+                logger.error(f"error in {app_route}. Received response code "
+                             f"{rc}. Response was {response}")
 
     def _account_for_lost_task_instances(self) -> None:
         app_route = (
-            f'/workflow/{self.workflow_id}/get_suspicious_task_instances')
+            f'/workflow_run/{self.workflow_run_id}/'
+            'get_suspicious_task_instances')
         rc, response = self.requester.send_request(
             app_route=app_route,
             message={},
             request_type='get')
         if rc != StatusCodes.OK:
             lost_task_instances: List[ExecutorTaskInstance] = []
+            logger.error(f"error in {app_route}. Received response code "
+                         f"{rc}. Response was {response}")
         else:
             lost_task_instances = [
                 ExecutorTaskInstance.from_wire(ti, self.executor,

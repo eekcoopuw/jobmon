@@ -67,15 +67,15 @@ class SwarmTask(object):
         """Return a list of upstream tasks"""
         return list(self.upstream_bound_tasks)
 
-    def update_task(self, max_attempts: int):
-        self.max_attempts = max_attempts
+    # def update_task(self, max_attempts: int):
+    #     self.max_attempts = max_attempts
 
-        msg = {'max_attempts': max_attempts}
-        self.requester.send_request(
-            app_route=f'/task/{self.task_id}/update_task',
-            message=msg,
-            request_type='post'
-        )
+    #     msg = {'max_attempts': max_attempts}
+    #     self.requester.send_request(
+    #         app_route=f'/task/{self.task_id}/update_task',
+    #         message=msg,
+    #         request_type='post'
+    #     )
 
     def queue_task(self):
         """Transition a task to the Queued for Instantiation status in the db

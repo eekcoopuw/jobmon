@@ -14,9 +14,9 @@ from time import sleep, time
 from typing import Optional
 
 from jobmon.exceptions import ReturnCodes
-from jobmon.client.worker_node.worker_node_task_instance import (
+from jobmon.client.execution.worker_node.worker_node_task_instance import (
     WorkerNodeTaskInstance)
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client.execution.worker_node._logging import NodeLogging as logging
 
 logger = logging.getLogger(__name__)
 
@@ -177,11 +177,9 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
         logger.warning(stderr)
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
-    # post stats usage. this is a non critical error so catch all exceptions
-    try:
-        worker_node_task_instance.log_task_stats()
-    except (NotImplementedError, Exception) as e:
-        logger.error(e)
+    # post stats usage. this is a non critical error so it catches all
+    # exceptions in the method
+    worker_node_task_instance.log_task_stats()
 
     # check return code
     if returncode != ReturnCodes.OK:

@@ -36,8 +36,8 @@ class WorkerNodeTaskInstance:
         """
         self.task_instance_id = task_instance_id
         self._executor_id: Optional[int] = None
-        self._nodename = None
-        self._process_group_id = None
+        self._nodename: Optional[str] = None
+        self._process_group_id: Optional[int] = None
         self.executor = task_instance_executor_info
         if requester is None:
             requester = Requester(ConnectionConfig.from_defaults().url, logger)
@@ -53,13 +53,13 @@ class WorkerNodeTaskInstance:
         return self._executor_id
 
     @property
-    def nodename(self) -> str:
+    def nodename(self) -> Optional[str]:
         if self._nodename is None:
             self._nodename = socket.getfqdn()
         return self._nodename
 
     @property
-    def process_group_id(self) -> int:
+    def process_group_id(self) -> Optional[int]:
         if self._process_group_id is None:
             self._process_group_id = os.getpid()
         return self._process_group_id

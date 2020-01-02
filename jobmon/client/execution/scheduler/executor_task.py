@@ -2,8 +2,7 @@ from typing import Optional
 
 from jobmon.client.swarm import shared_requester
 from jobmon.client.requests.requester import Requester
-from jobmon.client.swarm.executors import ExecutorParameters
-from jobmon.models.task_status import TaskStatus
+from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.serializers import SerializeExecutorTask
 from jobmon.client.swarm import SwarmLogging as logging
 
@@ -104,12 +103,3 @@ class ExecutorTask:
                 hard_limits=kwargs["hard_limits"]),
             requester=requester)
         return executor_task
-
-    def queue_task(self) -> None:
-        """Transition a task to the Queued for Instantiation status"""
-        app_route = f"/task/{self.task_id}/queue"
-        rc, _ = self.requester.send_request(
-            app_route=app_route,
-            message={},
-            request_type='post')
-        self.status == TaskStatus.QUEUED_FOR_INSTANTIATION

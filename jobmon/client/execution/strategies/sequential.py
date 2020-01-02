@@ -82,7 +82,7 @@ class SequentialExecutor(Executor):
         return executor_id
 
 
-class JobInstanceSequentialInfo(TaskInstanceExecutorInfo):
+class TaskInstanceSequentialInfo(TaskInstanceExecutorInfo):
 
     def __init__(self) -> None:
         self._executor_id: Optional[int] = None

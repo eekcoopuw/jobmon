@@ -13,8 +13,8 @@ logger.info(jobmonLogging.myself())
 def create_app(config=None):
     """Create a Flask app"""
     from jobmon.models import DB
-    from jobmon.server.job_query_server.job_query_server import jqs
-    from jobmon.server.job_state_manager.job_state_manager import jsm
+    from jobmon.server.query_server.query_server import jqs
+    from jobmon.server.update_server.update_server import jsm
     from jobmon.server.job_visualization_server.job_visualization_server \
         import jvs
 

@@ -2,7 +2,7 @@ import os
 from typing import Tuple, Union, Dict, Optional
 
 from jobmon.client._logging import ClientLogging as logging
-from jobmon.client.execution.strategies.sge_queue import SGE_ALL_Q, \
+from jobmon.client.execution.strategies.sge.sge_queue import SGE_ALL_Q, \
     SGE_GEOSPATIAL_Q, SGE_I_Q, SGE_LONG_Q
 
 logger = logging.getLogger(__name__)

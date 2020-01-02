@@ -1,13 +1,13 @@
 import os
 from subprocess import check_output
-import traceback
-import logging
 from typing import List, Tuple, Dict, Optional
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon.client.execution.strategies import (
-    Executor, TaskInstanceExecutorInfo, sge_utils, ExecutorParameters)
+from jobmon.client.execution._logging import NodeLogging as logging
+from jobmon.client.execution.strategies.base import (
+    Executor, TaskInstanceExecutorInfo, ExecutorParameters)
+from jobmon.client.execution.strategies.sge import sge_utils
 
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.task_instance_status import TaskInstanceStatus

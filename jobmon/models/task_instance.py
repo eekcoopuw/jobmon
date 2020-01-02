@@ -17,6 +17,7 @@ class TaskInstance(DB.Model):
 
     def to_wire_as_executor_task_instance(self):
         return SerializeExecutorTaskInstance.to_wire(self.id,
+                                                     self.workflow_run_id,
                                                      self.executor_id)
 
     id = DB.Column(DB.Integer, primary_key=True)
