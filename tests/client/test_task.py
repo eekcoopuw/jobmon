@@ -1,12 +1,12 @@
 import pytest
 
-from jobmon.client.workflow.tool import Tool
-from jobmon.client.workflow.task import Task
-from jobmon.client.swarm.executors.base import ExecutorParameters
+from jobmon.client.tool import Tool
+from jobmon.client.task import Task
+from jobmon.client.execution.strategies.base import ExecutorParameters
 
 
 @pytest.fixture
-def task_template(db_cfg, env_var):
+def task_template(db_cfg, client_env):
     tool = Tool.create_tool(name="unknown")
     tt = tool.get_task_template(
         template_name="my_template",
@@ -55,8 +55,8 @@ def test_hash_name_compatibility(task_template):
     assert "task_" + str(hash(a)) == a.name
 
 
-def test_bash_task_equality(env_var):
-    from jobmon.client.workflow.templates.bash_task import BashTask
+def test_bash_task_equality(client_env):
+    from jobmon.client.templates.bash_task import BashTask
 
     a = BashTask(command="echo 'Hello World'")
     a_again = BashTask(command="echo 'Hello World'")
@@ -67,15 +67,15 @@ def test_bash_task_equality(env_var):
     assert len(b.node.upstream_nodes) == 1
 
 
-def test_hashing_bash_characters(env_var):
-    from jobmon.client.workflow.templates.bash_task import BashTask
+def test_hashing_bash_characters(client_env):
+    from jobmon.client.templates.bash_task import BashTask
 
     a = BashTask(command="touch ~/mytestfile")
     assert a.is_valid_job_name(a.name)
 
 
-def test_bash_task_bind(db_cfg, env_var):
-    from jobmon.client.workflow.templates.bash_task import BashTask
+def test_bash_task_bind(db_cfg, client_env):
+    from jobmon.client.templates.bash_task import BashTask
     from jobmon.models.task import Task
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -100,8 +100,8 @@ def test_bash_task_bind(db_cfg, env_var):
         DB.session.commit()
 
 
-def test_python_task_equality(env_var):
-    from jobmon.client.workflow.templates.python_task import PythonTask
+def test_python_task_equality(client_env):
+    from jobmon.client.templates.python_task import PythonTask
 
     a = PythonTask(script='~/runme.py', args=[1])
     a_again = PythonTask(script='~/runme.py', args=[1])
@@ -113,8 +113,8 @@ def test_python_task_equality(env_var):
     assert b.node.task_template_version_id == a.node.task_template_version_id
 
 
-def test_python_task_args(db_cfg, env_var):
-    from jobmon.client.workflow.templates.python_task import PythonTask
+def test_python_task_args(db_cfg, client_env):
+    from jobmon.client.templates.python_task import PythonTask
     from jobmon.models.task import Task
     import sys
 

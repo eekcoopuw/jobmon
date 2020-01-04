@@ -1,15 +1,15 @@
 import pytest
 import uuid
 
-from jobmon.client.workflow.tool import Tool
+from jobmon.client.tool import Tool
 
 
 @pytest.fixture(scope='function')
-def tool(env_var):
+def tool(client_env):
     return Tool.create_tool(name=str(uuid.uuid4()))
 
 
-def test_create_and_get_task_template(db_cfg, env_var, tool):
+def test_create_and_get_task_template(db_cfg, client_env, tool):
     tt1 = tool.get_task_template(
         template_name="my_template",
         command_template="{op1} {node1} --foo {task1}",
@@ -28,7 +28,7 @@ def test_create_and_get_task_template(db_cfg, env_var, tool):
     assert tt1.task_template_version.id == tt2.task_template_version.id
 
 
-def test_create_new_task_template_version(db_cfg, env_var, tool):
+def test_create_new_task_template_version(db_cfg, client_env, tool):
     tt1 = tool.get_task_template(
         template_name="my_template",
         command_template="{op1} {node1} --foo {task1}",
@@ -51,7 +51,7 @@ def test_create_new_task_template_version(db_cfg, env_var, tool):
         tt2.task_template_version.id_name_map["node1"])
 
 
-def test_invalid_args(db_cfg, env_var, tool):
+def test_invalid_args(db_cfg, client_env, tool):
 
     with pytest.raises(ValueError):
         tool.get_task_template(

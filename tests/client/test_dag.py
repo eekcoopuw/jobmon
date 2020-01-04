@@ -1,12 +1,12 @@
-from jobmon.client.workflow.node import Node
-from jobmon.client.workflow.dag import Dag
+from jobmon.client.node import Node
+from jobmon.client.dag import Dag
 
 
 class MockTask:
     pass
 
 
-def test_dag(env_var, db_cfg):
+def test_dag(client_env, db_cfg):
     """tests ClientDag.bind() - checks that a dag created for the first time
     creates a new db entry, and if it gets bound again a new entry
     won't be created"""

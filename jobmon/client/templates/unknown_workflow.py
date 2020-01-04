@@ -114,14 +114,14 @@ class UnknownWorkflow(Workflow):
         """
         self.executor_class = executor_class
         if self.executor_class == 'SGEExecutor':
-            from jobmon.client.swarm.executors.sge import SGEExecutor
+            from jobmon.client.execution.strategies.sge import SGEExecutor
             self.executor = SGEExecutor(*args, **kwargs)
         elif self.executor_class == "SequentialExecutor":
-            from jobmon.client.swarm.executors.sequential import \
+            from jobmon.client.execution.strategies.sequential import \
                 SequentialExecutor
             self.executor = SequentialExecutor()
         elif self.executor_class == "DummyExecutor":
-            from jobmon.client.swarm.executors.dummy import DummyExecutor
+            from jobmon.client.execution.strategies.dummy import DummyExecutor
             self.executor = DummyExecutor()
         else:
             raise ValueError(f"{executor_class} is not a valid executor_class")

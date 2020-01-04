@@ -47,6 +47,9 @@ class SwarmTask(object):
         swarm_tasks_dict[kwargs["task_id"]].status = kwargs["status"]
         return swarm_tasks_dict[kwargs["task_id"]]
 
+    def to_wire(self):
+        return SerializeSwarmTask.to_wire(self.task_id, self.status)
+
     @property
     def all_upstreams_done(self):
         """Return a bool of if upstreams are done or not"""

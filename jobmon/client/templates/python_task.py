@@ -1,14 +1,9 @@
 import sys
 from typing import Optional, List, Dict, Callable, Union
 
-<<<<<<< HEAD:jobmon/client/templates/python_task.py
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
-=======
-from jobmon.client.workflow.task import Task
-from jobmon.client.workflow.tool import Tool
->>>>>>> f5c68387530f702a91f8ed26b22e9a5c14f26960:jobmon/client/workflow/templates/python_task.py
-from jobmon.client.swarm.executors.base import ExecutorParameters
+from jobmon.client.execution.strategies.base import ExecutorParameters
 
 
 class PythonTask(Task):
@@ -20,10 +15,7 @@ class PythonTask(Task):
                  script=None,
                  args=None,
                  upstream_tasks: List[Task] = [],
-<<<<<<< HEAD:jobmon/client/templates/python_task.py
                  task_attributes: Optional[Union[dict, List]] = {},
-=======
->>>>>>> f5c68387530f702a91f8ed26b22e9a5c14f26960:jobmon/client/workflow/templates/python_task.py
                  env_variables: Optional[Dict[str, str]] = None,
                  name: Optional[str] = None,
                  num_cores: Optional[int] = None,
@@ -45,7 +37,7 @@ class PythonTask(Task):
             script (str): the full path to the python code to run
             args (list): list of arguments to pass in to the script
             upstream_tasks: Task objects that must be run prior to this
-            task_attributes (dict or list): attributes and their values or 
+            task_attributes (dict or list): attributes and their values or
                 just the attributes that will be given values later
             env_variables: any environment variable that should be set
                 for this job, in the form of a key: value pair.
@@ -142,11 +134,7 @@ class PythonTask(Task):
             name=name,
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
-<<<<<<< HEAD:jobmon/client/templates/python_task.py
             task_attributes=task_attributes)
-=======
-            job_attributes=job_attributes)
->>>>>>> f5c68387530f702a91f8ed26b22e9a5c14f26960:jobmon/client/workflow/templates/python_task.py
 
     @classmethod
     def _add_task_template_to_registry(cls, script, task_template):

@@ -1,9 +1,9 @@
 import pytest
 
-from jobmon.client.workflow.tool import Tool, InvalidToolVersionError
+from jobmon.client.tool import Tool, InvalidToolVersionError
 
 
-def test_create_tool(db_cfg, env_var):
+def test_create_tool(db_cfg, client_env):
     t1 = Tool.create_tool(name="foo")
     assert t1.name == "foo"
     # check that we have an id
@@ -17,7 +17,7 @@ def test_create_tool(db_cfg, env_var):
     assert t2.active_tool_version_id == t1.active_tool_version_id
 
 
-def test_create_tool_version(db_cfg, env_var):
+def test_create_tool_version(db_cfg, client_env):
     t1 = Tool.create_tool(name="bar")
     orig_tool_version = t1.active_tool_version_id
 

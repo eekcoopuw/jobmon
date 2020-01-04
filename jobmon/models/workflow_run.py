@@ -23,7 +23,8 @@ class WorkflowRun(DB.Model):
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
     heartbeat_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
-    workflow = DB.relationship("Workflow", backref="workflow_runs", lazy=True)
+    workflow = DB.relationship("Workflow", back_populates="workflow_runs",
+                               lazy=True)
 
     valid_transitions = [
         # a workflow run is created normally. All tasks are updated in the db

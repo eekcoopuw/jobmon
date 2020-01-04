@@ -413,7 +413,7 @@ def _add_or_update_attribute(task_id, name, value):
     return attribute.id
 
 
-@jsm.route('/task/<task_id>/task_attributes', methods='PUT')
+@jsm.route('/task/<task_id>/task_attributes', methods=['PUT'])
 def update_task_attribute(task_id):
     """Add or update attributes for a task"""
     data = request.get_json()
@@ -714,6 +714,94 @@ def queue_job(task_id):
     return resp
 
 
+@jsm.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
+def log_workflow_run_status_update(workflow_run_id):
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
+    data = request.get_json()
+    logger.debug(f"Log status update for workflow_run_id:{workflow_run_id}."
+                 f"Data: {data}")
+
+    workflow_run = DB.session.query(WorkflowRun).filter_by(
+        workflow_run_id=workflow_run_id).one()
+    workflow_run.transition(data["status"])
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+# TODO: currently unused pending review of where it should go
+@jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+def log_wfr_heartbeat(workflow_run_id):
+    """Log a workflow_run as being responsive, with a heartbeat
+    Args:
+
+        workflow_run_id: id of the workflow_run to log
+    """
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
+
+    params = {"workflow_run_id": int(workflow_run_id)}
+    query = """
+        UPDATE workflow_run
+        SET heartbeat_date = UTC_TIMESTAMP()
+        WHERE id = :workflow_run_id"""
+    DB.session.execute(query, params)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/task/<task_id>/update_resources', methods=['POST'])
+def update_task_resources(task_id):
+    """ Change the resources set for a given task
+
+    Args:
+        task_id (int): id of the task for which resources will be changed
+        parameter_set_type (str): parameter set type for this task
+        max_runtime_seconds (int, optional): amount of time task is allowed to
+            run for
+        context_args (dict, optional): unstructured parameters to pass to
+            executor
+        queue (str, optional): sge queue to submit tasks to
+        num_cores (int, optional): how many cores to get from sge
+        m_mem_free ():
+        j_resource (bool, optional): whether to request access to the j drive
+        resource_scales (dict): values to scale by upon resource error
+        hard_limit (bool): whether to move queues if requester resources exceed
+            queue limits
+    """
+
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("task_id", task_id))
+
+    data = request.get_json()
+    parameter_set_type = data["parameter_set_type"]
+
+    exec_params = ExecutorParameterSet(
+        task_id=task_id,
+        parameter_set_type=parameter_set_type,
+        max_runtime_seconds=data.get('max_runtime_seconds', None),
+        context_args=data.get('context_args', None),
+        queue=data.get('queue', None),
+        num_cores=data.get('num_cores', None),
+        m_mem_free=data.get('m_mem_free', 2),
+        j_resource=data.get('j_resource', False),
+        resource_scales=data.get('resource_scales', None),
+        hard_limits=data.get('hard_limits', False))
+    DB.session.add(exec_params)
+    DB.session.flush()  # get auto increment
+    exec_params.activate()
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################## WORKER ROUTES ################################
 
 @jsm.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
@@ -982,175 +1070,6 @@ def _log_error(ti: TaskInstance,
         raise
 
     return resp
-
-
-# # @jsm.route('/job_instance/<job_instance_id>/log_error_health_monitor',
-# #            methods=['POST'])
-# # def log_error_health_monitor(job_instance_id: int):
-# #     """Log a job_instance as errored
-# #     Args:
-# #         job_instance:
-# #         data:
-# #         oom_killed: whether or not given job errored due to an oom-kill event
-# #     """
-# #     logger.info(logging.myself())
-# #     logger.debug(logging.logParameter("job_instance_id", job_instance_id))
-# #     data = request.get_json()
-# #     error_state = data['error_state']
-# #     error_message = data.get('error_message', 'Health monitor synced the state from QPID')
-# #     executor_id = data.get('executor_id', None)
-# #     nodename = data.get('nodename', None)
-# #     logger.debug(f"Log ERROR for JI:{job_instance_id} message={error_message}")
-# #     logger.debug("data:" + str(data))
-
-# #     ji = _get_job_instance(DB.session, job_instance_id)
-
-# #     resp = _log_error(ji, error_state, error_message, executor_id, nodename)
-# #     return resp
-
-
-
-# # @jsm.route('/workflow/<workflow_id>/log_running', methods=['POST'])
-# # def log_workflow_running(workflow_id: int):
-# #     """Log a workflow as running
-
-# #     Args:
-# #         workflow_id: id of the workflow to move to running
-# #     """
-# #     logger.info(logging.myself())
-# #     logger.debug(logging.logParameter("workflow_id", workflow_id))
-
-# #     params = {"workflow_id": int(workflow_id)}
-# #     query = """
-# #         UPDATE workflow
-# #         SET status = 'R'
-# #         WHERE id = :workflow_id"""
-# #     DB.session.execute(query, params)
-# #     DB.session.commit()
-# #     resp = jsonify()
-# #     resp.status_code = StatusCodes.OK
-# #     return resp
-
-
-# @jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
-# def log_wfr_heartbeat(workflow_run_id):
-#     """Log a workflow_run as being responsive, with a heartbeat
-#     Args:
-
-#         workflow_run_id: id of the workflow_run to log
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
-
-#     params = {"workflow_run_id": int(workflow_run_id)}
-#     query = """
-#         UPDATE workflow_run
-#         SET heartbeat_date = UTC_TIMESTAMP()
-#         WHERE id in (:workflow_run_id)"""
-#     DB.session.execute(query, params)
-#     DB.session.commit()
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-# @jsm.route('/task/<task_id>/update_task', methods=['POST'])
-# def update_task(task_id):
-#     """
-#     Change the non-dag forming task parameters before resuming
-#     Args:
-#         task_id (int): id of the task for which parameters are updated
-#         tag (str): a group identifier
-#         max_attempts (int): maximum numver of attempts before sending the task
-#             to the ERROR FATAL state
-#     """
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("task_id", task_id))
-
-#     data = request.get_json()
-#     tag = data.get('tag', None)
-#     max_attempts = data.get('max_attempts', 3)
-
-#     update_job = """
-#                  UPDATE task
-#                  SET tag=:tag, max_attempts=:max_attempts
-#                  WHERE id=:task_id
-#                  """
-#     logger.debug(logging.logParameter("DB.session", DB.session))
-#     DB.session.execute(update_job,
-#                        {"tag": tag,
-#                         "max_attempts": max_attempts,
-#                         "task_id": task_id})
-#     DB.session.commit()
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-# @jsm.route('/task/<task_id>/update_resources', methods=['POST'])
-# def update_task_resources(task_id):
-#     """ Change the resources set for a given task
-
-#     Args:
-#         task_id (int): id of the task for which resources will be changed
-#         parameter_set_type (str): parameter set type for this task
-#         max_runtime_seconds (int, optional): amount of time task is allowed to
-#             run for
-#         context_args (dict, optional): unstructured parameters to pass to
-#             executor
-#         queue (str, optional): sge queue to submit tasks to
-#         num_cores (int, optional): how many cores to get from sge
-#         m_mem_free ():
-#         j_resource (bool, optional): whether to request access to the j drive
-#         resource_scales (dict): values to scale by upon resource error
-#         hard_limit (bool): whether to move queues if requester resources exceed
-#             queue limits
-#     """
-
-#     logger.info(logging.myself())
-#     logger.debug(logging.logParameter("task_id", task_id))
-
-#     data = request.get_json()
-#     parameter_set_type = data["parameter_set_type"]
-
-#     exec_params = ExecutorParameterSet(
-#         task_id=task_id,
-#         parameter_set_type=parameter_set_type,
-#         max_runtime_seconds=data.get('max_runtime_seconds', None),
-#         context_args=data.get('context_args', None),
-#         queue=data.get('queue', None),
-#         num_cores=data.get('num_cores', None),
-#         m_mem_free=data.get('m_mem_free', 2),
-#         j_resource=data.get('j_resource', False),
-#         resource_scales=data.get('resource_scales', None),
-#         hard_limits=data.get('hard_limits', False))
-#     DB.session.add(exec_params)
-#     DB.session.flush()  # get auto increment
-#     exec_params.activate()
-#     DB.session.commit()
-
-#     resp = jsonify()
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-# <<<<<<< HEAD
-# # @jsm.route('/job/<job_id>/reset', methods=['POST'])
-# # def reset_job(job_id):
-# #     """Reset a job and change its status
-# #     Args:
-
-# #         job_id: id of the job to reset
-# #     """
-# #     logger.info(logging.myself())
-# #     logger.debug(logging.logParameter("job_id", job_id))
-# #     job = DB.session.query(Job).filter_by(job_id=job_id).first()
-# #     logger.debug(logging.logParameter("DB.session", DB.session))
-# #     job.reset()
-# #     DB.session.commit()
-# #     resp = jsonify()
-# #     resp.status_code = StatusCodes.OK
-# #     return resp
 
 
 # # @jsm.route('/task_dag/<dag_id>/reset_incomplete_jobs', methods=['POST'])

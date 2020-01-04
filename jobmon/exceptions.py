@@ -44,3 +44,11 @@ class WorkflowAlreadyComplete(Exception):
 
 class MultipleWorkflowRuns(Exception):
     pass
+
+
+class SchedulerStartupTimeout(Exception):
+    pass
+
+
+class SchedulerNotAlive(Exception):
+    pass

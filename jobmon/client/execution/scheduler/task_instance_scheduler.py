@@ -1,8 +1,7 @@
 from http import HTTPStatus as StatusCodes
-# from multiprocessing import Process, Event
 import threading
 import time
-from typing import Optional, List
+from typing import Optional, List, Callable
 
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import Executor
@@ -53,9 +52,12 @@ class TaskInstanceScheduler:
         self._stop_event.set()
         self.executor.stop()
 
-    def run_scheduler(self):
+    def run_scheduler(self, event=None):
         # start up the executor if need be. start reconciliation proc
         self.start()
+
+        if event is not None:
+            event.set()
 
         # instantiation loop
         keep_scheduling = True

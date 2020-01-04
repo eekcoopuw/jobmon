@@ -1,11 +1,11 @@
-from jobmon.client.workflow.node import Node
+from jobmon.client.node import Node
 
 
 class MockTask:
     pass
 
 
-def test_node(env_var, db_cfg):
+def test_node(client_env, db_cfg):
     """tests ClientNode.bind() - checks that a node created for the first time
     creates a new db entry, and if it gets bound again a new entry
     won't be created"""

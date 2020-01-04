@@ -1,6 +1,6 @@
 from jobmon.models import DB
 
-from jobmon.models.attributes.task_instance_attribute_type import \
+from jobmon.models.attributes.task_attribute_type import \
     TaskAttributeType
 
 

@@ -9,7 +9,8 @@ from jobmon.client import shared_requester
 from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.node import Node
 from jobmon.client.requests.requester import Requester
-from jobmon.client.swarm.executors.base import ExecutorParameters
+from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.exceptions import InvalidResponse
 from jobmon.models.task_status import TaskStatus
 
 
@@ -122,12 +123,11 @@ class Task:
         for task in upstream_tasks:
             self.add_upstream(task)
 
+        self.task_attributes: dict = {}
         if isinstance(task_attributes, List):
-            self.task_attributes = {}
             for attr in task_attributes:
                 self.task_attributes[attr] = None
         elif isinstance(task_attributes, dict):
-            self.task_attributes = {}
             for attr in task_attributes:
                 self.task_attributes[str(attr)] = str(task_attributes[attr])
         else:
@@ -224,6 +224,7 @@ class Task:
         return hash_value
 
     def _get_task_id_and_status(self) -> Tuple[Optional[int], Optional[str]]:
+        app_route = '/task'
         return_code, response = self.requester.send_request(
             app_route='/task',
             message={
@@ -234,9 +235,10 @@ class Task:
             request_type='get'
         )
         if return_code != StatusCodes.OK:
-            raise ValueError(f'Unexpected status code {return_code} from GET '
-                             f'request through route /task. Expected code 200.'
-                             f' Response content: {response}')
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from GET '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}')
         return response['task_id'], response['task_status']
 
     def _update_task_parameters(self):
@@ -252,12 +254,13 @@ class Task:
             request_type='put'
         )
         if return_code != StatusCodes.OK:
-            raise ValueError(f'Unexpected status code {return_code} from PUT '
-                             f'request through route {app_route}. Expected '
-                             f'code 200. Response content: {response}')
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from PUT '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}')
         return response["task_attribute_ids"]
 
-    def _add_task(self) -> Tuple[int, dict]:
+    def _add_task(self) -> int:
         app_route = f'/task'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -274,10 +277,13 @@ class Task:
             request_type='post'
         )
         if return_code != StatusCodes.OK:
-            raise ValueError(f'Unexpected status code {return_code} from PUT '
-                             f'request through route {app_route}. Expected '
-                             f'code 200. Response content: {response}')
-        return response["task_id"], response["task_attribute_ids"]
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}')
+        # TODO: figure out why Megan wanted to return
+        # response["task_attribute_ids"]
+        return response["task_id"]
 
     def add_attributes(self, task_attributes: dict):
         """Function that users can call either to update values of existing

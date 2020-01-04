@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Callable, Union
 
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
-from jobmon.client.swarm.executors.base import ExecutorParameters
+from jobmon.client.execution.strategies.base import ExecutorParameters
 
 
 class BashTask(Task):

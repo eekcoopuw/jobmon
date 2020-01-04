@@ -9,7 +9,7 @@ class WorkflowStatus(DB.Model):
     ABORTED = 'A'
     CREATED = 'C'
     RUNNING = 'R'
-    ERROR = 'E'
+    FAILED = 'F'
     DONE = 'D'
 
     id = DB.Column(DB.String(1), primary_key=True)

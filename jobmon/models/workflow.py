@@ -34,7 +34,7 @@ class Workflow(DB.Model):
     status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
     dag = DB.relationship("Dag", back_populates="workflow")
-    workflow_runs = DB.relationship("WorkflowRun", backref="workflow",
+    workflow_runs = DB.relationship("WorkflowRun", back_populates="workflow",
                                     lazy=True)
 
     valid_transitions = [

@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.qsubs_jobs
-def test_wfargs_update(env_var, db_cfg):
+def test_wfargs_update(client_env, db_cfg):
     from jobmon.client.templates.bash_task import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
 
@@ -54,7 +54,7 @@ def test_wfargs_update(env_var, db_cfg):
 #         workflow.execute()
 
 
-def test_workflow_identical_args(env_var, db_cfg):
+def test_workflow_identical_args(client_env, db_cfg):
     from jobmon.client.templates.bash_task import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.exceptions import WorkflowAlreadyExists

@@ -1,18 +1,21 @@
 import hashlib
 from http import HTTPStatus as StatusCodes
-from typing import Optional, List, Tuple, Type, Dict
+from multiprocessing import Process, Event
+from typing import Optional, List, Tuple, Dict
 import uuid
 
 from jobmon.client import shared_requester
 from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.dag import Dag
+from jobmon.client.execution.scheduler.task_instance_scheduler import \
+    TaskInstanceScheduler
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
 from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
-                               InvalidResponse, MultipleWorkflowRuns)
+                               InvalidResponse, SchedulerStartupTimeout)
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
@@ -112,6 +115,7 @@ class Workflow(object):
             hashlib.sha1(self.workflow_args.encode('utf-8')).hexdigest(), 16)
 
         self.requester = requester
+        self._scheduler_proc: Optional[Process] = None
 
     @property
     def is_bound(self):
@@ -165,10 +169,10 @@ class Workflow(object):
         for task in tasks:
             self.add_task(task)
 
-    def set_executor(self, executor: Type[Executor] = None,
+    def set_executor(self, executor: Executor = None,
                      executor_class: Optional[str] = 'SGEExecutor', *args,
                      **kwargs):
-        self._executor: Type[Executor]
+        self._executor: Executor
         if executor is not None:
             self._executor = executor
         else:
@@ -179,7 +183,13 @@ class Workflow(object):
             fail_fast: bool = False,
             seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME,
-            reset_running_jobs: bool = True):
+            reset_running_jobs: bool = True,
+            scheduler_startup_wait_timeout=180):
+
+        # TODO: figure out how to handle when the executor isn't set
+        if not hasattr(self, "_executor"):
+            logger.warning("using default executor")
+            self.set_executor()
 
         # bind to database
         self._bind(resume)
@@ -187,13 +197,24 @@ class Workflow(object):
         # create workflow_run
         wfr = self._create_workflow_run(resume, reset_running_jobs)
 
-        # start task instance scheduler
         try:
-            self._start_task_instance_scheduler(wfr)
-            wfr.execute_interruptible(fail_fast)
+            # start scheduler
+            scheduler_proc = self._start_task_instance_scheduler(
+                wfr.workflow_run_id, scheduler_startup_wait_timeout)
+
+            # execute the workflow run
+            wfr.execute_interruptible(scheduler_proc, fail_fast,
+                                      seconds_until_timeout)
+        except KeyboardInterrupt:
+            wfr.update_status(WorkflowRunStatus.STOPPED)
+            # TODO: report
+        except Exception:
+            wfr.update_status(WorkflowRunStatus.ERROR)
+            raise
         finally:
-            # TODO: deal with task instance scheduler process if it was started
-            pass
+            # deal with task instance scheduler process if it was started
+            if self._scheduler_proc is not None:
+                self._scheduler_proc.terminate()
 
     def _bind(self, resume: bool = ResumeStatus.DONT_RESUME):
         # short circuit if already bound
@@ -334,28 +355,23 @@ class Workflow(object):
 
         return wfr
 
-    def _update_status(self, status):
-        """Update the workflow with the status passed in"""
-        app_route = f'/workflow/{self.workflow_id}/update_status'
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={'status': status},
-            request_type='put')
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+    def _start_task_instance_scheduler(self, workflow_run_id: int,
+                                       scheduler_startup_wait_timeout: int
+                                       ) -> Process:
 
-    def _start_task_instance_scheduler(self, workflow_run):
-        try:
-            pass
-        except KeyboardInterrupt:
-            workflow_run.update_status(WorkflowRunStatus.STOPPED)
-            raise
-        except Exception:
-            workflow_run.update_status(WorkflowRunStatus.ERROR)
-            raise
+        # instantiate scheduler and launch in separate proc. use event to
+        # signal back when scheduler is started
+        scheduler = TaskInstanceScheduler(self.workflow_id, workflow_run_id,
+                                          self._executor)
+        event = Event()
+        self._scheduler_proc = Process(target=scheduler.run_scheduler,
+                                       args=[event])
+        self._scheduler_proc.start()
+        if not event.wait(scheduler_startup_wait_timeout):
+            raise SchedulerStartupTimeout(
+                "Scheduler process did not start within the alloted timeout "
+                f"t={scheduler_startup_wait_timeout}s")
+        return self._scheduler_proc
 
     def __hash__(self):
         hash_value = hashlib.sha1()
