@@ -1421,3 +1421,29 @@ def ji_nonterminal_state_to_k_state(workflow_run_id: int):
     resp.status_code = StatusCodes.OK
 
     return resp
+
+
+@jsm.route('/job_instance/<executor_id>/maxpss/<maxpss>', methods=['POST'])
+def set_maxpss(executor_id: int, maxpss: int):
+    """
+    Route to set maxpss of a job instance
+    :param executor_id: sge execution id
+    :return:
+    """
+    logger.debug(logging.myself())
+    logging.logParameter("executor_id", executor_id)
+    logging.logParameter("maxpss", maxpss)
+
+    try:
+        sql = f"UPDATE job_instance SET maxpss={maxpss} WHERE executor_id={executor_id}"
+        DB.session.execute(sql)
+        DB.session.commit()
+        resp = jsonify(message=None)
+        resp.status_code = StatusCodes.OK
+    except Exception as e:
+        msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id, error=str(e))
+        logger.error(msg)
+        resp = jsonify(message=msg)
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+    finally:
+        return resp

@@ -708,3 +708,27 @@ def get_workflow_run_status(workflow_run_id: int):
         resp = jsonify("No workflow run found")
         resp.status_code = StatusCodes.NO_CONTENT
         return resp
+
+
+@jqs.route('/job_instance/<job_instance_id>/maxpss', methods=['GET'])
+def get_ji_maxpss(job_instance_id: int):
+    """
+        Route the maxpss of a certain job instance
+        :param job_instance_id:
+        :return: error message
+        """
+
+    logger.debug(logging.myself())
+    logging.logParameter("job_instance_id", job_instance_id)
+
+    query = "SELECT maxpss FROM job_instance WHERE job_instance_id = {}".format(job_instance_id)
+    result = DB.session.execute(query)
+    resp = jsonify({})
+    resp.status_code = 404
+    for r in result:
+        maxpss = r[0]
+        resp = jsonify({"maxpss": maxpss})
+        resp.status_code = StatusCodes.OK
+        break
+    DB.session.commit()
+    return resp

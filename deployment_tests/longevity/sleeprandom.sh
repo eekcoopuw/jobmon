@@ -1,3 +1,3 @@
 #!/bin/bash
 
-sleep $(($RANDOM % 120))
+sleep $((600 + RANDOM % 120))

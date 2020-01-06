@@ -13,10 +13,13 @@ from jobmon.client import BashTask
 This script creates workflows with random tasks and random task dependencies,
 and starts multiple threads to continually add new workflows in a given time. 
 """
+NAME_PREFIX = "LX113"
+MAX_TIERS = 4
+MAX_TASKS_IN_TIERS = 2000
+MIN_TASKS_IN_TIERS = 1000
+TOTAL_THREADS = 2
+INCLUDE_FAILED = False
 
-MAX_TIERS = 6
-MAX_TASKS_IN_TIERS = 50
-TOTAL_THREADS = 10
 MYDIR = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 MYSCRIPT = "{}/sleeprandom.sh".format(MYDIR)
 
@@ -42,7 +45,7 @@ class NameGenerator:
         return NameGenerator._counter
 
 
-def random_pick_from_lists(lists, ran_max=4):
+def random_pick_from_lists(lists, ran_max=2):
     return_list = []
     for list in lists:
         for a in list[0:-1]:
@@ -61,6 +64,7 @@ def create_bashtask(upstream_tasks):
 def create_wf():
     # max tier 5
     wf_name = "longevity-test-{}".format(NameGenerator.get())
+    wf_name = NAME_PREFIX + wf_name
     user = getpass.getuser()
     wf = Workflow(wf_name, wf_name,
                   stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wf_name}",
@@ -73,7 +77,7 @@ def create_wf():
     for i in range(0, tiers):
         logger.debug("Tier {}".format(i))
         tasks.append([])
-        for t in range(0, randint(1, MAX_TASKS_IN_TIERS)):
+        for t in range(0, randint(MIN_TASKS_IN_TIERS, MAX_TASKS_IN_TIERS)):
             upstream_tasks = None
             if i > 0:
                 upstream_tasks = random_pick_from_lists(tasks[:i])
@@ -92,6 +96,7 @@ def create_wf():
 
 def create_simple_wf():
     wf_name = "simple-wf-{}".format(NameGenerator.get())
+    wf_name = NAME_PREFIX + wf_name
     user = getpass.getuser()
     wf = Workflow(wf_name, wf_name,
                   stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wf_name}",
@@ -122,8 +127,9 @@ if __name__ == "__main__":
 
     # Create a failed WF by modifying the sleeprandom.sh permission. This is for upgrading test to resume a
     # failed WF created in former version.
-    os.system("chmod 400 {}".format(MYSCRIPT))
-    create_simple_wf()
+    if INCLUDE_FAILED:
+       os.system("chmod 400 {}".format(MYSCRIPT))
+       create_simple_wf()
     os.system("chmod 755 {}".format(MYSCRIPT))
 
     # Continue creating wf for given times
