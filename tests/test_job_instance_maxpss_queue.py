@@ -1,14 +1,14 @@
 import pytest
 from threading import Thread
-from time import sleep
+from time import sleep, time
 from unittest import mock
 
-from jobmon.server.integration.qpid.qpid_integrator import MaxpssQ, maxpss_forever
+from jobmon.server.integration.qpid.qpid_integrator import MaxpssQ, maxpss_forever, _get_completed_job_instance
 from jobmon.client import shared_requester as req
 from jobmon.client.swarm.executors.sge import SGEExecutor
-from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.bash_task import BashTask
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
+from jobmon.models.job_status import JobStatus
 
 
 @pytest.mark.unittest
@@ -114,5 +114,41 @@ def test_worker_with_mock_500():
         assert r[1] > 0
 
 
+def test_route_get_maxpss_error_path():
+    """This is to test the restful API to get maxpss of a job instance in jobmon side"""
+    MaxpssQ().empty_q()
+    # test non-existing ji
+    code, _ = req.send_request(
+        app_route='/job_instance/9999/maxpss',
+        message={},
+        request_type='get')
+    assert code == 404
 
+
+@pytest.mark.unittest
+def test_get_completed_job_instance(db_cfg, dag_factory):
+    app = db_cfg["app"]
+    MaxpssQ().empty_q()
+    t = time()
+
+    # add a real task
+    name = 'bash_task'
+    cmd = 'date'
+    task = BashTask(command=cmd, name=name, m_mem_free='1G', max_attempts=2,
+                    num_cores=1, max_runtime_seconds=120)
+    executor = SGEExecutor(project='proj_tools')
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
+
+    assert rc == DagExecutionStatus.SUCCEEDED
+    assert num_completed == 1
+    job_list_manager = real_dag.job_list_manager
+    assert job_list_manager.status_from_task(task) == JobStatus.DONE
+
+    with mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_current_app') as m_app:
+        m_app.return_value = app
+        _get_completed_job_instance(t)
+        assert MaxpssQ().get_size() == 1
 

@@ -50,12 +50,13 @@ def _get_qpid_response(ex_id, age):
 
 
 def _get_completed_job_instance(starttime: float):
-    db = SQLAlchemy(_App.get_app())
-    sql = f"SELECT executor_id, status_date, UNIX_TIMESTAMP(status_date) from job_instance " \
+    db = SQLAlchemy( _get_current_app())
+    sql = "SELECT executor_id from job_instance " \
           "where status not in (\"B\", \"I\", \"R\", \"W\") " \
-          "and UNIX_TIMESTAMP(status_date)>{starttime}" \
-          "and maxpss is null"
+          "and UNIX_TIMESTAMP(status_date) > {} " \
+          "and maxpss is null".format(starttime)
     rs = db.session.execute(sql).fetchall()
+    db.session.commit()
     for r in rs:
         MaxpssQ().put(int(r[0]))
 
@@ -85,7 +86,7 @@ def maxpss_forever():
                     logger.warning(f"Failed to update db, put {ex_id} back to the queue.")
         # Query DB to add newly completed jobs to q and log q length every 30 minute
         current_time = time()
-        if int(current_time - last_heartbeat) / 60 > 30:
+        if int(current_time - last_heartbeat) > 1800:
             logger.info("MaxpssQ length: {}".format(MaxpssQ().get_size()))
             try:
                 _get_completed_job_instance(last_heartbeat)
