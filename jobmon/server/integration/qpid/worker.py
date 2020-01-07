@@ -1,13 +1,12 @@
 from time import sleep, time
 import requests
-from threading import Thread
+from flask import Flask, Blueprint, jsonify
 
 from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon import config
 from jobmon.server.integration.qpid.maxpss_queue import MaxpssQ
-from jobmon.models import DB
-from jobmon.server import create_app
-from jobmon.server.config import ServerConfig
+from jobmon.server.integration.qpid.qpid_integration_server import qpid
+from jobmon.server import app
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +17,9 @@ class _App:
     @staticmethod
     def get_app():
         if _App._app is None:
-            config = ServerConfig.from_defaults()
-            logger.debug("DB config: {}".format(config))
-            _App._app = create_app(config)
-            DB.init_app(_App._app)
-            # get database name
-            uri = _App._app.config['SQLALCHEMY_DATABASE_URI']
-            _App._app._database = uri.split("/")[-1]
+            _App._app = app
+            # register blueprints
+            app.register_blueprint(qpid)
         return _App._app
 
 
@@ -34,9 +29,9 @@ def _get_current_app():
 
 
 def _update_maxpss_in_db(ex_id: int, pss: int):
-    jobmon_api_url = f"{config.jobmon_server_sqdn}:{config.jobmon_service_port}/{ex_id}/maxpss/{pss}"
+    jobmon_api_url = f"http://{config.jobmon_server_sqdn}:{config.jobmon_service_port}/job_instance/{ex_id}/maxpss/{pss}"
     logger.info(jobmon_api_url)
-    resp = requests.get(jobmon_api_url)
+    resp = requests.post(jobmon_api_url)
     if resp.status_code == 200:
         return True
     if resp.status_code == 500:
@@ -57,7 +52,7 @@ def _get_qpid_response(ex_id, age):
         return (200, maxpss)
 
 
-def updating_worker():
+def maxpss_forever():
     """A never stop method running in a thread to constantly query the maxpss value from qpid for completed jobmon jobs.
        If the maxpss is not found in qpid, put the execution id back to the queue.
     """
@@ -81,7 +76,7 @@ def updating_worker():
                 else:
                     MaxpssQ().put(ex_id, age + 1)
                     logger.warning(f"Failed to update db, put {ex_id} back to the queue.")
-        # Log q length every 30 minute, so we know the thread is still alive
+        # Log q length every 30 minute, so we know it is still alive
         current_time = time()
         if int(current_time - last_heartbeat) / 60 > 30:
             logger.info("MaxpssQ length: {}".format(MaxpssQ().get_size()))

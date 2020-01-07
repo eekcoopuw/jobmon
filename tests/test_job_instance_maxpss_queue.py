@@ -3,10 +3,9 @@ from threading import Thread
 from time import sleep
 from unittest import mock
 
-from jobmon.server.integration.qpid.worker import MaxpssQ, updating_worker
-from jobmon.server.integration.qpid.maxpss_queue import maxpss_queue_client as client
-from jobmon.server.integration.qpid.maxpss_queue import maxpss_queue_server as server
+from jobmon.server.integration.qpid.worker import MaxpssQ, maxpss_forever
 from jobmon.client import shared_requester as req
+from jobmon.client import client_config
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.bash_task import BashTask
@@ -46,32 +45,6 @@ def test_MaxpssQ():
 
 
 @pytest.mark.unittest
-def test_worker_thread_stops():
-    """This is to test the Q thread can be stopped from the main thread"""
-    MaxpssQ().empty_q()
-    MaxpssQ.keep_running = True
-    t = Thread(target=updating_worker)
-    t.start()
-    # This is to make sure the test case will end anyway
-    t.join(10)
-    # test is Q start
-    assert t.is_alive()
-    # test if doing nothing, the Q keeps alive
-    for i in range(5):
-        sleep(1)
-        assert t.is_alive()
-    # test kill Q
-    MaxpssQ.keep_running = False
-    for i in range(5):
-        sleep(1)
-        if t.is_alive():
-            pass
-        else:
-            break
-    assert t.is_alive() is False
-
-
-@pytest.mark.unittest
 def test_worker_with_mock_200():
     """This is to test the job with maxpss leaves the Q."""
     MaxpssQ().empty_q()
@@ -83,7 +56,7 @@ def test_worker_with_mock_200():
         m_restful.return_value = (200, 500)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
-        t = Thread(target=updating_worker)
+        t = Thread(target=maxpss_forever)
         t.start()
         t.join(10)
         for i in range(5):
@@ -104,7 +77,7 @@ def test_worker_with_mock_404():
         m_restful.return_value = (404, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
-        t = Thread(target=updating_worker)
+        t = Thread(target=maxpss_forever)
         t.start()
         t.join(10)
         for i in range(5):
@@ -128,7 +101,7 @@ def test_worker_with_mock_500():
         m_restful.return_value = (500, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
-        t = Thread(target=updating_worker)
+        t = Thread(target=maxpss_forever)
         t.start()
         t.join(10)
         for i in range(5):
@@ -164,67 +137,22 @@ def test_route_get_maxpss(db_cfg, dag_factory):
     real_dag.add_task(task)
     (rc, num_completed, num_previously_complete, num_failed) = (
         real_dag._execute())
-
     assert rc == DagExecutionStatus.SUCCEEDED
     assert num_completed == 1
     job_list_manager = real_dag.job_list_manager
     assert job_list_manager.status_from_task(task) == JobStatus.DONE
     with app.app_context():
         ex_id = DB.session.execute("select executor_id from job_instance").fetchone()['executor_id']
-        MaxpssQ().put(ex_id)
-        with mock.patch('jobmon.server.integration.qpid.worker._get_qpid_response') as m_restful, \
-                mock.patch('jobmon.server.integration.qpid.worker._get_current_app') as m_app:
-            m_restful.return_value = (200, 500)
-            m_app.return_value = app
-            t = Thread(target=updating_worker)
-            t.start()
-            t.join(10)
-            for i in range(5):
-                sleep(2)
-                if MaxpssQ().get_size() == 0:
-                    break
-            MaxpssQ.keep_running = False
-            assert MaxpssQ().get_size() == 0
-            code, response = req.send_request(
-                app_route='/job_instance/1/maxpss',
-                message={},
-                request_type='get')
-            assert code == 200
-            assert response['maxpss'] == '500'
+        code, _ = req.send_request(
+            app_route=f'/job_instance/{ex_id}/maxpss/500',
+            message={},
+            request_type='post'
+        )
+        assert code == 200
+        code, response = req.send_request(
+            app_route='/job_instance/1/maxpss',
+            message={},
+            request_type='get')
+        assert code == 200
+        assert response['maxpss'] == '500'
 
-
-@pytest.mark.skip(reason="Socket test is not realible, and may cause the box malfunction for a while.")
-def test_socket():
-    # Keep in mind that when the thread/process that opens the socket dies, the socket may keep opening for a while.
-    # Thus, if you see [Error 111], go grab a cup of coffee and try again.
-    MaxpssQ().empty_q()
-    MaxpssQ.keep_running = True
-    t = Thread(target=server)
-    t.start()
-    # Test single client
-    client(23456)
-    # Add wait for the socket to process data
-    for i in range(5):
-        if MaxpssQ().get_size() > 0:
-            break
-        sleep(1)
-    assert MaxpssQ().get()[0] == 23456
-    # Test multiple client
-    def test_client():
-        for i in range(10):
-            client(1)
-    threads = []
-    for i in range(5):
-        thread = Thread(target=test_client)
-        threads.append(thread)
-    for thread in threads:
-        thread.start()
-        thread.join(2)
-    # Add wait for the socket to process data
-    for i in range(10):
-        if MaxpssQ().get_size == 50:
-            break
-        sleep(1)
-    assert MaxpssQ().get_size() == 50
-    # Close socket
-    client(-1)

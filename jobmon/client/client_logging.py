@@ -67,7 +67,7 @@ class ClientLogging():
             hr = SysLogHandler(
                 address=(config.rsyslog_host, config.rsyslog_port),
                 socktype=p)
-            h.addFilter(_ClientLoggingFilter())
+            hr.addFilter(_ClientLoggingFilter())
             hr.setFormatter(formatter)
             hr.setLevel(ClientLogging._syslogLevel)
             logger.addHandler(hr)

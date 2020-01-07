@@ -42,11 +42,14 @@ class CLI(object):
         if args.service == "health_monitor":
             from jobmon.server.start import start_health_monitor
             start_health_monitor()
+        if args.service == "qpid_integration":
+            from jobmon.server.start import start_qpid_integration
+            start_qpid_integration()
         if args.service == "web_service":
             from jobmon.server.start import start_uwsgi_based_web_service
             start_uwsgi_based_web_service()
         else:
-            raise ValueError("Only health_monitor or web_service can be "
+            raise ValueError("Only health_monitor, qpid_integration, or web_service can be "
                              "'started'. Got {}".format(args.service))
 
     def test_connection(self, args):

@@ -23,6 +23,12 @@ def start_health_monitor():
     hm.monitor_forever()
 
 
+def start_qpid_integration():
+    """Start the qpid integration service"""
+    import jobmon.server.integration.qpid.worker as qpid
+    qpid.maxpss_forever()
+
+
 def start_uwsgi_based_web_service():
     import subprocess
     subprocess.run("/entrypoint.sh")
