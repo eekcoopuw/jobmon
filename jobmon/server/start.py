@@ -25,7 +25,7 @@ def start_health_monitor():
 
 def start_qpid_integration():
     """Start the qpid integration service"""
-    import jobmon.server.integration.qpid.worker as qpid
+    import jobmon.server.integration.qpid.qpid_integrator as qpid
     qpid.maxpss_forever()
 
 

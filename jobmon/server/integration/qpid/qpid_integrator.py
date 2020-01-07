@@ -1,11 +1,10 @@
 from time import sleep, time
 import requests
-from flask import Flask, Blueprint, jsonify
+from flask_sqlalchemy import SQLAlchemy
 
 from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon import config
 from jobmon.server.integration.qpid.maxpss_queue import MaxpssQ
-from jobmon.server.integration.qpid.qpid_integration_server import qpid
 from jobmon.server import app
 
 logger = logging.getLogger(__name__)
@@ -18,8 +17,6 @@ class _App:
     def get_app():
         if _App._app is None:
             _App._app = app
-            # register blueprints
-            app.register_blueprint(qpid)
         return _App._app
 
 
@@ -52,11 +49,21 @@ def _get_qpid_response(ex_id, age):
         return (200, maxpss)
 
 
+def _get_completed_job_instance(starttime: float):
+    db = SQLAlchemy(_App.get_app())
+    sql = f"SELECT executor_id, status_date, UNIX_TIMESTAMP(status_date) from job_instance " \
+          "where status not in (\"B\", \"I\", \"R\", \"W\") " \
+          "and UNIX_TIMESTAMP(status_date)>{starttime}" \
+          "and maxpss is null"
+    rs = db.session.execute(sql).fetchall()
+    for r in rs:
+        MaxpssQ().put(int(r[0]))
+
 def maxpss_forever():
     """A never stop method running in a thread to constantly query the maxpss value from qpid for completed jobmon jobs.
        If the maxpss is not found in qpid, put the execution id back to the queue.
     """
-    last_heartbeat = 0
+    last_heartbeat = time()
     while MaxpssQ.keep_running:
         # Since there isn't a good way to specify the thread priority in Python,
         # put a sleep in each attempt to not overload the CPU.
@@ -76,8 +83,13 @@ def maxpss_forever():
                 else:
                     MaxpssQ().put(ex_id, age + 1)
                     logger.warning(f"Failed to update db, put {ex_id} back to the queue.")
-        # Log q length every 30 minute, so we know it is still alive
+        # Query DB to add newly completed jobs to q and log q length every 30 minute
         current_time = time()
         if int(current_time - last_heartbeat) / 60 > 30:
             logger.info("MaxpssQ length: {}".format(MaxpssQ().get_size()))
-            last_heartbeat = current_time
+            try:
+                _get_completed_job_instance(last_heartbeat)
+            except Exception as e:
+                logger.error(str(e))
+            finally:
+                last_heartbeat = current_time

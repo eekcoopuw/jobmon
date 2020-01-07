@@ -3,9 +3,8 @@ from threading import Thread
 from time import sleep
 from unittest import mock
 
-from jobmon.server.integration.qpid.worker import MaxpssQ, maxpss_forever
+from jobmon.server.integration.qpid.qpid_integrator import MaxpssQ, maxpss_forever
 from jobmon.client import shared_requester as req
-from jobmon.client import client_config
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.models.job_status import JobStatus
 from jobmon.client.swarm.workflow.bash_task import BashTask
@@ -50,8 +49,8 @@ def test_worker_with_mock_200():
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.integration.qpid.worker._update_maxpss_in_db') as m_db, \
-         mock.patch('jobmon.server.integration.qpid.worker._get_qpid_response') as m_restful:
+    with mock.patch('jobmon.server.integration.qpid.qpid_integrator._update_maxpss_in_db') as m_db, \
+         mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_qpid_response') as m_restful:
         m_db.return_value = True
         m_restful.return_value = (200, 500)
         MaxpssQ().put(1)
@@ -73,7 +72,7 @@ def test_worker_with_mock_404():
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.integration.qpid.worker._get_qpid_response') as m_restful:
+    with mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_qpid_response') as m_restful:
         m_restful.return_value = (404, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
@@ -97,7 +96,7 @@ def test_worker_with_mock_500():
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.integration.qpid.worker._get_qpid_response') as m_restful:
+    with mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_qpid_response') as m_restful:
         m_restful.return_value = (500, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
@@ -115,44 +114,5 @@ def test_worker_with_mock_500():
         assert r[1] > 0
 
 
-def test_route_get_maxpss(db_cfg, dag_factory):
-    """This is to test the restful API to get maxpss of a job instance in jobmon side"""
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    MaxpssQ().empty_q()
-    MaxpssQ.keep_running = True
-    # test non-existing ji
-    code, _ = req.send_request(
-        app_route='/job_instance/9999/maxpss',
-        message={},
-        request_type='get')
-    assert code == 404
-    # add a real task
-    name = 'bash_task'
-    cmd = 'date'
-    task = BashTask(command=cmd, name=name, m_mem_free='1G', max_attempts=2,
-                    num_cores=1, max_runtime_seconds=120)
-    executor = SGEExecutor(project='proj_tools')
-    real_dag = dag_factory(executor)
-    real_dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (
-        real_dag._execute())
-    assert rc == DagExecutionStatus.SUCCEEDED
-    assert num_completed == 1
-    job_list_manager = real_dag.job_list_manager
-    assert job_list_manager.status_from_task(task) == JobStatus.DONE
-    with app.app_context():
-        ex_id = DB.session.execute("select executor_id from job_instance").fetchone()['executor_id']
-        code, _ = req.send_request(
-            app_route=f'/job_instance/{ex_id}/maxpss/500',
-            message={},
-            request_type='post'
-        )
-        assert code == 200
-        code, response = req.send_request(
-            app_route='/job_instance/1/maxpss',
-            message={},
-            request_type='get')
-        assert code == 200
-        assert response['maxpss'] == '500'
+
 
