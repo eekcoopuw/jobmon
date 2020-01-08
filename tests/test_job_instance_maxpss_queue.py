@@ -11,6 +11,54 @@ from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.models.job_status import JobStatus
 
 
+def test_integration_with_mock(db_cfg, dag_factory):
+    """This is to test the restful API to get maxpss of a job instance in jobmon side"""
+    app = db_cfg["app"]
+    MaxpssQ().empty_q()
+    MaxpssQ.keep_running = True
+
+    # start the integration server in a thread
+    t = Thread(target=maxpss_forever)
+    t.start()
+
+    # add a real task
+    name = 'bash_task'
+    cmd = 'date'
+    task = BashTask(command=cmd, name=name, m_mem_free='1G', max_attempts=2,
+                    num_cores=1, max_runtime_seconds=120)
+    executor = SGEExecutor(project='proj_tools')
+    real_dag = dag_factory(executor)
+    real_dag.add_task(task)
+    (rc, num_completed, num_previously_complete, num_failed) = (
+        real_dag._execute())
+
+    assert rc == DagExecutionStatus.SUCCEEDED
+    assert num_completed == 1
+    job_list_manager = real_dag.job_list_manager
+    assert job_list_manager.status_from_task(task) == JobStatus.DONE
+    with mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_qpid_response') as m_restful, \
+        mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_current_app') as m_app, \
+        mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_pulling_interval') as m_interval:
+
+        m_restful.return_value = (200, 500)
+        m_app.return_value = app
+        m_interval.return_value = 5
+
+        t.join(30)
+        for i in range(5):
+            sleep(6)
+            if MaxpssQ().get_size() == 0:
+                break
+        MaxpssQ.keep_running = False
+        assert MaxpssQ().get_size() == 0
+        code, response = req.send_request(
+            app_route='/job_instance/1/maxpss',
+            message={},
+            request_type='get')
+        assert code == 200
+        assert response['maxpss'] == '500'
+
+
 @pytest.mark.unittest
 def test_MaxpssQ():
     """This is to test the Q stops increasing when the max size is reached."""
@@ -151,4 +199,6 @@ def test_get_completed_job_instance(db_cfg, dag_factory):
         m_app.return_value = app
         _get_completed_job_instance(t)
         assert MaxpssQ().get_size() == 1
+
+
 

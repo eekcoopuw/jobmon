@@ -22,7 +22,8 @@ class SetupCfg:
                  internal_db_port=None, external_db_host=None,
                  external_db_port=None, jobmon_service_user_pwd=None,
                  existing_network=None, use_rsyslog=None, rsyslog_host=None,
-                 rsyslog_port=None, rsyslog_protocol=None, qpid_uri=None, qpid_cluster=None):
+                 rsyslog_port=None, rsyslog_protocol=None, qpid_uri=None, qpid_cluster=None,
+                 qpid_pulling_interval=None):
 
         # get env for fallback
         self._env = os.environ
@@ -63,6 +64,7 @@ class SetupCfg:
         self.rsyslog_protocol = rsyslog_protocol
         self.qpid_uri = qpid_uri
         self.qpid_cluster = qpid_cluster
+        self.qpid_pulling_interval = qpid_pulling_interval
 
     @property
     def test_mode(self) -> bool:
@@ -435,10 +437,22 @@ class SetupCfg:
     def jobmon_integration_service_port(self) -> str:
         return self._jobmon_integration_service_port
 
-    @qpid_cluster.setter
+    @jobmon_integration_service_port.setter
     def jobmon_integration_service_port(self, val):
         if val is None:
             val = self._env.get("JOBMON_INTEGRATION_SERVICE_PORT")
         if val is None:
             val = self._config["basic values"]["jobmon_integration_service_port"]
-        self._qpid_cluster = val
+        self._jobmon_integration_service_port = val
+
+    @property
+    def qpid_pulling_interval(self) -> str:
+        return self._qpid_pulling_interval
+
+    @qpid_pulling_interval.setter
+    def qpid_pulling_interval(self, val):
+        if val is None:
+            val = self._env.get("QPID_PULLING_INTERVAL")
+        if val is None:
+            val = self._config["qpid"]["pulling_interval"]
+        self._qpid_pulling_interval = int(val)

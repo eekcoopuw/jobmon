@@ -25,15 +25,22 @@ def _get_current_app():
     return _App.get_app()
 
 
+def _get_pulling_interval():
+    """This method returns the current app. The main purpose is for easy patch in testing."""
+    return config.qpid_pulling_interval
+
+
 def _update_maxpss_in_db(ex_id: int, pss: int):
-    jobmon_api_url = f"http://{config.jobmon_server_sqdn}:{config.jobmon_service_port}/job_instance/{ex_id}/maxpss/{pss}"
-    logger.info(jobmon_api_url)
-    resp = requests.post(jobmon_api_url)
-    if resp.status_code == 200:
+    try:
+        app = _get_current_app()
+        db = SQLAlchemy(app)
+        sql = "UPDATE job_instance SET maxpss={maxpss} WHERE executor_id={id}".format(maxpss=pss, id=ex_id)
+        db.session.execute(sql)
+        db.session.commit()
         return True
-    if resp.status_code == 500:
-        logger.error(resp.json()["message"])
-    return False
+    except Exception as e:
+        logger.error(str(e))
+        return False
 
 
 def _get_qpid_response(ex_id, age):
@@ -86,7 +93,7 @@ def maxpss_forever():
                     logger.warning(f"Failed to update db, put {ex_id} back to the queue.")
         # Query DB to add newly completed jobs to q and log q length every 30 minute
         current_time = time()
-        if int(current_time - last_heartbeat) > 1800:
+        if int(current_time - last_heartbeat) > _get_pulling_interval():
             logger.info("MaxpssQ length: {}".format(MaxpssQ().get_size()))
             try:
                 _get_completed_job_instance(last_heartbeat)
