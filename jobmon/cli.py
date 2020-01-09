@@ -81,7 +81,7 @@ class CLI(object):
         start_parser = self._subparsers.add_parser("start")
         start_parser.set_defaults(func=self.start)
         start_parser.add_argument("service",
-                                  choices=['health_monitor', 'web_service'])
+                                  choices=['health_monitor', 'web_service', 'qpid_integration'])
 
     def _add_test_subparser(self):
         test_parser = self._subparsers.add_parser("test")

@@ -2,6 +2,7 @@ import pytest
 from threading import Thread
 from time import sleep, time
 from unittest import mock
+from flask_sqlalchemy import SQLAlchemy
 
 from jobmon.server.integration.qpid.qpid_integrator import MaxpssQ, maxpss_forever, _get_completed_job_instance
 from jobmon.client import shared_requester as req
@@ -17,25 +18,6 @@ def test_integration_with_mock(db_cfg, dag_factory):
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
 
-    # start the integration server in a thread
-    t = Thread(target=maxpss_forever)
-    t.start()
-
-    # add a real task
-    name = 'bash_task'
-    cmd = 'date'
-    task = BashTask(command=cmd, name=name, m_mem_free='1G', max_attempts=2,
-                    num_cores=1, max_runtime_seconds=120)
-    executor = SGEExecutor(project='proj_tools')
-    real_dag = dag_factory(executor)
-    real_dag.add_task(task)
-    (rc, num_completed, num_previously_complete, num_failed) = (
-        real_dag._execute())
-
-    assert rc == DagExecutionStatus.SUCCEEDED
-    assert num_completed == 1
-    job_list_manager = real_dag.job_list_manager
-    assert job_list_manager.status_from_task(task) == JobStatus.DONE
     with mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_qpid_response') as m_restful, \
         mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_current_app') as m_app, \
         mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_pulling_interval') as m_interval:
@@ -43,6 +25,26 @@ def test_integration_with_mock(db_cfg, dag_factory):
         m_restful.return_value = (200, 500)
         m_app.return_value = app
         m_interval.return_value = 5
+
+        # start the integration server in a thread
+        t = Thread(target=maxpss_forever)
+        t.start()
+
+        # add a real task
+        name = 'bash_task'
+        cmd = 'date'
+        task = BashTask(command=cmd, name=name, m_mem_free='1G', max_attempts=2,
+                        num_cores=1, max_runtime_seconds=120)
+        executor = SGEExecutor(project='proj_tools')
+        real_dag = dag_factory(executor)
+        real_dag.add_task(task)
+        (rc, num_completed, num_previously_complete, num_failed) = (
+            real_dag._execute())
+
+        assert rc == DagExecutionStatus.SUCCEEDED
+        assert num_completed == 1
+        job_list_manager = real_dag.job_list_manager
+        assert job_list_manager.status_from_task(task) == JobStatus.DONE
 
         t.join(30)
         for i in range(5):
@@ -195,9 +197,8 @@ def test_get_completed_job_instance(db_cfg, dag_factory):
     job_list_manager = real_dag.job_list_manager
     assert job_list_manager.status_from_task(task) == JobStatus.DONE
 
-    with mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_current_app') as m_app:
-        m_app.return_value = app
-        _get_completed_job_instance(t)
+    with app.app_context():
+        _get_completed_job_instance(t, SQLAlchemy(app).session)
         assert MaxpssQ().get_size() == 1
 
 

@@ -51,9 +51,6 @@ services:
         - "${QPID_INTEGRATION_PORT}:80"
     depends_on:
         - jobmon
-    entrypoint:
-        - ./wait-for-tables.sh
-        - db
     environment:
         - DB_HOST=${INTERNAL_DB_HOST}
         - DB_PORT=${INTERNAL_DB_PORT}
@@ -65,7 +62,6 @@ services:
         - NODE_SLACK_CHANNEL=${NODE_SLACK_CHANNEL}
     command: ["jobmon", "start", "qpid_integration"]
     links:
-        - db
         - jobmon
     logging:
         options:

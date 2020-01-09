@@ -30,20 +30,19 @@ def _get_pulling_interval():
     return config.qpid_pulling_interval
 
 
-def _update_maxpss_in_db(ex_id: int, pss: int):
+def _update_maxpss_in_db(ex_id: int, pss: int, session):
     try:
-        app = _get_current_app()
-        db = SQLAlchemy(app)
         sql = "UPDATE job_instance SET maxpss={maxpss} WHERE executor_id={id}".format(maxpss=pss, id=ex_id)
-        db.session.execute(sql)
-        db.session.commit()
+        session.execute(sql)
+        session.commit()
+        session.close()
         return True
     except Exception as e:
         logger.error(str(e))
         return False
 
 
-def _get_qpid_response(ex_id, age):
+def _get_qpid_response(ex_id):
     qpid_api_url = f"{config.qpid_uri}/{config.qpid_cluster}/jobmaxpss/{ex_id}"
     logger.info(qpid_api_url)
     resp = requests.get(qpid_api_url)
@@ -56,14 +55,14 @@ def _get_qpid_response(ex_id, age):
         return (200, maxpss)
 
 
-def _get_completed_job_instance(starttime: float):
-    db = SQLAlchemy( _get_current_app())
+def _get_completed_job_instance(starttime: float, session):
     sql = "SELECT executor_id from job_instance " \
           "where status not in (\"B\", \"I\", \"R\", \"W\") " \
           "and UNIX_TIMESTAMP(status_date) > {} " \
           "and maxpss is null".format(starttime)
-    rs = db.session.execute(sql).fetchall()
-    db.session.commit()
+    rs = session.execute(sql).fetchall()
+    session.commit()
+    session.close()
     for r in rs:
         MaxpssQ().put(int(r[0]))
 
@@ -71,6 +70,9 @@ def maxpss_forever():
     """A never stop method running in a thread to constantly query the maxpss value from qpid for completed jobmon jobs.
        If the maxpss is not found in qpid, put the execution id back to the queue.
     """
+    app = _get_current_app()
+    db = SQLAlchemy(app)
+    session = db.session
     last_heartbeat = time()
     while MaxpssQ.keep_running:
         # Since there isn't a good way to specify the thread priority in Python,
@@ -80,13 +82,13 @@ def maxpss_forever():
         r = MaxpssQ().get()
         if r is not None:
             (ex_id, age) = r
-            (status_code, maxpss) = _get_qpid_response(ex_id, age)
+            (status_code, maxpss) = _get_qpid_response(ex_id)
             if status_code != 200:
                 # Maxpss not ready
                 MaxpssQ().put(ex_id, age + 1)
                 logger.info("Maxpss is not ready. Put {} back to the queue.".format(ex_id))
             else:
-                if _update_maxpss_in_db(ex_id, maxpss):
+                if _update_maxpss_in_db(ex_id, maxpss, session):
                     logger.info(f"Updated execution id: {ex_id} maxpss: {maxpss}")
                 else:
                     MaxpssQ().put(ex_id, age + 1)
@@ -96,7 +98,7 @@ def maxpss_forever():
         if int(current_time - last_heartbeat) > _get_pulling_interval():
             logger.info("MaxpssQ length: {}".format(MaxpssQ().get_size()))
             try:
-                _get_completed_job_instance(last_heartbeat)
+                _get_completed_job_instance(last_heartbeat, session)
             except Exception as e:
                 logger.error(str(e))
             finally:

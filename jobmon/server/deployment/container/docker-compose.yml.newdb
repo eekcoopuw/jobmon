@@ -72,7 +72,7 @@ services:
         - SLACK_TOKEN=${SLACK_TOKEN}
         - WF_SLACK_CHANNEL=${WF_SLACK_CHANNEL}
         - NODE_SLACK_CHANNEL=${NODE_SLACK_CHANNEL}
-    command: ["jobmon", "start", "health_monitor"]
+    command: ["jobmon", "start", "qpid_integration"]
     links:
         - db
         - jobmon
