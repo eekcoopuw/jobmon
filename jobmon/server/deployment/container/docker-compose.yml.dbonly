@@ -17,6 +17,9 @@ services:
 
     volumes:
         - mysql-jobmon-fruitbat:/var/lib/mysql
+        - type: bind
+          source: /opt/jobmon/data/${JOBMON_VERSION}-mysql-jobmon
+          target: /var/lib/mysql
         - ./jobmon/server/deployment/container/db/:/docker-entrypoint-initdb.d/
 
     command: mysqld --innodb_autoinc_lock_mode=1 --innodb_flush_method=O_DIRECT --innodb_buffer_pool_size=10000M --innodb_buffer_pool_instances=2 --character_set_server=utf8mb4 --collation_server=utf8mb4_general_ci
