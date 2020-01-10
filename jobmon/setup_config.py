@@ -23,7 +23,7 @@ class SetupCfg:
                  external_db_port=None, jobmon_service_user_pwd=None,
                  existing_network=None, use_rsyslog=None, rsyslog_host=None,
                  rsyslog_port=None, rsyslog_protocol=None, qpid_uri=None, qpid_cluster=None,
-                 qpid_pulling_interval=None):
+                 qpid_pulling_interval=None, max_update_per_second=None):
 
         # get env for fallback
         self._env = os.environ
@@ -65,6 +65,7 @@ class SetupCfg:
         self.qpid_uri = qpid_uri
         self.qpid_cluster = qpid_cluster
         self.qpid_pulling_interval = qpid_pulling_interval
+        self.max_update_per_second = max_update_per_second
 
     @property
     def test_mode(self) -> bool:
@@ -456,3 +457,15 @@ class SetupCfg:
         if val is None:
             val = self._config["qpid"]["pulling_interval"]
         self._qpid_pulling_interval = int(val)
+
+    @property
+    def max_update_per_second(self) -> str:
+        return self._max_update_per_second
+
+    @max_update_per_second.setter
+    def max_update_per_second(self, val):
+        if val is None:
+            val = self._env.get("MAX_UPDATE_PER_SECOND")
+        if val is None:
+            val = self._config["qpid"]["max_update_per_second"]
+        self._max_update_per_second = int(val)

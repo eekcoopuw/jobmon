@@ -79,20 +79,22 @@ def maxpss_forever():
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
         sleep(1)
-        r = MaxpssQ().get()
-        if r is not None:
-            (ex_id, age) = r
-            (status_code, maxpss) = _get_qpid_response(ex_id)
-            if status_code != 200:
-                # Maxpss not ready
-                MaxpssQ().put(ex_id, age + 1)
-                logger.info("Maxpss is not ready. Put {} back to the queue.".format(ex_id))
-            else:
-                if _update_maxpss_in_db(ex_id, maxpss, session):
-                    logger.info(f"Updated execution id: {ex_id} maxpss: {maxpss}")
-                else:
+        # Update max_update_per_second of jobs as defined in jobmon.cfg
+        for i in range(config.max_update_per_second):
+            r = MaxpssQ().get()
+            if r is not None:
+                (ex_id, age) = r
+                (status_code, maxpss) = _get_qpid_response(ex_id)
+                if status_code != 200:
+                    # Maxpss not ready
                     MaxpssQ().put(ex_id, age + 1)
-                    logger.warning(f"Failed to update db, put {ex_id} back to the queue.")
+                    logger.info("Maxpss is not ready. Put {} back to the queue.".format(ex_id))
+                else:
+                    if _update_maxpss_in_db(ex_id, maxpss, session):
+                        logger.info(f"Updated execution id: {ex_id} maxpss: {maxpss}")
+                    else:
+                        MaxpssQ().put(ex_id, age + 1)
+                        logger.warning(f"Failed to update db, put {ex_id} back to the queue.")
         # Query DB to add newly completed jobs to q and log q length every 30 minute
         current_time = time()
         if int(current_time - last_heartbeat) > _get_pulling_interval():

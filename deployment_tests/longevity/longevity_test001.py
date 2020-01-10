@@ -14,10 +14,10 @@ This script creates workflows with random tasks and random task dependencies,
 and starts multiple threads to continually add new workflows in a given time. 
 """
 NAME_PREFIX = "LXMAXPSS"
-MAX_TIERS = 6
-MAX_TASKS_IN_TIERS = 200
-MIN_TASKS_IN_TIERS = 10
-TOTAL_THREADS = 4
+MAX_TIERS = 4
+MAX_TASKS_IN_TIERS = 500
+MIN_TASKS_IN_TIERS = 1
+TOTAL_THREADS = 8
 INCLUDE_FAILED = False
 
 MYDIR = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
