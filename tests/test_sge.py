@@ -58,19 +58,6 @@ def test_true_path():
     assert "/bin/time" in sge_utils.true_path(executable="time")
 
 
-@pytest.mark.cluster
-def test_project_limits():
-    project = 'ihme_general'
-    limit = sge_utils.get_project_limits(project)
-    cluster_name = os.environ['SGE_CLUSTER_NAME']
-    if cluster_name == 'prod':
-        assert limit == 250
-    elif cluster_name == 'cluster':
-        assert limit == 10000  # limit is global limit on the fair cluster
-    else:
-        assert limit == 200
-
-
 def test_convert_wallclock():
     wallclock_str = '10:11:50'
     res = sge_utils.convert_wallclock_to_seconds(wallclock_str)
