@@ -32,6 +32,8 @@ def _get_pulling_interval():
 
 def _update_maxpss_in_db(ex_id: int, pss: int, session):
     try:
+        # Doing single update instead of batch because if a banch update failed it's harder to tell
+        # which job_instance has been updated
         sql = "UPDATE job_instance SET maxpss={maxpss} WHERE executor_id={id}".format(maxpss=pss, id=ex_id)
         session.execute(sql)
         session.commit()
