@@ -103,13 +103,13 @@ class Task(DB.Model):
         """Transition the Job to an error state"""
         self.transition(TaskStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
-            logger.debug("ZZZ GIVING UP Job {}".format(self.job_id))
+            logger.debug("ZZZ GIVING UP Job {}".format(self.id))
             self.transition(TaskStatus.ERROR_FATAL)
         else:
             if job_instance_error_state == TaskInstanceStatus.RESOURCE_ERROR:
                 self.transition(TaskStatus.ADJUSTING_RESOURCES)
             else:
-                logger.debug("ZZZ retrying Job {}".format(self.job_id))
+                logger.debug("ZZZ retrying Job {}".format(self.id))
                 self.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
 
     def _last_instance_procinfo(self):

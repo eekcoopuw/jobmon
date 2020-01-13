@@ -1,7 +1,7 @@
 import random
 
-from jobmon.execution.strategies.base import (Executor,
-                                              ExecutorParameters)
+from jobmon.client.execution.strategies.base import (Executor,
+                                                     ExecutorParameters)
 
 
 class DummyExecutor(Executor):

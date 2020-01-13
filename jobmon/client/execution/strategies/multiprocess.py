@@ -1,15 +1,15 @@
-import logging
 from multiprocessing import JoinableQueue, Process, Queue
 import os
 import time
 from typing import List, Optional
 
+from jobmon.client.execution import NodeLogging as logging
 from jobmon.client.execution.strategies.base import (Executor,
                                                      TaskInstanceExecutorInfo,
                                                      ExecutorParameters)
-from jobmon.execution.worker_node.execution_wrapper import (unwrap,
-                                                            parse_arguments)
-from jobmon.models.job_instance_status import JobInstanceStatus
+from jobmon.client.execution.worker_node.execution_wrapper import (
+    unwrap, parse_arguments)
+from jobmon.models.task_instance_status import TaskInstanceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -147,4 +147,4 @@ class TaskInstanceMultiprocessInfo(TaskInstanceExecutorInfo):
         return self._executor_id
 
     def get_exit_info(self, exit_code, error_msg):
-        return JobInstanceStatus.ERROR, error_msg
+        return TaskInstanceStatus.ERROR, error_msg

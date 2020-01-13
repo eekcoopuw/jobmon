@@ -7,7 +7,7 @@ from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
 from jobmon.client.requests.requester import Requester
 from jobmon.client.requests.connection_config import ConnectionConfig
 
-from jobmon.client.execution.worker_node import NodeLogging as logging
+from jobmon.client.execution import NodeLogging as logging
 
 logger = logging.getLogger(__name__)
 

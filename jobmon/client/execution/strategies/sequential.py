@@ -3,14 +3,15 @@ import os
 from typing import Optional, List, Tuple
 import sys
 
-from jobmon.execution.strategies.base import (Executor,
-                                              TaskInstanceExecutorInfo,
-                                              ExecutorParameters)
-from jobmon.execution.worker_node.execution_wrapper import (unwrap,
-                                                            parse_arguments)
+from jobmon.client.execution import NodeLogging as logging
+from jobmon.client.execution.strategies.base import (Executor,
+                                                     TaskInstanceExecutorInfo,
+                                                     ExecutorParameters)
+from jobmon.client.execution.worker_node.execution_wrapper import (
+    unwrap, parse_arguments)
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.models.job_instance_status import JobInstanceStatus
-import logging
+from jobmon.models.task_instance_status import TaskInstanceStatus
+
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +77,7 @@ class SequentialExecutor(Executor):
             if e.code == 199:
                 exit_code = e.code
             else:
-                sys.exit(e.code)
+                raise
 
         self._exit_info[executor_id] = exit_code
         return executor_id
@@ -96,4 +97,4 @@ class TaskInstanceSequentialInfo(TaskInstanceExecutorInfo):
         return self._executor_id
 
     def get_exit_info(self, exit_code, error_msg):
-        return JobInstanceStatus.ERROR, error_msg
+        return TaskInstanceStatus.ERROR, error_msg

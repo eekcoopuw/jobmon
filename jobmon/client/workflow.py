@@ -7,6 +7,7 @@ import uuid
 from jobmon.client import shared_requester
 from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.dag import Dag
+from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
     TaskInstanceScheduler
 from jobmon.client.execution.strategies.base import Executor
@@ -170,9 +171,13 @@ class Workflow(object):
             self.add_task(task)
 
     def set_executor(self, executor: Executor = None,
+                     execution_config: ExecutionConfig =
+                     ExecutionConfig.from_defaults(),
                      executor_class: Optional[str] = 'SGEExecutor', *args,
                      **kwargs):
         self._executor: Executor
+        self._execution_config: ExecutionConfig = execution_config
+
         if executor is not None:
             self._executor = executor
         else:
@@ -186,7 +191,6 @@ class Workflow(object):
             reset_running_jobs: bool = True,
             scheduler_startup_wait_timeout=180):
 
-        # TODO: figure out how to handle when the executor isn't set
         if not hasattr(self, "_executor"):
             logger.warning("using default executor")
             self.set_executor()
@@ -362,7 +366,8 @@ class Workflow(object):
         # instantiate scheduler and launch in separate proc. use event to
         # signal back when scheduler is started
         scheduler = TaskInstanceScheduler(self.workflow_id, workflow_run_id,
-                                          self._executor)
+                                          self._executor,
+                                          self._execution_config)
         event = Event()
         self._scheduler_proc = Process(target=scheduler.run_scheduler,
                                        args=[event])

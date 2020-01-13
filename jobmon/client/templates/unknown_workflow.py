@@ -85,8 +85,9 @@ class UnknownWorkflow(Workflow):
                 reconciliations or a running job can miss 3 worker heartbeats,
                 and then we will register that it as lost
         """
-        self._set_executor(executor_class, stderr=stderr, stdout=stdout,
-                           working_dir=working_dir, project=project)
+        self._set_executor(executor_class=executor_class, stderr=stderr,
+                           stdout=stdout, working_dir=working_dir,
+                           project=project)
 
         # run params
         self._reset_running_jobs = reset_running_jobs
@@ -115,25 +116,22 @@ class UnknownWorkflow(Workflow):
         self.executor_class = executor_class
         if self.executor_class == 'SGEExecutor':
             from jobmon.client.execution.strategies.sge import SGEExecutor
-            self.executor = SGEExecutor(*args, **kwargs)
+            self._executor = SGEExecutor(*args, **kwargs)
         elif self.executor_class == "SequentialExecutor":
             from jobmon.client.execution.strategies.sequential import \
                 SequentialExecutor
-            self.executor = SequentialExecutor()
+            self._executor = SequentialExecutor()
         elif self.executor_class == "DummyExecutor":
             from jobmon.client.execution.strategies.dummy import DummyExecutor
-            self.executor = DummyExecutor()
+            self._executor = DummyExecutor()
         else:
             raise ValueError(f"{executor_class} is not a valid executor_class")
 
-        if not hasattr(self.executor, "execute"):
+        if not hasattr(self._executor, "execute"):
             raise AttributeError("Executor must have an execute() method")
 
     def run(self):
         """Run this workflow"""
 
-        # TODO: override more behavior. need to construct
-        # task_instance_state_controller and pass into workflow_run somehow
-        # in order to preserve old API
         super().run(self._fail_fast, self._seconds_until_timeout,
                     self._resume, self._reset_running_jobs)

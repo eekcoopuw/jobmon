@@ -10,4 +10,4 @@ class Dag(DB.Model):
     hash = DB.Column(DB.VARCHAR(150))
     created_date = DB.Column(DB.DateTime, default=datetime.utcnow)
 
-    workflow = DB.relationship("Workflow", back_populates="dag")
+    workflow = DB.relationship("Workflow", back_populates="dag", lazy=True)

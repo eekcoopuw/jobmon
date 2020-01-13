@@ -144,6 +144,10 @@ def db_cfg(ephemera):
 def client_env(real_jsm_jqs, monkeypatch):
     from jobmon.client import shared_requester
     from jobmon.client.requests.connection_config import ConnectionConfig
+    from jobmon import config
+
+    config.jobmon_server_sqdn = real_jsm_jqs["JOBMON_HOST"]
+    config.jobmon_service_port = real_jsm_jqs["JOBMON_PORT"]
     cc = ConnectionConfig(real_jsm_jqs["JOBMON_HOST"],
                           real_jsm_jqs["JOBMON_PORT"])
 

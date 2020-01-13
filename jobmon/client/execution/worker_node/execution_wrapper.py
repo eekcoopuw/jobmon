@@ -16,7 +16,7 @@ from typing import Optional
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.execution.worker_node.worker_node_task_instance import (
     WorkerNodeTaskInstance)
-from jobmon.client.execution.worker_node._logging import NodeLogging as logging
+from jobmon.client.execution import NodeLogging as logging
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ def parse_arguments(argstr=None):
     # parse arguments
     logger.info("parsing arguments")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--job_instance_id", required=True, type=int)
+    parser.add_argument("--task_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)
     parser.add_argument("--expected_jobmon_version", required=True)
     parser.add_argument("--executor_class", required=True)

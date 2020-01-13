@@ -4,6 +4,7 @@ import time
 from typing import Optional, List, Callable
 
 from jobmon.client import ClientLogging as logging
+from jobmon.client import shared_requester
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
@@ -31,7 +32,7 @@ class TaskInstanceScheduler:
         self.executor = executor
         self.config = config
         if requester is None:
-            requester = Requester(ConnectionConfig.from_defaults().url, logger)
+            requester = shared_requester
         self.requester = requester
 
         logger.info(f"scheduler communicating at {self.requester.url}")
@@ -168,10 +169,12 @@ class TaskInstanceScheduler:
         return task_instance
 
     def _get_tasks_queued_for_instantiation(self) -> List[ExecutorTask]:
-        app_route = f"/workflow/{self.workflow_id}/queued_tasks/1000"
+        app_route = (
+            f"/workflow/{self.workflow_id}/queued_tasks/{self.config.n_queued}"
+        )
         rc, response = self.requester.send_request(
             app_route=app_route,
-            message={"n_queued": self.config.n_queued},
+            message={},
             request_type='get')
         if rc != StatusCodes.OK:
             logger.error(f"error in {app_route}. Received response code {rc}. "
@@ -229,5 +232,5 @@ class TaskInstanceScheduler:
                                                self.requester)
                 for ti in response["task_instances"]
             ]
-        for executor_job_instance in lost_task_instances:
-            executor_job_instance.log_error()
+        for executor_task_instance in lost_task_instances:
+            executor_task_instance.log_error()

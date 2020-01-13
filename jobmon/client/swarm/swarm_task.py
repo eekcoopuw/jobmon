@@ -1,7 +1,7 @@
 from http import HTTPStatus as StatusCodes
 from typing import Callable, Set, Dict
 
-from jobmon.client.swarm import shared_requester
+from jobmon.client import shared_requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.serializers import SerializeSwarmTask
 from jobmon.models.task_status import TaskStatus

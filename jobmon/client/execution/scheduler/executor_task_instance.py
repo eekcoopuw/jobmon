@@ -1,7 +1,7 @@
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-from jobmon.client.swarm import shared_requester
+from jobmon.client import shared_requester
 from jobmon.client.requests.requester import Requester
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.exceptions import RemoteExitInfoNotAvailable, InvalidResponse

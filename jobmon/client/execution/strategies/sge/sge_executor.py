@@ -4,7 +4,7 @@ from typing import List, Tuple, Dict, Optional
 
 from cluster_utils.io import makedirs_safely
 
-from jobmon.client.execution._logging import NodeLogging as logging
+from jobmon.client.execution import NodeLogging as logging
 from jobmon.client.execution.strategies.base import (
     Executor, TaskInstanceExecutorInfo, ExecutorParameters)
 from jobmon.client.execution.strategies.sge import sge_utils

@@ -21,7 +21,7 @@ class SerializeExecutorTask:
         # coerce types for all nullables that are cast
         # using ast.literal_eval is a potential security issue but was the only
         # solution I could find to turning the data into json twice
-        max_runtime_seconds = int(wire_tuple[6]) if wire_tuple[6] else None
+        max_runtime_seconds = int(wire_tuple[7]) if wire_tuple[7] else None
         context_args = ast.literal_eval(
             wire_tuple[8]) if wire_tuple[8] else None
         resource_scales = ast.literal_eval(
@@ -58,7 +58,7 @@ class SerializeSwarmTask:
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        return {"task_id": int(wire_tuple[0]), "status": wire_tuple[2]}
+        return {"task_id": int(wire_tuple[0]), "status": wire_tuple[1]}
 
 
 class SerializeExecutorTaskInstance:

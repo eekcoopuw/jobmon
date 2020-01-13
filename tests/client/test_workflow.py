@@ -18,12 +18,12 @@ def test_wfargs_update(client_env, db_cfg):
     wfa1 = "v1"
     wf1 = UnknownWorkflow(wfa1)
     wf1.add_tasks([t1, t2, t3])
-    wf1._bind(False, True)
+    wf1._bind(False)
 
     wfa2 = "v2"
     wf2 = UnknownWorkflow(wfa2)
     wf2.add_tasks([t4, t5, t6])
-    wf2._bind(False, True)
+    wf2._bind(False)
 
     # Make sure the second Workflow has a distinct Workflow ID & WorkflowRun ID
     assert wf1.workflow_id != wf2.workflow_id
@@ -32,6 +32,8 @@ def test_wfargs_update(client_env, db_cfg):
     assert hash(wf1) != hash(wf2)
 
     # Make sure the second Workflow has a distinct set of Tasks
+    wf1._create_workflow_run()
+    wf2._create_workflow_run()
     assert not (set([t.task_id for _, t in wf1.tasks.items()]) &
                 set([t.task_id for _, t in wf2.tasks.items()]))
 

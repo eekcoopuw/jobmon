@@ -355,7 +355,7 @@ def update_task_parameters(task_id):
     query = """
     UPDATE task
     SET name=:name, command=:command, max_attempts=:max_attempts
-    WHERE task_id = :task_id
+    WHERE id = :task_id
     """
     DB.session.execute(query, data)
     DB.session.commit()
@@ -461,13 +461,14 @@ def add_workflow_run():
     DB.session.commit()
 
     # refresh in case of race condition
-    workflow = WorkflowRun.workflow
+    workflow = workflow_run.workflow
     DB.session.refresh(workflow)  # TODO: consider refreshing with write lock
 
     # try to transition the workflow. Send back any competing workflow_run_id
     # and its status
     try:
         workflow.transition(WorkflowStatus.CREATED)
+        DB.session.commit()
         previous_wfr = []
 
     except InvalidStateTransition:
@@ -491,6 +492,7 @@ def add_workflow_run():
             # resume
             if data["resume"]:
                 resumed_wfr = workflow.resume(data["reset_running_jobs"])
+                DB.session.commit()
                 previous_wfr = [(wfr.id, wfr.status) for wfr in resumed_wfr]
 
             # otherwise return the workflow that is in an active state
@@ -588,7 +590,7 @@ def log_no_executor_id(task_instance_id):
     logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
     logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."
-                 f"Data {data['task_id']}")
+                 f"Data {data['executor_id']}")
     logger.debug(f"Add TI for task ")
 
     if data['executor_id'] == qsub_attribute.NO_EXEC_ID:
@@ -598,9 +600,9 @@ def log_no_executor_id(task_instance_id):
                     " from the qsub response so no executor id can be assigned"
                     " at this time")
 
-    ti = DB.session.query(TaskInstance).filter_by(
-        task_instance_id=task_instance_id).one()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_EXECUTOR_ID)
+    ti.executor_id = data['executor_id']
     DB.session.commit()
 
     resp = jsonify(message=msg)
@@ -620,10 +622,9 @@ def log_executor_id(task_instance_id):
     logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
     logger.debug(f"Log EXECUTOR ID for TI {task_instance_id}."
-                 f"Data {data['task_id']}")
+                 f"Data {data}")
 
-    ti = DB.session.query(TaskInstance).filter_by(
-        task_instance_id=task_instance_id).one()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(
         ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     ti.executor_id = data['executor_id']
@@ -696,7 +697,7 @@ def queue_job(task_id):
     logger.info(logging.myself())
     logger.debug(logging.logParameter("task_id", task_id))
 
-    task = DB.session.query(Task).filter_by(task_id=task_id).one()
+    task = DB.session.query(Task).filter_by(id=task_id).one()
     try:
         task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
     except InvalidStateTransition:
@@ -723,7 +724,7 @@ def log_workflow_run_status_update(workflow_run_id):
                  f"Data: {data}")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(
-        workflow_run_id=workflow_run_id).one()
+        id=workflow_run_id).one()
     workflow_run.transition(data["status"])
     DB.session.commit()
 
@@ -816,8 +817,7 @@ def log_running(task_instance_id):
     data = request.get_json()
     logger.debug(f"Log RUNNING for TI {task_instance_id}. Data={data}")
 
-    ti = DB.session.query(TaskInstance).filter_by(
-        task_instance_id=task_instance_id).one()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
     if data.get('executor_id', None) is not None:
         ti.executor_id = data['executor_id']
@@ -860,13 +860,13 @@ def log_ti_report_by(task_instance_id):
                 SET report_by_date = ADDTIME(
                     UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
                     executor_id = :executor_id
-                WHERE task_instance_id = :task_instance_id"""
+                WHERE task_instance.id = :task_instance_id"""
     else:
         query = """
             UPDATE task_instance
             SET report_by_date = ADDTIME(
                 UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-            WHERE task_instance_id = :task_instance_id"""
+            WHERE task_instance.id = :task_instance_id"""
     DB.session.execute(query, params)
     DB.session.commit()
 
@@ -912,8 +912,7 @@ def log_usage(task_instance_id):
                          data.get('cpu', None),
                          data.get('io', None)))
 
-    ti = DB.session.query(TaskInstance).filter_by(
-        task_instance_id=task_instance_id).one()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get('usage_str', None) is not None:
         ti.usage_str = data['usage_str']
     if data.get('wallclock', None) is not None:
@@ -956,8 +955,7 @@ def log_done(task_instance_id):
     data = request.get_json()
     logger.debug(f"Log DONE for TI {task_instance_id}. Data: {data}")
 
-    ti = DB.session.query(TaskInstance).filter_by(
-        task_instance_id=task_instance_id).one()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get('executor_id', None) is not None:
         ti.executor_id = data['executor_id']
     if data.get('nodename', None) is not None:
@@ -988,8 +986,7 @@ def log_error_worker_node(task_instance_id: int):
     nodename = data.get('nodename', None)
     logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
 
-    ti = DB.session.query(TaskInstance).filter_by(
-        task_instance_id=task_instance_id).one()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     try:
         resp = _log_error(ti, error_state, error_message, executor_id,
                           nodename)

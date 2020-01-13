@@ -130,7 +130,8 @@ def get_task_template_version(task_template_id: int):
     logger.info(logging.myself())
     command_template = request.args.get("command_template")
     arg_mapping_hash = request.args.get("arg_mapping_hash")
-    logger.debug(command_template, arg_mapping_hash)
+    logger.debug(f"command_template={command_template}"
+                 f"arg_mapping_hash={arg_mapping_hash}")
 
     # get task template version object
     query = """
@@ -292,7 +293,8 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash):
             workflow.workflow_args_hash = :workflow_args_hash
     """
 
-    res = DB.session.query(Workflow, Dag).from_statement(text(query)).params(
+    res = DB.session.query(Workflow.task_hash, Workflow.tool_version_id,
+                           Dag.hash).from_statement(text(query)).params(
         workflow_args_hash=workflow_args_hash).all()
     DB.session.commit()
     res = [(row.task_hash, row.tool_version_id, row.hash) for row in res]
@@ -317,14 +319,13 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
     # TODO: this is where we would filter by task priority
     query = """
         SELECT
-            task_instance.id, task_instance.workflow_run_id,
-            task_instance.executor_id
+            task.*
         FROM
             task
         WHERE
             task.workflow_id = :workflow_id
             AND task.status = :task_status
-        ORDER BY task.task_id
+        ORDER BY task.id
         LIMIT :n_queued_jobs"""
     tasks = DB.session.query(Task).from_statement(text(query)).params(
         workflow_id=workflow_id,
@@ -356,8 +357,8 @@ def get_suspicious_task_instances(workflow_run_id):
         AND task_instance.report_by_date <= UTC_TIMESTAMP()
     """
     rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
-        active_jobs=[TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                     TaskInstanceStatus.RUNNING],
+        active_tasks=[TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                      TaskInstanceStatus.RUNNING],
         workflow_run_id=workflow_run_id
     ).all()
     DB.session.commit()
@@ -390,13 +391,13 @@ def get_task_by_status_only(workflow_id):
         swarm_task_ids = [int(task_id) for task_id in swarm_tasks_tuples]
         query = """
             SELECT
-                task_id, status
+                task.id, task.status
             FROM task
             WHERE
                 workflow_id = :workflow_id
                 AND (
-                    (task_id IN :swarm_task_ids
-                     AND (task_id, status) NOT IN (VALUES :tuples))
+                    (task.id IN :swarm_task_ids
+                     AND (task.id, status) NOT IN (VALUES :tuples))
                     OR status_date >= :last_sync)"""
         rows = DB.session.query(Task).from_statement(
             text(query)).params(workflow_id=workflow_id,
@@ -406,7 +407,7 @@ def get_task_by_status_only(workflow_id):
     else:
         query = """
             SELECT
-                task_id, status
+                task.id, task.status
             FROM task
             WHERE
                 workflow_id = :workflow_id
@@ -417,8 +418,8 @@ def get_task_by_status_only(workflow_id):
     DB.session.commit()
 
     task_dcts = [row.to_wire_as_swarm_task() for row in rows]
-    logger.info("job_attr_dct={}".format(task_dcts))
-    resp = jsonify(job_dcts=task_dcts, time=str_time)
+    logger.info("task_dcts={}".format(task_dcts))
+    resp = jsonify(task_dcts=task_dcts, time=str_time)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -434,9 +435,19 @@ def kill_self(task_instance_id):
     logging.logParameter("task_instance_id", task_instance_id)
 
     # TODO: This select is a bit heavy weight for it's purpose
-    should_kill = DB.session.query(TaskInstance). \
-        filter_by(task_instance_id=task_instance_id). \
-        filter(TaskInstance.status.in_(kill_statuses)).one_or_none()
+    query = """
+        SELECT
+            task_instance.id
+        FROM
+            task_instance
+        WHERE
+            task_instance.id = :task_instance_id
+            AND task_instance.status in :statuses
+
+    """
+    should_kill = DB.session.query(TaskInstance).from_statement(
+        text(query)).params(task_instance_id=task_instance_id,
+                            statuses=kill_statuses).one_or_none()
     if should_kill is not None:
         resp = jsonify(should_kill=True)
     else:

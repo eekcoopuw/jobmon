@@ -3,9 +3,10 @@ import os
 import pkg_resources
 import shutil
 from typing import List, Tuple, Dict, Optional, Type, Union
+
+from jobmon.client.execution import NodeLogging as logging
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
-import logging
 
 logger = logging.getLogger(__name__)
 

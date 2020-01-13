@@ -8,9 +8,9 @@ import time
 from typing import Dict, Set, List, Tuple
 
 from jobmon import __version__
+from jobmon.client import shared_requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.requests.requester import Requester
-from jobmon.client.swarm import shared_requester
 from jobmon.client.swarm import SwarmLogging as logging
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.exceptions import (CallableReturnedInvalidObject, InvalidResponse,
@@ -60,7 +60,7 @@ class WorkflowRun(object):
 
         # bind to database
         # TODO: figure out whether we need slack channel, node, and pid in db
-        app_route = "workflow_run"
+        app_route = "/workflow_run"
         rc, response = self.requester.send_request(
             app_route=app_route,
             message={'workflow_id': self.workflow_id,

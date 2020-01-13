@@ -161,7 +161,7 @@ class TaskTemplate:
                     name: Optional[str] = None,
                     upstream_tasks: List[Task] = [],
                     task_attributes: Optional[Union[List, dict]] = {},
-                    max_attempts: Optional[int] = 3,
+                    max_attempts: int = 3,
                     **kwargs) -> Task:
         """Create an instance of a task associated with this template
 
@@ -232,7 +232,7 @@ class TaskTemplate:
             app_route=f"/task_template/{self.task_template_id}/version",
             message={
                 "command_template": self.command_template,
-                "arg_mapping_hash": arg_mapping_hash,
+                "arg_mapping_hash": arg_mapping_hash
             },
             request_type="get")
 
