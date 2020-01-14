@@ -102,6 +102,9 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
     elif executor_class == "DummyExecutor":
         from jobmon.client.execution.strategies.base import \
             TaskInstanceExecutorInfo
+    elif executor_class == "MultiprocessExecutor":
+        from jobmon.client.execution.strategies.multiprocess import \
+            TaskInstanceMultiprocessInfo as TaskInstanceExecutorInfo
     else:
         raise ValueError("{} is not a valid ExecutorClass".format(
             executor_class))

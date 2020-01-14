@@ -122,6 +122,12 @@ class WorkflowRun(object):
         else:
             return self._scheduler_proc.is_alive()
 
+    @property
+    def completed_report(self):
+        if not hasattr(self, "_completed_report"):
+            raise AttributeError("Must executor workflow run before first")
+        return self._completed_report
+
     def update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is
         passed
@@ -193,7 +199,7 @@ class WorkflowRun(object):
             rinse and repeat
 
         :return:
-            A triple: True, len(all_completed_tasks), len(all_failed_tasks)
+            num_new_completed, num_previously_completed
         """
         self.update_status(WorkflowRunStatus.RUNNING)
 
@@ -273,14 +279,14 @@ class WorkflowRun(object):
                 logger.info("Failing after first failure, as requested")
             logger.info(f"DAG execute ended, failed {all_failed}")
             self.update_status(WorkflowRunStatus.ERROR)
-            return (num_new_completed, len(previously_completed),
-                    len(all_failed))
+            self._completed_report = (num_new_completed,
+                                      len(previously_completed))
         else:
             logger.info(f"DAG execute finished successfully, "
                         f"{num_new_completed} jobs")
             self.update_status(WorkflowRunStatus.DONE)
-            return (num_new_completed, len(previously_completed),
-                    len(all_failed))
+            self._completed_report = (num_new_completed,
+                                      len(previously_completed))
 
     def _compute_fringe(self) -> List[SwarmTask]:
         current_fringe: List[SwarmTask] = []

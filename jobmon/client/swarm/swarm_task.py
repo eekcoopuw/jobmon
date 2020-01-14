@@ -63,12 +63,12 @@ class SwarmTask(object):
     @property
     def downstream_tasks(self):
         """Return list of downstream tasks"""
-        return list(self.downstream_bound_tasks)
+        return list(self.downstream_swarm_tasks)
 
     @property
     def upstream_tasks(self):
         """Return a list of upstream tasks"""
-        return list(self.upstream_bound_tasks)
+        return list(self.upstream_swarm_tasks)
 
     # def update_task(self, max_attempts: int):
     #     self.max_attempts = max_attempts

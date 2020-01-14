@@ -4,6 +4,8 @@ from jobmon.client.requests.requester import Requester
 from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
 
+from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
+
 
 logger = logging.getLogger(__name__)
 
@@ -88,15 +90,20 @@ class UnknownWorkflow(Workflow):
         self._set_executor(executor_class=executor_class, stderr=stderr,
                            stdout=stdout, working_dir=working_dir,
                            project=project)
+        cfg = ExecutionConfig.from_defaults()
+        if reconciliation_interval is not None:
+            cfg.reconciliation_interval = reconciliation_interval
+        if heartbeat_interval is not None:
+            cfg.heartbeat_interval = heartbeat_interval
+        if report_by_buffer is not None:
+            cfg.report_by_buffer = report_by_buffer
+        self._execution_config = cfg
 
         # run params
         self._reset_running_jobs = reset_running_jobs
         self._fail_fast = fail_fast
         self._seconds_until_timeout = seconds_until_timeout
         self._resume = resume
-        self._reconciliation_interval = reconciliation_interval
-        self._heartbeat_interval = heartbeat_interval
-        self._report_by_buffer = report_by_buffer
 
         # pass
         super().__init__(
@@ -133,5 +140,5 @@ class UnknownWorkflow(Workflow):
     def run(self):
         """Run this workflow"""
 
-        super().run(self._fail_fast, self._seconds_until_timeout,
-                    self._resume, self._reset_running_jobs)
+        return super().run(self._fail_fast, self._seconds_until_timeout,
+                           self._resume, self._reset_running_jobs)

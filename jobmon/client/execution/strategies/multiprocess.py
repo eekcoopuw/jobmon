@@ -37,6 +37,8 @@ class Consumer(Process):
 
     def run(self):
         """wait for work, the execute it"""
+        logger.info(f"consumer alive. pid={os.getpid()}")
+
         while True:
             task = self.task_queue.get()
             if task is None:
@@ -46,6 +48,7 @@ class Consumer(Process):
 
             os.environ["JOB_ID"] = str(task.executor_id)
 
+            logger.debug(f"comsumer received {task.command}")
             # run the job
             unwrap(**parse_arguments(task.command))
 

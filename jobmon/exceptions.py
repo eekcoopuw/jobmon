@@ -46,6 +46,10 @@ class MultipleWorkflowRuns(Exception):
     pass
 
 
+class EmptyWorkflowError(Exception):
+    pass
+
+
 class SchedulerStartupTimeout(Exception):
     pass
 

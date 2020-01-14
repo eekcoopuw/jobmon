@@ -8,6 +8,7 @@ from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.node import Node
 from jobmon.client.requests.requester import Requester
 
+
 logger = logging.getLogger(__name__)
 
 

@@ -209,9 +209,12 @@ class Workflow(object):
             # execute the workflow run
             wfr.execute_interruptible(scheduler_proc, fail_fast,
                                       seconds_until_timeout)
+            # TODO: report
+            return wfr
         except KeyboardInterrupt:
             wfr.update_status(WorkflowRunStatus.STOPPED)
             # TODO: report
+            return wfr
         except Exception:
             wfr.update_status(WorkflowRunStatus.ERROR)
             raise

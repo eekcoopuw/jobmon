@@ -1,9 +1,0 @@
-tests/test_cli_parser.py
-tests/test_cluster_requirements.py
-tests/test_config.py
-tests/test_dag_viz.py
-tests/test_db.py
-tests/test_sge.py
-tests/test_simple_dag.py
-tests/test_ssh_permissions.py
-tests/test_task.py
