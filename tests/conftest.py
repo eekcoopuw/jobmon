@@ -157,6 +157,15 @@ def client_env(real_jsm_jqs, monkeypatch):
     monkeypatch.setattr(shared_requester, "url", cc.url)
 
 
+@pytest.fixture(scope='module')
+def tmp_out_dir():
+    """This creates a new tmp_out_dir for every module"""
+    user = pwd.getpwuid(os.getuid()).pw_name
+    output_root = f'/ihme/scratch/users/{user}/tests/jobmon/{uuid.uuid4()}'
+    yield output_root
+    shutil.rmtree(output_root, ignore_errors=True)
+
+
 # def dummy_scheduler_instance(host, port, reconciliation_interval,
 #                              heartbeat_interval, report_by_buffer):
 #     from jobmon.execution.scheduler.execution_config import ExecutionConfig
@@ -366,17 +375,6 @@ def client_env(real_jsm_jqs, monkeypatch):
 #                  'created_date': str(datetime.utcnow())},
 #         request_type='post')
 #     yield response['dag_id']
-
-
-# @pytest.fixture(scope='module')
-# def tmp_out_dir():
-#     """This creates a new tmp_out_dir for every module"""
-#     u = uuid.uuid4()
-#     user = pwd.getpwuid(os.getuid()).pw_name
-#     output_root = ('/ihme/scratch/users/{user}/tests/jobmon/'
-#                    '{uuid}'.format(user=user, uuid=u))
-#     yield output_root
-#     shutil.rmtree(output_root, ignore_errors=True)
 
 
 # @pytest.fixture(scope='function')
