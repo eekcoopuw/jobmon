@@ -28,16 +28,20 @@ class ExecutionConfig(object):
 
     @classmethod
     def from_defaults(cls):
-        return cls(jobmon_command=derive_jobmon_command_from_env(),
-                   reconciliation_interval=config.reconciliation_interval,
-                   heartbeat_interval=config.heartbeat_interval,
-                   report_by_buffer=config.report_by_buffer,
-                   n_queued=1000)
+        return cls(
+            jobmon_command=derive_jobmon_command_from_env(),
+            workflow_run_heartbeat_interval=config.reconciliation_interval,
+            task_heartbeat_interval=config.heartbeat_interval,
+            report_by_buffer=config.report_by_buffer,
+            n_queued=1000,
+            scheduler_poll_interval=10)
 
-    def __init__(self, jobmon_command, reconciliation_interval,
-                 heartbeat_interval, report_by_buffer, n_queued):
+    def __init__(self, jobmon_command, workflow_run_heartbeat_interval,
+                 task_heartbeat_interval, report_by_buffer, n_queued,
+                 scheduler_poll_interval):
         self.jobmon_command = jobmon_command
-        self.reconciliation_interval = reconciliation_interval
-        self.heartbeat_interval = heartbeat_interval
+        self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
+        self.task_heartbeat_interval = task_heartbeat_interval
         self.report_by_buffer = report_by_buffer
         self.n_queued = n_queued
+        self.scheduler_poll_interval = scheduler_poll_interval

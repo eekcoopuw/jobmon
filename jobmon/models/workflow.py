@@ -85,8 +85,10 @@ class Workflow(DB.Model):
             raise InvalidStateTransition('Workflow', self.id, self.status,
                                          new_state)
 
-    def resume(self, reset_running_jobs):
-        self._reset_stuff()
-
-    def _reset_stuff(self):
-        pass
+    def resume(self, reset_running_jobs, session):
+        for workflow_run in self.workflow_runs:
+            if workflow_run.is_active:
+                if reset_running_jobs:
+                    workflow_run.cold_resume(session)
+                else:
+                    workflow_run.hot_resume(session)

@@ -1,6 +1,8 @@
 import hashlib
 from http import HTTPStatus as StatusCodes
-from multiprocessing import Process, Event
+from multiprocessing import Process, Event, Queue
+from multiprocessing import synchronize
+from queue import Empty
 from typing import Optional, List, Tuple, Dict
 import uuid
 
@@ -9,14 +11,15 @@ from jobmon.client._logging import ClientLogging as logging
 from jobmon.client.dag import Dag
 from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
-    TaskInstanceScheduler
+    TaskInstanceScheduler, ExceptionWrapper
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
 from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
-                               InvalidResponse, SchedulerStartupTimeout)
+                               InvalidResponse, SchedulerStartupTimeout,
+                               SchedulerNotAlive)
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
@@ -117,6 +120,8 @@ class Workflow(object):
 
         self.requester = requester
         self._scheduler_proc: Optional[Process] = None
+        self._scheduler_com_queue: Queue = Queue()
+        self._scheduler_stop_event: synchronize.Event = Event()
 
     @property
     def is_bound(self):
@@ -189,7 +194,7 @@ class Workflow(object):
             seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME,
             reset_running_jobs: bool = True,
-            scheduler_startup_wait_timeout=180):
+            scheduler_response_wait_timeout=180):
 
         if not hasattr(self, "_executor"):
             logger.warning("using default executor")
@@ -204,7 +209,7 @@ class Workflow(object):
         try:
             # start scheduler
             scheduler_proc = self._start_task_instance_scheduler(
-                wfr.workflow_run_id, scheduler_startup_wait_timeout)
+                wfr.workflow_run_id, scheduler_response_wait_timeout)
 
             # execute the workflow run
             wfr.execute_interruptible(scheduler_proc, fail_fast,
@@ -215,12 +220,39 @@ class Workflow(object):
             wfr.update_status(WorkflowRunStatus.STOPPED)
             # TODO: report
             return wfr
+        except SchedulerNotAlive:
+            wfr.update_status(WorkflowRunStatus.ERROR)
+
+            # check if we got an exception from the scheduler
+            try:
+                resp = self._scheduler_com_queue.get(False)
+            except Empty:
+                # no response. raise scheduler not alive
+                raise
+            else:
+                # re-raise error from scheduler
+                if isinstance(resp, ExceptionWrapper):
+                    resp.re_raise()
+                else:
+                    # response is not an exception
+                    raise
+            finally:
+                scheduler_proc.terminate()
+                self._scheduler_proc = None
+
         except Exception:
             wfr.update_status(WorkflowRunStatus.ERROR)
             raise
         finally:
             # deal with task instance scheduler process if it was started
             if self._scheduler_proc is not None:
+                self._scheduler_stop_event.set()
+                try:
+                    # give it some time to shut down
+                    self._scheduler_com_queue.get(
+                        timeout=scheduler_response_wait_timeout)
+                except Empty:
+                    pass
                 self._scheduler_proc.terminate()
 
     def _bind(self, resume: bool = ResumeStatus.DONT_RESUME):
@@ -371,15 +403,27 @@ class Workflow(object):
         scheduler = TaskInstanceScheduler(self.workflow_id, workflow_run_id,
                                           self._executor,
                                           self._execution_config)
-        event = Event()
-        self._scheduler_proc = Process(target=scheduler.run_scheduler,
-                                       args=[event])
-        self._scheduler_proc.start()
-        if not event.wait(scheduler_startup_wait_timeout):
+        try:
+            scheduler_proc = Process(target=scheduler.run_scheduler,
+                                     args=[self._scheduler_stop_event,
+                                           self._scheduler_com_queue])
+            scheduler_proc.start()
+
+            # wait for response from scheduler
+            resp = self._scheduler_com_queue.get(
+                timeout=scheduler_startup_wait_timeout)
+        except Empty:  # mypy complains but this is correct
             raise SchedulerStartupTimeout(
                 "Scheduler process did not start within the alloted timeout "
                 f"t={scheduler_startup_wait_timeout}s")
-        return self._scheduler_proc
+        else:
+            # the first message can only be "ALIVE" or an ExceptionWrapper
+            if isinstance(resp, ExceptionWrapper):
+                resp.re_raise()
+            else:
+                self._scheduler_proc = scheduler_proc
+
+        return scheduler_proc
 
     def __hash__(self):
         hash_value = hashlib.sha1()

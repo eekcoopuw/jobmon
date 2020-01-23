@@ -4,6 +4,7 @@ from jobmon.models import DB
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.models.task_instance_status import TaskInstanceStatus
 
 
 class WorkflowRun(DB.Model):
@@ -67,6 +68,17 @@ class WorkflowRun(DB.Model):
                           WorkflowRunStatus.HOT_RESUME,
                           WorkflowRunStatus.ERROR]
 
+    resume_error_states = [WorkflowRunStatus.COLD_RESUME,
+                           WorkflowRunStatus.HOT_RESUME]
+
+    @property
+    def is_active(self):
+        return self.status in [WorkflowRunStatus.BOUND,
+                               WorkflowRunStatus.RUNNING]
+
+    def heartbeat(self):
+        self.heartbeat = func.UTC_TIMESTAMP()
+
     def transition(self, new_state):
         self._validate_transition(new_state)
         self.status = new_state
@@ -82,14 +94,56 @@ class WorkflowRun(DB.Model):
         elif new_state in self.bound_error_states:
             self.workflow.transition(WorkflowStatus.FAILED)
 
-    def hot_reset(self):
-        pass
+    def hot_reset(self, session):
+        self.transition(WorkflowRunStatus.HOT_RESUME)
+        self._set_kill_self_state(
+            states=[TaskInstanceStatus.Instantiated,
+                    TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR],
+            session=session)
+        session.flush()
 
-    def cold_reset(self):
-        pass
+    def cold_reset(self, session):
+        self.transition(WorkflowRunStatus.COLD_RESUME)
+        self._set_kill_self_state(
+            states=[TaskInstanceStatus.Instantiated,
+                    TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                    TaskInstanceStatus.RUNNING],
+            session=session)
+        session.flush()
 
     def _validate_transition(self, new_state):
         """Ensure the Job state transition is valid"""
         if (self.status, new_state) not in self.valid_transitions:
             raise InvalidStateTransition('Workflow', self.id, self.status,
                                          new_state)
+
+    def _set_kill_self_state(self, states, session):
+        log_errors = """
+            INSERT INTO task_instance_error_log
+                (task_instance_id, description, error_time)
+            SELECT
+                task_instance_id,
+                CONCAT(
+                    'Workflow resume requested. Setting to K from status of: ',
+                    task_instance.status
+                ) as description,
+                UTC_TIMESTAMP as error_time
+            FROM task_instance
+            JOIN task
+                ON task_instance.task_id = task.id
+            WHERE
+                task_instance.workflow_run_id = :workflow_run_id
+                AND task.status != :done_status
+        """
+        update_task_instance = """
+            UPDATE
+                task_instance
+            JOIN task
+                ON task_instance.task_id = task.id
+            SET
+                task_instance.status = :error_status,
+                task_instance.status_date = UTC_TIMESTAMP
+            WHERE
+                task_instance.workflow_run_id = :workflow_run_id
+                AND task.status != :done_status
+        """

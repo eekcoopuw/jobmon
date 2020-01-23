@@ -22,10 +22,6 @@ class InvalidResponse(Exception):
     pass
 
 
-class UnsafeSSHDirectory(Exception):
-    pass
-
-
 class RemoteExitInfoNotAvailable(Exception):
     pass
 
@@ -55,4 +51,8 @@ class SchedulerStartupTimeout(Exception):
 
 
 class SchedulerNotAlive(Exception):
+    pass
+
+
+class WorkflowRunStateError(Exception):
     pass

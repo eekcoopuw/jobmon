@@ -19,6 +19,8 @@ from jobmon.models.task_instance import TaskInstance
 from jobmon.models.workflow import Workflow
 from jobmon.models.attributes.constants import task_instance_attribute
 from jobmon.server.server_logging import jobmonLogging as logging
+import jobmon.server.server_side_exception as sse
+
 from jobmon.serializers import SerializeExecutorTaskInstance
 
 HASH = 12345
@@ -1284,3 +1286,21 @@ def test_special_chars(real_dag_id, testing_chars, comment, replaced):
         assert s.encode("latin1", "replace").decode("utf-8") in msg["errors"]
     else:
         assert s in msg["errors"]
+
+
+def raiser(s: str):
+    raise ValueError(f"Bad Things {s}")
+
+
+def test_wrapped():
+    try:
+        try:
+            raiser("dog")
+            # should not succeed
+            assert False
+        except Exception:
+            sse.log_and_raise("cat", logger)
+    except sse.ServerSideException as e:
+        # Should land here, must contain both messages
+        assert "dog" in e.msg
+        assert "cat" in e.msg

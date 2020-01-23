@@ -31,7 +31,8 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)
 
-    scheduler.instantiate_queued_tasks()
+    scheduler._get_tasks_queued_for_instantiation()
+    scheduler.schedule()
 
     # check the job finished
     app = db_cfg["app"]
@@ -89,8 +90,6 @@ def test_n_queued(db_cfg, client_env):
 
     assert len(select_jobs) == 3
     assert len(all_jobs) == 20
-    for i in range(3):
-        assert select_jobs[i].task_id == (i + 1)
 
 
 @pytest.mark.parametrize('sge', [qsub_attribute.NO_EXEC_ID,
@@ -118,7 +117,8 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
         return sge
     monkeypatch.setattr(scheduler.executor, "execute", mock_execute)
 
-    scheduler.instantiate_queued_tasks()
+    scheduler._get_tasks_queued_for_instantiation()
+    scheduler.schedule()
 
     # check the job finished
     app = db_cfg["app"]

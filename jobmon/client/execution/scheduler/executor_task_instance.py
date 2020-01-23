@@ -83,17 +83,17 @@ class ExecutorTaskInstance:
         """
 
         app_route = '/task_instance'
-        rc, response = requester.send_request(
+        return_code, response = requester.send_request(
             app_route=app_route,
             message={'task_id': task_id,
                      'workflow_run_id': workflow_run_id,
                      'executor_type': executor.__class__.__name__},
             request_type='post')
-        if rc != StatusCodes.OK:
-            message = (f"error in {app_route}. Received response code {rc}. "
-                       f"Response was {response}")
-            logger.error(message)
-            raise InvalidResponse(message)
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
 
         return cls.from_wire(response['task_instance'], executor=executor)
 
@@ -107,14 +107,15 @@ class ExecutorTaskInstance:
 
         app_route = (
             f'/task_instance/{self.task_instance_id}/log_no_executor_id')
-        rc, response = self.requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'executor_id': executor_id},
             request_type='post')
-        if rc != StatusCodes.OK:
-            message = (f"error in {app_route}. Received response code {rc}. "
-                       f"Response was {response}")
-            logger.error(message)
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
 
     def register_submission_to_batch_executor(self, executor_id: int,
                                               next_report_increment: float
@@ -130,15 +131,16 @@ class ExecutorTaskInstance:
         self.executor_id = executor_id
 
         app_route = f'/task_instance/{self.task_instance_id}/log_executor_id'
-        rc, response = self.requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'executor_id': str(executor_id),
                      'next_report_increment': next_report_increment},
             request_type='post')
-        if rc != StatusCodes.OK:
-            message = (f"error in {app_route}. Received response code {rc}. "
-                       f"Response was {response}")
-            logger.error(message)
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
 
     def log_error(self) -> None:
         """Log an error from the executor loops"""
@@ -177,10 +179,12 @@ class ExecutorTaskInstance:
         app_route = (
                 f"/task_instance/{self.task_instance_id}/"
                 "log_error_reconciler")
-        rc, response = self.requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message=message,
             request_type='post')
-        if rc != StatusCodes.OK:
-            logger.error(f"error in {app_route}. Received response code {rc}. "
-                         f"Response was {response}")
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')

@@ -685,6 +685,24 @@ def log_error_reconciler(task_instance_id: int):
     return resp
 
 
+@jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+def log_workflow_run_heartbeat(workflow_run_id: int):
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
+
+    workflow_run = DB.session.query(WorkflowRun).filter_by(
+        id=workflow_run_id).one()
+
+    if workflow_run.is_active:
+        workflow_run.heartbeat()
+    DB.session.add(workflow_run)
+    DB.session.commit()
+
+    resp = jsonify(message=str(workflow_run.status))
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################## SWARM ROUTES #################################
 
 @jsm.route('/task/<task_id>/queue', methods=['POST'])

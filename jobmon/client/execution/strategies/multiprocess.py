@@ -48,7 +48,7 @@ class Consumer(Process):
 
             os.environ["JOB_ID"] = str(task.executor_id)
 
-            logger.debug(f"comsumer received {task.command}")
+            logger.debug(f"consumer received {task.command}")
             # run the job
             unwrap(**parse_arguments(task.command))
 

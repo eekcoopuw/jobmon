@@ -7,7 +7,7 @@ from jobmon.models.task_status import TaskStatus
 
 this_file = os.path.dirname(__file__)
 remote_sleep_and_write = os.path.abspath(os.path.expanduser(
-    f"{this_file}/../task_scripts/remote_sleep_and_write.py"))
+    f"{this_file}/../_scripts/remote_sleep_and_write.py"))
 
 
 def test_empty_workflow(db_cfg, client_env):

@@ -40,7 +40,7 @@ def test_unknown_state(db_cfg, client_env):
 
     # How long we wait for a JI to report it is running before reconciler moves
     # it to error state.
-    scheduler.instantiate_queued_tasks()
+    scheduler.schedule()
 
     # Since we are using the 'dummy' executor, we never actually do
     # any work. The job gets moved to lost_track during reconciliation
@@ -58,11 +58,15 @@ def test_unknown_state(db_cfg, client_env):
     assert res[0] == "B"
 
     # sleep through the report by date
-    time.sleep(scheduler.config.heartbeat_interval *
+    time.sleep(scheduler.config.task_heartbeat_interval *
                scheduler.config.report_by_buffer)
 
     # job will move into lost track because it never logs a heartbeat
-    scheduler.reconcile()
+    lost_tasks = scheduler._get_lost_task_instances()
+    assert len(lost_tasks) == 1
+
+    # will check the executor's return state and move the job to unknown
+    scheduler.schedule()
     res = DB.session.execute(sql, {"task_id": str(task.task_id)}).fetchone()
     DB.session.commit()
     assert res[0] == "U"
@@ -101,7 +105,7 @@ def test_log_executor_report_by(db_cfg, client_env, monkeypatch):
                                   seconds_until_timeout=1)
 
     # instantiate the job and then log a report by
-    scheduler.instantiate_queued_tasks()
+    scheduler.schedule()
     scheduler._log_executor_report_by()
 
     app = db_cfg["app"]
