@@ -1,6 +1,7 @@
 import logging
 import socket
 import inspect
+import sys
 from typing import Any
 from flask import Flask
 from logging.handlers import SysLogHandler
@@ -76,9 +77,8 @@ class jobmonLogging:
             _LogLevelSingleton.get_instance().get_log_level())
         # werkzeug logger
         _werkzeug_logger = logging.getLogger("werkzeug")
-        _werkzeug_logger.setLevel(
-            _LogLevelSingleton.get_instance().get_log_level())
-        hs = logging.StreamHandler()
+        hs = logging.StreamHandler(sys.stdout)
+        hs.setLevel(_LogLevelSingleton.get_instance().get_log_level())
         formatter = logging.Formatter(jobmonLogging._format)
         hs.setFormatter(formatter)
         # hs.setLevel(LogLevelSingleton.get_instance().get_log_level_flask())
@@ -97,9 +97,8 @@ class jobmonLogging:
 
         # use different handles for sqlalchemy
         _sqlalchemy_logger = logging.getLogger('sqlalchemy')
-        _sqlalchemy_logger.setLevel(
-            _LogLevelSingleton.get_instance().get_log_level_flask())
         hs = logging.StreamHandler()
+        hs.setLevel(_LogLevelSingleton.get_instance().get_log_level_flask())
         formatter = logging.Formatter(jobmonLogging._format)
         hs.setFormatter(formatter)
         _sqlalchemy_logger.addHandler(hs)
@@ -113,10 +112,10 @@ class jobmonLogging:
 
     @staticmethod
     def createLoggers():
-        root_logger = logging.getLogger()
-        root_logger.setLevel(_LogLevelSingleton.get_instance().get_log_level())
+        root_logger = logging.getLogger("jobmon.server")
         # docker log handler
         _handler = logging.StreamHandler()
+        _handler.setLevel(_LogLevelSingleton.get_instance().get_log_level())
         formatter = logging.Formatter(jobmonLogging._format)
         _handler.setFormatter(formatter)
         root_logger.addHandler(_handler)
@@ -198,6 +197,7 @@ class jobmonLogging:
         logger.debug(jobmonLogging.logParameter("socktype", socktype))
         logger.debug(jobmonLogging.logParameter("l", l))
         h = SysLogHandler(address=(host, port), socktype=socktype)
+        h.setLevel(_LogLevelSingleton.get_instance().get_log_level())
         jobmonLogging.attachHandler(logger, h, l)
         if socktype == socket.SOCK_DGRAM:
             logger.debug(

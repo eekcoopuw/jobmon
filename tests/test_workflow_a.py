@@ -19,13 +19,16 @@ from jobmon.client import shared_requester as req
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     ResumeStatus
+from tests.conftest import teardown_db
 import tests.workflow_utils as wu
+from tests.conftest import teardown_db
 
 
 path_to_file = os.path.dirname(__file__)
 
 
-def test_wf_with_stata_temp_dir(env_var, db_cfg):
+def test_wf_with_stata_temp_dir(db_cfg, env_var):
+    teardown_db(db_cfg)
     t1 = StataTask(script='di "hello"', num_cores=1)
     t2 = StataTask(script='di "world"', upstream_tasks=[t1], num_cores=1)
 
@@ -34,14 +37,25 @@ def test_wf_with_stata_temp_dir(env_var, db_cfg):
 
     success = wf.run()
     assert success
+    teardown_db(db_cfg)
 
 
+<<<<<<< HEAD
 # @pytest.mark.qsubs_jobs
 # def test_wfargs_update(env_var, db_cfg):
 #     # Create identical dags
 #     t1 = BashTask("sleep 1", num_cores=1)
 #     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
 #     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
+=======
+@pytest.mark.qsubs_jobs
+def test_wfargs_update(db_cfg, env_var):
+    teardown_db(db_cfg)
+    # Create identical dags
+    t1 = BashTask("sleep 1", num_cores=1)
+    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
+    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
+>>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
 
 #     t4 = BashTask("sleep 1", num_cores=1)
 #     t5 = BashTask("sleep 2", upstream_tasks=[t4], num_cores=1)
@@ -63,17 +77,25 @@ def test_wf_with_stata_temp_dir(env_var, db_cfg):
 #     # Make sure the second Workflow has a distinct hash
 #     assert wf1.hash != wf2.hash
 
+<<<<<<< HEAD
 #     # Make sure the second Workflow has a distinct set of Jobs
 #     assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
 #                 set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
+=======
+    # Make sure the second Workflow has a distinct set of Jobs
+    assert not (set([t.job_id for _, t in wf1.task_dag.bound_tasks.items()]) &
+                set([t.job_id for _, t in wf2.task_dag.bound_tasks.items()]))
+    teardown_db(db_cfg)
+>>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
 
 
 @pytest.mark.qsubs_jobs
-def test_resource_arguments(env_var, db_cfg):
+def test_resource_arguments(db_cfg, env_var):
     """
     Test the parsing/serialization max run time and cores.
     90,000 seconds is deliberately longer than one day, testing a specific
     bug"""
+    teardown_db(db_cfg)
     t1 = BashTask("sleep 10",
                   queue='all.q',
                   max_runtime_seconds=90_000,
@@ -82,6 +104,7 @@ def test_resource_arguments(env_var, db_cfg):
     wf.add_tasks([t1])
     return_code = wf.execute()
     assert return_code == DagExecutionStatus.SUCCEEDED
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
@@ -148,7 +171,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     with app.app_context():
         wf_run = (DB.session.query(WorkflowRunDAO).filter_by(
             id=stopped_wf.workflow_run.id).first())
-        assert wf_run.status == WorkflowRunStatus.STOPPED
+        assert wf_run.status == WorkflowRunStatus.COLD_RESUME
         wf_run_jobs = DB.session.query(JobInstance).filter_by(
             workflow_run_id=stopped_wf.workflow_run.id).all()
         assert all(job.status != JobInstanceStatus.RUNNING
@@ -166,6 +189,7 @@ def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     jlm = workflow.task_dag.job_list_manager
     for _, task in workflow.task_dag.tasks.items():
         assert jlm.status_from_task(task) == JobStatus.DONE
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
@@ -254,10 +278,9 @@ def test_reset_attempts_on_resume(db_cfg, simple_workflow):
                      if wfrd.id != workflow.workflow_run.id][0]
         assert done_wfr.status == WorkflowRunStatus.DONE
 
-        # TODO: Improve design for STOPPED/ERROR states for both Workflows and
-        # WorkflowRuns..
-        assert other_wfr.status == WorkflowRunStatus.STOPPED
+        assert other_wfr.status == WorkflowRunStatus.COLD_RESUME
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
@@ -276,17 +299,6 @@ def test_attempt_resume_on_complete_workflow(simple_workflow):
 
     with pytest.raises(WorkflowAlreadyComplete):
         workflow.execute()
-
-
-def test_force_new_workflow_instead_of_resume(simple_workflow):
-    # TODO (design): Is there ever a scenario where this is a good thing to do?
-    # This is more or less possible by updating WorkflowArgs... which I think
-    # is better practice than trying to create a new Workflow with identical
-    # args and DAG, which is a violation of our current concept of Workflow
-    # uniqueness. If we really want to all this behavior, we need to further
-    # refine that concept and potentially add another piece of information
-    # to the Workflow hash itself.
-    pass
 
 
 def test_dag_reset(db_cfg, simple_workflow_w_errors):
@@ -322,6 +334,7 @@ def test_dag_reset(db_cfg, simple_workflow_w_errors):
         assert (sorted([j.status for j in jobs]) ==
                 sorted(xstatuses))
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
 def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
@@ -342,9 +355,11 @@ def test_nodename_on_fail(db_cfg, simple_workflow_w_errors):
         # Make sure all their node names were recorded
         nodenames = [ji.nodename for ji in jis]
         assert nodenames and all(nodenames)
+    teardown_db(db_cfg)
 
 
 def test_subprocess_return_code_propagation(db_cfg, env_var):
+    teardown_db(db_cfg)
     task = BashTask("not_a_command 1", num_cores=1, m_mem_free='2G',
                     queue="all.q", j_resource=False)
 
@@ -373,10 +388,12 @@ def test_subprocess_return_code_propagation(db_cfg, env_var):
 
     # exit status should not be a success, expect failure
     assert exit_status != 0
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
-def test_fail_fast(env_var, db_cfg):
+def test_fail_fast(db_cfg, env_var):
+    teardown_db(db_cfg)
     t1 = BashTask("sleep 1", num_cores=1)
     t2 = BashTask("erroring_out 1", upstream_tasks=[t1], num_cores=1)
     t3 = BashTask("sleep 10", upstream_tasks=[t1], num_cores=1)
@@ -389,9 +406,11 @@ def test_fail_fast(env_var, db_cfg):
 
     assert len(workflow.task_dag.job_list_manager.all_error) == 1
     assert len(workflow.task_dag.job_list_manager.all_done) >= 2
+    teardown_db(db_cfg)
 
 
 def test_heartbeat(db_cfg, env_var, ephemera):
+    teardown_db(db_cfg)
     app = db_cfg["app"]
     app.config["SQLALCHEMY_ECHO"] = True
     DB = db_cfg["DB"]
@@ -461,3 +480,7 @@ def test_heartbeat(db_cfg, env_var, ephemera):
 
     # Must manully clean this one up because it was not executed.
     wu.cleanup_jlm(workflow)
+<<<<<<< HEAD
+=======
+    teardown_db(db_cfg)
+>>>>>>> d8544f7b2444c25a98a75878093647681596e6bb

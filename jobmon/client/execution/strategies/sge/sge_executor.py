@@ -8,7 +8,6 @@ from jobmon.client.execution import NodeLogging as logging
 from jobmon.client.execution.strategies.base import (
     Executor, TaskInstanceExecutorInfo, ExecutorParameters)
 from jobmon.client.execution.strategies.sge import sge_utils
-
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.models.attributes.constants import qsub_attribute

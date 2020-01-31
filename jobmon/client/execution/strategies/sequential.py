@@ -47,9 +47,9 @@ class SequentialExecutor(Executor):
             exit_code = self._exit_info[executor_id]
             if exit_code == 199:
                 msg = "job was in kill self state"
-                return JobInstanceStatus.UNKNOWN_ERROR, msg
+                return TaskInstanceStatus.UNKNOWN_ERROR, msg
             else:
-                return JobInstanceStatus.UNKNOWN_ERROR, f"found {exit_code}"
+                return TaskInstanceStatus.UNKNOWN_ERROR, f"found {exit_code}"
         except KeyError:
             raise RemoteExitInfoNotAvailable
 

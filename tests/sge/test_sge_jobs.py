@@ -10,7 +10,9 @@ from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.utils import _run_remote_command
 from jobmon.models.job_instance import JobInstance
 from jobmon.models.job_instance_status import JobInstanceStatus
+from tests.conftest import teardown_db
 from tests.timeout_and_skip import timeout_and_skip
+from tests.conftest import teardown_db
 
 path_to_file = os.path.dirname(__file__)
 
@@ -19,7 +21,7 @@ def test_valid_command(real_dag_id, jlm_sge_daemon):
     job = jlm_sge_daemon.bind_task(
         Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
              name="sge_valid_command", num_cores=2, m_mem_free='4G',
-             max_runtime_seconds='1000',
+             max_runtime_seconds=1000,
              j_resource=True,
              max_attempts=1))
     jlm_sge_daemon.adjust_resources_and_queue(job)
@@ -41,6 +43,7 @@ def test_valid_command(real_dag_id, jlm_sge_daemon):
                          job_list_manager_sge=jlm_sge_daemon))
 
 
+
 def test_context_args(db_cfg, jlm_sge_daemon):
     # Use the "-a" flag on qsub so that the job will only be eligible
     # for execution in the future, in this case 5 hours in the future.
@@ -49,7 +52,7 @@ def test_context_args(db_cfg, jlm_sge_daemon):
         Task(command=sge.true_path(f"{path_to_file}/shellfiles/jmtest.sh"),
              name="test_context_args", num_cores=2, m_mem_free='4G',
              max_attempts=1,
-             max_runtime_seconds='1000',
+             max_runtime_seconds=1000,
              context_args={'sge_add_args': '-a {}'.format(delay_to)}))
     jlm_sge_daemon.adjust_resources_and_queue(job)
 
@@ -78,22 +81,27 @@ def test_context_args(db_cfg, jlm_sge_daemon):
                          context_args_check,
                          db_cfg=db_cfg,
                          job_id=job.job_id))
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip("Fails too often, needs a new approach")
 def test_intel_args_positive(db_cfg, job_list_manager_sge):
     # Positive test - we want Intel
+    teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
                                job_list_manager_sge,
                                test_name="test_intel_arg",
                                architecture_name="intel",
                                cluster_architecture_name="GenuineIntel",
                                )
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip("Fails too often, needs a new approach")
 def test_intel_args_negative(db_cfg, job_list_manager_sge):
+    teardown_db(db_cfg)
     # Negative test - we don't want Intel
+    teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
                                job_list_manager_sge,
                                test_name="test_intel_arg",
@@ -101,20 +109,24 @@ def test_intel_args_negative(db_cfg, job_list_manager_sge):
                                cluster_architecture_name="AuthenticAMD",
                                yes_or_no=False
                                )
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip("Fails too often, needs a new approach")
 def test_amd_args_positive(db_cfg, job_list_manager_sge):
+    teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
                                job_list_manager_sge,
                                test_name="test_amd_arg",
                                architecture_name="amd",
                                cluster_architecture_name="AuthenticAMD"
                                )
+    teardown_db(db_cfg)
 
 
 @pytest.mark.skip("Fails too often, needs a new approach")
 def test_amd_args_negative(db_cfg, job_list_manager_sge):
+    teardown_db(db_cfg)
     architecture_specific_args(db_cfg,
                                job_list_manager_sge,
                                test_name="test_amd_arg",
@@ -122,6 +134,7 @@ def test_amd_args_negative(db_cfg, job_list_manager_sge):
                                cluster_architecture_name="GenuineIntel",
                                yes_or_no=False
                                )
+    teardown_db(db_cfg)
 
 
 def architecture_specific_args(db_cfg,
@@ -141,7 +154,7 @@ def architecture_specific_args(db_cfg,
              name=test_name,
              num_cores=1, m_mem_free='1G',
              max_attempts=1,
-             max_runtime_seconds='100',
+             max_runtime_seconds=100,
              context_args={
                  'sge_add_args': f"-l {architecture_name}{suffix}"}))
     job_list_manager_sge.adjust_resources_and_queue(job)

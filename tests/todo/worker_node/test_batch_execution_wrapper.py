@@ -2,15 +2,14 @@ from getpass import getuser
 import os
 from time import sleep
 
-from jobmon.client import PythonTask
 from jobmon.client import Workflow
+from jobmon.client import PythonTask
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 
 def test_sge_cli(env_var, db_cfg):
-
     job_name = "foo"
     log_dir = f'/ihme/scratch/users/{getuser()}'
     t1 = PythonTask(script=os.path.join(thisdir, 'fill_pipe.py'),
@@ -44,7 +43,7 @@ def test_sge_cli(env_var, db_cfg):
 
     # check stderr
     # Be careful, it can take a little while to appear
-    stderr_name = os.path.join(log_dir, f"{job_name}.e{executor_id}")
+        stderr_name = os.path.join(log_dir, f"{job_name}.e{executor_id}")
     wait_for_file(stderr_name)
     with open(stderr_name, "r") as f:
         content = f.read()

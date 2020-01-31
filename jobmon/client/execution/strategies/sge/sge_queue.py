@@ -1,6 +1,7 @@
 from typing import Dict
 
 
+
 class SGEQueue:
     """Each object in this class is the configuration of a queue on the
     cluster. It has the queue parameters that Jobmon is interested in.

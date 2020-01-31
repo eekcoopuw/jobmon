@@ -6,7 +6,6 @@ from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.serializers import SerializeExecutorTask
 from jobmon.client.swarm import SwarmLogging as logging
 
-
 logger = logging.getLogger(__name__)
 
 

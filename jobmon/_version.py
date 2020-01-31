@@ -221,7 +221,6 @@ def git_pieces_from_vcs(tag_prefix, root, verbose, run_command=run_command):
     expanded, and _version.py hasn't already been rewritten with a short
     version string, meaning we're inside a checked out source tree.
     """
-    print("tag_prefix: {}".format(tag_prefix))
     GITS = ["git"]
     if sys.platform == "win32":
         GITS = ["git.cmd", "git.exe"]

@@ -1,8 +1,5 @@
 import os
 import pytest
-import subprocess
-from time import sleep
-from multiprocessing import Process
 
 from jobmon.client import BashTask
 from jobmon.client import PythonTask
@@ -10,23 +7,22 @@ from jobmon.client import Workflow
 from jobmon.models.task_dag import TaskDagMeta
 from jobmon.models.job import Job
 from jobmon.models.job_instance_status import JobInstanceStatus
-from jobmon.models.job_instance import JobInstance
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow import Workflow as WorkflowDAO
 from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.client.swarm.executors import sge_utils
 from jobmon.client.swarm.executors.base import ExecutorParameters
 from jobmon.client.swarm.workflow.task_dag import DagExecutionStatus
 from jobmon.client.swarm.workflow.workflow import WorkflowAlreadyComplete, \
     WorkflowAlreadyExists, ResumeStatus
-from jobmon.client.utils import gently_kill_command
 
 import tests.workflow_utils as wu
+from tests.conftest import teardown_db
 
 path_to_file = os.path.dirname(__file__)
 
 
-def test_timeout(env_var, db_cfg):
+def test_timeout(db_cfg, env_var):
+    teardown_db(db_cfg)
     t1 = BashTask("sleep 10", num_cores=1)
     t2 = BashTask("sleep 11", upstream_tasks=[t1], num_cores=1)
     t3 = BashTask("sleep 12", upstream_tasks=[t2], num_cores=1)
@@ -42,11 +38,12 @@ def test_timeout(env_var, db_cfg):
                     "timeout length (3 seconds). Submitted tasks will still"
                     " run, but the workflow will need to be restarted.")
     assert expected_msg == str(error.value)
+    teardown_db(db_cfg)
 
 
-def test_health_monitor_failing_nodes(env_var, db_cfg):
+def test_health_monitor_failing_nodes(db_cfg, env_var):
     """Test the Health Montior's identification of failing nodes"""
-
+    teardown_db(db_cfg)
     # these dummy dags will increment the ID of our dag-of-interest to
     # avoid the timing collisions
     from jobmon.server.health_monitor.health_monitor import \
@@ -115,10 +112,12 @@ def test_health_monitor_failing_nodes(env_var, db_cfg):
         failing_nodes = hm._calculate_node_failure_rate(DB.session,
                                                         active_wfrs)
         assert 'new_fake_node.ihme.washington.edu' not in failing_nodes
+    teardown_db(db_cfg)
 
 
-def test_add_tasks_to_workflow(env_var, db_cfg):
+def test_add_tasks_to_workflow(db_cfg, env_var):
     """Make sure adding tasks to a workflow (and not just a task dag) works"""
+    teardown_db(db_cfg)
     t1 = BashTask("sleep 1", num_cores=1)
     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
@@ -138,10 +137,12 @@ def test_add_tasks_to_workflow(env_var, db_cfg):
             all()
         assert all(t.status == 'D' for t in j)
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
 def test_anonymous_workflow(db_cfg, env_var):
     # Make sure uuid is created for an anonymous workflow
+    teardown_db(db_cfg)
     t1 = BashTask("sleep 1", num_cores=1)
     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
@@ -179,6 +180,7 @@ def test_anonymous_workflow(db_cfg, env_var):
 
     # Make sure it's the same workflow
     assert workflow.id == new_workflow.id
+    teardown_db(db_cfg)
 
 
 def test_workflow_status_dates(db_cfg, simple_workflow):
@@ -194,6 +196,7 @@ def test_workflow_status_dates(db_cfg, simple_workflow):
         for wfr in wf_runs:
             assert wfr.created_date != wfr.status_date
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
 @pytest.mark.qsubs_jobs
@@ -205,6 +208,7 @@ def test_workflow_sge_args(db_cfg, env_var):
      directory configured. Is this because of the jqs and jsm interfering or a
      problem with the job instance reconcilers not accessing the correct
      executor somehow? """
+    teardown_db(db_cfg)
     t1 = PythonTask(name="check_env",
                     script='{}/executor_args_check.py'
                     .format(os.path.dirname(os.path.realpath(__file__))),
@@ -247,9 +251,11 @@ def test_workflow_sge_args(db_cfg, env_var):
     assert workflow.workflow_run.stdout == '/tmp'
     assert workflow.workflow_run.executor_class == 'SGEExecutor'
     assert wf_status == DagExecutionStatus.SUCCEEDED
+    teardown_db(db_cfg)
 
 
-def test_workflow_identical_args(env_var, db_cfg):
+def test_workflow_identical_args(db_cfg, env_var):
+    teardown_db(db_cfg)
     # first workflow runs and finishes
     wf1 = Workflow(workflow_args="same", project='proj_tools')
     task = BashTask("sleep 2", num_cores=1)
@@ -268,9 +274,11 @@ def test_workflow_identical_args(env_var, db_cfg):
     wf3.add_task(task)
     with pytest.raises(WorkflowAlreadyComplete):
         wf3.execute()
+    teardown_db(db_cfg)
 
 
-def test_same_wf_args_diff_dag(env_var, db_cfg):
+def test_same_wf_args_diff_dag(db_cfg, env_var):
+    teardown_db(db_cfg)
     wf1 = Workflow(workflow_args="same", project='proj_tools')
     task1 = BashTask("sleep 2", num_cores=1)
     wf1.add_task(task1)
@@ -285,6 +293,7 @@ def test_same_wf_args_diff_dag(env_var, db_cfg):
 
     with pytest.raises(WorkflowAlreadyExists):
         wf2.run()
+    teardown_db(db_cfg)
 
 
 def test_workflow_config_reconciliation():
@@ -296,83 +305,9 @@ def test_workflow_config_reconciliation():
     assert client_config.reconciliation_interval == 3
 
 
-def resumable_workflow():
-    from jobmon.client.swarm.workflow.bash_task import BashTask
-    from jobmon.client.swarm.workflow.workflow import Workflow
-    t1 = BashTask("sleep infinity", num_cores=1)
-    wfa = "my_simple_dag"
-    workflow = Workflow(wfa, project="proj_tools", resume=True)
-    workflow.add_tasks([t1])
-    return workflow
-
-
-def run_workflow():
-    workflow = resumable_workflow()
-    workflow.execute()
-
-
-def test_resume_workflow(env_var, db_cfg):
-
-    # create a workflow in a separate process with 1 job that sleeps forever.
-    # it must be in a separate process because resume will kill the process
-    # that the workflow is running on which would terminate the test process
-    p1 = Process(target=run_workflow)
-    p1.start()
-
-    # poll till we confirm that job is running
-    session = db_cfg["DB"].session
-    with db_cfg["app"].app_context():
-        status = ""
-        executor_id = None
-        max_sleep = 180  # 3 min max till test fails
-        slept = 0
-        while status != "R" and slept <= max_sleep:
-            ji = session.query(JobInstance).one_or_none()
-            session.commit()
-            sleep(5)
-            slept += 5
-            if ji:
-                status = ji.status
-        if ji:
-            executor_id = ji.executor_id
-
-    # qdel job if the test timed out
-    if slept >= max_sleep and executor_id:
-        sge_utils.qdel(executor_id)
-        gently_kill_command(p1.pid)
-        return
-
-    # now create an identical workflow which should kill the previous job
-    # and workflow process
-    workflow = resumable_workflow()
-    workflow._bind()
-    workflow._create_workflow_run()
-    wu.cleanup_jlm(workflow)
-
-    # check if forked process was zombied
-    res = subprocess.check_output(f"ps -ax | grep {p1.pid} | grep -v grep",
-                                  shell=True, universal_newlines=True)
-    assert "Z" in res
-    # Do not put +, when running in parallel it does not seem to be a
-    # foreground process
-    p1.join()
-
-    # check qstat to make sure jobs isn't pending or running any more.
-    # There can be latency so wait at most 3 minutes for it's state
-    # to update in SGE
-    max_sleep = 180  # 3 min max till test fails
-    slept = 0
-    ex_id_list = sge_utils.qstat("pr").keys()
-    while executor_id in ex_id_list and slept <= max_sleep:
-        sleep(5)
-        slept += 5
-        ex_id_list = sge_utils.qstat("pr").keys()
-    assert executor_id not in ex_id_list
-
-
-def test_resource_scaling(env_var, db_cfg):
+def test_resource_scaling(db_cfg, env_var):
     from jobmon.client.swarm.executors import ExecutorParameters
-
+    teardown_db(db_cfg)
     my_wf = Workflow(
         workflow_args="resource starved workflow",
         project="proj_tools")
@@ -381,7 +316,7 @@ def test_resource_scaling(env_var, db_cfg):
     sleepy_params = ExecutorParameters(
         num_cores=1,
         m_mem_free="1G",
-        max_runtime_seconds=60,  # set max runtime to be shorter than task
+        max_runtime_seconds=50,  # set max runtime to be shorter than task
         queue="all.q",
         executor_class="SGEExecutor")
     sleepy_task = BashTask(
@@ -406,9 +341,11 @@ def test_resource_scaling(env_var, db_cfg):
         job = resp[0]
         assert len(job.job_instances) == 3
         assert job.status == "D"
+    teardown_db(db_cfg)
 
 
-def test_workflow_resume_new_resources(env_var, db_cfg):
+def test_workflow_resume_new_resources(db_cfg, env_var):
+    teardown_db(db_cfg)
     sge_params = ExecutorParameters(max_runtime_seconds=8,
                                     resource_scales={'m_mem_free': 0.2,
                                                      'max_runtime_seconds': 0.3})
@@ -440,9 +377,11 @@ def test_workflow_resume_new_resources(env_var, db_cfg):
         assert job.max_attempts == 2
         assert job.tag == 'new_tag'
         DB.session.commit()
+    teardown_db(db_cfg)
 
 
-def test_workflow_in_running_state(env_var, db_cfg):
+def test_workflow_in_running_state(db_cfg, env_var):
+    teardown_db(db_cfg)
     t1 = BashTask("sleep 10", executor_class="SequentialExecutor",
                   max_runtime_seconds=15, resource_scales={})
     workflow = Workflow(executor_class="SequentialExecutor")
@@ -457,3 +396,4 @@ def test_workflow_in_running_state(env_var, db_cfg):
         wfDAO = DB.session.query(WorkflowDAO).filter_by(id=workflow.id).first()
         assert wfDAO.status == WorkflowStatus.RUNNING
         DB.session.commit()
+    teardown_db(db_cfg)

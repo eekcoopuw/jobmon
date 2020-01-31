@@ -10,12 +10,11 @@ from jobmon.client.swarm.job_management.job_list_manager import JobListManager
 from jobmon.client.swarm.job_management.executor_task import ExecutorTask
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.server.server_logging import jobmonLogging as logging
 
+from tests.conftest import teardown_db
 from tests.timeout_and_skip import timeout_and_skip
 from functools import partial
 
-logger = logging.getLogger(__name__)
 path_to_file = os.path.dirname(__file__)
 
 
@@ -47,7 +46,6 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     """Creates a job instance, gets an executor id so it can be in submitted
     to the batch executor state, and then it will never be run (it will miss
     its report by date and the reconciler will kill it)"""
-
     # Queue a job
     task = Task(command="ls", num_cores="1", name="dummyfbb", max_attempts=1)
     job = job_list_manager_dummy.bind_task(task)
@@ -99,7 +97,6 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
 
 
 def test_reconciler_sge(db_cfg, jlm_sge_daemon):
-
     # Queue a job
     task = Task(command=sge.true_path(f"{path_to_file}/shellfiles/sleep.sh"),
                 name="sleepyjob_pass", num_cores=1)
@@ -125,9 +122,10 @@ def test_reconciler_sge(db_cfg, jlm_sge_daemon):
             assert res[0] != "E"
         assert len(jlm_sge_daemon.all_error) == 0
         sleep(2)
+    teardown_db(db_cfg)
 
 
-def test_reconciler_sge_new_heartbeats(jlm_sge_daemon, db_cfg):
+def test_reconciler_sge_new_heartbeats(db_cfg, jlm_sge_daemon):
     jir = jlm_sge_daemon.job_inst_reconciler
     jif = jlm_sge_daemon.job_instance_factory
 
@@ -159,9 +157,10 @@ def test_reconciler_sge_new_heartbeats(jlm_sge_daemon, db_cfg):
         DB.session.commit()
     start, end = res
     assert start < end  # indicating at least one heartbeat got logged
+    teardown_db(db_cfg)
 
 
-def test_reconciler_sge_dag_heartbeats(jlm_sge_daemon, db_cfg):
+def test_reconciler_sge_dag_heartbeats(db_cfg, jlm_sge_daemon):
     dag_id = jlm_sge_daemon.dag_id
     jir = jlm_sge_daemon.job_inst_reconciler
     app = db_cfg["app"]
@@ -188,9 +187,10 @@ def test_reconciler_sge_dag_heartbeats(jlm_sge_daemon, db_cfg):
         DB.session.commit()
         end = res
     assert start[0] < end[0]
+    teardown_db(db_cfg)
 
 
-def test_reconciler_sge_timeout(jlm_sge_daemon, db_cfg):
+def test_reconciler_sge_timeout(db_cfg, jlm_sge_daemon):
     # Flush the error queue to avoid false positives from other tests
     jlm_sge_daemon.all_error = set()
 
@@ -212,10 +212,11 @@ def test_reconciler_sge_timeout(jlm_sge_daemon, db_cfg):
         dag_id=jlm_sge_daemon.dag_id,
         job_id=job.job_id,
         db_cfg=db_cfg))
+    teardown_db(db_cfg)
 
 
-def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
-                                 job_id, db_cfg):
+def reconciler_sge_timeout_check(db_cfg, job_list_manager_reconciliation,
+                                 dag_id, job_id):
     jlm = job_list_manager_reconciliation
     jobs = jlm.get_job_statuses()
     completed, failed, adjusting = jlm.parse_adjusting_done_and_errors(jobs)
@@ -239,7 +240,6 @@ def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
         return True
     else:
         return False
-
 
 
 # def test_ignore_qw_in_timeouts(jlm_sge_daemon, db_cfg):
@@ -266,8 +266,8 @@ def reconciler_sge_timeout_check(job_list_manager_reconciliation, dag_id,
 #         db_cfg=db_cfg))
 
 
-def test_queued_for_instantiation(jlm_sge_no_daemon):
-
+def test_queued_for_instantiation(db_cfg, jlm_sge_no_daemon):
+    teardown_db(db_cfg)
     test_jif = jlm_sge_no_daemon.job_instance_factory
     test_jif.n_queued_jobs = 3
 
@@ -294,3 +294,4 @@ def test_queued_for_instantiation(jlm_sge_no_daemon):
     assert len(all_jobs) == 20
     for i in range(3):
         assert select_jobs[i].job_id == (i + 1)
+    teardown_db(db_cfg)

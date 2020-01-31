@@ -9,6 +9,7 @@ from jobmon.models import DB
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
 from jobmon.models.workflow import Workflow
+from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.server import create_app
 from jobmon.server.config import ServerConfig
 from jobmon.server.server_logging import jobmonLogging as logging
@@ -196,6 +197,14 @@ class HealthMonitor(object):
                 request_type='put')
             wf = wfr.workflow
             dag = wf.task_dag
+            # Set the workflow status to E too
+            self._requester.send_request(
+                app_route='/workflow',
+                message={'wf_id': wf.id,
+                         'status': WorkflowStatus.ERROR,
+                         'status_date': str(datetime.utcnow())},
+                request_type='put'
+            )
             msg = ("{v} Lost contact with Workflow Run #{wfr_id}:\n"
                    "    running on host: {hostname}\n"
                    "    PID: {pid}\n"
