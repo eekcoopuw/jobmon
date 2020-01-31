@@ -18,6 +18,8 @@ from jobmon.models.task_template_version import TaskTemplateVersion
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
 from jobmon.models.workflow import Workflow
+from jobmon.models.workflow_run import WorkflowRun
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.server_logging import jobmonLogging as logging
 
 
@@ -48,12 +50,6 @@ def get_utc_now():
     resp = jsonify(time=time)
     resp.status_code = StatusCodes.OK
     return resp
-
-
-def get_time(session):
-    time = session.execute("SELECT UTC_TIMESTAMP AS time").fetchone()['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
-    return time
 
 
 @jqs.route('/tool/<tool_name>', methods=['GET'])
@@ -303,6 +299,34 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash):
     return resp
 
 
+@jqs.route('/workflow_run/<workflow_run_id>/is_resumable', methods=['GET'])
+def workflow_run_is_terminated(workflow_run_id):
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
+
+    query = """
+        SELECT
+            workflow_run.*
+        FROM
+            workflow_run
+        WHERE
+            workflow_run.id = :workflow_run_id
+            AND (
+                workflow_run.status == 'T'
+                OR workflow_run.heartbeat_date <= UTC_TIMESTAMP()
+            )
+    """
+    res = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+        workflow_run_id=workflow_run_id).one_or_none()
+
+    if res is not None:
+        resp = jsonify(workflow_run_status=res.status)
+    else:
+        resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ SCHEDULER ROUTES ###############################
 
 @jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
@@ -368,6 +392,39 @@ def get_suspicious_task_instances(workflow_run_id):
     return resp
 
 
+@jqs.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
+           methods=['GET'])
+def get_task_instances_to_terminate(workflow_run_id):
+    workflow_run = DB.session.query(WorkflowRun).filter_by(
+        id=workflow_run_id).one()
+
+    if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
+        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR]
+    if workflow_run.status == WorkflowRunStatus.COLD_RESUME:
+        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                                TaskInstanceStatus.RUNNING]
+
+    query = """
+    SELECT
+        task_instance.id, task_instance.workflow_run_id,
+        task_instance.executor_id
+    FROM
+        task_instance
+    WHERE
+        task_instance.workflow_run_id = :workflow_run_id
+        AND task_instance.status in :task_instance_states
+    """
+    rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
+        task_instance_states=task_instance_states,
+        workflow_run_id=workflow_run_id
+    ).all()
+    DB.session.commit()
+    resp = jsonify(task_instances=[ti.to_wire_as_executor_task_instance()
+                                   for ti in rows])
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################## SWARM ROUTES ################################
 
 @jqs.route('/workflow/<workflow_id>/task_status_updates', methods=['POST'])
@@ -384,7 +441,11 @@ def get_task_by_status_only(workflow_id):
 
     last_sync = data['last_sync']
     swarm_tasks_tuples = data.get('swarm_tasks_tuples', [])
-    str_time = get_time(DB.session)
+
+    # get time from db
+    db_time = DB.session.execute("SELECT UTC_TIMESTAMP AS t").fetchone()['t']
+    str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
+
     if swarm_tasks_tuples:
         swarm_tasks_tuples = [(int(task_id), str(status))
                               for task_id, status in swarm_tasks_tuples]

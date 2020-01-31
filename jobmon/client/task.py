@@ -176,14 +176,13 @@ class Task:
     def workflow_id(self, val):
         self._workflow_id = val
 
-    def bind(self) -> int:
+    def bind(self, reset_if_running: bool) -> int:
         task_id, status = self._get_task_id_and_status()
         if task_id is None:
             task_id = self._add_task()
             status = TaskStatus.REGISTERED
-
         else:
-            self._update_task_parameters()
+            status = self._update_task_parameters(task_id, reset_if_running)
         self._task_id = task_id
         self._status = status
         return task_id
@@ -241,15 +240,16 @@ class Task:
                 f'200. Response content: {response}')
         return response['task_id'], response['task_status']
 
-    def _update_task_parameters(self):
-        app_route = f'/task/{self.task_id}/update_parameters'
+    def _update_task_parameters(self, task_id, reset_if_running):
+        app_route = f'/task/{task_id}/update_parameters'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
                 'name': self.name,
                 'command': self.command,
                 'max_attempts': self.max_attempts,
-                'task_atributes': self.task_attributes
+                'reset_if_running': reset_if_running,
+                'task_attributes': self.task_attributes
             },
             request_type='put'
         )
@@ -258,7 +258,7 @@ class Task:
                 f'Unexpected status code {return_code} from PUT '
                 f'request through route {app_route}. Expected code '
                 f'200. Response content: {response}')
-        return response["task_attribute_ids"]
+        return response["task_status"]
 
     def _add_task(self) -> int:
         app_route = f'/task'

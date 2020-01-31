@@ -68,11 +68,19 @@ class Workflow(DB.Model):
         # workflow run was bound then started running. normal happy path
         (WorkflowStatus.BOUND, WorkflowStatus.RUNNING),
 
+        # workflow run was running and then got moved to a resume state
+        (WorkflowStatus.RUNNING, WorkflowStatus.SUSPENDED),
+
         # workflow run was running and then completed successfully
         (WorkflowStatus.RUNNING, WorkflowStatus.DONE),
 
         # workflow run was running and then failed with an error
-        (WorkflowStatus.RUNNING, WorkflowStatus.FAILED)]
+        (WorkflowStatus.RUNNING, WorkflowStatus.FAILED),
+
+        # workflow run was set to a resume state and successfully shut down.
+        # moved to failed
+        (WorkflowStatus.SUSPENDED, WorkflowStatus.FAILED)
+        ]
 
     def transition(self, new_state):
         self._validate_transition(new_state)

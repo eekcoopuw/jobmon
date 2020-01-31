@@ -9,6 +9,7 @@ class WorkflowStatus(DB.Model):
     ABORTED = 'A'
     CREATED = 'C'
     RUNNING = 'R'
+    SUSPENDED = 'S'
     FAILED = 'F'
     DONE = 'D'
 

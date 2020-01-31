@@ -19,7 +19,7 @@ from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
 from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
                                InvalidResponse, SchedulerStartupTimeout,
-                               SchedulerNotAlive)
+                               SchedulerNotAlive, ResumeSet)
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
@@ -210,31 +210,41 @@ class Workflow(object):
             # start scheduler
             scheduler_proc = self._start_task_instance_scheduler(
                 wfr.workflow_run_id, scheduler_response_wait_timeout)
-
             # execute the workflow run
             wfr.execute_interruptible(scheduler_proc, fail_fast,
                                       seconds_until_timeout)
             # TODO: report
             return wfr
+
         except KeyboardInterrupt:
             wfr.update_status(WorkflowRunStatus.STOPPED)
             # TODO: report
             return wfr
-        except SchedulerNotAlive:
-            wfr.update_status(WorkflowRunStatus.ERROR)
 
+        except SchedulerNotAlive:
             # check if we got an exception from the scheduler
             try:
                 resp = self._scheduler_com_queue.get(False)
             except Empty:
+                wfr.update_status(WorkflowRunStatus.ERROR)
                 # no response. raise scheduler not alive
                 raise
             else:
                 # re-raise error from scheduler
                 if isinstance(resp, ExceptionWrapper):
-                    resp.re_raise()
+                    try:
+                        resp.re_raise()
+                    except ResumeSet:
+                        # if the exception was a resume exception we set to
+                        # terminate
+                        wfr.terminate_workflow_run(wfr.workflow_run_id)
+                        raise
+                    except Exception:
+                        wfr.update_status(WorkflowRunStatus.ERROR)
+                        raise
                 else:
                     # response is not an exception
+                    wfr.update_status(WorkflowRunStatus.ERROR)
                     raise
             finally:
                 scheduler_proc.terminate()
@@ -243,6 +253,7 @@ class Workflow(object):
         except Exception:
             wfr.update_status(WorkflowRunStatus.ERROR)
             raise
+
         finally:
             # deal with task instance scheduler process if it was started
             if self._scheduler_proc is not None:
@@ -278,13 +289,14 @@ class Workflow(object):
                 f"Workflow id ({workflow_id}) is already in done state and "
                 "cannot be resumed")
 
-        if workflow_id is not None and not resume:
-            raise WorkflowAlreadyExists(
-                "This workflow already exist. If you are trying to "
-                "resume a workflow, please set the resume flag  of the"
-                " workflow. If you are not trying to resume a "
-                "workflow, make sure the workflow args are unique or "
-                "the tasks are unique")
+        if workflow_id is not None:
+            if not resume:
+                raise WorkflowAlreadyExists(
+                    "This workflow already exist. If you are trying to "
+                    "resume a workflow, please set the resume flag  of the"
+                    " workflow. If you are not trying to resume a "
+                    "workflow, make sure the workflow args are unique or "
+                    "the tasks are unique")
         else:
             workflow_id = self._add_workflow()
         self._workflow_id = workflow_id
@@ -364,7 +376,7 @@ class Workflow(object):
             for task in self.tasks.values():
                 # bind tasks
                 task.workflow_id = self.workflow_id
-                task.bind()
+                task.bind(reset_if_running=reset_running_jobs)
 
                 # create swarmtasks
                 swarm_task = SwarmTask(

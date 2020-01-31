@@ -28,9 +28,9 @@ install_requires = [
     'Flask-SQLAlchemy',
     'cluster_utils',
     'requests',
-    'paramiko',
     'tabulate',
-    'tenacity']
+    'tenacity',
+    'tblib']
 
 setup(
     version=versioneer.get_version(),

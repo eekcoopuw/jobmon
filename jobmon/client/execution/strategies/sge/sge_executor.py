@@ -85,40 +85,12 @@ class SGEExecutor(Executor):
         executor_ids = [int(eid) for eid in executor_ids]
         return executor_ids
 
-    def terminate_task_instances(self, tiid_exid_tuples: List[Tuple[int, int]]
-                                 ) -> List[Tuple[int, str]]:
+    def terminate_task_instances(self, executor_ids: List[int]) -> None:
         """Only terminate the task instances that are running, not going to
         kill the jobs that are actually still in a waiting or a transitioning
         state"""
-        logger.debug(f"Going to terminate: {tiid_exid_tuples}")
-        if len(tiid_exid_tuples) == 0:
-            return []
-        sge_jobs = sge_utils.qstat()
-        deleted_tis = []
-        exec_ids_for_deletion = []
-        for el in tiid_exid_tuples:
-            tiid = el[0]
-            exec_id = el[1]
-            logger.debug(f"exec: {exec_id}, qstat: {sge_jobs}")
-            if exec_id in sge_jobs:
-                job_info = sge_jobs[exec_id]
-                if job_info['status'] not in ['hqw', 'qw', 'hRwq', 't']:
-                    deleted_tis.append((int(tiid), job_info['hostname']))
-                    exec_ids_for_deletion.append(exec_id)
-        logger.debug(f"tis for deletion {deleted_tis}, exec_ids for qdel: "
-                     f"{exec_ids_for_deletion}")
-        if len(exec_ids_for_deletion) > 0:
-            sge_utils.qdel(exec_ids_for_deletion)
-        return deleted_tis
-
-    def terminate_all_jis_for_resume(self, exec_ids: List[int]):
-        """Terminates all job instances that are in a non-terminal state so
-        that a resume can occur safely"""
-        logger.debug(f"Going to terminate: {exec_ids}")
-        if len(exec_ids) == 0:
-            return []
-        else:
-            sge_utils.qdel(exec_ids)
+        logger.debug(f"Going to terminate: {executor_ids}")
+        sge_utils.qdel(executor_ids)
 
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
         """return the exit state associated with a given exit code"""

@@ -214,12 +214,11 @@ class Executor:
     def get_actual_submitted_or_running(self) -> List[int]:
         raise NotImplementedError
 
-    def terminate_task_instances(self, tiid_exid_tuples: List[Tuple[int, int]]
-                                 ) -> List[Tuple[int, str]]:
+    def terminate_task_instances(self, executor_ids: List[int]) -> None:
         """If implemented, return a list of (task_instance_id, hostname) tuples
         for any task_instances that are terminated
         """
-        raise NotImplementedError
+        pass
 
     def build_wrapped_command(self, command: str, task_instance_id: int,
                               heartbeat_interval: int, report_by_buffer: float,

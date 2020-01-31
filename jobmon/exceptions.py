@@ -56,3 +56,11 @@ class SchedulerNotAlive(Exception):
 
 class WorkflowRunStateError(Exception):
     pass
+
+
+class ResumeSet(Exception):
+    pass
+
+
+class ResumeWaitTimeExceeded(Exception):
+    pass

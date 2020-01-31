@@ -346,21 +346,20 @@ def update_task_parameters(task_id):
     data = request.get_json()
     logger.debug(data)
 
+    query = """SELECT task.* FROM task WHERE task.id = :task_id"""
+    task = DB.session.query(Task).from_statement(text(query)).params(
+        task_id=task_id).one()
+    task.reset(name=data["name"], command=data["command"],
+               max_attempts=data["max_attempts"],
+               reset_if_running=data["reset_if_running"])
+
     for name, val in data["task_attributes"].items():
         _add_or_update_attribute(task_id, name, val)
         DB.session.flush()
-    data.pop("task_attributes")
 
-    data["task_id"] = task_id
-    query = """
-    UPDATE task
-    SET name=:name, command=:command, max_attempts=:max_attempts
-    WHERE id = :task_id
-    """
-    DB.session.execute(query, data)
     DB.session.commit()
 
-    resp = jsonify()
+    resp = jsonify(task_status=task.status)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -510,6 +509,69 @@ def add_workflow_run():
     resp.status_code = StatusCodes.OK
     return resp
 
+@jsm.route('/workflow_run/<workflow_run_id>/terminate',
+           methods=['PUT'])
+def terminate_workflow_run(workflow_run_id):
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
+
+    workflow_run = DB.session.query(WorkflowRun).filter_by(
+        id=workflow_run_id).one()
+
+    if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
+        states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR]
+    elif workflow_run.status == WorkflowRunStatus.COLD_RESUME:
+        states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                  TaskInstanceStatus.RUNNING],
+
+    # add error logs
+    log_errors = """
+        INSERT INTO task_instance_error_log
+            (task_instance_id, description, error_time)
+        SELECT
+            task_instance_id,
+            CONCAT(
+                'Workflow resume requested. Setting to K from status of: ',
+                task_instance.status
+            ) as description,
+            UTC_TIMESTAMP as error_time
+        FROM task_instance
+        JOIN task
+            ON task_instance.task_id = task.id
+        WHERE
+            task_instance.workflow_run_id = :workflow_run_id
+            AND task.status != :status
+    """
+    DB.session.execute(log_errors,
+                       {"workflow_run_id": workflow_run_id,
+                        "status": states})
+    DB.session.flush()
+
+    # update job instance states
+    update_task_instance = """
+        UPDATE
+            task_instance
+        JOIN task
+            ON task_instance.task_id = task.id
+        SET
+            task_instance.status = 'K',
+            task_instance.status_date = UTC_TIMESTAMP
+        WHERE
+            task_instance.workflow_run_id = :workflow_run_id
+            AND task.status != :status
+    """
+    DB.session.execute(update_task_instance,
+                       {"workflow_run_id": workflow_run_id,
+                        "status": states})
+    DB.session.flush()
+
+    # transition to terminated
+    workflow_run.transition(WorkflowRunStatus.TERMINATED)
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 # ############################ SCHEDULER ROUTES ###############################
 @jsm.route('/workflow_run/<workflow_run_id>/log_executor_report_by',
@@ -689,14 +751,17 @@ def log_error_reconciler(task_instance_id: int):
 def log_workflow_run_heartbeat(workflow_run_id: int):
     logger.info(logging.myself())
     logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
+    data = request.get_json()
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id).one()
 
-    if workflow_run.is_active:
-        workflow_run.heartbeat()
-    DB.session.add(workflow_run)
-    DB.session.commit()
+    try:
+        workflow_run.heartbeat(data["next_report_increment"])
+        DB.session.add(workflow_run)
+        DB.session.commit()
+    except InvalidStateTransition:
+        DB.session.rollback()
 
     resp = jsonify(message=str(workflow_run.status))
     resp.status_code = StatusCodes.OK

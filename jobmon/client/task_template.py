@@ -177,6 +177,11 @@ class TaskTemplate:
 
         Returns: ExecutableTask
         """
+        # if we have argument overlap
+        if "name" in self.template_args:
+            kwargs["name"] = name
+
+        # kwargs quality assurance
         if self.template_args != set(kwargs.keys()):
             raise ValueError(
                 f"unexpected kwargs. expected {self.template_args} -"

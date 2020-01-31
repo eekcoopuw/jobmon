@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Union
+from typing import List, Union, Optional
 
 from jobmon.client import shared_requester
 from jobmon.client.task_template import TaskTemplate
 from jobmon.client.requests.requester import Requester
-# from jobmon.client.swarm.workflow.workflow import Workflow
+from jobmon.client.workflow import Workflow
 from jobmon.serializers import SerializeClientTool, SerializeClientToolVersion
 
 
@@ -123,6 +123,12 @@ class Tool:
                           command_template, node_args, task_args, op_args,
                           self.requester)
         return tt
+
+    def create_workflow(self, workflow_args: Optional[str] = None,
+                        name: str = "", description: str = ""):
+        wf = Workflow(self.active_tool_version_id, workflow_args,
+                      name, description)
+        return wf
 
     def _get_tool_version_ids(self) -> List[int]:
         app_route = f"/tool/{self.id}/tool_versions"

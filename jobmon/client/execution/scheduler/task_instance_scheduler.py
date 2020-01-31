@@ -14,8 +14,7 @@ from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import \
     ExecutorTaskInstance
 from jobmon.client.requests.requester import Requester
-from jobmon.client.requests.connection_config import ConnectionConfig
-from jobmon.exceptions import InvalidResponse, WorkflowRunStateError
+from jobmon.exceptions import InvalidResponse, WorkflowRunStateError, ResumeSet
 from jobmon.models.attributes.constants import qsub_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
@@ -73,19 +72,40 @@ class TaskInstanceScheduler:
             thread.daemon = True
             thread.start()
 
-            # infinite blocking loop
+            # infinite blocking loop unless resume or stop requested from
+            # main process
             self._heartbeats_forever(
-                heartbeat_interval=self.config.workflow_run_heartbeat_interval,
-                process_stop_event=stop_event)
+                self.config.workflow_run_heartbeat_interval, stop_event)
+
+            # stop worker thread
+            thread_stop_event.set()
+
+        except ResumeSet as e:
+            # stop doing new work otherwise terminate won't work properly
+            thread_stop_event.set()
+            max_loops = 10
+            loops = 0
+
+            # this shouldn't take more than a few seconds. 20s is plenty
+            while thread.is_alive() and loops < max_loops:
+                time.sleep(2)
+                loops += 1
+
+            # terminate jobs via executor API
+            self._terminate_active_task_instances()
+
+            # send error back to main
+            if status_queue is not None:
+                status_queue.put(ExceptionWrapper(e))
+
         except Exception as e:
             # send error back to main
             if status_queue is not None:
                 status_queue.put(ExceptionWrapper(e))
 
         finally:
-            # stop executor and work proc
+            # stop executor
             self.executor.stop()
-            thread_stop_event.set()
 
             if status_queue is not None:
                 status_queue.put("SHUTDOWN")
@@ -197,11 +217,9 @@ class TaskInstanceScheduler:
         status = response["message"]
         if status in [WorkflowRunStatus.COLD_RESUME,
                       WorkflowRunStatus.HOT_RESUME]:
-            # TODO: terminate appropiate tasks
-            pass
-        elif status in [WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING]:
-            return
-        else:
+            raise ResumeSet(f"Resume status ({status}) set by other agent.")
+        elif status not in [WorkflowRunStatus.BOUND,
+                            WorkflowRunStatus.RUNNING]:
             raise WorkflowRunStateError(
                 f"Workflow run {self.workflow_run_id} tried to log a heartbeat"
                 f" but was in state {status}. Workflow run must be in either "
@@ -306,9 +324,22 @@ class TaskInstanceScheduler:
             for ti in response["task_instances"]]
         self._to_reconcile = lost_task_instances
 
-    # # if no event, use dummy implementation. a callable that returns True
-    # if stop_event is not None:
-    #     keep_scheduling = partial(bool, True)
-    # # otherwise rely on the event from the main processes
-    # else:
-    #     keep_scheduling = partial(stop_event.is_set)
+    def _terminate_active_task_instances(self):
+        app_route = (
+            f'/workflow_run/{self.workflow_run_id}/'
+            'get_task_instances_to_terminate')
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type='get')
+
+        # eat bad responses here because we are outside of the exception
+        # catching context
+        if return_code != StatusCodes.OK:
+            to_terminate = []
+        else:
+            to_terminate = [
+                ExecutorTaskInstance.from_wire(
+                    ti, self.executor, self.requester).executor_id
+                for ti in response["task_instances"]]
+        self.executor.terminate_task_instances(to_terminate)

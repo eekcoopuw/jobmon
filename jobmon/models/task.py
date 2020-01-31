@@ -78,17 +78,19 @@ class Task(DB.Model):
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.QUEUED_FOR_INSTANTIATION),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ERROR_FATAL)]
 
-    def reset(self):
+    def reset(self, name, command, max_attempts, reset_if_running):
         """Reset status and number of attempts on a Task"""
-        self.status = TaskStatus.REGISTERED
-        self.num_attempts = 0
+        # only reset undone tasks
+        if self.status != TaskStatus.DONE:
 
-        # TODO: figure out if we should set command here or not.
-        for ti in self.task_instances:
-            ti.status = TaskInstanceStatus.ERROR
-            new_error = TaskInstanceErrorLog(
-                description="Task RESET requested")
-            ti.errors.append(new_error)
+            # only reset if the task is not currently running or if we are
+            # resetting running tasks
+            if self.status != TaskStatus.RUNNING or reset_if_running:
+                self.status = TaskStatus.REGISTERED
+                self.num_attempts = 0
+                self.name = name
+                self.command = command
+                self.max_attempts = max_attempts
 
     def transition(self, new_state):
         """Transition the Task to a new state"""

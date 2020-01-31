@@ -14,7 +14,8 @@ from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm import SwarmLogging as logging
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.exceptions import (CallableReturnedInvalidObject, InvalidResponse,
-                               MultipleWorkflowRuns, SchedulerNotAlive)
+                               MultipleWorkflowRuns, SchedulerNotAlive,
+                               ResumeWaitTimeExceeded)
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.task_status import TaskStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
@@ -44,7 +45,7 @@ class WorkflowRun(object):
 
     def __init__(self, workflow_id: int, executor_class: str,
                  slack_channel: str = 'jobmon-alerts', resume: bool = False,
-                 reset_running_jobs: bool = True,
+                 reset_running_jobs: bool = True, resume_timeout: int = 300,
                  requester: Requester = shared_requester):
         self.workflow_id = workflow_id
         self.executor_class = executor_class
@@ -95,13 +96,31 @@ class WorkflowRun(object):
             # try/catch block and we'd only raise an error if force was
             # false (the default). Alternatively, perhaps this should be based
             # on whether we are recieving heartbeats from the old workflow
-            self._wait_for_resume(prev_wfr_id, prev_status)
+            prev_status = self._wait_till_resumable(prev_wfr_id,
+                                                    resume_timeout)
+
+            # terminate if the workflow was not set to terminated
+            if prev_status != WorkflowRunStatus.TERMINATED:
+                self.terminate_workflow_run(prev_wfr_id)
+            self.update_status(WorkflowRunStatus.CREATED)
 
         # workflow was created successfully
         self._status = WorkflowRunStatus.CREATED
 
         # test parameter to force failure
         self.fail_after_n_executions = None
+
+    def terminate_workflow_run(self, workflow_run_id: int) -> None:
+        app_route = f'/workflow_run/{workflow_run_id}/terminate'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type='put')
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
 
     @property
     def status(self) -> str:
@@ -163,8 +182,33 @@ class WorkflowRun(object):
                 else:
                     print("Continuing jobmon execution...")
 
-    def _wait_for_resume(self, wfr_id: int, status: str):
-        pass
+    def _wait_till_resumable(self, wfr_id: int, resume_timeout: int = 300
+                             ) -> str:
+        wait_start = time.time()
+        wait_for_resume = True
+        while wait_for_resume:
+            app_route = f'/workflow_run/{wfr_id}/is_resumable'
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message={},
+                request_type='get')
+            if return_code != StatusCodes.OK:
+                raise InvalidResponse(
+                    f'Unexpected status code {return_code} from POST '
+                    f'request through route {app_route}. Expected '
+                    f'code 200. Response content: {response}')
+            if response["workflow_run_status"] is not None:
+                wait_for_resume = False
+                status = response["workflow_run_status"]
+            else:
+                if (time.time() - wait_start) > resume_timeout:
+                    raise ResumeWaitTimeExceeded(
+                        "workflow_run timed out waiting for previous "
+                        "workflow_run to exit. Try again in a few minutes.")
+                else:
+                    time.sleep(resume_timeout / 10)
+
+        return status
 
     def _set_fail_after_n_executions(self, n):
         """
