@@ -1,6 +1,7 @@
 import time
 import pytest
 
+
 class MockSchedulerProc:
 
     def is_alive(self):
@@ -30,7 +31,7 @@ def test_unknown_state(db_cfg, client_env):
     workflow._bind()
     wfr = workflow._create_workflow_run()
     cfg = ExecutionConfig.from_defaults()
-    cfg.heartbeat_interval = 5
+    cfg.task_heartbeat_interval = 5
     scheduler = TaskInstanceScheduler(workflow.workflow_id,
                                       wfr.workflow_run_id, workflow._executor,
                                       cfg)
@@ -59,11 +60,11 @@ def test_unknown_state(db_cfg, client_env):
 
     # sleep through the report by date
     time.sleep(scheduler.config.task_heartbeat_interval *
-               scheduler.config.report_by_buffer)
+               (scheduler.config.report_by_buffer + 1))
 
     # job will move into lost track because it never logs a heartbeat
-    lost_tasks = scheduler._get_lost_task_instances()
-    assert len(lost_tasks) == 1
+    scheduler._get_lost_task_instances()
+    assert len(scheduler._to_reconcile) == 1
 
     # will check the executor's return state and move the job to unknown
     scheduler.schedule()

@@ -9,9 +9,9 @@ from typing import Dict, Set, List, Tuple
 
 from jobmon import __version__
 from jobmon.client import shared_requester
+from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.requests.requester import Requester
-from jobmon.client.swarm import SwarmLogging as logging
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.exceptions import (CallableReturnedInvalidObject, InvalidResponse,
                                MultipleWorkflowRuns, SchedulerNotAlive,

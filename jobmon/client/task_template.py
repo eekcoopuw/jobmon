@@ -4,6 +4,7 @@ from typing import Optional, List, Callable, Union
 
 from jobmon.serializers import SerializeClientTaskTemplateVersion
 from jobmon.client import shared_requester
+from jobmon.client import ClientLogging as logging
 from jobmon.client.task import Task
 from jobmon.client.requests.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters

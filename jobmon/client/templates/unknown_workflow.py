@@ -1,5 +1,5 @@
 from jobmon.client import shared_requester
-from jobmon.client._logging import ClientLogging as logging
+from jobmon.client import ClientLogging as logging
 from jobmon.client.requests.requester import Requester
 from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow

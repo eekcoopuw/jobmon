@@ -7,7 +7,7 @@ from typing import Optional, List, Tuple, Dict
 import uuid
 
 from jobmon.client import shared_requester
-from jobmon.client._logging import ClientLogging as logging
+from jobmon.client import ClientLogging as logging
 from jobmon.client.dag import Dag
 from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \

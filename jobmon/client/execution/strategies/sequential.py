@@ -2,7 +2,7 @@ from collections import OrderedDict
 import os
 from typing import Optional, List, Tuple
 
-from jobmon.client.execution import NodeLogging as logging
+from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import (Executor,
                                                      TaskInstanceExecutorInfo,
                                                      ExecutorParameters)

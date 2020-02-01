@@ -3,7 +3,7 @@ import os
 import time
 from typing import List, Optional
 
-from jobmon.client.execution import NodeLogging as logging
+from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import (Executor,
                                                      TaskInstanceExecutorInfo,
                                                      ExecutorParameters)

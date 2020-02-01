@@ -1,9 +1,10 @@
 import requests
 from tenacity import retry, wait_exponential, retry_if_result, stop_after_delay
-from jobmon.client.client_logging import ClientLogging as logging
+
+from jobmon.client import ClientLogging as logging
 
 
-
+logger = logging.getLogger(__name__)
 
 
 def is_5XX(result):
@@ -37,12 +38,11 @@ class Requester(object):
 
     """
 
-    def __init__(self, url, logger):
+    def __init__(self, url):
         """set class defaults. attempt to connect with server."""
         logger.info("Requester __init__")
         logger.info("url: {}".format(url))
         self.url = url
-        self.logger = logger
 
     @retry(
         wait=wait_exponential(max=10),
@@ -103,7 +103,7 @@ class Requester(object):
         else:
             r = requests.put(route, json=message,
                              headers={'Content-Type': 'application/json'})
-        status_code, content = self.get_content(r)
+        status_code, content = get_content(r)
         if content:
             if verbose is True:
                 logger.debug(f"Received: {content}")

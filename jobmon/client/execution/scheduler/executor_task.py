@@ -1,10 +1,10 @@
 from typing import Optional
 
 from jobmon.client import shared_requester
+from jobmon.client import ClientLogging as logging
 from jobmon.client.requests.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.serializers import SerializeExecutorTask
-from jobmon.client.swarm import SwarmLogging as logging
 
 logger = logging.getLogger(__name__)
 

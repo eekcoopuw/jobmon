@@ -19,7 +19,7 @@ class _ClientLoggingFilter(logging.Filter):
         name = record.name
         if "jobmon.client.swarm" in name:
             record.tag = "JOBMON_SWARM"
-        elif "jobmon.client.worder_node" in name:
+        elif "jobmon.client.execution" in name:
             record.tag = "JOBMON_NODE"
         else:
             record.tag = _ClientLoggingFilter.tag
@@ -66,7 +66,7 @@ class ClientLogging():
             hr = SysLogHandler(
                 address=(config.rsyslog_host, config.rsyslog_port),
                 socktype=p)
-            h.addFilter(_ClientLoggingFilter())
+            hr.addFilter(_ClientLoggingFilter())
             hr.setFormatter(formatter)
             hr.setLevel(ClientLogging._syslogLevel)
             logger.addHandler(hr)

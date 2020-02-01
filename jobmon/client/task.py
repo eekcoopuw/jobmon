@@ -6,7 +6,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union, Tuple
 
 from jobmon.client import shared_requester
-from jobmon.client._logging import ClientLogging as logging
+from jobmon.client import ClientLogging as logging
 from jobmon.client.node import Node
 from jobmon.client.requests.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
@@ -176,7 +176,7 @@ class Task:
     def workflow_id(self, val):
         self._workflow_id = val
 
-    def bind(self, reset_if_running: bool) -> int:
+    def bind(self, reset_if_running: bool = True) -> int:
         task_id, status = self._get_task_id_and_status()
         if task_id is None:
             task_id = self._add_task()

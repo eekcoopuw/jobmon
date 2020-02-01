@@ -65,9 +65,11 @@ def test_workflow_identical_args(client_env, db_cfg):
     wf1 = UnknownWorkflow(workflow_args="same", project='proj_tools')
     task = BashTask("sleep 2", num_cores=1)
     wf1.add_task(task)
+    wf1._bind(False)
 
     # tries to create an identical workflow without the restart flag
     wf2 = UnknownWorkflow(workflow_args="same", project='proj_tools')
+    task = BashTask("sleep 2", num_cores=1)
     wf2.add_task(task)
     with pytest.raises(WorkflowAlreadyExists):
         wf2.run()

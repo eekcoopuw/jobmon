@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List, Union, Optional
 
 from jobmon.client import shared_requester
+from jobmon.client import ClientLogging as logging
 from jobmon.client.task_template import TaskTemplate
 from jobmon.client.requests.requester import Requester
 from jobmon.client.workflow import Workflow

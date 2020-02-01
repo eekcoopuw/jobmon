@@ -6,7 +6,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Set, TYPE_CHECKING
 
 from jobmon.client import shared_requester
-from jobmon.client._logging import ClientLogging as logging
+from jobmon.client import ClientLogging as logging
 from jobmon.client.requests.requester import Requester
 
 if TYPE_CHECKING:

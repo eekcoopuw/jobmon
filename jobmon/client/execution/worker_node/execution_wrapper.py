@@ -14,9 +14,9 @@ from time import sleep, time
 from typing import Optional
 
 from jobmon.exceptions import ReturnCodes
+from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.worker_node.worker_node_task_instance import (
     WorkerNodeTaskInstance)
-from jobmon.client.execution import NodeLogging as logging
 
 logger = logging.getLogger(__name__)
 
