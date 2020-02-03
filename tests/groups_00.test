@@ -7,4 +7,4 @@ tests/test_sge.py
 tests/test_simple_dag.py
 tests/test_ssh_permissions.py
 tests/test_task.py
-tests/test_job_instance_maxpss_queue.py
+tests/test_task_instance_maxpss_queue.py

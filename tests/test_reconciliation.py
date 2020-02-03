@@ -7,7 +7,7 @@ from jobmon.client.swarm.executors import sge_utils as sge
 from jobmon.client.swarm.executors.dummy import DummyExecutor
 from jobmon.client.swarm.executors.sge import SGEExecutor
 from jobmon.client.swarm.job_management.job_list_manager import JobListManager
-from jobmon.client.swarm.job_management.executor_job import ExecutorJob
+from jobmon.client.swarm.job_management.executor_task import ExecutorTask
 from jobmon.client.swarm.workflow.executable_task import ExecutableTask as Task
 from jobmon.client.swarm.workflow.bash_task import BashTask
 
@@ -56,7 +56,7 @@ def test_reconciler_dummy(db_cfg, job_list_manager_dummy):
     # How long we wait for a JI to report it is running before reconciler moves
     # it to error state.
     jif.next_report_increment = 5
-    job_list_manager_dummy.job_instance_factory.instantiate_queued_jobs()
+    job_list_manager_dummy.job_instance_factory.instantiate_queued_tasks()
 
     # Since we are using the 'dummy' executor, we never actually do
     # any work. The job gets moved to lost_track during reconciliation
@@ -134,7 +134,7 @@ def test_reconciler_sge_new_heartbeats(db_cfg, jlm_sge_daemon):
     job = jlm_sge_daemon.bind_task(task)
     jlm_sge_daemon.adjust_resources_and_queue(job)
 
-    jif.instantiate_queued_jobs()
+    jif.instantiate_queued_tasks()
     jir.reconcile()
     jlm_sge_daemon._sync()
     count = 0
@@ -284,11 +284,11 @@ def test_queued_for_instantiation(db_cfg, jlm_sge_no_daemon):
         message={},
         request_type='get')
     all_jobs = [
-        ExecutorJob.from_wire(j, test_jif.executor.__class__.__name__)
+        ExecutorTask.from_wire(j, test_jif.executor.__class__.__name__)
         for j in response['job_dcts']]
 
     # now new query that should only return 3 jobs
-    select_jobs = test_jif._get_jobs_queued_for_instantiation()
+    select_jobs = test_jif._get_tasks_queued_for_instantiation()
 
     assert len(select_jobs) == 3
     assert len(all_jobs) == 20

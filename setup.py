@@ -28,9 +28,15 @@ install_requires = [
     'Flask-SQLAlchemy',
     'cluster_utils',
     'requests',
+<<<<<<< HEAD
+    'tabulate',
+    'tenacity',
+    'tblib']
+=======
     'paramiko',
     'tabulate',
     'tenacity']
+>>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
 
 setup(
     version=versioneer.get_version(),
@@ -45,18 +51,21 @@ setup(
     install_requires=install_requires,
     packages=['jobmon',
               'jobmon.client',
+              'jobmon.client.execution',
+              'jobmon.client.execution.scheduler',
+              'jobmon.client.execution.strategies',
+              'jobmon.client.execution.strategies.sge',
+              'jobmon.client.execution.worker_node',
+              'jobmon.client.requests',
               'jobmon.client.swarm',
-              'jobmon.client.swarm.executors',
-              'jobmon.client.swarm.job_management',
-              'jobmon.client.swarm.workflow',
-              'jobmon.client.worker_node',
+              'jobmon.client.templates',
               'jobmon.models',
               'jobmon.models.attributes',
               'jobmon.server',
               'jobmon.server.deployment',
               'jobmon.server.health_monitor',
-              'jobmon.server.job_query_server',
-              'jobmon.server.job_state_manager',
+              'jobmon.server.query_server',
+              'jobmon.server.update_server',
               'jobmon.server.job_visualization_server'
               ],
     include_package_data=True,

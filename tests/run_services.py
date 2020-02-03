@@ -4,7 +4,7 @@
 
 
 def run_web_service(service_port, db_host, db_port, db_user, db_pass, db_name):
-    from jobmon.server import ServerConfig
+    from jobmon.server.server_config import ServerConfig
     from jobmon.server import create_app
 
     config = ServerConfig.from_defaults()

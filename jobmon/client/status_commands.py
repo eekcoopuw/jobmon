@@ -3,7 +3,7 @@ import pandas as pd
 from typing import List, Tuple
 
 from jobmon.client import shared_requester
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import ClientLogging as logging
 
 
 logger = logging.getLogger(__name__)

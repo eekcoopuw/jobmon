@@ -1,4 +1,3 @@
-from logging import Handler
 
 
 class ReturnCodes(object):
@@ -19,51 +18,7 @@ class ReturnCodes(object):
     # exit codes that were returned in qacct
 
 
-class ServerRunning(Exception):
-    pass
-
-
-class ServerStartLocked(Exception):
-    pass
-
-
-class CannotConnectToCentralJobMonitor(Exception):
-    pass
-
-
-class CentralJobMonitorNotAlive(Exception):
-    pass
-
-
-class NoResponseReceived(Exception):
-    pass
-
-
-class NoSocket(Exception):
-    pass
-
-
-class InvalidRequest(Exception):
-    pass
-
-
 class InvalidResponse(Exception):
-    pass
-
-
-class InvalidAction(Exception):
-    pass
-
-
-class NoDatabase(Exception):
-    pass
-
-
-class SGENotAvailable(Exception):
-    pass
-
-
-class UnsafeSSHDirectory(Exception):
     pass
 
 
@@ -75,9 +30,37 @@ class CallableReturnedInvalidObject(Exception):
     pass
 
 
-class DagLogRunningException(Exception):
+class WorkflowAlreadyExists(Exception):
     pass
 
 
-class WorkflowRunKillSelf(Exception):
+class WorkflowAlreadyComplete(Exception):
+    pass
+
+
+class MultipleWorkflowRuns(Exception):
+    pass
+
+
+class EmptyWorkflowError(Exception):
+    pass
+
+
+class SchedulerStartupTimeout(Exception):
+    pass
+
+
+class SchedulerNotAlive(Exception):
+    pass
+
+
+class WorkflowRunStateError(Exception):
+    pass
+
+
+class ResumeSet(Exception):
+    pass
+
+
+class ResumeWaitTimeExceeded(Exception):
     pass

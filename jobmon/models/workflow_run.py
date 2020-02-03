@@ -1,7 +1,9 @@
-from datetime import datetime
+from sqlalchemy.sql import func
 
 from jobmon.models import DB
+from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.workflow_status import WorkflowStatus
 
 
 class WorkflowRun(DB.Model):
@@ -11,52 +13,96 @@ class WorkflowRun(DB.Model):
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_id = DB.Column(DB.Integer, DB.ForeignKey('workflow.id'))
     user = DB.Column(DB.String(150))
-    hostname = DB.Column(DB.String(150))
-    pid = DB.Column(DB.Integer)
-    stderr = DB.Column(DB.String(1000))
-    stdout = DB.Column(DB.String(1000))
-    project = DB.Column(DB.String(150))
-    working_dir = DB.Column(DB.String(1000), default=None)
-    slack_channel = DB.Column(DB.String(150))
     executor_class = DB.Column(DB.String(150))
-    created_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    status_date = DB.Column(DB.DateTime, default=datetime.utcnow)
+    jobmon_version = DB.Column(DB.String(150), default='UNKNOWN')
     status = DB.Column(DB.String(1),
                        DB.ForeignKey('workflow_run_status.id'),
-                       nullable=False,
                        default=WorkflowRunStatus.RUNNING)
 
-    workflow = DB.relationship("Workflow", backref="workflow_runs", lazy=True)
+    created_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    heartbeat_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
 
-    @classmethod
-    def from_wire(cls, dct):
-        return cls(
-            id=dct['id'],
-            workflow_id=dct['workflow_id'],
-            user=dct['user'],
-            hostname=dct['hostname'],
-            pid=dct['pid'],
-            stderr=dct['stderr'],
-            stdout=dct['stdout'],
-            project=dct['project'],
-            working_dir=dct['working_dir'],
-            slack_channel=dct['slack_channel'],
-            executor_class=dct['executor_class'],
-            status=dct['status'],
-        )
+    workflow = DB.relationship("Workflow", back_populates="workflow_runs",
+                               lazy=True)
 
-    def to_wire(self):
-        return {
-            'id': self.id,
-            'workflow_id': self.workflow_id,
-            'user': self.user,
-            'hostname': self.hostname,
-            'pid': self.pid,
-            'stderr': self.stderr,
-            'stdout': self.stdout,
-            'project': self.project,
-            'working_dir': self.working_dir,
-            'slack_channel': self.slack_channel,
-            'executor_class': self.executor_class,
-            'status': self.status,
-        }
+    valid_transitions = [
+        # a workflow run is created normally. All tasks are updated in the db
+        # and the workflow run can move to bound state
+        (WorkflowRunStatus.CREATED, WorkflowRunStatus.BOUND),
+
+        # a workflow run is created normally. Something goes wrong while the
+        # tasks are binding and the workflow run moves to error state
+        (WorkflowRunStatus.CREATED, WorkflowRunStatus.ABORTED),
+
+        # a workflow run is bound and then logs running
+        (WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING),
+
+        # a workflow run is bound and then an error occurs before it starts
+        # running
+        (WorkflowRunStatus.BOUND, WorkflowRunStatus.ERROR),
+
+        # a workflow run is bound and then a new workflow run is created
+        # before the old workflow run moves into running state
+        (WorkflowRunStatus.BOUND, WorkflowRunStatus.COLD_RESUME),
+        (WorkflowRunStatus.BOUND, WorkflowRunStatus.HOT_RESUME),
+
+        # the workflow starts running normally and finishes successfully
+        (WorkflowRunStatus.RUNNING, WorkflowRunStatus.DONE),
+
+        # the workflow starts running normally and the user stops it via a
+        # keyboard interrupt
+        (WorkflowRunStatus.RUNNING, WorkflowRunStatus.STOPPED),
+
+        # the workflow is running and then a new workflow run is created
+        (WorkflowRunStatus.RUNNING, WorkflowRunStatus.COLD_RESUME),
+        (WorkflowRunStatus.RUNNING, WorkflowRunStatus.HOT_RESUME),
+
+        # the workflow is running and then it's tasks hit errors
+        (WorkflowRunStatus.RUNNING, WorkflowRunStatus.ERROR),
+
+        # the workflow is set to resume and then it successfully shuts down
+        (WorkflowRunStatus.COLD_RESUME, WorkflowRunStatus.TERMINATED),
+        (WorkflowRunStatus.HOT_RESUME, WorkflowRunStatus.TERMINATED)
+        ]
+
+    bound_error_states = [WorkflowRunStatus.STOPPED,
+                          WorkflowRunStatus.ERROR,
+                          WorkflowRunStatus.TERMINATED]
+
+    resume_states = [WorkflowRunStatus.COLD_RESUME,
+                     WorkflowRunStatus.HOT_RESUME]
+
+    def heartbeat(self, next_report_increment):
+        self.transition(WorkflowRunStatus.RUNNING)
+        self.heartbeat = func.ADDTIME(
+            func.UTC_TIMESTAMP(), func.SEC_TO_TIME(next_report_increment))
+
+    def transition(self, new_state):
+        self._validate_transition(new_state)
+        self.status = new_state
+        self.status_date = func.UTC_TIMESTAMP()
+        if new_state == WorkflowRunStatus.BOUND:
+            self.workflow.transition(WorkflowStatus.BOUND)
+        elif new_state == WorkflowRunStatus.ABORTED:
+            self.workflow.transition(WorkflowStatus.ABORTED)
+        elif new_state == WorkflowRunStatus.RUNNING:
+            self.workflow.transition(WorkflowStatus.RUNNING)
+        elif new_state == WorkflowRunStatus.DONE:
+            self.workflow.transition(WorkflowStatus.DONE)
+        elif new_state in self.resume_states:
+            self.workflow.transition(WorkflowStatus.SUSPENDED)
+        elif new_state in self.bound_error_states:
+            self.workflow.transition(WorkflowStatus.FAILED)
+
+    def hot_reset(self):
+        self.transition(WorkflowRunStatus.HOT_RESUME)
+
+    def cold_reset(self):
+        self.transition(WorkflowRunStatus.COLD_RESUME)
+
+    def _validate_transition(self, new_state):
+        """Ensure the Job state transition is valid"""
+        if (self.status, new_state) not in self.valid_transitions:
+            raise InvalidStateTransition('Workflow', self.id, self.status,
+                                         new_state)

@@ -1,8 +1,4 @@
-import logging
-
 from jobmon.models import DB
-
-logger = logging.getLogger(__name__)
 
 
 class ExecutorParameterSetType(DB.Model):

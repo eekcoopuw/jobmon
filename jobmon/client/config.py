@@ -1,7 +1,7 @@
 import os
 
 from jobmon import config
-from jobmon.client.client_logging import ClientLogging as logging
+from jobmon.client import ClientLogging as logging
 
 logger = logging.getLogger(__name__)
 

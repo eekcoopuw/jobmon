@@ -4,7 +4,7 @@ from time import sleep
 from sqlalchemy.orm import joinedload
 
 from jobmon import __version__
-from jobmon.client import shared_requester
+from jobmon.requester import shared_requester
 from jobmon.models import DB
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_run import WorkflowRun as WorkflowRunDAO
@@ -180,8 +180,9 @@ class HealthMonitor(object):
         """Return bool if workflow has a lost workflow_run"""
         logger.debug(logging.myself())
         with self.app.app_context():
-            td = workflow_run.workflow.task_dag
-            time_since_last_heartbeat = (datetime.utcnow() - td.heartbeat_date)
+            # td = workflow_run.workflow.task_dag
+            time_since_last_heartbeat = (datetime.utcnow() -
+                                         workflow_run.heartbeat_date)
             return time_since_last_heartbeat > self._loss_threshold
 
     def _register_lost_workflow_runs(self, lost_workflow_runs):

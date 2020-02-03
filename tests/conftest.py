@@ -7,7 +7,6 @@ import pwd
 import re
 import shutil
 import socket
-import sys
 import uuid
 from time import sleep
 
@@ -15,10 +14,6 @@ import pytest
 import requests
 
 from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
-
-from jobmon.client import BashTask
-from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.models import database_loaders
 
 logger = logging.getLogger(__name__)
 
@@ -41,11 +36,8 @@ def ephemera():
     here = os.path.dirname(__file__)
     create_dir = os.path.join(here, "..",
                               "jobmon/server/deployment/container/db")
-    upgrade_dir = os.path.join(here, "..",
-                              "jobmon/server/deployment/container/db/upgrade")
     create_files = glob.glob(os.path.join(create_dir, "*.sql"))
-    upgrade_files = glob.glob(os.path.join(upgrade_dir, "*.sql"))
-    for file in sorted(create_files + upgrade_files):
+    for file in sorted(create_files):
         edb.execute_sql_script(file)
 
     # get connection info
@@ -123,7 +115,7 @@ def db_cfg(ephemera):
     of the previous test and restart it fresh"""
     from jobmon.models import DB
     from jobmon.server import create_app
-    from jobmon.server.config import ServerConfig
+    from jobmon.server.server_config import ServerConfig
 
     # The create_app call sets up database connections
     server_config = ServerConfig(
@@ -132,200 +124,206 @@ def db_cfg(ephemera):
         db_user=ephemera["DB_USER"],
         db_pass=ephemera["DB_PASS"],
         db_name=ephemera["DB_NAME"],
+        slack_token=None,
         wf_slack_channel=None,
-        node_slack_channel=None,
-        slack_token=None)
+        node_slack_channel=None)
     app = create_app(server_config)
 
-    yield {'app': app, 'DB': DB}
-    with app.app_context():
-        database_loaders.clean_job_db(DB)
-
-
-@pytest.fixture(autouse=True)  # scope='function')
-def env_var(real_jsm_jqs, monkeypatch):
-    from jobmon.client import shared_requester, client_config
-    from jobmon.client.config import ClientConfig
-
-    cc = ClientConfig.from_defaults()
-    cc.host = real_jsm_jqs["JOBMON_HOST"]
-    cc.port = real_jsm_jqs["JOBMON_PORT"]
-
-    monkeypatch.setattr(shared_requester, "url", cc.url)
-    monkeypatch.setattr(client_config, 'heartbeat_interval', 10)
-    monkeypatch.setattr(client_config, 'report_by_buffer', 2.1)
-    monkeypatch.setattr(client_config, 'reconciliation_interval', 5)
-
-    monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
-    monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
+    yield {'app': app, 'DB': DB, "server_config": server_config}
 
 
 @pytest.fixture(scope='function')
-def real_dag_id(env_var):
-    """This uses the real Flask dev server to create a dag in the db and
-    return the dag_id
-    """
-    import random
+def client_env(real_jsm_jqs, monkeypatch):
     from jobmon.client import shared_requester
+    from jobmon.client.requests.connection_config import ConnectionConfig
+    from jobmon import config
 
-    rc, response = shared_requester.send_request(
-        app_route='/task_dag',
-        message={'name': 'test dag', 'user': 'test user',
-                 'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
-                 'created_date': str(datetime.utcnow())},
-        request_type='post')
-    yield response['dag_id']
+    monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
+    monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
+    config.jobmon_server_sqdn = real_jsm_jqs["JOBMON_HOST"]
+    config.jobmon_service_port = real_jsm_jqs["JOBMON_PORT"]
+    cc = ConnectionConfig(real_jsm_jqs["JOBMON_HOST"],
+                          real_jsm_jqs["JOBMON_PORT"])
+
+    # modify shared requester
+    monkeypatch.setattr(shared_requester, "url", cc.url)
 
 
 @pytest.fixture(scope='module')
 def tmp_out_dir():
     """This creates a new tmp_out_dir for every module"""
-    u = uuid.uuid4()
     user = pwd.getpwuid(os.getuid()).pw_name
-    output_root = ('/ihme/scratch/users/{user}/tests/jobmon/'
-                   '{uuid}'.format(user=user, uuid=u))
+    output_root = f'/ihme/scratch/users/{user}/tests/jobmon/{uuid.uuid4()}'
     yield output_root
     shutil.rmtree(output_root, ignore_errors=True)
 
 
-@pytest.fixture(scope='function')
-def jlm_sge_daemon(real_dag_id, tmpdir_factory):
-    """This creates a job_list_manager that uses the SGEExecutor, does
-    start the JobInstanceFactory and JobReconciler threads
-    It has short reconciliation intervals so that the
-    tests run faster than in production.
-    """
-    from jobmon.client.swarm.executors.sge import SGEExecutor
-    from jobmon.client.swarm.job_management.job_list_manager import \
-        JobListManager
+# # @pytest.fixture(scope='function')
+# # def execution_env(real_jsm_jqs, monkeypatch):
+# #     from jobmon.execution import shared_requester, shared_execution_config
 
-    elogdir = str(tmpdir_factory.mktemp("elogs"))
-    ologdir = str(tmpdir_factory.mktemp("ologs"))
+# #     # modify execution config object
+# #     monkeypatch.setattr(shared_execution_config, "host",
+# #                         real_jsm_jqs["JOBMON_HOST"])
+# #     monkeypatch.setattr(shared_execution_config, "port",
+# #                         real_jsm_jqs["JOBMON_PORT"])
+# #     monkeypatch.setattr(shared_execution_config, "reconciliation_interval", 4)
+# #     monkeypatch.setattr(shared_execution_config, "heartbeat_interval", 2)
+# #     monkeypatch.setattr(shared_execution_config, "report_by_buffer", 2.1)
 
-    executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
-                           project='proj_tools')
-    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
-                         job_instantiation_interval=1)
-    yield jlm
-    jlm.disconnect()
+# #     # modify shared requester
+# #     monkeypatch.setattr(shared_requester, "url", shared_execution_config.url)
 
-
-@pytest.fixture(scope='function')
-def jlm_sge_no_daemon(real_dag_id, tmpdir_factory):
-    from jobmon.client.swarm.executors.sge import SGEExecutor
-    from jobmon.client.swarm.job_management.job_list_manager import \
-        JobListManager
-
-    elogdir = str(tmpdir_factory.mktemp("elogs"))
-    ologdir = str(tmpdir_factory.mktemp("ologs"))
-
-    executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
-                           project='proj_tools')
-    jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False)
-    yield jlm
-    jlm.disconnect()
+# #     # modify env
+# #     monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
+# #     monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
 
 
-@pytest.fixture(scope='function')
-def real_dag(db_cfg, env_var, request):
-    """"This is a fixture for dag creation that uses the real Flask dev server
-    so that the dags' JobInstanceFactory and JobInstanceReconcilers get
-    cleaned up after each test
-    """
-    from jobmon.client.swarm.executors.sge import SGEExecutor
-    from jobmon.client.swarm.workflow.task_dag import TaskDag
-    # The workflow creates the executor, not the workflow.
-    # Hence we must create one here and pass it in
-    executor = SGEExecutor(project='proj_tools')
-    dag = TaskDag(name=request.node.name, executor=executor)
-    yield dag
+# @pytest.fixture(scope='function')
+# def real_dag_id(client_env):
+#     """This uses the real Flask dev server to create a dag in the db and
+#     return the dag_id
+#     """
+#     import random
+#     from jobmon.client import shared_requester
 
-    if dag.job_list_manager:
-        dag.job_list_manager.disconnect()
-
-
-@pytest.fixture(scope='function')
-def dag_factory(db_cfg, env_var, request):
-    """This is a fixture for creation of lots dag creation that uses the real
-    Flask dev server, so that the dags' JobInstanceFactory and
-    JobInstanceReconcilers get cleaned up after each test
-    """
-    from jobmon.client.swarm.workflow.task_dag import TaskDag
-    dags = []
-
-    def factory(executor):
-        dag = TaskDag(name=request.node.name, executor=executor)
-        dags.append(dag)
-        return dag
-    yield factory
-    for dag in dags:
-        if dag.job_list_manager:
-            dag.job_list_manager.disconnect()
+#     rc, response = shared_requester.send_request(
+#         app_route='/task_dag',
+#         message={'name': 'test dag', 'user': 'test user',
+#                  'dag_hash': 'test_{}'.format(random.randint(1, 1000)),
+#                  'created_date': str(datetime.utcnow())},
+#         request_type='post')
+#     yield response['dag_id']
 
 
-@pytest.fixture(autouse=True)
-def execution_test_script_perms():
-    executed_files = ['executor_args_check.py', 'simple_R_script.r',
-                      'simple_stata_script.do', 'memory_usage_array.py',
-                      'remote_sleep_and_write.py', 'kill.py', 'exceed_mem.py']
-    if sys.version_info.major == 3:
-        perms = int("0o755", 8)
-    else:
-        perms = int("0755", 8)
-    path = os.path.dirname(os.path.realpath(__file__))
-    shell_path = os.path.join(path, 'shellfiles/')
-    files = os.listdir(shell_path)
-    os.chmod(shell_path, perms)
-    for file in files:
-        try:
-            os.chmod(f'{shell_path}{file}', perms)
-        except Exception as e:
-            raise e
-    for file in executed_files:
-        try:
-            os.chmod(f'{path}/{file}', perms)
-        except Exception as e:
-            raise e
+# @pytest.fixture(scope='function')
+# def jlm_sge_daemon(real_dag_id, tmpdir_factory):
+#     """This creates a job_list_manager that uses the SGEExecutor, does
+#     start the JobInstanceFactory and JobReconciler threads
+#     It has short reconciliation intervals so that the
+#     tests run faster than in production.
+#     """
+#     from jobmon.client.swarm.executors.sge import SGEExecutor
+#     from jobmon.client.swarm.job_management.job_list_manager import \
+#         JobListManager
+
+#     elogdir = str(tmpdir_factory.mktemp("elogs"))
+#     ologdir = str(tmpdir_factory.mktemp("ologs"))
+
+#     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
+#                            project='proj_tools')
+#     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=True,
+#                          job_instantiation_interval=1)
+#     yield jlm
+#     jlm.disconnect()
 
 
-@pytest.fixture
-def simple_workflow(db_cfg, env_var):
-    from jobmon.client.swarm.workflow.bash_task import BashTask
-    from jobmon.client.swarm.workflow.workflow import Workflow
-    teardown_db(db_cfg)
+# @pytest.fixture
+# def jlm_sge_no_daemon(real_dag_id, tmpdir_factory):
+#     from jobmon.client.swarm.executors.sge import SGEExecutor
+#     from jobmon.client.swarm.job_management.job_list_manager import \
+#         JobListManager
 
-    t1 = BashTask("sleep 1", num_cores=1, m_mem_free='1G')
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1, m_mem_free='1G')
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1, m_mem_free='1G')
+#     elogdir = str(tmpdir_factory.mktemp("elogs"))
+#     ologdir = str(tmpdir_factory.mktemp("ologs"))
 
-    wfa = "my_simple_dag"
-    workflow = Workflow(wfa)
-    workflow.add_tasks([t1, t2, t3])
-    workflow.execute()
-    return workflow
-
-
-@pytest.fixture
-def simple_workflow_w_errors(db_cfg, env_var):
-    # Used in test_workflow_[ab]
-    teardown_db(db_cfg)
-    t1 = BashTask("sleep 1", num_cores=1, m_mem_free='2G', queue="all.q",
-                  j_resource=False)
-    t2 = BashTask("not_a_command 1", upstream_tasks=[t1], num_cores=1,
-                  m_mem_free='2G', queue="all.q", j_resource=False)
-    t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime_seconds=4,
-                  num_cores=1, m_mem_free='2G', queue="all.q", j_resource=False)
-    t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3], num_cores=1,
-                  m_mem_free='2G', queue="all.q", j_resource=False)
-
-    workflow = Workflow("my_failing_args", project='ihme_general')
-    workflow.add_tasks([t1, t2, t3, t4])
-    workflow.execute()
-    return workflow
+#     executor = SGEExecutor(stderr=elogdir, stdout=ologdir,
+#                            project='proj_tools')
+#     jlm = JobListManager(real_dag_id, executor=executor, start_daemons=False)
+#     yield jlm
+#     jlm.disconnect()
 
 
-def teardown_db(db_cfg):
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        database_loaders.clean_job_db(DB)
+# @pytest.fixture(scope='function')
+# def real_dag(db_cfg, env_var, request):
+#     """"This is a fixture for dag creation that uses the real Flask dev server
+#     so that the dags' JobInstanceFactory and JobInstanceReconcilers get
+#     cleaned up after each test
+#     """
+#     from jobmon.client.swarm.executors.sge import SGEExecutor
+#     from jobmon.client.swarm.workflow.task_dag import TaskDag
+#     # The workflow creates the executor, not the workflow.
+#     # Hence we must create one here and pass it in
+#     executor = SGEExecutor(project='proj_tools')
+#     dag = TaskDag(name=request.node.name, executor=executor)
+#     yield dag
+#     if dag.job_list_manager:
+#         dag.job_list_manager.disconnect()
+
+
+# @pytest.fixture(scope='function')
+# def dag_factory(db_cfg, env_var, request):
+#     """This is a fixture for creation of lots dag creation that uses the real
+#     Flask dev server, so that the dags' JobInstanceFactory and
+#     JobInstanceReconcilers get cleaned up after each test
+#     """
+#     from jobmon.client.swarm.workflow.task_dag import TaskDag
+#     dags = []
+
+#     def factory(executor):
+#         dag = TaskDag(name=request.node.name, executor=executor)
+#         dags.append(dag)
+#         return dag
+#     yield factory
+#     for dag in dags:
+#         if dag.job_list_manager:
+#             dag.job_list_manager.disconnect()
+
+
+# # @pytest.fixture(autouse=True)
+# # def execution_test_script_perms():
+# #     executed_files = ['executor_args_check.py', 'simple_R_script.r',
+# #                       'simple_stata_script.do', 'memory_usage_array.py',
+# #                       'remote_sleep_and_write.py', 'kill.py', 'exceed_mem.py']
+# #     if sys.version_info.major == 3:
+# #         perms = int("0o755", 8)
+# #     else:
+# #         perms = int("0755", 8)
+# #     path = os.path.dirname(os.path.realpath(__file__))
+# #     shell_path = os.path.join(path, 'shellfiles/')
+# #     files = os.listdir(shell_path)
+# #     os.chmod(shell_path, perms)
+# #     for file in files:
+# #         try:
+# #             os.chmod(f'{shell_path}{file}', perms)
+# #         except Exception as e:
+# #             raise e
+# #     for file in executed_files:
+# #         try:
+# #             os.chmod(f'{path}/{file}', perms)
+# #         except Exception as e:
+# #             raise e
+
+
+# @pytest.fixture
+# def simple_workflow(env_var, db_cfg):
+#     from jobmon.client.swarm.workflow.bash_task import BashTask
+#     from jobmon.client.swarm.workflow.workflow import Workflow
+
+#     t1 = BashTask("sleep 1", num_cores=1, m_mem_free='1G')
+#     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1, m_mem_free='1G')
+#     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1, m_mem_free='1G')
+
+#     wfa = "my_simple_dag"
+#     workflow = Workflow(wfa)
+#     workflow.add_tasks([t1, t2, t3])
+#     workflow.execute()
+#     return workflow
+
+
+# @pytest.fixture
+# def simple_workflow_w_errors(env_var, db_cfg):
+#     # Used in test_workflow_[ab]
+#     t1 = BashTask("sleep 1", num_cores=1, m_mem_free='2G', queue="all.q",
+#                   j_resource=False)
+#     t2 = BashTask("not_a_command 1", upstream_tasks=[t1], num_cores=1,
+#                   m_mem_free='2G', queue="all.q", j_resource=False)
+#     t3 = BashTask("sleep 30", upstream_tasks=[t1], max_runtime_seconds=4,
+#                   num_cores=1, m_mem_free='2G', queue="all.q", j_resource=False)
+#     t4 = BashTask("not_a_command 3", upstream_tasks=[t2, t3], num_cores=1,
+#                   m_mem_free='2G', queue="all.q", j_resource=False)
+
+#     workflow = Workflow("my_failing_args", project='ihme_general')
+#     workflow.add_tasks([t1, t2, t3, t4])
+#     workflow.execute()
+#     return workflow

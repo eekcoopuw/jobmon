@@ -1,7 +1,7 @@
 from flask import Flask
 from flask_cors import CORS
 
-from jobmon.server.config import ServerConfig
+from jobmon.server.server_config import ServerConfig
 from jobmon.server.server_logging import jobmonLogging
 
 
@@ -13,10 +13,10 @@ logger.info(jobmonLogging.myself())
 def create_app(config=None):
     """Create a Flask app"""
     from jobmon.models import DB
-    from jobmon.server.job_query_server.job_query_server import jqs
-    from jobmon.server.job_state_manager.job_state_manager import jsm
-    from jobmon.server.job_visualization_server.job_visualization_server \
-        import jvs
+    from jobmon.server.query_server.query_server import jqs
+    from jobmon.server.update_server.update_server import jsm
+    # from jobmon.server.job_visualization_server.job_visualization_server \
+    #     import jvs
 
     app = Flask(__name__)
     if config is None:
@@ -28,7 +28,7 @@ def create_app(config=None):
     # register blueprints
     app.register_blueprint(jqs)
     app.register_blueprint(jsm)
-    app.register_blueprint(jvs)
+    # app.register_blueprint(jvs)
 
     # register app with flask-sqlalchemy DB
     DB.init_app(app)

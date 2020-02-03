@@ -1,14 +1,10 @@
-from jobmon.client.config import ClientConfig
-from jobmon.client.client_logging import ClientLogging
-from jobmon.client.requester import Requester
-client_config = ClientConfig.from_defaults()
-shared_requester = Requester(client_config.url)
-
-from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.client.swarm.workflow.bash_task import BashTask
-from jobmon.client.swarm.workflow.r_task import RTask
-from jobmon.client.swarm.workflow.python_task import PythonTask
-from jobmon.client.swarm.workflow.stata_task import StataTask
+from jobmon.client._logging import ClientLogging
+from jobmon.client.requests.connection_config import ConnectionConfig
+from jobmon.client.requests.requester import Requester
 
 
 ClientLogging.attach_log_handler()
+
+
+client_config = ConnectionConfig.from_defaults()
+shared_requester = Requester(client_config.url)

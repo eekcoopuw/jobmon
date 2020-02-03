@@ -33,8 +33,8 @@ def _get_pulling_interval():
 def _update_maxpss_in_db(ex_id: int, pss: int, session):
     try:
         # Doing single update instead of batch because if a banch update failed it's harder to tell
-        # which job_instance has been updated
-        sql = "UPDATE job_instance SET maxpss={maxpss} WHERE executor_id={id}".format(maxpss=pss, id=ex_id)
+        # which task_instance has been updated
+        sql = "UPDATE task_instance SET maxpss={maxpss} WHERE executor_id={id}".format(maxpss=pss, id=ex_id)
         session.execute(sql)
         session.commit()
         session.close()
@@ -57,8 +57,8 @@ def _get_qpid_response(ex_id):
         return (200, maxpss)
 
 
-def _get_completed_job_instance(starttime: float, session):
-    sql = "SELECT executor_id from job_instance " \
+def _get_completed_task_instance(starttime: float, session):
+    sql = "SELECT executor_id from task_instance " \
           "where status not in (\"B\", \"I\", \"R\", \"W\") " \
           "and UNIX_TIMESTAMP(status_date) > {} " \
           "and maxpss is null".format(starttime)
@@ -102,7 +102,7 @@ def maxpss_forever():
         if int(current_time - last_heartbeat) > _get_pulling_interval():
             logger.info("MaxpssQ length: {}".format(MaxpssQ().get_size()))
             try:
-                _get_completed_job_instance(last_heartbeat, session)
+                _get_completed_task_instance(last_heartbeat, session)
             except Exception as e:
                 logger.error(str(e))
             finally:

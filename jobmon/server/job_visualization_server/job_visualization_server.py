@@ -6,7 +6,7 @@ import pandas as pd
 
 from jobmon.models import DB
 from jobmon.models.workflow import Workflow
-from jobmon.models.job_status import JobStatus
+# from jobmon.models.job_status import JobStatus
 
 
 jvs = Blueprint("job_visualization_server", __name__)
