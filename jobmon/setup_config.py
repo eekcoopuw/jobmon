@@ -16,13 +16,14 @@ class SetupCfg:
                  slack_token=None, slack_api_url=None, wf_slack_channel=None,
                  node_slack_channel=None, jobmon_server_hostname=None,
                  jobmon_server_sqdn=None, jobmon_service_port=None,
-                 jobmon_monitor_port=None, jobmon_version=None,
+                 jobmon_monitor_port=None, jobmon_integration_service_port=None, jobmon_version=None,
                  reconciliation_interval=None, heartbeat_interval=None,
                  report_by_buffer=None, tag_prefix=None, internal_db_host=None,
                  internal_db_port=None, external_db_host=None,
                  external_db_port=None, jobmon_service_user_pwd=None,
                  existing_network=None, use_rsyslog=None, rsyslog_host=None,
-                 rsyslog_port=None, rsyslog_protocol=None):
+                 rsyslog_port=None, rsyslog_protocol=None, qpid_uri=None, qpid_cluster=None,
+                 qpid_pulling_interval=None, max_update_per_second=None):
 
         # get env for fallback
         self._env = os.environ
@@ -45,6 +46,7 @@ class SetupCfg:
         self.jobmon_server_sqdn = jobmon_server_sqdn
         self.jobmon_service_port = jobmon_service_port
         self.jobmon_monitor_port = jobmon_monitor_port
+        self.jobmon_integration_service_port = jobmon_integration_service_port
         self.jobmon_version = jobmon_version
         self.reconciliation_interval = reconciliation_interval
         self.heartbeat_interval = heartbeat_interval
@@ -60,6 +62,10 @@ class SetupCfg:
         self.rsyslog_host = rsyslog_host
         self.rsyslog_port = rsyslog_port
         self.rsyslog_protocol = rsyslog_protocol
+        self.qpid_uri = qpid_uri
+        self.qpid_cluster = qpid_cluster
+        self.qpid_pulling_interval = qpid_pulling_interval
+        self.max_update_per_second = max_update_per_second
 
     @property
     def test_mode(self) -> bool:
@@ -403,3 +409,63 @@ class SetupCfg:
         if val is None:
             val = self._config["rsyslog"]["protocol"]
         self._rsyslog_protocol = val
+
+    @property
+    def qpid_uri(self) -> str:
+        return self._qpid_uri
+
+    @qpid_uri.setter
+    def qpid_uri(self, val):
+        if val is None:
+            val = self._env.get("QPID_URI")
+        if val is None:
+            val = self._config["qpid"]["uri"]
+        self._qpid_uri = val
+
+    @property
+    def qpid_cluster(self) -> str:
+        return self._qpid_cluster
+
+    @qpid_cluster.setter
+    def qpid_cluster(self, val):
+        if val is None:
+            val = self._env.get("QPID_CLUSTER")
+        if val is None:
+            val = self._config["qpid"]["cluster"]
+        self._qpid_cluster = val
+
+    @property
+    def jobmon_integration_service_port(self) -> str:
+        return self._jobmon_integration_service_port
+
+    @jobmon_integration_service_port.setter
+    def jobmon_integration_service_port(self, val):
+        if val is None:
+            val = self._env.get("JOBMON_INTEGRATION_SERVICE_PORT")
+        if val is None:
+            val = self._config["basic values"]["jobmon_integration_service_port"]
+        self._jobmon_integration_service_port = val
+
+    @property
+    def qpid_pulling_interval(self) -> str:
+        return self._qpid_pulling_interval
+
+    @qpid_pulling_interval.setter
+    def qpid_pulling_interval(self, val):
+        if val is None:
+            val = self._env.get("QPID_PULLING_INTERVAL")
+        if val is None:
+            val = self._config["qpid"]["pulling_interval"]
+        self._qpid_pulling_interval = int(val)
+
+    @property
+    def max_update_per_second(self) -> str:
+        return self._max_update_per_second
+
+    @max_update_per_second.setter
+    def max_update_per_second(self, val):
+        if val is None:
+            val = self._env.get("MAX_UPDATE_PER_SECOND")
+        if val is None:
+            val = self._config["qpid"]["max_update_per_second"]
+        self._max_update_per_second = int(val)

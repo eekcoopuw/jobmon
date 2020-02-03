@@ -757,7 +757,7 @@ def test_syslog_parameter(env_var):
         request_type='get'
     )
     assert rc == 200
-    assert response['syslog'] == config.use_rsyslog
+    assert response[0]['syslog'] == config.use_rsyslog
 
     # try to attach a wrong port and expect failure
     rc, response = req.send_request(
