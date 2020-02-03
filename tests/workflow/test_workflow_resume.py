@@ -76,3 +76,37 @@ def test_fail_one_task_resume(db_cfg, client_env, tmpdir):
     assert wfr2.status == WorkflowRunStatus.DONE
     assert workflow1.workflow_id == workflow2.workflow_id
     assert wfr2.workflow_run_id != wfr1.workflow_run_id
+
+
+def test_created_race_condition(db_cfg, client_env):
+    from jobmon.client.api import Tool, ExecutorParameters
+    from jobmon.client.execution.strategies.sequential import \
+        SequentialExecutor
+
+    unknown_tool = Tool()
+    tt = unknown_tool.get_task_template(
+        template_name="foo",
+        command_template="sleep {time}",
+        task_args=["time"])
+
+    # create initial workflow
+    t1 = tt.create_task(executor_parameters=ExecutorParameters(
+                            executor_class="SequentialExecutor"),
+                        time=1)
+    workflow1 = unknown_tool.create_workflow(name="created_race_condition")
+    workflow1.set_executor(SequentialExecutor())
+    workflow1.add_tasks([t1])
+    workflow1._bind()
+    workflow1._create_workflow_run()
+
+    # create identical workflow
+    t2 = tt.create_task(executor_parameters=ExecutorParameters(
+                            executor_class="SequentialExecutor"),
+                        time=1)
+    workflow2 = unknown_tool.create_workflow(
+        name=workflow1.name, workflow_args=workflow1.workflow_args)
+    workflow2.set_executor(SequentialExecutor())
+    workflow2.add_tasks([t2])
+    workflow2._bind(resume=True)
+    with pytest.raises(WorkflowAlreadyExists):
+        workflow2._create_workflow_run()
