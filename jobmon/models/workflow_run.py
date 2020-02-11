@@ -1,9 +1,13 @@
+import logging
+
 from sqlalchemy.sql import func
 
 from jobmon.models import DB
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_status import WorkflowStatus
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowRun(DB.Model):
@@ -29,11 +33,11 @@ class WorkflowRun(DB.Model):
     valid_transitions = [
         # a workflow run is created normally. All tasks are updated in the db
         # and the workflow run can move to bound state
-        (WorkflowRunStatus.CREATED, WorkflowRunStatus.BOUND),
+        (WorkflowRunStatus.REGISTERED, WorkflowRunStatus.BOUND),
 
         # a workflow run is created normally. Something goes wrong while the
         # tasks are binding and the workflow run moves to error state
-        (WorkflowRunStatus.CREATED, WorkflowRunStatus.ABORTED),
+        (WorkflowRunStatus.REGISTERED, WorkflowRunStatus.ABORTED),
 
         # a workflow run is bound and then logs running
         (WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING),
@@ -66,6 +70,9 @@ class WorkflowRun(DB.Model):
         (WorkflowRunStatus.HOT_RESUME, WorkflowRunStatus.TERMINATED)
         ]
 
+    untimely_transitions = [
+        (WorkflowRunStatus.RUNNING, WorkflowRunStatus.RUNNING)]
+
     bound_error_states = [WorkflowRunStatus.STOPPED,
                           WorkflowRunStatus.ERROR,
                           WorkflowRunStatus.TERMINATED]
@@ -73,27 +80,32 @@ class WorkflowRun(DB.Model):
     resume_states = [WorkflowRunStatus.COLD_RESUME,
                      WorkflowRunStatus.HOT_RESUME]
 
+    def is_active(self):
+        return self.status in [WorkflowRunStatus.BOUND,
+                               WorkflowRunStatus.RUNNING]
+
     def heartbeat(self, next_report_increment):
         self.transition(WorkflowRunStatus.RUNNING)
-        self.heartbeat = func.ADDTIME(
+        self.heartbeat_date = func.ADDTIME(
             func.UTC_TIMESTAMP(), func.SEC_TO_TIME(next_report_increment))
 
     def transition(self, new_state):
-        self._validate_transition(new_state)
-        self.status = new_state
-        self.status_date = func.UTC_TIMESTAMP()
-        if new_state == WorkflowRunStatus.BOUND:
-            self.workflow.transition(WorkflowStatus.BOUND)
-        elif new_state == WorkflowRunStatus.ABORTED:
-            self.workflow.transition(WorkflowStatus.ABORTED)
-        elif new_state == WorkflowRunStatus.RUNNING:
-            self.workflow.transition(WorkflowStatus.RUNNING)
-        elif new_state == WorkflowRunStatus.DONE:
-            self.workflow.transition(WorkflowStatus.DONE)
-        elif new_state in self.resume_states:
-            self.workflow.transition(WorkflowStatus.SUSPENDED)
-        elif new_state in self.bound_error_states:
-            self.workflow.transition(WorkflowStatus.FAILED)
+        if self._is_timely_transition(new_state):
+            self._validate_transition(new_state)
+            self.status = new_state
+            self.status_date = func.UTC_TIMESTAMP()
+            if new_state == WorkflowRunStatus.BOUND:
+                self.workflow.transition(WorkflowStatus.BOUND)
+            elif new_state == WorkflowRunStatus.ABORTED:
+                self.workflow.transition(WorkflowStatus.ABORTED)
+            elif new_state == WorkflowRunStatus.RUNNING:
+                self.workflow.transition(WorkflowStatus.RUNNING)
+            elif new_state == WorkflowRunStatus.DONE:
+                self.workflow.transition(WorkflowStatus.DONE)
+            elif new_state in self.resume_states:
+                self.workflow.transition(WorkflowStatus.SUSPENDED)
+            elif new_state in self.bound_error_states:
+                self.workflow.transition(WorkflowStatus.FAILED)
 
     def hot_reset(self):
         self.transition(WorkflowRunStatus.HOT_RESUME)
@@ -104,5 +116,13 @@ class WorkflowRun(DB.Model):
     def _validate_transition(self, new_state):
         """Ensure the Job state transition is valid"""
         if (self.status, new_state) not in self.valid_transitions:
-            raise InvalidStateTransition('Workflow', self.id, self.status,
+            raise InvalidStateTransition('WorkflowRun', self.id, self.status,
                                          new_state)
+
+    def _is_timely_transition(self, new_state):
+        """Check if the transition is invalid due to a race condition"""
+
+        if (self.status, new_state) in self.untimely_transitions:
+            return False
+        else:
+            return True

@@ -1,5 +1,7 @@
 import os
 
+from typing import Optional
+
 from jobmon import config
 from jobmon.client import ClientLogging as logging
 
@@ -11,12 +13,10 @@ class InvalidConfig(Exception):
     pass
 
 
-def derive_jobmon_command_from_env():
+def derive_jobmon_command_from_env() -> Optional[str]:
     singularity_img_path = os.environ.get('IMGPATH', None)
     if singularity_img_path:
-        return (
-            'singularity run --app jobmon_command {}'
-            .format(singularity_img_path).encode())
+        return f'singularity run --app jobmon_command {singularity_img_path}'
     return None
 
 
@@ -36,9 +36,10 @@ class ExecutionConfig(object):
             n_queued=1000,
             scheduler_poll_interval=10)
 
-    def __init__(self, jobmon_command, workflow_run_heartbeat_interval,
-                 task_heartbeat_interval, report_by_buffer, n_queued,
-                 scheduler_poll_interval):
+    def __init__(self, jobmon_command: Optional[str],
+                 workflow_run_heartbeat_interval: int,
+                 task_heartbeat_interval: int, report_by_buffer: float,
+                 n_queued: int, scheduler_poll_interval: int):
         self.jobmon_command = jobmon_command
         self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self.task_heartbeat_interval = task_heartbeat_interval

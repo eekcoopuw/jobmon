@@ -7,6 +7,7 @@ from typing import Dict
 
 from jobmon.models import DB
 from jobmon.models.dag import Dag
+from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.node import Node
 from jobmon.models.task import Task
 from jobmon.models.task_instance import TaskInstance
@@ -18,6 +19,7 @@ from jobmon.models.task_template_version import TaskTemplateVersion
 from jobmon.models.tool import Tool
 from jobmon.models.tool_version import ToolVersion
 from jobmon.models.workflow import Workflow
+from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.server_logging import jobmonLogging as logging
@@ -312,14 +314,24 @@ def workflow_run_is_terminated(workflow_run_id):
         WHERE
             workflow_run.id = :workflow_run_id
             AND (
-                workflow_run.status == 'T'
+                workflow_run.status = 'T'
                 OR workflow_run.heartbeat_date <= UTC_TIMESTAMP()
             )
     """
     res = DB.session.query(WorkflowRun).from_statement(text(query)).params(
         workflow_run_id=workflow_run_id).one_or_none()
+    DB.session.commit()
 
     if res is not None:
+        # try to transition the workflow. Send back any competing
+        # workflow_run_id and its status
+        try:
+            res.workflow.transition(WorkflowStatus.CREATED)
+            DB.session.commit()
+        except InvalidStateTransition:
+            DB.session.rollback()
+            raise
+
         resp = jsonify(workflow_run_status=res.status)
     else:
         resp = jsonify()

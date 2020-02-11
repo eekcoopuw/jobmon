@@ -28,15 +28,10 @@ install_requires = [
     'Flask-SQLAlchemy',
     'cluster_utils',
     'requests',
-<<<<<<< HEAD
+    'psutil',
     'tabulate',
     'tenacity',
     'tblib']
-=======
-    'paramiko',
-    'tabulate',
-    'tenacity']
->>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
 
 setup(
     version=versioneer.get_version(),
@@ -72,5 +67,5 @@ setup(
     entry_points={
         'console_scripts': [
             "jobmon=jobmon.cli:main",
-            "jobmon_command=jobmon.client.worker_node.execution_wrapper:main"
+            "jobmon_command=jobmon.client.execution.worker_node.execution_wrapper:main"
         ]})

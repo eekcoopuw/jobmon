@@ -1,7 +1,3 @@
-import getpass
-import os
-import os.path as path
-import pytest
 
 from jobmon.server.deployment.git_functions import find_release
 from jobmon.server.deployment.slack_functions import validate_slack_token
@@ -19,5 +15,3 @@ def test_find_release():
     assert find_release(tag) is None
     tag = ["release-0.9.9"]
     assert find_release(tag) == "0.9.9"
-
-

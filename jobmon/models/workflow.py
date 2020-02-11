@@ -52,6 +52,9 @@ class Workflow(DB.Model):
         # new workflow run created that resumes old failed workflow run
         (WorkflowStatus.FAILED, WorkflowStatus.CREATED),
 
+        # new workflow run created that resumes old suspended workflow run
+        (WorkflowStatus.SUSPENDED, WorkflowStatus.CREATED),
+
         # Workflow run has been created then all tasks are bound. normal
         # happy path
         (WorkflowStatus.CREATED, WorkflowStatus.BOUND),
@@ -93,10 +96,13 @@ class Workflow(DB.Model):
             raise InvalidStateTransition('Workflow', self.id, self.status,
                                          new_state)
 
-    def resume(self, reset_running_jobs, session):
+    def resume(self, reset_running_jobs):
+        resumed_wfr = []
         for workflow_run in self.workflow_runs:
-            if workflow_run.is_active:
+            if workflow_run.is_active():
                 if reset_running_jobs:
-                    workflow_run.cold_resume(session)
+                    workflow_run.cold_reset()
                 else:
-                    workflow_run.hot_resume(session)
+                    workflow_run.hot_reset()
+                resumed_wfr.append(workflow_run)
+        return resumed_wfr

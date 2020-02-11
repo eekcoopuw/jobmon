@@ -1,14 +1,14 @@
 from multiprocessing import JoinableQueue, Process, Queue
 import os
-import time
-from typing import List, Optional
+import psutil
+import subprocess
+from typing import List, Optional, Dict, Tuple
+import queue
 
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import (Executor,
                                                      TaskInstanceExecutorInfo,
                                                      ExecutorParameters)
-from jobmon.client.execution.worker_node.execution_wrapper import (
-    unwrap, parse_arguments)
 from jobmon.models.task_instance_status import TaskInstanceStatus
 
 logger = logging.getLogger(__name__)
@@ -40,22 +40,36 @@ class Consumer(Process):
         logger.info(f"consumer alive. pid={os.getpid()}")
 
         while True:
-            task = self.task_queue.get()
-            if task is None:
-                # Received poison pill, no more tasks to run
-                self.task_queue.task_done()
-                break
+            try:
+                task = self.task_queue.get(timeout=1)
+                if task is None:
+                    logger.info("Received poison pill. Shutting down")
+                    # Received poison pill, no more tasks to run
+                    self.task_queue.task_done()
+                    break
 
-            os.environ["JOB_ID"] = str(task.executor_id)
+                else:
+                    os.environ["JOB_ID"] = str(task.executor_id)
+                    logger.debug(f"consumer received {task.command}")
+                    # run the job
+                    proc = subprocess.Popen(
+                        task.command,
+                        env=os.environ.copy(),
+                        shell=True)
 
-            logger.debug(f"consumer received {task.command}")
-            # run the job
-            unwrap(**parse_arguments(task.command))
+                    # log the pid with the executor class
+                    self.response_queue.put((task.executor_id, proc.pid))
 
-            # tell the queue this job is done so it can be shut down someday
-            self.task_queue.task_done()
+                    # wait till the process finishes
+                    proc.communicate()
 
-            time.sleep(3)  # cycle for more work periodically
+                    # tell the queue this job is done so it can be shut down
+                    # someday
+                    self.response_queue.put((task.executor_id, None))
+                    self.task_queue.task_done()
+
+            except queue.Empty:
+                pass
 
 
 class PickableTask:
@@ -91,7 +105,9 @@ class MultiprocessExecutor(Executor):
         super().__init__(*args, **kwargs)
         self._parallelism = parallelism
         self._next_executor_id = 1
-        self._running_or_submitted: set = set()
+
+        # mapping of executor_id to pid. if pid is None then it is queued
+        self._running_or_submitted: Dict[int, Optional[int]] = {}
 
         # ipc queues
         self.task_queue: JoinableQueue = JoinableQueue()
@@ -112,27 +128,85 @@ class MultiprocessExecutor(Executor):
 
     def stop(self) -> None:
         """terminate consumers and call sync 1 final time."""
+        actual = self.get_actual_submitted_or_running()
+        self.terminate_task_instances(actual)
+
         # Sending poison pill to all worker
         for _ in self.consumers:
             self.task_queue.put(None)
 
-        # TODO: we could force jobs to die if we get the processes of the
-        # consumers
-
         # Wait for commands to finish
         self.task_queue.join()
 
-    def get_actual_submitted_or_running(self) -> List[int]:
+    def _update_internal_states(self):
         while not self.response_queue.empty():
-            self._running_or_submitted.remove(self.response_queue.get())
-        return list(self._running_or_submitted)
+            executor_id, pid = self.response_queue.get()
+            if pid is not None:
+                self._running_or_submitted.update({executor_id: pid})
+            else:
+                self._running_or_submitted.pop(executor_id)
+
+    def terminate_task_instances(self, executor_ids: List[int]) -> None:
+        """Only terminate the task instances that are running, not going to
+        kill the jobs that are actually still in a waiting or a transitioning
+        state"""
+        logger.debug(f"Going to terminate: {executor_ids}")
+
+        # first drain the work queue so there are no race conditions with the
+        # workers
+        current_work = []
+        work_order = {}
+        i = 0
+        while not self.task_queue.empty():
+            current_work.append(self.task_queue.get())
+            self.task_queue.task_done()
+            # create a dictionary of the work indices for quick removal later
+            work_order[i] = current_work[-1].executor_id
+            i += 1
+
+        # no need to worry about race conditions because there are no state
+        # changes in the FSM caused by this method
+
+        # now update our internal state tracker
+        self._update_internal_states()
+
+        # now terminate any running jobs and remove from state tracker
+        for executor_id in executor_ids:
+            # the job is running
+            execution_pid = self._running_or_submitted.get(executor_id)
+            if execution_pid is not None:
+                # kill the process and remove it from the state tracker
+                parent = psutil.Process(execution_pid)
+                for child in parent.children(recursive=True):
+                    child.kill()
+
+            # a race condition. job finished before
+            elif executor_id not in work_order.values():
+                logger.error(
+                    f"executor_id {executor_id} was requested to be terminated"
+                    " but is not submitted or running")
+
+        # if not running remove from queue and state tracker
+        for index in sorted(work_order.keys(), reverse=True):
+            if work_order[index] in executor_ids:
+                del current_work[index]
+                del self._running_or_submitted[work_order[index]]
+
+        # put remaining work back on queue
+        for task in current_work:
+            self.task_queue.put(task)
+
+    def get_actual_submitted_or_running(self) -> List[int]:
+        self._update_internal_states()
+        return list(self._running_or_submitted.keys())
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters) -> int:
         executor_id = self._next_executor_id
         self._next_executor_id += 1
-        task = PickableTask(executor_id, command)
+        task = PickableTask(executor_id, self.jobmon_command + " " + command)
         self.task_queue.put(task)
+        self._running_or_submitted.update({executor_id: None})
         return executor_id
 
 
@@ -149,5 +223,6 @@ class TaskInstanceMultiprocessInfo(TaskInstanceExecutorInfo):
                 self._executor_id = int(jid)
         return self._executor_id
 
-    def get_exit_info(self, exit_code, error_msg):
-        return TaskInstanceStatus.ERROR, error_msg
+    def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
+        msg = f"Got exit_code: {exit_code}. Error message was: {error_msg}"
+        return TaskInstanceStatus.ERROR, msg

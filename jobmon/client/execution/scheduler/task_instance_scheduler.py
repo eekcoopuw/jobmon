@@ -48,17 +48,21 @@ class TaskInstanceScheduler:
         if requester is None:
             requester = shared_requester
         self.requester = requester
-        logger.info(f"scheduler communicating at {self.requester.url}")
+        logger.info(f"scheduler: communicating at {self.requester.url}")
 
         # work to do
         self._to_instantiate: List[ExecutorTask] = []
         self._to_reconcile: List[ExecutorTaskInstance] = []
+
+        # log heartbeat on startup so workflow run FSM doesn't have any races
+        self.heartbeat()
 
     def run_scheduler(self, stop_event=None, status_queue=None):
         try:
             # start up the worker thread and executor
             if not self.executor.started:
                 self.executor.start(self.config.jobmon_command)
+            logger.info(f"scheduler: executor has started")
 
             # send response back to main
             if status_queue is not None:
@@ -97,11 +101,15 @@ class TaskInstanceScheduler:
             # send error back to main
             if status_queue is not None:
                 status_queue.put(ExceptionWrapper(e))
+            else:
+                raise
 
         except Exception as e:
             # send error back to main
             if status_queue is not None:
                 status_queue.put(ExceptionWrapper(e))
+            else:
+                raise
 
         finally:
             # stop executor
@@ -113,10 +121,12 @@ class TaskInstanceScheduler:
     def heartbeat(self):
         # log heartbeats for tasks queued for batch execution and for the
         # workflow run
+        logger.info(f"scheduler: logging heartbeat")
         self._log_executor_report_by()
         self._log_workflow_run_heartbeat()
 
     def schedule(self, thread_stop_event=None):
+        logger.info(f"scheduler: scheduling work. reconciling errors.")
         # get work if there isn't any in the queues
         if not self._to_instantiate and not self._to_reconcile:
             self._get_tasks_queued_for_instantiation()

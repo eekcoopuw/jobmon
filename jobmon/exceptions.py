@@ -38,7 +38,7 @@ class WorkflowAlreadyComplete(Exception):
     pass
 
 
-class MultipleWorkflowRuns(Exception):
+class WorkflowNotResumable(Exception):
     pass
 
 
@@ -59,8 +59,4 @@ class WorkflowRunStateError(Exception):
 
 
 class ResumeSet(Exception):
-    pass
-
-
-class ResumeWaitTimeExceeded(Exception):
     pass

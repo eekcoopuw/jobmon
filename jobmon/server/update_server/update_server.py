@@ -455,7 +455,7 @@ def add_workflow_run():
         user=data["user"],
         executor_class=data["executor_class"],
         jobmon_version=data["jobmon_version"],
-        status=WorkflowRunStatus.CREATED)
+        status=WorkflowRunStatus.REGISTERED)
     DB.session.add(workflow_run)
     DB.session.commit()
 
@@ -509,8 +509,8 @@ def add_workflow_run():
     resp.status_code = StatusCodes.OK
     return resp
 
-@jsm.route('/workflow_run/<workflow_run_id>/terminate',
-           methods=['PUT'])
+
+@jsm.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
 def terminate_workflow_run(workflow_run_id):
     logger.info(logging.myself())
     logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
@@ -519,17 +519,16 @@ def terminate_workflow_run(workflow_run_id):
         id=workflow_run_id).one()
 
     if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
-        states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR]
+        states = [TaskStatus.INSTANTIATED]
     elif workflow_run.status == WorkflowRunStatus.COLD_RESUME:
-        states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                  TaskInstanceStatus.RUNNING],
+        states = [TaskStatus.INSTANTIATED, TaskInstanceStatus.RUNNING]
 
     # add error logs
     log_errors = """
         INSERT INTO task_instance_error_log
             (task_instance_id, description, error_time)
         SELECT
-            task_instance_id,
+            task_instance.id,
             CONCAT(
                 'Workflow resume requested. Setting to K from status of: ',
                 task_instance.status
@@ -540,11 +539,11 @@ def terminate_workflow_run(workflow_run_id):
             ON task_instance.task_id = task.id
         WHERE
             task_instance.workflow_run_id = :workflow_run_id
-            AND task.status != :status
+            AND task.status IN :states
     """
     DB.session.execute(log_errors,
-                       {"workflow_run_id": workflow_run_id,
-                        "status": states})
+                       {"workflow_run_id": int(workflow_run_id),
+                        "states": states})
     DB.session.flush()
 
     # update job instance states
@@ -558,11 +557,11 @@ def terminate_workflow_run(workflow_run_id):
             task_instance.status_date = UTC_TIMESTAMP
         WHERE
             task_instance.workflow_run_id = :workflow_run_id
-            AND task.status != :status
+            AND task.status IN :states
     """
     DB.session.execute(update_task_instance,
                        {"workflow_run_id": workflow_run_id,
-                        "status": states})
+                        "states": states})
     DB.session.flush()
 
     # transition to terminated
@@ -572,6 +571,22 @@ def terminate_workflow_run(workflow_run_id):
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@jsm.route('/workflow_run/<workflow_run_id>/delete', methods=['PUT'])
+def delete_workflow_run(workflow_run_id):
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
+
+    query = "DELETE FROM workflow_run where workflow_run.id = :workflow_run_id"
+    DB.session.execute(query,
+                       {"workflow_run_id": workflow_run_id})
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
 
 # ############################ SCHEDULER ROUTES ###############################
 @jsm.route('/workflow_run/<workflow_run_id>/log_executor_report_by',
@@ -752,6 +767,7 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
     logger.info(logging.myself())
     logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
     data = request.get_json()
+    logger.debug(f"Heartbeat data: {data}")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id).one()
@@ -760,8 +776,10 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
         workflow_run.heartbeat(data["next_report_increment"])
         DB.session.add(workflow_run)
         DB.session.commit()
+        logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
     except InvalidStateTransition:
         DB.session.rollback()
+        logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
 
     resp = jsonify(message=str(workflow_run.status))
     resp.status_code = StatusCodes.OK
@@ -1073,16 +1091,15 @@ def log_error_worker_node(task_instance_id: int):
     try:
         resp = _log_error(ti, error_state, error_message, executor_id,
                           nodename)
-        return resp
     except sqlalchemy.exc.OperationalError:
         # modify the error message and retry
         new_msg = error_message.encode("latin1", "replace").decode("utf-8")
         resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
-        return resp
+
+    return resp
 
 
 # ############################ HELPER FUNCTIONS ###############################
-
 def _update_task_instance_state(task_instance, status_id):
     """Advance the states of task_instance and it's associated Task,
     return any messages that should be published based on

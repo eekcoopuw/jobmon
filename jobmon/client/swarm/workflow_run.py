@@ -14,8 +14,7 @@ from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.exceptions import (CallableReturnedInvalidObject, InvalidResponse,
-                               MultipleWorkflowRuns, SchedulerNotAlive,
-                               ResumeWaitTimeExceeded)
+                               WorkflowNotResumable, SchedulerNotAlive)
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.task_status import TaskStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
@@ -68,7 +67,8 @@ class WorkflowRun(object):
                      'user': self.user,
                      'executor_class': self.executor_class,
                      'jobmon_version': __version__,
-                     'resume': resume},
+                     'resume': resume,
+                     'reset_running_jobs': reset_running_jobs},
             request_type='post')
         if rc != StatusCodes.OK:
             raise InvalidResponse(f"Invalid Response to {app_route}: {rc}")
@@ -84,43 +84,37 @@ class WorkflowRun(object):
             # 2) current status was returned as error. that indicates a race
             #    condition with another workflow run where they both set the
             #    workflow to created nearly at the same time.
-            prev_wfr_id, prev_status = previous_wfr
+            prev_wfr_id, prev_status = previous_wfr[0]
             if not resume or current_status == WorkflowRunStatus.ERROR:
-                raise MultipleWorkflowRuns(
+                raise WorkflowNotResumable(
                     "There are multple active workflow runs already for "
-                    f"workflow id ({self.workflow_id}). Found previous "
+                    f"workflow_id ({self.workflow_id}). Found previous "
                     f"workflow_run_id/status: {prev_wfr_id}/{prev_status}")
-
-            # TODO: consider a force flag if previous workflow never
-            # signals that it's dead. in that case this would be in a
-            # try/catch block and we'd only raise an error if force was
-            # false (the default). Alternatively, perhaps this should be based
-            # on whether we are recieving heartbeats from the old workflow
             prev_status = self._wait_till_resumable(prev_wfr_id,
                                                     resume_timeout)
 
-            # terminate if the workflow was not set to terminated
+            # workflow wasn't terminated
             if prev_status != WorkflowRunStatus.TERMINATED:
-                self.terminate_workflow_run(prev_wfr_id)
-            self.update_status(WorkflowRunStatus.CREATED)
+                app_route = f'/workflow_run/{self.workflow_run_id}/delete'
+                return_code, response = self.requester.send_request(
+                    app_route=app_route,
+                    message={},
+                    request_type='put')
+                if return_code != StatusCodes.OK:
+                    raise InvalidResponse(
+                        f'Unexpected status code {return_code} from PUT '
+                        f'request through route {app_route}. Expected '
+                        f'code 200. Response content: {response}')
+                raise WorkflowNotResumable(
+                    "Workflow cannot be created because a previous workflow "
+                    "run exists and hasn't terminated. Found previous "
+                    f"workflow_run_id/status: {prev_wfr_id}/{prev_status}")
 
         # workflow was created successfully
-        self._status = WorkflowRunStatus.CREATED
+        self._status = WorkflowRunStatus.REGISTERED
 
         # test parameter to force failure
         self.fail_after_n_executions = None
-
-    def terminate_workflow_run(self, workflow_run_id: int) -> None:
-        app_route = f'/workflow_run/{workflow_run_id}/terminate'
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={},
-            request_type='put')
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
 
     @property
     def status(self) -> str:
@@ -182,6 +176,18 @@ class WorkflowRun(object):
                 else:
                     print("Continuing jobmon execution...")
 
+    def terminate_workflow_run(self) -> None:
+        app_route = f'/workflow_run/{self.workflow_run_id}/terminate'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type='put')
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
+
     def _wait_till_resumable(self, wfr_id: int, resume_timeout: int = 300
                              ) -> str:
         wait_start = time.time()
@@ -197,12 +203,12 @@ class WorkflowRun(object):
                     f'Unexpected status code {return_code} from POST '
                     f'request through route {app_route}. Expected '
                     f'code 200. Response content: {response}')
-            if response["workflow_run_status"] is not None:
+            if response.get("workflow_run_status") is not None:
                 wait_for_resume = False
                 status = response["workflow_run_status"]
             else:
                 if (time.time() - wait_start) > resume_timeout:
-                    raise ResumeWaitTimeExceeded(
+                    raise WorkflowNotResumable(
                         "workflow_run timed out waiting for previous "
                         "workflow_run to exit. Try again in a few minutes.")
                 else:

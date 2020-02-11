@@ -237,7 +237,7 @@ class Workflow(object):
                     except ResumeSet:
                         # if the exception was a resume exception we set to
                         # terminate
-                        wfr.terminate_workflow_run(wfr.workflow_run_id)
+                        wfr.terminate_workflow_run()
                         raise
                     except Exception:
                         wfr.update_status(WorkflowRunStatus.ERROR)

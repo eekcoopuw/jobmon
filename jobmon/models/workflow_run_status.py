@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 class WorkflowRunStatus(DB.Model):
     __tablename__ = 'workflow_run_status'
 
-    CREATED = 'C'
+    REGISTERED = 'G'
     BOUND = 'B'
     RUNNING = 'R'
     DONE = 'D'
