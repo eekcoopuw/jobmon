@@ -18,7 +18,7 @@ class BashTask(Task):
     def __init__(self,
                  command: str,
                  upstream_tasks: List[Task] = [],
-                 task_attributes: Optional[Union[List, Dict]] = {},
+                 task_attributes: Union[List, Dict] = {},
                  env_variables: Optional[Dict[str, str]] = None,
                  name: Optional[str] = None,
                  num_cores: Optional[int] = None,
@@ -28,9 +28,9 @@ class BashTask(Task):
                  j_resource: bool = False,
                  tag: Optional[str] = None,
                  context_args: Optional[dict] = None,
-                 resource_scales: Dict = None,
+                 resource_scales: Optional[Dict] = None,
                  m_mem_free: Optional[str] = None,
-                 hard_limits: Optional[bool] = False,
+                 hard_limits: bool = False,
                  executor_class: str = 'DummyExecutor',
                  executor_parameters:
                  Optional[Union[ExecutorParameters, Callable]] = None):

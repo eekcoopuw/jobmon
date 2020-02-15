@@ -176,11 +176,11 @@ class Executor:
         self.started = False
 
     @property
-    def jobmon_command(self):
+    def jobmon_command(self) -> str:
         return self._jobmon_command
 
     @jobmon_command.setter
-    def jobmon_command(self, val):
+    def jobmon_command(self, val: str):
         if val is None:
             val = shutil.which("jobmon_command")
         self._jobmon_command = val
@@ -218,7 +218,8 @@ class Executor:
         """If implemented, return a list of (task_instance_id, hostname) tuples
         for any task_instances that are terminated
         """
-        pass
+        logger.warning("terminate_task_instances not implemented by executor: "
+                       f"{self.__class__.__name__}")
 
     def build_wrapped_command(self, command: str, task_instance_id: int,
                               heartbeat_interval: int, report_by_buffer: float,

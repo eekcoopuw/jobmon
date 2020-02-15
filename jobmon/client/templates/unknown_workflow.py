@@ -1,3 +1,5 @@
+from typing import Optional
+
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
 from jobmon.client.requests.requester import Requester
@@ -41,22 +43,22 @@ class UnknownWorkflow(Workflow):
     _tool = Tool()
 
     def __init__(self,
-                 workflow_args: str = None,
+                 workflow_args: str = "",
                  name: str = "",
                  description: str = "",
-                 stderr: str = None,
-                 stdout: str = None,
-                 project: str = None,
+                 stderr: Optional[str] = None,
+                 stdout: Optional[str] = None,
+                 project: Optional[str] = None,
                  reset_running_jobs: bool = True,
-                 working_dir: str = None,
+                 working_dir: Optional[str] = None,
                  executor_class: str = 'SGEExecutor',
                  fail_fast: bool = False,
                  requester: Requester = shared_requester,
                  seconds_until_timeout: int = 36000,
                  resume: bool = ResumeStatus.DONT_RESUME,
-                 reconciliation_interval: int = None,
-                 heartbeat_interval: int = None,
-                 report_by_buffer: float = None) -> None:
+                 reconciliation_interval: Optional[int] = None,
+                 heartbeat_interval: Optional[int] = None,
+                 report_by_buffer: Optional[float] = None) -> None:
         """
         Args:
             workflow_args: unique identifier of a workflow
@@ -113,7 +115,7 @@ class UnknownWorkflow(Workflow):
             description=description,
             requester=requester)
 
-    def _set_executor(self, executor_class, *args, **kwargs) -> None:
+    def _set_executor(self, executor_class: str, *args, **kwargs) -> None:
         """Set which executor to use to run the tasks.
 
         Args:
@@ -137,7 +139,7 @@ class UnknownWorkflow(Workflow):
         if not hasattr(self._executor, "execute"):
             raise AttributeError("Executor must have an execute() method")
 
-    def run(self):
+    def run(self) -> None:
         """Run this workflow"""
 
         return super().run(self._fail_fast, self._seconds_until_timeout,

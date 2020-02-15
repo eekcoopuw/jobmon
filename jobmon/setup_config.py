@@ -12,18 +12,20 @@ class SetupCfg:
             cls.__singleton = super().__new__(cls)
         return cls.__singleton
 
-    def __init__(self, test_mode=None, existing_db=None, same_host=None, db_only=None,
-                 slack_token=None, slack_api_url=None, wf_slack_channel=None,
-                 node_slack_channel=None, jobmon_server_hostname=None,
-                 jobmon_server_sqdn=None, jobmon_service_port=None,
-                 jobmon_monitor_port=None, jobmon_integration_service_port=None, jobmon_version=None,
+    def __init__(self, test_mode=None, existing_db=None, same_host=None,
+                 db_only=None, slack_token=None, slack_api_url=None,
+                 wf_slack_channel=None, node_slack_channel=None,
+                 jobmon_server_hostname=None, jobmon_server_sqdn=None,
+                 jobmon_service_port=None, jobmon_monitor_port=None,
+                 jobmon_integration_service_port=None, jobmon_version=None,
                  reconciliation_interval=None, heartbeat_interval=None,
                  report_by_buffer=None, tag_prefix=None, internal_db_host=None,
                  internal_db_port=None, external_db_host=None,
                  external_db_port=None, jobmon_service_user_pwd=None,
                  existing_network=None, use_rsyslog=None, rsyslog_host=None,
-                 rsyslog_port=None, rsyslog_protocol=None, qpid_uri=None, qpid_cluster=None,
-                 qpid_pulling_interval=None, max_update_per_second=None):
+                 rsyslog_port=None, rsyslog_protocol=None, qpid_uri=None,
+                 qpid_cluster=None, qpid_pulling_interval=None,
+                 max_update_per_second=None):
 
         # get env for fallback
         self._env = os.environ

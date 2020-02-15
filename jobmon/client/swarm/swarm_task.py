@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 from http import HTTPStatus as StatusCodes
-from typing import Callable, Set, Dict
+from typing import Callable, Set, Dict, Optional
 
 from jobmon.client import shared_requester
+from jobmon.client.requests.requester import Requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.serializers import SerializeSwarmTask
 from jobmon.models.task_status import TaskStatus
@@ -11,8 +14,9 @@ class SwarmTask(object):
     """The class that bridges the gap between a task and it's bound Task"""
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
-                 executor_parameters: Callable = None, max_attempts: int = 3,
-                 requester=shared_requester):
+                 executor_parameters: Optional[Callable] = None,
+                 max_attempts: int = 3,
+                 requester: Requester = shared_requester):
         """
         Link task and job
 
@@ -29,8 +33,8 @@ class SwarmTask(object):
         self.task_id = task_id
         self.status = status
 
-        self.upstream_swarm_tasks: Set["SwarmTask"] = set()
-        self.downstream_swarm_tasks: Set["SwarmTask"] = set()
+        self.upstream_swarm_tasks: Set[SwarmTask] = set()
+        self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
         self.executor_parameters = executor_parameters
         self.max_attempts = max_attempts
@@ -42,7 +46,7 @@ class SwarmTask(object):
         self.bound_parameters: list = []
 
     @staticmethod
-    def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, "SwarmTask"]):
+    def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]):
         kwargs = SerializeSwarmTask.kwargs_from_wire(wire_tuple)
         swarm_tasks_dict[kwargs["task_id"]].status = kwargs["status"]
         return swarm_tasks_dict[kwargs["task_id"]]

@@ -1,5 +1,8 @@
 import requests
-from tenacity import retry, wait_exponential, retry_if_result, stop_after_delay
+from typing import Optional, Tuple
+
+from tenacity import (retry, wait_exponential, retry_if_result,
+                      stop_after_delay, RetryCallState)
 
 from jobmon.client import ClientLogging as logging
 
@@ -7,7 +10,7 @@ from jobmon.client import ClientLogging as logging
 logger = logging.getLogger(__name__)
 
 
-def is_5XX(result):
+def is_5XX(result: Tuple[int, dict]) -> bool:
     '''
     return True if get_content result has 5XX status '''
     logger.info("is_5XX")
@@ -18,7 +21,7 @@ def is_5XX(result):
     return is_bad
 
 
-def raise_if_exceed_retry(retry_state):
+def raise_if_exceed_retry(retry_state: RetryCallState):
     '''
     if we trigger retry error, raise informative RuntimeError
     '''
@@ -38,7 +41,7 @@ class Requester(object):
 
     """
 
-    def __init__(self, url):
+    def __init__(self, url: str):
         """set class defaults. attempt to connect with server."""
         logger.info("Requester __init__")
         logger.info("url: {}".format(url))
@@ -49,7 +52,8 @@ class Requester(object):
         stop=stop_after_delay(120),
         retry=retry_if_result(is_5XX),
         retry_error_callback=raise_if_exceed_retry)
-    def send_request(self, app_route, message, request_type, verbose=True):
+    def send_request(self, app_route: str, message: dict, request_type: str,
+                     verbose: Optional[bool] = True) -> Tuple[int, dict]:
         """
         Send request to server.
 
@@ -57,12 +61,12 @@ class Requester(object):
         exponential backoff.
 
         Args:
-            app_route (str): The specific end point with which you want to
+            app_route: The specific end point with which you want to
             interact. The app_route must always start with a slash ('/') and
             must match one of the function decorations of @jsm.route or
             @jqs.route on the server side.
 
-            message (dict): The message dict to be sent to the server.
+            message: The message dict to be sent to the server.
             Must contain any arguments the JSM/JQS route needs to operate.
             If the request is a 'GET', the value of the message dict will
             likely be parsed into the url. If the request is a 'POST' or 'PUT',
@@ -75,10 +79,10 @@ class Requester(object):
                      'user': 'my_user',
                      'dag_hash': 'my_dag_hash'}
 
-            request_type (str): The type of request desired, either 'get',
+            request_type: The type of request desired, either 'get',
             'post, or 'put'
 
-            verbose (bool, optional): Whether to print the servers reply to
+            verbose: Whether to print the servers reply to
                 stdout as well as return it. Defaults to False.
 
         Returns:
@@ -110,12 +114,12 @@ class Requester(object):
         logger.debug("Response content: {}".format(content))
         return status_code, content
 
-    def build_full_url(self, app_route):
+    def build_full_url(self, app_route: str) -> str:
         logger.info(self.url + app_route)
         return self.url + app_route
 
 
-def get_content(response):
+def get_content(response: requests.Response) -> Tuple[int, dict]:
     if 'application/json' in response.headers.get('Content-Type'):
         try:
             content = response.json()
@@ -123,5 +127,5 @@ def get_content(response):
             content = response.json
     else:
         content = response.content
-    logger.debug("response status: {s}; content: {c}".format(s=response.status_code, c=response.status_code))
+    logger.debug(f"response status:{response.status_code}; content:{content}")
     return response.status_code, content
