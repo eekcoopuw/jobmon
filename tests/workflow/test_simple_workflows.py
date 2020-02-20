@@ -33,7 +33,6 @@ def test_one_task(db_cfg, client_env):
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
     workflow.add_tasks([t1])
     wfr = workflow.run()
-
     assert wfr.status == WorkflowRunStatus.DONE
     assert wfr.completed_report[0] == 1
     assert wfr.completed_report[1] == 0
