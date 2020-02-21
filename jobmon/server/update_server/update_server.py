@@ -883,6 +883,29 @@ def update_task_resources(task_id):
     data = request.get_json()
     parameter_set_type = data["parameter_set_type"]
 
+    try:
+        task_id = int(task_id)
+    except ValueError:
+        resp = jsonify(msg="task_id {} is not a number".format(task_id))
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+        return resp
+
+    try:
+        m_mem_free = data.get('m_mem_free', 2)
+        c = m_mem_free[-1]
+        if c in ["T", "t"]:
+            m_mem_free = float(m_mem_free[:-1]) * 1000
+        elif c in ["G", "g"]:
+            m_mem_free = float(m_mem_free[:-1])
+        elif c in ["M", "m"]:
+            m_mem_free = max(float(m_mem_free[:-1])/1000, 1)
+        else:
+            m_mem_free = float(m_mem_free)
+    except ValueError:
+        resp = jsonify(msg="invalid m_mem_free: {}".format(m_mem_free))
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+        return resp
+
     exec_params = ExecutorParameterSet(
         task_id=task_id,
         parameter_set_type=parameter_set_type,
@@ -890,7 +913,7 @@ def update_task_resources(task_id):
         context_args=data.get('context_args', None),
         queue=data.get('queue', None),
         num_cores=data.get('num_cores', None),
-        m_mem_free=data.get('m_mem_free', 2),
+        m_mem_free=m_mem_free,
         j_resource=data.get('j_resource', False),
         resource_scales=data.get('resource_scales', None),
         hard_limits=data.get('hard_limits', False))
