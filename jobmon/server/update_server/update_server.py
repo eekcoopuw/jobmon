@@ -1179,6 +1179,7 @@ def _log_error(ti: TaskInstance,
                executor_id: Optional[int] = None,
                nodename: Optional[str] = None
                ):
+    logger.info(logging.myself())
     if nodename is not None:
         ti.nodename = nodename
     if executor_id is not None:

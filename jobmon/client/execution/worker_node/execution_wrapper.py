@@ -88,7 +88,6 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
     # Similar to a stub or a container
-
     # set ENV variables in case tasks need to access them
     os.environ["JOBMON_JOB_INSTANCE_ID"] = str(task_instance_id)
 
