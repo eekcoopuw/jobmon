@@ -317,6 +317,8 @@ def qstat_hostname(jid: int) -> str:
 def transform_mem_to_gb(mem_str: str) -> float:
    # we allow both upper and lowercase g, m, t options
    # BUG g and G are not the same
+   if mem_str is None:
+       return 1
    if mem_str[-1].lower() == "m":
        mem = float(mem_str[:-1])
        mem /= 1000
