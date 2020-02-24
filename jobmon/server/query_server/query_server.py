@@ -453,6 +453,7 @@ def get_task_by_status_only(workflow_id):
 
     last_sync = data['last_sync']
     swarm_tasks_tuples = data.get('swarm_tasks_tuples', [])
+    logger.info("swarm_task_tuples: {}".format(swarm_tasks_tuples))
 
     # get time from db
     db_time = DB.session.execute("SELECT UTC_TIMESTAMP AS t").fetchone()['t']
@@ -463,13 +464,16 @@ def get_task_by_status_only(workflow_id):
                               for task_id, status in swarm_tasks_tuples]
         # Sample swarm_tasks_tuples: [(1, 'I')]
         swarm_task_ids = [int(task_id[0]) for task_id in swarm_tasks_tuples]
-        t_swarm_task_ids = tuple(swarm_task_ids)
-        t_swarm_tasks_tuples = tuple(swarm_tasks_tuples)
+        t_swarm_task_ids = "(" + str(swarm_task_ids)[1:-1] + ")"
+        t_swarm_tasks_tuples = ("(" + str([str(i) + str(j) for i, j in swarm_tasks_tuples])[1:-1] + ")")\
+            .replace("'", "\"")
+        logger.warning("****************************************")
+        logger.info(t_swarm_tasks_tuples)
         query = f"SELECT task.id, task.status " \
                 f"FROM task " \
                 f"WHERE workflow_id = {workflow_id} " \
                 f"AND ((task.id IN {t_swarm_task_ids} " \
-                f"AND (task.id, status) NOT IN {t_swarm_tasks_tuples} " \
+                f"AND concat(task.id, task.status) NOT IN {t_swarm_tasks_tuples}) " \
                 f"OR status_date >= \"{last_sync}\")"
         logger.debug(query)
         rows = DB.session.execute(query).fetchall()
