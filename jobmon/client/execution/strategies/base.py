@@ -168,11 +168,11 @@ class Executor:
         self.started = False
         logger.info("Initializing {}".format(self.__class__.__name__))
 
-    def start(self, jobmon_command=None):
+    def start(self, jobmon_command=None) -> None:
         self.jobmon_command = jobmon_command
         self.started = True
 
-    def stop(self):
+    def stop(self) -> None:
         self.started = False
 
     @property
@@ -180,7 +180,7 @@ class Executor:
         return self._jobmon_command
 
     @jobmon_command.setter
-    def jobmon_command(self, val: str):
+    def jobmon_command(self, val: str) -> None:
         if val is None:
             val = shutil.which("jobmon_command")
         self._jobmon_command = val

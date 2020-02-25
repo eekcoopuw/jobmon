@@ -1,5 +1,5 @@
 import requests
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 from tenacity import (retry, wait_exponential, retry_if_result,
                       stop_after_delay, RetryCallState)
@@ -53,7 +53,7 @@ class Requester(object):
         retry=retry_if_result(is_5XX),
         retry_error_callback=raise_if_exceed_retry)
     def send_request(self, app_route: str, message: dict, request_type: str,
-                     verbose: Optional[bool] = True) -> Tuple[int, dict]:
+                     verbose: Optional[bool] = True) -> Tuple[int, Any]:
         """
         Send request to server.
 
