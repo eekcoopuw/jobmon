@@ -16,10 +16,10 @@ class ConnectionConfig(object):
         return cls(host=config.jobmon_server_sqdn,
                    port=config.jobmon_service_port)
 
-    def __init__(self, host, port):
+    def __init__(self, host: str, port: int):
         self.host = host
         self.port = port
 
     @property
     def url(self):
-        return "http://{h}:{p}".format(h=self.host, p=self.port)
+        return f"http://{self.host}:{self.port}"

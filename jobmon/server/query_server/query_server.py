@@ -76,7 +76,7 @@ def get_tool(tool_name: str):
 
 
 @jqs.route('/tool/<tool_id>/tool_versions', methods=['GET'])
-def get_tool_versions(tool_id):
+def get_tool_versions(tool_id: int):
     logger.info(logging.myself())
     logging.logParameter("tool_id", tool_id)
     query = """
@@ -275,7 +275,7 @@ def get_workflow_id_and_status():
 
 
 @jqs.route('/workflow/<workflow_args_hash>', methods=['GET'])
-def get_matching_workflows_by_workflow_args(workflow_args_hash):
+def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
     """
     Return any dag hashes that are assigned to workflows with identical
     workflow args
@@ -302,7 +302,7 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash):
 
 
 @jqs.route('/workflow_run/<workflow_run_id>/is_resumable', methods=['GET'])
-def workflow_run_is_terminated(workflow_run_id):
+def workflow_run_is_terminated(workflow_run_id: int):
     logger.info(logging.myself())
     logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
 
@@ -377,7 +377,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
 
 @jqs.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
            methods=['GET'])
-def get_suspicious_task_instances(workflow_run_id):
+def get_suspicious_task_instances(workflow_run_id: int):
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
 
@@ -406,7 +406,7 @@ def get_suspicious_task_instances(workflow_run_id):
 
 @jqs.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
            methods=['GET'])
-def get_task_instances_to_terminate(workflow_run_id):
+def get_task_instances_to_terminate(workflow_run_id: int):
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id).one()
 
@@ -440,7 +440,7 @@ def get_task_instances_to_terminate(workflow_run_id):
 # ############################## SWARM ROUTES ################################
 
 @jqs.route('/workflow/<workflow_id>/task_status_updates', methods=['POST'])
-def get_task_by_status_only(workflow_id):
+def get_task_by_status_only(workflow_id: int):
     """Returns all tasks in the database that have the specified status
 
     Args:
@@ -500,7 +500,7 @@ def get_task_by_status_only(workflow_id):
 # ############################## WORKER ROUTES ################################
 
 @jqs.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
-def kill_self(task_instance_id):
+def kill_self(task_instance_id: int):
     """Check a task instance's status to see if it needs to kill itself
     (state W, or L)"""
     kill_statuses = TaskInstance.kill_self_states

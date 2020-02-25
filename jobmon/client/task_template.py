@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import hashlib
 from string import Formatter
-from typing import Optional, List, Callable, Union
+from typing import Optional, List, Callable, Union, Dict, Iterable
 
 from jobmon.serializers import SerializeClientTaskTemplateVersion
 from jobmon.client import shared_requester
@@ -10,14 +12,17 @@ from jobmon.client.requests.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
 
 
+logger = logging.getLogger(__name__)
+
+
 class TaskTemplateVersion:
 
-    def __init__(self, task_template_version_id, id_name_map):
+    def __init__(self, task_template_version_id: int, id_name_map: dict):
         self.id = task_template_version_id
         self.id_name_map = id_name_map
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple) -> "TaskTemplateVersion":
+    def from_wire(cls, wire_tuple: tuple) -> TaskTemplateVersion:
         kwargs = SerializeClientTaskTemplateVersion.kwargs_from_wire(
             wire_tuple)
         return cls(**kwargs)
@@ -71,29 +76,29 @@ class TaskTemplate:
         self.task_template_version = self._get_task_template_version()
 
     @property
-    def task_template_version_id(self):
+    def task_template_version_id(self) -> int:
         return self.task_template_version.id
 
     @property
-    def arg_id_name_map(self):
+    def arg_id_name_map(self) -> Dict[str, int]:
         """The mapping between argument names and the ids in the database"""
         return self.task_template_version.id_name_map
 
     @property
-    def template_args(self):
+    def template_args(self) -> set:
         """The argument names in the command template"""
         return set([i[1] for i in Formatter().parse(self.command_template)
                     if i[1] is not None])
 
     @property
-    def node_args(self):
+    def node_args(self) -> set:
         """any named arguments in command_template that make the command unique
         within this template for a given workflow run. Generally these are
         arguments that can be parallelized over."""
         return self._node_args
 
     @node_args.setter
-    def node_args(self, val):
+    def node_args(self, val: Iterable):
         if self._template_version_created:
             raise AttributeError(
                 "Cannot set node_args. node_args must be declared during "
@@ -110,14 +115,14 @@ class TaskTemplate:
         self._node_args = val
 
     @property
-    def task_args(self):
+    def task_args(self) -> set:
         """any named arguments in command_template that make the command unique
         across workflows if the node args are the same as a previous workflow.
         Generally these are arguments about data moving though the task."""
         return self._task_args
 
     @task_args.setter
-    def task_args(self, val):
+    def task_args(self, val: Iterable):
         if self._template_version_created:
             raise AttributeError(
                 "Cannot set task_args. task_args must be declared during "
@@ -134,14 +139,14 @@ class TaskTemplate:
         self._task_args = val
 
     @property
-    def op_args(self):
+    def op_args(self) -> set:
         """any named arguments in command_template that can change without
         changing the identity of the task. Generally these are things like the
         task executable location or the verbosity of the script."""
         return self._op_args
 
     @op_args.setter
-    def op_args(self, val):
+    def op_args(self, val: Iterable):
         if self._template_version_created:
             raise AttributeError(
                 "Cannot set op_args. op_args must be declared during "
@@ -161,7 +166,7 @@ class TaskTemplate:
                     executor_parameters: Union[ExecutorParameters, Callable],
                     name: Optional[str] = None,
                     upstream_tasks: List[Task] = [],
-                    task_attributes: Optional[Union[List, dict]] = {},
+                    task_attributes: Union[List, dict] = {},
                     max_attempts: int = 3,
                     **kwargs) -> Task:
         """Create an instance of a task associated with this template

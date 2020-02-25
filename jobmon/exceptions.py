@@ -1,16 +1,7 @@
 
 
 class ReturnCodes(object):
-    """Responder response codes.
-    OK means no error, all the rest are errors.
-    Please add more as the need arises."""
-    OK = 0
-    INVALID_RESPONSE_FORMAT = 1
-    INVALID_REQUEST_FORMAT = 2
-    INVALID_ACTION = 3
-    GENERIC_ERROR = 4
-    NO_RESULTS = 5
-    UNKNOWN_EXIT_STATE = 99
+    """Responder response codes. Please add more as the need arises."""
     WORKER_NODE_ENV_FAILURE = 198
     WORKER_NODE_CLI_FAILURE = 199
     # tested large error codes and they were adjusted by sge, subtracting 128

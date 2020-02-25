@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
@@ -25,11 +27,8 @@ class ExecutorTaskInstance:
             the JSM. default is shared requester
     """
 
-    def __init__(self,
-                 task_instance_id: int,
-                 workflow_run_id: int,
-                 executor: Executor,
-                 requester: Requester,
+    def __init__(self, task_instance_id: int, workflow_run_id: int,
+                 executor: Executor, requester: Requester,
                  executor_id: Optional[int] = None):
 
         self.task_instance_id = task_instance_id
@@ -41,11 +40,9 @@ class ExecutorTaskInstance:
         self.requester = requester
 
     @classmethod
-    def from_wire(cls,
-                  wire_tuple: tuple,
-                  executor: Executor,
+    def from_wire(cls, wire_tuple: tuple, executor: Executor,
                   requester: Requester = shared_requester
-                  ) -> "ExecutorTaskInstance":
+                  ) -> ExecutorTaskInstance:
         """create an instance from json that the JQS returns
 
         Args:
@@ -68,12 +65,9 @@ class ExecutorTaskInstance:
                    requester=requester)
 
     @classmethod
-    def register_task_instance(cls,
-                               task_id: int,
-                               workflow_run_id: int,
-                               executor: Executor,
-                               requester: Requester
-                               ) -> "ExecutorTaskInstance":
+    def register_task_instance(cls, task_id: int, workflow_run_id: int,
+                               executor: Executor, requester: Requester
+                               ) -> ExecutorTaskInstance:
         """register a new task instance for an existing task_id
 
         Args:
