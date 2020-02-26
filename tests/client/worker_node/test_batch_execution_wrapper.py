@@ -40,9 +40,11 @@ def test_sequential(db_cfg, client_env):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        query = """
-        SELECT description
-        FROM task_instance_error_log"""
+        query = "SELECT description " \
+                "FROM task_instance_error_log t1, task_instance t2, workflow_run t3 " \
+                "WHERE t1.task_instance_id=t2.id " \
+                "AND t2.workflow_run_id=t3.id " \
+                "AND t3.workflow_id={}".format(workflow.workflow_id)
         res = DB.session.execute(query).fetchone()
         DB.session.commit()
 
