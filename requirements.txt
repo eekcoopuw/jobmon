@@ -2,6 +2,8 @@ sphinx
 sphinx-autodoc-typehints
 sphinx_rtd_theme
 pytest
+pytest-xdist
+pytest-rerunfailures
 pymysql
 cluster_utils
 flask
