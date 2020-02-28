@@ -136,7 +136,7 @@ class WorkflowRun(object):
             return self._scheduler_proc.is_alive()
 
     @property
-    def completed_report(self) -> List[int, int]:
+    def completed_report(self) -> Tuple:
         if not hasattr(self, "_completed_report"):
             raise AttributeError("Must executor workflow run before first")
         return self._completed_report
@@ -438,11 +438,11 @@ class WorkflowRun(object):
             # deal with resource errors. we don't want to exit the loop here
             # because this state change doesn't affect the fringe.
             if adjusting:
-                for swarm_tasks in adjusting:
+                for swarm_task in adjusting:
                     # change callable to adjustment function
-                    swarm_tasks.executor_parameters = partial(
+                    swarm_task.executor_parameters = partial(
                         self.adjust_resources, swarm_tasks)
-                    self._adjust_resources_and_queue(swarm_tasks)
+                    self._adjust_resources_and_queue(swarm_task)
 
             # exit if fringe is affected
             if completed or failed:
