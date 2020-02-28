@@ -121,7 +121,7 @@ class WorkflowRun(object):
         return self._status
 
     @property
-    def active_tasks(self):
+    def active_tasks(self) -> List[SwarmTask]:
         """List of tasks that are listed as Registered, Done or Error_Fatal"""
         terminal_status = [
             TaskStatus.REGISTERED, TaskStatus.DONE, TaskStatus.ERROR_FATAL]
@@ -136,7 +136,7 @@ class WorkflowRun(object):
             return self._scheduler_proc.is_alive()
 
     @property
-    def completed_report(self):
+    def completed_report(self) -> Tuple[int, int]:
         if not hasattr(self, "_completed_report"):
             raise AttributeError("Must executor workflow run before first")
         return self._completed_report
@@ -216,7 +216,7 @@ class WorkflowRun(object):
 
         return status
 
-    def _set_fail_after_n_executions(self, n):
+    def _set_fail_after_n_executions(self, n: int) -> None:
         """
         For use during testing, force the TaskDag to 'fall over' after n
         executions, so that the resume case can be tested.
@@ -367,7 +367,7 @@ class WorkflowRun(object):
         swarm_task.queue_task()
 
     def _bind_parameters(self, task_id: int, executor_parameter_set_type: str,
-                         **kwargs):
+                         **kwargs) -> None:
         swarm_task: SwarmTask = kwargs.get("swarm_task")
         resources = swarm_task.executor_parameters(kwargs)
         if not isinstance(resources, ExecutorParameters):
@@ -384,7 +384,7 @@ class WorkflowRun(object):
     def _add_parameters(self, task_id: int,
                         executor_parameters: ExecutorParameters,
                         parameter_set_type: str =
-                        ExecutorParameterSetType.VALIDATED):
+                        ExecutorParameterSetType.VALIDATED) -> None:
         """Add an entry for the validated parameters to the database and
            activate them"""
         msg = {'parameter_set_type': parameter_set_type}
@@ -395,8 +395,10 @@ class WorkflowRun(object):
             message=msg,
             request_type='post')
 
-    def _block_until_any_done_or_error(self, timeout=36000, poll_interval=10,
-                                       wedged_workflow_sync_interval=600):
+    def _block_until_any_done_or_error(self, timeout: int = 36000,
+                                       poll_interval: int = 10,
+                                       wedged_workflow_sync_interval: int = 600
+                                       ):
         """Block code execution until a task is done or errored"""
         time_since_last_update = 0
         time_since_last_wedge_sync = 0
@@ -499,7 +501,8 @@ class WorkflowRun(object):
         self.all_error.update(failed_tasks)
         return completed_tasks, failed_tasks, adjusting_tasks
 
-    def adjust_resources(self, swarm_task: SwarmTask, *args, **kwargs):
+    def adjust_resources(self, swarm_task: SwarmTask, *args, **kwargs
+                         ) -> ExecutorParameters:
         """Function from Job Instance Factory that adjusts resources and then
            queues them, this should also incorporate resource binding if they
            have not yet been bound"""

@@ -35,7 +35,7 @@ class Consumer(Process):
         self.task_queue = task_queue
         self.response_queue = response_queue
 
-    def run(self):
+    def run(self) -> None:
         """wait for work, the execute it"""
         logger.info(f"consumer alive. pid={os.getpid()}")
 
@@ -113,7 +113,7 @@ class MultiprocessExecutor(Executor):
         self.task_queue: JoinableQueue = JoinableQueue()
         self.response_queue: Queue = Queue()
 
-    def start(self, jobmon_command=None) -> None:
+    def start(self, jobmon_command: Optional[str] = None) -> None:
         """fire up N task consuming processes using Multiprocessing. number of
         consumers is controlled by parallelism."""
         # set jobmon command if provided
@@ -138,7 +138,7 @@ class MultiprocessExecutor(Executor):
         # Wait for commands to finish
         self.task_queue.join()
 
-    def _update_internal_states(self):
+    def _update_internal_states(self) -> None:
         while not self.response_queue.empty():
             executor_id, pid = self.response_queue.get()
             if pid is not None:

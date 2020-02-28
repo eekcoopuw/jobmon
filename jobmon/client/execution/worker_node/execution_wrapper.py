@@ -55,7 +55,7 @@ def kill_self(child_process: subprocess.Popen = None):
     sys.exit(signal.SIGKILL)
 
 
-def parse_arguments(argstr=None):
+def parse_arguments(argstr: Optional[str] = None) -> dict:
 
     # parse arguments
     logger.info("parsing arguments")

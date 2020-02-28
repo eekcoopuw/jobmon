@@ -9,9 +9,6 @@ class ArgType(DB.Model):
     TASK_ARG = 2
     OP_ARG = 3
 
-    def to_wire_as_client_tool(self) -> tuple:
-        pass
-
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))
 

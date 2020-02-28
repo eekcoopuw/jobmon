@@ -59,11 +59,8 @@ class Workflow(object):
         tasks must be added with the same dependencies between tasks.
     """
 
-    def __init__(self,
-                 tool_version_id: int,
-                 workflow_args: Optional[str] = None,
-                 name: str = "",
-                 description: str = "",
+    def __init__(self, tool_version_id: int, workflow_args: str = "",
+                 name: str = "", description: str = "",
                  requester: Requester = shared_requester):
         """
         Args:

@@ -262,10 +262,6 @@ def test_blocking_update_timeout(client_env, real_dag_id):
     assert expected_msg == str(error.value)
 
 
-<<<<<<< HEAD
-def test_server_502(sequential_scheduler_jlm):
-    scheduler, jlm = sequential_scheduler_jlm
-=======
 def test_sge_valid_command(jlm_sge_no_daemon):
     job = jlm_sge_no_daemon.bind_task(
         Task(command="ls", name="sgefbb", num_cores=3,
@@ -277,48 +273,6 @@ def test_sge_valid_command(jlm_sge_no_daemon):
             JobStatus.INSTANTIATED)
     print("finishing test_sge_valid_command")
 
-
-def test_server_502(job_list_manager):
->>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
-    """
-    GBDSCI-1553
-
-    We should be able to automatically retry if server returns 5XX
-    status code. If we exceed retry budget, we should raise informative error
-    """
-    err_response = (
-        502,
-        b'<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body '
-        b'bgcolor="white">\r\n<center><h1>502 Bad Gateway</h1></center>\r\n'
-        b'<hr><center>nginx/1.13.12</center>\r\n</body>\r\n</html>\r\n'
-    )
-    good_response = (
-        200,
-        {'job_dcts': [], 'time': '2019-02-21 17:40:07'}
-    )
-
-    job = jlm.bind_task(Task(command='ls', name='baz', num_cores=1))
-    jlm.adjust_resources_and_queue(job)
-    scheduler.instantiate_queued_jobs()
-
-    # mock requester.get_content to return 2 502s then 200
-    with mock.patch('jobmon.requester.get_content') as m:
-        # Docs: If side_effect is an iterable then each call to the mock
-        # will return the next value from the iterable
-        m.side_effect = [err_response] * 2 + \
-            [good_response] + [err_response] * 2
-
-        jlm.get_job_statuses()  # fails at first
-
-        # should have retried twice + one success
-        retrier = jlm.requester.send_request.retry
-        assert retrier.statistics['attempt_number'] == 3
-
-        # if we end up stopping we should get an error
-        with pytest.raises(RuntimeError, match='Status code was 502'):
-            retrier.stop = stop_after_attempt(1)
-<<<<<<< HEAD
-            jlm.get_job_statuses()
 
 
 # def test_ji_unknown_state(sequential_scheduler_process_jlm, db_cfg):

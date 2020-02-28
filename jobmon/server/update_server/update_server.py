@@ -52,15 +52,6 @@ jsm = Blueprint("job_state_manager", __name__)
 logger = logging.getLogger(__name__)
 
 
-def mogrify(topic, msg):
-    """json encode the message and prepend the topic.
-    see: https://stackoverflow.com/questions/25188792/
-    how-can-i-use-send-json-with-pyzmq-pub-sub
-    """
-
-    return str(topic) + ' ' + json.dumps(msg)
-
-
 @jsm.errorhandler(404)
 def page_not_found(error):
     return 'This route does not exist {}'.format(request.url), 404
@@ -136,7 +127,7 @@ def add_task_template():
     return resp
 
 
-def _add_or_get_arg(name):
+def _add_or_get_arg(name: str) -> Arg:
     try:
         query = """
         SELECT id, name
@@ -252,7 +243,7 @@ def add_dag():
 
 
 @jsm.route('/edge/<dag_id>', methods=['POST'])
-def add_edges(dag_id):
+def add_edges(dag_id: int):
     """Add a group of edges to the database.
 
     Args:
@@ -341,7 +332,7 @@ def add_task():
 
 
 @jsm.route('/task/<task_id>/update_parameters', methods=['PUT'])
-def update_task_parameters(task_id):
+def update_task_parameters(task_id: int):
     logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
@@ -364,7 +355,7 @@ def update_task_parameters(task_id):
     return resp
 
 
-def _add_or_get_attribute_type(name):
+def _add_or_get_attribute_type(name: str) -> int:
     try:
         query = """
         SELECT id, name
@@ -381,7 +372,7 @@ def _add_or_get_attribute_type(name):
     return attribute_type.id
 
 
-def _add_or_update_attribute(task_id, name, value):
+def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     attribute_type = _add_or_get_attribute_type(name)
     try:
         # if the attribute was already set for the task, update it with the
@@ -393,27 +384,26 @@ def _add_or_update_attribute(task_id, name, value):
             task_id = :task_id
             AND attribute_type = :attribute_id
         """
-        attribute = DB.session.query(TaskAttribute)\
-            .from_statement(text(query))\
+        attr = DB.session.query(TaskAttribute).from_statement(text(query))\
             .params(task_id=task_id, attribute_type=attribute_type).one()
-        params = {"value": value, "attribute_id": attribute.id}
-        update_query = """UPDATE task_attribute
-                          SET value = :value
-                          WHERE attribute_id = :attribute_id
-                       """
+        params = {"value": value, "attribute_id": attr.id}
+        update_query = """
+            UPDATE task_attribute
+            SET value = :value
+            WHERE attribute_id = :attribute_id"""
         DB.session.execute(update_query, params)
     except sqlalchemy.orm.exc.NoResultFound:
         DB.session.rollback()
-        attribute = TaskAttribute(task_id=task_id,
-                                  attribute_type=attribute_type,
-                                  value=value)
-        DB.session.add(attribute)
+        attr = TaskAttribute(task_id=task_id,
+                             attribute_type=attribute_type,
+                             value=value)
+        DB.session.add(attr)
         DB.session.commit()
-    return attribute.id
+    return attr.id
 
 
 @jsm.route('/task/<task_id>/task_attributes', methods=['PUT'])
-def update_task_attribute(task_id):
+def update_task_attribute(task_id: int):
     """Add or update attributes for a task"""
     data = request.get_json()
     attributes = data["task_attributes"]
@@ -511,7 +501,7 @@ def add_workflow_run():
 
 
 @jsm.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
-def terminate_workflow_run(workflow_run_id):
+def terminate_workflow_run(workflow_run_id: int):
     logger.info(logging.myself())
     logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
 
@@ -574,7 +564,7 @@ def terminate_workflow_run(workflow_run_id):
 
 
 @jsm.route('/workflow_run/<workflow_run_id>/delete', methods=['PUT'])
-def delete_workflow_run(workflow_run_id):
+def delete_workflow_run(workflow_run_id: int):
     logger.info(logging.myself())
     logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
 
@@ -591,7 +581,7 @@ def delete_workflow_run(workflow_run_id):
 # ############################ SCHEDULER ROUTES ###############################
 @jsm.route('/workflow_run/<workflow_run_id>/log_executor_report_by',
            methods=['POST'])
-def log_executor_report_by(workflow_run_id):
+def log_executor_report_by(workflow_run_id: int):
     logger.info(logging.myself())
     data = request.get_json()
 
@@ -662,7 +652,7 @@ def add_task_instance():
 
 @jsm.route('/task_instance/<task_instance_id>/log_no_executor_id',
            methods=['POST'])
-def log_no_executor_id(task_instance_id):
+def log_no_executor_id(task_instance_id: int):
     logger.info(logging.myself())
     logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
@@ -689,7 +679,7 @@ def log_no_executor_id(task_instance_id):
 
 @jsm.route('/task_instance/<task_instance_id>/log_executor_id',
            methods=['POST'])
-def log_executor_id(task_instance_id):
+def log_executor_id(task_instance_id: int):
     """Log a task_instance's executor id
     Args:
 
@@ -789,7 +779,7 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
 # ############################## SWARM ROUTES #################################
 
 @jsm.route('/task/<task_id>/queue', methods=['POST'])
-def queue_job(task_id):
+def queue_job(task_id: int):
     """Queue a job and change its status
     Args:
 
@@ -817,7 +807,7 @@ def queue_job(task_id):
 
 
 @jsm.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
-def log_workflow_run_status_update(workflow_run_id):
+def log_workflow_run_status_update(workflow_run_id: int):
     logger.info(logging.myself())
     logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
     data = request.get_json()
@@ -836,7 +826,7 @@ def log_workflow_run_status_update(workflow_run_id):
 
 # TODO: currently unused pending review of where it should go
 @jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
-def log_wfr_heartbeat(workflow_run_id):
+def log_wfr_heartbeat(workflow_run_id: int):
     """Log a workflow_run as being responsive, with a heartbeat
     Args:
 
@@ -882,7 +872,7 @@ def _transform_mem_to_gb(mem_str: str) -> float:
 
 
 @jsm.route('/task/<task_id>/update_resources', methods=['POST'])
-def update_task_resources(task_id):
+def update_task_resources(task_id: int):
     """ Change the resources set for a given task
 
     Args:
@@ -938,7 +928,7 @@ def update_task_resources(task_id):
 # ############################## WORKER ROUTES ################################
 
 @jsm.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
-def log_running(task_instance_id):
+def log_running(task_instance_id: int):
     """Log a task_instance as running
     Args:
 
@@ -966,7 +956,7 @@ def log_running(task_instance_id):
 
 
 @jsm.route('/task_instance/<task_instance_id>/log_report_by', methods=['POST'])
-def log_ti_report_by(task_instance_id):
+def log_ti_report_by(task_instance_id: int):
     """Log a task_instance as being responsive with a new report_by_date, this
     is done at the worker node heartbeat_interval rate, so it may not happen at
     the same rate that the reconciler updates batch submitted report_by_dates
@@ -1008,7 +998,7 @@ def log_ti_report_by(task_instance_id):
 
 
 @jsm.route('/task_instance/<task_instance_id>/log_usage', methods=['POST'])
-def log_usage(task_instance_id):
+def log_usage(task_instance_id: int):
     """Log the usage stats of a task_instance
     Args:
 
@@ -1076,7 +1066,7 @@ def log_usage(task_instance_id):
 
 
 @jsm.route('/task_instance/<task_instance_id>/log_done', methods=['POST'])
-def log_done(task_instance_id):
+def log_done(task_instance_id: int):
     """Log a task_instance as done
 
     Args:
@@ -1131,7 +1121,7 @@ def log_error_worker_node(task_instance_id: int):
 
 
 # ############################ HELPER FUNCTIONS ###############################
-def _update_task_instance_state(task_instance, status_id):
+def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
     """Advance the states of task_instance and it's associated Task,
     return any messages that should be published based on
     the transition
@@ -1173,12 +1163,9 @@ def _update_task_instance_state(task_instance, status_id):
     return response
 
 
-def _log_error(ti: TaskInstance,
-               error_state: int,
-               error_msg: str,
+def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
                executor_id: Optional[int] = None,
-               nodename: Optional[str] = None
-               ):
+               nodename: Optional[str] = None):
     logger.info(logging.myself())
     if nodename is not None:
         ti.nodename = nodename
@@ -1201,66 +1188,6 @@ def _log_error(ti: TaskInstance,
     return resp
 
 
-# # @jsm.route('/task_dag/<dag_id>/reset_incomplete_jobs', methods=['POST'])
-# # def reset_incomplete_jobs(dag_id):
-# #     """Reset all jobs of a dag and change their statuses
-# #     Args:
-
-# #         dag_id: id of the dag to reset
-# #     """
-# #     logger.info(logging.myself())
-# #     logger.debug(logging.logParameter("dag_id", dag_id))
-# #     time = get_time(DB.session)
-# #     up_job = """
-# #         UPDATE job
-# #         SET status=:registered_status, num_attempts=0, status_date='{}'
-# #         WHERE dag_id=:dag_id
-# #         AND job.status!=:done_status
-# #     """.format(time)
-# #     log_errors = """
-# #             INSERT INTO job_instance_error_log
-# #                 (job_instance_id, description, error_time)
-# #             SELECT job_instance_id,
-# #             CONCAT('Job RESET requested setting to E from status of: ',
-# #                    job_instance.status) as description,
-# #             UTC_TIMESTAMP as error_time
-# #             FROM job_instance
-# #             JOIN job USING(job_id)
-# #             WHERE job.dag_id=:dag_id
-# #             AND job.status!=:done_status
-# #         """
-# #     up_job_instance = """
-# #         UPDATE job_instance
-# #         JOIN job USING(job_id)
-# #         SET job_instance.status=:error_status,
-# #             job_instance.status_date=UTC_TIMESTAMP
-# #         WHERE job.dag_id=:dag_id
-# #         AND job.status!=:done_status
-# #     """
-# #     logger.debug("Query:\n{}".format(up_job))
-# #     logger.debug(logging.logParameter("DB.session", DB.session))
-# #     DB.session.execute(
-# #         up_job,
-# #         {"dag_id": dag_id,
-# #          "registered_status": JobStatus.REGISTERED,
-# #          "done_status": JobStatus.DONE})
-# #     logger.debug("Query:\n{}".format(log_errors))
-# #     DB.session.execute(
-# #         log_errors,
-# #         {"dag_id": dag_id,
-# #          "done_status": JobStatus.DONE})
-# #     logger.debug("Query:\n{}".format(up_job_instance))
-# #     DB.session.execute(
-# #         up_job_instance,
-# #         {"dag_id": dag_id,
-# #          "error_status": JobInstanceStatus.ERROR,
-# #          "done_status": JobStatus.DONE})
-# #     DB.session.commit()
-# #     resp = jsonify()
-# #     resp.status_code = StatusCodes.OK
-# #     return resp
-
-
 @jsm.route('/log_level', methods=['GET'])
 def get_log_level():
     """A simple 'action' to get the current server log level
@@ -1274,7 +1201,7 @@ def get_log_level():
 
 
 @jsm.route('/log_level/<level>', methods=['POST'])
-def set_log_level(level):
+def set_log_level(level: str):
     """Change log level
     Args:
 
@@ -1346,7 +1273,7 @@ def getLogLevelUseName(name: str) -> int:
 
 @jsm.route('/attach_remote_syslog/<level>/<host>/<port>/<sockettype>',
            methods=['POST'])
-def attach_remote_syslog(level, host, port, sockettype):
+def attach_remote_syslog(level: str, host: str, port: int, sockettype: str):
     """
     Add a remote syslog handler
 
@@ -1415,7 +1342,7 @@ def get_log_level_flask():
 
 
 @jsm.route('/log_level_flask/<level>', methods=['POST'])
-def set_log_level_flask(level):
+def set_log_level_flask(level: str):
     """Change log level
     Args:
 
