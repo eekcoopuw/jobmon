@@ -213,8 +213,6 @@ def test_invalid_command(job_list_manager):
     job_list_manager._sync()
     assert len(job_list_manager.all_error) > 0
 
->>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
-
 
 def test_invalid_command(sequential_scheduler_jlm):
     scheduler, jlm = sequential_scheduler_jlm

@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
     image: registry-app-p01.ihme.washington.edu/jobmon/jobmon:${JOBMON_TAG}
     ports:
-        - "${QPID_INTEGRATION_PORT}:80"
+        - "${JOBMON_INTEGRATION_SERVICE_PORT}:80"
     depends_on:
         - jobmon
     entrypoint:
