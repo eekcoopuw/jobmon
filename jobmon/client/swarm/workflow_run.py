@@ -136,7 +136,7 @@ class WorkflowRun(object):
             return self._scheduler_proc.is_alive()
 
     @property
-    def completed_report(self) -> List[int, int]:
+    def completed_report(self) -> Tuple[int, int]:
         if not hasattr(self, "_completed_report"):
             raise AttributeError("Must executor workflow run before first")
         return self._completed_report

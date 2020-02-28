@@ -847,6 +847,30 @@ def log_wfr_heartbeat(workflow_run_id: int):
     return resp
 
 
+def _transform_mem_to_gb(mem_str: str) -> float:
+   # we allow both upper and lowercase g, m, t options
+   # BUG g and G are not the same
+   if mem_str[-1].lower() == "m":
+       mem = float(mem_str[:-1])
+       mem /= 1000
+   elif mem_str[-2:].lower() == "mb":
+       mem = float(mem_str[:-2])
+       mem /= 1000
+   elif mem_str[-1].lower() == "t":
+       mem = float(mem_str[:-1])
+       mem *= 1000
+   elif mem_str[-2:].lower() == "tb":
+       mem = float(mem_str[:-2])
+       mem *= 1000
+   elif mem_str[-1].lower() == "g":
+       mem = float(mem_str[:-1])
+   elif mem_str[-2:].lower() == "gb":
+       mem = float(mem_str[:-2])
+   else:
+       mem = 1
+       return mem
+
+
 @jsm.route('/task/<task_id>/update_resources', methods=['POST'])
 def update_task_resources(task_id: int):
     """ Change the resources set for a given task
@@ -873,6 +897,13 @@ def update_task_resources(task_id: int):
     data = request.get_json()
     parameter_set_type = data["parameter_set_type"]
 
+    try:
+        task_id = int(task_id)
+    except ValueError:
+        resp = jsonify(msg="task_id {} is not a number".format(task_id))
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+        return resp
+
     exec_params = ExecutorParameterSet(
         task_id=task_id,
         parameter_set_type=parameter_set_type,
@@ -880,7 +911,7 @@ def update_task_resources(task_id: int):
         context_args=data.get('context_args', None),
         queue=data.get('queue', None),
         num_cores=data.get('num_cores', None),
-        m_mem_free=data.get('m_mem_free', 2),
+        m_mem_free=_transform_mem_to_gb(data.get("m_mem_free", 2)),
         j_resource=data.get('j_resource', False),
         resource_scales=data.get('resource_scales', None),
         hard_limits=data.get('hard_limits', False))
@@ -1135,6 +1166,7 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
 def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
                executor_id: Optional[int] = None,
                nodename: Optional[str] = None):
+    logger.info(logging.myself())
     if nodename is not None:
         ti.nodename = nodename
     if executor_id is not None:

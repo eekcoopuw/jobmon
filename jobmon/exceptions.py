@@ -2,6 +2,7 @@
 
 class ReturnCodes(object):
     """Responder response codes. Please add more as the need arises."""
+    OK = 0
     WORKER_NODE_ENV_FAILURE = 198
     WORKER_NODE_CLI_FAILURE = 199
     # tested large error codes and they were adjusted by sge, subtracting 128

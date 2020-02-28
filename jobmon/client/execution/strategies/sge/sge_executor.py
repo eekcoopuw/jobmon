@@ -66,7 +66,7 @@ class SGEExecutor(Executor):
         qsub_command = self._build_qsub_command(
             base_cmd=self.jobmon_command + " " + command,
             name=name,
-            mem=executor_parameters.m_mem_free,
+            mem=sge_utils.transform_mem_to_gb(executor_parameters.m_mem_free),
             cores=executor_parameters.num_cores,
             queue=executor_parameters.queue,
             runtime=executor_parameters.max_runtime_seconds,

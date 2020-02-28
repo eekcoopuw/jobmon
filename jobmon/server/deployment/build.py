@@ -64,7 +64,7 @@ class BuildContainer:
         self.envs["NODE_SLACK_CHANNEL"] = self.config.node_slack_channel
         self.envs["MONITOR_PORT"] = self.config.monitor_port
         self.envs["COMPOSE_PROJECT_NAME"] = self.config.compose_project_name
-        self.envs["QPID_INTEGRATION_PORT"] = self.config.qpid_integration_port
+        self.envs["JOBMON_INTEGRATION_SERVICE_PORT"] = self.config.jobmon_integration_service_port
         if self.config.existing_db:
             self.envs["JOBMON_PASS_SERVICE_USER"] = (
                 self.config.jobmon_service_user_pwd)
