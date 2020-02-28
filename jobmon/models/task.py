@@ -98,8 +98,9 @@ class Task(DB.Model):
         if new_state == TaskStatus.INSTANTIATED:
             self.num_attempts = self.num_attempts + 1
         self.status = new_state
-
         self.status_date = func.UTC_TIMESTAMP()
+        logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        logger.info("transite job status to {s} at {t}".format(s=new_state, t=self.status_date))
 
     def transition_after_task_instance_error(self, job_instance_error_state):
         """Transition the Job to an error state"""

@@ -55,7 +55,9 @@ class jobmonLogging:
 
     TAG: str = "JOBMON_SERVER"
 
-    _format: str = TAG + ': %(asctime)s [%(name)-12s] %(module)s %(levelname)-8s %(threadName)s: %(message)s'
+    _format: str = TAG + ': %(asctime)s [%(name)-12s] ' + \
+                   config.jobmon_version + \
+                   ' %(module)s %(levelname)-8s %(threadName)s: %(message)s'
     _syslogAttached: bool = config.use_rsyslog
     # Flask prints too many logs at INFO level, so set it's level separately
 
