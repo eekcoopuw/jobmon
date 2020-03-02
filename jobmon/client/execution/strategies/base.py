@@ -70,6 +70,10 @@ class ExecutorParameters:
 
         self._is_valid = False
 
+    @classmethod
+    def add_strategy(cls, StrategyCls, executor_class: str):
+        cls._strategies[executor_class] = StrategyCls
+
     def _attribute_proxy(self, attr_name: str):
         """checks whether executor specific class has implemented given
         paremeter and returns it, or else returns base implemenetation"""
@@ -168,19 +172,19 @@ class Executor:
         self.started = False
         logger.info("Initializing {}".format(self.__class__.__name__))
 
-    def start(self, jobmon_command=None):
+    def start(self, jobmon_command=None) -> None:
         self.jobmon_command = jobmon_command
         self.started = True
 
-    def stop(self):
+    def stop(self) -> None:
         self.started = False
 
     @property
-    def jobmon_command(self):
+    def jobmon_command(self) -> str:
         return self._jobmon_command
 
     @jobmon_command.setter
-    def jobmon_command(self, val):
+    def jobmon_command(self, val: str) -> None:
         if val is None:
             val = shutil.which("jobmon_command")
         self._jobmon_command = val
@@ -218,7 +222,8 @@ class Executor:
         """If implemented, return a list of (task_instance_id, hostname) tuples
         for any task_instances that are terminated
         """
-        pass
+        logger.warning("terminate_task_instances not implemented by executor: "
+                       f"{self.__class__.__name__}")
 
     def build_wrapped_command(self, command: str, task_instance_id: int,
                               heartbeat_interval: int, report_by_buffer: float,

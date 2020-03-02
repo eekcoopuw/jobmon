@@ -49,13 +49,13 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
 def kill_self(child_process: subprocess.Popen = None):
     """If the worker has received a signal to kill itself, kill the child
     processes and then self, will show up as an exit code 299 in qacct"""
-    logger.info("kill_self")
+    logger.info("kill self message received")
     if child_process:
         child_process.kill()
     sys.exit(signal.SIGKILL)
 
 
-def parse_arguments(argstr=None):
+def parse_arguments(argstr: Optional[str] = None) -> dict:
 
     # parse arguments
     logger.info("parsing arguments")

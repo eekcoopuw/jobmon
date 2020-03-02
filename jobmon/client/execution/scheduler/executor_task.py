@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Optional
 
 from jobmon.client import shared_requester
@@ -59,11 +61,9 @@ class ExecutorTask:
         self.requester = requester
 
     @classmethod
-    def from_wire(cls,
-                  wire_tuple: tuple,
-                  executor_class: str,
+    def from_wire(cls, wire_tuple: tuple, executor_class: str,
                   requester: Requester = shared_requester
-                  ) -> 'ExecutorTask':
+                  ) -> ExecutorTask:
         """construct instance from wire format the JQS gives
 
         Args:

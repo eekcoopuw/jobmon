@@ -1,5 +1,5 @@
 import sys
-from typing import Optional, List, Dict, Callable, Union
+from typing import Optional, List, Dict, Callable, Union, Any
 
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
@@ -11,11 +11,11 @@ class PythonTask(Task):
     _python_task_template_registry: dict = {}
     current_python = sys.executable
 
-    def __init__(self, path_to_python_binary=current_python,
-                 script=None,
-                 args=None,
+    def __init__(self, path_to_python_binary: str = current_python,
+                 script: Optional[str] = None,
+                 args: Optional[List[Any]] = None,
                  upstream_tasks: List[Task] = [],
-                 task_attributes: Optional[Union[dict, List]] = {},
+                 task_attributes: Union[dict, List] = {},
                  env_variables: Optional[Dict[str, str]] = None,
                  name: Optional[str] = None,
                  num_cores: Optional[int] = None,
@@ -24,9 +24,9 @@ class PythonTask(Task):
                  max_attempts: int = 3,
                  j_resource: bool = False,
                  context_args: Optional[dict] = None,
-                 resource_scales: Dict = None,
+                 resource_scales: Optional[Dict] = None,
                  m_mem_free: Optional[str] = None,
-                 hard_limits: Optional[bool] = False,
+                 hard_limits: bool = False,
                  executor_class: str = 'DummyExecutor',
                  executor_parameters:
                  Optional[Union[ExecutorParameters, Callable]] = None):

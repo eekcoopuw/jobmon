@@ -22,7 +22,7 @@ class Task:
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
 
     @classmethod
-    def is_valid_job_name(cls, name):
+    def is_valid_job_name(cls, name: str) -> bool:
         """
         If the name is invalid it will raises an exception. Primarily based on
         the restrictions SGE places on job names. The list of illegal
@@ -64,7 +64,7 @@ class Task:
                  name: Optional[str] = None,
                  max_attempts: int = 3,
                  upstream_tasks: List[Task] = [],
-                 task_attributes: Optional[Union[List, dict]] = {},
+                 task_attributes: Union[List, dict] = {},
                  requester: Requester = shared_requester):
         """
         Create a task
@@ -157,7 +157,7 @@ class Task:
         return self._task_id
 
     @property
-    def status(self):
+    def status(self) -> str:
         # TODO: remove status from this object
         if not hasattr(self, "_status"):
             raise AttributeError("status cannot be accessed before task is "
@@ -173,7 +173,7 @@ class Task:
         return self._workflow_id
 
     @workflow_id.setter
-    def workflow_id(self, val):
+    def workflow_id(self, val) -> int:
         self._workflow_id = val
 
     def bind(self, reset_if_running: bool = True) -> int:
@@ -187,7 +187,7 @@ class Task:
         self._status = status
         return task_id
 
-    def add_upstream(self, ancestor: Task):
+    def add_upstream(self, ancestor: Task) -> None:
         """
         Add an upstream (ancestor) Task. This has Set semantics, an upstream
         task will only be added once. Symmetrically, this method also adds this
@@ -198,7 +198,7 @@ class Task:
 
         self.node.add_upstream_node(ancestor.node)
 
-    def add_downstream(self, descendent: Task):
+    def add_downstream(self, descendent: Task) -> None:
         """
         Add an downstream (ancestor) Task. This has Set semantics, a downstream
         task will only be added once. Symmetrically, this method also adds this
@@ -240,7 +240,8 @@ class Task:
                 f'200. Response content: {response}')
         return response['task_id'], response['task_status']
 
-    def _update_task_parameters(self, task_id, reset_if_running):
+    def _update_task_parameters(self, task_id: int, reset_if_running: bool
+                                ) -> str:
         app_route = f'/task/{task_id}/update_parameters'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -285,7 +286,7 @@ class Task:
         # response["task_attribute_ids"]
         return response["task_id"]
 
-    def add_attributes(self, task_attributes: dict):
+    def add_attributes(self, task_attributes: dict) -> None:
         """Function that users can call either to update values of existing
         attributes or add new attributes"""
         app_route = f'/task/{self.task_id}/task_attributes'
@@ -299,7 +300,7 @@ class Task:
                              f'request through route {app_route}. Expected '
                              f'code 200. Response content: {response}')
 
-    def add_attribute(self, attribute: str, value: str):
+    def add_attribute(self, attribute: str, value: str) -> str:
         """Function that users can call to add a single attribute for a
         task"""
         self.task_attributes[str(attribute)] = str(value)

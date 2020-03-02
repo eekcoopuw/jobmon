@@ -95,5 +95,5 @@ class TaskInstanceSequentialInfo(TaskInstanceExecutorInfo):
                 self._executor_id = int(jid)
         return self._executor_id
 
-    def get_exit_info(self, exit_code, error_msg):
+    def get_exit_info(self, exit_code: int, error_msg: str):
         return TaskInstanceStatus.ERROR, error_msg

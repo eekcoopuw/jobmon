@@ -1,4 +1,5 @@
 from http import HTTPStatus as StatusCodes
+import multiprocessing
 import sys
 import threading
 import time
@@ -57,7 +58,10 @@ class TaskInstanceScheduler:
         # log heartbeat on startup so workflow run FSM doesn't have any races
         self.heartbeat()
 
-    def run_scheduler(self, stop_event=None, status_queue=None):
+    def run_scheduler(self,
+                      stop_event:
+                      Optional[multiprocessing.synchronize.Event] = None,
+                      status_queue: Optional[multiprocessing.Queue] = None):
         try:
             # start up the worker thread and executor
             if not self.executor.started:
@@ -72,7 +76,7 @@ class TaskInstanceScheduler:
             thread_stop_event = threading.Event()
             thread = threading.Thread(
                 target=self._schedule_forever,
-                args=(self.config.scheduler_poll_interval, thread_stop_event))
+                args=(thread_stop_event, self.config.scheduler_poll_interval))
             thread.daemon = True
             thread.start()
 
@@ -118,14 +122,15 @@ class TaskInstanceScheduler:
             if status_queue is not None:
                 status_queue.put("SHUTDOWN")
 
-    def heartbeat(self):
+    def heartbeat(self) -> None:
         # log heartbeats for tasks queued for batch execution and for the
         # workflow run
         logger.info(f"scheduler: logging heartbeat")
         self._log_executor_report_by()
         self._log_workflow_run_heartbeat()
 
-    def schedule(self, thread_stop_event=None):
+    def schedule(self, thread_stop_event: Optional[threading.Event] = None
+                 ) -> None:
         logger.info(f"scheduler: scheduling work. reconciling errors.")
         # get work if there isn't any in the queues
         if not self._to_instantiate and not self._to_reconcile:
@@ -144,8 +149,10 @@ class TaskInstanceScheduler:
                 task_instance = self._to_reconcile.pop(0)
                 task_instance.log_error()
 
-    def _heartbeats_forever(self, heartbeat_interval=90,
-                            process_stop_event=None):
+    def _heartbeats_forever(self, heartbeat_interval: int = 90,
+                            process_stop_event:
+                            Optional[multiprocessing.synchronize.Event] = None
+                            ) -> None:
         keep_beating = True
         while keep_beating:
             self.heartbeat()
@@ -157,7 +164,8 @@ class TaskInstanceScheduler:
             else:
                 time.sleep(heartbeat_interval)
 
-    def _keep_scheduling(self, thread_stop_event=None):
+    def _keep_scheduling(
+            self, thread_stop_event: Optional[threading.Event] = None) -> bool:
         any_work_to_do = any(self._to_instantiate) or any(self._to_reconcile)
         # If we are running in a thread. This is the standard path
         if thread_stop_event is not None:
@@ -166,8 +174,10 @@ class TaskInstanceScheduler:
         else:
             return any_work_to_do
 
-    def _schedule_forever(self, poll_interval=10, thread_stop_event=None):
-        sleep_time = 0
+    def _schedule_forever(
+            self, thread_stop_event: threading.Event,
+            poll_interval: float = 10) -> None:
+        sleep_time: float = 0.
         while not thread_stop_event.wait(timeout=sleep_time):
             poll_start = time.time()
             try:
@@ -180,7 +190,7 @@ class TaskInstanceScheduler:
             if (poll_interval - time_since_last_poll) > 0:
                 sleep_time = poll_interval - time_since_last_poll
             else:
-                sleep_time = 0
+                sleep_time = 0.
 
     def _log_executor_report_by(self) -> None:
         next_report_increment = (
@@ -334,7 +344,7 @@ class TaskInstanceScheduler:
             for ti in response["task_instances"]]
         self._to_reconcile = lost_task_instances
 
-    def _terminate_active_task_instances(self):
+    def _terminate_active_task_instances(self) -> None:
         app_route = (
             f'/workflow_run/{self.workflow_run_id}/'
             'get_task_instances_to_terminate')
@@ -346,7 +356,7 @@ class TaskInstanceScheduler:
         # eat bad responses here because we are outside of the exception
         # catching context
         if return_code != StatusCodes.OK:
-            to_terminate = []
+            to_terminate: List = []
         else:
             to_terminate = [
                 ExecutorTaskInstance.from_wire(

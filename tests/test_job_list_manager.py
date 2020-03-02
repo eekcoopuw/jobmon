@@ -213,8 +213,6 @@ def test_invalid_command(job_list_manager):
     job_list_manager._sync()
     assert len(job_list_manager.all_error) > 0
 
->>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
-
 
 def test_invalid_command(sequential_scheduler_jlm):
     scheduler, jlm = sequential_scheduler_jlm
@@ -262,10 +260,6 @@ def test_blocking_update_timeout(client_env, real_dag_id):
     assert expected_msg == str(error.value)
 
 
-<<<<<<< HEAD
-def test_server_502(sequential_scheduler_jlm):
-    scheduler, jlm = sequential_scheduler_jlm
-=======
 def test_sge_valid_command(jlm_sge_no_daemon):
     job = jlm_sge_no_daemon.bind_task(
         Task(command="ls", name="sgefbb", num_cores=3,
@@ -276,108 +270,6 @@ def test_sge_valid_command(jlm_sge_no_daemon):
     assert (jlm_sge_no_daemon.bound_tasks[job.job_id].status ==
             JobStatus.INSTANTIATED)
     print("finishing test_sge_valid_command")
-
-
-def test_server_502(job_list_manager):
->>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
-    """
-    GBDSCI-1553
-
-    We should be able to automatically retry if server returns 5XX
-    status code. If we exceed retry budget, we should raise informative error
-    """
-    err_response = (
-        502,
-        b'<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body '
-        b'bgcolor="white">\r\n<center><h1>502 Bad Gateway</h1></center>\r\n'
-        b'<hr><center>nginx/1.13.12</center>\r\n</body>\r\n</html>\r\n'
-    )
-    good_response = (
-        200,
-        {'job_dcts': [], 'time': '2019-02-21 17:40:07'}
-    )
-
-    job = jlm.bind_task(Task(command='ls', name='baz', num_cores=1))
-    jlm.adjust_resources_and_queue(job)
-    scheduler.instantiate_queued_jobs()
-
-    # mock requester.get_content to return 2 502s then 200
-    with mock.patch('jobmon.requester.get_content') as m:
-        # Docs: If side_effect is an iterable then each call to the mock
-        # will return the next value from the iterable
-        m.side_effect = [err_response] * 2 + \
-            [good_response] + [err_response] * 2
-
-        jlm.get_job_statuses()  # fails at first
-
-        # should have retried twice + one success
-        retrier = jlm.requester.send_request.retry
-        assert retrier.statistics['attempt_number'] == 3
-
-        # if we end up stopping we should get an error
-        with pytest.raises(RuntimeError, match='Status code was 502'):
-            retrier.stop = stop_after_attempt(1)
-<<<<<<< HEAD
-            jlm.get_job_statuses()
-
-
-# def test_ji_unknown_state(sequential_scheduler_process_jlm, db_cfg):
-#     """should try to log a report by date after being set to the U state and
-#     fail"""
-#     def query_till_running(db_cfg):
-#         app = db_cfg["app"]
-#         DB = db_cfg["DB"]
-#         with app.app_context():
-#             resp = DB.session.execute(
-#                 """SELECT status, executor_id FROM job_instance"""
-#             ).fetchall()[-1]
-#             DB.session.commit()
-#         return resp
-
-#     jlm = sequential_scheduler_jlm
-#     job = jlm.bind_task(Task(command="sleep 60", name="lost_task",
-# <<<<<<< HEAD
-#                              executor_class="SequentialExecutor"))
-# =======
-#                              num_cores=1, max_runtime_seconds=120,
-#                              m_mem_free='600M'))
-# >>>>>>> 26f460d6fac5f19cf5931f181e42e83fca21d0ec
-#     jlm.adjust_resources_and_queue(job)
-#     jlm._sync()
-#     resp = query_till_running(db_cfg)
-# <<<<<<< HEAD
-
-#     while resp.status != 'R':
-# =======
-#     count = 0
-#     while resp.status != 'R' and count < 20:
-# >>>>>>> 26f460d6fac5f19cf5931f181e42e83fca21d0ec
-#         resp = query_till_running(db_cfg)
-#         sleep(10)
-#         count = count + 1
-#     app = db_cfg["app"]
-#     DB = db_cfg["DB"]
-#     with app.app_context():
-#         DB.session.execute("""
-#             UPDATE job_instance
-#             SET status = 'U'
-#             WHERE job_instance_id = {}""".format(jids[0]))
-#         DB.session.commit()
-#     exec_id = resp.executor_id
-#     exit_status = None
-#     tries = 1
-#     while exit_status is None and tries < 10:
-#         try:
-#             exit_status = check_output(
-#                 f"qacct -j {exec_id} | grep exit_status",
-#                 shell=True, universal_newlines=True)
-#         except Exception:
-#             tries += 1
-#             sleep(3)
-#     # 9 indicates sigkill signal was sent as expected
-#     assert '9' in exit_status
-=======
-            job_list_manager.get_job_statuses()
 
 
 class ExpectedException(Exception):

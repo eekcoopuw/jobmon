@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from jobmon import config
 from jobmon.client import ClientLogging as logging
@@ -10,7 +11,7 @@ class InvalidConfig(Exception):
     pass
 
 
-def derive_jobmon_command_from_env():
+def derive_jobmon_command_from_env() -> Optional[str]:
     singularity_img_path = os.environ.get('IMGPATH', None)
     if singularity_img_path:
         return (
@@ -34,8 +35,9 @@ class ClientConfig(object):
                    heartbeat_interval=config.heartbeat_interval,
                    report_by_buffer=config.report_by_buffer)
 
-    def __init__(self, host, port, jobmon_command, reconciliation_interval,
-                 heartbeat_interval, report_by_buffer):
+    def __init__(self, host: str, port: int, jobmon_command: str,
+                 reconciliation_interval: int, heartbeat_interval: int,
+                 report_by_buffer: float):
 
         self.host = host
         self.port = port
