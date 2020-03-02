@@ -44,7 +44,7 @@ def test_number_cores():
     assert  resource.num_cores == 1
 
 
-@pytest.mark.unitest
+@pytest.mark.unittest
 def test_no_core():
     resource = SGEParameters(m_mem_free="1G", queue='all.q',
                              max_runtime_seconds=86400)
@@ -62,12 +62,21 @@ def test_max_runtime_seconds(input, expect):
 
 
 @pytest.mark.unittest
-def test_queue_move():
+def test_hard_limit_true():
     resource = SGEParameters(m_mem_free="1G", queue='all.q', hard_limits=True,
                              max_runtime_seconds=1382402)
     resource.validate()
     assert resource.queue == 'all.q'
     assert resource.max_runtime_seconds == 259200
+
+
+@pytest.mark.unittest
+def test_hard_limit_false():
+    resource = SGEParameters(m_mem_free="1G", queue='all.q', hard_limits=False,
+                             max_runtime_seconds=1382402)
+    resource.validate()
+    assert resource.queue == 'long.q'
+    assert resource.max_runtime_seconds == 1382400
 
 
 @pytest.mark.unittest
@@ -81,16 +90,14 @@ def test_resource_scale(input, expect):
     assert resource.resource_scales["max_runtime_seconds"] == expect
 
 
-@pytest.mark.skip(reason="SGEExecutor is not ready")
 @pytest.mark.systemtest
 def test_memory_runtime_adjusted():
     task = BashTask(command=f"{os.path.join(thisdir, 'jmtest.sh')}",
                     executor_class="SGEExecutor",
                     name="Task parameter test",
-                    max_runtime_seconds=1382402,
+                    max_runtime_seconds=2382402,
                     m_mem_free='1T',
                     max_attempts=1,
-                    hard_limits=True,
                     j_resource=True,
                     queue="all.q")
     resource = task.executor_parameters()
@@ -98,10 +105,10 @@ def test_memory_runtime_adjusted():
     assert resource.m_mem_free == 750
     assert resource.num_cores == 1
     assert resource.queue == "long.q"
-    assert resource.max_runtime_seconds == 259200
+    assert resource.max_runtime_seconds == 1382400
 
 
-@pytest.mark.skip(reason="SGEExecutor is not ready")
+@pytest.mark.smoketest
 @pytest.mark.systemtest
 def test_default_allq():
     task = BashTask(command=f"{os.path.join(thisdir, 'jmtest.sh')}",
