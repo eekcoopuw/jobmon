@@ -70,6 +70,10 @@ class ExecutorParameters:
 
         self._is_valid = False
 
+    @classmethod
+    def add_strategy(cls, StrategyCls, executor_class: str):
+        cls._strategies[executor_class] = StrategyCls
+
     def _attribute_proxy(self, attr_name: str):
         """checks whether executor specific class has implemented given
         paremeter and returns it, or else returns base implemenetation"""
