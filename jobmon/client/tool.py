@@ -88,17 +88,16 @@ class Tool:
         return self._active_tool_version_id
 
     @active_tool_version_id.setter
-    def active_tool_version_id(self, val: int):
+    def active_tool_version_id(self, val: Union[str, int]):
         if val == "latest":
-            tool_version_id: int = self.tool_version_ids[-1]
+            self._active_tool_version_id = self.tool_version_ids[-1]
         else:
             if val not in self.tool_version_ids:
                 raise InvalidToolVersionError(
                     f"tool_version_id {val} is not a valid tool version for "
                     f"{self.name}. Valid tool versions are "
                     f"{self.tool_version_ids}")
-            tool_version_id: int = val
-        self._active_tool_version_id = tool_version_id
+            self._active_tool_version_id = int(val)
 
     def get_task_template(self, template_name: str, command_template: str,
                           node_args: List[str] = [], task_args: List[str] = [],
@@ -128,8 +127,8 @@ class Tool:
                           self.requester)
         return tt
 
-    def create_workflow(self, workflow_args: Optional[str] = None,
-                        name: str = "", description: str = ""):
+    def create_workflow(self, workflow_args: str = "", name: str = "",
+                        description: str = ""):
         wf = Workflow(self.active_tool_version_id, workflow_args,
                       name, description)
         return wf

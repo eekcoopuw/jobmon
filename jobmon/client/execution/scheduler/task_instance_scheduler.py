@@ -58,7 +58,9 @@ class TaskInstanceScheduler:
         # log heartbeat on startup so workflow run FSM doesn't have any races
         self.heartbeat()
 
-    def run_scheduler(self, stop_event: Optional[multiprocessing.Event] = None,
+    def run_scheduler(self,
+                      stop_event:
+                      Optional[multiprocessing.synchronize.Event] = None,
                       status_queue: Optional[multiprocessing.Queue] = None):
         try:
             # start up the worker thread and executor
@@ -74,7 +76,7 @@ class TaskInstanceScheduler:
             thread_stop_event = threading.Event()
             thread = threading.Thread(
                 target=self._schedule_forever,
-                args=(self.config.scheduler_poll_interval, thread_stop_event))
+                args=(thread_stop_event, self.config.scheduler_poll_interval))
             thread.daemon = True
             thread.start()
 
@@ -147,11 +149,10 @@ class TaskInstanceScheduler:
                 task_instance = self._to_reconcile.pop(0)
                 task_instance.log_error()
 
-    def _heartbeats_forever(
-            self,
-            heartbeat_interval: int = 90,
-            process_stop_event: Optional[multiprocessing.Event] = None
-            ) -> None:
+    def _heartbeats_forever(self, heartbeat_interval: int = 90,
+                            process_stop_event:
+                            Optional[multiprocessing.synchronize.Event] = None
+                            ) -> None:
         keep_beating = True
         while keep_beating:
             self.heartbeat()
@@ -164,7 +165,7 @@ class TaskInstanceScheduler:
                 time.sleep(heartbeat_interval)
 
     def _keep_scheduling(
-            self, thread_stop_event: Optional[threading.Event] = None) -> None:
+            self, thread_stop_event: Optional[threading.Event] = None) -> bool:
         any_work_to_do = any(self._to_instantiate) or any(self._to_reconcile)
         # If we are running in a thread. This is the standard path
         if thread_stop_event is not None:
@@ -174,9 +175,9 @@ class TaskInstanceScheduler:
             return any_work_to_do
 
     def _schedule_forever(
-            self, poll_interval: int = 10,
-            thread_stop_event: Optional[threading.Event] = None) -> None:
-        sleep_time = 0
+            self, thread_stop_event: threading.Event,
+            poll_interval: float = 10) -> None:
+        sleep_time: float = 0.
         while not thread_stop_event.wait(timeout=sleep_time):
             poll_start = time.time()
             try:
@@ -189,7 +190,7 @@ class TaskInstanceScheduler:
             if (poll_interval - time_since_last_poll) > 0:
                 sleep_time = poll_interval - time_since_last_poll
             else:
-                sleep_time = 0
+                sleep_time = 0.
 
     def _log_executor_report_by(self) -> None:
         next_report_increment = (
@@ -355,7 +356,7 @@ class TaskInstanceScheduler:
         # eat bad responses here because we are outside of the exception
         # catching context
         if return_code != StatusCodes.OK:
-            to_terminate = []
+            to_terminate: List = []
         else:
             to_terminate = [
                 ExecutorTaskInstance.from_wire(
