@@ -1,10 +1,12 @@
 import getpass
 import os
 import os.path as path
-import subprocess
 import pytest
+from unittest.mock import patch
 
-import jobmon.client.swarm.executors.sge_utils as sge_utils
+from jobmon.client.execution.strategies.sge.sge_utils import true_path, convert_wallclock_to_seconds, qacct_exit_status, \
+    qacct_hostname
+
 
 
 def qacct_returns_h_rt(command, shell, universal_newlines):
@@ -43,42 +45,34 @@ def qacct_returns_h_rt(command, shell, universal_newlines):
            'fined\njc_name      NONE\nbound_cores  NONE\n'
 
 
-@pytest.mark.cluster
+@pytest.mark.unittest
 def test_true_path():
     with pytest.raises(ValueError) as exc_info:
-        sge_utils.true_path()
+        true_path()
     assert "cannot both" in str(exc_info.value)
 
-    assert sge_utils.true_path("") == os.getcwd()
-    assert getpass.getuser() in sge_utils.true_path("~/bin")
-    assert sge_utils.true_path("blah").endswith("/blah")
-    assert sge_utils.true_path(file_or_dir=".") == path.abspath(".")
+    assert true_path("") == os.getcwd()
+    assert getpass.getuser() in true_path("~/bin")
+    assert true_path("blah").endswith("/blah")
+    assert true_path(file_or_dir=".") == path.abspath(".")
     # the path differs based on the cluster but all are in /bin/time
     # (some are in /usr/bin/time)
-    assert "/bin/time" in sge_utils.true_path(executable="time")
+    assert "/bin/time" in true_path(executable="time")
 
 
-def test_convert_wallclock():
-    wallclock_str = '10:11:50'
-    res = sge_utils.convert_wallclock_to_seconds(wallclock_str)
-    assert res == 36710.0
+@pytest.mark.unittest
+@pytest.mark.parametrize("wallclock_str, expect", [('10:11:50', 36710.0),
+                                                   ('01:10:11:50', 123110.0),
+                                                   ('01:10:11:50.15', 123110.15)])
+def test_convert_wallclock(wallclock_str, expect):
+    res = convert_wallclock_to_seconds(wallclock_str)
+    assert res == expect
 
 
-def test_convert_wallclock_with_days():
-    wallclock_str = '01:10:11:50'
-    res = sge_utils.convert_wallclock_to_seconds(wallclock_str)
-    assert res == 123110.0
-
-
-def test_convert_wallclock_with_milleseconds():
-    wallclock_str = '01:10:11:50.15'
-    res = sge_utils.convert_wallclock_to_seconds(wallclock_str)
-    assert res == 123110.15
-
-
-def test_qacct_exit_status(monkeypatch):
-    monkeypatch.setattr(subprocess, 'check_output', qacct_returns_h_rt)
-    exit_status = sge_utils.qacct_exit_status(11399639)
-    assert exit_status == (1377, 'over runtime')
-
+@pytest.mark.unittest
+def test_qacct_exit_status():
+    with patch("subprocess.check_output") as m_check_output:
+        m_check_output.side_effect = qacct_returns_h_rt
+        exit_status = qacct_exit_status(11399639)
+        assert exit_status == (1377, 'over runtime')
 
