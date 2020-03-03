@@ -41,7 +41,7 @@ def test_number_cores():
     resource = SGEParameters(m_mem_free="1G", num_cores=1, queue='all.q',
                              max_runtime_seconds=86400)
     resource.validate()
-    assert  resource.num_cores == 1
+    assert resource.num_cores == 1
 
 
 @pytest.mark.unittest
