@@ -18,7 +18,7 @@ from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='session', autouse=True)
 def ephemera():
     """Note: this function must be placed before the other imports
     because the ephemera db has to be started before any other code

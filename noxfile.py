@@ -5,7 +5,7 @@ from nox.sessions import Session
 
 src_locations = ["jobmon"]
 test_locations = ["tests/client",
-                  # "tests/scheduler",
+                  "tests/scheduler",
                   "tests/task_instance",
                   "tests/workflow"]
 
@@ -37,7 +37,7 @@ def lint(session: Session) -> None:
 
 
 @nox.session(python="3.7", venv_backend="conda")
-def mypy(session: Session) -> None:
+def typecheck(session: Session) -> None:
     """Type check code."""
     args = session.posargs or src_locations + test_locations
     session.install("mypy")
