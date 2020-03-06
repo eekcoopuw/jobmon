@@ -170,6 +170,7 @@ class Executor:
     def __init__(self, *args, **kwargs) -> None:
         self.temp_dir: Optional[str] = None
         self.started = False
+        self._jobmon_command = shutil.which(("jobmon_command"))
         logger.info("Initializing {}".format(self.__class__.__name__))
 
     def start(self, jobmon_command=None) -> None:

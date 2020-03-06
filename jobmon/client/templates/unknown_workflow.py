@@ -122,6 +122,7 @@ class UnknownWorkflow(Workflow):
             executor_class (str): string referring to one of the executor
             classes in jobmon.client.swarm.executors
         """
+        logger.info("Set executor to {}".format(executor_class))
         self.executor_class = executor_class
         if self.executor_class == 'SGEExecutor':
             from jobmon.client.execution.strategies.sge import SGEExecutor

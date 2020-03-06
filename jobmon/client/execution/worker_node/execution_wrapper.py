@@ -79,6 +79,63 @@ def parse_arguments(argstr: Optional[str] = None) -> dict:
     return vars(args)
 
 
+def _get_executor_class(executor_class: str):
+    """ Move out of unwrap for easy mock"""
+    # identify executor class
+    if executor_class == "SequentialExecutor":
+        from jobmon.client.execution.strategies.sequential import \
+            TaskInstanceSequentialInfo as TaskInstanceExecutorInfo
+    elif executor_class == "SGEExecutor":
+        from jobmon.client.execution.strategies.sge.sge_executor import \
+            TaskInstanceSGEInfo as TaskInstanceExecutorInfo
+    elif executor_class == "DummyExecutor":
+        from jobmon.client.execution.strategies.base import \
+            TaskInstanceExecutorInfo
+    elif executor_class == "MultiprocessExecutor":
+        from jobmon.client.execution.strategies.multiprocess import \
+            TaskInstanceMultiprocessInfo as TaskInstanceExecutorInfo
+    else:
+        raise ValueError("{} is not a valid ExecutorClass".format(
+            executor_class))
+    return executor_class, TaskInstanceExecutorInfo()
+
+
+def _run_in_sub_process(command: str, temp_dir: str, heartbeat_interval: float,
+                        worker_node_task_instance: WorkerNodeTaskInstance, report_by_buffer: int):
+    """Move out of unwrap for easy mock"""
+    proc = subprocess.Popen(
+        command,
+        cwd=temp_dir,
+        env=os.environ.copy(),
+        stderr=subprocess.PIPE,
+        shell=True,
+        universal_newlines=True)
+    # open thread for reading stderr eagerly
+    err_q: Queue = Queue()  # queues for returning stderr to main thread
+    err_thread = Thread(target=enqueue_stderr, args=(proc.stderr, err_q))
+    err_thread.daemon = True  # thread dies with the program
+    err_thread.start()
+
+    last_heartbeat_time = time() - heartbeat_interval
+    while proc.poll() is None:
+        if (time() - last_heartbeat_time) >= heartbeat_interval:
+
+            # since the report by is not a state transition, it will not
+            #  get the error that the log running route gets, so just
+            # check the database and kill if its status means it should
+            #  be killed
+            if worker_node_task_instance.in_kill_self_state():
+                kill_self(child_process=proc)
+            else:
+                worker_node_task_instance.log_report_by(
+                    next_report_increment=(heartbeat_interval *
+                                           report_by_buffer))
+
+            last_heartbeat_time = time()
+        sleep(0.5)  # don't thrash CPU by polling as fast as possible
+    return err_q, proc.returncode
+
+
 def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
            executor_class: str, temp_dir: Optional[str] = None,
            last_nodename: str = None, last_pgid: str = None,
@@ -90,25 +147,7 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
     # Similar to a stub or a container
     # set ENV variables in case tasks need to access them
     os.environ["JOBMON_JOB_INSTANCE_ID"] = str(task_instance_id)
-
-    # identify executor class
-    if executor_class == "SequentialExecutor":
-        from jobmon.client.execution.strategies.sequential import \
-            TaskInstanceSequentialInfo as TaskInstanceExecutorInfo
-    elif executor_class == "SGEExecutor":
-        from jobmon.client.execution.strategies.sge import \
-            TaskInstanceSGEInfo as TaskInstanceExecutorInfo
-    elif executor_class == "DummyExecutor":
-        from jobmon.client.execution.strategies.base import \
-            TaskInstanceExecutorInfo
-    elif executor_class == "MultiprocessExecutor":
-        from jobmon.client.execution.strategies.multiprocess import \
-            TaskInstanceMultiprocessInfo as TaskInstanceExecutorInfo
-    else:
-        raise ValueError("{} is not a valid ExecutorClass".format(
-            executor_class))
-    ti_executor_info = TaskInstanceExecutorInfo()
-
+    executor_class, ti_executor_info = _get_executor_class(executor_class)
     # Any subprocesses spawned will have this parent process's PID as
     # their PGID (useful for cleaning up processes in certain failure
     # scenarios)
@@ -133,45 +172,13 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
         kill_self()
 
     try:
-        # open subprocess using a process group so any children are also killed
-        proc = subprocess.Popen(
-            command,
-            cwd=temp_dir,
-            env=os.environ.copy(),
-            stderr=subprocess.PIPE,
-            shell=True,
-            universal_newlines=True)
-
-        # open thread for reading stderr eagerly
-        err_q: Queue = Queue()  # queues for returning stderr to main thread
-        err_thread = Thread(target=enqueue_stderr, args=(proc.stderr, err_q))
-        err_thread.daemon = True  # thread dies with the program
-        err_thread.start()
-
-        last_heartbeat_time = time() - heartbeat_interval
-        while proc.poll() is None:
-            if (time() - last_heartbeat_time) >= heartbeat_interval:
-
-                # since the report by is not a state transition, it will not
-                #  get the error that the log running route gets, so just
-                # check the database and kill if its status means it should
-                #  be killed
-                if worker_node_task_instance.in_kill_self_state():
-                    kill_self(child_process=proc)
-                else:
-                    worker_node_task_instance.log_report_by(
-                        next_report_increment=(heartbeat_interval *
-                                               report_by_buffer))
-
-                last_heartbeat_time = time()
-            sleep(0.5)  # don't thrash CPU by polling as fast as possible
+        err_q, returncode = _run_in_sub_process(command, temp_dir, heartbeat_interval, worker_node_task_instance,
+                                                report_by_buffer)
 
         # compile stderr to send to db
         stderr = ""
         while not err_q.empty():
             stderr += err_q.get()
-
-        returncode = proc.returncode
 
     except Exception as exc:
         stderr = "{}: {}\n{}".format(type(exc).__name__, exc,

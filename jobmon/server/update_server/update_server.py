@@ -852,7 +852,7 @@ def _transform_mem_to_gb(mem_str: any) -> float:
    # BUG g and G are not the same
    if mem_str is None:
        return 2
-   if type(mem_str) is float:
+   if type(mem_str) in (float, int):
        return mem_str
    if mem_str[-1].lower() == "m":
        mem = float(mem_str[:-1])
