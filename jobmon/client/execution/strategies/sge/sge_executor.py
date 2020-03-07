@@ -76,6 +76,7 @@ class SGEExecutor(Executor):
             stdout=self.stdout,
             project=self.project,
             working_dir=self.working_dir)
+        logger.info(qsub_command)
         return self._execute_sge(qsub_command)
 
     def get_actual_submitted_or_running(self) -> List[int]:
