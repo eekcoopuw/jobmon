@@ -126,41 +126,12 @@ def test_build_qsub_command():
             assert "\"date\"" in r
 
 
-@pytest.mark.systemtest
-def test_happy_path(db_cfg, client_env):
-    from jobmon.client.templates._test_unknown_workflow import _TestUnknownWorkflow as Workflow
-    task = BashTask(command=f"{os.path.join(path_to_file, 'jmtest.sh')}",
-                    executor_class="_SimulatorSGEExecutor",
-                    name="test",
-                    num_cores=2,
-                    max_runtime_seconds=120,
-                    m_mem_free='1G',
-                    max_attempts=1,
-                    queue="all.q",
-                    j_resource=True)
-    resource = task.executor_parameters()
-    resource.validate()
-    workflow = Workflow("test", project='proj_scicomp', executor_class="_SimulatorSGEExecutor", seconds_until_timeout=300)
-    workflow.add_tasks([task])
-    workflow.run()
-
-    # check db
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        query = """
-           SELECT description
-           FROM task_instance_error_log"""
-        res = DB.session.execute(query).fetchone()
-        DB.session.commit()
-
-
 class MockSchedulerProc:
     def is_alive(self):
         return True
 
 @pytest.mark.systemtest
-def test_happy_path_sge(db_cfg, client_env):
+def test_happy_path_with_instantiation(db_cfg, client_env):
     from jobmon.client.templates._test_unknown_workflow import _TestUnknownWorkflow as Workflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
@@ -192,5 +163,105 @@ def test_happy_path_sge(db_cfg, client_env):
             FROM task_instance
             WHERE task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
+        DB.session.commit()
+    assert res[0] == "D"
+
+
+@pytest.mark.smoketest
+@pytest.mark.systemtest
+def test_happy_path(db_cfg, client_env):
+    from jobmon.client.templates._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    task = BashTask(command=f"{os.path.join(path_to_file, 'jmtest.sh')}",
+                    executor_class="_SimulatorSGEExecutor",
+                    name="test",
+                    num_cores=2,
+                    max_runtime_seconds=10,
+                    m_mem_free='1G',
+                    max_attempts=1,
+                    queue="all.q",
+                    j_resource=True)
+    resource = task.executor_parameters()
+    resource.validate()
+    workflow = Workflow("test", project='proj_scicomp', executor_class="_SimulatorSGEExecutor", seconds_until_timeout=30)
+    workflow.add_tasks([task])
+    workflow.run()
+
+    # check db
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+            SELECT task_instance.status
+            FROM task_instance
+            WHERE task_id = :task_id"""
+        res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
+        DB.session.commit()
+    assert res[0] == "D"
+
+
+@pytest.mark.integration_sge
+def test_happy_path_sge_with_instantiation(db_cfg, client_env):
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    from jobmon.client.api import BashTask
+    from jobmon.client.execution.scheduler.task_instance_scheduler import \
+        TaskInstanceScheduler
+
+    t1 = BashTask("echo 1", executor_class="SGEExecutor")
+    workflow = Workflow("my_simple_dag",
+                               executor_class="SGEExecutor",
+                               seconds_until_timeout=30)
+    workflow.add_tasks([t1])
+    workflow._bind()
+    wfr = workflow._create_workflow_run()
+    scheduler = TaskInstanceScheduler(workflow.workflow_id,
+                                      wfr.workflow_run_id,
+                                      workflow._executor)
+    with pytest.raises(RuntimeError):
+        wfr.execute_interruptible(MockSchedulerProc(),
+                                  seconds_until_timeout=1)
+
+    scheduler._get_tasks_queued_for_instantiation()
+    scheduler.schedule()
+
+    # check the job finished
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+            SELECT task_instance.status
+            FROM task_instance
+            WHERE task_id = :task_id"""
+        res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
+        DB.session.commit()
+    assert res[0] == "D"
+
+
+@pytest.mark.integration_sge
+def test_happy_path_sge(db_cfg, client_env):
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    task = BashTask(command=f"{os.path.join(path_to_file, 'jmtest.sh')}",
+                    executor_class="SGEExecutor",
+                    name="test",
+                    num_cores=2,
+                    max_runtime_seconds=10,
+                    m_mem_free='1G',
+                    max_attempts=1,
+                    queue="all.q",
+                    j_resource=True)
+    resource = task.executor_parameters()
+    resource.validate()
+    workflow = Workflow("test", project='proj_scicomp', executor_class="SGEExecutor", seconds_until_timeout=30)
+    workflow.add_tasks([task])
+    workflow.run()
+
+    # check db
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+            SELECT task_instance.status
+            FROM task_instance
+            WHERE task_id = :task_id"""
+        res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
         DB.session.commit()
     assert res[0] == "D"

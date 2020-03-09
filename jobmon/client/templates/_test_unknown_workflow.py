@@ -1,4 +1,5 @@
 from jobmon.client.templates.unknown_workflow import UnknownWorkflow
+from jobmon.client.execution.strategies.sge._sgesimulator import _SimulatorSGEExecutor
 
 
 class _TestUnknownWorkflow(UnknownWorkflow):
@@ -10,5 +11,4 @@ class _TestUnknownWorkflow(UnknownWorkflow):
             classes in jobmon.client.swarm.executors
         """
         self.executor_class = executor_class
-        from jobmon.client.execution.strategies.sge.sge_executor import _SimulatorSGEExecutor
         self._executor = _SimulatorSGEExecutor(*args, **kwargs)

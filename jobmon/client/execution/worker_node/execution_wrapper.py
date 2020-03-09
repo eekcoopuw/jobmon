@@ -158,7 +158,6 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
             f" {version}. Please check your bash profile "
         logger.error(msg)
         sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
-
     worker_node_task_instance = WorkerNodeTaskInstance(
         task_instance_id=task_instance_id,
         task_instance_executor_info=ti_executor_info)
