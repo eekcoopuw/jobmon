@@ -129,11 +129,10 @@ class MockSchedulerProc:
         return True
 
 @pytest.mark.systemtest
-def test_happy_path_with_instantiation(db_cfg, client_env):
+def test_instantiation(db_cfg, client_env):
     from jobmon.client.execution.strategies._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.execution.scheduler.task_instance_scheduler import TaskInstanceScheduler
 
     t1 = BashTask("echo 1", executor_class="_SimulatorSGEExecutor")
     workflow = Workflow("my_simple_dag",
@@ -167,7 +166,7 @@ def test_happy_path_with_instantiation(db_cfg, client_env):
 
 @pytest.mark.smoketest
 @pytest.mark.systemtest
-def test_happy_path(db_cfg, client_env):
+def test_workflow(db_cfg, client_env):
     from jobmon.client.execution.strategies._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
     task = BashTask(command=f"{os.path.join(path_to_file, 'jmtest.sh')}",
                     executor_class="_SimulatorSGEExecutor",
@@ -189,10 +188,91 @@ def test_happy_path(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-            SELECT task_instance.status
+            SELECT status, executor_type
             FROM task_instance
             WHERE task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
         DB.session.commit()
     assert res[0] == "D"
+    assert res[1] == "_SimulatorSGEExecutor"
 
+
+@pytest.mark.smoketest
+@pytest.mark.systemtest
+def test_workflow_timeout(db_cfg, client_env):
+    from jobmon.client.execution.strategies._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    task = BashTask(command="sleep 60",
+                    executor_class="_SimulatorSGEExecutor",
+                    name="test",
+                    num_cores=1,
+                    max_runtime_seconds=10,
+                    m_mem_free='1G',
+                    max_attempts=1,
+                    queue="all.q",
+                    j_resource=True)
+    resource = task.executor_parameters()
+    resource.validate()
+    workflow = Workflow("test", project='proj_scicomp', executor_class="_SimulatorSGEExecutor", seconds_until_timeout=10)
+    workflow.add_tasks([task])
+    with pytest.raises(RuntimeError):
+        workflow.run()
+
+    # check db
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+            select task_instance.status, task.status, workflow_run.status, workflow.status 
+            from task_instance, task, workflow_run, workflow 
+            where task_instance.task_id=task.id 
+            and task_instance.workflow_run_id=workflow_run.id 
+            and workflow_run.workflow_id=workflow.id 
+            and task_id = :task_id"""
+        res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
+        DB.session.commit()
+    assert res[0] == "R"
+    assert res[1] == "R"
+    assert res[2] == "E"
+    assert res[3] == "F"
+
+
+@pytest.mark.smoketest
+@pytest.mark.systemtest
+def test_workflow_137(db_cfg, client_env):
+    from jobmon.client.execution.strategies._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    task = BashTask(command="echo 137",
+                    executor_class="_SimulatorSGEExecutor",
+                    name="test",
+                    num_cores=1,
+                    max_runtime_seconds=10,
+                    m_mem_free='1G',
+                    max_attempts=1,
+                    queue="all.q",
+                    j_resource=True)
+    resource = task.executor_parameters()
+    resource.validate()
+    workflow = Workflow("test", project='proj_scicomp', executor_class="_SimulatorSGEExecutor", seconds_until_timeout=300)
+    workflow.add_tasks([task])
+    workflow.run()
+
+    # check db
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+            select task_instance.status, task.status, workflow_run.status, workflow.status 
+            from task_instance, task, workflow_run, workflow 
+            where task_instance.task_id=task.id 
+            and task_instance.workflow_run_id=workflow_run.id 
+            and workflow_run.workflow_id=workflow.id 
+            and task_id = :task_id"""
+        res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
+        DB.session.commit()
+        assert res[0] == "E"
+        assert res[1] == "F"
+        assert res[2] == "E"
+        assert res[3] == "F"
+
+        sql = "select count(*) from task_instance_error_log where task_instance_id={}".format(task.task_id)
+        res = DB.session.execute(sql).fetchone()
+        assert res[0] == 1

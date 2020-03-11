@@ -59,10 +59,24 @@ class _SimulatorSGEExecutor(SGEExecutor):
             unwrap, parse_arguments)
         from queue import Queue
         from unittest.mock import patch
+        from time import sleep
         with patch("jobmon.client.execution.worker_node.execution_wrapper._get_executor_class") as m_get_executor_c, \
              patch("jobmon.client.execution.worker_node.execution_wrapper._run_in_sub_process") as m_run_in_sub_p:
             m_get_executor_c.return_value = "_SimulatorSGEExecutor", _SimulatorTaskInstanceSGEInfo()
-            m_run_in_sub_p.return_value = Queue(), 0
+            # sleep for one minute to test timeout
+            def _immidiate_return(*args):
+                return Queue(), 0
+            def _delay_return(*args):
+                sleep(60)
+                return Queue(), 0
+            def _error_return137(*args):
+                return Queue().put("137"), 137
+            if "sleep" in command:
+                m_run_in_sub_p.side_effect = _delay_return
+            elif "137" in command:
+                m_run_in_sub_p.side_effect = _error_return137()
+            else:
+                m_run_in_sub_p.side_effect = _immidiate_return
             unwrap(**parse_arguments(command))
             _SimulatorSGEExecutor._autoincrease_counter += 1
         return _SimulatorSGEExecutor._autoincrease_counter
