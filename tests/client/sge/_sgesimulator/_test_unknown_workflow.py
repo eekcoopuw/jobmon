@@ -1,5 +1,5 @@
 from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-from jobmon.client.execution.strategies._sgesimulator._sgesimulator import _SimulatorSGEExecutor
+from tests.client.sge._sgesimulator._sgesimulator import _SimulatorSGEExecutor
 
 
 class _TestUnknownWorkflow(UnknownWorkflow):

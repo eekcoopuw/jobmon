@@ -317,6 +317,7 @@ def qstat_hostname(jid: int) -> str:
 def transform_mem_to_gb(mem_str: any) -> float:
    # we allow both upper and lowercase g, m, t options
    # BUG g and G are not the same
+   # For g vs G, please refer to https://docs.ukcloud.com/articles/other/other-ref-gib.html
    if mem_str is None:
        return 2
    if type(mem_str) in (float, int):

@@ -130,7 +130,7 @@ class MockSchedulerProc:
 
 @pytest.mark.systemtest
 def test_instantiation(db_cfg, client_env):
-    from jobmon.client.execution.strategies._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import TaskInstanceScheduler
 
@@ -167,7 +167,7 @@ def test_instantiation(db_cfg, client_env):
 @pytest.mark.smoketest
 @pytest.mark.systemtest
 def test_workflow(db_cfg, client_env):
-    from jobmon.client.execution.strategies._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
     task = BashTask(command=f"{os.path.join(path_to_file, 'jmtest.sh')}",
                     executor_class="_SimulatorSGEExecutor",
                     name="test",
@@ -200,7 +200,7 @@ def test_workflow(db_cfg, client_env):
 @pytest.mark.smoketest
 @pytest.mark.systemtest
 def test_workflow_timeout(db_cfg, client_env):
-    from jobmon.client.execution.strategies._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
     task = BashTask(command="sleep 60",
                     executor_class="_SimulatorSGEExecutor",
                     name="test",
@@ -239,7 +239,7 @@ def test_workflow_timeout(db_cfg, client_env):
 @pytest.mark.smoketest
 @pytest.mark.systemtest
 def test_workflow_137(db_cfg, client_env):
-    from jobmon.client.execution.strategies._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
     task = BashTask(command="echo 137",
                     executor_class="_SimulatorSGEExecutor",
                     name="test",
