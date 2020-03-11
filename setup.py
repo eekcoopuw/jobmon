@@ -1,23 +1,5 @@
 import versioneer
-import os
-import sys
 from setuptools import setup
-
-
-here = os.path.abspath(os.path.dirname(__file__))
-package_dir = os.path.join(here, 'jobmon)')
-
-# Make package importable so wrappers can be generated before true installation
-sys.path.insert(0, package_dir)
-
-# Extend the build_py command to create wrappers, if autowrap is installed
-vcmds = versioneer.get_cmdclass()
-
-cmds = {}
-cmds['sdist'] = vcmds['sdist']
-cmds['version'] = vcmds['version']
-cmds['version'] = vcmds['build_py']
-
 
 install_requires = [
     'pandas',
@@ -26,7 +8,6 @@ install_requires = [
     'flask',
     'flask_cors',
     'Flask-SQLAlchemy',
-    'cluster_utils',
     'requests',
     'psutil',
     'tabulate',
@@ -35,7 +16,6 @@ install_requires = [
 
 setup(
     version=versioneer.get_version(),
-    cmdclass=cmds,
     name='jobmon',
     description=('A centralized logging and management utility for a batch of'
                  'SGE jobs'),
