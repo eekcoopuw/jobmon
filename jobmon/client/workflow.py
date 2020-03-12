@@ -192,12 +192,9 @@ class Workflow(object):
             resume: bool = ResumeStatus.DONT_RESUME,
             reset_running_jobs: bool = True,
             scheduler_response_wait_timeout=180):
-        logger.debug("******Enter run")
         if not hasattr(self, "_executor"):
-            logger.debug("************Enter if")
-            logger.warning("using default executor")
             self.set_executor()
-        logger.debug("*********executor: {}".format(self._executor))
+        logger.debug("executor: {}".format(self._executor))
         # bind to database
         self._bind(resume)
 
@@ -206,88 +203,62 @@ class Workflow(object):
 
         try:
             # start scheduler
-            logger.debug("1")
             scheduler_proc = self._start_task_instance_scheduler(
                 wfr.workflow_run_id, scheduler_response_wait_timeout)
             # execute the workflow run
-            logger.debug("2")
             wfr.execute_interruptible(scheduler_proc, fail_fast,
                                       seconds_until_timeout)
             # TODO: report
             return wfr
 
         except KeyboardInterrupt:
-            logger.debug("3")
             wfr.update_status(WorkflowRunStatus.STOPPED)
             # TODO: report
             return wfr
 
         except SchedulerNotAlive:
-            logger.debug("4")
             # check if we got an exception from the scheduler
             try:
                 resp = self._scheduler_com_queue.get(False)
-                logger.debug("5")
             except Empty:
-                logger.debug("6")
                 wfr.update_status(WorkflowRunStatus.ERROR)
-                logger.debug("7")
                 # no response. raise scheduler not alive
                 raise
             else:
                 # re-raise error from scheduler
-                logger.debug("8")
                 if isinstance(resp, ExceptionWrapper):
                     try:
-                        logger.debug("9")
                         resp.re_raise()
                     except ResumeSet:
                         # if the exception was a resume exception we set to
                         # terminate
-                        logger.debug("10")
                         wfr.terminate_workflow_run()
-                        logger.debug("11")
                         raise
                     except Exception:
-                        logger.debug("12")
                         wfr.update_status(WorkflowRunStatus.ERROR)
-                        logger.debug("13")
                         raise
                 else:
                     # response is not an exception
-                    logger.debug("14")
                     wfr.update_status(WorkflowRunStatus.ERROR)
-                    logger.debug("15")
                     raise
             finally:
-                logger.debug("16")
                 scheduler_proc.terminate()
-                logger.debug("17")
                 self._scheduler_proc = None
 
         except Exception:
-            logger.debug("18")
             wfr.update_status(WorkflowRunStatus.ERROR)
-            logger.debug("19")
             raise
 
         finally:
             # deal with task instance scheduler process if it was started
-            logger.debug("20")
             if self._scheduler_proc is not None:
-                logger.debug("21")
                 self._scheduler_stop_event.set()
-                logger.debug("22")
                 try:
                     # give it some time to shut down
-                    logger.debug("23")
                     self._scheduler_com_queue.get(
                         timeout=scheduler_response_wait_timeout)
-                    logger.debug("24")
                 except Empty:
-                    logger.debug("25")
                     pass
-                logger.debug("26")
                 self._scheduler_proc.terminate()
 
     def _bind(self, resume: bool = ResumeStatus.DONT_RESUME):

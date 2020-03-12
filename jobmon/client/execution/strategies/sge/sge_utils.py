@@ -5,7 +5,7 @@ import itertools
 import os
 import re
 import subprocess
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any
 import numpy as np
 
 from jobmon.client import ClientLogging as logging
@@ -314,7 +314,7 @@ def qstat_hostname(jid: int) -> str:
         return None
 
 
-def transform_mem_to_gb(mem_str: any) -> float:
+def transform_mem_to_gb(mem_str: Any) -> float:
    # we allow both upper and lowercase g, m, t options
    # BUG g and G are not the same
    # For g vs G, please refer to https://docs.ukcloud.com/articles/other/other-ref-gib.html
