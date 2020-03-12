@@ -872,7 +872,7 @@ def _transform_mem_to_gb(mem_str: any) -> float:
        mem = float(mem_str[:-2])
    else:
        mem = 1
-       return mem
+    return mem
 
 
 @jsm.route('/task/<task_id>/update_resources', methods=['POST'])
