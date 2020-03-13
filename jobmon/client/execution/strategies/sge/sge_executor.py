@@ -140,11 +140,6 @@ class SGEExecutor(Executor):
         a json-serialized dictionary
         """
 
-        dev_or_prod = False
-        # el6 means it's dev or prod
-        if "el6" in os.environ['SGE_ENV']:
-            dev_or_prod = True
-
         sge_add_args = ""
         if context_args:
             if 'sge_add_args' in context_args:
@@ -152,7 +147,7 @@ class SGEExecutor(Executor):
 
         if project:
             project_cmd = f"-P {project}"
-        elif not dev_or_prod and not project:
+        elif not project:
             project_cmd = "-P ihme_general"
         else:
             project_cmd = ""
@@ -170,30 +165,28 @@ class SGEExecutor(Executor):
             wd_cmd = f"-wd {working_dir}"
         else:
             wd_cmd = ""
-        if mem and not dev_or_prod:
+        if mem:
             mem_cmd = f"-l m_mem_free={mem}G"
         elif mem:
             mem_cmd = f"-l mem_free={mem}G"
         else:
             mem_cmd = ""
-        if cores and not dev_or_prod:
+        if cores:
             cpu_cmd = f"-l fthread={cores}"
         else:
             cpu_cmd = f"-pe multi_slot {cores}"
-        if j is True and not dev_or_prod:
+        if j is True:
             j_cmd = "-l archive=TRUE"
         else:
             j_cmd = ""
-        if queue and not dev_or_prod:
+        if queue:
             q_cmd = f"-q '{queue}'"
-        elif not dev_or_prod and queue is None:
+        else:
             # The 'new' cluster requires a queue name be passed
             # explicitly, so in the event the user does not supply one we just
             # fall back to all.q
             q_cmd = "-q all.q"
-        else:
-            q_cmd = ""
-        if runtime and not dev_or_prod:
+        if runtime:
             time_cmd = f"-l h_rt={runtime}"
         else:
             time_cmd = ""
