@@ -10,11 +10,10 @@ from typing import Dict, Set, List, Tuple
 from jobmon import __version__
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.requests.requester import Requester
 from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.exceptions import (CallableReturnedInvalidObject, InvalidResponse,
-                               WorkflowNotResumable, SchedulerNotAlive)
+from jobmon.exceptions import (InvalidResponse, WorkflowNotResumable,
+                               SchedulerNotAlive)
 from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.task_status import TaskStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
@@ -356,44 +355,16 @@ class WorkflowRun(object):
         task_id = swarm_task.task_id
         # Create original and validated entries if no params are bound yet
         if not swarm_task.bound_parameters:
-            self._bind_parameters(task_id, ExecutorParameterSetType.ORIGINAL,
-                                  swarm_task=swarm_task)
-            self._bind_parameters(task_id, ExecutorParameterSetType.VALIDATED,
-                                  swarm_task=swarm_task)
+            swarm_task.bind_executor_parameters(
+                ExecutorParameterSetType.ORIGINAL)
+            swarm_task.bind_executor_parameters(
+                ExecutorParameterSetType.VALIDATED)
         else:
-            self._bind_parameters(task_id, ExecutorParameterSetType.ADJUSTED,
-                                  swarm_task=swarm_task)
+            swarm_task.bind_executor_parameters(
+                ExecutorParameterSetType.ADJUSTED)
+
         logger.debug(f"Queueing task id: {task_id}")
         swarm_task.queue_task()
-
-    def _bind_parameters(self, task_id: int, executor_parameter_set_type: str,
-                         **kwargs) -> None:
-        swarm_task: SwarmTask = kwargs.get("swarm_task")
-        resources = swarm_task.executor_parameters(kwargs)
-        if not isinstance(resources, ExecutorParameters):
-            raise CallableReturnedInvalidObject(
-                "The function called to return resources did not return the "
-                "expected Executor Parameters object, it is of type "
-                f"{type(resources)}")
-        swarm_task.bound_parameters.append(resources)
-
-        if executor_parameter_set_type == ExecutorParameterSetType.VALIDATED:
-            resources.validate()
-        self._add_parameters(task_id, resources, executor_parameter_set_type)
-
-    def _add_parameters(self, task_id: int,
-                        executor_parameters: ExecutorParameters,
-                        parameter_set_type: str =
-                        ExecutorParameterSetType.VALIDATED) -> None:
-        """Add an entry for the validated parameters to the database and
-           activate them"""
-        msg = {'parameter_set_type': parameter_set_type}
-        msg.update(executor_parameters.to_wire())
-
-        self.requester.send_request(
-            app_route=f'/task/{task_id}/update_resources',
-            message=msg,
-            request_type='post')
 
     def _block_until_any_done_or_error(self, timeout: int = 36000,
                                        poll_interval: int = 10,
@@ -439,9 +410,9 @@ class WorkflowRun(object):
             # because this state change doesn't affect the fringe.
             if adjusting:
                 for swarm_task in adjusting:
-                    # change callable to adjustment function
-                    swarm_task.executor_parameters = partial(
-                        self.adjust_resources, swarm_tasks)
+                    # change callable to adjustment function.
+                    swarm_task.executor_parameters_callable = \
+                        swarm_task.adjust_resources
                     self._adjust_resources_and_queue(swarm_task)
 
             # exit if fringe is affected
@@ -500,28 +471,6 @@ class WorkflowRun(object):
         self.all_error -= completed_tasks
         self.all_error.update(failed_tasks)
         return completed_tasks, failed_tasks, adjusting_tasks
-
-    def adjust_resources(self, swarm_task: SwarmTask, *args, **kwargs
-                         ) -> ExecutorParameters:
-        """Function from Job Instance Factory that adjusts resources and then
-           queues them, this should also incorporate resource binding if they
-           have not yet been bound"""
-        logger.debug("Job in A state, adjusting resources before queueing")
-
-        # get the most recent parameter set
-        exec_param_set = swarm_task.bound_parameters[-1]
-        only_scale = list(exec_param_set.resource_scales.keys())
-        rc, msg = self.requester.send_request(
-            app_route=f'/task/{swarm_task.task_id}/most_recent_ti_error',
-            message={},
-            request_type='get')
-        if 'exceed_max_runtime' in msg and 'max_runtime_seconds' in only_scale:
-            only_scale = ['max_runtime_seconds']
-        logger.debug(f"Only going to scale the following resources: "
-                     f"{only_scale}")
-        resources_adjusted = {'only_scale': only_scale}
-        exec_param_set.adjust(**resources_adjusted)
-        return exec_param_set
 
     def _propagate_results(self, swarm_task: SwarmTask) -> List[SwarmTask]:
         """

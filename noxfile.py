@@ -18,7 +18,7 @@ def tests(session: Session) -> None:
     session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
     session.install("pytest", "pytest-xdist")
     session.install("-r", "requirements.txt")
-    session.install(".")
+    session.install("--upgrade", "--force-reinstall", ".")
     session.run("pytest", *args)
 
 

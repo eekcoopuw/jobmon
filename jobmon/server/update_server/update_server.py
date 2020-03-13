@@ -6,7 +6,7 @@ import socket
 from sqlalchemy.sql import func, text
 import sqlalchemy
 import traceback
-from typing import Optional
+from typing import Optional, Any
 
 from jobmon import config
 from jobmon.models import DB
@@ -847,9 +847,13 @@ def log_wfr_heartbeat(workflow_run_id: int):
     return resp
 
 
-def _transform_mem_to_gb(mem_str: str) -> float:
+def _transform_mem_to_gb(mem_str: Any) -> float:
     # we allow both upper and lowercase g, m, t options
     # BUG g and G are not the same
+    if mem_str is None:
+        return 2
+    if type(mem_str) in (float, int):
+        return mem_str
     if mem_str[-1].lower() == "m":
         mem = float(mem_str[:-1])
         mem /= 1000
