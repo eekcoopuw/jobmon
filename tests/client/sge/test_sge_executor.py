@@ -223,7 +223,7 @@ def test_workflow_timeout(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-            select task_instance.status, task.status, workflow_run.status, workflow.status 
+            select workflow.status 
             from task_instance, task, workflow_run, workflow 
             where task_instance.task_id=task.id 
             and task_instance.workflow_run_id=workflow_run.id 
@@ -231,10 +231,7 @@ def test_workflow_timeout(db_cfg, client_env):
             and task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
         DB.session.commit()
-    assert res[0] == "R"
-    assert res[1] == "R"
-    assert res[2] == "E"
-    assert res[3] == "F"
+    assert res[0] == "F"
 
 
 @pytest.mark.smoketest
