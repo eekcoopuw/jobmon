@@ -6,7 +6,6 @@ from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
 from jobmon.client.execution.strategies.sge.sge_executor import ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES as ecir
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.task_instance_status import TaskInstanceStatus
-from jobmon.client.templates.bash_task import BashTask
 
 path_to_file = os.path.dirname(__file__)
 
@@ -168,6 +167,7 @@ def test_instantiation(db_cfg, client_env):
 @pytest.mark.systemtest
 def test_workflow(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from jobmon.client.api import BashTask
     task = BashTask(command=f"{os.path.join(path_to_file, 'jmtest.sh')}",
                     executor_class="_SimulatorSGEExecutor",
                     name="test",
@@ -201,6 +201,7 @@ def test_workflow(db_cfg, client_env):
 @pytest.mark.systemtest
 def test_workflow_timeout(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from jobmon.client.api import BashTask
     task = BashTask(command="sleep 60",
                     executor_class="_SimulatorSGEExecutor",
                     name="test",
@@ -240,6 +241,7 @@ def test_workflow_timeout(db_cfg, client_env):
 @pytest.mark.systemtest
 def test_workflow_137(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from jobmon.client.api import BashTask
     task = BashTask(command="echo 137",
                     executor_class="_SimulatorSGEExecutor",
                     name="test",
@@ -328,9 +330,10 @@ def test_sge_workflow_three_tasks(db_cfg, client_env):
 @pytest.mark.integration_sge
 def test_sge_workflow_timeout(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-    task = BashTask(command="sleep 60",
+    from jobmon.client.api import BashTask
+    task = BashTask(command="sleep 120",
                     executor_class="SGEExecutor",
-                    name="test",
+                    name="test_timeout",
                     num_cores=1,
                     max_runtime_seconds=10,
                     m_mem_free='1G',

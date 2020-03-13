@@ -64,7 +64,7 @@ class _SimulatorSGEExecutor(SGEExecutor):
              patch("jobmon.client.execution.worker_node.execution_wrapper._run_in_sub_process") as m_run_in_sub_p:
             m_get_executor_c.return_value = "_SimulatorSGEExecutor", _SimulatorTaskInstanceSGEInfo()
             # sleep for one minute to test timeout
-            def _immidiate_return(*args):
+            def _immediate_return(*args):
                 return Queue(), 0
             def _delay_return(*args):
                 sleep(60)
@@ -76,7 +76,7 @@ class _SimulatorSGEExecutor(SGEExecutor):
             elif "137" in command:
                 m_run_in_sub_p.side_effect = _error_return137()
             else:
-                m_run_in_sub_p.side_effect = _immidiate_return
+                m_run_in_sub_p.side_effect = _immediate_return
             unwrap(**parse_arguments(command))
             _SimulatorSGEExecutor._autoincrease_counter += 1
         return _SimulatorSGEExecutor._autoincrease_counter

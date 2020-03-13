@@ -848,7 +848,6 @@ def log_wfr_heartbeat(workflow_run_id: int):
 
 
 def _transform_mem_to_gb(mem_str: Any) -> float:
-<<<<<<< HEAD
    # we allow both upper and lowercase g, m, t options
    # BUG g and G are not the same
    if mem_str is None:
@@ -874,33 +873,6 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
    else:
        mem = 1
    return mem
-=======
-    # we allow both upper and lowercase g, m, t options
-    # BUG g and G are not the same
-    if mem_str is None:
-        return 2
-    if type(mem_str) in (float, int):
-        return mem_str
-    if mem_str[-1].lower() == "m":
-        mem = float(mem_str[:-1])
-        mem /= 1000
-    elif mem_str[-2:].lower() == "mb":
-        mem = float(mem_str[:-2])
-        mem /= 1000
-    elif mem_str[-1].lower() == "t":
-        mem = float(mem_str[:-1])
-        mem *= 1000
-    elif mem_str[-2:].lower() == "tb":
-        mem = float(mem_str[:-2])
-        mem *= 1000
-    elif mem_str[-1].lower() == "g":
-        mem = float(mem_str[:-1])
-    elif mem_str[-2:].lower() == "gb":
-        mem = float(mem_str[:-2])
-    else:
-        mem = 1
-        return mem
->>>>>>> 4e4420f0685b7ef04ad1c4d3b6966654c697cf2b
 
 
 @jsm.route('/task/<task_id>/update_resources', methods=['POST'])
