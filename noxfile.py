@@ -55,5 +55,5 @@ def docs(session: Session) -> None:
 
 @nox.session(python="3.7", venv_backend="conda")
 def build(session: Session) -> None:
-    """Build the distribution."""
     session.run("python", "setup.py", "sdist")
+

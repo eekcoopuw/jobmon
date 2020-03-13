@@ -35,8 +35,11 @@ class SGEExecutor(Executor):
         try:
             logger.debug(f"Qsub command is: {qsub_cmd}")
             resp = check_output(qsub_cmd, shell=True, universal_newlines=True)
+<<<<<<< HEAD
             from jobmon.client.execution.worker_node.execution_wrapper import (
                 unwrap, parse_arguments)
+=======
+>>>>>>> 4e4420f0685b7ef04ad1c4d3b6966654c697cf2b
 
             if 'job' in resp:
                 idx = resp.split().index('job')

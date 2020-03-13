@@ -90,43 +90,6 @@ def test_resource_scale(input, expect):
     assert resource.resource_scales["max_runtime_seconds"] == expect
 
 
-@pytest.mark.systemtest
-def test_memory_runtime_adjusted():
-    task = BashTask(command=f"{os.path.join(thisdir, 'jmtest.sh')}",
-                    executor_class="SGEExecutor",
-                    name="Task parameter test",
-                    max_runtime_seconds=2382402,
-                    m_mem_free='1T',
-                    max_attempts=1,
-                    j_resource=True,
-                    queue="all.q")
-    resource = task.executor_parameters()
-    resource.validate()
-    assert resource.m_mem_free == 750
-    assert resource.num_cores == 1
-    assert resource.queue == "long.q"
-    assert resource.max_runtime_seconds == 1382400
-
-
-@pytest.mark.smoketest
-@pytest.mark.systemtest
-def test_default_allq():
-    task = BashTask(command=f"{os.path.join(thisdir, 'jmtest.sh')}",
-                    executor_class="SGEExecutor",
-                    name="Task parameter test",
-                    num_cores=2,
-                    max_runtime_seconds=120,
-                    m_mem_free='1M',
-                    max_attempts=1,
-                    j_resource=True)
-    resource = task.executor_parameters()
-    resource.validate()
-    assert resource.m_mem_free == 0.128
-    assert resource.num_cores == 2
-    assert resource.queue == "all.q"
-    assert resource.max_runtime_seconds == 120
-
-
 
 
 
