@@ -312,32 +312,3 @@ def qstat_hostname(jid: int) -> str:
         # In case the command execution failed, log error and return -1
         logger.error(str(e))
         return None
-
-
-def transform_mem_to_gb(mem_str: Any) -> float:
-   # we allow both upper and lowercase g, m, t options
-   # BUG g and G are not the same
-   # For g vs G, please refer to https://docs.ukcloud.com/articles/other/other-ref-gib.html
-   if mem_str is None:
-       return 2
-   if type(mem_str) in (float, int):
-       return mem_str
-   if mem_str[-1].lower() == "m":
-       mem = float(mem_str[:-1])
-       mem /= 1000
-   elif mem_str[-2:].lower() == "mb":
-       mem = float(mem_str[:-2])
-       mem /= 1000
-   elif mem_str[-1].lower() == "t":
-       mem = float(mem_str[:-1])
-       mem *= 1000
-   elif mem_str[-2:].lower() == "tb":
-       mem = float(mem_str[:-2])
-       mem *= 1000
-   elif mem_str[-1].lower() == "g":
-       mem = float(mem_str[:-1])
-   elif mem_str[-2:].lower() == "gb":
-       mem = float(mem_str[:-2])
-   else:
-       mem = 1
-       return mem
