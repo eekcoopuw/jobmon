@@ -192,11 +192,9 @@ class Workflow(object):
             resume: bool = ResumeStatus.DONT_RESUME,
             reset_running_jobs: bool = True,
             scheduler_response_wait_timeout=180):
-
         if not hasattr(self, "_executor"):
-            logger.warning("using default executor")
             self.set_executor()
-
+        logger.debug("executor: {}".format(self._executor))
         # bind to database
         self._bind(resume)
 

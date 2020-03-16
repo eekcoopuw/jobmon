@@ -35,7 +35,6 @@ class SGEExecutor(Executor):
         try:
             logger.debug(f"Qsub command is: {qsub_cmd}")
             resp = check_output(qsub_cmd, shell=True, universal_newlines=True)
-            logger.debug(f"****** Received from qsub '{resp}'")
             if 'job' in resp:
                 idx = resp.split().index('job')
                 sge_jid = int(resp.split()[idx + 1])
@@ -258,3 +257,6 @@ class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
             return TaskInstanceStatus.UNKNOWN_ERROR, msg
         else:
             return TaskInstanceStatus.ERROR, error_msg
+
+
+

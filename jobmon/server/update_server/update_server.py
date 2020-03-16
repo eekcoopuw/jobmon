@@ -899,10 +899,6 @@ def update_task_resources(task_id: int):
     logger.debug(logging.logParameter("task_id", task_id))
 
     data = request.get_json()
-    if data.get("m_mem_free") is None:
-        m_mem_free = "2g"
-    else:
-        m_mem_free = data.get("m_mem_free")
     parameter_set_type = data["parameter_set_type"]
 
     try:
@@ -919,7 +915,7 @@ def update_task_resources(task_id: int):
         context_args=data.get('context_args', None),
         queue=data.get('queue', None),
         num_cores=data.get('num_cores', None),
-        m_mem_free=_transform_mem_to_gb(m_mem_free),
+        m_mem_free=_transform_mem_to_gb(data.get("m_mem_free")),
         j_resource=data.get('j_resource', False),
         resource_scales=data.get('resource_scales', None),
         hard_limits=data.get('hard_limits', False))
