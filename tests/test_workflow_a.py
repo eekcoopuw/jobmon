@@ -90,24 +90,6 @@ def test_wfargs_update(db_cfg, env_var):
 
 
 @pytest.mark.qsubs_jobs
-def test_resource_arguments(db_cfg, env_var):
-    """
-    Test the parsing/serialization max run time and cores.
-    90,000 seconds is deliberately longer than one day, testing a specific
-    bug"""
-    teardown_db(db_cfg)
-    t1 = BashTask("sleep 10",
-                  queue='all.q',
-                  max_runtime_seconds=90_000,
-                  num_cores=2)
-    wf = Workflow("test_resource_arguments-{}".format(uuid.uuid4()))
-    wf.add_tasks([t1])
-    return_code = wf.execute()
-    assert return_code == DagExecutionStatus.SUCCEEDED
-    teardown_db(db_cfg)
-
-
-@pytest.mark.qsubs_jobs
 def test_stop_resume(db_cfg, simple_workflow, tmpdir):
     # Manually modify the database so that some mid-dag jobs appear in
     # a running / non-complete / non-error state

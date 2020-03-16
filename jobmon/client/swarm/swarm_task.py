@@ -4,10 +4,16 @@ from http import HTTPStatus as StatusCodes
 from typing import Callable, Set, Dict, Optional, List
 
 from jobmon.client import shared_requester
+from jobmon.client import ClientLogging as logging
+from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.requests.requester import Requester
-from jobmon.exceptions import InvalidResponse
+from jobmon.exceptions import InvalidResponse, CallableReturnedInvalidObject
 from jobmon.serializers import SerializeSwarmTask
 from jobmon.models.task_status import TaskStatus
+from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
+
+
+logger = logging.getLogger(__name__)
 
 
 class SwarmTask(object):
@@ -34,7 +40,7 @@ class SwarmTask(object):
         self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
-        self.executor_parameters = executor_parameters
+        self.executor_parameters_callable = executor_parameters
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
 
@@ -73,15 +79,9 @@ class SwarmTask(object):
         """Return a list of upstream tasks"""
         return list(self.upstream_swarm_tasks)
 
-    # def update_task(self, max_attempts: int):
-    #     self.max_attempts = max_attempts
-
-    #     msg = {'max_attempts': max_attempts}
-    #     self.requester.send_request(
-    #         app_route=f'/task/{self.task_id}/update_task',
-    #         message=msg,
-    #         request_type='post'
-    #     )
+    def get_executor_parameters(self):
+        """return an instance of executor parameters"""
+        return self.executor_parameters_callable(self)
 
     def queue_task(self) -> int:
         """Transition a task to the Queued for Instantiation status in the db
@@ -94,6 +94,70 @@ class SwarmTask(object):
             raise InvalidResponse(f"{rc}: Could not queue task")
         self.status = TaskStatus.QUEUED_FOR_INSTANTIATION
         return rc
+
+    @staticmethod
+    def adjust_resources(self) -> ExecutorParameters:
+        """Function from Job Instance Factory that adjusts resources and then
+           queues them, this should also incorporate resource binding if they
+           have not yet been bound"""
+        logger.debug("Job in A state, adjusting resources before queueing")
+
+        # get the most recent parameter set
+        exec_param_set = self.bound_parameters[-1]
+        only_scale = list(exec_param_set.resource_scales.keys())
+
+        app_route = f'/task/{self.task_id}/most_recent_ti_error'
+        return_code, response = self.requester.send_request(
+            app_route=f'/task/{self.task_id}/most_recent_ti_error',
+            message={},
+            request_type='get')
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
+
+        # check if we are only scaling runtime.
+        # TODO: this logic should be in ExecutorParameters.adjust since it is
+        # SGE specific
+        if ('max_runtime' in response and 'max_runtime_seconds' in only_scale):
+            only_scale = ['max_runtime_seconds']
+        logger.debug(
+            f"Only going to scale the following resources: {only_scale}")
+        resources_adjusted = {'only_scale': only_scale}
+        exec_param_set.adjust(**resources_adjusted)
+        return exec_param_set
+
+    def bind_executor_parameters(self, executor_parameter_set_type: str
+                                 ) -> None:
+        """bind executor parameters to db"""
+
+        # evaluate callable and validate it is the right type of object
+        executor_parameters = self.get_executor_parameters()
+        if not isinstance(executor_parameters, ExecutorParameters):
+            raise CallableReturnedInvalidObject(
+                "The function called to return executor_parameters did not "
+                "return the expected ExecutorParameters object, it is of type"
+                f"{type(executor_parameters)}")
+        self.bound_parameters.append(executor_parameters)
+
+        # validate the values
+        if executor_parameter_set_type == ExecutorParameterSetType.VALIDATED:
+            executor_parameters.validate()
+
+        # bind to db
+        app_route = f'/task/{self.task_id}/update_resources'
+        msg = {'parameter_set_type': executor_parameter_set_type}
+        msg.update(executor_parameters.to_wire())
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message=msg,
+            request_type='post')
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
 
     def __hash__(self):
         return self.task_id
