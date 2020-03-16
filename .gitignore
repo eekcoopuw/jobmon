@@ -13,13 +13,15 @@ __pycache__
 # Python egg metadata, regenerated from source files by setuptools.
 /*.egg-info
 /*.egg
+/build
+/dist
 
-# ignore cache
-.cache
+# ignore cache directories
+.pytest_cache
+.mypy_cache
 
 # Ignore build artifacts
-/build
-/docbuild
+/docsource/_build
 
 .idea
 
@@ -31,8 +33,8 @@ htmlcov
 ._*
 .DS_Store
 
-# Ignore secrets file
-jobmonrc-docker-wsecrets
-
 # Ignore pytest cache files
 .pytest_*
+
+# ignore nox envs
+.nox/
