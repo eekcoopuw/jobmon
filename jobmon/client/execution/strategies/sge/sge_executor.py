@@ -29,14 +29,12 @@ class SGEExecutor(Executor):
         self.stdout = stdout
         self.project = project
         self.working_dir = working_dir
-
         super().__init__(*args, **kwargs)
 
     def _execute_sge(self, qsub_cmd) -> int:
         try:
             logger.debug(f"Qsub command is: {qsub_cmd}")
             resp = check_output(qsub_cmd, shell=True, universal_newlines=True)
-            logger.debug(f"****** Received from qsub '{resp}'")
             if 'job' in resp:
                 idx = resp.split().index('job')
                 sge_jid = int(resp.split()[idx + 1])
@@ -66,7 +64,7 @@ class SGEExecutor(Executor):
         qsub_command = self._build_qsub_command(
             base_cmd=self.jobmon_command + " " + command,
             name=name,
-            mem=sge_utils.transform_mem_to_gb(executor_parameters.m_mem_free),
+            mem=executor_parameters.m_mem_free,
             cores=executor_parameters.num_cores,
             queue=executor_parameters.queue,
             runtime=executor_parameters.max_runtime_seconds,
@@ -259,3 +257,6 @@ class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
             return TaskInstanceStatus.UNKNOWN_ERROR, msg
         else:
             return TaskInstanceStatus.ERROR, error_msg
+
+
+

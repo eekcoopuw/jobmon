@@ -5,7 +5,6 @@ import pytest
 
 from jobmon.client.execution.strategies.sge import sge_utils as sge
 from jobmon.client.execution.strategies.sge.sge_parameters import SGEParameters
-from jobmon.client.templates.bash_task import BashTask
 from jobmon.client.templates.python_task import PythonTask
 from jobmon.models.task import Task
 

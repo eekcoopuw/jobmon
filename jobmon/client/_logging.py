@@ -36,7 +36,8 @@ class ClientLogging():
     DEBUG: int = logging.DEBUG
     NOTSET: int = logging.NOTSET
 
-    _format: str = '%(tag)s: %(asctime)s %(username)s [%(hostname)s] [%(name)-12s] %(levelname)-8s %(threadName)s: %(message)s'
+    _format: str = '%(tag)s: %(asctime)s %(username)s [%(hostname)s]'  + str(config.jobmon_version) + \
+                   '[%(name)-12s] %(levelname)-8s %(threadName)s: %(message)s'
     _logLevel: int = WARNING
     _syslogLevel: int = INFO
     _syslogAttached: bool = config.use_rsyslog
