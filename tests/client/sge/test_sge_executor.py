@@ -278,10 +278,10 @@ def test_workflow_137(db_cfg, client_env):
 
 
 @pytest.mark.integration_sge
-def test_sge_workflow_one_tasks(db_cfg, client_env):
+def test_sge_workflow_one_task(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    workflow = UnknownWorkflow("test_three_linear_tasks",
+    workflow = UnknownWorkflow("test_one_task",
                                executor_class="SGEExecutor")
     task_a = BashTask(
         "echo a", executor_class="SGEExecutor",
@@ -328,7 +328,7 @@ def test_sge_workflow_three_tasks(db_cfg, client_env):
 def test_sge_workflow_timeout(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.api import BashTask
-    task = BashTask(command="sleep 61",
+    task = BashTask(command="sleep 20",
                     executor_class="SGEExecutor",
                     name="test_timeout",
                     num_cores=1,
@@ -364,7 +364,7 @@ def test_sge_workflow_timeout(db_cfg, client_env):
 def test_reconciler_sge_new_heartbeats(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.api import BashTask
-    task = BashTask(command="sleep 62",
+    task = BashTask(command="sleep 10",
                     executor_class="SGEExecutor",
                     name="test_hearbeats",
                     num_cores=1,
@@ -377,8 +377,7 @@ def test_reconciler_sge_new_heartbeats(db_cfg, client_env):
     resource.validate()
     workflow = Workflow("test", project='proj_scicomp', executor_class="SGEExecutor", seconds_until_timeout=70)
     workflow.add_tasks([task])
-    with pytest.raises(RuntimeError):
-        workflow.run()
+    workflow.run()
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
