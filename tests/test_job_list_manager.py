@@ -156,45 +156,6 @@ def sequential_scheduler_process_jlm(real_jsm_jqs, monkeypatch, db_cfg,
     p1.terminate()
 
 
-def test_sync(sequential_scheduler_jlm):
-    scheduler, jlm = sequential_scheduler_jlm
-    now = jlm.last_sync
-=======
-def test_sync(db_cfg, jlm_sge_no_daemon):
-    teardown_db(db_cfg)
-    now = jlm_sge_no_daemon.last_sync
->>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
-    assert now is not None
-
-    # This job will intentionally fail
-    job = jlm.bind_task(
-        Task(command='fizzbuzz', name='bar',
-<<<<<<< HEAD
-             executor_class="SequentialExecutor"))
-=======
-             m_mem_free='1G',
-             max_runtime_seconds=1000,
-             num_cores=1))
->>>>>>> d8544f7b2444c25a98a75878093647681596e6bb
-    # create job instances
-    jlm.adjust_resources_and_queue(job)
-    jid = scheduler.instantiate_queued_jobs()
-    assert jid
-
-    # with a new job failed, make sure that the sync has been updated and the
-    # call with the sync filter actually returns jobs. must wait at least 1
-    # second for the times to be different
-    time.sleep(1)
-    jlm._sync()
-    new_now = jlm.last_sync
-    assert new_now > now
-<<<<<<< HEAD
-    assert len(jlm.all_error) > 0
-=======
-    assert len(jlm_sge_no_daemon.all_error) > 0
-    teardown_db(db_cfg)
-
-
 def test_invalid_command(job_list_manager):
     job = job_list_manager.bind_task(Task(command='foo', name='bar',
                                           num_cores=1))
@@ -242,22 +203,6 @@ def test_valid_command(sequential_scheduler_jlm):
     scheduler.instantiate_queued_jobs()
     jlm._sync()
     assert len(jlm.all_done) > 0
-
-
-def test_blocking_update_timeout(client_env, real_dag_id):
-    jlm = JobListManager(real_dag_id)
-    job = jlm.bind_task(
-        Task(command="sleep 3", name="foobarbaz",
-             executor_class="SequentialExecutor"))
-    jlm.adjust_resources_and_queue(job)
-
-    with pytest.raises(RuntimeError) as error:
-        jlm.block_until_any_done_or_error(timeout=2)
-
-    expected_msg = ("Not all tasks completed within the given workflow "
-                    "timeout length (2 seconds). Submitted tasks will still"
-                    " run, but the workflow will need to be restarted.")
-    assert expected_msg == str(error.value)
 
 
 def test_sge_valid_command(jlm_sge_no_daemon):

@@ -463,29 +463,48 @@ def get_task_by_status_only(workflow_id: int):
         swarm_tasks_tuples = [(int(task_id), str(status))
                               for task_id, status in swarm_tasks_tuples]
         # Sample swarm_tasks_tuples: [(1, 'I')]
-        swarm_task_ids = [int(task_id[0]) for task_id in swarm_tasks_tuples]
-        t_swarm_task_ids = "(" + str(swarm_task_ids)[1:-1] + ")"
-        t_swarm_tasks_tuples = ("(" + str([str(i) + str(j) for i, j in swarm_tasks_tuples])[1:-1] + ")")\
-            .replace("'", "\"")
-        logger.warning("****************************************")
-        logger.info(t_swarm_tasks_tuples)
-        query = f"SELECT task.id, task.status " \
-                f"FROM task " \
-                f"WHERE workflow_id = {workflow_id} " \
-                f"AND ((task.id IN {t_swarm_task_ids} " \
-                f"AND concat(task.id, task.status) NOT IN {t_swarm_tasks_tuples}) " \
-                f"OR status_date >= \"{last_sync}\")"
+        swarm_task_ids = ",".join(
+            [str(task_id[0]) for task_id in swarm_tasks_tuples])
+        swarm_tasks_tuples = [(int(task_id), str(status))
+                              for task_id, status in swarm_tasks_tuples]
+
+        query_swarm_tasks_tuples = ""
+        for task_id, status in swarm_tasks_tuples:
+            query_swarm_tasks_tuples += f"({task_id},'{status}'),"
+        # get rid of trailing comma on final line
+        query_swarm_tasks_tuples = query_swarm_tasks_tuples[:-1]
+
+        query = """
+            SELECT
+                task.id, task.status
+            FROM task
+            WHERE
+                workflow_id = {workflow_id}
+                AND (
+                    (
+                        task.id IN ({swarm_task_ids})
+                        AND (task.id, status) NOT IN ({tuples}))
+                    OR status_date >= '{status_date}')
+        """.format(workflow_id=workflow_id,
+                   swarm_task_ids=swarm_task_ids,
+                   tuples=query_swarm_tasks_tuples,
+                   status_date=last_sync)
         logger.debug(query)
-        rows = DB.session.execute(query).fetchall()
+        rows = DB.session.query(Task).from_statement(text(query)).all()
     else:
-        query = f"SELECT task.id, task.status " \
-                f"FROM task " \
-                f"WHERE workflow_id = {workflow_id} " \
-                f"AND status_date >= \"{last_sync}\""
-        logger.debug(query)
-        rows = DB.session.execute(query).fetchall()
+        query = """
+            SELECT
+                task.id, task.status
+            FROM task
+            WHERE
+                workflow_id = :workflow_id
+                AND status_date >= :last_sync"""
+        rows = DB.session.query(Task).from_statement(
+            text(query)).params(workflow_id=workflow_id,
+                                last_sync=str(last_sync)).all()
+
     DB.session.commit()
-    task_dcts = [(i, j) for i, j in rows]
+    task_dcts = [row.to_wire_as_swarm_task() for row in rows]
     logger.info("task_dcts={}".format(task_dcts))
     resp = jsonify(task_dcts=task_dcts, time=str_time)
     resp.status_code = StatusCodes.OK

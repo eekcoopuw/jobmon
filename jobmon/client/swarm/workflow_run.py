@@ -1,6 +1,4 @@
-from builtins import str
 import copy
-from functools import partial
 import getpass
 from http import HTTPStatus as StatusCodes
 from multiprocessing import Process
@@ -294,7 +292,8 @@ class WorkflowRun(object):
             # TBD timeout?
             # An exception is raised if the runtime exceeds the timeout limit
             completed, failed = self._block_until_any_done_or_error(
-                timeout=seconds_until_timeout)
+                timeout=seconds_until_timeout,
+                wedged_workflow_sync_interval=wedged_workflow_sync_interval)
             for swarm_task in completed:
                 n_executions += 1
             if failed and fail_fast:
