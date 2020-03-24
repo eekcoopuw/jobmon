@@ -96,12 +96,12 @@ def test_build_qsub_command():
                                               runtime=10000,
                                               j=False,
                                               context_args={},
-                                              stderr="/ihme",
-                                              stdout="/ihme/homes",
+                                              stderr="~",
+                                              stdout="~",
                                               project="proj_test",
                                               working_dir="/working_dir")
         assert "qsub -wd /working_dir -N test -q \'long.q\' -l fthread=4  -l m_mem_free=4G -l h_rt=10000 -P " \
-               "proj_test -e /ihme -o /ihme/homes  -V" in r
+               "proj_test -e ~ -o ~  -V" in r
         assert "\"date\"" in r
         # context_args
         with patch("cluster_utils.io.makedirs_safely") as m_makedirs_safely:
@@ -114,12 +114,12 @@ def test_build_qsub_command():
                                                   runtime=10,
                                                   j=True,
                                                   context_args={"sge_add_args": "whatever"},
-                                                  stderr="/ihme",
-                                                  stdout="/ihme/homes",
+                                                  stderr="~",
+                                                  stdout="~",
                                                   project="proj_test",
                                                   working_dir="/working_dir")
             assert "qsub -wd /working_dir -N test -q \'i.q\' -l fthread=1 -l archive=TRUE -l m_mem_free=40G -l h_rt=10 -P proj_test " \
-                   "-e /ihme -o /ihme/homes whatever -V" in r
+                   "-e ~ -o ~ whatever -V" in r
             assert "\"date\"" in r
 
 
@@ -223,11 +223,11 @@ def test_workflow_timeout(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-            select workflow.status 
-            from task_instance, task, workflow_run, workflow 
-            where task_instance.task_id=task.id 
-            and task_instance.workflow_run_id=workflow_run.id 
-            and workflow_run.workflow_id=workflow.id 
+            select workflow.status
+            from task_instance, task, workflow_run, workflow
+            where task_instance.task_id=task.id
+            and task_instance.workflow_run_id=workflow_run.id
+            and workflow_run.workflow_id=workflow.id
             and task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
         DB.session.commit()
@@ -259,11 +259,11 @@ def test_workflow_137(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-            select task_instance.status, task.status, workflow_run.status, workflow.status 
-            from task_instance, task, workflow_run, workflow 
-            where task_instance.task_id=task.id 
-            and task_instance.workflow_run_id=workflow_run.id 
-            and workflow_run.workflow_id=workflow.id 
+            select task_instance.status, task.status, workflow_run.status, workflow.status
+            from task_instance, task, workflow_run, workflow
+            where task_instance.task_id=task.id
+            and task_instance.workflow_run_id=workflow_run.id
+            and workflow_run.workflow_id=workflow.id
             and task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
         DB.session.commit()
@@ -349,11 +349,11 @@ def test_sge_workflow_timeout(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-            select workflow.status 
-            from task_instance, task, workflow_run, workflow 
-            where task_instance.task_id=task.id 
-            and task_instance.workflow_run_id=workflow_run.id 
-            and workflow_run.workflow_id=workflow.id 
+            select workflow.status
+            from task_instance, task, workflow_run, workflow
+            where task_instance.task_id=task.id
+            and task_instance.workflow_run_id=workflow_run.id
+            and workflow_run.workflow_id=workflow.id
             and task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
         DB.session.commit()

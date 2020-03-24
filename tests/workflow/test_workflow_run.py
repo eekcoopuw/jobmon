@@ -16,6 +16,9 @@ class MockSchedulerProc:
 
 
 def test_blocking_update_timeout(client_env):
+    """This test runs a 1 task workflow and confirms that the workflow_run
+    execution will timeout with an appropriate error message if timeout is set
+    """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 
@@ -38,6 +41,9 @@ def test_blocking_update_timeout(client_env):
 
 
 def test_sync(client_env):
+    """this test executes a single task workflow where the task fails. It
+    is testing to confirm that the status updates are propagated into the
+    swarm objects"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
@@ -94,6 +100,7 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
         def execute(self, command: str, name: str, executor_parameters) -> int:
             logger.warning("Now entering MockDummy execute")
             kwargs = parse_arguments(command)
+
             if kwargs["task_instance_id"] == self.wedged_task_id:
                 logger.info("task instance is 1, entering first if statement")
                 task_inst_query = """

@@ -1,19 +1,23 @@
 import pytest
 
+from jobmon.exceptions import WorkflowAlreadyComplete
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 
-@pytest.mark.qsubs_jobs
+
 def test_wfargs_update(client_env, db_cfg):
+    """test that 2 workflows with different names, have different ids and tasks
+    """
     from jobmon.client.templates.bash_task import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
 
     # Create identical dags
-    t1 = BashTask("sleep 1", num_cores=1)
-    t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
-    t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    t3 = BashTask("sleep 3", upstream_tasks=[t2])
 
-    t4 = BashTask("sleep 1", num_cores=1)
-    t5 = BashTask("sleep 2", upstream_tasks=[t4], num_cores=1)
-    t6 = BashTask("sleep 3", upstream_tasks=[t5], num_cores=1)
+    t4 = BashTask("sleep 1")
+    t5 = BashTask("sleep 2", upstream_tasks=[t4])
+    t6 = BashTask("sleep 3", upstream_tasks=[t5])
 
     wfa1 = "v1"
     wf1 = UnknownWorkflow(wfa1)
@@ -38,64 +42,55 @@ def test_wfargs_update(client_env, db_cfg):
                 set([t.task_id for _, t in wf2.tasks.items()]))
 
 
-# @pytest.mark.qsubs_jobs
-# def test_attempt_resume_on_complete_workflow(simple_workflow):
-#     """Should not allow a resume, but should prompt user to create a new
-#     workflow by modifying the WorkflowArgs (e.g. new version #)
-#     """
-#     # Re-create the dag "from scratch" (copy simple_workflow fixture)
-#     t1 = BashTask("sleep 1", num_cores=1)
-#     t2 = BashTask("sleep 2", upstream_tasks=[t1], num_cores=1)
-#     t3 = BashTask("sleep 3", upstream_tasks=[t2], num_cores=1)
+def test_attempt_resume_on_complete_workflow(client_env, db_cfg):
+    """Should not allow a resume, but should prompt user to create a new
+    workflow by modifying the WorkflowArgs (e.g. new version #)
+    """
+    from jobmon.client.templates.bash_task import BashTask
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
 
-#     wfa = "my_simple_dag"
-#     workflow = Workflow(wfa, resume=ResumeStatus.RESUME)
-#     workflow.add_tasks([t1, t2, t3])
+    # initial workflow should run to completion
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+    wf_args = "my_simple_workflow"
+    workflow1 = UnknownWorkflow(wf_args, name="attempt_resume_on_completed",
+                                executor_class="SequentialExecutor")
+    workflow1.add_tasks([t1, t2])
 
-#     with pytest.raises(WorkflowAlreadyComplete):
-#         workflow.execute()
+    # bind workflow to db and move to done state
+    workflow1._bind()
+    wfr = workflow1._create_workflow_run()
+    wfr.update_status(WorkflowRunStatus.RUNNING)
+    wfr.update_status(WorkflowRunStatus.DONE)
+
+    # second workflow shouldn't be able to start
+    t1 = BashTask("sleep 1")
+    t2 = BashTask("sleep 2", upstream_tasks=[t1])
+
+    workflow2 = UnknownWorkflow(wf_args, name="attempt_resume_on_completed",
+                                executor_class="SequentialExecutor")
+    workflow2.add_tasks([t1, t2])
+    # workflow2.set_executor(SequentialExecutor())
+    with pytest.raises(WorkflowAlreadyComplete):
+        workflow2.run()
 
 
 def test_workflow_identical_args(client_env, db_cfg):
+    """test that 2 workflows with identical arguments can't exist
+    simultaneously"""
     from jobmon.client.templates.bash_task import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.exceptions import WorkflowAlreadyExists
 
     # first workflow runs and finishes
-    wf1 = UnknownWorkflow(workflow_args="same", project='proj_tools')
-    task = BashTask("sleep 2", num_cores=1)
+    wf1 = UnknownWorkflow(workflow_args="same")
+    task = BashTask("sleep 2")
     wf1.add_task(task)
     wf1._bind(False)
 
     # tries to create an identical workflow without the restart flag
-    wf2 = UnknownWorkflow(workflow_args="same", project='proj_tools')
-    task = BashTask("sleep 2", num_cores=1)
+    wf2 = UnknownWorkflow(workflow_args="same")
+    task = BashTask("sleep 2")
     wf2.add_task(task)
     with pytest.raises(WorkflowAlreadyExists):
         wf2.run()
-
-    # creates a workflow, okayed to restart, but original workflow is done
-    # wf1.execute()
-
-    # wf3 = Workflow(workflow_args="same", project='proj_tools',
-    #                resume=ResumeStatus.RESUME)
-    # wf3.add_task(task)
-    # with pytest.raises(WorkflowAlreadyComplete):
-    #     wf3.execute()
-
-
-# def test_same_wf_args_diff_dag(env_var, db_cfg):
-#     wf1 = Workflow(workflow_args="same", project='proj_tools')
-#     task1 = BashTask("sleep 2", num_cores=1)
-#     wf1.add_task(task1)
-
-#     wf2 = Workflow(workflow_args="same", project='proj_tools')
-#     task2 = BashTask("sleep 3", num_cores=1)
-#     wf2.add_task(task2)
-
-#     exit_status = wf1.execute()
-
-#     assert exit_status == 0
-
-#     with pytest.raises(WorkflowAlreadyExists):
-#         wf2.run()

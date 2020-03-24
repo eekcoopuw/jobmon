@@ -1,3 +1,5 @@
+import pytest
+
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.models.task_instance import TaskInstance
 
@@ -5,7 +7,9 @@ from jobmon.models.task_instance import TaskInstance
 from sqlalchemy.sql import text
 
 
+@pytest.mark.integration_sge
 def test_resource_scaling(db_cfg, client_env):
+    """test that resources get scaled up on a resource kill"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 
@@ -54,7 +58,9 @@ def test_resource_scaling(db_cfg, client_env):
         assert task_instances[2].status == "D"
 
 
+@pytest.mark.integration_sge
 def test_workflow_resume_new_resources(db_cfg, client_env):
+    """test that new executor parameters get used on a resume"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 

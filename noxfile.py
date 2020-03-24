@@ -1,13 +1,11 @@
 """Nox Configuration for jobmon."""
+import os
 import nox
 from nox.sessions import Session
 
 
 src_locations = ["jobmon"]
-test_locations = ["tests/client",
-                  "tests/scheduler",
-                  "tests/task_instance",
-                  "tests/workflow"]
+test_locations = ["tests"]
 
 
 @nox.session(python="3.7", venv_backend="conda")
@@ -19,6 +17,11 @@ def tests(session: Session) -> None:
     session.install("pytest", "pytest-xdist")
     session.install("-r", "requirements.txt")
     session.install("--upgrade", "--force-reinstall", ".")
+
+    try:
+        os.environ['SGE_ENV']
+    except KeyError:
+        args.extend(["-m", "not integration_sge"])
     session.run("pytest", *args)
 
 
@@ -56,4 +59,3 @@ def docs(session: Session) -> None:
 @nox.session(python="3.7", venv_backend="conda")
 def build(session: Session) -> None:
     session.run("python", "setup.py", "sdist")
-

@@ -9,16 +9,15 @@ class MockSchedulerProc:
 
 
 def test_unknown_state(db_cfg, client_env):
+    """Creates a job instance, gets an executor id so it can be in submitted
+    to the batch executor state, and then it will never be run (it will miss
+    its report by date and the reconciler will kill it)"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
     from jobmon.client.execution.scheduler.execution_config import \
         ExecutionConfig
-
-    """Creates a job instance, gets an executor id so it can be in submitted
-    to the batch executor state, and then it will never be run (it will miss
-    its report by date and the reconciler will kill it)"""
 
     # Queue a job
     task = BashTask(command="ls", name="dummyfbb", max_attempts=1,
@@ -79,6 +78,8 @@ def test_unknown_state(db_cfg, client_env):
 
 
 def test_log_executor_report_by(db_cfg, client_env, monkeypatch):
+    """test that jobs that are queued by an executor but not running still log
+    heartbeats"""
     from jobmon.client.execution.strategies import sequential
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask

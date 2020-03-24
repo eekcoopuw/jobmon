@@ -18,12 +18,14 @@ def task_template(db_cfg, client_env):
 
 
 def test_good_names():
+    """tests that a few legal names return as valid"""
     assert Task.is_valid_job_name("fred")
     assert Task.is_valid_job_name("fred123")
     assert Task.is_valid_job_name("fred_and-friends")
 
 
 def test_bad_names():
+    """tests that invalid names return a ValueError"""
     with pytest.raises(ValueError) as exc:
         Task.is_valid_job_name("")
     assert "None" in str(exc.value)
@@ -38,6 +40,8 @@ def test_bad_names():
 
 
 def test_equality(task_template):
+    """tests that 2 identical tasks are equal and that non-identical tasks
+    are not equal"""
     params = ExecutorParameters(executor_class="DummyExecutor")
     a = task_template.create_task(arg="a", executor_parameters=params)
     a_again = task_template.create_task(arg="a", executor_parameters=params)
@@ -50,12 +54,15 @@ def test_equality(task_template):
 
 
 def test_hash_name_compatibility(task_template):
+    """test that name based on hash"""
     params = ExecutorParameters(executor_class="DummyExecutor")
     a = task_template.create_task(arg="a", executor_parameters=params)
     assert "task_" + str(hash(a)) == a.name
 
 
 def test_bash_task_equality(client_env):
+    """test that two bash tasks with the same command are equal"""
+
     from jobmon.client.templates.bash_task import BashTask
 
     a = BashTask(command="echo 'Hello World'")
@@ -68,6 +75,7 @@ def test_bash_task_equality(client_env):
 
 
 def test_hashing_bash_characters(client_env):
+    """test that bash characters can be hashed"""
     from jobmon.client.templates.bash_task import BashTask
 
     a = BashTask(command="touch ~/mytestfile")
@@ -75,6 +83,8 @@ def test_hashing_bash_characters(client_env):
 
 
 def test_bash_task_bind(db_cfg, client_env):
+    """test that all task information gets propagated appropriately into the db
+    """
     from jobmon.client.templates.bash_task import BashTask
     from jobmon.models.task import Task
     app = db_cfg["app"]
@@ -101,6 +111,8 @@ def test_bash_task_bind(db_cfg, client_env):
 
 
 def test_python_task_equality(client_env):
+    """Test that two identical python tasks are equal and that a non-identical
+    task is not equal"""
     from jobmon.client.templates.python_task import PythonTask
 
     a = PythonTask(script='~/runme.py', args=[1])
@@ -114,6 +126,8 @@ def test_python_task_equality(client_env):
 
 
 def test_python_task_args(db_cfg, client_env):
+    """test that env_variables and other arguments are handled appropriately
+    by python task"""
     from jobmon.client.templates.python_task import PythonTask
     from jobmon.models.task import Task
     import sys

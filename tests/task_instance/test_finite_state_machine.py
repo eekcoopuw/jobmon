@@ -80,6 +80,7 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
 
 
 def test_ti_error_state(db_cfg, client_env):
+    """test that a task that fails moves into error state"""
     from jobmon.client.api import BashTask, Tool
     from jobmon.client.execution.strategies.sequential import \
         SequentialExecutor
@@ -113,6 +114,8 @@ def mock_execute(command, name, executor_parameters):
 
 
 def test_ti_w_state(db_cfg, client_env):
+    """test that a task moves into 'W' state if it gets -333333 from the
+    executor"""
     from jobmon.client.api import BashTask, Tool
     from jobmon.client.execution.strategies.sequential import \
         SequentialExecutor
@@ -157,6 +160,8 @@ def test_ti_w_state(db_cfg, client_env):
 
 @pytest.mark.qsubs_jobs
 def test_reset_attempts_on_resume(db_cfg, client_env):
+    """test that num attempts gets reset on a resume"""
+
     # Manually modify the database so that some mid-dag jobs appear in
     # error state, max-ing out the attempts
     from jobmon.client.api import BashTask, Tool

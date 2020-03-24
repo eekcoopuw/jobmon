@@ -491,6 +491,7 @@ def get_task_by_status_only(workflow_id: int):
                    status_date=last_sync)
         logger.debug(query)
         rows = DB.session.query(Task).from_statement(text(query)).all()
+
     else:
         query = """
             SELECT
