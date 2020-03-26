@@ -339,6 +339,27 @@ def workflow_run_is_terminated(workflow_run_id: int):
     return resp
 
 
+@jqs.route('/workflow_run/active', methods=['GET'])
+def get_active_workflow_runs():
+    """Return all workflow runs that are currently running"""
+    logger.info(logging.myself())
+    query = """
+        SELECT
+            workflow_run.*
+        FROM
+            workflow_run
+        WHERE
+            workflow_run.status = 'R'
+    """
+    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).all()
+    DB.session.commit()
+    workflow_runs = [wfr.to_wire_as_workflow_run for wfr in workflow_runs]
+    resp = jsonify(workflow_runs=workflow_runs)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+
 # ############################ SCHEDULER ROUTES ###############################
 
 @jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',

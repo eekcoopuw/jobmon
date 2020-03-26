@@ -108,3 +108,14 @@ class SerializeClientTaskTemplateVersion:
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         return {"task_template_version_id": int(wire_tuple[0]),
                 "id_name_map": wire_tuple[1]}
+
+
+class SerializeWorkflowRun:
+
+    @staticmethod
+    def to_wire(id, heartbeat_date) -> tuple:
+        return (id, heartbeat_date)
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        return {"id": int(wire_tuple[0]), "heartbeat_date": wire_tuple[1]}
