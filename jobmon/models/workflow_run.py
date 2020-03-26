@@ -6,6 +6,7 @@ from jobmon.models import DB
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.serializers import SerializeWorkflowRun
 
 logger = logging.getLogger(__name__)
 
@@ -13,6 +14,12 @@ logger = logging.getLogger(__name__)
 class WorkflowRun(DB.Model):
 
     __tablename__ = 'workflow_run'
+
+    def to_wire_as_workflow_run(self) -> tuple:
+        serialized = SerializeWorkflowRun.to_wire(
+            id=self.id,
+            heartbeat_date=self.heartbeat_date)
+        return serialized
 
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_id = DB.Column(DB.Integer, DB.ForeignKey('workflow.id'))
