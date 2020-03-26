@@ -14,8 +14,8 @@ class CLI(object):
         self._add_start_subparser()
         self._add_test_subparser()
         self._add_workflow_status_subparser()
-        self._add_workflow_jobs_subparser()
-        self._add_job_status_subparser()
+        self._add_workflow_tasks_subparser()
+        self._add_task_status_subparser()
 
     def main(self):
         args = self.parse_args()
@@ -61,27 +61,39 @@ class CLI(object):
     def workflow_status(self, args):
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_status
-        df = workflow_status(args.workflow_id, args.user)
-        print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
+        df = workflow_status(args.workflow_id, args.user, args.json)
+        if args.json:
+            print(df)
+        else:
+            print(tabulate(df, headers="keys", tablefmt="psql",
+                           showindex=False))
 
-    def workflow_jobs(self, args):
+    def workflow_tasks(self, args):
         from tabulate import tabulate
-        from jobmon.client.status_commands import workflow_jobs
-        df = workflow_jobs(args.workflow_id, args.status)
-        print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
+        from jobmon.client.status_commands import workflow_tasks
+        df = workflow_tasks(args.workflow_id, args.status, args.json)
+        if args.json:
+            print(df)
+        else:
+            print(tabulate(df, headers="keys", tablefmt="psql",
+                           showindex=False))
 
-    def job_status(self, args):
+    def task_status(self, args):
         from tabulate import tabulate
-        from jobmon.client.status_commands import job_status
-        job_state, df = job_status(args.job_id)
-        print(f"\nJOB_ID: {args.job_id}", f" STATUS: {job_state}\n")
-        print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
+        from jobmon.client.status_commands import task_status
+        task_state, df = task_status(args.task_id, args.json)
+        print(f"\nTASK_ID: {args.task_id}", f" STATUS: {task_state}\n")
+        if args.json:
+            print(df)
+        else:
+            print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     def _add_start_subparser(self):
         start_parser = self._subparsers.add_parser("start")
         start_parser.set_defaults(func=self.start)
         start_parser.add_argument("service",
-                                  choices=['health_monitor', 'web_service', 'qpid_integration'])
+                                  choices=['health_monitor', 'web_service',
+                                           'qpid_integration'])
 
     def _add_test_subparser(self):
         test_parser = self._subparsers.add_parser("test")
@@ -96,26 +108,35 @@ class CLI(object):
         workflow_status_parser.add_argument(
             "-u", "--user", nargs="*", help="list of users",
             required=False, type=str)
+        workflow_status_parser.add_argument(
+            "-n", "--json", dest="json", action="store_true"
+        )
 
-    def _add_workflow_jobs_subparser(self):
-        workflow_jobs_parser = self._subparsers.add_parser("workflow_jobs")
-        workflow_jobs_parser.set_defaults(func=self.workflow_jobs)
-        workflow_jobs_parser.add_argument(
-            "-w", "--workflow_id", help="workflow_id to get job statuses for",
+    def _add_workflow_tasks_subparser(self):
+        workflow_tasks_parser = self._subparsers.add_parser("workflow_tasks")
+        workflow_tasks_parser.set_defaults(func=self.workflow_tasks)
+        workflow_tasks_parser.add_argument(
+            "-w", "--workflow_id", help="workflow_id to get task statuses for",
             required=True, type=int)
-        workflow_jobs_parser.add_argument(
+        workflow_tasks_parser.add_argument(
             "-s", "--status",
-            help="limit jobs to a status (PENDING, RUNNING, DONE, FATAL)",
+            help="limit tasks to a status (PENDING, RUNNING, DONE, FATAL)",
             choices=["PENDING", "RUNNING", "DONE", "FATAL",
                      "pending", "running", "done", "fatal"],
             required=False)
+        workflow_tasks_parser.add_argument(
+            "-n", "--json", dest="json", action="store_true"
+        )
 
-    def _add_job_status_subparser(self):
-        job_status_parser = self._subparsers.add_parser("job_status")
-        job_status_parser.set_defaults(func=self.job_status)
-        job_status_parser.add_argument(
-            "-j", "--job_id", help="job_id to get job statuses for",
+    def _add_task_status_subparser(self):
+        task_status_parser = self._subparsers.add_parser("task_status")
+        task_status_parser.set_defaults(func=self.task_status)
+        task_status_parser.add_argument(
+            "-t", "--task_id", help="task_id to get task statuses for",
             required=True, type=int)
+        task_status_parser.add_argument(
+            "-n", "--json", dest="json", action="store_true"
+        )
 
 
 def main():
