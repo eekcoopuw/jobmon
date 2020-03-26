@@ -64,7 +64,7 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
         DB.session.execute("""
             UPDATE task_instance
             SET status = '{}'
-            WHERE task_instance.id = {}
+            WHERE task_instance.task_id = {}
             """.format(ti_state, task_a.task_id))
         DB.session.commit()
 
@@ -75,7 +75,8 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
 
     # make sure no more heartbeats were registered
     with app.app_context():
-        ti = DB.session.query(TaskInstance).filter_by(id=task_a.task_id).one()
+        ti = DB.session.query(TaskInstance).filter_by(task_id=task_a.task_id
+                                                      ).one()
         assert ti.report_by_date < max_heartbeat
 
 
@@ -104,7 +105,8 @@ def test_ti_error_state(db_cfg, client_env):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        ti = DB.session.query(TaskInstance).filter_by(id=task_a.task_id).one()
+        ti = DB.session.query(TaskInstance).filter_by(task_id=task_a.task_id
+                                                      ).one()
         assert ti.status == TaskInstanceStatus.ERROR
 
 
@@ -154,7 +156,8 @@ def test_ti_w_state(db_cfg, client_env):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        ti = DB.session.query(TaskInstance).filter_by(id=task_a.task_id).one()
+        ti = DB.session.query(TaskInstance).filter_by(task_id=task_a.task_id
+                                                      ).one()
         assert ti.status == TaskInstanceStatus.NO_EXECUTOR_ID
 
 

@@ -5,6 +5,7 @@ from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.scheduler.execution_config import \
     ExecutionConfig
 from jobmon.models.task_status import TaskStatus
+from jobmon.models.task_instance import TaskInstance
 
 logger = logging.getLogger(__name__)
 
@@ -96,49 +97,56 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     class MockDummyExecutor(dummy.DummyExecutor):
 
         wedged_task_id = None
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
 
         def execute(self, command: str, name: str, executor_parameters) -> int:
             logger.warning("Now entering MockDummy execute")
             kwargs = parse_arguments(command)
 
-            if kwargs["task_instance_id"] == self.wedged_task_id:
-                logger.info("task instance is 1, entering first if statement")
-                task_inst_query = """
-                UPDATE task_instance
-                SET status = 'D'
-                WHERE task_instance.id = {task_instance_id}
-                """.format(task_instance_id=kwargs["task_instance_id"])
-                task_query = """
-                UPDATE task
-                JOIN task_instance ON task.id = task_instance.id
-                SET task.status = 'D',
-                    task.status_date = SUBTIME(UTC_TIMESTAMP(),
-                                               SEC_TO_TIME(600))
-                WHERE task_instance.id = {task_instance_id}
-                """.format(task_instance_id=kwargs["task_instance_id"])
-            else:
-                logger.warning("task instance is not 1, entering else statement")
-                task_inst_query = """
-                UPDATE task_instance
-                SET status = 'D',
-                    status_date = UTC_TIMESTAMP()
-                WHERE task_instance.id = {task_instance_id}
-                """.format(task_instance_id=kwargs["task_instance_id"])
-                task_query = """
-                UPDATE task
-                JOIN task_instance ON task.id = task_instance.id
-                SET task.status = 'D',
-                    task.status_date = UTC_TIMESTAMP()
-                WHERE task_instance.id = {task_instance_id}
-                """.format(task_instance_id=kwargs["task_instance_id"])
+            # need to get task id from task instance here to compare to wedged
+            # task id that will be set later in the code
+            with self.app.app_context():
+                task_instance = self.DB.session.query(TaskInstance).filter_by(
+                    id=kwargs["task_instance_id"]).one()
+                task_id = int(task_instance.task.id)
 
-            app = db_cfg["app"]
-            DB = db_cfg["DB"]
-            with app.app_context():
-                DB.session.execute(task_inst_query)
-                DB.session.commit()
-                DB.session.execute(task_query)
-                DB.session.commit()
+            if task_id == self.wedged_task_id:
+                logger.info(f"task instance is {self.wedged_task_id}, entering"
+                            " first if statement")
+                task_inst_query = """
+                    UPDATE task_instance
+                    SET status = 'D'
+                    WHERE task_instance.id = {task_instance_id}
+                """.format(task_instance_id=kwargs["task_instance_id"])
+                task_query = """
+                    UPDATE task
+                    SET task.status = 'D',
+                        task.status_date = SUBTIME(UTC_TIMESTAMP(),
+                                                   SEC_TO_TIME(600))
+                    WHERE task.id = {task_id}
+                """.format(task_id=task_id)
+            else:
+                logger.info(f"task instance is not {self.wedged_task_id}, "
+                            "entering else branch")
+                task_inst_query = """
+                    UPDATE task_instance
+                    SET status = 'D',
+                        status_date = UTC_TIMESTAMP()
+                    WHERE task_instance.id = {task_instance_id}
+                """.format(task_instance_id=kwargs["task_instance_id"])
+                task_query = """
+                    UPDATE task
+                    SET task.status = 'D',
+                        task.status_date = UTC_TIMESTAMP()
+                    WHERE task.id = {task_id}
+                """.format(task_id=task_id)
+
+            with self.app.app_context():
+                self.DB.session.execute(task_inst_query)
+                self.DB.session.commit()
+                self.DB.session.execute(task_query)
+                self.DB.session.commit()
             return super().execute(command, name, executor_parameters)
 
     t1 = BashTask("sleep 3", executor_class="DummyExecutor",

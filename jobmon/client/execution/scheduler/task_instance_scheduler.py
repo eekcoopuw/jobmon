@@ -1,5 +1,6 @@
+from __future__ import annotations
 from http import HTTPStatus as StatusCodes
-import multiprocessing
+import multiprocessing as mp
 import sys
 import threading
 import time
@@ -58,10 +59,8 @@ class TaskInstanceScheduler:
         # log heartbeat on startup so workflow run FSM doesn't have any races
         self.heartbeat()
 
-    def run_scheduler(self,
-                      stop_event:
-                      Optional[multiprocessing.synchronize.Event] = None,
-                      status_queue: Optional[multiprocessing.Queue] = None):
+    def run_scheduler(self, stop_event: Optional[mp.synchronize.Event] = None,
+                      status_queue: Optional[mp.Queue] = None):
         try:
             # start up the worker thread and executor
             if not self.executor.started:
@@ -149,10 +148,9 @@ class TaskInstanceScheduler:
                 task_instance = self._to_reconcile.pop(0)
                 task_instance.log_error()
 
-    def _heartbeats_forever(self, heartbeat_interval: int = 90,
-                            process_stop_event:
-                            Optional[multiprocessing.synchronize.Event] = None
-                            ) -> None:
+    def _heartbeats_forever(
+            self, heartbeat_interval: int = 90,
+            process_stop_event: Optional[mp.synchronize.Event] = None) -> None:
         keep_beating = True
         while keep_beating:
             self.heartbeat()

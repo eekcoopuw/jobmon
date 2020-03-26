@@ -134,7 +134,7 @@ def _add_or_get_arg(name: str) -> Arg:
         FROM arg
         WHERE name = :name
         """
-        arg = DB.session.query(TaskTemplate).from_statement(text(query))\
+        arg = DB.session.query(Arg).from_statement(text(query))\
             .params(name=name).one()
     except sqlalchemy.orm.exc.NoResultFound:
         DB.session.rollback()
@@ -764,7 +764,6 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
 
     try:
         workflow_run.heartbeat(data["next_report_increment"])
-        DB.session.add(workflow_run)
         DB.session.commit()
         logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
     except InvalidStateTransition:

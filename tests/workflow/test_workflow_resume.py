@@ -178,13 +178,14 @@ def test_cold_resume(db_cfg, client_env):
             requester=workflow1.requester,
             resume_timeout=1)
 
-    # test if resume signal is recieved
+    # test if resume signal is received
     with pytest.raises(ResumeSet):
         scheduler.run_scheduler()
+    assert scheduler.executor.started is False
 
-    # get internal state of workflow run. first 3 tasks or more should be done
+    # get internal state of workflow run. at least 1 task should have finished
     completed, _ = wfr1._block_until_any_done_or_error()
-    assert len(completed) >= 3
+    assert len(completed) > 0
 
     # now resume it till done
     # prepare first workflow

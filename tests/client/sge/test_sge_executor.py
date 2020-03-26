@@ -237,7 +237,8 @@ def test_workflow_timeout(db_cfg, client_env):
 @pytest.mark.smoketest
 @pytest.mark.systemtest
 def test_workflow_137(db_cfg, client_env):
-    from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from tests.client.sge._sgesimulator._test_unknown_workflow import \
+        _TestUnknownWorkflow as Workflow
     from jobmon.client.api import BashTask
     task = BashTask(command="echo 137",
                     executor_class="_SimulatorSGEExecutor",
@@ -250,7 +251,9 @@ def test_workflow_137(db_cfg, client_env):
                     j_resource=True)
     resource = task.executor_parameters()
     resource.validate()
-    workflow = Workflow("test", project='proj_scicomp', executor_class="_SimulatorSGEExecutor", seconds_until_timeout=300)
+    workflow = Workflow("test", project='proj_scicomp',
+                        executor_class="_SimulatorSGEExecutor",
+                        seconds_until_timeout=300)
     workflow.add_tasks([task])
     workflow.run()
 
@@ -259,12 +262,16 @@ def test_workflow_137(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-            select task_instance.status, task.status, workflow_run.status, workflow.status
-            from task_instance, task, workflow_run, workflow
-            where task_instance.task_id=task.id
-            and task_instance.workflow_run_id=workflow_run.id
-            and workflow_run.workflow_id=workflow.id
-            and task_id = :task_id"""
+            SELECT
+                task_instance.status, task.status, workflow_run.status,
+                workflow.status
+            FROM
+                task_instance, task, workflow_run, workflow
+            WHERE
+                task_instance.task_id=task.id
+                AND task_instance.workflow_run_id=workflow_run.id
+                AND workflow_run.workflow_id=workflow.id
+                AND task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
         DB.session.commit()
         assert res[0] == "E"
@@ -272,7 +279,16 @@ def test_workflow_137(db_cfg, client_env):
         assert res[2] == "E"
         assert res[3] == "F"
 
-        sql = "select count(*) from task_instance_error_log where task_instance_id={}".format(task.task_id)
+        sql = """
+            SELECT
+                count(*)
+            FROM
+                task_instance_error_log
+            JOIN
+                task_instance
+                ON task_instance.id = task_instance_error_log.task_instance_id
+            WHERE
+                task_instance.task_id={}""".format(task.task_id)
         res = DB.session.execute(sql).fetchone()
         assert res[0] == 1
 

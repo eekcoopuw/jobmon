@@ -19,7 +19,7 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
         TaskInstanceScheduler
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
-    workflow = UnknownWorkflow("my_simple_dag",
+    workflow = UnknownWorkflow("test_instantiate_queued_jobs",
                                executor_class="SequentialExecutor",
                                seconds_until_timeout=1)
     workflow.add_tasks([t1])
@@ -64,7 +64,7 @@ def test_n_queued(db_cfg, client_env):
         task = BashTask(command=f"sleep {i}", num_cores=1)
         tasks.append(task)
 
-    workflow = UnknownWorkflow("foo", seconds_until_timeout=1,
+    workflow = UnknownWorkflow("test_n_queued", seconds_until_timeout=1,
                                executor_class="DummyExecutor")
     cfg = ExecutionConfig.from_defaults()
     cfg.n_queued = 3
@@ -106,7 +106,7 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
         TaskInstanceScheduler
 
     t1 = BashTask("echo 2", executor_class="DummyExecutor")
-    workflow = UnknownWorkflow(f"my_simple_dag{sge}",
+    workflow = UnknownWorkflow(f"my_simple_dag_{sge}",
                                executor_class="DummyExecutor",
                                seconds_until_timeout=1)
     workflow.add_task(t1)

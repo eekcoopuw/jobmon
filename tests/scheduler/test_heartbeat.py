@@ -26,8 +26,7 @@ def test_heartbeat(db_cfg, client_env):
     workflow._bind()
     wfr = workflow._create_workflow_run()
     scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id,
-                                      workflow._executor)
+                                      wfr.workflow_run_id, workflow._executor)
     scheduler.heartbeat()
 
     # check the job finished
@@ -41,7 +40,7 @@ def test_heartbeat(db_cfg, client_env):
         res = DB.session.execute(sql, {"workflow_run_id": wfr.workflow_run_id}
                                  ).fetchone()
         DB.session.commit()
-    assert res[0] == 0
+    assert res[0] == 1
 
 
 def test_heartbeat_raises_error(db_cfg, client_env):
