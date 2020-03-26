@@ -1,7 +1,7 @@
 
 
 class ReturnCodes(object):
-    """Responder response codes. Please add more as the need arises."""
+    """Bash return codes used in execution wrapper"""
     OK = 0
     WORKER_NODE_ENV_FAILURE = 198
     WORKER_NODE_CLI_FAILURE = 199

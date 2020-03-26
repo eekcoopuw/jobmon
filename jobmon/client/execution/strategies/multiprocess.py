@@ -28,7 +28,6 @@ class Consumer(Process):
                 executor
         """
 
-        # this feels like the bad way but I copied it from the internets
         super().__init__()
 
         # consumer communication
@@ -137,6 +136,7 @@ class MultiprocessExecutor(Executor):
 
         # Wait for commands to finish
         self.task_queue.join()
+        super().stop()
 
     def _update_internal_states(self) -> None:
         while not self.response_queue.empty():

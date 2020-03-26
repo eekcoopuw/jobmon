@@ -96,12 +96,12 @@ def test_build_qsub_command():
                                               runtime=10000,
                                               j=False,
                                               context_args={},
-                                              stderr="/ihme",
-                                              stdout="/ihme/homes",
+                                              stderr="~",
+                                              stdout="~",
                                               project="proj_test",
                                               working_dir="/working_dir")
         assert "qsub -wd /working_dir -N test -q \'long.q\' -l fthread=4  -l m_mem_free=4G -l h_rt=10000 -P " \
-               "proj_test -e /ihme -o /ihme/homes  -V" in r
+               "proj_test -e ~ -o ~  -V" in r
         assert "\"date\"" in r
         # context_args
         with patch("cluster_utils.io.makedirs_safely") as m_makedirs_safely:
@@ -114,12 +114,12 @@ def test_build_qsub_command():
                                                   runtime=10,
                                                   j=True,
                                                   context_args={"sge_add_args": "whatever"},
-                                                  stderr="/ihme",
-                                                  stdout="/ihme/homes",
+                                                  stderr="~",
+                                                  stdout="~",
                                                   project="proj_test",
                                                   working_dir="/working_dir")
             assert "qsub -wd /working_dir -N test -q \'i.q\' -l fthread=1 -l archive=TRUE -l m_mem_free=40G -l h_rt=10 -P proj_test " \
-                   "-e /ihme -o /ihme/homes whatever -V" in r
+                   "-e ~ -o ~ whatever -V" in r
             assert "\"date\"" in r
 
 
@@ -223,11 +223,11 @@ def test_workflow_timeout(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-            select workflow.status 
-            from task_instance, task, workflow_run, workflow 
-            where task_instance.task_id=task.id 
-            and task_instance.workflow_run_id=workflow_run.id 
-            and workflow_run.workflow_id=workflow.id 
+            select workflow.status
+            from task_instance, task, workflow_run, workflow
+            where task_instance.task_id=task.id
+            and task_instance.workflow_run_id=workflow_run.id
+            and workflow_run.workflow_id=workflow.id
             and task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
         DB.session.commit()
@@ -237,7 +237,8 @@ def test_workflow_timeout(db_cfg, client_env):
 @pytest.mark.smoketest
 @pytest.mark.systemtest
 def test_workflow_137(db_cfg, client_env):
-    from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from tests.client.sge._sgesimulator._test_unknown_workflow import \
+        _TestUnknownWorkflow as Workflow
     from jobmon.client.api import BashTask
     task = BashTask(command="echo 137",
                     executor_class="_SimulatorSGEExecutor",
@@ -250,7 +251,9 @@ def test_workflow_137(db_cfg, client_env):
                     j_resource=True)
     resource = task.executor_parameters()
     resource.validate()
-    workflow = Workflow("test", project='proj_scicomp', executor_class="_SimulatorSGEExecutor", seconds_until_timeout=300)
+    workflow = Workflow("test", project='proj_scicomp',
+                        executor_class="_SimulatorSGEExecutor",
+                        seconds_until_timeout=300)
     workflow.add_tasks([task])
     workflow.run()
 
@@ -259,12 +262,16 @@ def test_workflow_137(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-            select task_instance.status, task.status, workflow_run.status, workflow.status 
-            from task_instance, task, workflow_run, workflow 
-            where task_instance.task_id=task.id 
-            and task_instance.workflow_run_id=workflow_run.id 
-            and workflow_run.workflow_id=workflow.id 
-            and task_id = :task_id"""
+            SELECT
+                task_instance.status, task.status, workflow_run.status,
+                workflow.status
+            FROM
+                task_instance, task, workflow_run, workflow
+            WHERE
+                task_instance.task_id=task.id
+                AND task_instance.workflow_run_id=workflow_run.id
+                AND workflow_run.workflow_id=workflow.id
+                AND task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
         DB.session.commit()
         assert res[0] == "E"
@@ -272,7 +279,129 @@ def test_workflow_137(db_cfg, client_env):
         assert res[2] == "E"
         assert res[3] == "F"
 
-        sql = "select count(*) from task_instance_error_log where task_instance_id={}".format(task.task_id)
+        sql = """
+            SELECT
+                count(*)
+            FROM
+                task_instance_error_log
+            JOIN
+                task_instance
+                ON task_instance.id = task_instance_error_log.task_instance_id
+            WHERE
+                task_instance.task_id={}""".format(task.task_id)
         res = DB.session.execute(sql).fetchone()
         assert res[0] == 1
 
+
+@pytest.mark.integration_sge
+def test_sge_workflow_one_task(db_cfg, client_env):
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
+    from jobmon.client.api import BashTask
+    workflow = UnknownWorkflow("test_one_task",
+                               executor_class="SGEExecutor")
+    task_a = BashTask(
+        "echo a", executor_class="SGEExecutor",
+        queue="long.q",
+        upstream_tasks=[]  # To be clear
+    )
+    workflow.add_task(task_a)
+    wfr = workflow.run()
+    assert wfr.status == "D"
+    assert wfr.completed_report[0] == 1
+    assert wfr.completed_report[1] == 0
+    assert len(wfr.all_error) == 0
+
+
+@pytest.mark.integration_sge
+def test_sge_workflow_three_tasks(db_cfg, client_env):
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
+    from jobmon.client.api import BashTask
+    workflow = UnknownWorkflow("test_three_linear_tasks",
+                               executor_class="SGEExecutor")
+    task_a = BashTask(
+        "echo a", executor_class="SGEExecutor",
+        queue="long.q",
+        upstream_tasks=[]  # To be clear
+    )
+    workflow.add_task(task_a)
+    task_b = BashTask(
+        "echo b", executor_class="SGEExecutor",
+        queue="long.q",
+        upstream_tasks=[task_a]
+    )
+    workflow.add_task(task_b)
+    task_c = BashTask("echo c", executor_class="SGEExecutor", queue="long.q")
+    workflow.add_task(task_c)
+    task_c.add_upstream(task_b)  # Exercise add_upstream post-instantiation
+    wfr = workflow.run()
+    assert wfr.status == "D"
+    assert wfr.completed_report[0] == 3
+    assert wfr.completed_report[1] == 0
+    assert len(wfr.all_error) == 0
+
+
+@pytest.mark.integration_sge
+def test_sge_workflow_timeout(db_cfg, client_env):
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    from jobmon.client.api import BashTask
+    task = BashTask(command="sleep 20",
+                    executor_class="SGEExecutor",
+                    name="test_timeout",
+                    num_cores=1,
+                    max_runtime_seconds=10,
+                    m_mem_free='1G',
+                    max_attempts=1,
+                    queue="all.q",
+                    j_resource=True)
+    resource = task.executor_parameters()
+    resource.validate()
+    workflow = Workflow("test", project='proj_scicomp', executor_class="SGEExecutor", seconds_until_timeout=10)
+    workflow.add_tasks([task])
+    with pytest.raises(RuntimeError):
+        workflow.run()
+
+    # check db
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+            select workflow.status
+            from task_instance, task, workflow_run, workflow
+            where task_instance.task_id=task.id
+            and task_instance.workflow_run_id=workflow_run.id
+            and workflow_run.workflow_id=workflow.id
+            and task_id = :task_id"""
+        res = DB.session.execute(sql, {"task_id": task.task_id}).fetchone()
+        DB.session.commit()
+    assert res[0] == "F"
+
+
+@pytest.mark.integration_sge
+def test_reconciler_sge_new_heartbeats(db_cfg, client_env):
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    from jobmon.client.api import BashTask
+    task = BashTask(command="sleep 10",
+                    executor_class="SGEExecutor",
+                    name="test_hearbeats",
+                    num_cores=1,
+                    max_runtime_seconds=70,
+                    m_mem_free='1G',
+                    max_attempts=1,
+                    queue="all.q",
+                    j_resource=True)
+    resource = task.executor_parameters()
+    resource.validate()
+    workflow = Workflow("test", project='proj_scicomp', executor_class="SGEExecutor", seconds_until_timeout=70)
+    workflow.add_tasks([task])
+    workflow.run()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """
+        SELECT submitted_date, report_by_date
+        FROM task_instance
+        WHERE task_id = {}""".format(task.task_id)
+        res = DB.session.execute(query).fetchone()
+        DB.session.commit()
+    start, end = res
+    assert start < end  # indicating at least one heartbeat got logged

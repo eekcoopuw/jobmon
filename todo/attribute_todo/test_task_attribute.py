@@ -71,8 +71,6 @@ def test_static_task_attribute(db_cfg):
     #                     WHERE task_attribute.task_id IN ({id1}, {id2})
     #                     """).format(id1=task1.task_id, id2=task2.task_id)
     #     DB.session.commit()
-    import pdb
-    pdb.set_trace()
 
 
 def test_task_attribute_dynamic():
@@ -81,9 +79,6 @@ def test_task_attribute_dynamic():
                      task_attributes=["num_years", "num_locations"])
     wf.add_task(task1)
     wf.execute()
-
-    import pdb
-    pdb.set_trace()
 
 
 def exec_params(task):

@@ -53,7 +53,7 @@ def test_sequential(db_cfg, client_env):
     assert error == (("a" * 2**10 + "\n") * (2**8))[-10000:]
 
 
-@pytest.mark.skip(reason="SGEExecutor is not ready")
+@pytest.mark.integration_sge
 def test_sge_cli(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.templates.bash_task import BashTask

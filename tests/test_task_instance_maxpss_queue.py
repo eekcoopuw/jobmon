@@ -167,7 +167,7 @@ def test_worker_with_mock_500():
         assert r[1] > 0
 
 
-def test_route_get_maxpss_error_path():
+def test_route_get_maxpss_error_path(client_env):
     """This is to test the restful API to get maxpss of a job instance in jobmon side"""
     MaxpssQ().empty_q()
     # test non-existing ji
@@ -176,7 +176,6 @@ def test_route_get_maxpss_error_path():
         message={},
         request_type='get')
     assert code == 404
-
 
 
 """

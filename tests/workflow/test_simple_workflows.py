@@ -25,6 +25,7 @@ def test_empty_workflow(db_cfg, client_env):
 
 
 def test_one_task(db_cfg, client_env):
+    """create a 1 task workflow and confirm it works end to end"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 

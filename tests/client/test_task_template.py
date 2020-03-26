@@ -1,15 +1,16 @@
 import pytest
 import uuid
 
-from jobmon.client.tool import Tool
-
 
 @pytest.fixture(scope='function')
 def tool(client_env):
+    from jobmon.client.tool import Tool
     return Tool.create_tool(name=str(uuid.uuid4()))
 
 
 def test_create_and_get_task_template(db_cfg, client_env, tool):
+    """test that a task template gets added to the db appropriately. test that
+    if a new one gets created with the same params it has the same id"""
     tt1 = tool.get_task_template(
         template_name="my_template",
         command_template="{op1} {node1} --foo {task1}",
@@ -29,6 +30,8 @@ def test_create_and_get_task_template(db_cfg, client_env, tool):
 
 
 def test_create_new_task_template_version(db_cfg, client_env, tool):
+    """test that a new task template version gets created when the arguments
+    that define it change. confirm that reused arguments have the same id"""
     tt1 = tool.get_task_template(
         template_name="my_template",
         command_template="{op1} {node1} --foo {task1}",
@@ -52,6 +55,8 @@ def test_create_new_task_template_version(db_cfg, client_env, tool):
 
 
 def test_invalid_args(db_cfg, client_env, tool):
+    """test that arguments that don't appear in the command template raise a
+    ValueError"""
 
     with pytest.raises(ValueError):
         tool.get_task_template(

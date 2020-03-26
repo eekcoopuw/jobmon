@@ -12,13 +12,14 @@ class MockSchedulerProc:
 
 
 def test_instantiate_queued_jobs(db_cfg, client_env):
+    """tests that a task can be instantiated and run and log done"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
-    workflow = UnknownWorkflow("my_simple_dag",
+    workflow = UnknownWorkflow("test_instantiate_queued_jobs",
                                executor_class="SequentialExecutor",
                                seconds_until_timeout=1)
     workflow.add_tasks([t1])
@@ -48,6 +49,8 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
 
 
 def test_n_queued(db_cfg, client_env):
+    """tests that we only return a subset of queued jobs based on the n_queued
+    parameter"""
     from jobmon.client.execution.scheduler.execution_config import \
         ExecutionConfig
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
@@ -61,7 +64,7 @@ def test_n_queued(db_cfg, client_env):
         task = BashTask(command=f"sleep {i}", num_cores=1)
         tasks.append(task)
 
-    workflow = UnknownWorkflow("foo", seconds_until_timeout=1,
+    workflow = UnknownWorkflow("test_n_queued", seconds_until_timeout=1,
                                executor_class="DummyExecutor")
     cfg = ExecutionConfig.from_defaults()
     cfg.n_queued = 3
@@ -95,13 +98,15 @@ def test_n_queued(db_cfg, client_env):
 @pytest.mark.parametrize('sge', [qsub_attribute.NO_EXEC_ID,
                                  qsub_attribute.UNPARSABLE])
 def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
+    """test that things move successfully into 'W' state if the executor
+    returns the correct id"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
 
     t1 = BashTask("echo 2", executor_class="DummyExecutor")
-    workflow = UnknownWorkflow(f"my_simple_dag{sge}",
+    workflow = UnknownWorkflow(f"my_simple_dag_{sge}",
                                executor_class="DummyExecutor",
                                seconds_until_timeout=1)
     workflow.add_task(t1)

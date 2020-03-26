@@ -12,6 +12,7 @@ class MockSchedulerProc:
 
 
 def test_heartbeat(db_cfg, client_env):
+    """test that the TaskInstanceScheduler logs a heartbeat in the database"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
@@ -25,8 +26,7 @@ def test_heartbeat(db_cfg, client_env):
     workflow._bind()
     wfr = workflow._create_workflow_run()
     scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id,
-                                      workflow._executor)
+                                      wfr.workflow_run_id, workflow._executor)
     scheduler.heartbeat()
 
     # check the job finished
@@ -40,10 +40,11 @@ def test_heartbeat(db_cfg, client_env):
         res = DB.session.execute(sql, {"workflow_run_id": wfr.workflow_run_id}
                                  ).fetchone()
         DB.session.commit()
-    assert res[0] == 0
+    assert res[0] == 1
 
 
 def test_heartbeat_raises_error(db_cfg, client_env):
+    """test that a heartbeat logged after resume will raise ResumeSet"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
@@ -75,6 +76,9 @@ def test_heartbeat_raises_error(db_cfg, client_env):
 
 
 def test_heartbeat_propagate_error(db_cfg, client_env):
+    """test that a heartbeat logged after resume will raise ResumeSet through
+    the message queue and can be re_raised"""
+
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \

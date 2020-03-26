@@ -1,24 +1,36 @@
 """Nox Configuration for jobmon."""
+import os
+import sys
+
 import nox
 from nox.sessions import Session
 
 
 src_locations = ["jobmon"]
-test_locations = ["tests/client",
-                  "tests/scheduler",
-                  "tests/task_instance",
-                  "tests/workflow"]
+test_locations = ["tests"]
+
+if sys.platform == "darwin":
+    python = "3.8"
+else:
+    python = "3.7"
 
 
-@nox.session(python="3.7", venv_backend="conda")
+@nox.session(python=python, venv_backend="conda")
 def tests(session: Session) -> None:
     """Run the test suite."""
     args = session.posargs or test_locations
     session.conda_install("mysqlclient")
-    session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
+    if python == "3.7":
+        session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
     session.install("pytest", "pytest-xdist")
     session.install("-r", "requirements.txt")
     session.install("--upgrade", "--force-reinstall", ".")
+
+    # pytest command line args
+    try:
+        os.environ['SGE_ENV']
+    except KeyError:
+        args.extend(["-m", "not integration_sge"])
     session.run("pytest", *args)
 
 
@@ -56,4 +68,3 @@ def docs(session: Session) -> None:
 @nox.session(python="3.7", venv_backend="conda")
 def build(session: Session) -> None:
     session.run("python", "setup.py", "sdist")
-

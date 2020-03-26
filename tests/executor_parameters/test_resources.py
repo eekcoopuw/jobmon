@@ -59,6 +59,8 @@ def test_callable_returns_exec_params(db_cfg, client_env):
 
 
 def test_callable_fails_bad_filepath(db_cfg, client_env):
+    """test that an exception in the callable gets propagated up the call stack
+    """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 
@@ -79,6 +81,7 @@ def test_callable_fails_bad_filepath(db_cfg, client_env):
 
 
 def test_callable_returns_wrong_object(db_cfg, client_env):
+    """test that the callable cannot return an invalid object"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 
@@ -98,6 +101,7 @@ def test_callable_returns_wrong_object(db_cfg, client_env):
 
 
 def test_static_resource_assignment(db_cfg, client_env):
+    """test that passing in executor parameters object works as expected"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 

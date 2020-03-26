@@ -1,4 +1,3 @@
-import os
 from typing import Tuple, Union, Dict, Optional
 
 from jobmon.client import ClientLogging as logging
@@ -52,7 +51,7 @@ class SGEParameters:
         if context_args is None:
             context_args = {}
         self.context_args = context_args
-        self._cluster = os.environ['SGE_ENV']  # el7 in SGE_ENV is fair cluster
+        self._cluster = "prod-el7"  # el7 in SGE_ENV is fair cluster
         self.num_cores = num_cores
         if isinstance(m_mem_free, str):
             m_mem_free = self._transform_mem_to_gb(m_mem_free)

@@ -101,7 +101,8 @@ def _get_executor_class(executor_class: str):
 
 
 def _run_in_sub_process(command: str, temp_dir: str, heartbeat_interval: float,
-                        worker_node_task_instance: WorkerNodeTaskInstance, report_by_buffer: int):
+                        worker_node_task_instance: WorkerNodeTaskInstance,
+                        report_by_buffer: int):
     """Move out of unwrap for easy mock"""
     proc = subprocess.Popen(
         command,

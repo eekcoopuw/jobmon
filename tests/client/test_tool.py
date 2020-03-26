@@ -4,6 +4,8 @@ from jobmon.client.tool import Tool, InvalidToolVersionError
 
 
 def test_create_tool(db_cfg, client_env):
+    """test that we can create a tool and recreate it with identical params and
+    get the same ID"""
     t1 = Tool.create_tool(name="foo")
     assert t1.name == "foo"
     # check that we have an id
@@ -18,6 +20,8 @@ def test_create_tool(db_cfg, client_env):
 
 
 def test_create_tool_version(db_cfg, client_env):
+    """test that we create a new tool version"""
+
     t1 = Tool.create_tool(name="bar")
     orig_tool_version = t1.active_tool_version_id
 

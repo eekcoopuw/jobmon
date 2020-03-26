@@ -16,6 +16,8 @@ remote_sleep_and_write = os.path.abspath(os.path.expanduser(
 
 
 def test_fail_one_task_resume(db_cfg, client_env, tmpdir):
+    """test that a workflow with a task that fails. The workflow is resumed and
+    the task then finishes successfully and the workflow runs to completion"""
     from jobmon.client.api import Tool, ExecutorParameters
     from jobmon.client.execution.strategies.sequential import \
         SequentialExecutor
@@ -82,6 +84,7 @@ def test_fail_one_task_resume(db_cfg, client_env, tmpdir):
 
 
 def test_multiple_active_race_condition(db_cfg, client_env):
+    """test that we cannot create 2 workflow runs simultaneously"""
     from jobmon.client.api import Tool, ExecutorParameters
     from jobmon.client.execution.strategies.sequential import \
         SequentialExecutor
@@ -122,6 +125,7 @@ class MockSchedulerProc:
 
 
 def test_cold_resume(db_cfg, client_env):
+    """"""
     from jobmon.client.api import Tool, ExecutorParameters
     from jobmon.client.execution.strategies.multiprocess import \
         MultiprocessExecutor
@@ -174,13 +178,14 @@ def test_cold_resume(db_cfg, client_env):
             requester=workflow1.requester,
             resume_timeout=1)
 
-    # test if resume signal is recieved
+    # test if resume signal is received
     with pytest.raises(ResumeSet):
         scheduler.run_scheduler()
+    assert scheduler.executor.started is False
 
-    # get internal state of workflow run. first 3 tasks or more should be done
+    # get internal state of workflow run. at least 1 task should have finished
     completed, _ = wfr1._block_until_any_done_or_error()
-    assert len(completed) >= 3
+    assert len(completed) > 0
 
     # now resume it till done
     # prepare first workflow
