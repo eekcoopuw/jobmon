@@ -23,6 +23,7 @@ from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.server_logging import jobmonLogging as logging
+from jobmon.serializers import SerializeLatestTaskDate
 
 
 # TODO: rename?
@@ -339,9 +340,9 @@ def workflow_run_is_terminated(workflow_run_id: int):
     return resp
 
 
-@jqs.route('/workflow_run/active', methods=['GET'])
-def get_active_workflow_runs():
-    """Return all workflow runs that are currently running"""
+@jqs.route('/workflow_run/<workflow_run_status>/status', methods=['GET'])
+def get_active_workflow_runs(workflow_run_status: str):
+    """Return all workflow runs that are currently in the specified state."""
     logger.info(logging.myself())
     query = """
         SELECT
@@ -349,16 +350,36 @@ def get_active_workflow_runs():
         FROM
             workflow_run
         WHERE
-            workflow_run.status = 'R'
+            workflow_run.status = :workflow_run_status
     """
-    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).all()
+    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query))\
+        .params(workflow_run_status=workflow_run_status).all()
     DB.session.commit()
-    workflow_runs = [wfr.to_wire_as_workflow_run for wfr in workflow_runs]
+    workflow_runs = [wfr.to_wire_as_workflow_run() for wfr in workflow_runs]
     resp = jsonify(workflow_runs=workflow_runs)
     resp.status_code = StatusCodes.OK
     return resp
 
 
+@jqs.route('/workflow_run/<workflow_run_id>/aborted')
+def get_run_status_and_latest_task(workflow_run_id: int):
+    logger.info(logging.myself())
+    query = """
+        SELECT workflow_run.status AS status, max(task.status_date) AS status_date
+        FROM (workflow_run 
+        INNER JOIN task ON workflow_run.workflow_id=task.workflow_id)
+        WHERE workflow_run.id = :workflow_run_id
+    """
+    status = DB.session.query(WorkflowRun.status, Task.status_date).from_statement(text(query)).\
+        params(workflow_run_id=workflow_run_id).one()
+    DB.session.commit()
+    status = SerializeLatestTaskDate.to_wire(
+        status=status.status,
+        status_date=status.status_date
+    )
+    resp = jsonify(statuses=status)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 # ############################ SCHEDULER ROUTES ###############################
 

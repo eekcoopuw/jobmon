@@ -18,6 +18,7 @@ class WorkflowRun(DB.Model):
     def to_wire_as_workflow_run(self) -> tuple:
         serialized = SerializeWorkflowRun.to_wire(
             id=self.id,
+            workflow_id=self.workflow_id,
             heartbeat_date=self.heartbeat_date)
         return serialized
 
