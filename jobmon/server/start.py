@@ -3,7 +3,7 @@ def start_health_monitor():
     """Start monitoring for lost workflow runs"""
     from jobmon.server import ServerConfig
     from jobmon.server.health_monitor.notifiers import SlackNotifier
-    from jobmon.server.health_monitor.health_monitor import HealthMonitor
+    from jobmon.server.health_monitor.workflow_reaper import WorkflowReaper
 
     config = ServerConfig.from_defaults()
     if config.slack_token:
@@ -11,16 +11,11 @@ def start_health_monitor():
             config.slack_token,
             config.wf_slack_channel)
         wf_sink = wf_notifier.send
-        node_notifier = SlackNotifier(
-            config.slack_token,
-            config.node_slack_channel)
-        node_sink = node_notifier.send
     else:
         wf_sink = None
-        node_sink = None
-    hm = HealthMonitor(wf_notification_sink=wf_sink,
-                       node_notification_sink=node_sink)
-    hm.monitor_forever()
+
+    reaper = WorkflowReaper(wf_notification_sink=wf_sink)
+    reaper._monitor_forever()
 
 
 def start_qpid_integration():
