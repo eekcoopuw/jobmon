@@ -19,6 +19,11 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 logger = logging.getLogger(__name__)
 
 
+# This is re-defined into the global namespace of the module so it can be
+# safely patched
+ValueError = ValueError
+
+
 class WorkflowRunExecutionStatus(object):
     """Enumerate possible exit statuses for WorkflowRun._execute()"""
     SUCCEEDED = 0
@@ -111,7 +116,7 @@ class WorkflowRun(object):
         self._status = WorkflowRunStatus.REGISTERED
 
         # test parameter to force failure
-        self.fail_after_n_executions = None
+        self._val_fail_after_n_executions = None
 
     @property
     def status(self) -> str:
@@ -221,7 +226,7 @@ class WorkflowRun(object):
         In every non-test case, self.fail_after_n_executions will be None, and
         so the 'fall over' will not be triggered in production.
         """
-        self.fail_after_n_executions = n
+        self._val_fail_after_n_executions = n
 
     def _execute(self, fail_fast: bool = False,
                  seconds_until_timeout: int = 36000,
@@ -262,7 +267,7 @@ class WorkflowRun(object):
 
         # test parameter
         logger.debug(
-            f"self.fail_after_n_executions is {self.fail_after_n_executions}")
+            f"fail_after_n_executions is {self._val_fail_after_n_executions}")
         n_executions = 0
 
         logger.info(f"Executing Workflow Run {self.workflow_run_id}")
@@ -305,8 +310,8 @@ class WorkflowRun(object):
             for swarm_task in completed:
                 task_to_add = self._propagate_results(swarm_task)
                 fringe = list(set(fringe + task_to_add))
-            if (self.fail_after_n_executions is not None and
-                    n_executions >= self.fail_after_n_executions):
+            if (self._val_fail_after_n_executions is not None and
+                    n_executions >= self._val_fail_after_n_executions):
                 raise ValueError(f"Dag asked to fail after {n_executions} "
                                  f"executions. Failing now")
 

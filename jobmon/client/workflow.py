@@ -201,6 +201,10 @@ class Workflow(object):
         # create workflow_run
         wfr = self._create_workflow_run(resume, reset_running_jobs)
 
+        # testing parameter
+        if hasattr(self, "_val_fail_after_n_executions"):
+            wfr._set_fail_after_n_executions(self._val_fail_after_n_executions)
+
         try:
             # start scheduler
             scheduler_proc = self._start_task_instance_scheduler(
@@ -431,6 +435,16 @@ class Workflow(object):
                 self._scheduler_proc = scheduler_proc
 
         return scheduler_proc
+
+    def _set_fail_after_n_executions(self, n: int) -> None:
+        """
+        For use during testing, force the TaskDag to 'fall over' after n
+        executions, so that the resume case can be tested.
+
+        In every non-test case, self.fail_after_n_executions will be None, and
+        so the 'fall over' will not be triggered in production.
+        """
+        self._val_fail_after_n_executions = n
 
     def __hash__(self):
         hash_value = hashlib.sha1()
