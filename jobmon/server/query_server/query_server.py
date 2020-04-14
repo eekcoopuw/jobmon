@@ -340,29 +340,31 @@ def workflow_run_is_terminated(workflow_run_id: int):
     return resp
 
 
-@jqs.route('/workflow_run/<workflow_run_status>/status', methods=['GET'])
-def get_active_workflow_runs(workflow_run_status: str):
+@jqs.route('/workflow_run_status', methods=['POST'])
+def get_active_workflow_runs() -> Dict:
     """Return all workflow runs that are currently in the specified state."""
     logger.info(logging.myself())
+    data = request.get_json()
+
+    # status_list = data.get('status', [])
     query = """
         SELECT
             workflow_run.*
         FROM
             workflow_run
         WHERE
-            workflow_run.status = :workflow_run_status
+            workflow_run.status in :workflow_run_status
     """
     workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query))\
-        .params(workflow_run_status=workflow_run_status).all()
+        .params(workflow_run_status=data["status"]).all()
     DB.session.commit()
-    workflow_runs = [wfr.to_wire_as_workflow_run() for wfr in workflow_runs]
+    workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
     resp = jsonify(workflow_runs=workflow_runs)
     resp.status_code = StatusCodes.OK
     return resp
 
-
 @jqs.route('/workflow_run/<workflow_run_id>/aborted')
-def get_run_status_and_latest_task(workflow_run_id: int):
+def get_run_status_and_latest_task(workflow_run_id: int) -> Dict:
     logger.info(logging.myself())
     query = """
         SELECT workflow_run.status AS status, max(task.status_date) AS status_date

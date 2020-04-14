@@ -1,4 +1,5 @@
 from typing import Union
+from datetime import datetime
 import ast
 
 
@@ -113,7 +114,7 @@ class SerializeClientTaskTemplateVersion:
 class SerializeWorkflowRun:
 
     @staticmethod
-    def to_wire(id, workflow_id, heartbeat_date) -> tuple:
+    def to_wire(id: int, workflow_id: int, heartbeat_date: datetime) -> tuple:
         return (id, workflow_id, heartbeat_date)
 
     @staticmethod
@@ -125,7 +126,7 @@ class SerializeWorkflowRun:
 
 class SerializeLatestTaskDate:
     @staticmethod
-    def to_wire(status, status_date) -> tuple:
+    def to_wire(status: str, status_date) -> tuple:
         return (status, status_date)
 
     @staticmethod
