@@ -15,7 +15,7 @@ def start_health_monitor():
         wf_sink = None
 
     reaper = WorkflowReaper(wf_notification_sink=wf_sink)
-    reaper._monitor_forever()
+    reaper.monitor_forever()
 
 
 def start_qpid_integration():

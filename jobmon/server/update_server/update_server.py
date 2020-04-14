@@ -928,6 +928,22 @@ def update_task_resources(task_id: int):
     return resp
 
 
+@jsm.route('/workflow/<workflow_id>/suspend', methods=['POST'])
+def suspend_workflow(workflow_id: int):
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_id", workflow_id))
+    query = """
+        UPDATE workflow
+        SET status = "S"
+        WHERE workflow.id = :workflow_id
+    """
+    DB.session.execute(query, {"workflow_id": workflow_id})
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
 # ############################## WORKER ROUTES ################################
 
 @jsm.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
