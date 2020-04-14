@@ -132,4 +132,4 @@ class SerializeLatestTaskDate:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         return {"status": wire_tuple[0],
-                "status_date": wire_tuple[1]}
+                "status_date": datetime.strptime(wire_tuple[1], '%a, %d %b %Y %H:%M:%S %Z')}

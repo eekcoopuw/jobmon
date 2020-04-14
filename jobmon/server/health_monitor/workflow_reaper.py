@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from time import sleep
 from typing import List
 
-from jobmon.serializers import SerializeWorkflowRun, SerializeLatestTaskDate
+from jobmon.serializers import SerializeLatestTaskDate
 from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.client import shared_requester
 from jobmon.models.workflow_status import WorkflowStatus
@@ -10,27 +10,31 @@ from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon import __version__
 from jobmon.server.health_monitor.reaper_workflow_run import ReaperWorkflowRunResponse, \
     ReaperWorkflowRun
-from jobmon.server.health_monitor.notifiers import SlackNotifier
 from jobmon.client.requests.requester import Requester
+from jobmon.server.health_monitor.reaper_config import WorkflowReaperConfig
 
 logger = logging.getLogger(__file__)
 
 
 class WorkflowReaper(object):
-    def __init__(self, poll_interval: int=10, loss_threshold: int=5,
-                 wf_notification_sink: SlackNotifier=None,
-                 requester: Requester=shared_requester):
+    def __init__(self,
+                 poll_interval: int = None,
+                 loss_threshold: int = None,
+                 wf_notification_sink = None,
+                 requester: Requester = shared_requester):
 
         logger.debug(logging.myself())
+        config = WorkflowReaperConfig.from_defaults()
 
-        if poll_interval < loss_threshold:
-            logger.debug(f"poll_interval ({poll_interval} min) must exceed the "
-                         f"loss threshold ({loss_threshold} min)")
+        # Set poll interval and loss threshold to config ones if nothing passed in
+        self._poll_interval = config.poll_interval if poll_interval is None else poll_interval
+        self._loss_threshold = config.loss_threshold if loss_threshold is None else loss_threshold
         self._requester = requester
-        self._poll_interval = poll_interval
-        self._loss_threshold = timedelta(minutes=loss_threshold)
         self._wf_notification_sink = wf_notification_sink
 
+        if self._poll_interval < self._loss_threshold:
+            logger.debug(f"poll_interval ({self._poll_interval} min) must exceed the "
+                         f"loss threshold ({self._loss_threshold} min)")
 
     def monitor_forever(self):
         """The main part of the Worklow Reaper. Check if workflow runs should
@@ -49,7 +53,7 @@ class WorkflowReaper(object):
         except RuntimeError as e:
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
 
-    def _check_by_given_status(self, status: str) -> ReaperWorkflowRunResponse:
+    def _check_by_given_status(self, status: List[str]) -> ReaperWorkflowRunResponse:
         """Return all workflows that are in a specific state"""
         logger.debug(logging.myself())
         app_route = f"/workflow_run_status"
@@ -83,7 +87,7 @@ class WorkflowReaper(object):
             if self._wf_notification_sink:
                 self._wf_notification_sink(msg=message)
 
-    def _register_error_state(self, lost_wfrs: ReaperWorkflowRunResponse):
+    def _register_error_state(self, lost_wfrs: List[ReaperWorkflowRun]):
         """Transitions workflow to FAILED state and workflow run to ERROR"""
         for wfr in lost_wfrs:
             # Transition workflow run to E
@@ -102,22 +106,11 @@ class WorkflowReaper(object):
             if self._wf_notification_sink:
                 self._wf_notification_sink(msg=message)
 
-    def _has_lost_workflow_run(self, workflow_run: ReaperWorkflowRun) -> bool:
-        """Return a bool if the workflow_run is lost"""
-        logger.debug(logging.myself())
-        datetime_string = workflow_run.heartbeat_date
-
-        # Example string that DB returns Mon, 30 Mar 2020 22:23:58 GMT
-        datetime_object = datetime.strptime(datetime_string, '%a, %d %b %Y %H:%M:%S %Z')
-        time_since_last_heartbeat = (datetime.utcnow() -
-                                     datetime_object)
-        return time_since_last_heartbeat > self._loss_threshold
-
     def _get_lost_worfklow_runs(self) -> List[ReaperWorkflowRun]:
         """Return all workflows that have not logged a heartbeat in awhile"""
         logger.debug(logging.myself())
         result: ReaperWorkflowRunResponse = self._check_by_given_status(["R"])
-        return [wr for wr in result.workflow_runs if self._has_lost_workflow_run(wr)]
+        return [wr for wr in result.workflow_runs if wr.has_lost_workflow_run(self._loss_threshold)]
 
     def _error_state(self):
         """Get lost workflows and register them as error"""
@@ -138,8 +131,7 @@ class WorkflowReaper(object):
         status_date = SerializeLatestTaskDate.kwargs_from_wire(wire_args)["status_date"]
 
         # Get difference between current time and workflow run status_date
-        datetime_object = datetime.strptime(status_date, '%a, %d %b %Y %H:%M:%S %Z')
-        time_since_status = datetime.utcnow() - datetime_object
+        time_since_status = datetime.utcnow() - status_date
 
         # If difference is more than 2 minutes change workflow and wfr to A
         if time_since_status > timedelta(minutes=2) and status == WorkflowStatus.REGISTERED:
