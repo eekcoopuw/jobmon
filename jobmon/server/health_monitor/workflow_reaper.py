@@ -1,11 +1,8 @@
-from datetime import datetime, timedelta
 from time import sleep
 from typing import List
 
-from jobmon.serializers import SerializeLatestTaskDate
 from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.client import shared_requester
-from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon import __version__
 from jobmon.server.health_monitor.reaper_workflow_run import ReaperWorkflowRunResponse, \
@@ -126,22 +123,7 @@ class WorkflowReaper(object):
             app_route=app_route,
             message={},
             request_type='get')
-        wire_args = result["statuses"]
-        status = SerializeLatestTaskDate.kwargs_from_wire(wire_args)["status"]
-        status_date = SerializeLatestTaskDate.kwargs_from_wire(wire_args)["status_date"]
-
-        # Get difference between current time and workflow run status_date
-        time_since_status = datetime.utcnow() - status_date
-
-        # If difference is more than 2 minutes change workflow and wfr to A
-        if time_since_status > timedelta(minutes=2) and status == WorkflowStatus.REGISTERED:
-            app_route = f'/workflow_run/{workflow_run_id}/update_status'
-            self._requester.send_request(
-                app_route=app_route,
-                message={'status': WorkflowRunStatus.ABORTED},
-                request_type='put'
-            )
-
+        if result["status"]:
             # Send a message to Slack saying that the transition happened
             message = f"{__version__} Worfklow Reaper Transition" \
                       f"Workflow #{workflow_id} transitioned to ABORTED state" \

@@ -1,6 +1,7 @@
 from http import HTTPStatus as StatusCodes
 import os
 
+from datetime import datetime, timedelta
 from flask import jsonify, request, Blueprint
 from sqlalchemy.sql import text
 from typing import Dict
@@ -23,7 +24,6 @@ from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.server_logging import jobmonLogging as logging
-from jobmon.serializers import SerializeLatestTaskDate
 
 
 # TODO: rename?
@@ -363,25 +363,6 @@ def get_active_workflow_runs() -> Dict:
     resp.status_code = StatusCodes.OK
     return resp
 
-@jqs.route('/workflow_run/<workflow_run_id>/aborted')
-def get_run_status_and_latest_task(workflow_run_id: int) -> Dict:
-    logger.info(logging.myself())
-    query = """
-        SELECT workflow_run.status AS status, max(task.status_date) AS status_date
-        FROM (workflow_run 
-        INNER JOIN task ON workflow_run.workflow_id=task.workflow_id)
-        WHERE workflow_run.id = :workflow_run_id
-    """
-    status = DB.session.query(WorkflowRun.status, Task.status_date).from_statement(text(query)).\
-        params(workflow_run_id=workflow_run_id).one()
-    DB.session.commit()
-    status = SerializeLatestTaskDate.to_wire(
-        status=status.status,
-        status_date=status.status_date
-    )
-    resp = jsonify(statuses=status)
-    resp.status_code = StatusCodes.OK
-    return resp
 
 # ############################ SCHEDULER ROUTES ###############################
 
