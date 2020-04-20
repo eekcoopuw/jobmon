@@ -25,7 +25,7 @@ class SetupCfg:
                  existing_network=None, use_rsyslog=None, rsyslog_host=None,
                  rsyslog_port=None, rsyslog_protocol=None, qpid_uri=None,
                  qpid_cluster=None, qpid_pulling_interval=None,
-                 max_update_per_second=None, loss_threshold=None, poll_interval=None):
+                 max_update_per_second=None, loss_threshold=None, poll_interval_minutes=None):
 
         # get env for fallback
         self._env = os.environ
@@ -69,7 +69,7 @@ class SetupCfg:
         self.qpid_pulling_interval = qpid_pulling_interval
         self.max_update_per_second = max_update_per_second
         self.loss_threshold = loss_threshold
-        self.poll_interval = poll_interval
+        self.poll_interval_minutes = poll_interval_minutes
 
     @property
     def test_mode(self) -> bool:
@@ -487,13 +487,13 @@ class SetupCfg:
         self._loss_threshold = int(val)
 
     @property
-    def poll_interval(self) -> int:
-        return self._poll_interval
+    def poll_interval_minutes(self) -> int:
+        return self._poll_interval_minutes
 
-    @poll_interval.setter
-    def poll_interval(self, val):
+    @poll_interval_minutes.setter
+    def poll_interval_minutes(self, val):
         if val is None:
-            val = self._env.get("POLL_INTERVAL")
+            val = self._env.get("POLL_INTERVAL_MINUTES")
         if val is None:
-            val = self._config["basic values"]["poll_interval"]
-        self._poll_interval = int(val)
+            val = self._config["basic values"]["poll_interval_minutes"]
+        self._poll_interval_minutes = int(val)
