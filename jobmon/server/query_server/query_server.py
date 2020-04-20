@@ -346,7 +346,6 @@ def get_active_workflow_runs() -> Dict:
     logger.info(logging.myself())
     data = request.get_json()
 
-    # status_list = data.get('status', [])
     query = """
         SELECT
             workflow_run.*

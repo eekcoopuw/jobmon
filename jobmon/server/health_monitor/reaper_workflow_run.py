@@ -19,10 +19,10 @@ class ReaperWorkflowRun(object):
         self.workflow_id = workflow_id
         self.heartbeat_date = heartbeat_date
 
-    @staticmethod
-    def from_wire(wire_tuple: tuple) -> ReaperWorkflowRun:
+    @classmethod
+    def from_wire(cls, wire_tuple: tuple) -> ReaperWorkflowRun:
         kwargs = SerializeWorkflowRun.kwargs_from_wire(wire_tuple)
-        return ReaperWorkflowRun(kwargs["id"], kwargs["workflow_id"], datetime.strptime(kwargs["heartbeat_date"], '%a, %d %b %Y %H:%M:%S %Z'))
+        return cls(kwargs["id"], kwargs["workflow_id"], datetime.strptime(kwargs["heartbeat_date"], '%a, %d %b %Y %H:%M:%S %Z'))
 
     def to_wire(self) -> tuple:
         return SerializeWorkflowRun.to_wire(self.workflow_run_id, self.workflow_id, self.heartbeat_date)
@@ -35,7 +35,6 @@ class ReaperWorkflowRun(object):
 
 class ReaperWorkflowRunResponse(object):
     """This class implements a list of ReaperWorkflowRuns"""
-    workflow_runs: List[ReaperWorkflowRun]
 
     def __init__(self, workflow_runs: List[ReaperWorkflowRun]):
         self.workflow_runs = workflow_runs

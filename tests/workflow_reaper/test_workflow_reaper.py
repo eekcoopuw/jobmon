@@ -42,7 +42,7 @@ def test_error_state(db_cfg, client_env):
     while i < 10:
         time.sleep(10)
         i += 1
-        lost = reaper._get_lost_worfklow_runs()
+        lost = reaper._get_lost_workflow_runs()
         if lost:
             break
     reaper._register_error_state(lost)
