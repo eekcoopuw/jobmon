@@ -340,11 +340,10 @@ def workflow_run_is_terminated(workflow_run_id: int):
     return resp
 
 
-@jqs.route('/workflow_run_status', methods=['POST'])
+@jqs.route('/workflow_run_status', methods=['GET'])
 def get_active_workflow_runs() -> Dict:
     """Return all workflow runs that are currently in the specified state."""
     logger.info(logging.myself())
-    data = request.get_json()
 
     query = """
         SELECT
@@ -355,7 +354,7 @@ def get_active_workflow_runs() -> Dict:
             workflow_run.status in :workflow_run_status
     """
     workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query))\
-        .params(workflow_run_status=data["status"]).all()
+        .params(workflow_run_status=request.args.getlist('status')).all()
     DB.session.commit()
     workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
     resp = jsonify(workflow_runs=workflow_runs)

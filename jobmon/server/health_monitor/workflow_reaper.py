@@ -59,7 +59,7 @@ class WorkflowReaper(object):
         return_code, result = self._requester.send_request(
             app_route=app_route,
             message={'status': status},
-            request_type='post')
+            request_type='get')
         if return_code != StatusCodes.OK:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
