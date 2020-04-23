@@ -1,9 +1,9 @@
 
-def start_health_monitor():
+def start_workflow_reaper():
     """Start monitoring for lost workflow runs"""
     from jobmon.server import ServerConfig
-    from jobmon.server.health_monitor.notifiers import SlackNotifier
-    from jobmon.server.health_monitor.workflow_reaper import WorkflowReaper
+    from jobmon.server.workflow_reaper.notifiers import SlackNotifier
+    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
     config = ServerConfig.from_defaults()
     if config.slack_token:

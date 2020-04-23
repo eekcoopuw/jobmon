@@ -10,7 +10,7 @@ def test_error_state(db_cfg, client_env):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.server.health_monitor.workflow_reaper import WorkflowReaper
+    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
     # Create a workflow with one task set the workflow run status to R
     task1 = BashTask("sleep 10")
@@ -78,7 +78,7 @@ def test_suspended_state(db_cfg, client_env):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.server.health_monitor.workflow_reaper import WorkflowReaper
+    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
     # Create first WorkflowRun and leave it in running state
     task1 = BashTask("sleep 10")
@@ -141,7 +141,7 @@ def test_aborted_state(db_cfg, client_env):
 
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.server.health_monitor.workflow_reaper import WorkflowReaper
+    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
     from jobmon.client.workflow import WorkflowRun
     from jobmon.client.swarm.swarm_task import SwarmTask
 

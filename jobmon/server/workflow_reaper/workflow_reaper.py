@@ -6,10 +6,10 @@ from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.client import shared_requester
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon import __version__
-from jobmon.server.health_monitor.reaper_workflow_run import ReaperWorkflowRunResponse, \
+from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRunResponse, \
     ReaperWorkflowRun
 from jobmon.client.requests.requester import Requester
-from jobmon.server.health_monitor.reaper_config import WorkflowReaperConfig
+from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 from jobmon.exceptions import InvalidResponse
 
 logger = logging.getLogger(__file__)
