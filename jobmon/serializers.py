@@ -1,4 +1,5 @@
 from typing import Union
+from datetime import datetime
 import ast
 
 
@@ -108,3 +109,17 @@ class SerializeClientTaskTemplateVersion:
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         return {"task_template_version_id": int(wire_tuple[0]),
                 "id_name_map": wire_tuple[1]}
+
+
+class SerializeWorkflowRun:
+
+    @staticmethod
+    def to_wire(id: int, workflow_id: int, heartbeat_date: datetime) -> tuple:
+        return (id, workflow_id, heartbeat_date)
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        return {"id": int(wire_tuple[0]),
+                "workflow_id": int(wire_tuple[1]),
+                "heartbeat_date": wire_tuple[2]}
+

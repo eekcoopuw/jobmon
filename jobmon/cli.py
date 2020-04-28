@@ -39,9 +39,9 @@ class CLI(object):
 
     def start(self, args):
         """Start the monitoring service"""
-        if args.service == "health_monitor":
-            from jobmon.server.start import start_health_monitor
-            start_health_monitor()
+        if args.service == "workflow_reaper":
+            from jobmon.server.start import start_workflow_reaper
+            start_workflow_reaper()
         if args.service == "qpid_integration":
             from jobmon.server.start import start_qpid_integration
             start_qpid_integration()
@@ -49,7 +49,7 @@ class CLI(object):
             from jobmon.server.start import start_uwsgi_based_web_service
             start_uwsgi_based_web_service()
         else:
-            raise ValueError("Only health_monitor, qpid_integration, or web_service can be "
+            raise ValueError("Only workflow_reaper, qpid_integration, or web_service can be "
                              "'started'. Got {}".format(args.service))
 
     def test_connection(self, args):
@@ -92,7 +92,7 @@ class CLI(object):
         start_parser = self._subparsers.add_parser("start")
         start_parser.set_defaults(func=self.start)
         start_parser.add_argument("service",
-                                  choices=['health_monitor', 'web_service',
+                                  choices=['workflow_reaper', 'web_service',
                                            'qpid_integration'])
 
     def _add_test_subparser(self):

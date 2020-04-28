@@ -1,5 +1,6 @@
 from flask import jsonify, request, Blueprint
 from http import HTTPStatus as StatusCodes
+from datetime import datetime, timedelta
 import json
 import os
 import socket
@@ -822,6 +823,28 @@ def log_workflow_run_status_update(workflow_run_id: int):
     resp.status_code = StatusCodes.OK
     return resp
 
+@jsm.route('/workflow_run/<workflow_run_id>/aborted')
+def get_run_status_and_latest_task(workflow_run_id: int):
+    logger.info(logging.myself())
+    query = """
+        SELECT workflow_run.*, max(task.status_date) AS status_date
+        FROM (workflow_run 
+        INNER JOIN task ON workflow_run.workflow_id=task.workflow_id)
+        WHERE workflow_run.id = :workflow_run_id
+    """
+    aborted = False
+    status = DB.session.query(WorkflowRun, Task.status_date).from_statement(text(query)).\
+        params(workflow_run_id=workflow_run_id).one()
+    DB.session.commit()
+    time_since_status = datetime.utcnow() - status.status_date
+    # If the last task was more than 2 minutes ago, transition wfr to A state
+    if time_since_status > timedelta(minutes=2):
+        aborted = True
+        status.WorkflowRun.transition("A")
+        DB.session.commit()
+    resp = jsonify(status=aborted)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 # TODO: currently unused pending review of where it should go
 @jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
@@ -927,6 +950,22 @@ def update_task_resources(task_id: int):
     resp.status_code = StatusCodes.OK
     return resp
 
+
+@jsm.route('/workflow/<workflow_id>/suspend', methods=['POST'])
+def suspend_workflow(workflow_id: int):
+    logger.info(logging.myself())
+    logger.debug(logging.logParameter("workflow_id", workflow_id))
+    query = """
+        UPDATE workflow
+        SET status = "S"
+        WHERE workflow.id = :workflow_id
+    """
+    DB.session.execute(query, {"workflow_id": workflow_id})
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 # ############################## WORKER ROUTES ################################
 

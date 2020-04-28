@@ -38,7 +38,7 @@ setup(
               'jobmon.models.attributes',
               'jobmon.server',
               'jobmon.server.deployment',
-              'jobmon.server.health_monitor',
+              'jobmon.server.workflow_reaper',
               'jobmon.server.query_server',
               'jobmon.server.update_server',
               'jobmon.server.visualization_server'
