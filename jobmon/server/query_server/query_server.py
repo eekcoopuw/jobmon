@@ -1,6 +1,7 @@
 from http import HTTPStatus as StatusCodes
 import os
 
+from datetime import datetime, timedelta
 from flask import jsonify, request, Blueprint
 from sqlalchemy.sql import text
 from typing import Dict
@@ -339,6 +340,28 @@ def workflow_run_is_terminated(workflow_run_id: int):
     return resp
 
 
+@jqs.route('/workflow_run_status', methods=['GET'])
+def get_active_workflow_runs() -> Dict:
+    """Return all workflow runs that are currently in the specified state."""
+    logger.info(logging.myself())
+
+    query = """
+        SELECT
+            workflow_run.*
+        FROM
+            workflow_run
+        WHERE
+            workflow_run.status in :workflow_run_status
+    """
+    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query))\
+        .params(workflow_run_status=request.args.getlist('status')).all()
+    DB.session.commit()
+    workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
+    resp = jsonify(workflow_runs=workflow_runs)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ SCHEDULER ROUTES ###############################
 
 @jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
@@ -473,6 +496,7 @@ def get_task_by_status_only(workflow_id: int):
             query_swarm_tasks_tuples += f"({task_id},'{status}'),"
         # get rid of trailing comma on final line
         query_swarm_tasks_tuples = query_swarm_tasks_tuples[:-1]
+        logger.info(f"******* QUERY SERVER TASK BY STATUS, this is the query_swarm_tasks_tuple: {query_swarm_tasks_tuples} ********")
 
         query = """
             SELECT
@@ -493,6 +517,7 @@ def get_task_by_status_only(workflow_id: int):
         rows = DB.session.query(Task).from_statement(text(query)).all()
 
     else:
+        logger.info("********* NO SWARM TASKS SUPPLIED FOR UPDATE TASKS, PULLING ALL CHANGED WORKFLOWS *******")
         query = """
             SELECT
                 task.id, task.status
@@ -506,6 +531,7 @@ def get_task_by_status_only(workflow_id: int):
 
     DB.session.commit()
     task_dcts = [row.to_wire_as_swarm_task() for row in rows]
+    logger.info(f"*** THIS IS THE QUERY SERVER (TASK_STATUS_UPDATE). THIS IS THE TASK_DCT: {task_dcts} ******")
     logger.info("task_dcts={}".format(task_dcts))
     resp = jsonify(task_dcts=task_dcts, time=str_time)
     resp.status_code = StatusCodes.OK

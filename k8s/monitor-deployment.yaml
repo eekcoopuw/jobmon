@@ -22,7 +22,7 @@ spec:
         - jobmon
         - --verbose
         - start
-        - health_monitor
+        - workflow_reaper
         command:
         - ./wait-for-tables.sh
         - db

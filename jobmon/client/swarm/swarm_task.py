@@ -53,6 +53,7 @@ class SwarmTask(object):
     def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]
                   ) -> SwarmTask:
         kwargs = SerializeSwarmTask.kwargs_from_wire(wire_tuple)
+        logger.info(f"****swarm_task from wire. wire_tuple: {wire_tuple}, swarm_task_dict: {swarm_tasks_dict}, kwargs: {kwargs}")
         swarm_tasks_dict[kwargs["task_id"]].status = kwargs["status"]
         return swarm_tasks_dict[kwargs["task_id"]]
 

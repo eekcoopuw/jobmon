@@ -10,9 +10,9 @@ def wait_for_file(filepath: str) -> bool:
     """Waits a few times to see if it appears, asserts if it takes too long"""
     num_tries = 0
     while not os.path.exists(filepath):
-        sleep(5)
+        sleep(10)
         num_tries += 1
-        assert num_tries < 8
+        assert num_tries < 20
     return True
 
 
@@ -30,7 +30,7 @@ def test_sequential(db_cfg, client_env):
                   m_mem_free='1G',
                   max_attempts=1)
 
-    workflow = UnknownWorkflow("simple_workflow", project='proj_scicomp',
+    workflow = UnknownWorkflow(name="sequential_simple_workflow", project='proj_scicomp',
                                stderr=log_dir, stdout=log_dir,
                                executor_class="SequentialExecutor",
                                seconds_until_timeout=300)
@@ -68,7 +68,7 @@ def test_sge_cli(db_cfg, client_env):
                   m_mem_free='1G',
                   max_attempts=1)
 
-    workflow = UnknownWorkflow("simple_workflow", project='proj_scicomp',
+    workflow = UnknownWorkflow(name="sge_cli_simple_workflow", project='proj_scicomp',
                                stderr=log_dir, stdout=log_dir,
                                executor_class="SGEExecutor",
                                seconds_until_timeout=300)
