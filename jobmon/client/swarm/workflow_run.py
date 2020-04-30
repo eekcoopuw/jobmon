@@ -3,6 +3,7 @@ import getpass
 from http import HTTPStatus as StatusCodes
 from multiprocessing import Process
 import time
+from datetime import datetime
 from typing import Dict, Set, List, Tuple
 
 from jobmon import __version__
@@ -228,6 +229,20 @@ class WorkflowRun(object):
         """
         self._val_fail_after_n_executions = n
 
+    def _get_current_time(self) -> datetime:
+        app_route = '/time'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type='get')
+
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
+        return response["time"]
+
     def _execute(self, fail_fast: bool = False,
                  seconds_until_timeout: int = 36000,
                  wedged_workflow_sync_interval: int = 600):
@@ -255,19 +270,7 @@ class WorkflowRun(object):
         """
         self.update_status(WorkflowRunStatus.RUNNING)
 
-        app_route = '/time'
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={},
-            request_type='get')
-
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
-                
-        self.last_sync = response["time"]
+        self.last_sync = self._get_current_time()
 
         # populate sets for all current tasks
         self._parse_adjusting_done_and_errors(list(self.swarm_tasks.values()))
