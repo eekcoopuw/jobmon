@@ -255,8 +255,19 @@ class WorkflowRun(object):
         """
         self.update_status(WorkflowRunStatus.RUNNING)
 
-        # TODO: probably set sync time to now using /time route so we don't
-        # get the full set of task statuses on the first query to the db
+        app_route = '/time'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type='get')
+
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
+                
+        self.last_sync = response["time"]
 
         # populate sets for all current tasks
         self._parse_adjusting_done_and_errors(list(self.swarm_tasks.values()))
