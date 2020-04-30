@@ -496,6 +496,7 @@ def get_task_by_status_only(workflow_id: int):
             query_swarm_tasks_tuples += f"({task_id},'{status}'),"
         # get rid of trailing comma on final line
         query_swarm_tasks_tuples = query_swarm_tasks_tuples[:-1]
+        logger.info(f"******* QUERY SERVER TASK BY STATUS, this is the query_swarm_tasks_tuple: {query_swarm_tasks_tuples} ********")
 
         query = """
             SELECT
@@ -516,6 +517,7 @@ def get_task_by_status_only(workflow_id: int):
         rows = DB.session.query(Task).from_statement(text(query)).all()
 
     else:
+        logger.info("********* NO SWARM TASKS SUPPLIED FOR UPDATE TASKS, PULLING ALL CHANGED WORKFLOWS *******")
         query = """
             SELECT
                 task.id, task.status
@@ -529,6 +531,7 @@ def get_task_by_status_only(workflow_id: int):
 
     DB.session.commit()
     task_dcts = [row.to_wire_as_swarm_task() for row in rows]
+    logger.info(f"*** THIS IS THE QUERY SERVER (TASK_STATUS_UPDATE). THIS IS THE TASK_DCT: {task_dcts} ******")
     logger.info("task_dcts={}".format(task_dcts))
     resp = jsonify(task_dcts=task_dcts, time=str_time)
     resp.status_code = StatusCodes.OK

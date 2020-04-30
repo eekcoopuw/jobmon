@@ -154,7 +154,7 @@ class WorkflowReaper(object):
             if self._wf_notification_sink:
                 self._wf_notification_sink(msg=message)
 
-    def _aborted_state(self) -> None:
+    def _aborted_state(self, workflow_run_id = None) -> None:
         """Get all workflow runs in G state and validate if they should be in
         A state"""
 
@@ -163,5 +163,10 @@ class WorkflowReaper(object):
 
         # Call method to validate/register if workflow run should be in A state
         for wfr in result.workflow_runs:
-            self._set_wfr_to_aborted(wfr.workflow_run_id, wfr.workflow_id)
+            if workflow_run_id:
+                if wfr.workflow_run_id == workflow_run_id:
+                    self._set_wfr_to_aborted(wfr.workflow_run_id, wfr.workflow_id)
+                    break
+            else:
+                self._set_wfr_to_aborted(wfr.workflow_run_id, wfr.workflow_id)
 

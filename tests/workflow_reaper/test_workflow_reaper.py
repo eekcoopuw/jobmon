@@ -14,7 +14,7 @@ def test_error_state(db_cfg, client_env):
 
     # Create a workflow with one task set the workflow run status to R
     task1 = BashTask("sleep 10")
-    workflow1 = UnknownWorkflow("error_workflow_1",
+    workflow1 = UnknownWorkflow(name="error_workflow_1",
                                executor_class="SequentialExecutor")
 
     workflow1.add_tasks([task1])
@@ -146,8 +146,8 @@ def test_aborted_state(db_cfg, client_env):
     from jobmon.client.swarm.swarm_task import SwarmTask
 
     # Create two tasks and add them to a workflow
-    task = BashTask("sleep 8")
-    task2 = BashTask("sleep 7")
+    task = BashTask("sleep 601")
+    task2 = BashTask("sleep 600")
     workflow = UnknownWorkflow("aborted_workflow_1",
                                executor_class="SequentialExecutor")
     workflow.add_tasks([task, task2])
@@ -195,7 +195,7 @@ def test_aborted_state(db_cfg, client_env):
 
     # Call aborted state logic
     reaper = WorkflowReaper()
-    reaper._aborted_state()
+    reaper._aborted_state(wfr.workflow_run_id)
 
     # Check that the workflow_run and workflow have both been moved to the
     # "A" state.
