@@ -34,9 +34,7 @@ class Task(DB.Model):
             num_cores=self.executor_parameter_set.num_cores,
             m_mem_free=self.executor_parameter_set.m_mem_free,
             j_resource=self.executor_parameter_set.j_resource,
-            hard_limits=self.executor_parameter_set.hard_limits,
-            last_nodename=lnode,
-            last_process_group_id=lpgid)
+            hard_limits=self.executor_parameter_set.hard_limits)
         return serialized
 
     def to_wire_as_swarm_task(self):

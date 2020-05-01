@@ -65,8 +65,6 @@ def parse_arguments(argstr: Optional[str] = None) -> dict:
     parser.add_argument("--expected_jobmon_version", required=True)
     parser.add_argument("--executor_class", required=True)
     parser.add_argument("--temp_dir", required=False)
-    parser.add_argument("--last_nodename", required=False)
-    parser.add_argument("--last_pgid", required=False)
     parser.add_argument("--heartbeat_interval", default=90, type=float)
     parser.add_argument("--report_by_buffer", default=3.1, type=float)
 
@@ -139,7 +137,6 @@ def _run_in_sub_process(command: str, temp_dir: str, heartbeat_interval: float,
 
 def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
            executor_class: str, temp_dir: Optional[str] = None,
-           last_nodename: str = None, last_pgid: str = None,
            heartbeat_interval: float = 90,
            report_by_buffer: float = 3.1):
 
@@ -149,9 +146,6 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
     # set ENV variables in case tasks need to access them
     os.environ["JOBMON_JOB_INSTANCE_ID"] = str(task_instance_id)
     executor_class, ti_executor_info = _get_executor_class(executor_class)
-    # Any subprocesses spawned will have this parent process's PID as
-    # their PGID (useful for cleaning up processes in certain failure
-    # scenarios)
     version = pkg_resources.get_distribution("jobmon").version
     if version != expected_jobmon_version:
         msg = f"Your workflow master node is using, " \

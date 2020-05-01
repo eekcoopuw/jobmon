@@ -229,9 +229,7 @@ class Executor:
                        f"{self.__class__.__name__}")
 
     def build_wrapped_command(self, command: str, task_instance_id: int,
-                              heartbeat_interval: int, report_by_buffer: float,
-                              last_nodename: Optional[str] = None,
-                              last_process_group_id: Optional[int] = None
+                              heartbeat_interval: int, report_by_buffer: float
                               ) -> str:
         """Build a command that can be executed by the shell and can be
         unwrapped by jobmon itself to setup proper communication channels to
@@ -239,8 +237,6 @@ class Executor:
         Args:
             command: command to run the desired job
             task_instance_id: id for the given instance of this task
-            last_nodename: nodename that ran the prior instance of the task
-            last_process_group_id: pgid to be used for qdelling
 
         Returns:
             (str) unwrappable command
@@ -257,10 +253,6 @@ class Executor:
         ]
         if self.temp_dir and 'stata' in command:
             wrapped_cmd.extend(["--temp_dir", self.temp_dir])
-        if last_nodename:
-            wrapped_cmd.extend(["--last_nodename", last_nodename])
-        if last_process_group_id:
-            wrapped_cmd.extend(["--last_pgid", last_process_group_id])
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         logger.debug(str_cmd)
         return str_cmd
