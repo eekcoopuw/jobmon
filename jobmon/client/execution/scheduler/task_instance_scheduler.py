@@ -285,14 +285,11 @@ class TaskInstanceScheduler:
         logger.debug("Executing {}".format(task.command))
 
         # TODO: unify qsub IDS to be meaningful across executor types
-        # TODO: remove last_nodename and last_process_group_id
         command = task_instance.executor.build_wrapped_command(
             command=task.command,
             task_instance_id=task_instance.task_instance_id,
             heartbeat_interval=self.config.task_heartbeat_interval,
-            report_by_buffer=self.config.report_by_buffer,
-            last_nodename=task.last_nodename,
-            last_process_group_id=task.last_process_group_id)
+            report_by_buffer=self.config.report_by_buffer)
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
         logger.debug(
