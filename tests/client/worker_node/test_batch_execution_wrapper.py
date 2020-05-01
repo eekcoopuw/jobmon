@@ -20,18 +20,15 @@ def test_sequential(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.templates.bash_task import BashTask
 
-    job_name = "foo"
-    log_dir = f'/ihme/scratch/users/{getuser()}'
     t1 = BashTask(command=f"python {os.path.join(thisdir, 'fill_pipe.py')}",
                   executor_class="SequentialExecutor",
-                  name=job_name,
+                  name="foo",
                   num_cores=1,
                   max_runtime_seconds=600,
                   m_mem_free='1G',
                   max_attempts=1)
 
-    workflow = UnknownWorkflow(name="sequential_simple_workflow", project='proj_scicomp',
-                               stderr=log_dir, stdout=log_dir,
+    workflow = UnknownWorkflow("sequential_simple_workflow", project='proj_scicomp',
                                executor_class="SequentialExecutor",
                                seconds_until_timeout=300)
     workflow.add_tasks([t1])
@@ -80,8 +77,13 @@ def test_sge_cli(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         query = """
-        SELECT description
-        FROM task_instance_error_log"""
+        SELECT tiel.description
+        FROM task_instance_error_log tiel
+        JOIN task_instance ti
+            ON tiel.task_instance_id = ti.id
+        JOIN task
+            ON ti.task_id = task.id
+        WHERE task_id = {}""".format(t1.task_id)
         res = DB.session.execute(query).fetchone()
         DB.session.commit()
 
@@ -92,7 +94,10 @@ def test_sge_cli(db_cfg, client_env):
     with app.app_context():
         query = """
         SELECT executor_id
-        FROM task_instance"""
+        FROM task_instance ti
+        JOIN task
+            ON ti.task_id = task.id
+        WHERE task_id = {}""".format(t1.task_id)
         executor_id = DB.session.execute(query).fetchone()[0]
         DB.session.commit()
 
@@ -110,4 +115,3 @@ def test_sge_cli(db_cfg, client_env):
     with open(stdout_name, "r") as f:
         content = f.read()
     assert ("a" * 2 ** 10 + "\n") * (2 ** 8) in content
-

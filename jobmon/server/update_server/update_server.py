@@ -823,12 +823,13 @@ def log_workflow_run_status_update(workflow_run_id: int):
     resp.status_code = StatusCodes.OK
     return resp
 
-@jsm.route('/workflow_run/<workflow_run_id>/aborted')
+
+@jsm.route('/workflow_run/<workflow_run_id>/aborted', methods=['PUT'])
 def get_run_status_and_latest_task(workflow_run_id: int):
     logger.info(logging.myself())
     query = """
         SELECT workflow_run.*, max(task.status_date) AS status_date
-        FROM (workflow_run 
+        FROM (workflow_run
         INNER JOIN task ON workflow_run.workflow_id=task.workflow_id)
         WHERE workflow_run.id = :workflow_run_id
     """
@@ -842,7 +843,7 @@ def get_run_status_and_latest_task(workflow_run_id: int):
         aborted = True
         status.WorkflowRun.transition("A")
         DB.session.commit()
-    resp = jsonify(status=aborted)
+    resp = jsonify(was_aborted=aborted)
     resp.status_code = StatusCodes.OK
     return resp
 

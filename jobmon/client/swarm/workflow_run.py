@@ -448,8 +448,6 @@ class WorkflowRun(object):
 
         self.last_sync = response['time']
         # status gets updated in from_wire
-        logger.info(f"**** THIS IS IN _TASK_STATUS_UPDATES IN WORKFLOW_RUN.PY RESPONSE['TASK_DCTS'] IS: {response['task_dcts']}")
-        logger.info(f"**** THIS IS IN _TASK_STATUS_UPDATES IN WORKFLOW_RUN.PY SELF.SWARM_TASKS IS: {self.swarm_tasks}")
         return [SwarmTask.from_wire(task, self.swarm_tasks)
                 for task in response['task_dcts']]
 

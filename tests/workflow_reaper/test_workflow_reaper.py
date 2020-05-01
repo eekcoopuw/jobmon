@@ -15,7 +15,7 @@ def test_error_state(db_cfg, client_env):
     # Create a workflow with one task set the workflow run status to R
     task1 = BashTask("sleep 10")
     workflow1 = UnknownWorkflow(name="error_workflow_1",
-                               executor_class="SequentialExecutor")
+                                executor_class="SequentialExecutor")
 
     workflow1.add_tasks([task1])
     workflow1._bind()
@@ -26,14 +26,13 @@ def test_error_state(db_cfg, client_env):
     # Create a second workflow with one task and set the workflow run to D
     task2 = BashTask("sleep 11")
     workflow2 = UnknownWorkflow("error_workflow_2",
-                               executor_class="SequentialExecutor")
+                                executor_class="SequentialExecutor")
 
     workflow2.add_tasks([task2])
     workflow2._bind()
     wfr2 = workflow2._create_workflow_run()
     wfr2.update_status("R")
     wfr2.update_status("D")
-
 
     # Call the reaper, with a short loss_threshold, to trigger the reaper to
     # move the workflow run in to error state
@@ -45,7 +44,7 @@ def test_error_state(db_cfg, client_env):
         lost = reaper._get_lost_workflow_runs()
         if lost:
             break
-    reaper._register_error_state(lost)
+    reaper._error_state()
 
     # Check that the workflow that exceeded the loss threshold now has an F
     # status, make sure the other workflow is untouched
@@ -83,7 +82,7 @@ def test_suspended_state(db_cfg, client_env):
     # Create first WorkflowRun and leave it in running state
     task1 = BashTask("sleep 10")
     workflow1 = UnknownWorkflow("suspended_workflow_1",
-                               executor_class="SequentialExecutor")
+                                executor_class="SequentialExecutor")
 
     workflow1.add_tasks([task1])
     workflow1._bind()
@@ -94,7 +93,7 @@ def test_suspended_state(db_cfg, client_env):
     # Create second WorkflowRun and tranistion to C status
     task2 = BashTask("sleep 11")
     workflow2 = UnknownWorkflow("suspended_workflow_2",
-                               executor_class="SequentialExecutor")
+                                executor_class="SequentialExecutor")
 
     workflow2.add_tasks([task2])
     workflow2._bind()
@@ -105,7 +104,7 @@ def test_suspended_state(db_cfg, client_env):
     # Create third WorkflowRun and transition to H status
     task3 = BashTask("sleep 12")
     workflow3 = UnknownWorkflow("suspended_workflow_3",
-                               executor_class="SequentialExecutor")
+                                executor_class="SequentialExecutor")
 
     workflow3.add_tasks([task3])
     workflow3._bind()
@@ -146,8 +145,8 @@ def test_aborted_state(db_cfg, client_env):
     from jobmon.client.swarm.swarm_task import SwarmTask
 
     # Create two tasks and add them to a workflow
-    task = BashTask("sleep 601")
-    task2 = BashTask("sleep 600")
+    task = BashTask("sleep 8")
+    task2 = BashTask("sleep 7")
     workflow = UnknownWorkflow("aborted_workflow_1",
                                executor_class="SequentialExecutor")
     workflow.add_tasks([task, task2])
@@ -211,5 +210,3 @@ def test_aborted_state(db_cfg, client_env):
     _, workflow_status = workflow._get_workflow_id_and_status()
     assert workflow_status == "A"
     assert workflow_run_res[0] == "A"
-
-

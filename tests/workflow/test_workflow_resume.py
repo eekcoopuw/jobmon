@@ -2,7 +2,6 @@ from multiprocessing import Process
 import os
 import time
 import sys
-import builtins
 
 import pytest
 from mock import patch
