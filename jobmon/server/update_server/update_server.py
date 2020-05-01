@@ -635,8 +635,8 @@ def add_task_instance():
     try:
         task_instance.task.transition(TaskStatus.INSTANTIATED)
     except InvalidStateTransition:
-        # TODO: what race condition is this covering?
-        if task_instance.job.status == TaskStatus.INSTANTIATED:
+        # Handles race condition if the task is already instantiated state
+        if task_instance.task.status == TaskStatus.INSTANTIATED:
             msg = ("Caught InvalidStateTransition. Not transitioning task "
                    "{}'s task_instance_id {} from I to I"
                    .format(data['task_id'], task_instance.id))
@@ -792,7 +792,7 @@ def queue_job(task_id: int):
     try:
         task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
     except InvalidStateTransition:
-        # TODO: what race condition is this covering?
+        # Handles race condition if the task has already been queued
         if task.status == TaskStatus.QUEUED_FOR_INSTANTIATION:
             msg = ("Caught InvalidStateTransition. Not transitioning job "
                    f"{task_id} from Q to Q")
@@ -847,7 +847,6 @@ def get_run_status_and_latest_task(workflow_run_id: int):
     resp.status_code = StatusCodes.OK
     return resp
 
-# TODO: currently unused pending review of where it should go
 @jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def log_wfr_heartbeat(workflow_run_id: int):
     """Log a workflow_run as being responsive, with a heartbeat

@@ -375,7 +375,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
         last_sync (datetime): time since when to get tasks
     """
 
-    # TODO: this is where we would filter by task priority
+    # If we want to prioritize by task or workflow level it would be done in this query
     query = """
         SELECT
             task.*
@@ -545,7 +545,6 @@ def kill_self(task_instance_id: int):
     logger.debug(logging.myself())
     logging.logParameter("task_instance_id", task_instance_id)
 
-    # TODO: This select is a bit heavy weight for it's purpose
     query = """
         SELECT
             task_instance.id
