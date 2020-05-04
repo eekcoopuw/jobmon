@@ -316,7 +316,7 @@ def test_sge_workflow_one_task(db_cfg, client_env):
 def test_sge_workflow_three_tasks(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    workflow = UnknownWorkflow("test_three_linear_tasks",
+    workflow = UnknownWorkflow("test_sge_three_linear_tasks",
                                executor_class="SGEExecutor")
     task_a = BashTask(
         "echo a", executor_class="SGEExecutor",

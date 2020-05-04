@@ -215,3 +215,32 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     wfr._execute(seconds_until_timeout=1)
 
     assert wfr.status == WorkflowRunStatus.DONE
+
+
+def test_fail_fast(client_env):
+    """set up a dag where a middle job fails. The fail_fast parameter should
+    ensure that not all tasks finish"""
+    from jobmon.client.api import BashTask, Tool
+    from jobmon.client.execution.strategies.sequential import \
+        SequentialExecutor
+
+    #
+    unknown_tool = Tool()
+    workflow = unknown_tool.create_workflow(name="test_fail_fast")
+    t1 = BashTask("sleep 1", executor_class="SequentialExecutor")
+    t2 = BashTask("erroring_out 1", upstream_tasks=[t1],
+                  executor_class="SequentialExecutor")
+    t3 = BashTask("sleep 2", upstream_tasks=[t1],
+                  executor_class="SequentialExecutor")
+    t4 = BashTask("sleep 3", upstream_tasks=[t3],
+                  executor_class="SequentialExecutor")
+    t5 = BashTask("sleep 4", upstream_tasks=[t4],
+                  executor_class="SequentialExecutor")
+
+    workflow.add_tasks([t1, t2, t3, t4, t5])
+    workflow.set_executor(SequentialExecutor())
+    wfr = workflow.run(fail_fast=True)
+
+    assert len(wfr.all_error) == 1
+    assert len(wfr.all_done) >= 1
+    assert len(wfr.all_done) <= 3

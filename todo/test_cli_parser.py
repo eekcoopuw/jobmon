@@ -18,7 +18,7 @@ def test_invalid_sub_command():
 
 
 @pytest.mark.parametrize("valid_subcommand",
-                         ["health_monitor", "web_service"])
+                         ["workflow_reaper", "web_service"])
 def test_start_subcommand(valid_subcommand):
     cli = CLI()
 

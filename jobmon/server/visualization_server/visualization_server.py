@@ -1,0 +1,223 @@
+from http import HTTPStatus as StatusCodes
+from flask import jsonify, request, Blueprint
+import logging
+import pandas as pd
+
+
+from jobmon.models import DB
+
+
+jvs = Blueprint("visualization_server", __name__)
+
+
+logger = logging.getLogger(__name__)
+
+
+_viz_label_mapping = {
+    "A": "PENDING",
+    "G": "PENDING",
+    "Q": "PENDING",
+    "I": "PENDING",
+    "E": "PENDING",
+    "R": "RUNNING",
+    "F": "FATAL",
+    "D": "DONE"
+}
+_reversed_viz_label_mapping = {
+    "PENDING": ["A", "G", "Q", "I", "E"],
+    "RUNNING": ["R"],
+    "FATAL": ["F"],
+    "DONE": ["D"]
+}
+_viz_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
+
+
+@jvs.route('/workflow_status', methods=['GET'])
+def get_workflow_status():
+    # initial params
+    params = {}
+    user_request = request.args.getlist('user')
+    if user_request == "all":  # specifying all is equivalent to None
+        user_request = []
+    workflow_request = request.args.getlist('workflow_id')
+    if workflow_request == "all":  # specifying all is equivalent to None
+        workflow_request = []
+
+    where_clause = ""
+    # convert workflow request into sql filter
+    if workflow_request:
+        workflow_request = [int(w) for w in workflow_request]
+        params["workflow_id"] = workflow_request
+        where_clause = "WHERE workflow.id in :workflow_id "
+    else:  # if we don't specify workflow then we use the users
+        # convert user request into sql filter
+        if user_request:
+            params["user"] = user_request
+            where_clause = "WHERE workflow_run.user in :user "
+
+    # execute query
+    q = """
+        SELECT
+            workflow.id as WF_ID,
+            workflow.name as WF_NAME,
+            workflow_status.label as WF_STATUS,
+            count(task.status) as TASKS,
+            task.status AS STATUS,
+            sum(
+                CASE
+                    WHEN num_attempts <= 1 THEN 0
+                    ELSE num_attempts - 1
+                END
+            ) as RETRIES
+        FROM workflow
+        JOIN workflow_run
+            ON workflow.id = workflow_run.workflow_id
+        JOIN task
+            ON workflow.id = task.workflow_id
+        JOIN workflow_status
+            ON workflow_status.id = workflow.status
+        {where_clause}
+        GROUP BY workflow.id, task.status, workflow.name, workflow_status.label
+    """.format(where_clause=where_clause)
+    res = DB.session.execute(q, params).fetchall()
+
+    if res:
+
+        # assign to dataframe for aggregation
+        df = pd.DataFrame(res, columns=res[0].keys())
+
+        # remap to viz statuses
+        df.STATUS.replace(to_replace=_viz_label_mapping, inplace=True)
+
+        # aggregate totals by workflow and status
+        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS"]
+                        ).agg({'TASKS': 'sum', 'RETRIES': 'sum'})
+
+        # pivot wide by task status
+        tasks = df.pivot_table(
+            values="TASKS",
+            index=["WF_ID", "WF_NAME", "WF_STATUS"],
+            columns="STATUS",
+            fill_value=0)
+        for col in _viz_order:
+            if col not in tasks.columns:
+                tasks[col] = 0
+        tasks = tasks[_viz_order]
+
+        # aggregate again without status to get the totals by workflow
+        retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]
+                             ).agg({'TASKS': 'sum', 'RETRIES': 'sum'})
+
+        # combine datasets
+        df = pd.concat([tasks, retries], axis=1)
+
+        # compute pcts and format
+        for col in _viz_order:
+            df[col + "_pct"] = (
+                df[col].astype(float) / df["TASKS"].astype(float)) * 100
+            df[col + "_pct"] = df[[col + "_pct"]].round(1)
+            df[col] = (
+                df[col].astype(int).astype(str) +
+                " (" + df[col + "_pct"].astype(str) + "%)")
+
+        # df.replace(to_replace={"0 (0.0%)": "NA"}, inplace=True)
+        # final order
+        df = df[["TASKS"] + _viz_order + ["RETRIES"]]
+        df = df.reset_index()
+        df = df.to_json()
+        resp = jsonify(workflows=df)
+    else:
+        df = pd.DataFrame({},
+                          columns=["WF_ID", "WF_NAME", "WF_STATUS", "TASKS",
+                                   "PENDING", "RUNNING", "DONE", "FATAL",
+                                   "RETRIES"]).to_json()
+        resp = jsonify(workflows=df)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jvs.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
+def get_workflow_tasks(workflow_id):
+    params = {"workflow_id": workflow_id}
+    where_clause = "WHERE workflow.id = :workflow_id"
+    status_request = request.args.get('status', None)
+    if status_request is not None:
+        params["status"] = _reversed_viz_label_mapping[status_request]
+        where_clause += " AND task.status in :status"
+
+    q = """
+        SELECT
+            task.id AS TASK_ID,
+            task.name AS TASK_NAME,
+            task.status AS STATUS,
+            CASE
+                WHEN num_attempts <= 1 THEN 0
+                ELSE num_attempts - 1
+            END AS RETRIES
+        FROM workflow
+        JOIN task
+            ON workflow.id = task.workflow_id
+        {where_clause}""".format(where_clause=where_clause)
+    res = DB.session.execute(q, params).fetchall()
+
+    if res:
+        # assign to dataframe for serialization
+        df = pd.DataFrame(res, columns=res[0].keys())
+
+        # remap to viz statuses
+        df.STATUS.replace(to_replace=_viz_label_mapping, inplace=True)
+        df = df.to_json()
+        resp = jsonify(workflow_tasks=df)
+    else:
+        df = pd.DataFrame(
+            {}, columns=["TASK_ID", "TASK_NAME", "STATUS", "RETRIES"])
+        resp = jsonify(workflow_tasks=df.to_json())
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jvs.route('/task/<task_id>/status', methods=['GET'])
+def get_task_status(task_id):
+
+    q = """
+        SELECT
+            task.id AS TASK_ID,
+            task.status AS task_status,
+            task_instance_id AS TASK_INSTANCE_ID,
+            executor_id AS EXECUTOR_ID,
+            task_instance_status.label AS STATUS,
+            usage_str AS RESOURCE_USAGE,
+            description AS ERROR_TRACE
+        FROM task
+        JOIN task_instance
+            ON task.id = task_instance.task_id
+        JOIN task_instance_status
+            ON task_instance.status = task_instance_status.id
+        JOIN executor_parameter_set
+            ON task_instance.executor_parameter_set_id = executor_parameter_set.id
+        LEFT JOIN task_instance_error_log
+            ON task_instance.id = task_instance_error_log.task_instance_id
+        WHERE
+            task.id = :task_id"""
+    res = DB.session.execute(q, {"task_id": task_id}).fetchall()
+
+    if res:
+        # assign to dataframe for serialization
+        df = pd.DataFrame(res, columns=res[0].keys())
+        task_state = _viz_label_mapping[df["task_status"].unique()[0]]
+        df = df[["TASK_INSTANCE_ID", "EXECUTOR_ID", "STATUS", "RESOURCE_USAGE",
+                 "ERROR_TRACE"]]
+        resp = jsonify(task_state=task_state,
+                       task_instance_status=df.to_json())
+    else:
+        df = pd.DataFrame(
+            {},
+            columns=["TASK_INSTANCE_ID", "EXECUTOR_ID", "STATUS",
+                     "RESOURCE_USAGE", "ERROR_TRACE"])
+        resp = jsonify(task_state="?",
+                       task_instance_status=df.to_json())
+
+    resp.status_code = StatusCodes.OK
+    return resp

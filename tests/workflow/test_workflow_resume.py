@@ -4,6 +4,7 @@ import time
 import sys
 
 import pytest
+from mock import patch
 
 from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowNotResumable,
                                ResumeSet)
@@ -295,3 +296,43 @@ def test_hot_resume(db_cfg, client_env):
     assert tasks[3][9] == "D"  # a resume task that finished before timeout
     assert tasks[4][9] == "Q"  # workflow timed out. task deleted
     assert tasks[5][9] == "Q"  # workflow timed out. task deleted
+
+
+def test_stopped_resume(db_cfg, client_env):
+    """test that a workflow with two task where the workflow is stopped with a
+    keyboard interrupt mid stream. The workflow is resumed and
+    the tasks then finishes successfully and the workflow runs to completion"""
+    from jobmon.client.api import Tool, BashTask
+    from jobmon.client.execution.strategies.sequential import \
+        SequentialExecutor
+
+    unknown_tool = Tool()
+    workflow1 = unknown_tool.create_workflow(name="stopped_resume")
+    t1 = BashTask("echo t1", executor_class="SequentialExecutor")
+    t2 = BashTask("echo t2", executor_class="SequentialExecutor",
+                  upstream_tasks=[t1])
+    workflow1.add_tasks([t1, t2])
+    workflow1.set_executor(SequentialExecutor())
+
+    # start up the first task. patch so that it fails with a keyboard interrupt
+    workflow1._set_fail_after_n_executions(1)
+    with patch("jobmon.client.swarm.workflow_run.ValueError") as fail_error:
+        fail_error.side_effect = KeyboardInterrupt
+        # will ask if we want to exit. answer is 'y'
+        with patch('builtins.input') as input_patch:
+            input_patch.return_value = 'y'
+            wfr1 = workflow1.run()
+
+    assert wfr1.status == WorkflowRunStatus.STOPPED
+
+    # now resume it
+    workflow1 = unknown_tool.create_workflow(
+        name="stopped_resume", workflow_args=workflow1.workflow_args)
+    t1 = BashTask("echo t1", executor_class="SequentialExecutor")
+    t2 = BashTask("echo t2", executor_class="SequentialExecutor",
+                  upstream_tasks=[t1])
+    workflow1.add_tasks([t1, t2])
+    workflow1.set_executor(SequentialExecutor())
+    wfr2 = workflow1.run(resume=True)
+
+    assert wfr2.status == WorkflowRunStatus.DONE

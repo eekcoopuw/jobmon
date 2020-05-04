@@ -1,6 +1,7 @@
 from http import HTTPStatus as StatusCodes
 import os
 
+from datetime import datetime, timedelta
 from flask import jsonify, request, Blueprint
 from sqlalchemy.sql import text
 from typing import Dict
@@ -339,6 +340,28 @@ def workflow_run_is_terminated(workflow_run_id: int):
     return resp
 
 
+@jqs.route('/workflow_run_status', methods=['GET'])
+def get_active_workflow_runs() -> Dict:
+    """Return all workflow runs that are currently in the specified state."""
+    logger.info(logging.myself())
+
+    query = """
+        SELECT
+            workflow_run.*
+        FROM
+            workflow_run
+        WHERE
+            workflow_run.status in :workflow_run_status
+    """
+    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query))\
+        .params(workflow_run_status=request.args.getlist('status')).all()
+    DB.session.commit()
+    workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
+    resp = jsonify(workflow_runs=workflow_runs)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ SCHEDULER ROUTES ###############################
 
 @jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
@@ -352,7 +375,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
         last_sync (datetime): time since when to get tasks
     """
 
-    # TODO: this is where we would filter by task priority
+    # If we want to prioritize by task or workflow level it would be done in this query
     query = """
         SELECT
             task.*
@@ -522,7 +545,6 @@ def kill_self(task_instance_id: int):
     logger.debug(logging.myself())
     logging.logParameter("task_instance_id", task_instance_id)
 
-    # TODO: This select is a bit heavy weight for it's purpose
     query = """
         SELECT
             task_instance.id

@@ -9,13 +9,16 @@ from jobmon.client import ClientLogging as logging
 logger = logging.getLogger(__name__)
 
 
-def workflow_status(workflow_id: List[int] = [], user: List[str] = []
-                    ) -> pd.DataFrame:
+def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
+                    json: bool = False) -> pd.DataFrame:
     """Get metadata about workflow progress
 
     Args:
-        workflow_id:
-        user:
+        workflow_id: workflow_id/s to retrieve info for. If not specified will
+            pull all workflows by user
+        user: user/s to retrieve info for. If not specified will return for
+            current user.
+        json: Flag to return data as JSON
 
     Returns:
         dataframe of all workflows and their status
@@ -33,18 +36,24 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = []
         app_route="/workflow_status",
         message=msg,
         request_type="get")
-    return pd.read_json(res["workflows"])
+    if json:
+        return res["workflows"]
+    else:
+        return pd.read_json(res["workflows"])
 
 
-def workflow_jobs(workflow_id: int, status: str = None) -> pd.DataFrame:
-    """Get metadata about job state for a given workflow
+def workflow_tasks(workflow_id: int, status: str = None, json: bool = False
+                   ) -> pd.DataFrame:
+    """Get metadata about task state for a given workflow
 
     Args:
-        workflow_id:
-        user:
+        workflow_id: workflow_id/s to retrieve info for
+        status: limit task state to one of [PENDING, RUNNING, DONE, FATAL]
+            tasks
+        json: Flag to return data as JSON
 
     Returns:
-        Dataframe of jobs for a given workflow
+        Dataframe of tasks for a given workflow
     """
     logger.info("workflow id: {}".format(workflow_id))
     msg = {}
@@ -52,24 +61,31 @@ def workflow_jobs(workflow_id: int, status: str = None) -> pd.DataFrame:
         msg["status"] = status.upper()
 
     rc, res = shared_requester.send_request(
-        app_route=f"/workflow/{workflow_id}/workflow_jobs",
+        app_route=f"/workflow/{workflow_id}/workflow_tasks",
         message=msg,
         request_type="get")
-    return pd.read_json(res["workflow_jobs"])
+    if json:
+        return res["workflow_tasks"]
+    else:
+        return pd.read_json(res["workflow_tasks"])
 
 
-def job_status(job_id: int) -> Tuple[str, pd.DataFrame]:
-    """Get metadata about a job and its job isntances
+def task_status(task_id: int, json: bool = False) -> Tuple[str, pd.DataFrame]:
+    """Get metadata about a task and its task instances
 
     Args:
-        job_id: a job_id to retrieve job_instance metadata for
+        task_id: a task_id to retrieve task_instance metadata for
+        json: Flag to return data as JSON
 
     Returns:
-        Job status and job_instance metadata
+        Task status and task_instance metadata
     """
-    logger.info("job_status job_id:{}".format(job_id))
+    logger.info("task_status task_id:{}".format(task_id))
     rc, res = shared_requester.send_request(
-        app_route=f"/job/{job_id}/status",
+        app_route=f"/task/{task_id}/status",
         message={},
         request_type="get")
-    return res["job_state"], pd.read_json(res["job_instance_status"])
+    if json:
+        return res["task_state"], res["task_instance_status"]
+    else:
+        return res["task_state"], pd.read_json(res["task_instance_status"])

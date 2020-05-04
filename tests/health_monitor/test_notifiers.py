@@ -1,6 +1,6 @@
 import pytest
 
-from jobmon.server.health_monitor.notifiers import SlackNotifier
+from jobmon.server.workflow_reaper.notifiers import SlackNotifier
 
 
 def test_no_raise():
