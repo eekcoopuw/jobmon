@@ -194,7 +194,7 @@ def test_aborted_state(db_cfg, client_env):
 
     # Call aborted state logic
     reaper = WorkflowReaper()
-    reaper._aborted_state()
+    reaper._aborted_state(wfr.workflow_run_id)
 
     # Check that the workflow_run and workflow have both been moved to the
     # "A" state.
