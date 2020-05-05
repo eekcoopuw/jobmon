@@ -3,7 +3,8 @@ import pytest
 from unittest.mock import patch
 
 from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
-from jobmon.client.execution.strategies.sge.sge_executor import ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES as ecir
+from jobmon.client.execution.strategies.sge.sge_executor import \
+    ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES as ecir
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.task_instance_status import TaskInstanceStatus
 
@@ -14,8 +15,10 @@ def mock_do_nothing():
     """This is an empty method used for mock"""
     pass
 
+
 def mock_qstat():
-    """mock jobmon.client.execution.strategies.sge.sge_utils.qstat to return a fixed job list with one fixed job"""
+    """mock jobmon.client.execution.strategies.sge.sge_utils.qstat to return a fixed job list
+    with one fixed job"""
     job = {'job_id': 66666,
            'hostname': 'mewo.cat.org',
            'name': 'test1',
@@ -54,13 +57,15 @@ def test_get_actual_submitted_or_running():
 
 
 @pytest.mark.unittest
-@pytest.mark.parametrize("id, ex", [(100, (TaskInstanceStatus.RESOURCE_ERROR, "max_runtime")),
-                                    (200, (TaskInstanceStatus.RESOURCE_ERROR, "Insufficient resources")),
-                                    (300, (TaskInstanceStatus.UNKNOWN_ERROR, "discrepancy")),
-                                    (400, ('e', RemoteExitInfoNotAvailable))])
+@pytest.mark.parametrize(
+    "id, ex", [(100, (TaskInstanceStatus.RESOURCE_ERROR, "max_runtime")),
+               (200, (TaskInstanceStatus.RESOURCE_ERROR, "Insufficient resources")),
+               (300, (TaskInstanceStatus.UNKNOWN_ERROR, "discrepancy")),
+               (400, ('e', RemoteExitInfoNotAvailable))])
 def test_get_remote_exit_info(id, ex):
     """This test goes through the if else branches of get_remote_exit_info"""
-    with patch("jobmon.client.execution.strategies.sge.sge_utils.qacct_exit_status") as m_qacct_exit_status:
+    with patch("jobmon.client.execution.strategies.sge.sge_utils.qacct_exit_status"
+               ) as m_qacct_exit_status:
         m_qacct_exit_status.side_effect = mock_qacct_exit_status
         sge = SGEExecutor()
         if ex[0] == 'e':
@@ -75,15 +80,16 @@ def test_get_remote_exit_info(id, ex):
 @pytest.mark.unittest
 def test_build_qsub_command():
     # basic
-    r = SGEExecutor()._build_qsub_command( base_cmd="date",
-                                           name="test",
-                                           mem=0.5,
-                                           cores=4,
-                                           queue="all.q",
-                                           runtime=10000,
-                                           j=False,
-                                           context_args={})
-    assert "qsub  -N test -q 'all.q' -l fthread=4  -l m_mem_free=0.5G -l h_rt=10000 -P ihme_general    -V" in r
+    r = SGEExecutor()._build_qsub_command(base_cmd="date",
+                                          name="test",
+                                          mem=0.5,
+                                          cores=4,
+                                          queue="all.q",
+                                          runtime=10000,
+                                          j=False,
+                                          context_args={})
+    assert ("qsub  -N test -q 'all.q' -l fthread=4  -l m_mem_free=0.5G -l h_rt=10000 -P "
+            "ihme_general   -w e  -V") in r
     assert "\"date\"" in r
     # dir
     with patch("cluster_utils.io.makedirs_safely") as m_makedirs_safely:
@@ -100,8 +106,8 @@ def test_build_qsub_command():
                                               stdout="~",
                                               project="proj_test",
                                               working_dir="/working_dir")
-        assert "qsub -wd /working_dir -N test -q \'long.q\' -l fthread=4  -l m_mem_free=4G -l h_rt=10000 -P " \
-               "proj_test -e ~ -o ~  -V" in r
+        assert ("qsub -wd /working_dir -N test -q \'long.q\' -l fthread=4  -l m_mem_free=4G "
+                "-l h_rt=10000 -P proj_test -e ~ -o ~ -w e  -V") in r
         assert "\"date\"" in r
         # context_args
         with patch("cluster_utils.io.makedirs_safely") as m_makedirs_safely:
@@ -118,8 +124,8 @@ def test_build_qsub_command():
                                                   stdout="~",
                                                   project="proj_test",
                                                   working_dir="/working_dir")
-            assert "qsub -wd /working_dir -N test -q \'i.q\' -l fthread=1 -l archive=TRUE -l m_mem_free=40G -l h_rt=10 -P proj_test " \
-                   "-e ~ -o ~ whatever -V" in r
+            assert ("qsub -wd /working_dir -N test -q \'i.q\' -l fthread=1 -l archive=TRUE -l "
+                    "m_mem_free=40G -l h_rt=10 -P proj_test -e ~ -o ~ -w e whatever -V") in r
             assert "\"date\"" in r
 
 
@@ -127,16 +133,17 @@ class MockSchedulerProc:
     def is_alive(self):
         return True
 
+
 @pytest.mark.systemtest
 def test_instantiation(db_cfg, client_env):
-    from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
+                                                                       Workflow)
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import TaskInstanceScheduler
 
     t1 = BashTask("echo 1", executor_class="_SimulatorSGEExecutor")
-    workflow = Workflow("my_simple_dag",
-                               executor_class="_SimulatorSGEExecutor",
-                               seconds_until_timeout=30)
+    workflow = Workflow(executor_class="_SimulatorSGEExecutor",
+                        seconds_until_timeout=30)
     workflow.add_tasks([t1])
     workflow._bind()
     wfr = workflow._create_workflow_run()
@@ -166,7 +173,8 @@ def test_instantiation(db_cfg, client_env):
 @pytest.mark.smoketest
 @pytest.mark.systemtest
 def test_workflow(db_cfg, client_env):
-    from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
+                                                                       Workflow)
     from jobmon.client.api import BashTask
     task = BashTask(command=f"{os.path.join(path_to_file, 'jmtest.sh')}",
                     executor_class="_SimulatorSGEExecutor",
@@ -179,7 +187,8 @@ def test_workflow(db_cfg, client_env):
                     j_resource=True)
     resource = task.executor_parameters()
     resource.validate()
-    workflow = Workflow("test", project='proj_scicomp', executor_class="_SimulatorSGEExecutor", seconds_until_timeout=30)
+    workflow = Workflow(project='proj_scicomp', executor_class="_SimulatorSGEExecutor",
+                        seconds_until_timeout=30)
     workflow.add_tasks([task])
     workflow.run()
 
@@ -200,7 +209,8 @@ def test_workflow(db_cfg, client_env):
 @pytest.mark.smoketest
 @pytest.mark.systemtest
 def test_workflow_timeout(db_cfg, client_env):
-    from tests.client.sge._sgesimulator._test_unknown_workflow import _TestUnknownWorkflow as Workflow
+    from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
+                                                                       Workflow)
     from jobmon.client.api import BashTask
     task = BashTask(command="sleep 60",
                     executor_class="_SimulatorSGEExecutor",
@@ -213,7 +223,8 @@ def test_workflow_timeout(db_cfg, client_env):
                     j_resource=True)
     resource = task.executor_parameters()
     resource.validate()
-    workflow = Workflow("test", project='proj_scicomp', executor_class="_SimulatorSGEExecutor", seconds_until_timeout=10)
+    workflow = Workflow(project='proj_scicomp', executor_class="_SimulatorSGEExecutor",
+                        seconds_until_timeout=10)
     workflow.add_tasks([task])
     with pytest.raises(RuntimeError):
         workflow.run()
@@ -251,7 +262,7 @@ def test_workflow_137(db_cfg, client_env):
                     j_resource=True)
     resource = task.executor_parameters()
     resource.validate()
-    workflow = Workflow("test", project='proj_scicomp',
+    workflow = Workflow(project='proj_scicomp',
                         executor_class="_SimulatorSGEExecutor",
                         seconds_until_timeout=300)
     workflow.add_tasks([task])
@@ -297,8 +308,7 @@ def test_workflow_137(db_cfg, client_env):
 def test_sge_workflow_one_task(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    workflow = UnknownWorkflow("test_one_task",
-                               executor_class="SGEExecutor")
+    workflow = UnknownWorkflow(executor_class="SGEExecutor")
     task_a = BashTask(
         "echo a", executor_class="SGEExecutor",
         queue="long.q",
@@ -355,7 +365,8 @@ def test_sge_workflow_timeout(db_cfg, client_env):
                     j_resource=True)
     resource = task.executor_parameters()
     resource.validate()
-    workflow = Workflow("test", project='proj_scicomp', executor_class="SGEExecutor", seconds_until_timeout=10)
+    workflow = Workflow(project='proj_scicomp', executor_class="SGEExecutor",
+                        seconds_until_timeout=10)
     workflow.add_tasks([task])
     with pytest.raises(RuntimeError):
         workflow.run()
@@ -391,7 +402,8 @@ def test_reconciler_sge_new_heartbeats(db_cfg, client_env):
                     j_resource=True)
     resource = task.executor_parameters()
     resource.validate()
-    workflow = Workflow("test", project='proj_scicomp', executor_class="SGEExecutor", seconds_until_timeout=70)
+    workflow = Workflow(project='proj_scicomp', executor_class="SGEExecutor",
+                        seconds_until_timeout=70)
     workflow.add_tasks([task])
     workflow.run()
     app = db_cfg["app"]
@@ -405,3 +417,39 @@ def test_reconciler_sge_new_heartbeats(db_cfg, client_env):
         DB.session.commit()
     start, end = res
     assert start < end  # indicating at least one heartbeat got logged
+
+
+@pytest.mark.integration_sge
+def test_no_suitable_queue(db_cfg, client_env):
+    """This test """
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    from jobmon.client.api import BashTask
+    from jobmon.client.execution.strategies.sge.sge_queue import SGE_ALL_Q
+
+    SGE_ALL_Q.max_memory_gb = 1000000
+
+    task = BashTask(command="sleep 10",
+                    executor_class="SGEExecutor",
+                    name="a_million_gigs",
+                    num_cores=1,
+                    max_runtime_seconds=70,
+                    m_mem_free='1000000G',
+                    max_attempts=1,
+                    queue="all.q",
+                    j_resource=True)
+    workflow = Workflow(project='proj_scicomp', executor_class="SGEExecutor",
+                        seconds_until_timeout=70)
+    workflow.add_tasks([task])
+    workflow.run()
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """
+        SELECT status
+        FROM task_instance
+        WHERE task_id = {}""".format(task.task_id)
+        res = DB.session.execute(query).fetchone()
+        DB.session.commit()
+    assert res[0] == "W"
+
+    SGE_ALL_Q.max_memory_gb = 750
