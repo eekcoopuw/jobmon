@@ -35,9 +35,13 @@ class SGEExecutor(Executor):
         try:
             logger.debug(f"Qsub command is: {qsub_cmd}")
             resp = check_output(qsub_cmd, shell=True, universal_newlines=True)
-            if 'job' in resp:
+            if 'Your job' in resp:
                 idx = resp.split().index('job')
                 sge_jid = int(resp.split()[idx + 1])
+            elif 'no suitable queue' in resp:
+                logger.error(f"The job could not be submitted as requested. Got SGE error "
+                             f"{resp}. Tried submitting {qsub_cmd}")
+                sge_jid = qsub_attribute.NO_EXEC_ID
             else:
                 logger.error(f"The qsub was successfully submitted, but the "
                              f"job id could not be parsed from the response: "
@@ -199,6 +203,7 @@ class SGEExecutor(Executor):
         qsub_cmd = ('qsub {wd} -N {jn} {qc} '
                     '{cpu} {j} {mem} {time} '
                     '{project} {stderr} {stdout} '
+                    '-w e '
                     '{sge_add_args} '
                     '-V {path}/submit_master.sh '
                     '"{cmd}"'.format(

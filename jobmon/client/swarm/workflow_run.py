@@ -62,7 +62,6 @@ class WorkflowRun(object):
         self.last_sync = '2010-01-01 00:00:00'
 
         # bind to database
-        # TODO: figure out whether we need slack channel, node, and pid in db
         app_route = "/workflow_run"
         rc, response = self.requester.send_request(
             app_route=app_route,

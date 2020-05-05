@@ -24,9 +24,7 @@ class ExecutorTask:
                  command: str,
                  status: str,
                  executor_parameters: ExecutorParameters,
-                 requester: Requester,
-                 last_nodename: Optional[str] = None,
-                 last_process_group_id: Optional[int] = None):
+                 requester: Requester):
         """
         This is a Task object used on the RESTful API client side
         when constructing task instances.
@@ -41,9 +39,6 @@ class ExecutorTask:
             status: job status  associated with this task
             executor_parameters: Executor parameters class associated with the
                 current executor for this task
-            last_nodename: where this task last executed
-            last_process_group_id: what was the linux process group id of the
-                last instance of this task
             requester: requester for communicating with central services
         """
         self.task_id = task_id
@@ -53,8 +48,6 @@ class ExecutorTask:
         self.name = name
         self.command = command
         self.status = status
-        self.last_nodename = last_nodename
-        self.last_process_group_id = last_process_group_id
 
         self.executor_parameters = executor_parameters
 
@@ -88,8 +81,6 @@ class ExecutorTask:
             name=kwargs["name"],
             command=kwargs["command"],
             status=kwargs["status"],
-            last_nodename=kwargs["last_nodename"],
-            last_process_group_id=kwargs["last_process_group_id"],
             executor_parameters=ExecutorParameters(
                 executor_class=executor_class,
                 num_cores=kwargs["num_cores"],

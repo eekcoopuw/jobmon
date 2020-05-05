@@ -3,6 +3,8 @@ import sys
 from unittest.mock import patch
 import pkg_resources
 import pytest
+import pytest_mproc
+
 
 import jobmon.client.execution.worker_node.execution_wrapper
 import jobmon.client.execution.worker_node.worker_node_task_instance
@@ -38,7 +40,9 @@ def test_unwrap_happy_path():
             patch(worker_node + WNTI + "log_running") as m_run, \
             patch(worker_node + WNTI + "log_report_by") as m_by, \
             patch(worker_node + WNTI + "log_error") as m_err, \
+            patch(worker_node + WNTI + "in_kill_self_state") as m_kill_self, \
             patch(worker_node + "execution_wrapper.kill_self") as m_kill:
+        m_kill_self.return_value = False
         m_kill.side_effect = mock_kill_self
         m_done.return_value = None
         m_run.return_value = (200, False)
@@ -70,6 +74,7 @@ def test_stderr_buffering(capsys):
             patch(worker_node + WNTI + "log_running") as m_run, \
             patch(worker_node + WNTI + "log_report_by") as m_by, \
             patch(worker_node + WNTI + "log_error") as m_err, \
+            patch(worker_node + WNTI + "in_kill_self_state") as m_kill_self, \
             patch(worker_node + "execution_wrapper.kill_self") as m_kill:
 
         def mock_log_report_by(next_report_increment):
@@ -78,6 +83,7 @@ def test_stderr_buffering(capsys):
         def mock_log_error(error_message, exit_status):
             assert error_message == ("a" * 2 ** 10 + "\n") * (2 ** 8)
 
+        m_kill_self.return_value = False
         m_kill.side_effect = mock_kill_self
         m_done.return_value = None
         m_run.return_value = (200, False)
@@ -93,7 +99,7 @@ def test_stderr_buffering(capsys):
              report_by_buffer=3.1)
         assert r == 1
         captured = capsys.readouterr()
-        str = captured.err
+        cap_str = captured.err
         # Log sometimes insert unwanted things to the output; thus, just count
         # "a"
-        assert str.count("a") >= (("a" * 2**10 + "\n") * (2**8)).count("a")
+        assert cap_str.count("a") >= (("a" * 2**10 + "\n") * (2**8)).count("a")
