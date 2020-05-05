@@ -122,4 +122,3 @@ class SerializeWorkflowRun:
         return {"id": int(wire_tuple[0]),
                 "workflow_id": int(wire_tuple[1]),
                 "heartbeat_date": wire_tuple[2]}
-
