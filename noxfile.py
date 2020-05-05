@@ -22,16 +22,22 @@ def tests(session: Session) -> None:
     session.conda_install("mysqlclient")
     if python == "3.7":
         session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
-    session.install("pytest", "pytest-xdist", "mock")
+    session.install("pytest", "pytest-mproc", "mock")
     session.install("-r", "requirements.txt")
     session.install("--upgrade", "--force-reinstall", ".")
 
-    # pytest command line args
+    # pytest sge integration tests
     try:
         os.environ['SGE_ENV']
+        extra_args: list = []
     except KeyError:
-        args.extend(["-m", "not integration_sge"])
-    session.run("pytest", *args)
+        extra_args = ["-m", "not integration_sge"]
+
+    # pytest mproc
+    disable_mproc = ["--disable-mproc", "True"]
+    if "--cores" not in args:
+        extra_args.extend(disable_mproc)
+    session.run("pytest", *args, *extra_args)
 
 
 @nox.session(python="3.7", venv_backend="conda")
