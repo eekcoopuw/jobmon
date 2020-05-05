@@ -26,12 +26,18 @@ def tests(session: Session) -> None:
     session.install("-r", "requirements.txt")
     session.install("--upgrade", "--force-reinstall", ".")
 
-    # pytest command line args
+    # pytest sge integration tests
     try:
         os.environ['SGE_ENV']
+        extra_args: list = []
     except KeyError:
-        args.extend(["-m", "not integration_sge"])
-    session.run("pytest", *args)
+        extra_args = ["-m", "not integration_sge"]
+
+    # pytest mproc
+    disable_mproc = ["--disable-mproc", "True"]
+    if "--cores" not in args:
+        extra_args.extend(disable_mproc)
+    session.run("pytest", *args, *extra_args)
 
 
 @nox.session(python="3.7", venv_backend="conda")
