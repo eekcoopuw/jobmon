@@ -119,7 +119,6 @@ class ExecutorParameters:
             msg = self._strategy.validation_msg()
             if msg:
                 return False, msg
-        # TODO: implement any base typing logic
         return True, None
 
     def adjust(self, **kwargs) -> None:
