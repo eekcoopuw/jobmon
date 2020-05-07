@@ -157,12 +157,12 @@ class Task:
         return self._task_id
 
     @property
-    def status(self) -> str:
+    def initial_status(self) -> str:
         # TODO: remove status from this object
-        if not hasattr(self, "_status"):
-            raise AttributeError("status cannot be accessed before task is "
+        if not hasattr(self, "_initial_status"):
+            raise AttributeError("initial_status cannot be accessed before task is "
                                  "bound")
-        return self._status
+        return self._initial_status
 
     @property
     def workflow_id(self) -> int:
@@ -184,7 +184,7 @@ class Task:
         else:
             status = self._update_task_parameters(task_id, reset_if_running)
         self._task_id = task_id
-        self._status = status
+        self._initial_status = status
         return task_id
 
     def add_upstream(self, ancestor: Task) -> None:

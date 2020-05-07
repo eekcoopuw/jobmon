@@ -380,7 +380,7 @@ class Workflow(object):
                 # create swarmtasks
                 swarm_task = SwarmTask(
                     task_id=task.task_id,
-                    status=task.status,
+                    status=task.initial_status,
                     task_args_hash=task.task_args_hash,
                     executor_parameters=task.executor_parameters,
                     max_attempts=task.max_attempts)
