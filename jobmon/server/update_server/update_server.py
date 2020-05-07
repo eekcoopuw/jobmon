@@ -452,7 +452,7 @@ def add_workflow_run():
 
     # refresh in case of race condition
     workflow = workflow_run.workflow
-    DB.session.refresh(workflow)  # TODO: consider refreshing with write lock
+    DB.session.refresh(workflow, with_for_update=True)
 
     # try to transition the workflow. Send back any competing workflow_run_id
     # and its status
