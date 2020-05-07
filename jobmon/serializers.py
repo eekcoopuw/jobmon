@@ -10,12 +10,10 @@ class SerializeExecutorTask:
                 task_args_hash: int, name: str, command: str, status: str,
                 max_runtime_seconds: int, context_args: str,
                 resource_scales: str, queue: str, num_cores: int,
-                m_mem_free: str, j_resource: str, hard_limits: str,
-                last_nodename: str, last_process_group_id: int) -> tuple:
+                m_mem_free: str, j_resource: str, hard_limits: str) -> tuple:
         return (task_id, workflow_id, node_id, task_args_hash, name, command,
                 status, max_runtime_seconds, context_args, resource_scales,
-                queue, num_cores, m_mem_free, j_resource, hard_limits,
-                last_nodename, last_process_group_id)
+                queue, num_cores, m_mem_free, j_resource, hard_limits)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -29,7 +27,6 @@ class SerializeExecutorTask:
             wire_tuple[9]) if wire_tuple[9] else None
         num_cores = int(wire_tuple[11]) if wire_tuple[11] else None
         m_mem_free = float(wire_tuple[12]) if wire_tuple[12] else None
-        last_process_group_id = int(wire_tuple[16]) if wire_tuple[16] else None
 
         return {"task_id": int(wire_tuple[0]),
                 "workflow_id": int(wire_tuple[1]),
@@ -45,9 +42,7 @@ class SerializeExecutorTask:
                 "num_cores": num_cores,
                 "m_mem_free": m_mem_free,
                 "j_resource": wire_tuple[13],
-                "hard_limits": wire_tuple[14],
-                "last_nodename": wire_tuple[15],
-                "last_process_group_id": last_process_group_id
+                "hard_limits": wire_tuple[14]
                 }
 
 
