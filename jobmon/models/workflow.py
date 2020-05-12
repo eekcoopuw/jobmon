@@ -42,7 +42,6 @@ class Workflow(DB.Model):
         (WorkflowStatus.REGISTERED, WorkflowStatus.CREATED),
 
         # workflow encountered an error before a workflow run was created.
-        # TODO: this transition should probably be driven by the health monitor
         (WorkflowStatus.REGISTERED, WorkflowStatus.ABORTED),
 
         # a workflow aborted during task creation. new workflow launched, found
@@ -65,7 +64,6 @@ class Workflow(DB.Model):
 
         # Workflow was bound but didn't start running. eventually moved
         # to failed.
-        # TODO: determine what drives this transition. perhaps health monitor
         (WorkflowStatus.BOUND, WorkflowStatus.FAILED),
 
         # workflow run was bound then started running. normal happy path

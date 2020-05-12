@@ -191,7 +191,7 @@ class SGEParameters:
                 logger.debug(
                     "runtime exceeded limits of all.q, moving to long.q")
                 self.queue = 'long.q'
-                self._set_max_limits()
+                self._set_max_limits('long.q')
                 if runtime > self.max_runtime:
                     runtime = self.max_runtime
             else:
