@@ -96,9 +96,3 @@ def test_allq_to_longq():
     assert "\n Queue" in msg
     resources.validate()
     assert resources.queue == "long.q"
-
-
-
-
-
-
