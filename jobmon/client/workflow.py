@@ -183,8 +183,21 @@ class Workflow(object):
         if executor is not None:
             self._executor = executor
         else:
-            # TODO: make default executor configurable from global config
-            pass
+            if executor_class == "SequentialExecutor":
+                from jobmon.client.execution.strategies.sequential import \
+                    SequentialExecutor as Executor
+            elif executor_class == "SGEExecutor":
+                from jobmon.client.execution.strategies.sge.sge_executor import \
+                    SGEExecutor as Executor
+            elif executor_class == "DummyExecutor":
+                from jobmon.client.execution.strategies.dummy import \
+                    DummyExecutor as Executor
+            elif executor_class == "MultiprocessExecutor":
+                from jobmon.client.execution.strategies.multiprocess import \
+                    MultiprocessExecutor as Executor
+            else:
+                raise ValueError(f"{executor_class} is not a valid ExecutorClass")
+            self._executor = Executor(*args, **kwargs)
 
     def run(self,
             fail_fast: bool = False,
@@ -192,9 +205,12 @@ class Workflow(object):
             resume: bool = ResumeStatus.DONT_RESUME,
             reset_running_jobs: bool = True,
             scheduler_response_wait_timeout=180):
+
         if not hasattr(self, "_executor"):
-            self.set_executor()
+            logger.warning("using default project: proj_general")
+            self.set_executor(project="proj_general")
         logger.debug("executor: {}".format(self._executor))
+
         # bind to database
         self._bind(resume)
 
