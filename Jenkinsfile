@@ -1,5 +1,6 @@
 // Build variables
-def project_name, workspace_shared, jenkins_env, lint_vers, python_major_version
+def project_name, workspace_shared, package_version, jenkins_env, \
+    reqd_tests, lint_vers, python_major_version
 
 // python_major_version is actually the python major version, i.e. 2 or 3,
 // for jenkins itself. This is a global variable.
@@ -8,8 +9,19 @@ def project_name, workspace_shared, jenkins_env, lint_vers, python_major_version
 
 // sshagent is only and always used in nodes/ stages, at the highest level
 
+// Common groovy functions
 
-def createCondaEnv(project_name, py_version=3, py_dot_version=3.6, suffix="") {
+def getPythonDotVersion(py_version) {
+    // Pin to a specific dot release of python, so that we use 3.6, not 3.7
+    if( py_version == 2) {
+        return "2.7"
+    } else {
+        return "3.6"
+    }
+}
+
+
+def createCondaEnv(project_name, py_version=2, py_dot_version=2.7, suffix="") {
     echo "project name: ${project_name}"
     try {sh "conda env remove -y -n ${project_name}_build${py_version}"} catch (err) {}
     if (fileExists("${project_name}${suffix}/conda_environment.yml")) {
@@ -17,8 +29,11 @@ def createCondaEnv(project_name, py_version=3, py_dot_version=3.6, suffix="") {
         sh "conda env create -f ${project_name}${suffix}/conda_environment.yml -n ${project_name}_build${py_version}"
     } else {
         echo 'No conda environment file. Using *requirements.txt and co.'
+        python_dot_version=getPythonDotVersion( py_version )
         // Delete the conda env directory first, it sometimes is left over after a failed build
+        // Do it in py2 and py3 minicondas
         sh """
+            rm -rf /ihme/code/svcscicompci/miniconda2/envs/${project_name}_build${py_version}
             rm -rf /ihme/code/svcscicompci/miniconda3/envs/${project_name}_build${py_version}
             conda create -n ${project_name}_build${py_version} python=${py_dot_version}
             source activate ${project_name}_build${py_version} &> /dev/null
@@ -43,7 +58,7 @@ def createCondaEnv(project_name, py_version=3, py_dot_version=3.6, suffix="") {
             try {sh """
                 source activate ${project_name}_build${py_version} &> /dev/null
                 cd ${project_name}${suffix}
-                pip install -r requirements.txt --no-cache-dir --extra-index-url=http://pypi.services.ihme.washington.edu/simple --trusted-host=pypi.services.ihme.washington.edu"""
+                pip install -r requirements.txt --no-cache-dir --extra-index-url=https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple"""
             } catch (err) {
                 echo "Caught error while trying to install from requirements, ${err}"
             }
@@ -52,12 +67,12 @@ def createCondaEnv(project_name, py_version=3, py_dot_version=3.6, suffix="") {
     sh """
         source activate ${project_name}_build${py_version} &> /dev/null
         cd ${project_name}${suffix}
-        pip install . --no-cache-dir --extra-index-url=http://pypi.services.ihme.washington.edu/simple --trusted-host=pypi.services.ihme.washington.edu
+        pip install . --no-cache-dir --extra-index-url=https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple
         pip install pytest pytest-cov sphinx sphinx_rtd_theme flake8 flake8-html
         """
 }
 
-def addCiCondaEnv(project_name="no_project_name", py_version=3, py_dot_version=3.6) {
+def addCiCondaEnv(project_name="no_project_name", py_version=2, py_dot_version=2.7) {
     // This is a common conda environment that contains non-project-specific
     // build tools.
     // Choices:
@@ -72,10 +87,11 @@ def addCiCondaEnv(project_name="no_project_name", py_version=3, py_dot_version=3
 
     sh """
         source activate ${project_name}_build${py_version} &> /dev/null
+        rm -rf /ihme/code/svcscicompci/miniconda2/envs/${project_name}_build${py_version}/tmp/ci-tmp${py_version}
         rm -rf /ihme/code/svcscicompci/miniconda3/envs/${project_name}_build${py_version}/tmp/ci-tmp${py_version}
         git clone ssh://git@stash.ihme.washington.edu:7999/scdo/ci.git /ihme/code/svcscicompci/miniconda${py_version}/envs/${project_name}_build${py_version}/tmp/ci-tmp${py_version}
         cd /ihme/code/svcscicompci/miniconda${py_version}/envs/${project_name}_build${py_version}/tmp/ci-tmp${py_version}
-        pip install /ihme/homes/svcscicompci/deploytools/.
+        pip install /homes/svcscicompci/deploytools/.
     """
 }
 
@@ -125,9 +141,9 @@ def createSetupCfgFile() {
 def cloneRepoToBuild(project_name, suffix="") {
     sh "echo \$(hostname)"
     sh "rm -rf ${project_name}${suffix}"
-    sh "git clone ${repo_url} --branch ${branch}  --single-branch ${project_name}${suffix}"
-    sh "whoami"
+    sh "git clone ${repo_url} ${project_name}${suffix}"
     dir("${project_name}${suffix}") {
+        sh "git checkout ${branch}"
         sh "ls -l setup.cfg"
         createSetupCfgFile()
         sh "cat /tmp/jobmon.cfg"
@@ -154,25 +170,24 @@ def lintProject(project_name, lint_vers) {
     ])
 }
 
-def runRemoteTests(project_name, py_version, workspace_shared, python_major_version) {
+def runRemoteTests(project_name, py_version, workspace_shared, reqd_tests, python_major_version) {
 
+    // Always return 0 for python 3 tests... those shouldn't result in build failures (yet)
     def pytest_cmd
-    pytest_cmd = """
-        pytest --cov=${project_name} --cov-append \
-        --cov-report html:${env.WORKSPACE}/cov_html_remote${py_version} \
-        -m 'not slow' --junitxml=REMOTE-TEST-RESULTS${py_version}.xml"""
+    pytest_cmd = """pytest -m 'not slow' --junitxml=REMOTE-TEST-RESULTS${py_version}.xml"""
 
+    if (!(py_version in reqd_tests)) {
+        pytest_cmd = pytest_cmd + " || true"
+    }
     sh """
         cd ${project_name}${py_version}
         mv ${project_name} ${project_name}_DO_NOT_USE"""
     try {
-        withEnv(["COVERAGE_FILE=${workspace_shared}/coverage${py_version}-remote.dat"]) {
-            sh """
-                cd ${project_name}${py_version}
-                source activate ${project_name}_build${py_version} &> /dev/null
-                ${pytest_cmd}
-            """
-        }
+        sh """
+            cd ${project_name}${py_version}
+            source activate ${project_name}_build${py_version} &> /dev/null
+            ${pytest_cmd}
+        """
         if (py_version == python_major_version) {
             // Restore original name of package directory so it can be uploaded
             sh """
@@ -193,26 +208,10 @@ def runRemoteTests(project_name, py_version, workspace_shared, python_major_vers
         slackSendFiltered('bad', "#gbd-builds-failures", "Failed")
         slackSendFiltered('bad', "#gbd-builds-all", "Failed")
         junit "**/REMOTE*-RESULTS${py_version}.xml"
-        publishHTML (target: [
-          allowMissing: true,
-          alwaysLinkToLastBuild: false,
-          keepAll: true,
-          reportDir: "${env.WORKSPACE}/cov_html_remote${py_version}",
-          reportFiles: 'index.html',
-          reportName: "Remote test coverage (py${py_version})"
-        ])
         sh "conda env remove -y -n ${project_name}_build${py_version}"
         throw e
     }
     junit allowEmptyResults: true, testResults: "**/REMOTE*-RESULTS${py_version}.xml"
-    publishHTML (target: [
-      allowMissing: true,
-      alwaysLinkToLastBuild: false,
-      keepAll: true,
-      reportDir: "${env.WORKSPACE}/cov_html_remote${py_version}",
-      reportFiles: 'index.html',
-      reportName: "Remote test coverage (py${py_version})"
-    ])
 }
 
 def slackSendFiltered(color, channel, msg) {
@@ -230,9 +229,6 @@ def slackSendFiltered(color, channel, msg) {
 
 
 // Pipeline stages
-
-// Create new setup.cfg based on Jenkins parameters and save them in a string
-
 if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
     node('qlogin') {
         stage('clone build script & set vars') {
@@ -240,14 +236,28 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                 checkout scm
 
                 slackSendFiltered('good', "#gbd-builds-all", "Started")
-                project_name = "jobmon"
+                project_name = sh(returnStdout: true,
+                                  script: "bin/proj_name_from_repo ${repo_url}").trim()
                 workspace_shared = "/ihme/scratch/users/svcscicompci/jenkins_workspaces/${project_name}/${env.BUILD_ID}"
                 sh "mkdir -p ${workspace_shared}"
                 try { sh "chmod -R 777 ${workspace_shared}"} catch(err) { echo "${err}" }
                 currentBuild.displayName = "#${BUILD_NUMBER} ${project_name}"
 
-                python_major_version = 3
-                python_dot_version = 3.6
+                if ("${python_vers}".trim() == "2") {
+                   reqd_tests = [2]
+                   lint_vers = 2
+                   python_major_version = 2
+                } else if ("${python_vers}".trim() == "3") {
+                   reqd_tests = [3]
+                   lint_vers = 3
+                   python_major_version = 3
+                } else if ("${python_vers}".trim() == "2 and 3") {
+                   reqd_tests = [2, 3]
+                   lint_vers = 2
+                   python_major_version = 2  // dangerous, cross versions
+                } else {
+                    throw new Exception("Python version is not set")
+                }
             }
         }
         stage('clone repo to build') {
@@ -257,12 +267,12 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
         }
         stage('create conda env') {
             sshagent (credentials: ['jenkins']) {
-                createCondaEnv(project_name, python_major_version, python_dot_version, "${python_major_version}")
-                addCiCondaEnv(project_name, python_major_version, python_dot_version)
+                createCondaEnv(project_name, python_major_version, getPythonDotVersion(python_major_version), "${python_major_version}")
+                addCiCondaEnv(project_name, python_major_version, getPythonDotVersion(python_major_version))
             }
         }
         stage('publish docs') {
-            // It also makes docs
+            // It also makes docs hosted here: https://scicomp-docs.ihme.washington.edu/
             sshagent (credentials: ['jenkins']) {
                 sh """
                     cd ${project_name}${python_major_version}
@@ -300,15 +310,14 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                         """).trim()
                     dir("${project_name}${python_major_version}") {
                         // Do not call setup if there is an existing version with the same number
-                        if ( already_there.startsWith("true" ) && "${overide_package_on_pypi}".toBoolean() == false ) {
+                        if ( already_there.startsWith("true" ) ) {
                             echo "Not uploading, ${already_there}"
                         } else {
                             sh """
-                                hostname
+                                echo "Uploading to ihme-artifactory"
                                 source activate ${project_name}_build${python_major_version} &> /dev/null
                                 python setup.py sdist
                                 twine upload --repository ihme-artifactory ./dist/*
-                                mv ./dist/* /ihme/pypi/
                             """
                         }
                     }
@@ -336,29 +345,75 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                 try { sh "chmod -R 777 ${workspace_shared}"} catch(err) { echo "${err}" }
                 currentBuild.displayName = "#${BUILD_NUMBER} ${project_name}"
 
-                lint_vers = 3
-                python_major_version = 3
-                python_dot_version = 3.6
+                if ("${python_vers}".trim() == "2") {
+                   reqd_tests = [2]
+                   lint_vers = 2
+                   python_major_version = 2
+                } else if ("${python_vers}".trim() == "3") {
+                   reqd_tests = [3]
+                   lint_vers = 3
+                   python_major_version = 3
+                } else if ("${python_vers}".trim() == "2 and 3") {
+                   reqd_tests = [2, 3]
+                   lint_vers = 2
+                   python_major_version = 2
+                } else {
+                    throw new Exception("Python version is not set")
+                }
             }
         }
     }
 
-    node('qlogin') {
-        stage('remote clone repo to build (py3)') {
-            sshagent (credentials: ['jenkins']) {
-                cloneRepoToBuild(project_name, "${python_major_version}")
+    parallel remote_py2: {
+        node('qlogin') {
+            stage('remote clone repo to build (py2)') {
+                sshagent (credentials: ['jenkins']) {
+                    cloneRepoToBuild(project_name, "2")
+                }
+            }
+            stage('remote create conda env (py2)') {
+                sshagent (credentials: ['jenkins']) {
+                    if(2 in reqd_tests){
+                        createCondaEnv(project_name, 2, getPythonDotVersion(2), "2")
+                        addCiCondaEnv(project_name, 2, getPythonDotVersion(2))
+                    } else {
+                        echo "Skipping 2 create conda env"
+                    }
+                }
+            }
+            stage('run remote tests (py2)') {
+                sshagent (credentials: ['jenkins']) {
+                    if (lint_vers == 2) {
+                        lintProject(project_name, 2)
+                    }
+                    if(2 in reqd_tests){
+                        runRemoteTests(project_name, 2, workspace_shared, reqd_tests, python_major_version)
+                    } else {
+                        echo "Skipping 2 run tests"
+                    }
+                }
             }
         }
-        stage('remote create conda env (py3)') {
-            sshagent (credentials: ['jenkins']) {
-                createCondaEnv(project_name, python_major_version, python_dot_version, "${python_major_version}")
-                addCiCondaEnv(project_name, python_major_version, python_dot_version)
+    }, remote_py3: {
+        node('qlogin') {
+            stage('remote clone repo to build (py3)') {
+                sshagent (credentials: ['jenkins']) {
+                    cloneRepoToBuild(project_name, "3")
+                }
             }
-        }
-        stage('run remote tests (py3)') {
-            sshagent (credentials: ['jenkins']) {
-                lintProject(project_name, 3)
-                runRemoteTests(project_name, 3, workspace_shared, python_major_version)
+            stage('remote create conda env (py3)') {
+                sshagent (credentials: ['jenkins']) {
+                    createCondaEnv(project_name, 3, getPythonDotVersion(3), "3")
+                    addCiCondaEnv(project_name, 3, getPythonDotVersion(3))
+                }
+            }
+            stage('run remote tests (py3)') {
+                sshagent (credentials: ['jenkins']) {
+                    if (lint_vers == 3) {
+                        lintProject(project_name, 3)
+                    }
+                    runRemoteTests(project_name, 3, workspace_shared, reqd_tests, python_major_version)
+                }
             }
         }
     }
@@ -393,22 +448,21 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                     // Sadness. Cannot use variables defined inside a shell script, so run the script and assign to a Groovy var
                     // Deeper sadness. I wrote a python script to call the versioneer to get the version, but it did not work.
                     // Forced to write this hacky piece of shell.
-                    // Later: Actually supposedly you can if you escape the dollar-sogn with a backslash, as in \$foo
+                    // Later: Actually supposedly you can if you escape the dollar-sign with a backslash, as in \$foo
                     already_there = sh(returnStdout: true,
                         script: """
-                            hostname
                             source activate ${project_name}_build${python_major_version} &> /dev/null &&
                             is_on_pypi_server ${project_name} ${version_string}""").trim()
                     dir("${project_name}${python_major_version}") {
                         // Do not call setup if there is an existing version with the same number
-                        if ( already_there.startsWith("true" ) && "${overide_package_on_pypi}".toBoolean() == false ) {
+                        if ( already_there.startsWith("true" ) ) {
                             echo "Not uploading, ${already_there}"
                         } else {
                            sh """
+                                echo "Uploading to ihme-artifactory"
                                 source activate ${project_name}_build${python_major_version} &> /dev/null
                                 python setup.py sdist
                                 twine upload --repository ihme-artifactory ./dist/*
-                                mv ./dist/* /ihme/pypi/
                             """
                         }
                     }
