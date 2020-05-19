@@ -455,7 +455,7 @@ if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
                             is_on_pypi_server ${project_name} ${version_string}""").trim()
                     dir("${project_name}${python_major_version}") {
                         // Do not call setup if there is an existing version with the same number
-                        if ( already_there.startsWith("true" ) ) {
+                        if (already_there.startsWith("true")) {
                             echo "Not uploading, ${already_there}"
                         } else {
                            sh """
