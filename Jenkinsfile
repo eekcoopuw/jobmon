@@ -132,8 +132,7 @@ node('qlogin') {
             sh """source activate base &> /dev/null"""
 
             // create workspace for this build
-            project_name = sh(returnStdout: true,
-                              script: "bin/proj_name_from_repo ${REPO_URL}").trim()
+            project_name = "jobmon"
             workspace_shared = "/ihme/scratch/users/svcscicompci/jenkins_workspaces/${project_name}/${env.BUILD_ID}"
             sh "mkdir -p ${workspace_shared}"
             try { sh "chmod -R 777 ${workspace_shared}"} catch(err) { echo "chmod error: ${err}" }
