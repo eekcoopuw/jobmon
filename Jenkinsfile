@@ -37,6 +37,8 @@ def createSetupCfgFile() {
         report_by_buffer=\${report_by_buffer}
         tag_prefix=\${tag_prefix}
         jobmon_integration_service_port=\${jobmon_integration_service_port}
+        loss_threshold=\${loss_threshold}
+        poll_interval_minutes=\${poll_interval_minutes}
 
         [db]
         internal_db_host=\${internal_db_host}
@@ -50,13 +52,16 @@ def createSetupCfgFile() {
         [same host]
         existing_network=\${existing_network}
 
-        [qpid]
-        max_update_per_second=\${max_update_per_second}
-        
         [rsyslog]
         host=\${rs_host}
         port=\${rs_port}
         protocol=\${rs_protocol}"> /tmp/jobmon.cfg
+
+        [qpid]
+        uri=\${uri}
+        cluster=\${cluster}
+        pulling_interval=\${pulling_interval}
+        max_update_per_second=\${max_update_per_second}
         '''
 }
 
