@@ -36,6 +36,7 @@ def createSetupCfgFile() {
         heartbeat_interval=\${heartbeat_interval}
         report_by_buffer=\${report_by_buffer}
         tag_prefix=\${tag_prefix}
+        jobmon_integration_service_port=\${jobmon_integration_service_port}
 
         [db]
         internal_db_host=\${internal_db_host}
