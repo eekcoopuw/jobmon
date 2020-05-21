@@ -52,16 +52,16 @@ def createSetupCfgFile() {
         [same host]
         existing_network=\${existing_network}
 
-        [rsyslog]
-        host=\${rs_host}
-        port=\${rs_port}
-        protocol=\${rs_protocol}"> /tmp/jobmon.cfg
-
         [qpid]
         uri=\${uri}
         cluster=\${cluster}
         pulling_interval=\${pulling_interval}
         max_update_per_second=\${max_update_per_second}
+
+        [rsyslog]
+        host=\${rs_host}
+        port=\${rs_port}
+        protocol=\${rs_protocol}"> /tmp/jobmon.cfg
         '''
 }
 
