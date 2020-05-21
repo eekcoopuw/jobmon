@@ -50,7 +50,9 @@ def createSetupCfgFile() {
         [same host]
         existing_network=\${existing_network}
 
-
+        [qpid]
+        max_update_per_second=\${max_update_per_second}
+        
         [rsyslog]
         host=\${rs_host}
         port=\${rs_port}
