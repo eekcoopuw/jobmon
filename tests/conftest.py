@@ -26,6 +26,8 @@ def ephemera():
     edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
     edb.db_name = "docker"
     conn_str = edb.start()
+    import pdb
+    pdb.set_trace()
     # use the ephemera db root privileges (root: singularity_root) otherwise
     # you will not see changes to the database
     logger.info(f"Database connection {conn_str}")
