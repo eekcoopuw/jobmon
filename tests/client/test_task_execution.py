@@ -39,13 +39,13 @@ def test_exceed_runtime_task(db_cfg, client_env):
     from jobmon.models.task import Task
 
     name = "over_run_time_task"
+    workflow = UnknownWorkflow(workflow_args="over_run_time_task_args",
+                               executor_class="SGEExecutor")
     executor_parameters = ExecutorParameters(m_mem_free='1G', max_runtime_seconds=5,
                                              num_cores=1, queue='all.q',
                                              executor_class="SGElExecutor")
     task = BashTask(command="sleep 10", name=name, executor_parameters=executor_parameters,
                     executor_class="SGEExecutor", max_attempts=1)
-    workflow = UnknownWorkflow(workflow_args="over_run_time_task_args",
-                               executor_class="SGEExecutor")
     workflow.add_tasks([task])
     workflow.run()
 
@@ -77,13 +77,13 @@ def test_exceed_mem_task(db_cfg, client_env):
     exceed_mem_path = os.path.abspath(os.path.expanduser(
         f"{this_file}/../_scripts/exceed_mem.py"))
 
+    workflow = UnknownWorkflow(workflow_args="over_memory_task_args",
+                               executor_class="SGEExecutor")
     executor_parameters = ExecutorParameters(m_mem_free='130M', max_runtime_seconds=40,
                                              num_cores=1, queue='all.q',
                                              executor_class="SGEExecutor")
     task = PythonTask(script=exceed_mem_path, name=name, executor_parameters=executor_parameters,
                     executor_class="SGEExecutor", max_attempts=1)
-    workflow = UnknownWorkflow(workflow_args="over_memory_task_args",
-                               executor_class="SGEExecutor")
     workflow.add_tasks([task])
     workflow.run()
 

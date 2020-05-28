@@ -838,11 +838,11 @@ def get_run_status_and_latest_task(workflow_run_id: int):
         params(workflow_run_id=workflow_run_id).one()
     DB.session.commit()
     time_since_task_status = datetime.utcnow() - status.status_date
-    # time_since_wfr_status = datetime.utcnow() - status.WorkflowRun.status_date
+    time_since_wfr_status = datetime.utcnow() - status.WorkflowRun.status_date
+
     # If the last task was more than 2 minutes ago, transition wfr to A state
     # Also check WorkflowRun status_date to avoid possible race condition where reaper checks tasks from a different WorkflowRun with the same workflow id
-    # if time_since_task_status > timedelta(minutes=2) and time_since_wfr_status > timedelta(minutes=2):
-    if time_since_task_status > timedelta(minutes=2):
+    if time_since_task_status > timedelta(minutes=2) and time_since_wfr_status > timedelta(minutes=2):
         aborted = True
         status.WorkflowRun.transition("A")
         DB.session.commit()
