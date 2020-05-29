@@ -65,6 +65,11 @@ class ExecutorParameters:
 
         StrategyCls = self._strategies.get(executor_class)
         self._strategy: Optional[Type[ExecutorParameters]] = None
+
+        if StrategyCls is None and executor_class == "SGEExecutor":
+            raise RuntimeError("SGEExecutor was specified but SGEExecutor was not imported "
+                               "before setting ExecutorParameters")
+
         if StrategyCls is not None:
             StrategyCls.set_executor_parameters_strategy(self)
 
