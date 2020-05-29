@@ -15,7 +15,7 @@ else:
     python = "3.7"
 
 
-@nox.session(python=python, venv_backend="conda", reuse_venv=True)
+@nox.session(python=python, venv_backend="conda")
 def tests(session: Session) -> None:
     """Run the test suite."""
     args = session.posargs or test_locations
@@ -40,7 +40,7 @@ def tests(session: Session) -> None:
     session.run("pytest", *args, *extra_args)
 
 
-@nox.session(python="3.7", venv_backend="conda", reuse_venv=True)
+@nox.session(python="3.7", venv_backend="conda")
 def lint(session: Session) -> None:
     """Lint code using various plugins."""
     args = session.posargs or src_locations + test_locations
@@ -54,7 +54,7 @@ def lint(session: Session) -> None:
     session.run("flake8", *args)
 
 
-@nox.session(python="3.7", venv_backend="conda", reuse_venv=True)
+@nox.session(python="3.7", venv_backend="conda")
 def typecheck(session: Session) -> None:
     """Type check code."""
     args = session.posargs or src_locations + test_locations
@@ -62,7 +62,7 @@ def typecheck(session: Session) -> None:
     session.run("mypy", *args)
 
 
-@nox.session(python="3.7", venv_backend="conda", reuse_venv=True)
+@nox.session(python="3.7", venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
     session.install(".")
@@ -71,12 +71,12 @@ def docs(session: Session) -> None:
     session.run("sphinx-build", "docsource", "docsource/_build")
 
 
-@nox.session(python="3.7", venv_backend="conda", reuse_venv=True)
+@nox.session(python="3.7", venv_backend="conda")
 def build(session: Session) -> None:
     session.run("python", "setup.py", "sdist")
 
 
-@nox.session(python="3.8", venv_backend="conda", reuse_venv=True)
+@nox.session(python="3.8", venv_backend="conda")
 def release(session: Session) -> None:
     """Release the distribution."""
     # check if overwrite is an arg
