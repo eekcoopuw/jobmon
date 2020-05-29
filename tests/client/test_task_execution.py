@@ -1,4 +1,5 @@
 import os
+import pytest
 from time import sleep
 from subprocess import check_output
 
@@ -30,6 +31,7 @@ def match_name_to_sge_name(jid):
     return sge_jobname
 
 
+@pytest.mark.integration_sge
 def test_exceed_runtime_task(db_cfg, client_env):
     """Tests that when a task exceeds the requested amount of run time on SGE, it
     succcessfully gets killed"""
@@ -64,6 +66,7 @@ def test_exceed_runtime_task(db_cfg, client_env):
     assert sge_jobname == name
 
 
+@pytest.mark.integration_sge
 def test_exceed_mem_task(db_cfg, client_env):
     """Tests that when a task exceeds the requested amount of memory on SGE, it
     succcessfully gets killed"""
@@ -102,6 +105,7 @@ def test_exceed_mem_task(db_cfg, client_env):
     assert sge_jobname == name
 
 
+@pytest.mark.integration_sge
 def test_under_request_memory_then_scale(db_cfg, client_env):
     """test that when a task gets killed due to under requested memory, it
     tries again with additional memory added"""
