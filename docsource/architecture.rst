@@ -35,6 +35,7 @@ Gubby Initial Release Architecture
     }
     subgraph cluster_qpid_db {
       graph[style=solid; color=red];
+      label="QPID DB Host"
       "qpid database" [shape="cylinder"]
     }
     subgraph "cluster_docker-host" {
