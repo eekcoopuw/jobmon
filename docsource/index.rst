@@ -32,6 +32,7 @@ Table of Contents
     design_notes
     API Reference <modules>
     future_work
+    architecture
 
 
 Indices and tables
