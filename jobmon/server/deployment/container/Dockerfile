@@ -14,6 +14,6 @@ RUN chmod +x /app/setup.py /app/versioneer.py /app/wait-for-tables.sh
 WORKDIR /app
 
 # PIPS
-RUN pip install cluster_utils --extra-index-url http://pypi.services.ihme.washington.edu/simple --trusted-host pypi.services.ihme.washington.edu
+RUN pip install cluster_utils --extra-index-url https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple --trusted-host artifactory.ihme.washington.edu
 RUN pip install flask-cors
 RUN pip install .
