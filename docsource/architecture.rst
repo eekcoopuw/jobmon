@@ -1,7 +1,7 @@
 Architecture
 ===========================================
 
-Gubby Initial Release Architecture
+Guppy Initial Release Architecture
 ----------------------------------
 
 .. Requires graphviz binaries on doc build host
