@@ -1,5 +1,5 @@
 pipeline {
-  agent { label 'master' }
+  agent { label 'docker' }
   options {
     disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '50'))
@@ -8,7 +8,7 @@ pipeline {
   stages {
     stage('build') {
       steps {
-        node('master') {
+        node('docker') {
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp', usernameVariable: 'DOCKER_REG_USERNAME', passwordVariable: 'DOCKER_REG_PASSWORD')]) {
             wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
               checkout scm
