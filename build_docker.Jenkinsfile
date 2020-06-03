@@ -13,9 +13,9 @@ pipeline {
             checkout scm
             sh '''
             # Get Jenkins Common and Source it
-            curl -o ./jenkins-common.sh "http://repo.ihme.washington.edu/mirror/software/jenkins-common/jenkins-common.sh" || (echo Failed to import jenkins-common.sh; exit 1)
+            curl -o ./common.sh "http://repo.ihme.washington.edu/mirror/software/jenkins-common/jenkins-common.sh" || (echo Failed to import jenkins-common.sh; exit 1)
             . ./jenkins-common.sh || (echo Failed to import jenkins-common.sh; exit 1)
-            rm -f ./jenkins-common.sh
+            rm -f ./common.sh
 
             export CONTAINER_NAME=jobmon
             export CONTAINER_TAG=guppy_${BUILD_NUMBER}_$(date +%Y%m%d_%H%M%S)
