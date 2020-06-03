@@ -74,6 +74,7 @@ def test_exceed_mem_task(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.execution.strategies.base import ExecutorParameters
     from jobmon.models.task import Task
+    from jobmon.models.task_instance_error_log import TaskInstanceErrorLog
 
     name = "exeeded_requested_memory_test"
     this_file = os.path.dirname(__file__)
@@ -95,11 +96,13 @@ def test_exceed_mem_task(db_cfg, client_env):
     with app.app_context():
         task = DB.session.query(Task).filter_by(name=name).first()
         tid = [ti for ti in task.task_instances][0].executor_id
-        resp = check_output(fr"qacct -j {tid} | grep 'exit_status\|failed'",
-                            shell=True, universal_newlines=True)
-        assert ("247" in resp) or ("137" in resp)
-        assert task.task_instances[0].status == 'Z'
+        task_instance = task.task_instances[0]
+        assert task_instance.status == 'Z'
         assert task.status == 'F'
+        task_instance_error = DB.session.query(TaskInstanceErrorLog).filter_by\
+            (task_instance_id=task_instance.id).first()
+        assert "Insufficient resources requested. Found exit code: -9." in \
+               task_instance_error.description
 
     sge_jobname = match_name_to_sge_name(tid)
     assert sge_jobname == name

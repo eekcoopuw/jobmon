@@ -112,7 +112,7 @@ def nox_stage(project_name, target, stage_target, nox_sessions, continue_on_fail
             sh """
                 echo 'nox ${stage_target} STARTS'
                 cd ${project_name}
-                nox --reuse-existing-virtualenvs --session ${nox_sessions} ${or_true}
+                nox --session ${nox_sessions} ${or_true}
                 echo 'nox ${stage_target} ENDS'
                 echo '--------'
             """
