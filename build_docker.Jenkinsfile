@@ -13,8 +13,8 @@ pipeline {
             checkout scm
             sh '''
             # Get Jenkins Common and Source it
-            curl -o ./common.sh "http://repo.ihme.washington.edu/mirror/software/jenkins-common/jenkins-common.sh" || (echo Failed to import jenkins-common.sh; exit 1)
-            . ./jenkins-common.sh || (echo Failed to import jenkins-common.sh; exit 1)
+            curl -o ./common.sh "http://repo.ihme.washington.edu/mirror/software/jenkins-common/jenkins-common.sh" || (echo Failed to import common.sh; exit 1)
+            . ./common.sh || (echo Failed to import jenkins-common.sh; exit 1)
             rm -f ./common.sh
 
             export CONTAINER_NAME=jobmon
