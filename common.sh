@@ -162,6 +162,17 @@ build_push_container_with_cache()
   docker push "${IMAGE_NAME}"
 }
 
+docker_image_size()
+{
+  # Output size of a given image
+  CONTAINER_IMAGE="$1"
+  if [[ -z "${CONTAINER_IMAGE}" ]]; then
+    log_error "docker_image_size: No Image Specified"
+  else
+    docker images ${CONTAINER_IMAGE} --format "{{.Size}}"
+  fi
+}
+
 pull_common_container_images()
 {
   log_info "Pulling Common Docker Container Images"
