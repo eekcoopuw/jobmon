@@ -4,7 +4,13 @@ pipeline {
     disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '50'))
   } // End Options
-  triggers { pollSCM('0 0 1 1 0') }
+  triggers {
+    // This cron expression runs seldom, or never runs, but having the value set
+    // allows bitbucket server to remotely trigger builds.
+    // Git plugin 4.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/209059847/Triggering+Jenkins+on+new+Pull+Requests
+    // Git plugin 3.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/955088898/Triggering+Jenkins+on+new+Pull+Requests+Git+Plugin+3.XX
+    pollSCM('0 0 1 1 0')
+  }
   stages {
     stage('build') {
       steps {
