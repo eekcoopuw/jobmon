@@ -1,5 +1,5 @@
 FROM tiangolo/uwsgi-nginx-flask:python3.6
-RUN apt-get update && apt-get install -y mysql-client
+RUN apt-get update && apt-get install -y mariadb-client
 
 ENV NGINX_WORKER_PROCESSES auto
 
