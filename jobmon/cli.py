@@ -81,8 +81,8 @@ class CLI(object):
     def task_status(self, args):
         from tabulate import tabulate
         from jobmon.client.status_commands import task_status
-        task_state, df = task_status(args.task_id, args.json)
-        print(f"\nTASK_ID: {args.task_id}", f" STATUS: {task_state}\n")
+        df = task_status(args.task_ids, args.status, args.json)
+        print(f"\nTASK_IDS: {args.task_ids}")
         if args.json:
             print(df)
         else:
@@ -119,7 +119,7 @@ class CLI(object):
             "-w", "--workflow_id", help="workflow_id to get task statuses for",
             required=True, type=int)
         workflow_tasks_parser.add_argument(
-            "-s", "--status",
+            "-s", "--status", nargs="*",
             help="limit tasks to a status (PENDING, RUNNING, DONE, FATAL)",
             choices=["PENDING", "RUNNING", "DONE", "FATAL",
                      "pending", "running", "done", "fatal"],
@@ -132,8 +132,14 @@ class CLI(object):
         task_status_parser = self._subparsers.add_parser("task_status")
         task_status_parser.set_defaults(func=self.task_status)
         task_status_parser.add_argument(
-            "-t", "--task_id", help="task_id to get task statuses for",
+            "-t", "--task_ids", nargs="+", help="task_ids to get task statuses for",
             required=True, type=int)
+        task_status_parser.add_argument(
+            "-s", "--status", nargs="*",
+            help="limit task instances to statuses (PENDING, RUNNING, DONE, FATAL)",
+            choices=["PENDING", "RUNNING", "DONE", "FATAL",
+                     "pending", "running", "done", "fatal"],
+            required=False)
         task_status_parser.add_argument(
             "-n", "--json", dest="json", action="store_true"
         )

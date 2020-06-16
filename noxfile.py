@@ -24,7 +24,7 @@ def tests(session: Session) -> None:
         session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
     session.install("pytest", "pytest-mproc", "mock")
     session.install("-r", "requirements.txt")
-    session.install("--upgrade", "--force-reinstall", ".")
+    session.install("-e", ".")
 
     # pytest sge integration tests
     try:
