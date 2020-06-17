@@ -13,12 +13,10 @@ from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.task_status import TaskStatus
 
-
 logger = logging.getLogger(__name__)
 
 
 class Task:
-
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
 
     @classmethod
@@ -63,8 +61,8 @@ class Task:
                  executor_parameters: Union[ExecutorParameters, Callable],
                  name: Optional[str] = None,
                  max_attempts: int = 3,
-                 upstream_tasks: List[Task] = [],
-                 task_attributes: Union[List, dict] = {},
+                 upstream_tasks: Optional[List[Task]] = None,
+                 task_attributes: Union[List, dict] = None,
                  requester: Requester = shared_requester):
         """
         Create a task

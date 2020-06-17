@@ -36,7 +36,7 @@ def test_error_state(db_cfg, client_env):
 
     # Call the reaper, with a short loss_threshold, to trigger the reaper to
     # move the workflow run in to error state
-    reaper = WorkflowReaper(loss_threshold=1/20)
+    reaper = WorkflowReaper(loss_threshold=1 / 20)
     i = 0
     while i < 10:
         time.sleep(10)
@@ -63,7 +63,7 @@ def test_error_state(db_cfg, client_env):
             FROM workflow_run
             WHERE workflow_run.id = :workflow_run_id
         """
-        workflow_run_res = DB.session.execute\
+        workflow_run_res = DB.session.execute \
             (workflow_run_query, {"workflow_run_id": wfr1.workflow_run_id}).fetchone()
         DB.session.commit()
     assert workflow_run_res[0] == "E"
@@ -204,7 +204,7 @@ def test_aborted_state(db_cfg, client_env):
             FROM workflow_run
             WHERE workflow_run.id = :workflow_run_id
         """
-        workflow_run_res = DB.session.execute\
+        workflow_run_res = DB.session.execute \
             (workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}).fetchone()
         DB.session.commit()
     _, workflow_status = workflow._get_workflow_id_and_status()

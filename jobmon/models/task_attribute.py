@@ -1,8 +1,5 @@
 from jobmon.models import DB
-
-from jobmon.models.attributes.task_attribute_type import \
-    TaskAttributeType
-
+from jobmon.models.task_attribute_type import TaskAttributeType
 
 class TaskAttribute(DB.Model):
     __tablename__ = 'task_attribute'
@@ -11,7 +8,7 @@ class TaskAttribute(DB.Model):
     task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'))
     attribute_type = DB.Column(DB.Integer,
                                DB.ForeignKey('task_attribute_type.id'))
-    value = DB.Column(DB.String(255))
+    value = DB.Column(DB.String(2000))
 
     @classmethod
     def from_wire(cls, dct):

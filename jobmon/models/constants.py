@@ -1,4 +1,4 @@
-from jobmon.models.attributes.attribute_dictionary import AttributeDictionary
+from jobmon.models.attribute_dictionary import AttributeDictionary
 
 task_instance_attribute = AttributeDictionary({
     'WALLCLOCK': 1,

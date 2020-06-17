@@ -1,8 +1,10 @@
 import pytest
+import os
 
 from jobmon.client.tool import Tool
 from jobmon.client.task import Task
 from jobmon.client.execution.strategies.base import ExecutorParameters
+from sqlalchemy.sql import text
 
 
 @pytest.fixture
@@ -154,3 +156,43 @@ def test_python_task_args(db_cfg, client_env):
 
         # check all job args
         assert a.command == f'OP_NUM_THREADS=1 {sys.executable} ~/runme.py'
+
+
+def test_task_attribute(db_cfg, client_env):
+    """Test that you can add task attributes to Bash and Python tasks"""
+    from jobmon.client.api import BashTask
+    from jobmon.client.api import PythonTask
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
+    from jobmon.models.task_attribute import TaskAttribute
+    from jobmon.models.task_attribute_type import TaskAttributeType
+
+    workflow1 = UnknownWorkflow(name="test_task_attribute",
+                                executor_class="SequentialExecutor")
+    executor_parameters = ExecutorParameters(m_mem_free='1G', num_cores=1, queue='all.q',
+                                             executor_class="SequentialExecutor")
+    task1 = BashTask("sleep 2", num_cores=1,
+                     task_attributes={'LOCATION_ID': 1, 'AGE_GROUP_ID': 5, 'SEX': 1},
+                     executor_parameters=executor_parameters)
+
+    this_file = os.path.dirname(__file__)
+    script_path = os.path.abspath(os.path.expanduser(
+        f"{this_file}/../_scripts/remote_sleep_and_write.py"))
+
+    task2 = PythonTask(script=script_path, num_cores=1,
+                     task_attributes=["NUM_CORES", "NUM_YEARS"])
+    workflow1.add_tasks([task1, task2])
+    workflow1.run()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """
+        SELECT task_attribute_type.name, task_attribute.value
+        FROM task_attribute
+        INNER JOIN task_attribute_type ON task_attribute.attribute_type=task_attribute_type.id
+        WHERE task_attribute.task_id = :task_id_1 OR :task_id_2
+        """
+        resp = DB.session.query(TaskAttribute.value, TaskAttributeType.name).\
+            from_statement(text(query)).params(task_id_1=task1.task_id, task_id_2=task2.task_id).all()
+    assert set(resp) == set([('1', 'LOCATION_ID'), ('5', 'AGE_GROUP_ID'), ('1', 'SEX'),
+                             (None, 'NUM_CORES'), (None, 'NUM_YEARS')])

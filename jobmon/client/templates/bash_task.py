@@ -109,4 +109,5 @@ class BashTask(Task):
             executor_parameters=executor_parameters,
             name=name,
             max_attempts=max_attempts,
-            upstream_tasks=upstream_tasks)
+            upstream_tasks=upstream_tasks,
+            task_attributes=task_attributes)

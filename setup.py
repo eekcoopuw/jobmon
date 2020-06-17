@@ -54,7 +54,6 @@ setup(
               'jobmon.client.swarm',
               'jobmon.client.templates',
               'jobmon.models',
-              'jobmon.models.attributes',
               'jobmon.server',
               'jobmon.server.deployment',
               'jobmon.server.workflow_reaper',

@@ -1,8 +1,6 @@
 import pytest
 
-from jobmon.client.execution.scheduler.executor_task import ExecutorTask
-
-from jobmon.models.attributes.constants import qsub_attribute
+from jobmon.models.constants import qsub_attribute
 
 
 class MockSchedulerProc:

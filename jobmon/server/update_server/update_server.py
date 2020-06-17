@@ -5,6 +5,7 @@ import json
 import os
 import socket
 from sqlalchemy.sql import func, text
+from sqlalchemy.dialects.mysql import insert
 import sqlalchemy
 import traceback
 from typing import Optional, Any
@@ -13,17 +14,15 @@ from jobmon import config
 from jobmon.models import DB
 from jobmon.models.arg import Arg
 from jobmon.models.arg_type import ArgType
-from jobmon.models.attributes.constants import qsub_attribute, task_instance_attribute
-from jobmon.models.attributes.task_attribute import TaskAttribute
-from jobmon.models.attributes.task_attribute_type import TaskAttributeType
-from jobmon.models.attributes.task_instance_attribute import TaskInstanceAttribute
+from jobmon.models.constants import qsub_attribute, task_instance_attribute
+from jobmon.models.task_attribute import TaskAttribute
+from jobmon.models.task_attribute_type import TaskAttributeType
 from jobmon.models.command_template_arg_type_mapping import \
     CommandTemplateArgTypeMapping
 from jobmon.models.dag import Dag
 from jobmon.models.edge import Edge
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.node import Node
 from jobmon.models.node_arg import NodeArg
 from jobmon.models.task import Task
@@ -44,7 +43,6 @@ from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.server.server_side_exception import log_and_raise
 
 jsm = Blueprint("job_state_manager", __name__)
-
 
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
@@ -151,7 +149,7 @@ def _add_or_get_arg(name: str) -> Arg:
         FROM arg
         WHERE name = :name
         """
-        arg = DB.session.query(Arg).from_statement(text(query))\
+        arg = DB.session.query(Arg).from_statement(text(query)) \
             .params(name=name).one()
     except sqlalchemy.orm.exc.NoResultFound:
         DB.session.rollback()
@@ -334,14 +332,18 @@ def add_task():
         task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
         DB.session.add(task_arg)
         DB.session.flush()
-    for name, val in data["task_attributes"].items():
-        type_id = _add_or_get_attribute_type(name)
-        task_attribute = TaskAttribute(task_id=task.id,
-                                       attribute_type=type_id,
-                                       value=val)
-        DB.session.add(task_attribute)
-        DB.session.flush()
     DB.session.commit()
+    if data["task_attributes"]:
+        task_attribute_list = []
+        for name, val in data["task_attributes"].items():
+            type_id = _add_or_get_attribute_type(name)
+            task_attribute = TaskAttribute(task_id=task.id,
+                                           attribute_type=type_id,
+                                           value=val)
+            task_attribute_list.append(task_attribute)
+        DB.session.add_all(task_attribute_list)
+        DB.session.flush()
+        DB.session.commit()
 
     resp = jsonify(task_id=task.id)
     resp.status_code = StatusCodes.OK
@@ -379,7 +381,7 @@ def _add_or_get_attribute_type(name: str) -> int:
         FROM task_attribute_type
         WHERE name = :name
         """
-        attribute_type = DB.session.query(TaskAttributeType)\
+        attribute_type = DB.session.query(TaskAttributeType) \
             .from_statement(text(query)).params(name=name).one()
     except sqlalchemy.orm.exc.NoResultFound:
         DB.session.rollback()
@@ -391,32 +393,18 @@ def _add_or_get_attribute_type(name: str) -> int:
 
 def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     attribute_type = _add_or_get_attribute_type(name)
-    try:
-        # if the attribute was already set for the task, update it with the
-        # new value
-        query = """
-        SELECT id
-        FROM task_attribute
-        WHERE
-            task_id = :task_id
-            AND attribute_type = :attribute_id
-        """
-        attr = DB.session.query(TaskAttribute).from_statement(text(query))\
-            .params(task_id=task_id, attribute_type=attribute_type).one()
-        params = {"value": value, "attribute_id": attr.id}
-        update_query = """
-            UPDATE task_attribute
-            SET value = :value
-            WHERE attribute_id = :attribute_id"""
-        DB.session.execute(update_query, params)
-    except sqlalchemy.orm.exc.NoResultFound:
-        DB.session.rollback()
-        attr = TaskAttribute(task_id=task_id,
-                             attribute_type=attribute_type,
-                             value=value)
-        DB.session.add(attr)
-        DB.session.commit()
-    return attr.id
+    insert_vals = insert(TaskAttribute).values(
+        task_id=task_id,
+        attribute_type=attribute_type,
+        value=value
+    )
+    update_insert = insert_vals.on_duplicate_key_update(
+        value=insert_vals.inserted.value,
+        status='U'
+    )
+    attribute = DB.session.execute(update_insert)
+    DB.session.commit()
+    return attribute.id
 
 
 @jsm.route('/task/<task_id>/task_attributes', methods=['PUT'])
@@ -425,8 +413,12 @@ def update_task_attribute(task_id: int):
     data = request.get_json()
     attributes = data["task_attributes"]
     # update existing attributes with their values
-    for name, val in attributes:
+    for name, val in attributes.items():
         _add_or_update_attribute(task_id, name, val)
+    # Flask requires that a response is returned, no values need to be passed back
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jsm.route('/workflow', methods=['POST'])
@@ -850,7 +842,7 @@ def get_run_status_and_latest_task(workflow_run_id: int):
         WHERE workflow_run.id = :workflow_run_id
     """
     aborted = False
-    status = DB.session.query(WorkflowRun, Task.status_date).from_statement(text(query)).\
+    status = DB.session.query(WorkflowRun, Task.status_date).from_statement(text(query)). \
         params(workflow_run_id=workflow_run_id).one()
     DB.session.commit()
     time_since_task_status = datetime.utcnow() - status.status_date
@@ -865,6 +857,7 @@ def get_run_status_and_latest_task(workflow_run_id: int):
     resp = jsonify(was_aborted=aborted)
     resp.status_code = StatusCodes.OK
     return resp
+
 
 @jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def log_wfr_heartbeat(workflow_run_id: int):
@@ -986,6 +979,7 @@ def suspend_workflow(workflow_id: int):
     resp.status_code = StatusCodes.OK
     return resp
 
+
 # ############################## WORKER ROUTES ################################
 
 @jsm.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
@@ -1078,7 +1072,7 @@ def log_usage(task_instance_id: int):
         data['maxrss'] = '-1'
 
     keys_to_attrs = {data.get('usage_str', None):
-                     task_instance_attribute.USAGE_STR,
+                         task_instance_attribute.USAGE_STR,
                      data.get('wallclock', None):
                          task_instance_attribute.WALLCLOCK,
                      data.get('cpu', None): task_instance_attribute.CPU,
@@ -1200,15 +1194,15 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
         if task_instance.status == status_id:
             # It was already in that state, just log it
             msg = f"Attempting to transition to existing state." \
-                f"Not transitioning task, tid= " \
-                f"{task_instance.id} from {task_instance.status} to " \
-                f"{status_id}"
+                  f"Not transitioning task, tid= " \
+                  f"{task_instance.id} from {task_instance.status} to " \
+                  f"{status_id}"
             logger.warning(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. Not transitioning task, " \
-                f"tid={task_instance.id}, from {task_instance.status} to " \
-                f"{status_id}"
+                  f"tid={task_instance.id}, from {task_instance.status} to " \
+                  f"{status_id}"
             logger.error(msg)
     except KillSelfTransition:
         msg = f"kill self, cannot transition " \
@@ -1217,8 +1211,8 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
         response = "kill self"
     except Exception as e:
         msg = f"General exception in _update_task_instance_state, " \
-            f"jid {task_instance}, transitioning to {task_instance}. " \
-            f"Not transitioning task. {e}"
+              f"jid {task_instance}, transitioning to {task_instance}. " \
+              f"Not transitioning task. {e}"
         log_and_raise(msg, logger)
 
     return response
@@ -1476,7 +1470,8 @@ def set_maxpss(executor_id: int, maxpss: int):
         resp = jsonify(message=None)
         resp.status_code = StatusCodes.OK
     except Exception as e:
-        msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id, error=str(e))
+        msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id,
+                                                                             error=str(e))
         logger.error(msg)
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR

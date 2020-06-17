@@ -7,7 +7,6 @@ DROP TABLE IF EXISTS `task_attribute_type`;
 CREATE TABLE `task_attribute_type` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) DEFAULT NULL,
-  `type` varchar(255) DEFAULT NULL,
   `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
   PRIMARY KEY (`id`, `partition_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8

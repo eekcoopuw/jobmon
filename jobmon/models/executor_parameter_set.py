@@ -1,4 +1,5 @@
 from jobmon.models import DB
+from jobmon.models import executor_parameter_set_type
 
 
 class ExecutorParameterSet(DB.Model):

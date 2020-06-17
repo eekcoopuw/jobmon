@@ -10,7 +10,7 @@ from jobmon.client.execution.strategies.base import (
 from jobmon.client.execution.strategies.sge import sge_utils
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.task_instance_status import TaskInstanceStatus
-from jobmon.models.attributes.constants import qsub_attribute
+from jobmon.models.constants import qsub_attribute
 
 logger = logging.getLogger(__name__)
 
