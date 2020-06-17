@@ -33,6 +33,7 @@ Table of Contents
     API Reference <modules>
     future_work
     architecture
+    kubernetes_deployment
 
 
 Indices and tables

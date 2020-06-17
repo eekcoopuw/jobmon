@@ -1,4 +1,4 @@
-FROM tiangolo/uwsgi-nginx-flask:python3.6
+FROM tiangolo/uwsgi-nginx-flask:python3.7
 RUN apt-get update && apt-get install -y mariadb-client
 
 ENV NGINX_WORKER_PROCESSES auto

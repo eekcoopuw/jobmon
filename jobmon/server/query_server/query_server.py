@@ -55,6 +55,22 @@ def get_utc_now():
     return resp
 
 
+@jqs.route("/qs/health", methods=['GET'])
+def health():
+    """
+    Test connectivity to the database, return 200 if everything is ok
+    Defined in each module with a different route, so it can be checked individually
+    """
+    time = DB.session.execute("SELECT UTC_TIMESTAMP AS time").fetchone()
+    time = time['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    DB.session.commit()
+    # Assume that if we got this far without throwing an exception, we should be online
+    resp = jsonify(status='OK')
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jqs.route('/tool/<tool_name>', methods=['GET'])
 def get_tool(tool_name: str):
     logger.info(logging.myself())

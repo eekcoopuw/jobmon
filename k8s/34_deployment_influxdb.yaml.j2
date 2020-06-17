@@ -1,0 +1,60 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: influxdb
+  namespace: {{namespace}}
+  labels:
+    app: influxdb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: influxdb
+  template:
+    metadata:
+      labels:
+        app: influxdb
+        name: influxdb
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: influxdb:1.8-alpine
+        name: influxdb
+        env:
+        - name: INFLUXDB_HTTP_AUTH_ENABLED
+          value: "false"
+        - name: INFLUXDB_HTTP_ENABLED
+          value: "true"
+        - name: INFLUXDB_HTTP_FLUX_ENABLED
+          value: "true"
+        ports:
+        - name: influx-http
+          containerPort: 8086
+        volumeMounts:
+          - name: influxdb-storage
+            mountPath: /var/lib/influxdb
+          - name: initdir
+            mountPath: /docker-entrypoint-initdb.d
+      initContainers:
+      - name: init-influxdb
+        image: influxdb:1.8-alpine
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          # Metrics data retention policy defined here. Duration = amount of time to keep records
+          # Only set during initial creation of database. If you want to change this
+          # you must either. Manually change the setting using the influxdb CLI, or
+          # Delete the influx container and its data volume, and re-deploy so a new DB is created
+          - "echo 'CREATE DATABASE jobmon WITH DURATION 10d;' > /docker-entrypoint-initdb.d/jobmon.iql"
+        volumeMounts:
+          - name: influxdb-storage
+            mountPath: /var/lib/influxdb
+          - name: initdir
+            mountPath: /docker-entrypoint-initdb.d
+      volumes:
+      - name: influxdb-storage
+        persistentVolumeClaim:
+          claimName: influxdb-storage
+      - name: initdir
+        emptyDir: {}

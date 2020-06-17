@@ -125,7 +125,7 @@ Kubernetes Deployment Architecture
       graph[style=solid; color=red];
       clusterrank=global
       label="Telemetry DB"
-      "telemetry_db" [shape="cylinder", label="Telemetry DB (TBD)"]
+      "telemetry_db" [shape="cylinder", label="Telemetry DB (InfluxDB)"]
     }
 
     subgraph cluster_jobmon_db {
@@ -171,7 +171,7 @@ Kubernetes Deployment Architecture
         subgraph cluster_lb_container {
           label="Load Balancer Containers (many)";
           graph[style=solid; color=brown;];
-          "nginx_reverse_proxies" [shape="tripleoctagon", label="Nginx Reverse Proxies"]
+          "traefik_reverse_proxy" [shape="tripleoctagon", label="Traefik Reverse Proxies"]
         }
       }
 
@@ -205,7 +205,7 @@ Kubernetes Deployment Architecture
             label="supervisord processes";
             graph[style=solid; color=cyan];
             "state_manager_nginx" [shape="octagon", label="State Manager NGINX"]
-            "state_manager_uwsgi" [shape="octagon", label="state Manager uWSGI"]
+            "state_manager_uwsgi" [shape="octagon", label="State Manager uWSGI"]
             "state_manager_flask" [shape="octagon", label="State Manager Flask"]
             "state_manager_app" [shape="tripleoctagon", label="Job State Manager"]
             "state_manager_nginx" -> "state_manager_uwsgi" [label="reverse proxies on unix socket"]
@@ -235,17 +235,17 @@ Kubernetes Deployment Architecture
         }
       }
   }
-  {rank=same; qpid_integration; workflow_reaper; nginx_reverse_proxies}
+  {rank=same; qpid_integration; workflow_reaper; traefik_reverse_proxy}
   {rank=same; jobmon_database; qpid_database; telemetry_db; slack}
   "qpid_integration" -> "qpid_database"
   "qpid_integration" -> "jobmon_database"  [label="ETL Max-RSS"]
   "state_manager_app" -> "jobmon_database" [label="Read-Write"]
   "jobmon_clients" -> "metal_lb_service"
-  "metal_lb_service" -> "nginx_reverse_proxies"
-  "nginx_reverse_proxies" -> "query_nginx" [label="Proxy HTTP Requests"]
-  "nginx_reverse_proxies" -> "state_manager_nginx" [label="Proxy HTTP Requests"]
-  "nginx_reverse_proxies" -> "viz_nginx" [label="Proxy HTTP Requests"]
-  "nginx_reverse_proxies" -> "telemetry_db" [label="NGINX Writes Telemetry"]
+  "metal_lb_service" -> "traefik_reverse_proxy"
+  "traefik_reverse_proxy" -> "query_nginx" [label="Proxy HTTP Requests"]
+  "traefik_reverse_proxy" -> "state_manager_nginx" [label="Proxy HTTP Requests"]
+  "traefik_reverse_proxy" -> "viz_nginx" [label="Proxy HTTP Requests"]
+  "traefik_reverse_proxy" -> "telemetry_db" [label="NGINX Writes Telemetry"]
 
   "workflow_reaper" -> "state_manager_nginx"
   "workflow_reaper" -> "slack"

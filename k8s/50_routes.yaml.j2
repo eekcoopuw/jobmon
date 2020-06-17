@@ -1,0 +1,144 @@
+
+# By default, send all traffic to service manager containers as it has the most routes
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: jobmon-state-manager-routes
+  namespace: {{namespace}}
+spec:
+  entryPoints:
+    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
+    - web
+  routes:
+  - match: PathPrefix(`/`)
+    kind: Rule
+    services:
+    - name: jobmon-state-manager
+      port: 80
+  - match: PathPrefix(`/sm`)
+    kind: Rule
+    services:
+    - name: jobmon-state-manager
+      port: 80
+
+
+# Send query service routes to the query service containers
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: jobmon-query-service-routes
+  namespace: {{namespace}}
+spec:
+  entryPoints:
+    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
+    - web
+  routes:
+  - match: Method(`GET`) && PathPrefix(`/time`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/qs`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/tool`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/task_template`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/node`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/dag`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/task`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/workflow`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`POST`) && PathPrefix(`/workflow/{workflow_id:.*}/task_status_updates`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/task_instance`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/task`)
+    kind: Rule
+    services:
+    - name: jobmon-query-service
+      port: 80
+
+
+# Send viz routes to viz containers
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: jobmon-vizualization-server-routes
+  namespace: {{namespace}}
+spec:
+  entryPoints:
+    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
+    - web
+  routes:
+  - match: Method(`GET`) && PathPrefix(`/workflow_status`)
+    kind: Rule
+    services:
+    - name: jobmon-vizualization-server
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/workflow/{workflow_id:.*}/workflow_tasks`)
+    kind: Rule
+    services:
+    - name: jobmon-vizualization-server
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/task/{task_id:.*}/status`)
+    kind: Rule
+    services:
+    - name: jobmon-vizualization-server
+      port: 80
+  - match: Method(`GET`) && PathPrefix(`/vs`)
+    kind: Rule
+    services:
+    - name: jobmon-vizualization-server
+      port: 80
+
+# Grafana routes
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana-routes
+  namespace: {{namespace}}
+spec:
+  entryPoints:
+    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
+    - grafana
+  routes:
+  - match: PathPrefix(`/`)
+    kind: Rule
+    services:
+    - name: grafana
+      port: 3000

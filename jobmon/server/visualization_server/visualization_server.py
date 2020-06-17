@@ -49,6 +49,22 @@ _reversed_task_instance_label_mapping = {
 _viz_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 
+@jvs.route("/vs/health", methods=['GET'])
+def health():
+    """
+    Test connectivity to the database, return 200 if everything is ok
+    Defined in each module with a different route, so it can be checked individually
+    """
+    time = DB.session.execute("SELECT UTC_TIMESTAMP AS time").fetchone()
+    time = time['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    DB.session.commit()
+    # Assume that if we got this far without throwing an exception, we should be online
+    resp = jsonify(status='OK')
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jvs.route('/workflow_status', methods=['GET'])
 def get_workflow_status():
     # initial params
