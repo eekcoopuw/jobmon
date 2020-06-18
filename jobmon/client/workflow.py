@@ -3,7 +3,7 @@ from http import HTTPStatus as StatusCodes
 from multiprocessing import Process, Event, Queue
 from multiprocessing import synchronize
 from queue import Empty
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple, Dict, Union
 import uuid
 
 from jobmon.client import shared_requester
@@ -61,7 +61,8 @@ class Workflow(object):
 
     def __init__(self, tool_version_id: int, workflow_args: str = "",
                  name: str = "", description: str = "",
-                 requester: Requester = shared_requester):
+                 requester: Requester = shared_requester,
+                 workflow_attributes: Union[List, dict] = None):
         """
         Args:
             workflow_args: unique identifier of a workflow
@@ -119,6 +120,17 @@ class Workflow(object):
         self._scheduler_proc: Optional[Process] = None
         self._scheduler_com_queue: Queue = Queue()
         self._scheduler_stop_event: synchronize.Event = Event()
+        self.workflow_attributes = {}
+        if workflow_attributes:
+            if isinstance(workflow_attributes, List):
+                for attr in workflow_attributes:
+                    self.workflow_attributes[attr] = None
+            elif isinstance(workflow_attributes, dict):
+                for attr, val in workflow_attributes.items():
+                    self.workflow_attributes[str(attr)] = str(val)
+            else:
+                raise ValueError("workflow_attributes must be provided as a list of "
+                                 "attributes or a dictionary of attributes and their values")
 
     @property
     def is_bound(self):
@@ -149,6 +161,22 @@ class Workflow(object):
             for task in tasks:
                 hash_value.update(str(hash(task)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
+
+    def add_attributes(self, workflow_attributes: dict) -> None:
+        """Function that users can call either to update values of existing
+        attributes or add new attributes"""
+        
+        app_route = f'/workflow/{self.workflow_id}/workflow_attributes'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={"workflow_attributes": workflow_attributes},
+            request_type="put"
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}')
 
     def add_task(self, task: Task):
         """Add a task to the workflow to be executed.
@@ -312,9 +340,13 @@ class Workflow(object):
                     " workflow. If you are not trying to resume a "
                     "workflow, make sure the workflow args are unique or "
                     "the tasks are unique")
+                
+            # Add workflow attributes and workflow_id
+            self._workflow_id = workflow_id
+            self.add_attributes(self.workflow_attributes)
         else:
             workflow_id = self._add_workflow()
-        self._workflow_id = workflow_id
+            self._workflow_id = workflow_id
 
     def _matching_wf_args_diff_hash(self):
         """Check """
@@ -365,7 +397,8 @@ class Workflow(object):
                 "task_hash": self.task_hash,
                 "description": self.description,
                 "name": self.name,
-                "workflow_args": self.workflow_args
+                "workflow_args": self.workflow_args,
+                "workflow_attributes": self.workflow_attributes
             },
             request_type='post'
         )

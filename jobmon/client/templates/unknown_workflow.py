@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union, List
 
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
@@ -58,7 +58,8 @@ class UnknownWorkflow(Workflow):
                  resume: bool = ResumeStatus.DONT_RESUME,
                  reconciliation_interval: Optional[int] = None,
                  heartbeat_interval: Optional[int] = None,
-                 report_by_buffer: Optional[float] = None) -> None:
+                 report_by_buffer: Optional[float] = None,
+                 workflow_attributes: Union[List, dict] = None) -> None:
         """
         Args:
             workflow_args: unique identifier of a workflow
@@ -113,7 +114,8 @@ class UnknownWorkflow(Workflow):
             workflow_args=workflow_args,
             name=name,
             description=description,
-            requester=requester)
+            requester=requester,
+            workflow_attributes=workflow_attributes)
 
     def _set_executor(self, executor_class: str, *args, **kwargs) -> None:
         """Set which executor to use to run the tasks.

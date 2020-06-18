@@ -17,6 +17,8 @@ from jobmon.models.arg_type import ArgType
 from jobmon.models.constants import qsub_attribute, task_instance_attribute
 from jobmon.models.task_attribute import TaskAttribute
 from jobmon.models.task_attribute_type import TaskAttributeType
+from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
+from jobmon.models.attributes.workflow_attribute_type import WorkflowAttributeType
 from jobmon.models.command_template_arg_type_mapping import \
     CommandTemplateArgTypeMapping
 from jobmon.models.dag import Dag
@@ -423,7 +425,7 @@ def update_task_attribute(task_id: int):
 
 @jsm.route('/workflow', methods=['POST'])
 def add_workflow():
-    """Add a workflow to the database or update it (via PUT)"""
+    """Add a workflow to the database."""
     logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
@@ -436,11 +438,71 @@ def add_workflow():
                         name=data["name"],
                         workflow_args=data["workflow_args"])
     DB.session.add(workflow)
+    # TODO: doesn't work with flush, figure out why. Using commit breaks atomicity, workflow attributes may not populate
+    # correctly on a rerun
+    DB.session.commit()
+    if data['workflow_attributes']:
+        wf_attributes_list = []
+        for name, val in data['workflow_attributes'].items():
+            wf_type_id = _add_or_get_wf_attribute_type(name)
+            wf_attribute = WorkflowAttribute(workflow_id=workflow.id,
+                                             workflow_attribute_type_id=wf_type_id,
+                                             value=val)
+            wf_attributes_list.append(wf_attribute)
+        DB.session.add_all(wf_attributes_list)
+        DB.session.flush()
     DB.session.commit()
 
     resp = jsonify(workflow_id=workflow.id)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+def _add_or_get_wf_attribute_type(name: str) -> int:
+    try:
+        query = """
+        SELECT id, name
+        FROM workflow_attribute_type
+        WHERE name = :name
+        """
+        wf_attrib_type = DB.session.query(WorkflowAttributeType)\
+            .from_statement(text(query)).params(name=name).one()
+    except sqlalchemy.orm.exc.NoResultFound:
+        DB.session.rollback()
+        wf_attrib_type = WorkflowAttributeType(name=name)
+        DB.session.add(wf_attrib_type)
+        DB.session.commit()
+    return wf_attrib_type.id
+
+
+def _upsert_wf_attribute(workflow_id: int, name: str, value: str) -> int:
+    wf_attrib_id = _add_or_get_wf_attribute_type(name)
+    insert_vals = insert(WorkflowAttribute).values(
+        workflow_id=workflow_id,
+        workflow_attribute_type_id=wf_attrib_id,
+        value=value
+        )
+
+    upsert_stmt = insert_vals.on_duplicate_key_update(
+        value=insert_vals.inserted.value,
+        status='U')
+
+    DB.session.execute(upsert_stmt)
+    DB.session.commit()
+
+
+@jsm.route('/workflow/<workflow_id>/workflow_attributes', methods=['PUT'])
+def update_workflow_attribute(workflow_id: int):
+    """ Add/update attributes for a workflow """
+    data = request.get_json()
+    attributes = data["workflow_attributes"]
+    if attributes:
+        for name, val in attributes.items():
+            _upsert_wf_attribute(workflow_id, name, val)
+    
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return(resp)
 
 
 @jsm.route('/workflow_run', methods=['POST'])
