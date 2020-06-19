@@ -155,8 +155,8 @@ def get_task_template_version(task_template_id: int):
     FROM task_template_version
     WHERE
         task_template_id = :task_template_id
-        AND command_template = :command_template
         AND arg_mapping_hash = :arg_mapping_hash
+        AND command_template = :command_template
     """
     ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query))\
         .params(

@@ -3,7 +3,7 @@ from http import HTTPStatus as StatusCodes
 from multiprocessing import Process, Event, Queue
 from multiprocessing import synchronize
 from queue import Empty
-from typing import Optional, List, Tuple, Dict, Union
+from typing import Optional, Sequence, Tuple, Dict, Union, List
 import uuid
 
 from jobmon.client import shared_requester
@@ -165,7 +165,7 @@ class Workflow(object):
     def add_attributes(self, workflow_attributes: dict) -> None:
         """Function that users can call either to update values of existing
         attributes or add new attributes"""
-        
+
         app_route = f'/workflow/{self.workflow_id}/workflow_attributes'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -195,7 +195,7 @@ class Workflow(object):
 
         return task
 
-    def add_tasks(self, tasks: List[Task]):
+    def add_tasks(self, tasks: Sequence[Task]):
         """Add a list of task to the workflow to be executed"""
         for task in tasks:
             self.add_task(task)
@@ -340,7 +340,7 @@ class Workflow(object):
                     " workflow. If you are not trying to resume a "
                     "workflow, make sure the workflow args are unique or "
                     "the tasks are unique")
-                
+
             # Add workflow attributes and workflow_id
             self._workflow_id = workflow_id
             self.add_attributes(self.workflow_attributes)

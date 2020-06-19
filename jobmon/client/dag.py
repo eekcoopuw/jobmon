@@ -1,7 +1,7 @@
 import hashlib
 
 from http import HTTPStatus as StatusCodes
-from typing import Optional, Set
+from typing import Optional, Set, Dict, List
 
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
@@ -45,9 +45,6 @@ class Dag(object):
             logger.info(f'dag_id for dag with hash: {dag_hash} not found, '
                         f'creating a new entry and binding the dag.')
             self._dag_id = self._insert_dag()
-            logger.info(f'Inserting edges for dag with hash: {dag_hash}.')
-            # insert edges
-            self._insert_edges()
         else:
             self._dag_id = dag_id
             logger.info(f'Found dag_id: {self.dag_id} for dag with hash: '
@@ -75,27 +72,11 @@ class Dag(object):
                              f'{response}')
 
     def _insert_dag(self) -> int:
-        dag_hash = hash(self)
-
-        return_code, response = self.requester.send_request(
-            app_route='/dag',
-            message={"dag_hash": dag_hash},
-            request_type='post'
-        )
-        if return_code == StatusCodes.OK:
-            return response['dag_id']
-        else:
-            raise ValueError(f'Unexpected status code {return_code} from POST '
-                             f'request through route /dag/{dag_hash} . '
-                             f'Expected code 200. Response content: '
-                             f'{response}')
-
-    def _insert_edges(self) -> None:
-        logger.info(f'Inserting edges into dag with id {self.dag_id}')
 
         # convert the set into a dictionary that can be dumped and sent over
         # as json
-        nodes_and_edges = {}
+        dag_hash = hash(self)
+        nodes_and_edges: Dict[int, Dict[str, List]] = {}
 
         for node in self.nodes:
             # get the node ids for all upstream and downstream nodes
@@ -109,17 +90,19 @@ class Dag(object):
                 'downstream_nodes': downstream_nodes
             }
 
-        logger.debug(f'message included in edge post request: '
-                     f'{nodes_and_edges}')
+        logger.debug(f'message included in edge post request: {nodes_and_edges}')
+
         return_code, response = self.requester.send_request(
-            app_route=f'/edge/{self.dag_id}',
-            message=nodes_and_edges,
+            app_route='/dag',
+            message={"dag_hash": hash(self),
+                     "nodes_and_edges": nodes_and_edges},
             request_type='post'
         )
-        if return_code != StatusCodes.OK:
-            raise ValueError(f'Unexpected status code {return_code} from POST '
-                             f'request through route /dag/{self.dag_id}'
-                             f' . Expected code 200. Response content: '
+        if return_code == StatusCodes.OK:
+            return response['dag_id']
+        else:
+            raise ValueError(f'Unexpected status code {return_code} from POST request through '
+                             f'route /dag/{dag_hash}. Expected code 200. Response content: '
                              f'{response}')
 
     def __hash__(self) -> int:

@@ -7,7 +7,7 @@ from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
 
 from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
-
+from jobmon.client.swarm.workflow_run import WorkflowRun
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,7 @@ class UnknownWorkflow(Workflow):
         if not hasattr(self._executor, "execute"):
             raise AttributeError("Executor must have an execute() method")
 
-    def run(self) -> None:
+    def run(self) -> WorkflowRun:
         """Run this workflow"""
 
         return super().run(self._fail_fast, self._seconds_until_timeout,
