@@ -8,7 +8,6 @@ from typing import Optional, Any
 
 from flask import jsonify, request, Blueprint
 from sqlalchemy.sql import func, text
-from sqlalchemy import exc
 from sqlalchemy.dialects.mysql import insert
 import sqlalchemy
 
@@ -19,8 +18,8 @@ from jobmon.models.arg_type import ArgType
 from jobmon.models.constants import qsub_attribute, task_instance_attribute
 from jobmon.models.task_attribute import TaskAttribute
 from jobmon.models.task_attribute_type import TaskAttributeType
-from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
-from jobmon.models.attributes.workflow_attribute_type import WorkflowAttributeType
+from jobmon.models.workflow_attribute import WorkflowAttribute
+from jobmon.models.workflow_attribute_type import WorkflowAttributeType
 from jobmon.models.command_template_arg_type_mapping import \
     CommandTemplateArgTypeMapping
 from jobmon.models.dag import Dag
@@ -138,7 +137,8 @@ def add_task_template():
     logger.debug(data)
 
     try:
-        tt = TaskTemplate(tool_version_id=data["tool_version_id"], name=data["name"])
+        tt = TaskTemplate(tool_version_id=data["tool_version_id"],
+                          name=data["task_template_name"])
         DB.session.add(tt)
         DB.session.commit()
     except sqlalchemy.exc.IntegrityError:
@@ -152,7 +152,7 @@ def add_task_template():
         """
         tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
             tool_version_id=data["tool_version_id"],
-            name=data["name"]
+            name=data["task_template_name"]
         ).one()
         DB.session.commit()
 
@@ -215,6 +215,7 @@ def add_task_template_version(task_template_id: int):
                 DB.session.add(ctatm)
         DB.session.commit()
     except sqlalchemy.exc.IntegrityError:
+        DB.session.rollback()
         # if another process is adding this task_template_version then this query should block
         # until the command_template_arg_type_mapping has been populated and committed
         query = """
@@ -222,16 +223,19 @@ def add_task_template_version(task_template_id: int):
             FROM task_template_version
             WHERE
                 task_template_id = :task_template_id
+                AND command_template = :command_template
                 AND arg_mapping_hash = :arg_mapping_hash
         """
         ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
-            task_template_id=data["task_template_id"],
+            task_template_id=task_template_id,
+            command_template=data["command_template"],
             arg_mapping_hash=data["arg_mapping_hash"]
         ).one()
         DB.session.commit()
 
     resp = jsonify(
-        task_template_version=ttv.to_wire_as_client_task_template_version())
+        task_template_version=ttv.to_wire_as_client_task_template_version()
+    )
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -524,7 +528,7 @@ def _add_or_get_wf_attribute_type(name: str) -> int:
     return wf_attrib_type.id
 
 
-def _upsert_wf_attribute(workflow_id: int, name: str, value: str) -> int:
+def _upsert_wf_attribute(workflow_id: int, name: str, value: str):
     wf_attrib_id = _add_or_get_wf_attribute_type(name)
     insert_vals = insert(WorkflowAttribute).values(
         workflow_id=workflow_id,

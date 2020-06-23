@@ -17,7 +17,7 @@ def test_create_and_get_task_template(db_cfg, client_env, tool):
         node_args=["node1"],
         task_args=["task1"],
         op_args=["op1"])
-    assert tt1._template_version_created is True
+    assert tt1.task_template_id
 
     tt2 = tool.get_task_template(
         template_name="my_template",
@@ -27,6 +27,10 @@ def test_create_and_get_task_template(db_cfg, client_env, tool):
         op_args=["op1"])
 
     assert tt1.task_template_version.id == tt2.task_template_version.id
+
+    # test duplicate insert
+    resp = tt2.task_template_version._insert_task_template_version()
+    assert tt1.task_template_version.id == resp[0]
 
 
 def test_create_new_task_template_version(db_cfg, client_env, tool):
@@ -38,7 +42,7 @@ def test_create_new_task_template_version(db_cfg, client_env, tool):
         node_args=["node1"],
         task_args=["task1"],
         op_args=["op1"])
-    assert tt1._template_version_created is True
+    assert tt1.task_template_id
 
     tt2 = tool.get_task_template(
         template_name="my_template",

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Union, Optional
+from typing import List, Union
 
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
@@ -44,8 +44,7 @@ class Tool:
         self.active_tool_version_id = active_tool_version_id
 
     @classmethod
-    def create_tool(cls, name: str, requester: Requester = shared_requester
-                    ) -> Tool:
+    def create_tool(cls, name: str, requester: Requester = shared_requester) -> Tool:
         """create a new tool in the jobmon database
 
         Args:
@@ -122,9 +121,12 @@ class Tool:
                 are things like the task executable location or the verbosity
                 of the script.
         """
-        tt = TaskTemplate(self.active_tool_version_id, template_name,
-                          command_template, node_args, task_args, op_args,
-                          self.requester)
+        tt = TaskTemplate(self.active_tool_version_id, template_name, self.requester)
+        tt.bind()
+        tt.bind_task_template_version(command_template=command_template,
+                                      node_args=node_args,
+                                      task_args=task_args,
+                                      op_args=op_args)
         return tt
 
     def create_workflow(self, workflow_args: str = "", name: str = "",

@@ -1,38 +1,23 @@
 from __future__ import annotations
 
-import hashlib
-from string import Formatter
-from typing import Optional, List, Callable, Union, Dict, Iterable
+from http import HTTPStatus as StatusCodes
+from typing import Optional, List, Callable, Union
 
-from jobmon.serializers import SerializeClientTaskTemplateVersion
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
 from jobmon.client.task import Task
+from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.client.requests.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.exceptions import InvalidResponse
 
 
 logger = logging.getLogger(__name__)
 
 
-class TaskTemplateVersion:
-
-    def __init__(self, task_template_version_id: int, id_name_map: dict):
-        self.id = task_template_version_id
-        self.id_name_map = id_name_map
-
-    @classmethod
-    def from_wire(cls, wire_tuple: tuple) -> TaskTemplateVersion:
-        kwargs = SerializeClientTaskTemplateVersion.kwargs_from_wire(
-            wire_tuple)
-        return cls(**kwargs)
-
-
 class TaskTemplate:
 
     def __init__(self, tool_version_id: int, template_name: str,
-                 command_template: str, node_args: List[str] = [],
-                 task_args: List[str] = [], op_args: List[str] = [],
                  requester: Requester = shared_requester) -> None:
         """Groups tasks of a type, by declaring the concrete arguments that
         instances may vary over
@@ -41,6 +26,39 @@ class TaskTemplate:
             tool_version_id: the version of the tool this task template is
                 associated with.
             template_name: the name of this task template.
+            requester: requester for communicating with central services
+        """
+
+        # add requester for url
+        self.requester = requester
+
+        # task template keys
+        self.tool_version_id = tool_version_id
+        self.template_name = template_name
+
+    @property
+    def task_template_id(self) -> int:
+        if not hasattr(self, "_task_template_id"):
+            raise AttributeError("Cannot access task_template_id until TaskTemplate is bound")
+        return self._task_template_id
+
+    @property
+    def task_template_version(self) -> TaskTemplateVersion:
+        if not hasattr(self, "_task_template_version"):
+            raise AttributeError(
+                "Cannot access task_template_version until TaskTemplateVersion is bound")
+        return self._task_template_version
+
+    def bind(self):
+        task_template_id = self._get_task_template_id()
+        if task_template_id is None:
+            task_template_id = self._insert_task_template()
+        self._task_template_id = task_template_id
+
+    def bind_task_template_version(self, command_template: str, node_args: List[str] = [],
+                                   task_args: List[str] = [], op_args: List[str] = []):
+        """bind a task template version instance
+
             command_template: an abstract command representing a task, where
                 the arguments to the command have defined names but the values
                 are not assigned. eg:
@@ -56,111 +74,24 @@ class TaskTemplate:
                 without changing the identity of the task. Generally these
                 are things like the task executable location or the verbosity
                 of the script.
-            requester: requester for communicating with central services
         """
+        if not node_args:
+            node_args = []
+        if not task_args:
+            task_args = []
+        if not op_args:
+            op_args = []
 
-        # add requester for url
-        self.requester = requester
-
-        # task template keys
-        self.tool_version_id = tool_version_id
-        self.template_name = template_name
-        self.task_template_id = self._get_task_template_id()
-
-        # task template version arguments
-        self._template_version_created = False
-        self.command_template = command_template
-        self.node_args = node_args
-        self.task_args = task_args
-        self.op_args = op_args
-        self.task_template_version = self._get_task_template_version()
-
-    @property
-    def task_template_version_id(self) -> int:
-        return self.task_template_version.id
-
-    @property
-    def arg_id_name_map(self) -> Dict[str, int]:
-        """The mapping between argument names and the ids in the database"""
-        return self.task_template_version.id_name_map
-
-    @property
-    def template_args(self) -> set:
-        """The argument names in the command template"""
-        return set([i[1] for i in Formatter().parse(self.command_template)
-                    if i[1] is not None])
-
-    @property
-    def node_args(self) -> set:
-        """any named arguments in command_template that make the command unique
-        within this template for a given workflow run. Generally these are
-        arguments that can be parallelized over."""
-        return self._node_args
-
-    @node_args.setter
-    def node_args(self, val: Iterable):
-        if self._template_version_created:
-            raise AttributeError(
-                "Cannot set node_args. node_args must be declared during "
-                "instantiation")
-        val = set(val)
-        if not self.template_args.issuperset(val):
-            raise ValueError(
-                "The format keys declared in command_template must be as a "
-                "superset of the keys declared in node_args. Values recieved "
-                f"were --- \ncommand_template is: {self.command_template}. "
-                f"\ncommand_template format keys are {self.template_args}. "
-                f"\nnode_args is: {val}. \nmissing format keys in "
-                f"command_template are {set(val) - self.template_args}.")
-        self._node_args = val
-
-    @property
-    def task_args(self) -> set:
-        """any named arguments in command_template that make the command unique
-        across workflows if the node args are the same as a previous workflow.
-        Generally these are arguments about data moving though the task."""
-        return self._task_args
-
-    @task_args.setter
-    def task_args(self, val: Iterable):
-        if self._template_version_created:
-            raise AttributeError(
-                "Cannot set task_args. task_args must be declared during "
-                "instantiation")
-        val = set(val)
-        if not self.template_args.issuperset(val):
-            raise ValueError(
-                "The format keys declared in command_template must be as a "
-                "superset of the keys declared in task_args. Values recieved "
-                f"were --- \ncommand_template is: {self.command_template}. "
-                f"\ncommand_template format keys are {self.template_args}. "
-                f"\nnode_args is: {val}. \nmissing format keys in "
-                f"command_template are {set(val) - self.template_args}.")
-        self._task_args = val
-
-    @property
-    def op_args(self) -> set:
-        """any named arguments in command_template that can change without
-        changing the identity of the task. Generally these are things like the
-        task executable location or the verbosity of the script."""
-        return self._op_args
-
-    @op_args.setter
-    def op_args(self, val: Iterable):
-        if self._template_version_created:
-            raise AttributeError(
-                "Cannot set op_args. op_args must be declared during "
-                "instantiation")
-        val = set(val)
-        if not self.template_args.issuperset(val):
-            raise ValueError(
-                "The format keys declared in command_template must be as a "
-                "superset of the keys declared in op_args. Values recieved "
-                f"were --- \ncommand_template is: {self.command_template}. "
-                f"\ncommand_template format keys are {self.template_args}. "
-                f"\nnode_args is: {val}. \nmissing format keys in "
-                f"command_template are {set(val) - self.template_args}.")
-        self._op_args = val
+        task_template_version = TaskTemplateVersion(
+            task_template_id=self.task_template_id,
+            command_template=command_template,
+            node_args=node_args,
+            task_args=task_args,
+            op_args=op_args,
+            requester=self.requester
+        )
+        task_template_version.bind()
+        self._task_template_version = task_template_version
 
     def create_task(self,
                     executor_parameters: Union[ExecutorParameters, Callable],
@@ -184,27 +115,27 @@ class TaskTemplate:
         Returns: ExecutableTask
         """
         # if we have argument overlap
-        if "name" in self.template_args:
+        if "name" in self.task_template_version.template_args:
             kwargs["name"] = name
 
         # kwargs quality assurance
-        if self.template_args != set(kwargs.keys()):
+        if self.task_template_version.template_args != set(kwargs.keys()):
             raise ValueError(
-                f"unexpected kwargs. expected {self.template_args} -"
+                f"unexpected kwargs. expected {self.task_template_version.template_args} -"
                 f"recieved {set(kwargs.keys())}")
 
-        command = self.command_template.format(**kwargs)
+        command = self.task_template_version.command_template.format(**kwargs)
 
         # arg id name mappings
-        node_args = {self.arg_id_name_map[k]: v
-                     for k, v in kwargs.items() if k in self.node_args}
-        task_args = {self.arg_id_name_map[k]: v
-                     for k, v in kwargs.items() if k in self.task_args}
+        node_args = {self.task_template_version.id_name_map[k]: v
+                     for k, v in kwargs.items() if k in self.task_template_version.node_args}
+        task_args = {self.task_template_version.id_name_map[k]: v
+                     for k, v in kwargs.items() if k in self.task_template_version.task_args}
 
         # build task
         task = Task(
             command=command,
-            task_template_version_id=self.task_template_version_id,
+            task_template_version_id=self.task_template_version.id,
             node_args=node_args,
             task_args=task_args,
             executor_parameters=executor_parameters,
@@ -214,54 +145,36 @@ class TaskTemplate:
             task_attributes=task_attributes)
         return task
 
-    def _get_task_template_id(self) -> int:
-        _, res = self.requester.send_request(
-            app_route=f"/task_template",
+    def _get_task_template_id(self) -> Optional[int]:
+        app_route = "/task_template"
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
             message={"tool_version_id": self.tool_version_id,
                      "task_template_name": self.template_name},
-            request_type='get')
+            request_type='get'
+        )
 
-        if res["task_template_id"] is not None:
-            task_template_id = res["task_template_id"]
-        else:
-            _, res = self.requester.send_request(
-                app_route=f"/task_template",
-                message={"tool_version_id": self.tool_version_id,
-                         "name": self.template_name},
-                request_type='post')
-            task_template_id = res["task_template_id"]
-        return task_template_id
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from GET request through route '
+                f'{app_route}. Expected code 200. Response content: {response}'
+            )
 
-    def _get_task_template_version(self) -> TaskTemplateVersion:
-        hashable = "".join(sorted(self._node_args) +
-                           sorted(self._task_args) +
-                           sorted(self._op_args))
-        arg_mapping_hash = int(
-            hashlib.sha1(hashable.encode('utf-8')).hexdigest(), 16)
+        return response["task_template_id"]
 
-        _, res = self.requester.send_request(
-            app_route=f"/task_template/{self.task_template_id}/version",
-            message={
-                "command_template": self.command_template,
-                "arg_mapping_hash": arg_mapping_hash
-            },
-            request_type="get")
+    def _insert_task_template(self) -> int:
+        app_route = "/task_template"
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={"tool_version_id": self.tool_version_id,
+                     "task_template_name": self.template_name},
+            request_type='post'
+        )
 
-        if res["task_template_version"] is not None:
-            wire_args = res["task_template_version"]
-        else:
-            app_route = f"/task_template/{self.task_template_id}/add_version"
-            _, res = self.requester.send_request(
-                app_route=app_route,
-                message={"command_template": self.command_template,
-                         "arg_mapping_hash": arg_mapping_hash,
-                         "node_args": list(self._node_args),
-                         "task_args": list(self._task_args),
-                         "op_args": list(self._op_args)},
-                request_type='post')
-            wire_args = res["task_template_version"]
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST request through route '
+                f'{app_route}. Expected code 200. Response content: {response}'
+            )
 
-        ttv = TaskTemplateVersion.from_wire(wire_args)
-        self._template_version_created = True
-
-        return ttv
+        return response["task_template_id"]
