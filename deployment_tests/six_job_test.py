@@ -1,8 +1,7 @@
-
 import uuid
-from jobmon.client.swarm.workflow.workflow import Workflow
 
-from jobmon.client import BashTask
+from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+from jobmon.client.templates.bash_task import BashTask
 
 
 def six_job_test():
@@ -31,10 +30,10 @@ def six_job_test():
 
     wf = Workflow("six-job-test-{}".format(uuid.uuid4()),
                   "./six_job_test_stderr.log",
-                  project="proj_tools")
+                  project="proj_scicomp")
     wf.add_tasks([t1, t2, t3, t4, t5, t6])
     print("Running the workflow, about 70 seconds minimum")
-    wf.execute()
+    wf.run()
     print("All good, dancing pixies.")
 
 

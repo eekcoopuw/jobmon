@@ -4,8 +4,10 @@ import stat
 import sys
 import uuid
 
-from jobmon.client.swarm.workflow.workflow import Workflow
-from jobmon.client import PythonTask
+
+from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+from jobmon.client.templates.python_task import PythonTask
+
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
@@ -21,6 +23,7 @@ def multi_workflow_test(n_workflows: int) -> None:
     """
 
     wfid = uuid.uuid4()
+    # wfid = "49ac544c-38a4-4c9c-aad6-d6e574c8fceb"
     user = getpass.getuser()
     command = os.path.join(thisdir, "sleep_and_echo.sh")
     st = os.stat(command)
@@ -34,9 +37,9 @@ def multi_workflow_test(n_workflows: int) -> None:
                          name="master_workflow",
                          stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
                          stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
-                         project="proj_tools")
+                         project="proj_scicomp")
     for i in range(n_workflows):
-        task = PythonTask(script=f"{script} {i} {wfid}",
+        task = PythonTask(script=f"{script}", args=[i, wfid],
                           name=f"worker_{i}", num_cores=2, m_mem_free='1G')
         master_wf.add_task(task)
     master_wf.run()

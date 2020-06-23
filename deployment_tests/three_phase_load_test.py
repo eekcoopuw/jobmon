@@ -6,9 +6,8 @@ import sys
 import uuid
 from datetime import datetime
 
-from jobmon.client.swarm.workflow.workflow import Workflow
-
-from jobmon.client import BashTask
+from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+from jobmon.client.templates.bash_task import BashTask
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
@@ -27,7 +26,7 @@ def three_phase_load_test(n_jobs: int) -> None:
     wf = Workflow(f"load-test_{wfid}", "load_test",
                   stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
-                  project="proj_tools")
+                  project="proj_scicomp")
 
     command = os.path.join(thisdir, "sleep_and_echo.sh")
     st = os.stat(command)
@@ -67,7 +66,7 @@ def three_phase_load_test(n_jobs: int) -> None:
     time = datetime.now().strftime("%m/%d/%Y_%H:%M:%S")
     print(f"{time}: Beginning the workflow, there are {num_tasks} tasks in "
           f"this DAG")
-    wf.execute()
+    wf.run()
     time = datetime.now().strftime("%m/%d/%Y/_%H:%M:%S")
     print(f"{time}: Workflow complete!")
 
