@@ -181,7 +181,7 @@ def test_aborted_state(db_cfg, client_env):
     with app.app_context():
         query = """
             UPDATE task
-            SET task.status_date = UTC_TIMESTAMP()
+            SET task.status_date = CURRENT_TIMESTAMP()
             WHERE id = :task_id
         """
         DB.session.execute(query, {"task_id": task2.task_id})

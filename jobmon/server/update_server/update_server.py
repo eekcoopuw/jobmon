@@ -61,7 +61,7 @@ def page_not_found(error):
 
 
 def get_time(session):
-    time = session.execute("select UTC_TIMESTAMP as time").fetchone()['time']
+    time = session.execute("select CURRENT_TIMESTAMP as time").fetchone()['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     return time
 
@@ -85,7 +85,7 @@ def health():
     Test connectivity to the database, return 200 if everything is ok
     Defined in each module with a different route, so it can be checked individually
     """
-    time = DB.session.execute("SELECT UTC_TIMESTAMP AS time").fetchone()
+    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
     time = time['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     DB.session.commit()
@@ -643,7 +643,7 @@ def terminate_workflow_run(workflow_run_id: int):
                 'Workflow resume requested. Setting to K from status of: ',
                 task_instance.status
             ) as description,
-            UTC_TIMESTAMP as error_time
+            CURRENT_TIMESTAMP as error_time
         FROM task_instance
         JOIN task
             ON task_instance.task_id = task.id
@@ -664,7 +664,7 @@ def terminate_workflow_run(workflow_run_id: int):
             ON task_instance.task_id = task.id
         SET
             task_instance.status = 'K',
-            task_instance.status_date = UTC_TIMESTAMP
+            task_instance.status_date = CURRENT_TIMESTAMP
         WHERE
             task_instance.workflow_run_id = :workflow_run_id
             AND task.status IN :states
@@ -713,7 +713,7 @@ def log_executor_report_by(workflow_run_id: int):
         query = """
             UPDATE task_instance
             SET report_by_date = ADDTIME(
-                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
             WHERE
                 workflow_run_id = :workflow_run_id
                 AND executor_id in :executor_ids
@@ -817,7 +817,7 @@ def log_executor_id(task_instance_id: int):
         ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     ti.executor_id = data['executor_id']
     ti.report_by_date = func.ADDTIME(
-        func.UTC_TIMESTAMP(),
+        func.now(),
         func.SEC_TO_TIME(data["next_report_increment"]))
     DB.session.commit()
 
@@ -851,7 +851,7 @@ def log_error_reconciler(task_instance_id: int):
             task_instance
         WHERE
             task_instance.id = :task_instance_id
-            AND task_instance.report_by_date <= UTC_TIMESTAMP()
+            AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
     """
     ti = DB.session.query(TaskInstance).from_statement(text(query)).params(
         task_instance_id=task_instance_id).one_or_none()
@@ -957,8 +957,8 @@ def get_run_status_and_latest_task(workflow_run_id: int):
     status = DB.session.query(WorkflowRun, Task.status_date).from_statement(text(query)). \
         params(workflow_run_id=workflow_run_id).one()
     DB.session.commit()
-    time_since_task_status = datetime.utcnow() - status.status_date
-    time_since_wfr_status = datetime.utcnow() - status.WorkflowRun.status_date
+    time_since_task_status = datetime.now() - status.status_date
+    time_since_wfr_status = datetime.now() - status.WorkflowRun.status_date
 
     # If the last task was more than 2 minutes ago, transition wfr to A state
     # Also check WorkflowRun status_date to avoid possible race condition where reaper checks tasks from a different WorkflowRun with the same workflow id
@@ -984,7 +984,7 @@ def log_wfr_heartbeat(workflow_run_id: int):
     params = {"workflow_run_id": int(workflow_run_id)}
     query = """
         UPDATE workflow_run
-        SET heartbeat_date = UTC_TIMESTAMP()
+        SET heartbeat_date = CURRENT_TIMESTAMP()
         WHERE id = :workflow_run_id
     """
     DB.session.execute(query, params)
@@ -1114,7 +1114,7 @@ def log_running(task_instance_id: int):
         ti.nodename = data['nodename']
     ti.process_group_id = data['process_group_id']
     ti.report_by_date = func.ADDTIME(
-        func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
+        func.now(), func.SEC_TO_TIME(data['next_report_increment']))
     DB.session.commit()
 
     resp = jsonify(message=msg)
@@ -1145,19 +1145,18 @@ def log_ti_report_by(task_instance_id: int):
     if executor_id is not None:
         params["executor_id"] = executor_id
         query = """
-            UPDATE task_instance
-            SET report_by_date = ADDTIME(
-                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
-                executor_id = :executor_id
-            WHERE task_instance.id = :task_instance_id
-        """
+                UPDATE task_instance
+                SET report_by_date = ADDTIME(
+                    CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
+                    executor_id = :executor_id
+                WHERE task_instance.id = :task_instance_id"""
     else:
         query = """
             UPDATE task_instance
             SET report_by_date = ADDTIME(
-                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-            WHERE task_instance.id = :task_instance_id
-        """
+                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE task_instance.id = :task_instance_id"""
+
     DB.session.execute(query, params)
     DB.session.commit()
 

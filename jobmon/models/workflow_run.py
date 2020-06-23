@@ -31,9 +31,9 @@ class WorkflowRun(DB.Model):
                        DB.ForeignKey('workflow_run_status.id'),
                        default=WorkflowRunStatus.RUNNING)
 
-    created_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
-    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
-    heartbeat_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    created_date = DB.Column(DB.DateTime, default=func.now())
+    status_date = DB.Column(DB.DateTime, default=func.now())
+    heartbeat_date = DB.Column(DB.DateTime, default=func.now())
 
     workflow = DB.relationship("Workflow", back_populates="workflow_runs",
                                lazy=True)
@@ -76,7 +76,7 @@ class WorkflowRun(DB.Model):
         # the workflow is set to resume and then it successfully shuts down
         (WorkflowRunStatus.COLD_RESUME, WorkflowRunStatus.TERMINATED),
         (WorkflowRunStatus.HOT_RESUME, WorkflowRunStatus.TERMINATED)
-        ]
+    ]
 
     untimely_transitions = [
         (WorkflowRunStatus.RUNNING, WorkflowRunStatus.RUNNING)]
@@ -95,13 +95,13 @@ class WorkflowRun(DB.Model):
     def heartbeat(self, next_report_increment):
         self.transition(WorkflowRunStatus.RUNNING)
         self.heartbeat_date = func.ADDTIME(
-            func.UTC_TIMESTAMP(), func.SEC_TO_TIME(next_report_increment))
+            func.now(), func.SEC_TO_TIME(next_report_increment))
 
     def transition(self, new_state):
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             self.status = new_state
-            self.status_date = func.UTC_TIMESTAMP()
+            self.status_date = func.now()
             if new_state == WorkflowRunStatus.BOUND:
                 self.workflow.transition(WorkflowStatus.BOUND)
             elif new_state == WorkflowRunStatus.ABORTED:

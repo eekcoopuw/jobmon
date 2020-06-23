@@ -122,7 +122,7 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
                 task_query = """
                     UPDATE task
                     SET task.status = 'D',
-                        task.status_date = SUBTIME(UTC_TIMESTAMP(),
+                        task.status_date = SUBTIME(CURRENT_TIMESTAMP(),
                                                    SEC_TO_TIME(600))
                     WHERE task.id = {task_id}
                 """.format(task_id=task_id)
@@ -132,13 +132,13 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
                 task_inst_query = """
                     UPDATE task_instance
                     SET status = 'D',
-                        status_date = UTC_TIMESTAMP()
+                        status_date = CURRENT_TIMESTAMP()
                     WHERE task_instance.id = {task_instance_id}
                 """.format(task_instance_id=kwargs["task_instance_id"])
                 task_query = """
                     UPDATE task
                     SET task.status = 'D',
-                        task.status_date = UTC_TIMESTAMP()
+                        task.status_date = CURRENT_TIMESTAMP()
                     WHERE task.id = {task_id}
                 """.format(task_id=task_id)
 

@@ -55,7 +55,7 @@ def health():
     Test connectivity to the database, return 200 if everything is ok
     Defined in each module with a different route, so it can be checked individually
     """
-    time = DB.session.execute("SELECT UTC_TIMESTAMP AS time").fetchone()
+    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
     time = time['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     DB.session.commit()

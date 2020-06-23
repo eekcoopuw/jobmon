@@ -46,7 +46,7 @@ class ReaperWorkflowRun(object):
 
     def has_lost_workflow_run(self, loss_threshold: int) -> bool:
         """Return a bool if the workflow_run is lost"""
-        time_since_last_heartbeat = (datetime.utcnow() - self.heartbeat_date)
+        time_since_last_heartbeat = (datetime.now() - self.heartbeat_date)
         return time_since_last_heartbeat > timedelta(minutes=loss_threshold)
 
     def transition_to_error(self) -> str:
