@@ -961,8 +961,11 @@ def get_run_status_and_latest_task(workflow_run_id: int):
     status = DB.session.query(WorkflowRun, Task.status_date).from_statement(text(query)). \
         params(workflow_run_id=workflow_run_id).one()
     DB.session.commit()
-    time_since_task_status = datetime.now() - status.status_date
-    time_since_wfr_status = datetime.now() - status.WorkflowRun.status_date
+
+    # Get current time
+    current_time = datetime.strptime(get_time(DB.session), "%Y-%m-%d %H:%M:%S")
+    time_since_task_status = current_time - status.status_date
+    time_since_wfr_status = current_time - status.WorkflowRun.status_date
 
     # If the last task was more than 2 minutes ago, transition wfr to A state
     # Also check WorkflowRun status_date to avoid possible race condition where reaper checks tasks from a different WorkflowRun with the same workflow id

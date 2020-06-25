@@ -442,8 +442,8 @@ def test_workflow_attribute(db_cfg, client_env):
     """Test the workflow attributes feature"""
     from jobmon.client.api import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.models.attributes.workflow_attribute import WorkflowAttribute
-    from jobmon.models.attributes.workflow_attribute_type import WorkflowAttributeType
+    from jobmon.models.workflow_attribute import WorkflowAttribute
+    from jobmon.models.workflow_attribute_type import WorkflowAttributeType
     
     wf1 = UnknownWorkflow("test_wf_attributes",
                                executor_class="SequentialExecutor",
