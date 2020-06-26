@@ -34,7 +34,7 @@ def test_heartbeat(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-        SELECT workflow_run.heartbeat_date > UTC_TIMESTAMP()
+        SELECT workflow_run.heartbeat_date > CURRENT_TIMESTAMP()
         FROM workflow_run
         WHERE workflow_run.id = :workflow_run_id"""
         res = DB.session.execute(sql, {"workflow_run_id": wfr.workflow_run_id}

@@ -1,0 +1,17 @@
+# Persistent storage for grafana, allows for storage of dashboards between container
+# restarts; however changes to dashboards should be exported and committed to the jobmon repo
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: grafana-storage
+  namespace: {{ namespace }}
+  annotations:
+    volume.beta.kubernetes.io/storage-class: nfs-client
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      # Small, because this is just for config data
+      storage: 1Gi

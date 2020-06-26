@@ -13,6 +13,7 @@ import pytest
 import requests
 
 from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
+from sqlalchemy import create_engine
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,12 @@ def ephemera():
     edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
     edb.db_name = "docker"
     conn_str = edb.start()
+
+    # Set the time zone
+    eng = create_engine(edb.root_conn_str)
+    with eng.connect() as conn:
+        conn.execute("SET GLOBAL time_zone = 'America/Los_Angeles'")
+
     # use the ephemera db root privileges (root: singularity_root) otherwise
     # you will not see changes to the database
     logger.info(f"Database connection {conn_str}")

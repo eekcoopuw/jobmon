@@ -41,9 +41,9 @@ class TaskInstance(DB.Model):
     # status/state
     status = DB.Column(DB.String(1), DB.ForeignKey('task_instance_status.id'),
                        default=TaskInstanceStatus.INSTANTIATED)
-    submitted_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
-    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
-    report_by_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    submitted_date = DB.Column(DB.DateTime, default=func.now())
+    status_date = DB.Column(DB.DateTime, default=func.now())
+    report_by_date = DB.Column(DB.DateTime, default=func.now())
 
     # ORM relationships
     task = DB.relationship("Task", back_populates="task_instances")
@@ -179,7 +179,7 @@ class TaskInstance(DB.Model):
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             self.status = new_state
-            self.status_date = func.UTC_TIMESTAMP()
+            self.status_date = func.now()
             if new_state == TaskInstanceStatus.RUNNING:
                 self.task.transition(TaskStatus.RUNNING)
             elif new_state == TaskInstanceStatus.DONE:

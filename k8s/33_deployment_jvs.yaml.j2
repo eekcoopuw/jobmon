@@ -1,0 +1,77 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: jobmon-vizualization-server
+  namespace: {{namespace}}
+  labels:
+    app: jobmon-vizualization-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jobmon-vizualization-server
+  template:
+    metadata:
+      labels:
+        app: jobmon-vizualization-server
+        name: jobmon-vizualization-server
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: {{jobmon_container_uri}}
+        name: jobmon-vizualization-server
+        env:
+        - name: EXTERNAL_DB_HOST
+          value: "{{db_host}}"
+        - name: DB_USER
+          value: "{{db_user}}"
+        - name: EXTERNAL_DB_PORT
+          value: "{{db_port}}"
+        - name: JOBMON_SERVICE_USER_PWD
+          value: "{{db_pass}}"
+        - name: JOBMON_PORT
+          value: "{{jobmon_port}}"
+        - name: SLACK_TOKEN
+          value: "{{slack_token}}"
+        - name: WF_SLACK_CHANNEL
+          value: "{{wf_slack_channel}}"
+        - name: NODE_SLACK_CHANNEL
+          value: "{{node_slack_channel}}"
+        ports:
+        - name: http
+          containerPort: 80
+        resources:
+          limits:
+            memory: 600Mi
+            cpu: 1
+          requests:
+            cpu: 300m # m = mhz
+            memory: 400Mi
+---
+# https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: jobmon-vizualization-server
+  namespace: {{namespace}}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: jobmon-vizualization-server
+  maxReplicas: 10
+  minReplicas: 3
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

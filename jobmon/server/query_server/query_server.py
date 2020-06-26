@@ -45,12 +45,28 @@ def _is_alive():
 
 
 @jqs.route("/time", methods=['GET'])
-def get_utc_now():
-    time = DB.session.execute("SELECT UTC_TIMESTAMP AS time").fetchone()
+def get_pst_now():
+    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
     time = time['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     DB.session.commit()
     resp = jsonify(time=time)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jqs.route("/qs/health", methods=['GET'])
+def health():
+    """
+    Test connectivity to the database, return 200 if everything is ok
+    Defined in each module with a different route, so it can be checked individually
+    """
+    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+    time = time['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    DB.session.commit()
+    # Assume that if we got this far without throwing an exception, we should be online
+    resp = jsonify(status='OK')
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -139,8 +155,8 @@ def get_task_template_version(task_template_id: int):
     FROM task_template_version
     WHERE
         task_template_id = :task_template_id
-        AND command_template = :command_template
         AND arg_mapping_hash = :arg_mapping_hash
+        AND command_template = :command_template
     """
     ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query))\
         .params(
@@ -316,7 +332,7 @@ def workflow_run_is_terminated(workflow_run_id: int):
             workflow_run.id = :workflow_run_id
             AND (
                 workflow_run.status = 'T'
-                OR workflow_run.heartbeat_date <= UTC_TIMESTAMP()
+                OR workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
             )
     """
     res = DB.session.query(WorkflowRun).from_statement(text(query)).params(
@@ -413,7 +429,7 @@ def get_suspicious_task_instances(workflow_run_id: int):
     WHERE
         task_instance.workflow_run_id = :workflow_run_id
         AND task_instance.status in :active_tasks
-        AND task_instance.report_by_date <= UTC_TIMESTAMP()
+        AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
     """
     rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
         active_tasks=[TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
@@ -479,7 +495,7 @@ def get_task_by_status_only(workflow_id: int):
     logger.info("swarm_task_tuples: {}".format(swarm_tasks_tuples))
 
     # get time from db
-    db_time = DB.session.execute("SELECT UTC_TIMESTAMP AS t").fetchone()['t']
+    db_time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()['t']
     str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
 
     if swarm_tasks_tuples:

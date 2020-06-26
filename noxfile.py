@@ -24,7 +24,7 @@ def tests(session: Session) -> None:
         session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
     session.install("pytest", "pytest-mproc", "mock")
     session.install("-r", "requirements.txt")
-    session.install("--upgrade", "--force-reinstall", ".")
+    session.install("-e", ".")
 
     # pytest sge integration tests
     try:
@@ -74,3 +74,21 @@ def docs(session: Session) -> None:
 @nox.session(python="3.7", venv_backend="conda")
 def build(session: Session) -> None:
     session.run("python", "setup.py", "sdist")
+
+
+@nox.session(python="3.8", venv_backend="conda")
+def release(session: Session) -> None:
+    """Release the distribution."""
+    # check if overwrite is an arg
+    args = session.posargs
+    if "--overwrite" in args:
+        cmd: tuple = ("release", "--project_name", "jobmon", "--overwrite")
+    else:
+        cmd = ("release", "--project_name", "jobmon")
+
+    session.install(
+        "deploytools",
+        "--extra-index-url",
+        "https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple",
+        "--trusted-host",
+        "artifactory.ihme.washington.edu")

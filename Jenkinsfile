@@ -1,83 +1,18 @@
-// Build variables
-def project_name, workspace_shared, jenkins_env, lint_vers, python_major_version
+// Build variables, global
+def project_name, workspace_shared
 
-// python_major_version is actually the python major version, i.e. 2 or 3,
-// for jenkins itself. This is a global variable.
-// Within the python common functions py_version is used for the PROJECT python version
-
+/* About build variables
+Defined inside the Jenkinsfile pipeline:
+    project_name: Name of project being built. Derived from the repository URL.
+    workspace_shared: The directory where all build-related files are kept by Jenkins.
+Defined in the Jenkins configuration page. Jenkinsfile naming convention recommends Jenkins environment variables be shouted in ALL CAPS:
+    BRANCH: Which branch of the target repository Jenkins should pull.
+    REPO_URL: URL of the target repository.
+*/
 
 // sshagent is only and always used in nodes/ stages, at the highest level
 
-
-def createCondaEnv(project_name, py_version=3, py_dot_version=3.6, suffix="") {
-    echo "project name: ${project_name}"
-    try {sh "conda env remove -y -n ${project_name}_build${py_version}"} catch (err) {}
-    if (fileExists("${project_name}${suffix}/conda_environment.yml")) {
-        echo 'Found conda_environment.yml. Creating clone...'
-        sh "conda env create -f ${project_name}${suffix}/conda_environment.yml -n ${project_name}_build${py_version}"
-    } else {
-        echo 'No conda environment file. Using *requirements.txt and co.'
-        // Delete the conda env directory first, it sometimes is left over after a failed build
-        sh """
-            rm -rf /ihme/code/svcscicompci/miniconda3/envs/${project_name}_build${py_version}
-            conda create -n ${project_name}_build${py_version} python=${py_dot_version}
-            source activate ${project_name}_build${py_version} &> /dev/null
-            wget https://bootstrap.pypa.io/ez_setup.py -O - | python
-            pip install cython
-        """
-        // Trying different methods in a sequence, hence we hide the errors
-        if (fileExists("${project_name}${suffix}/conda_requirements.txt")) {
-            echo 'Found conda_requirements.txt, installing from file'
-            try {sh """
-                source activate ${project_name}_build${py_version} &> /dev/null
-                cd ${project_name}${suffix}
-                conda install --file conda_requirements.txt -y
-                conda install -c conda-forge -y openssl
-                """
-            } catch (err) {
-                echo "Caught error while trying to install from conda_requirements, ${err}"
-            }
-        }
-        if (fileExists("${project_name}${suffix}/requirements.txt")) {
-            echo 'Found requirements.txt, installing from file'
-            try {sh """
-                source activate ${project_name}_build${py_version} &> /dev/null
-                cd ${project_name}${suffix}
-                pip install -r requirements.txt --no-cache-dir --extra-index-url=http://pypi.services.ihme.washington.edu/simple --trusted-host=pypi.services.ihme.washington.edu"""
-            } catch (err) {
-                echo "Caught error while trying to install from requirements, ${err}"
-            }
-        }
-    }
-    sh """
-        source activate ${project_name}_build${py_version} &> /dev/null
-        cd ${project_name}${suffix}
-        pip install . --no-cache-dir --extra-index-url=http://pypi.services.ihme.washington.edu/simple --trusted-host=pypi.services.ihme.washington.edu
-        pip install pytest pytest-cov sphinx sphinx_rtd_theme flake8 flake8-html
-        """
-}
-
-def addCiCondaEnv(project_name="no_project_name", py_version=3, py_dot_version=3.6) {
-    // This is a common conda environment that contains non-project-specific
-    // build tools.
-    // Choices:
-    // 1. Put it into each project environments. Risk of version conflicts.
-    // 2. Have a static one that we build by hand when jenkins is updated without Docker. Hard to maintain
-    // 3. Have a shared one that could possibly be updated by any build -> race condition. Bad
-
-    // Go with 1. In the docker version it was number 2
-
-    // Remember that deploytools are down in a subdirectory
-    // Sometimes there are p2 envs in both miniconda2 and miniconda3. The real version is in python_major_version
-
-    sh """
-        source activate ${project_name}_build${py_version} &> /dev/null
-        rm -rf /ihme/code/svcscicompci/miniconda3/envs/${project_name}_build${py_version}/tmp/ci-tmp${py_version}
-        git clone ssh://git@stash.ihme.washington.edu:7999/scdo/ci.git /ihme/code/svcscicompci/miniconda${py_version}/envs/${project_name}_build${py_version}/tmp/ci-tmp${py_version}
-        cd /ihme/code/svcscicompci/miniconda${py_version}/envs/${project_name}_build${py_version}/tmp/ci-tmp${py_version}
-        pip install /ihme/homes/svcscicompci/deploytools/.
-    """
-}
+// Common groovy functions
 
 def createSetupCfgFile() {
     sh '''
@@ -101,6 +36,9 @@ def createSetupCfgFile() {
         heartbeat_interval=\${heartbeat_interval}
         report_by_buffer=\${report_by_buffer}
         tag_prefix=\${tag_prefix}
+        jobmon_integration_service_port=\${jobmon_integration_service_port}
+        loss_threshold=\${loss_threshold}
+        poll_interval_minutes=\${poll_interval_minutes}
 
         [db]
         internal_db_host=\${internal_db_host}
@@ -114,6 +52,11 @@ def createSetupCfgFile() {
         [same host]
         existing_network=\${existing_network}
 
+        [qpid]
+        uri=\${uri}
+        cluster=\${cluster}
+        pulling_interval=\${pulling_interval}
+        max_update_per_second=\${max_update_per_second}
 
         [rsyslog]
         host=\${rs_host}
@@ -122,12 +65,13 @@ def createSetupCfgFile() {
         '''
 }
 
-def cloneRepoToBuild(project_name, suffix="") {
+
+def cloneRepoToBuild(project_name) {
     sh "echo \$(hostname)"
-    sh "rm -rf ${project_name}${suffix}"
-    sh "git clone ${repo_url} --branch ${branch}  --single-branch ${project_name}${suffix}"
-    sh "whoami"
-    dir("${project_name}${suffix}") {
+    sh "rm -rf ${project_name}"
+    sh "git clone ${REPO_URL} ${project_name}"
+    dir("${project_name}") {
+        sh "git checkout ${BRANCH}"
         sh "ls -l setup.cfg"
         createSetupCfgFile()
         sh "cat /tmp/jobmon.cfg"
@@ -136,87 +80,11 @@ def cloneRepoToBuild(project_name, suffix="") {
     }
 }
 
-def lintProject(project_name, lint_vers) {
-    try {
-        sh """
-            cd ${project_name}${lint_vers}
-            source activate ${project_name}_build${lint_vers} &> /dev/null
-            flake8 --format=html --htmldir=${env.WORKSPACE}/flake-report ${project_name}
-        """
-    } catch(err) {}
-    publishHTML (target: [
-      allowMissing: false,
-      alwaysLinkToLastBuild: false,
-      keepAll: true,
-      reportDir: "${env.WORKSPACE}/flake-report",
-      reportFiles: 'index.html',
-      reportName: "Flake8 report"
-    ])
-}
-
-def runRemoteTests(project_name, py_version, workspace_shared, python_major_version) {
-
-    def pytest_cmd
-    pytest_cmd = """
-        pytest --cov=${project_name} --cov-append \
-        --cov-report html:${env.WORKSPACE}/cov_html_remote${py_version} \
-        -m 'not slow' --junitxml=REMOTE-TEST-RESULTS${py_version}.xml"""
-
-    sh """
-        cd ${project_name}${py_version}
-        mv ${project_name} ${project_name}_DO_NOT_USE"""
-    try {
-        withEnv(["COVERAGE_FILE=${workspace_shared}/coverage${py_version}-remote.dat"]) {
-            sh """
-                cd ${project_name}${py_version}
-                source activate ${project_name}_build${py_version} &> /dev/null
-                ${pytest_cmd}
-            """
-        }
-        if (py_version == python_major_version) {
-            // Restore original name of package directory so it can be uploaded
-            sh """
-                cd ${project_name}${py_version}
-                mv ${project_name}_DO_NOT_USE ${project_name}
-                source activate ${project_name}_build${py_version} &> /dev/null
-                make html
-            """
-        }
-        version_string = sh(returnStdout: true,
-            script: """
-                source activate ${project_name}_build${py_version} &> /dev/null
-                pip freeze | sed -e 's/-/_/g' | grep ${project_name} | sed -e 's/^.*==//'
-            """
-        ).trim()
-    } catch(e) {
-        echo 'Remote tests failed'
-        slackSendFiltered('bad', "#gbd-builds-failures", "Failed")
-        slackSendFiltered('bad', "#gbd-builds-all", "Failed")
-        junit "**/REMOTE*-RESULTS${py_version}.xml"
-        publishHTML (target: [
-          allowMissing: true,
-          alwaysLinkToLastBuild: false,
-          keepAll: true,
-          reportDir: "${env.WORKSPACE}/cov_html_remote${py_version}",
-          reportFiles: 'index.html',
-          reportName: "Remote test coverage (py${py_version})"
-        ])
-        sh "conda env remove -y -n ${project_name}_build${py_version}"
-        throw e
-    }
-    junit allowEmptyResults: true, testResults: "**/REMOTE*-RESULTS${py_version}.xml"
-    publishHTML (target: [
-      allowMissing: true,
-      alwaysLinkToLastBuild: false,
-      keepAll: true,
-      reportDir: "${env.WORKSPACE}/cov_html_remote${py_version}",
-      reportFiles: 'index.html',
-      reportName: "Remote test coverage (py${py_version})"
-    ])
-}
 
 def slackSendFiltered(color, channel, msg) {
+    // Utility to send messages to slack channels
     if (color=='bad') {
+        // For debugging it is useful to see the environment variables
         sh "printenv"
     }
     if ("${env.JENKINS_IMAGE_VERSION}" == "develop") {
@@ -224,201 +92,112 @@ def slackSendFiltered(color, channel, msg) {
     }
     slackSend([color: color,
                channel: channel,
-               message: "${JOB_NAME}, build #${env.BUILD_ID}: ${msg}"])
+               message: "${JOB_NAME}, JENKINS TEST/NOX build #${env.BUILD_ID}: ${msg}"])
 }
 
 
+def nox_stage(project_name, target, stage_target, nox_sessions, continue_on_failure) {
+    // Runs the nox sessions in the nox_sessions string variable
+    // ARGS:
+    // project_name: is the standard PROJECT_NAME argument from jenkins, e.g. "db_tools"
+    // target: The TARGET variable from  the Jenkins pipeline config page,
+    //         so it could be "all" or "build" etc
+    // stage_target: The specific stage that is being run, so it CAN'T be "all"
+    // nox_sesions: A string of the nox session names, blank separated.
+    // continue_on_failure: If true, this stage should never report failure, even if it failed
+    if (target == "all" || target == "release" || target == stage_target) {
+        // A shell trick to ignore failure is to put OR TRUE on the end
+        or_true = continue_on_failure ? ' || true' : ''
+        try {
+            sh """
+                echo 'nox ${stage_target} STARTS'
+                cd ${project_name}
+                nox --session ${nox_sessions} ${or_true}
+                echo 'nox ${stage_target} ENDS'
+                echo '--------'
+            """
+        } catch (e) {
+            echo 'nox ${stage_target}' + e
+            slackSendFiltered('bad', "#gbd-builds-failures", "Failed in nox: ${stage_target}")
+            slackSendFiltered('bad', "#gbd-builds-all", "Failed in nox: ${stage_target}")
+            throw e
+        }
+    } else {
+        echo "Skipping ${stage_target}"
+    }
+}
+
 
 // Pipeline stages
+node('qlogin') {
+    stage('clone build script & set vars') {
+        sshagent (credentials: ['jenkins']) {
+            checkout scm
 
-// Create new setup.cfg based on Jenkins parameters and save them in a string
+            slackSendFiltered('good', "#gbd-builds-all", "Started")
 
-if ("${skip_tests}".trim().toLowerCase() == "true") { // skipping tests
-    node('qlogin') {
-        stage('clone build script & set vars') {
-            sshagent (credentials: ['jenkins']) {
-                checkout scm
+            // currently only 1 version of base env. may need to have 1 per release of the ci/deploytools repos
+            sh """source activate base &> /dev/null"""
 
-                slackSendFiltered('good', "#gbd-builds-all", "Started")
-                project_name = "jobmon"
-                workspace_shared = "/ihme/scratch/users/svcscicompci/jenkins_workspaces/${project_name}/${env.BUILD_ID}"
-                sh "mkdir -p ${workspace_shared}"
-                try { sh "chmod -R 777 ${workspace_shared}"} catch(err) { echo "${err}" }
-                currentBuild.displayName = "#${BUILD_NUMBER} ${project_name}"
-
-                python_major_version = 3
-                python_dot_version = 3.6
-            }
-        }
-        stage('clone repo to build') {
-            sshagent (credentials: ['jenkins']) {
-                cloneRepoToBuild(project_name, "${python_major_version}")
-            }
-        }
-        stage('create conda env') {
-            sshagent (credentials: ['jenkins']) {
-                createCondaEnv(project_name, python_major_version, python_dot_version, "${python_major_version}")
-                addCiCondaEnv(project_name, python_major_version, python_dot_version)
-            }
-        }
-        stage('publish docs') {
-            // It also makes docs
-            sshagent (credentials: ['jenkins']) {
-                sh """
-                    cd ${project_name}${python_major_version}
-                    source activate ${project_name}_build${python_major_version} &> /dev/null
-                    make html
-                """
-                version_string = sh(returnStdout: true,
-                    script: """
-                        source activate ${project_name}_build${python_major_version} &> /dev/null &&
-                        pip freeze | sed -e 's/-/_/g' | grep ${project_name} | sed -e 's/^.*==//'
-                    """
-                    ).trim()
-                sh """
-                    source activate ${project_name}_build${python_major_version} &> /dev/null
-                    publish_docs \"${project_name}\" \"${env.WORKSPACE}/${project_name}\" \"/ihme/centralcomp/docs\"
-                """
-                sh """
-                    source activate ${project_name}_build${python_major_version} &> /dev/null
-                    mk_symlinks \"${project_name}\" \"/ihme/centralcomp/docs\"
-                """
-            }
-        }
-        stage('deploy to pypi server') {
-            sshagent (credentials: ['jenkins']) {
-                try {
-                    // Sadness. Cannot use variables defined inside a shell script, so run the script and assign to a Groovy var
-                    // Deeper sadness. I wrote a python script to call the versioneer to get the version, but it did not work.
-                    // Forced to write this hacky piece of shell.
-                    // Later: Actually you can do it, but must escape the $-sign when you use it so that the groovy compiler
-                    // does not look for a groovy variable. e.g. \$var
-                    already_there = sh(returnStdout: true,
-                        script: """
-                            source activate ${project_name}_build${python_major_version} &> /dev/null &&
-                            is_on_pypi_server ${project_name} ${version_string}
-                        """).trim()
-                    dir("${project_name}${python_major_version}") {
-                        // Do not call setup if there is an existing version with the same number
-                        if ( already_there.startsWith("true" ) && "${overide_package_on_pypi}".toBoolean() == false ) {
-                            echo "Not uploading, ${already_there}"
-                        } else {
-                            sh """
-                                hostname
-                                source activate ${project_name}_build${python_major_version} &> /dev/null
-                                python setup.py sdist
-                                twine upload --repository ihme-artifactory ./dist/*
-                                mv ./dist/* /ihme/pypi/
-                            """
-                        }
-                    }
-                    sh "conda env remove -y -n ${project_name}_build${python_major_version}"
-                } catch (e) {
-                    echo "Deploy failed with message: ${e}"
-                    slackSendFiltered('bad', "#gbd-builds-failures", "Failed in deploy")
-                    slackSendFiltered('bad', "#gbd-builds-all", "Failed in deploy")
-                    throw e
-                }
-            }
+            // create workspace for this build
+            project_name = "jobmon"
+            workspace_shared = "/ihme/scratch/users/svcscicompci/jenkins_workspaces/${project_name}/${env.BUILD_ID}"
+            sh "mkdir -p ${workspace_shared}"
+            try { sh "chmod -R 777 ${workspace_shared}"} catch(err) { echo "chmod error: ${err}" }
+            currentBuild.displayName = "#${BUILD_NUMBER} ${project_name}"
         }
     }
-} else { // Not skipping tests
-    node('qlogin') {
-        stage('clone build script & set vars') {
-            sshagent (credentials: ['jenkins']) {
-                checkout scm
+}
 
-                slackSendFiltered('good', "#gbd-builds-all", "Started")
-                project_name = sh(returnStdout: true,
-                                  script: "bin/proj_name_from_repo ${repo_url}").trim()
-                workspace_shared = "/ihme/scratch/users/svcscicompci/jenkins_workspaces/${project_name}/${env.BUILD_ID}"
-                sh "mkdir -p ${workspace_shared}"
-                try { sh "chmod -R 777 ${workspace_shared}"} catch(err) { echo "${err}" }
-                currentBuild.displayName = "#${BUILD_NUMBER} ${project_name}"
+node('qlogin') {
+    stage('remote clone repo to build') {
+        sshagent (credentials: ['jenkins']) {
+            cloneRepoToBuild(project_name)
+        }
+    }
+}
 
-                lint_vers = 3
-                python_major_version = 3
-                python_dot_version = 3.6
+// All the NOX stages
+node('qlogin') {
+    stage('build wheel & docs') {
+        sshagent (credentials: ['jenkins']) {
+            if (TARGET == "emergency-release" ) {
+                // The wheel won't have been built because nox_stage does not check for emergency-release
+                nox_stage( project_name, "build", "build", "build docs", false)
+            }
+            nox_stage( project_name, TARGET, "build", "build docs", false)
+        }
+    }
+
+    stage('lint & types') {
+        sshagent (credentials: ['jenkins']) {
+            nox_stage( project_name, TARGET, "lint", "lint typecheck", true)
+        }
+    }
+
+    stage('tests') {
+        sshagent (credentials: ['jenkins']) {
+            nox_stage( project_name, TARGET, "tests", "tests", false)
+        }
+    }
+
+    stage('deploy to pypi and doc servers') {
+        sshagent (credentials: ['jenkins']) {
+            if (TARGET == "emergency-release" || TARGET == "release") {
+                // @TODO This shell fragment could possibly replace versioneer in the publish_docs python script,
+                // simplifying the python environment
+                nox_stage( project_name, "release", "release", "release", false)
+
+            } else {
+                echo "Not a release target, therefore not deploying to artifactory or docs server"
             }
         }
     }
 
-    node('qlogin') {
-        stage('remote clone repo to build (py3)') {
-            sshagent (credentials: ['jenkins']) {
-                cloneRepoToBuild(project_name, "${python_major_version}")
-            }
-        }
-        stage('remote create conda env (py3)') {
-            sshagent (credentials: ['jenkins']) {
-                createCondaEnv(project_name, python_major_version, python_dot_version, "${python_major_version}")
-                addCiCondaEnv(project_name, python_major_version, python_dot_version)
-            }
-        }
-        stage('run remote tests (py3)') {
-            sshagent (credentials: ['jenkins']) {
-                lintProject(project_name, 3)
-                runRemoteTests(project_name, 3, workspace_shared, python_major_version)
-            }
-        }
-    }
-
-    node('qlogin') {
-        stage('make docs') {
-            sshagent (credentials: ['jenkins']) {
-                try {
-                    // @2 in the path is a hack, i think it is the second branch of the parallel test run (py3) above
-                    // runRemoteTests also builds the html, could be in either version of python
-                    // ${python_major_version}
-                    sh """
-                        source activate ${project_name}_build${python_major_version} &> /dev/null &&
-                        publish_docs \"${project_name}\" \"${env.WORKSPACE}/${project_name}\" \"/ihme/centralcomp/docs\"
-                    """
-                    sh """
-                        source activate ${project_name}_build${python_major_version} &> /dev/null &&
-                        mk_symlinks \"${project_name}\" \"/ihme/centralcomp/docs\"
-                    """
-                } catch (e) {
-                    echo 'make-docs failed'
-                    slackSendFiltered('bad', "#gbd-builds-failures", "Failed in make-docs")
-                    slackSendFiltered('bad', "#gbd-builds-all", "Failed in make-docs")
-                    throw e
-                }
-            }
-        }
-
-        stage('deploy to pypi server') {
-            sshagent (credentials: ['jenkins']) {
-                try {
-                    // Sadness. Cannot use variables defined inside a shell script, so run the script and assign to a Groovy var
-                    // Deeper sadness. I wrote a python script to call the versioneer to get the version, but it did not work.
-                    // Forced to write this hacky piece of shell.
-                    // Later: Actually supposedly you can if you escape the dollar-sogn with a backslash, as in \$foo
-                    already_there = sh(returnStdout: true,
-                        script: """
-                            hostname
-                            source activate ${project_name}_build${python_major_version} &> /dev/null &&
-                            is_on_pypi_server ${project_name} ${version_string}""").trim()
-                    dir("${project_name}${python_major_version}") {
-                        // Do not call setup if there is an existing version with the same number
-                        if ( already_there.startsWith("true" ) && "${overide_package_on_pypi}".toBoolean() == false ) {
-                            echo "Not uploading, ${already_there}"
-                        } else {
-                           sh """
-                                source activate ${project_name}_build${python_major_version} &> /dev/null
-                                python setup.py sdist
-                                twine upload --repository ihme-artifactory ./dist/*
-                                mv ./dist/* /ihme/pypi/
-                            """
-                        }
-                    }
-                } catch (e) {
-                    echo "Deploy failed with message: ${e}"
-                    slackSendFiltered('bad', "#gbd-builds-failures", "Failed in deploy")
-                    slackSendFiltered('bad', "#gbd-builds-all", "Failed in deploy")
-                    throw e
-                }
-            }
+    stage('reports') {
+        // TODO Work out how to post test coverage and lint results somewhere
+        sshagent (credentials: ['jenkins']) {
+            slackSendFiltered('good', "#gbd-builds-all", "COMPLETE")
         }
     }
 }

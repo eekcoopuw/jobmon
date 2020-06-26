@@ -16,6 +16,7 @@ services:
         - DB_USER=service_user
         - DB_PASS=${JOBMON_PASS_SERVICE_USER}
         - JOBMON_PORT=${EXTERNAL_SERVICE_PORT}
+        - TZ=America/Los_Angeles
     logging:
         options:
             max-size: "100m"
@@ -36,6 +37,7 @@ services:
         - SLACK_TOKEN=${SLACK_TOKEN}
         - WF_SLACK_CHANNEL=${WF_SLACK_CHANNEL}
         - NODE_SLACK_CHANNEL=${NODE_SLACK_CHANNEL}
+        - TZ=America/Vancouver
     command: ["jobmon", "start", "health_monitor"]
     links:
         - jobmon
@@ -60,6 +62,8 @@ services:
         - SLACK_TOKEN=${SLACK_TOKEN}
         - WF_SLACK_CHANNEL=${WF_SLACK_CHANNEL}
         - NODE_SLACK_CHANNEL=${NODE_SLACK_CHANNEL}
+        - TZ=America/Los_Angeles
+
     command: ["jobmon", "start", "qpid_integration"]
     links:
         - jobmon

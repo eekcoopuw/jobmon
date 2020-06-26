@@ -17,7 +17,7 @@ from jobmon.client.execution.scheduler.executor_task_instance import \
     ExecutorTaskInstance
 from jobmon.client.requests.requester import Requester
 from jobmon.exceptions import InvalidResponse, WorkflowRunStateError, ResumeSet
-from jobmon.models.attributes.constants import qsub_attribute
+from jobmon.models.constants import qsub_attribute
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 

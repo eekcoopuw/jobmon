@@ -42,7 +42,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
         return pd.read_json(res["workflows"])
 
 
-def workflow_tasks(workflow_id: int, status: str = None, json: bool = False
+def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = False
                    ) -> pd.DataFrame:
     """Get metadata about task state for a given workflow
 
@@ -58,7 +58,7 @@ def workflow_tasks(workflow_id: int, status: str = None, json: bool = False
     logger.info("workflow id: {}".format(workflow_id))
     msg = {}
     if status:
-        msg["status"] = status.upper()
+        msg["status"] = [i.upper() for i in status]
 
     rc, res = shared_requester.send_request(
         app_route=f"/workflow/{workflow_id}/workflow_tasks",
@@ -70,22 +70,27 @@ def workflow_tasks(workflow_id: int, status: str = None, json: bool = False
         return pd.read_json(res["workflow_tasks"])
 
 
-def task_status(task_id: int, json: bool = False) -> Tuple[str, pd.DataFrame]:
+def task_status(task_ids: List[int], status: List[str] = None, json: bool = False) -> Tuple[str, pd.DataFrame]:
     """Get metadata about a task and its task instances
 
     Args:
-        task_id: a task_id to retrieve task_instance metadata for
+        task_ids: a list of task_ids to retrieve task_instance metadata for
         json: Flag to return data as JSON
 
     Returns:
         Task status and task_instance metadata
     """
-    logger.info("task_status task_id:{}".format(task_id))
+    logger.info("task_status task_ids:{}".format(str(task_ids)))
+    msg = {}
+    msg["task_ids"] = task_ids
+    if status:
+        msg["status"] = [i.upper() for i in status]
+
     rc, res = shared_requester.send_request(
-        app_route=f"/task/{task_id}/status",
-        message={},
+        app_route="/task_status",
+        message=msg,
         request_type="get")
     if json:
-        return res["task_state"], res["task_instance_status"]
+        return res["task_instance_status"]
     else:
-        return res["task_state"], pd.read_json(res["task_instance_status"])
+        return pd.read_json(res["task_instance_status"])

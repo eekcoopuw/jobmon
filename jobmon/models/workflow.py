@@ -1,4 +1,3 @@
-
 from datetime import datetime
 from sqlalchemy.sql import func
 
@@ -30,8 +29,8 @@ class Workflow(DB.Model):
                        DB.ForeignKey('workflow_status.id'),
                        default=WorkflowStatus.REGISTERED)
     heartbeat_date = DB.Column(DB.DateTime, default=datetime.utcnow)
-    created_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
-    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    created_date = DB.Column(DB.DateTime, default=func.now())
+    status_date = DB.Column(DB.DateTime, default=func.now())
 
     dag = DB.relationship("Dag", back_populates="workflow", lazy=True)
     workflow_runs = DB.relationship("WorkflowRun", back_populates="workflow",
@@ -42,7 +41,6 @@ class Workflow(DB.Model):
         (WorkflowStatus.REGISTERED, WorkflowStatus.CREATED),
 
         # workflow encountered an error before a workflow run was created.
-        # TODO: this transition should probably be driven by the health monitor
         (WorkflowStatus.REGISTERED, WorkflowStatus.ABORTED),
 
         # a workflow aborted during task creation. new workflow launched, found
@@ -65,7 +63,6 @@ class Workflow(DB.Model):
 
         # Workflow was bound but didn't start running. eventually moved
         # to failed.
-        # TODO: determine what drives this transition. perhaps health monitor
         (WorkflowStatus.BOUND, WorkflowStatus.FAILED),
 
         # workflow run was bound then started running. normal happy path
@@ -88,7 +85,7 @@ class Workflow(DB.Model):
     def transition(self, new_state):
         self._validate_transition(new_state)
         self.status = new_state
-        self.status_date = func.UTC_TIMESTAMP()
+        self.status_date = func.now()
 
     def _validate_transition(self, new_state):
         """Ensure the Job state transition is valid"""

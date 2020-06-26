@@ -2,7 +2,7 @@ import pytest
 
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.models.task_instance import TaskInstance
-
+from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
 
 from sqlalchemy.sql import text
 

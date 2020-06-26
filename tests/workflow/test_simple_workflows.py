@@ -436,3 +436,48 @@ def test_bushy_real_dag(db_cfg, client_env, tmpdir):
     assert wfr.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
 
     assert wfr.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
+
+
+def test_workflow_attribute(db_cfg, client_env):
+    """Test the workflow attributes feature"""
+    from jobmon.client.api import BashTask
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
+    from jobmon.models.workflow_attribute import WorkflowAttribute
+    from jobmon.models.workflow_attribute_type import WorkflowAttributeType
+    
+    wf1 = UnknownWorkflow("test_wf_attributes",
+                               executor_class="SequentialExecutor",
+                               workflow_attributes = {'location_id': 5, 'year': 2019, 'sex': 1})
+    
+    t1 = BashTask("exit -0", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={}, max_attempts=1)
+    wf1.add_task(t1)
+    wf1.run()
+
+    # check database entries are populated correctly
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
+            join(WorkflowAttribute, WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
+            filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
+    assert set(wf_attributes) ==  set([('location_id', '5'), ('year', '2019'), ('sex', '1')])
+    
+    # Add and update attributes
+    wf1.add_attributes({'age_group_id': 1, 'sex': 2})
+
+    with app.app_context():
+        wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
+            join(WorkflowAttribute, WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
+            filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
+    assert set(wf_attributes) ==  set([('location_id', '5'), ('year', '2019'), ('sex', '2'), ('age_group_id', '1')])
+    
+    # Test workflow w/o attributes
+    wf2 = UnknownWorkflow("test_empty_wf_attributes", executor_class="SequentialExecutor")
+    wf2.add_task(t1)
+    wf2.run()
+
+    with app.app_context():
+        wf_attributes = DB.session.query(WorkflowAttribute).filter_by(workflow_id=wf2.workflow_id).all()
+
+    assert wf_attributes == []

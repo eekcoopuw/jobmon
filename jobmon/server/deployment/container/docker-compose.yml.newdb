@@ -19,6 +19,7 @@ services:
         - DB_USER=service_user
         - DB_PASS=${JOBMON_PASS_SERVICE_USER}
         - JOBMON_PORT=${EXTERNAL_SERVICE_PORT}
+        - TZ=America/Los_Angeles
     links:
         - db
     logging:
@@ -44,6 +45,7 @@ services:
         - SLACK_TOKEN=${SLACK_TOKEN}
         - WF_SLACK_CHANNEL=${WF_SLACK_CHANNEL}
         - NODE_SLACK_CHANNEL=${NODE_SLACK_CHANNEL}
+        - TZ=America/Los_Angeles
     command: ["jobmon", "start", "health_monitor"]
     links:
         - db
@@ -72,6 +74,7 @@ services:
         - SLACK_TOKEN=${SLACK_TOKEN}
         - WF_SLACK_CHANNEL=${WF_SLACK_CHANNEL}
         - NODE_SLACK_CHANNEL=${NODE_SLACK_CHANNEL}
+        - TZ=America/Los_Angeles
     command: ["jobmon", "start", "qpid_integration"]
     links:
         - db
@@ -94,6 +97,7 @@ services:
         - JOBMON_PASS_TABLE_CREATOR=${JOBMON_PASS_TABLE_CREATOR}
         - JOBMON_PASS_SERVICE_USER=${JOBMON_PASS_SERVICE_USER}
         - JOBMON_PASS_READ_ONLY=${JOBMON_PASS_READ_ONLY}
+        - TZ=America/Los_Angeles
 
     volumes:
         - mysql-jobmon-fruitbat:/var/lib/mysql
@@ -102,7 +106,7 @@ services:
           target: /var/lib/mysql
         - ./jobmon/server/deployment/container/db/:/docker-entrypoint-initdb.d/
 
-    command: mysqld --innodb_autoinc_lock_mode=1 --innodb_flush_method=O_DIRECT --innodb_buffer_pool_size=10000M --innodb_buffer_pool_instances=2 --character_set_server=utf8mb4 --collation_server=utf8mb4_general_ci
+    command: mysqld --innodb_autoinc_lock_mode=1 --innodb_flush_method=O_DIRECT --innodb_buffer_pool_size=10000M --innodb_buffer_pool_instances=2 --character_set_server=utf8mb4 --collation_server=utf8mb4_general_ci --default-time-zone='America/Los_Angeles'
 
 volumes:
     mysql-jobmon-fruitbat: {}

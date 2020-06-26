@@ -1,0 +1,28 @@
+---
+# MetalLB -> traefik ingress
+kind: Service
+apiVersion: v1
+metadata:
+  name: traefik
+  namespace: {{namespace}}
+  annotations:
+    # This is the only connection back to the MetalLB Repo, the value filled in here
+    # will determine the IP addresses available to the deployment.
+    metallb.universe.tf/address-pool: {{ip_pool}}
+spec:
+  selector:
+    app: traefik
+  ports:
+  - protocol: TCP
+    port: 80
+    name: web
+    nodePort:
+  - protocol: TCP
+    port: 8080
+    name: traefik-dashboard
+    nodePort:
+  - protocol: TCP
+    port: 3000
+    name: grafana
+    nodePort:
+  type: LoadBalancer

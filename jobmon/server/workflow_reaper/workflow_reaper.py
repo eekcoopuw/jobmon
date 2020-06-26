@@ -1,3 +1,4 @@
+from datetime import datetime
 from http import HTTPStatus as StatusCodes
 from time import sleep
 from typing import List
@@ -88,10 +89,28 @@ class WorkflowReaper(object):
                 self._wf_notification_sink(msg=message)
 
     def _get_lost_workflow_runs(self) -> List[ReaperWorkflowRun]:
+        # get time from db
+        app_route = "/time"
+        return_code, response = self._requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type='get'
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from GET '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}'
+            )
+        query_time = datetime.strptime(response['time'], '%Y-%m-%d %H:%M:%S')
+
         # Return all workflows that have not logged a heartbeat in awhile
         workflow_runs = self._check_by_given_status(["R"])
+
+        # compare time
         lost_wfrs = [wfr for wfr in workflow_runs
-                     if wfr.has_lost_workflow_run(loss_threshold=self._loss_threshold)]
+                     if wfr.has_lost_workflow_run(query_time=query_time,
+                                                  loss_threshold=self._loss_threshold)]
         return lost_wfrs
 
     def _error_state(self) -> None:

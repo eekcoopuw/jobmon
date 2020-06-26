@@ -14,8 +14,11 @@ def test_node(client_env, db_cfg):
                   node_args={1: 3, 2: 2006, 4: 'aggregate'},
                   task=MockTask())
     node_1_id = node_1.bind()
-
     assert node_1_id is not None
+
+    # ensure we can add this twice and avoid integrity issues
+    node_1_id_redo = node_1._insert_node_and_node_args()
+    assert node_1_id_redo == node_1_id
 
     node_2 = Node(task_template_version_id=1,
                   node_args={1: 3, 2: 2006, 4: 'aggregate'},

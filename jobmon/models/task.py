@@ -4,7 +4,6 @@ from sqlalchemy.sql import func
 
 from jobmon.models import DB
 from jobmon.models.exceptions import InvalidStateTransition
-from jobmon.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.models.task_status import TaskStatus
 from jobmon.serializers import SerializeExecutorTask, SerializeSwarmTask
@@ -55,8 +54,8 @@ class Task(DB.Model):
     num_attempts = DB.Column(DB.Integer, default=0)
     max_attempts = DB.Column(DB.Integer, default=1)
     status = DB.Column(DB.String(1), DB.ForeignKey('task_status.id'))
-    submitted_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
-    status_date = DB.Column(DB.DateTime, default=func.UTC_TIMESTAMP())
+    submitted_date = DB.Column(DB.DateTime, default=func.now())
+    status_date = DB.Column(DB.DateTime, default=func.now())
 
     # ORM relationships
     task_instances = DB.relationship("TaskInstance", back_populates="task")
@@ -96,7 +95,7 @@ class Task(DB.Model):
         if new_state == TaskStatus.INSTANTIATED:
             self.num_attempts = self.num_attempts + 1
         self.status = new_state
-        self.status_date = func.UTC_TIMESTAMP()
+        self.status_date = func.now()
         logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
         logger.info("transite job status to {s} at {t}".format(s=new_state, t=self.status_date))
 

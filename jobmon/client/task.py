@@ -13,12 +13,10 @@ from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.task_status import TaskStatus
 
-
 logger = logging.getLogger(__name__)
 
 
 class Task:
-
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
 
     @classmethod
@@ -63,8 +61,8 @@ class Task:
                  executor_parameters: Union[ExecutorParameters, Callable],
                  name: Optional[str] = None,
                  max_attempts: int = 3,
-                 upstream_tasks: List[Task] = [],
-                 task_attributes: Union[List, dict] = {},
+                 upstream_tasks: Optional[List[Task]] = None,
+                 task_attributes: Union[List, dict] = None,
                  requester: Requester = shared_requester):
         """
         Create a task
@@ -157,12 +155,11 @@ class Task:
         return self._task_id
 
     @property
-    def status(self) -> str:
-        # TODO: remove status from this object
-        if not hasattr(self, "_status"):
-            raise AttributeError("status cannot be accessed before task is "
+    def initial_status(self) -> str:
+        if not hasattr(self, "_initial_status"):
+            raise AttributeError("initial_status cannot be accessed before task is "
                                  "bound")
-        return self._status
+        return self._initial_status
 
     @property
     def workflow_id(self) -> int:
@@ -184,7 +181,7 @@ class Task:
         else:
             status = self._update_task_parameters(task_id, reset_if_running)
         self._task_id = task_id
-        self._status = status
+        self._initial_status = status
         return task_id
 
     def add_upstream(self, ancestor: Task) -> None:

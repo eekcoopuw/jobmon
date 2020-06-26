@@ -93,20 +93,21 @@ class BashTask(Task):
 
         # build command
         node_arg_vals["command"] = command
-        command = self._task_template.command_template.format(
+        command = self._task_template.task_template_version.command_template.format(
             env_variables=env_str, command=command)
 
         # arg id name mappings
-        node_args = {self._task_template.arg_id_name_map[k]: v
+        node_args = {self._task_template.task_template_version.id_name_map[k]: v
                      for k, v in node_arg_vals.items()}
 
         super().__init__(
             command=command,
             task_template_version_id=(
-                self._task_template.task_template_version_id),
+                self._task_template.task_template_version.id),
             node_args=node_args,
             task_args={},
             executor_parameters=executor_parameters,
             name=name,
             max_attempts=max_attempts,
-            upstream_tasks=upstream_tasks)
+            upstream_tasks=upstream_tasks,
+            task_attributes=task_attributes)

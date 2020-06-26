@@ -89,6 +89,10 @@ def test_resource_scale(input, expect):
     assert resource.resource_scales["max_runtime_seconds"] == expect
 
 
-
-
-
+@pytest.mark.unittest
+def test_allq_to_longq():
+    resources = SGEParameters(m_mem_free="1G", queue="all.q", max_runtime_seconds=259300)
+    msg = resources.validation_msg()
+    assert "\n Queue" in msg
+    resources.validate()
+    assert resources.queue == "long.q"

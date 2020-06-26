@@ -14,6 +14,21 @@ install_requires = [
     'tenacity',
     'tblib']
 
+# pip install -e .[dev]
+dev_requires = [
+    'flake8',
+    'nox',
+    'cluster_utils',
+    'pymysql',
+]
+
+# pip install -e .[docs]
+docs_requires = [
+    'spinx',
+    'sphinx-autodoc-typehints',
+    'sphinx_rtd_theme',
+]
+
 setup(
     version=versioneer.get_version(),
     name='jobmon',
@@ -24,6 +39,10 @@ setup(
     author_email=('tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu, '
                   'cpinho@uw.edu'),
     install_requires=install_requires,
+    extras_require={
+        'dev': dev_requires,
+        'docs': docs_requires,
+    },
     packages=['jobmon',
               'jobmon.client',
               'jobmon.client.execution',
@@ -35,7 +54,6 @@ setup(
               'jobmon.client.swarm',
               'jobmon.client.templates',
               'jobmon.models',
-              'jobmon.models.attributes',
               'jobmon.server',
               'jobmon.server.deployment',
               'jobmon.server.workflow_reaper',

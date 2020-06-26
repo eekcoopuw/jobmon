@@ -30,8 +30,11 @@ def test_dag(client_env, db_cfg):
     # add nodes to dag
     [dag_1.add_node(node) for node in [node_1, node_2, node_3]]
     dag_1_id = dag_1.bind()
-
     assert dag_1_id is not None
+
+    # test that you can add a dag twice without getting an error
+    dag_1_id_redo = dag_1._insert_dag()
+    assert dag_1_id == dag_1_id_redo
 
     # build a dag identical to dag_1
     dag_2 = Dag()

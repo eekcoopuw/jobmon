@@ -22,10 +22,10 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
 
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
     user = getpass.getuser()
+    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 10", executor_class="SequentialExecutor")
     t2 = BashTask("sleep 5", upstream_tasks=[t1],
                   executor_class="SequentialExecutor")
-    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     workflow.add_tasks([t1, t2])
     workflow._bind()
     workflow._create_workflow_run()
@@ -92,12 +92,12 @@ def test_workflow_tasks(db_cfg, client_env):
     from jobmon.client.status_commands import workflow_tasks
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
-
+    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={})
     t2 = BashTask("sleep 4", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={})
-    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
+    
     workflow.add_tasks([t1, t2])
     workflow._bind()
     wfr = workflow._create_workflow_run()
@@ -106,7 +106,7 @@ def test_workflow_tasks(db_cfg, client_env):
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
     cli = CLI()
     args = cli.parse_args(command_str)
-    df = workflow_tasks(args.workflow_id, args.status)
+    df = workflow_tasks(args.workflow_id)
     assert len(df) == 2
     assert df.STATUS[0] == "PENDING"
     assert len(df.STATUS.unique()) == 1
@@ -144,15 +144,28 @@ def test_task_status(db_cfg, client_env):
 
     t1 = BashTask("exit -9", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={}, max_attempts=2)
+    t2 = BashTask("exit -0", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={}, max_attempts=1)
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
-    workflow.add_tasks([t1])
+    workflow.add_tasks([t1,t2])
     workflow.run()
 
-    # we should get 2 failed task instances
-    command_str = f"task_status -t {t1.task_id}"
+    # we should get 2 failed task instances and 1 successful
+    command_str = f"task_status -t {t1.task_id} {t2.task_id}"
     cli = CLI()
     args = cli.parse_args(command_str)
-    args.func(args)
-    state, df = task_status(args.task_id)
-    assert state == "FATAL"
-    assert len(df) == 2
+    df = task_status(args.task_ids)
+    assert len(df) == 3
+    assert len(df.query("STATUS=='ERROR'")) == 2
+    assert len(df.query("STATUS=='DONE'")) == 1
+
+    # Test filters
+    finished_cmd = command_str + f" -s done "
+    done_args = cli.parse_args(finished_cmd)
+    df_fin = task_status(done_args.task_ids, done_args.status)
+    assert len(df_fin) == 1
+
+    all_cmd = command_str + f" -s done fatal"
+    all_args = cli.parse_args(all_cmd)
+    df_all = task_status(all_args.task_ids, all_args.status)
+    assert len(df_all) == 3

@@ -3,7 +3,7 @@ from http import HTTPStatus as StatusCodes
 from multiprocessing import Process, Event, Queue
 from multiprocessing import synchronize
 from queue import Empty
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, Sequence, Tuple, Dict, Union, List
 import uuid
 
 from jobmon.client import shared_requester
@@ -61,7 +61,8 @@ class Workflow(object):
 
     def __init__(self, tool_version_id: int, workflow_args: str = "",
                  name: str = "", description: str = "",
-                 requester: Requester = shared_requester):
+                 requester: Requester = shared_requester,
+                 workflow_attributes: Union[List, dict] = None):
         """
         Args:
             workflow_args: unique identifier of a workflow
@@ -119,6 +120,17 @@ class Workflow(object):
         self._scheduler_proc: Optional[Process] = None
         self._scheduler_com_queue: Queue = Queue()
         self._scheduler_stop_event: synchronize.Event = Event()
+        self.workflow_attributes = {}
+        if workflow_attributes:
+            if isinstance(workflow_attributes, List):
+                for attr in workflow_attributes:
+                    self.workflow_attributes[attr] = None
+            elif isinstance(workflow_attributes, dict):
+                for attr, val in workflow_attributes.items():
+                    self.workflow_attributes[str(attr)] = str(val)
+            else:
+                raise ValueError("workflow_attributes must be provided as a list of "
+                                 "attributes or a dictionary of attributes and their values")
 
     @property
     def is_bound(self):
@@ -150,6 +162,22 @@ class Workflow(object):
                 hash_value.update(str(hash(task)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
 
+    def add_attributes(self, workflow_attributes: dict) -> None:
+        """Function that users can call either to update values of existing
+        attributes or add new attributes"""
+
+        app_route = f'/workflow/{self.workflow_id}/workflow_attributes'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={"workflow_attributes": workflow_attributes},
+            request_type="put"
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}')
+
     def add_task(self, task: Task):
         """Add a task to the workflow to be executed.
            Set semantics - add tasks once only, based on hash name. Also
@@ -167,7 +195,7 @@ class Workflow(object):
 
         return task
 
-    def add_tasks(self, tasks: List[Task]):
+    def add_tasks(self, tasks: Sequence[Task]):
         """Add a list of task to the workflow to be executed"""
         for task in tasks:
             self.add_task(task)
@@ -183,8 +211,21 @@ class Workflow(object):
         if executor is not None:
             self._executor = executor
         else:
-            # TODO: make default executor configurable from global config
-            pass
+            if executor_class == "SequentialExecutor":
+                from jobmon.client.execution.strategies.sequential import \
+                    SequentialExecutor as Executor
+            elif executor_class == "SGEExecutor":
+                from jobmon.client.execution.strategies.sge.sge_executor import \
+                    SGEExecutor as Executor
+            elif executor_class == "DummyExecutor":
+                from jobmon.client.execution.strategies.dummy import \
+                    DummyExecutor as Executor
+            elif executor_class == "MultiprocessExecutor":
+                from jobmon.client.execution.strategies.multiprocess import \
+                    MultiprocessExecutor as Executor
+            else:
+                raise ValueError(f"{executor_class} is not a valid ExecutorClass")
+            self._executor = Executor(*args, **kwargs)
 
     def run(self,
             fail_fast: bool = False,
@@ -192,9 +233,12 @@ class Workflow(object):
             resume: bool = ResumeStatus.DONT_RESUME,
             reset_running_jobs: bool = True,
             scheduler_response_wait_timeout=180):
+
         if not hasattr(self, "_executor"):
-            self.set_executor()
+            logger.warning("using default project: proj_general")
+            self.set_executor(project="proj_general")
         logger.debug("executor: {}".format(self._executor))
+
         # bind to database
         self._bind(resume)
 
@@ -296,9 +340,13 @@ class Workflow(object):
                     " workflow. If you are not trying to resume a "
                     "workflow, make sure the workflow args are unique or "
                     "the tasks are unique")
+
+            # Add workflow attributes and workflow_id
+            self._workflow_id = workflow_id
+            self.add_attributes(self.workflow_attributes)
         else:
             workflow_id = self._add_workflow()
-        self._workflow_id = workflow_id
+            self._workflow_id = workflow_id
 
     def _matching_wf_args_diff_hash(self):
         """Check """
@@ -349,7 +397,8 @@ class Workflow(object):
                 "task_hash": self.task_hash,
                 "description": self.description,
                 "name": self.name,
-                "workflow_args": self.workflow_args
+                "workflow_args": self.workflow_args,
+                "workflow_attributes": self.workflow_attributes
             },
             request_type='post'
         )
@@ -380,7 +429,7 @@ class Workflow(object):
                 # create swarmtasks
                 swarm_task = SwarmTask(
                     task_id=task.task_id,
-                    status=task.status,
+                    status=task.initial_status,
                     task_args_hash=task.task_args_hash,
                     executor_parameters=task.executor_parameters,
                     max_attempts=task.max_attempts)

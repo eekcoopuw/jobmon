@@ -1,29 +1,31 @@
-from flask import jsonify, request, Blueprint
 from http import HTTPStatus as StatusCodes
 from datetime import datetime, timedelta
 import json
 import os
 import socket
-from sqlalchemy.sql import func, text
-import sqlalchemy
 import traceback
 from typing import Optional, Any
+
+from flask import jsonify, request, Blueprint
+from sqlalchemy.sql import func, text
+from sqlalchemy.dialects.mysql import insert
+import sqlalchemy
 
 from jobmon import config
 from jobmon.models import DB
 from jobmon.models.arg import Arg
 from jobmon.models.arg_type import ArgType
-from jobmon.models.attributes.constants import qsub_attribute, task_instance_attribute
-from jobmon.models.attributes.task_attribute import TaskAttribute
-from jobmon.models.attributes.task_attribute_type import TaskAttributeType
-from jobmon.models.attributes.task_instance_attribute import TaskInstanceAttribute
+from jobmon.models.constants import qsub_attribute, task_instance_attribute
+from jobmon.models.task_attribute import TaskAttribute
+from jobmon.models.task_attribute_type import TaskAttributeType
+from jobmon.models.workflow_attribute import WorkflowAttribute
+from jobmon.models.workflow_attribute_type import WorkflowAttributeType
 from jobmon.models.command_template_arg_type_mapping import \
     CommandTemplateArgTypeMapping
 from jobmon.models.dag import Dag
 from jobmon.models.edge import Edge
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 from jobmon.models.node import Node
 from jobmon.models.node_arg import NodeArg
 from jobmon.models.task import Task
@@ -45,7 +47,6 @@ from jobmon.server.server_side_exception import log_and_raise
 
 jsm = Blueprint("job_state_manager", __name__)
 
-
 # logging does not work well in python < 2.7 with Threads,
 # see https://docs.python.org/2/library/logging.html
 # Logging has to be set up BEFORE the Thread
@@ -59,7 +60,7 @@ def page_not_found(error):
 
 
 def get_time(session):
-    time = session.execute("select UTC_TIMESTAMP as time").fetchone()['time']
+    time = session.execute("select CURRENT_TIMESTAMP as time").fetchone()['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     return time
 
@@ -73,6 +74,22 @@ def _is_alive():
     logmsg = "{}: Responder received is_alive?".format(os.getpid())
     logger.debug(logmsg)
     resp = jsonify(msg="Yes, I am alive")
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route("/sm/health", methods=['GET'])
+def health():
+    """
+    Test connectivity to the database, return 200 if everything is ok
+    Defined in each module with a different route, so it can be checked individually
+    """
+    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+    time = time['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    DB.session.commit()
+    # Assume that if we got this far without throwing an exception, we should be online
+    resp = jsonify(status='OK')
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -103,8 +120,7 @@ def add_tool_version():
     logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
-    tool_version = ToolVersion(
-        tool_id=data["tool_id"])
+    tool_version = ToolVersion(tool_id=data["tool_id"])
     DB.session.add(tool_version)
     DB.session.commit()
     tool_version = tool_version.to_wire_as_client_tool_version()
@@ -119,10 +135,27 @@ def add_task_template():
     logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
-    tt = TaskTemplate(tool_version_id=data["tool_version_id"],
-                      name=data["name"])
-    DB.session.add(tt)
-    DB.session.commit()
+
+    try:
+        tt = TaskTemplate(tool_version_id=data["tool_version_id"],
+                          name=data["task_template_name"])
+        DB.session.add(tt)
+        DB.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        DB.session.rollback()
+        query = """
+            SELECT *
+            FROM task_template
+            WHERE
+                tool_version_id = :tool_version_id
+                name = :name
+        """
+        tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
+            tool_version_id=data["tool_version_id"],
+            name=data["task_template_name"]
+        ).one()
+        DB.session.commit()
+
     resp = jsonify(task_template_id=tt.id)
     resp.status_code = StatusCodes.OK
     return resp
@@ -130,17 +163,17 @@ def add_task_template():
 
 def _add_or_get_arg(name: str) -> Arg:
     try:
-        query = """
-        SELECT id, name
-        FROM arg
-        WHERE name = :name
-        """
-        arg = DB.session.query(Arg).from_statement(text(query))\
-            .params(name=name).one()
-    except sqlalchemy.orm.exc.NoResultFound:
-        DB.session.rollback()
         arg = Arg(name=name)
         DB.session.add(arg)
+        DB.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        DB.session.rollback()
+        query = """
+            SELECT *
+            FROM arg
+            WHERE name = :name
+        """
+        arg = DB.session.query(Arg).from_statement(text(query)).params(name=name).one()
         DB.session.commit()
     return arg
 
@@ -152,7 +185,7 @@ def add_task_template_version(task_template_id: int):
     data = request.get_json()
     logger.debug(data)
 
-    # create task template version if we didn't find a match
+    # populate the argument table
     arg_mapping_dct: dict = {ArgType.NODE_ARG: [],
                              ArgType.TASK_ARG: [],
                              ArgType.OP_ARG: []}
@@ -162,22 +195,47 @@ def add_task_template_version(task_template_id: int):
         arg_mapping_dct[ArgType.TASK_ARG].append(_add_or_get_arg(arg_name))
     for arg_name in data["op_args"]:
         arg_mapping_dct[ArgType.OP_ARG].append(_add_or_get_arg(arg_name))
-    ttv = TaskTemplateVersion(task_template_id=task_template_id,
-                              command_template=data["command_template"],
-                              arg_mapping_hash=data["arg_mapping_hash"])
-    DB.session.add(ttv)
-    DB.session.flush()
-    for arg_type_id in arg_mapping_dct.keys():
-        for arg in arg_mapping_dct[arg_type_id]:
-            ctatm = CommandTemplateArgTypeMapping(
-                task_template_version_id=ttv.id,
-                arg_id=arg.id,
-                arg_type_id=arg_type_id)
-            DB.session.add(ctatm)
-    DB.session.commit()
+
+    try:
+        ttv = TaskTemplateVersion(task_template_id=task_template_id,
+                                  command_template=data["command_template"],
+                                  arg_mapping_hash=data["arg_mapping_hash"])
+        DB.session.add(ttv)
+        DB.session.commit()
+
+        # get a lock
+        DB.session.refresh(ttv, with_for_update=True)
+
+        for arg_type_id in arg_mapping_dct.keys():
+            for arg in arg_mapping_dct[arg_type_id]:
+                ctatm = CommandTemplateArgTypeMapping(
+                    task_template_version_id=ttv.id,
+                    arg_id=arg.id,
+                    arg_type_id=arg_type_id)
+                DB.session.add(ctatm)
+        DB.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        DB.session.rollback()
+        # if another process is adding this task_template_version then this query should block
+        # until the command_template_arg_type_mapping has been populated and committed
+        query = """
+            SELECT *
+            FROM task_template_version
+            WHERE
+                task_template_id = :task_template_id
+                AND command_template = :command_template
+                AND arg_mapping_hash = :arg_mapping_hash
+        """
+        ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
+            task_template_id=task_template_id,
+            command_template=data["command_template"],
+            arg_mapping_hash=data["arg_mapping_hash"]
+        ).one()
+        DB.session.commit()
 
     resp = jsonify(
-        task_template_version=ttv.to_wire_as_client_task_template_version())
+        task_template_version=ttv.to_wire_as_client_task_template_version()
+    )
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -198,21 +256,37 @@ def add_node():
     logger.debug(data)
 
     # add node
-    node = Node(task_template_version_id=data['task_template_version_id'],
-                node_args_hash=data['node_args_hash'])
-    DB.session.add(node)
-    logger.debug(logging.logParameter("DB.session", DB.session))
-    DB.session.commit()
+    try:
+        node = Node(task_template_version_id=data['task_template_version_id'],
+                    node_args_hash=data['node_args_hash'])
+        DB.session.add(node)
+        DB.session.commit()
 
-    # add node_args
-    node_args = json.loads(data['node_args'])
-    for arg_id, value in node_args.items():
-        logger.info(f'Adding node_arg with node_id: {node.id}, '
-                    f'arg_id: {arg_id}, and val: {value}')
-        node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)
-        DB.session.add(node_arg)
-    logger.debug(logging.logParameter("DB.session", DB.session))
-    DB.session.commit()
+        # lock for insert to related tables
+        DB.session.refresh(node, with_for_update=True)
+
+        # add node_args
+        node_args = json.loads(data['node_args'])
+        for arg_id, value in node_args.items():
+            logger.info(f'Adding node_arg with node_id: {node.id}, '
+                        f'arg_id: {arg_id}, and val: {value}')
+            node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)
+            DB.session.add(node_arg)
+        DB.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        DB.session.rollback()
+        query = """
+            SELECT *
+            FROM node
+            WHERE
+                task_template_version_id = :task_template_version_id
+                AND node_args_hash = :node_args_hash
+        """
+        node = DB.session.query(Node).from_statement(text(query)).params(
+            task_template_version_id=data['task_template_version_id'],
+            node_args_hash=data['node_args_hash']
+        ).one()
+        DB.session.commit()
 
     # return result
     resp = jsonify(node_id=node.id)
@@ -232,58 +306,51 @@ def add_dag():
     logger.debug(data)
 
     # add dag
-    dag = Dag(hash=data["dag_hash"])
-    DB.session.add(dag)
-    DB.session.commit()
+    dag_hash = data.pop("dag_hash")
+    nodes_and_edges = data.pop("nodes_and_edges")
+    try:
+        dag = Dag(hash=dag_hash)
+        DB.session.add(dag)
+        DB.session.commit()
+
+        # now get a lock to add the edges
+        DB.session.refresh(dag, with_for_update=True)
+
+        for node_id, edges in nodes_and_edges.items():
+            logger.debug(f'Edges: {edges}')
+
+            if len(edges['upstream_nodes']) == 0:
+                upstream_nodes = None
+            else:
+                upstream_nodes = str(edges['upstream_nodes'])
+
+            if len(edges['downstream_nodes']) == 0:
+                downstream_nodes = None
+            else:
+                downstream_nodes = str(edges['downstream_nodes'])
+
+            edge = Edge(dag_id=dag.id,
+                        node_id=node_id,
+                        upstream_nodes=upstream_nodes,
+                        downstream_nodes=downstream_nodes)
+            DB.session.add(edge)
+            DB.session.commit()
+
+    except sqlalchemy.exc.IntegrityError:
+        DB.session.rollback()
+        query = """
+            SELECT *
+            FROM dag
+            WHERE hash = :dag_hash
+        """
+        dag = DB.session.query(Dag).from_statement(text(query)).params(dag_hash=dag_hash).one()
+        DB.session.commit()
 
     # return result
     resp = jsonify(dag_id=dag.id)
     resp.status_code = StatusCodes.OK
 
     return resp
-
-
-@jsm.route('/edge/<dag_id>', methods=['POST'])
-def add_edges(dag_id: int):
-    """Add a group of edges to the database.
-
-    Args:
-        dag_id: identifies the dag whose edges are being inserted
-        nodes_and_edges: a json object with the following format:
-            {jobmon/server/deployment/container/db/table015-workflow.sql
-                node_id: {
-                    'upstream_nodes': [node_id, node_id, node_id],
-                    'downstream_nodes': [node_id, node_id]
-                },
-                node_id: {...},
-                ...
-            }
-    """
-    logger.info(logging.myself())
-    data = request.get_json()
-    logger.debug(f'Data received to add_edges: {data} with type: {type(data)}')
-
-    for node_id, edges in data.items():
-        logger.debug(f'Edges: {edges}')
-
-        if len(edges['upstream_nodes']) == 0:
-            upstream_nodes = None
-        else:
-            upstream_nodes = str(edges['upstream_nodes'])
-
-        if len(edges['downstream_nodes']) == 0:
-            downstream_nodes = None
-        else:
-            downstream_nodes = str(edges['downstream_nodes'])
-
-        edge = Edge(dag_id=dag_id,
-                    node_id=node_id,
-                    upstream_nodes=upstream_nodes,
-                    downstream_nodes=downstream_nodes)
-        DB.session.add(edge)
-        DB.session.commit()
-
-    return '', StatusCodes.OK
 
 
 @jsm.route('/task', methods=['POST'])
@@ -318,14 +385,18 @@ def add_task():
         task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
         DB.session.add(task_arg)
         DB.session.flush()
-    for name, val in data["task_attributes"].items():
-        type_id = _add_or_get_attribute_type(name)
-        task_attribute = TaskAttribute(task_id=task.id,
-                                       attribute_type=type_id,
-                                       value=val)
-        DB.session.add(task_attribute)
-        DB.session.flush()
     DB.session.commit()
+    if data["task_attributes"]:
+        task_attribute_list = []
+        for name, val in data["task_attributes"].items():
+            type_id = _add_or_get_attribute_type(name)
+            task_attribute = TaskAttribute(task_id=task.id,
+                                           attribute_type=type_id,
+                                           value=val)
+            task_attribute_list.append(task_attribute)
+        DB.session.add_all(task_attribute_list)
+        DB.session.flush()
+        DB.session.commit()
 
     resp = jsonify(task_id=task.id)
     resp.status_code = StatusCodes.OK
@@ -358,49 +429,36 @@ def update_task_parameters(task_id: int):
 
 def _add_or_get_attribute_type(name: str) -> int:
     try:
-        query = """
-        SELECT id, name
-        FROM task_attribute_type
-        WHERE name = :name
-        """
-        attribute_type = DB.session.query(TaskAttributeType)\
-            .from_statement(text(query)).params(name=name).one()
-    except sqlalchemy.orm.exc.NoResultFound:
-        DB.session.rollback()
         attribute_type = TaskAttributeType(name=name)
         DB.session.add(attribute_type)
         DB.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        DB.session.rollback()
+        query = """
+            SELECT id, name
+            FROM task_attribute_type
+            WHERE name = :name
+        """
+        attribute_type = DB.session.query(TaskAttributeType) \
+            .from_statement(text(query)).params(name=name).one()
+
     return attribute_type.id
 
 
 def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     attribute_type = _add_or_get_attribute_type(name)
-    try:
-        # if the attribute was already set for the task, update it with the
-        # new value
-        query = """
-        SELECT id
-        FROM task_attribute
-        WHERE
-            task_id = :task_id
-            AND attribute_type = :attribute_id
-        """
-        attr = DB.session.query(TaskAttribute).from_statement(text(query))\
-            .params(task_id=task_id, attribute_type=attribute_type).one()
-        params = {"value": value, "attribute_id": attr.id}
-        update_query = """
-            UPDATE task_attribute
-            SET value = :value
-            WHERE attribute_id = :attribute_id"""
-        DB.session.execute(update_query, params)
-    except sqlalchemy.orm.exc.NoResultFound:
-        DB.session.rollback()
-        attr = TaskAttribute(task_id=task_id,
-                             attribute_type=attribute_type,
-                             value=value)
-        DB.session.add(attr)
-        DB.session.commit()
-    return attr.id
+    insert_vals = insert(TaskAttribute).values(
+        task_id=task_id,
+        attribute_type=attribute_type,
+        value=value
+    )
+    update_insert = insert_vals.on_duplicate_key_update(
+        value=insert_vals.inserted.value,
+        status='U'
+    )
+    attribute = DB.session.execute(update_insert)
+    DB.session.commit()
+    return attribute.id
 
 
 @jsm.route('/task/<task_id>/task_attributes', methods=['PUT'])
@@ -409,13 +467,17 @@ def update_task_attribute(task_id: int):
     data = request.get_json()
     attributes = data["task_attributes"]
     # update existing attributes with their values
-    for name, val in attributes:
+    for name, val in attributes.items():
         _add_or_update_attribute(task_id, name, val)
+    # Flask requires that a response is returned, no values need to be passed back
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jsm.route('/workflow', methods=['POST'])
 def add_workflow():
-    """Add a workflow to the database or update it (via PUT)"""
+    """Add a workflow to the database."""
     logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
@@ -428,11 +490,72 @@ def add_workflow():
                         name=data["name"],
                         workflow_args=data["workflow_args"])
     DB.session.add(workflow)
+    # TODO: doesn't work with flush, figure out why. Using commit breaks atomicity, workflow attributes may not populate
+    # correctly on a rerun
+    DB.session.commit()
+    if data['workflow_attributes']:
+        wf_attributes_list = []
+        for name, val in data['workflow_attributes'].items():
+            wf_type_id = _add_or_get_wf_attribute_type(name)
+            wf_attribute = WorkflowAttribute(workflow_id=workflow.id,
+                                             workflow_attribute_type_id=wf_type_id,
+                                             value=val)
+            wf_attributes_list.append(wf_attribute)
+        DB.session.add_all(wf_attributes_list)
+        DB.session.flush()
     DB.session.commit()
 
     resp = jsonify(workflow_id=workflow.id)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+def _add_or_get_wf_attribute_type(name: str) -> int:
+    try:
+        wf_attrib_type = WorkflowAttributeType(name=name)
+        DB.session.add(wf_attrib_type)
+        DB.session.commit()
+    except sqlalchemy.exc.IntegrityError:
+        DB.session.rollback()
+        query = """
+        SELECT id, name
+        FROM workflow_attribute_type
+        WHERE name = :name
+        """
+        wf_attrib_type = DB.session.query(WorkflowAttributeType)\
+            .from_statement(text(query)).params(name=name).one()
+
+    return wf_attrib_type.id
+
+
+def _upsert_wf_attribute(workflow_id: int, name: str, value: str):
+    wf_attrib_id = _add_or_get_wf_attribute_type(name)
+    insert_vals = insert(WorkflowAttribute).values(
+        workflow_id=workflow_id,
+        workflow_attribute_type_id=wf_attrib_id,
+        value=value
+        )
+
+    upsert_stmt = insert_vals.on_duplicate_key_update(
+        value=insert_vals.inserted.value,
+        status='U')
+
+    DB.session.execute(upsert_stmt)
+    DB.session.commit()
+
+
+@jsm.route('/workflow/<workflow_id>/workflow_attributes', methods=['PUT'])
+def update_workflow_attribute(workflow_id: int):
+    """ Add/update attributes for a workflow """
+    data = request.get_json()
+    attributes = data["workflow_attributes"]
+    if attributes:
+        for name, val in attributes.items():
+            _upsert_wf_attribute(workflow_id, name, val)
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return(resp)
 
 
 @jsm.route('/workflow_run', methods=['POST'])
@@ -452,7 +575,7 @@ def add_workflow_run():
 
     # refresh in case of race condition
     workflow = workflow_run.workflow
-    DB.session.refresh(workflow)  # TODO: consider refreshing with write lock
+    DB.session.refresh(workflow, with_for_update=True)
 
     # try to transition the workflow. Send back any competing workflow_run_id
     # and its status
@@ -524,7 +647,7 @@ def terminate_workflow_run(workflow_run_id: int):
                 'Workflow resume requested. Setting to K from status of: ',
                 task_instance.status
             ) as description,
-            UTC_TIMESTAMP as error_time
+            CURRENT_TIMESTAMP as error_time
         FROM task_instance
         JOIN task
             ON task_instance.task_id = task.id
@@ -545,7 +668,7 @@ def terminate_workflow_run(workflow_run_id: int):
             ON task_instance.task_id = task.id
         SET
             task_instance.status = 'K',
-            task_instance.status_date = UTC_TIMESTAMP
+            task_instance.status_date = CURRENT_TIMESTAMP
         WHERE
             task_instance.workflow_run_id = :workflow_run_id
             AND task.status IN :states
@@ -594,10 +717,11 @@ def log_executor_report_by(workflow_run_id: int):
         query = """
             UPDATE task_instance
             SET report_by_date = ADDTIME(
-                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
             WHERE
                 workflow_run_id = :workflow_run_id
-                AND executor_id in :executor_ids"""
+                AND executor_id in :executor_ids
+        """
         DB.session.execute(query, params)
         DB.session.commit()
 
@@ -697,7 +821,7 @@ def log_executor_id(task_instance_id: int):
         ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
     ti.executor_id = data['executor_id']
     ti.report_by_date = func.ADDTIME(
-        func.UTC_TIMESTAMP(),
+        func.now(),
         func.SEC_TO_TIME(data["next_report_increment"]))
     DB.session.commit()
 
@@ -731,7 +855,7 @@ def log_error_reconciler(task_instance_id: int):
             task_instance
         WHERE
             task_instance.id = :task_instance_id
-            AND task_instance.report_by_date <= UTC_TIMESTAMP()
+            AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
     """
     ti = DB.session.query(TaskInstance).from_statement(text(query)).params(
         task_instance_id=task_instance_id).one_or_none()
@@ -834,18 +958,25 @@ def get_run_status_and_latest_task(workflow_run_id: int):
         WHERE workflow_run.id = :workflow_run_id
     """
     aborted = False
-    status = DB.session.query(WorkflowRun, Task.status_date).from_statement(text(query)).\
+    status = DB.session.query(WorkflowRun, Task.status_date).from_statement(text(query)). \
         params(workflow_run_id=workflow_run_id).one()
     DB.session.commit()
-    time_since_status = datetime.utcnow() - status.status_date
+
+    # Get current time
+    current_time = datetime.strptime(get_time(DB.session), "%Y-%m-%d %H:%M:%S")
+    time_since_task_status = current_time - status.status_date
+    time_since_wfr_status = current_time - status.WorkflowRun.status_date
+
     # If the last task was more than 2 minutes ago, transition wfr to A state
-    if time_since_status > timedelta(minutes=2):
+    # Also check WorkflowRun status_date to avoid possible race condition where reaper checks tasks from a different WorkflowRun with the same workflow id
+    if time_since_task_status > timedelta(minutes=2) and time_since_wfr_status > timedelta(minutes=2):
         aborted = True
         status.WorkflowRun.transition("A")
         DB.session.commit()
     resp = jsonify(was_aborted=aborted)
     resp.status_code = StatusCodes.OK
     return resp
+
 
 @jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def log_wfr_heartbeat(workflow_run_id: int):
@@ -860,8 +991,9 @@ def log_wfr_heartbeat(workflow_run_id: int):
     params = {"workflow_run_id": int(workflow_run_id)}
     query = """
         UPDATE workflow_run
-        SET heartbeat_date = UTC_TIMESTAMP()
-        WHERE id = :workflow_run_id"""
+        SET heartbeat_date = CURRENT_TIMESTAMP()
+        WHERE id = :workflow_run_id
+    """
     DB.session.execute(query, params)
     DB.session.commit()
     resp = jsonify()
@@ -967,8 +1099,8 @@ def suspend_workflow(workflow_id: int):
     resp.status_code = StatusCodes.OK
     return resp
 
-# ############################## WORKER ROUTES ################################
 
+# ############################## WORKER ROUTES ################################
 @jsm.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
 def log_running(task_instance_id: int):
     """Log a task_instance as running
@@ -989,7 +1121,7 @@ def log_running(task_instance_id: int):
         ti.nodename = data['nodename']
     ti.process_group_id = data['process_group_id']
     ti.report_by_date = func.ADDTIME(
-        func.UTC_TIMESTAMP(), func.SEC_TO_TIME(data['next_report_increment']))
+        func.now(), func.SEC_TO_TIME(data['next_report_increment']))
     DB.session.commit()
 
     resp = jsonify(message=msg)
@@ -1022,15 +1154,16 @@ def log_ti_report_by(task_instance_id: int):
         query = """
                 UPDATE task_instance
                 SET report_by_date = ADDTIME(
-                    UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
+                    CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
                     executor_id = :executor_id
                 WHERE task_instance.id = :task_instance_id"""
     else:
         query = """
             UPDATE task_instance
             SET report_by_date = ADDTIME(
-                UTC_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
             WHERE task_instance.id = :task_instance_id"""
+
     DB.session.execute(query, params)
     DB.session.commit()
 
@@ -1058,15 +1191,6 @@ def log_usage(task_instance_id: int):
     if data.get('maxrss', None) is None:
         data['maxrss'] = '-1'
 
-    keys_to_attrs = {data.get('usage_str', None):
-                     task_instance_attribute.USAGE_STR,
-                     data.get('wallclock', None):
-                         task_instance_attribute.WALLCLOCK,
-                     data.get('cpu', None): task_instance_attribute.CPU,
-                     data.get('io', None): task_instance_attribute.IO,
-                     data.get('maxrss', None): task_instance_attribute.MAXRSS,
-                     data.get('maxpss', None): task_instance_attribute.MAXPSS}
-
     logger.debug("usage_str is {}, wallclock is {}, maxrss is {}, "
                  "maxpss is {}, cpu is {}, io is {}"
                  .format(data.get('usage_str', None),
@@ -1091,17 +1215,6 @@ def log_usage(task_instance_id: int):
         ti.io = data['io']
     DB.session.commit()
 
-    # TODO: figure out if we want this
-    # for k in keys_to_attrs:
-    #     logger.debug(
-    #         'The value of {kval} being set in the attribute table is {k}'.
-    #         format(kval=keys_to_attrs[k], k=k))
-    #     if k is not None:
-    #         ta = (TaskInstanceAttribute(
-    #               task_id=task_id, attribute_type=keys_to_attrs[k], value=k))
-    #         DB.session.add(ta)
-    #     else:
-    #         logger.debug('The value has not been set, nothing to upload')
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -1181,15 +1294,15 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
         if task_instance.status == status_id:
             # It was already in that state, just log it
             msg = f"Attempting to transition to existing state." \
-                f"Not transitioning task, tid= " \
-                f"{task_instance.id} from {task_instance.status} to " \
-                f"{status_id}"
+                  f"Not transitioning task, tid= " \
+                  f"{task_instance.id} from {task_instance.status} to " \
+                  f"{status_id}"
             logger.warning(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. Not transitioning task, " \
-                f"tid={task_instance.id}, from {task_instance.status} to " \
-                f"{status_id}"
+                  f"tid={task_instance.id}, from {task_instance.status} to " \
+                  f"{status_id}"
             logger.error(msg)
     except KillSelfTransition:
         msg = f"kill self, cannot transition " \
@@ -1198,8 +1311,8 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
         response = "kill self"
     except Exception as e:
         msg = f"General exception in _update_task_instance_state, " \
-            f"jid {task_instance}, transitioning to {task_instance}. " \
-            f"Not transitioning task. {e}"
+              f"jid {task_instance}, transitioning to {task_instance}. " \
+              f"Not transitioning task. {e}"
         log_and_raise(msg, logger)
 
     return response
@@ -1457,7 +1570,8 @@ def set_maxpss(executor_id: int, maxpss: int):
         resp = jsonify(message=None)
         resp.status_code = StatusCodes.OK
     except Exception as e:
-        msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id, error=str(e))
+        msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id,
+                                                                             error=str(e))
         logger.error(msg)
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR

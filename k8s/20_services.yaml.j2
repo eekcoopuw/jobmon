@@ -1,0 +1,106 @@
+
+# Traefik cluster IP. MetalLB will forward traffic to this service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: web
+      port: 80
+    - protocol: TCP
+      name: admin
+      port: 8080
+    - protocol: TCP
+      name: grafana
+      port: 3000
+  selector:
+    app: traefik
+
+# Query Service cluster IP. Used for communication between k8s deployments.
+# Eg traefik -> query service
+# Allows hostname "jobmon-query-service" to resolve inside k8s containers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobmon-query-service
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: web
+      port: 80
+  selector:
+    app: jobmon-query-service
+
+# State Manager cluster IP. Used for communication between k8s deployments.
+# Eg traefik -> state manager
+# Allows hostname "jobmon-state-manager" to resolve inside k8s containers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobmon-state-manager
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: web
+      port: 80
+  selector:
+    app: jobmon-state-manager
+
+# Viz Server cluster IP. Used for communication between k8s deployments.
+# Eg traefik -> viz server
+# Allows hostname "jobmon-vizualization-server" to resolve inside k8s containers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobmon-vizualization-server
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: web
+      port: 80
+  selector:
+    app: jobmon-vizualization-server
+
+# Influxdb cluster IP. Used for communication between k8s deployments.
+# Eg traefik -> influxdb and grafana -> influxdb
+# Allows hostname "influxdb" to resolve inside k8s containers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: influxdb
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: influxdb-http
+      port: 8086
+  selector:
+    app: influxdb
+
+# Influxdb cluster IP. Used for communication between k8s deployments.
+# Eg traefik -> grafana
+# Allows hostname "grafana" to resolve inside k8s containers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: grafana
+      port: 3000
+  selector:
+    app: grafana

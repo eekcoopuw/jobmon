@@ -1,0 +1,10 @@
+# Kubernetes namespace creation, only run if it doesn't exist
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app: {{ namespace }}
+  name: {{ namespace }}
+  annotations:
+    field.cattle.io/projectId: {{ rancherproject }}

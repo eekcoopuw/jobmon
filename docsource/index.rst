@@ -32,6 +32,8 @@ Table of Contents
     design_notes
     API Reference <modules>
     future_work
+    architecture
+    kubernetes_deployment
 
 
 Indices and tables
