@@ -10,5 +10,4 @@ CREATE TABLE `workflow_attribute` (
   `value` varchar(255) DEFAULT NULL,
   `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
   PRIMARY KEY (`workflow_id`, `workflow_attribute_type_id`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
-;
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8;

@@ -9,5 +9,4 @@ CREATE TABLE `workflow_attribute_type` (
   `name` varchar(255) DEFAULT NULL,
   CONSTRAINT unique_names UNIQUE (`name`),
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8
-;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
