@@ -109,3 +109,7 @@ class ReaperWorkflowRun(object):
         else:
             message = ""
         return message
+
+    def __repr__(self):
+        return (f"ReaperWorkflowRun(workflow_run_id={self.workflow_run_id}, "
+                f"workflow_id={self.workflow_id}, heartbeat_date={self.heartbeat_date}")
