@@ -3,7 +3,6 @@ import sys
 from unittest.mock import patch
 import pkg_resources
 import pytest
-import pytest_mproc
 
 
 import jobmon.client.execution.worker_node.execution_wrapper

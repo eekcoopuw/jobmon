@@ -1,5 +1,6 @@
 from datetime import datetime
 from http import HTTPStatus as StatusCodes
+import logging
 from time import sleep
 from typing import List
 
@@ -7,7 +8,6 @@ from jobmon import __version__
 from jobmon.client import shared_requester
 from jobmon.client.requests.requester import Requester
 from jobmon.exceptions import InvalidResponse
-from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
 from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 
@@ -21,8 +21,9 @@ class WorkflowReaper(object):
                  wf_notification_sink=None,
                  requester: Requester = shared_requester):
 
-        logger.debug(logging.myself())
         config = WorkflowReaperConfig.from_defaults()
+
+        logger.info(f"WorkflowReaper initializing with: {config}")
 
         # Set poll interval and loss threshold to config ones if nothing passed in
         self._poll_interval_minutes = (
@@ -42,11 +43,10 @@ class WorkflowReaper(object):
     def monitor_forever(self) -> None:
         """The main part of the Worklow Reaper. Check if workflow runs should
         be in ABORTED, SUSPENDED, or ERROR state. Wait and do it again."""
-        logger.debug(logging.myself())
+        logger.info("Monitoring forever...")
+
         if self._wf_notification_sink is not None:
-            self._wf_notification_sink(
-                msg=f"Workflow Reaper v{__version__} is alive"
-            )
+            self._wf_notification_sink(msg=f"Workflow Reaper v{__version__} is alive")
         try:
             while True:
                 self._suspended_state()
@@ -58,13 +58,13 @@ class WorkflowReaper(object):
 
     def _check_by_given_status(self, status: List[str]) -> List[ReaperWorkflowRun]:
         """Return all workflows that are in a specific state"""
-        logger.debug(logging.myself())
-        app_route = f"/workflow_run_status"
+        logger.info(f"Checking the database for workflow runs of status: {status}")
+
+        app_route = "/workflow_run_status"
         return_code, result = self._requester.send_request(
             app_route=app_route,
             message={'status': status},
             request_type='get')
-
         if return_code != StatusCodes.OK:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                                   f'request through route {app_route}. Expected '
@@ -72,13 +72,14 @@ class WorkflowReaper(object):
         workflow_runs = []
         for wfr in result["workflow_runs"]:
             workflow_runs.append(ReaperWorkflowRun.from_wire(wfr, self._requester))
+
+        if workflow_runs:
+            logger.info(f"Found workflow runs: {workflow_runs}")
         return workflow_runs
 
     def _suspended_state(self) -> None:
         """Check if a workflow_run is in H or C state, if it is transition
         the associated workflow to SUSPENDED state"""
-        logger.debug(logging.myself())
-
         # Get workflow_runs in H and C state
         workflow_runs = self._check_by_given_status(["C", "H"])
 
@@ -115,7 +116,6 @@ class WorkflowReaper(object):
 
     def _error_state(self) -> None:
         """Get lost workflows and register them as error"""
-        logger.debug(logging.myself())
 
         lost_wfrs = self._get_lost_workflow_runs()
 
@@ -130,7 +130,6 @@ class WorkflowReaper(object):
     def _aborted_state(self, workflow_run_id: int = None) -> None:
         """Get all workflow runs in G state and validate if they should be in
         A state"""
-        logger.debug(logging.myself())
 
         # Get all wfrs in G state
         workflow_runs = self._check_by_given_status(["G"])
