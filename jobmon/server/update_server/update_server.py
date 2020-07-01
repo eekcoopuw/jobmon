@@ -555,7 +555,7 @@ def update_workflow_attribute(workflow_id: int):
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
-    return(resp)
+    return resp
 
 
 @jsm.route('/workflow_run', methods=['POST'])
@@ -724,6 +724,37 @@ def log_executor_report_by(workflow_run_id: int):
         """
         DB.session.execute(query, params)
         DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/log_executor_error', methods=['POST'])
+def state_and_log_by_executor_id():
+    logger.info(logging.myself())
+    data = request.get_json()
+    ids_and_errors = data["executor_ids"]
+    for key in ids_and_errors:
+        query = """
+            SELECT
+                task_instance.*
+            FROM
+                task_instance
+            WHERE
+                task_instance.executor_id = :executor_id"""
+        task_instance = DB.session.query(TaskInstance).from_statement(text(query)).params(
+            executor_id=key).one()
+        DB.session.commit()
+
+        error_message = ids_and_errors[key]
+
+        try:
+            resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, error_message)
+        except sqlalchemy.exc.OperationalError:
+            # modify the error message and retry
+            new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+            resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, new_msg)
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK

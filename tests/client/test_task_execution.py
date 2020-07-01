@@ -45,7 +45,7 @@ def test_exceed_runtime_task(db_cfg, client_env):
                                executor_class="SGEExecutor")
     executor_parameters = ExecutorParameters(m_mem_free='1G', max_runtime_seconds=5,
                                              num_cores=1, queue='all.q',
-                                             executor_class="SGElExecutor")
+                                             executor_class="SGEExecutor")
     task = BashTask(command="sleep 10", name=name, executor_parameters=executor_parameters,
                     executor_class="SGEExecutor", max_attempts=1)
     workflow.add_tasks([task])

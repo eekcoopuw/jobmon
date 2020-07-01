@@ -193,17 +193,37 @@ class TaskInstanceScheduler:
     def _log_executor_report_by(self) -> None:
         next_report_increment = (
             self.config.task_heartbeat_interval * self.config.report_by_buffer)
+
+        try:
+            errored_jobs = self.executor.get_errored_jobs()
+        except NotImplementedError:
+            logger.warning(f"{self.executor.__class__.__name__} does not implement "
+                           f"errored_jobs methods.")
+            errored_jobs = {}
+
+        if errored_jobs:
+            app_route = f'/log_executor_error'
+            return_code, response = shared_requester.send_request(
+                app_route=app_route,
+                message={'executor_ids': errored_jobs},
+                request_type='post')
+            if return_code != StatusCodes.OK:
+                raise InvalidResponse(
+                    f'Unexpected status code {return_code} from POST '
+                    f'request through route {app_route}. Expected '
+                    f'code 200. Response content: {response}'
+                )
+
         try:
             actual = self.executor.get_actual_submitted_or_running()
         except NotImplementedError:
             logger.warning(
                 f"{self.executor.__class__.__name__} does not implement "
-                "reconciliation methods. If a job instance does not "
+                "reconciliation methods. If a task instance does not "
                 "register a heartbeat from a worker process in "
-                f"{next_report_increment}s the job instance will be "
+                f"{next_report_increment}s the task instance will be "
                 "moved to error state.")
             actual = []
-
         if actual:
             app_route = (
                 f'/workflow_run/{self.workflow_run_id}/log_executor_report_by')

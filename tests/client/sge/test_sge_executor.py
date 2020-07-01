@@ -421,7 +421,8 @@ def test_reconciler_sge_new_heartbeats(db_cfg, client_env):
 
 @pytest.mark.integration_sge
 def test_no_suitable_queue(db_cfg, client_env):
-    """This test """
+    """This test submits a job with more memory than any cluster queue can handle. It then
+    checks that it was moved to all.q with 750gb of memory."""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.api import BashTask
     from jobmon.client.execution.strategies.sge.sge_queue import SGE_ALL_Q
@@ -453,3 +454,47 @@ def test_no_suitable_queue(db_cfg, client_env):
     assert res[0] == "W"
 
     SGE_ALL_Q.max_memory_gb = 750
+
+
+@pytest.mark.integration_sge
+def test_eqw_restarting(db_cfg, client_env):
+    """This test creates a task that will be moved in to eqw state by the cluster. It then
+    checks that the task instance changes state."""
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
+    from jobmon.client.api import BashTask
+
+    workflow = UnknownWorkflow(project="proj_scicomp", executor_class="SGEExecutor",
+                               seconds_until_timeout=3000, stdout="/ihme/homes/mm7148",
+                               stderr="/ihme/homes/mm7148")
+
+    task1 = BashTask(command="sleep 10",
+                     executor_class="SGEExecutor",
+                     name="test_eqw_restarting",
+                     num_cores=1,
+                     max_runtime_seconds=3000,
+                     m_mem_free="1G",
+                     max_attempts=1,
+                     queue="all.q")
+
+    workflow.add_tasks([task1])
+    workflow.run()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = """
+            SELECT task_instance.status
+            FROM task_instance
+            WHERE task_instance.task_id = {}""".format(task1.task_id)
+        res = DB.session.execute(query).fetchone()
+        DB.session.commit()
+    assert res[0] == "U"
+
+    with app.app_context():
+        query = """
+            SELECT task.status
+            FROM task
+            WHERE task.id = {}""".format(task1.task_id)
+        res = DB.session.execute(query).fetchone()
+        DB.session.commit()
+    assert res[0] == "F"
