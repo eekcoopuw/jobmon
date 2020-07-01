@@ -316,6 +316,8 @@ def add_dag():
         # now get a lock to add the edges
         DB.session.refresh(dag, with_for_update=True)
 
+        edges_to_add = []
+
         for node_id, edges in nodes_and_edges.items():
             logger.debug(f'Edges: {edges}')
 
@@ -333,8 +335,10 @@ def add_dag():
                         node_id=node_id,
                         upstream_nodes=upstream_nodes,
                         downstream_nodes=downstream_nodes)
-            DB.session.add(edge)
-            DB.session.commit()
+            edges_to_add.append(edge)
+
+        DB.session.bulk_save_objects(edges_to_add)
+        DB.session.commit()
 
     except sqlalchemy.exc.IntegrityError:
         DB.session.rollback()
