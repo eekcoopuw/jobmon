@@ -148,7 +148,7 @@ def add_task_template():
             FROM task_template
             WHERE
                 tool_version_id = :tool_version_id
-                name = :name
+                AND name = :name
         """
         tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
             tool_version_id=data["tool_version_id"],
