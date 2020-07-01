@@ -9,10 +9,7 @@ from nox.sessions import Session
 src_locations = ["jobmon"]
 test_locations = ["tests"]
 
-if sys.platform == "darwin":
-    python = "3.8"
-else:
-    python = "3.7"
+python = "3.7"
 
 
 @nox.session(python=python, venv_backend="conda")
@@ -22,7 +19,7 @@ def tests(session: Session) -> None:
     session.conda_install("mysqlclient")
     if python == "3.7":
         session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
-    session.install("pytest", "pytest-mproc", "mock")
+    session.install("pytest", "pytest-mproc<=3.2.9", "mock")
     session.install("-r", "requirements.txt")
     session.install("-e", ".")
 
