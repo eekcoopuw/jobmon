@@ -59,7 +59,7 @@ def ephemera():
         "DB_NAME": db_conn_dict["db"]
     }
 
-    return cfg
+    yield cfg
 
 
 @pytest.fixture(scope='session')

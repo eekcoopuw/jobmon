@@ -1,13 +1,13 @@
 from __future__ import annotations
 from datetime import datetime, timedelta
 from http import HTTPStatus as StatusCodes
+import logging
 
 from jobmon import __version__
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.requests.requester import Requester
 from jobmon.serializers import SerializeWorkflowRun
-from jobmon.server.server_logging import jobmonLogging as logging
 
 
 logger = logging.getLogger(__file__)
