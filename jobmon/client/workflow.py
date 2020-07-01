@@ -235,8 +235,8 @@ class Workflow(object):
             scheduler_response_wait_timeout=180):
 
         if not hasattr(self, "_executor"):
-            logger.warning("using default project: proj_general")
-            self.set_executor(project="proj_general")
+            logger.warning("using default project: ihme_general")
+            self.set_executor(project="ihme_general")
         logger.debug("executor: {}".format(self._executor))
 
         # bind to database
