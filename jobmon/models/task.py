@@ -97,19 +97,19 @@ class Task(DB.Model):
         self.status = new_state
         self.status_date = func.now()
         logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        logger.info("transite job status to {s} at {t}".format(s=new_state, t=self.status_date))
+        logger.info("Transition task status to {s} at {t}".format(s=new_state, t=self.status_date))
 
     def transition_after_task_instance_error(self, job_instance_error_state):
-        """Transition the Job to an error state"""
+        """Transition the task to an error state"""
         self.transition(TaskStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
-            logger.debug("ZZZ GIVING UP Job {}".format(self.id))
+            logger.debug("ZZZ GIVING UP Task {}".format(self.id))
             self.transition(TaskStatus.ERROR_FATAL)
         else:
             if job_instance_error_state == TaskInstanceStatus.RESOURCE_ERROR:
                 self.transition(TaskStatus.ADJUSTING_RESOURCES)
             else:
-                logger.debug("ZZZ retrying Job {}".format(self.id))
+                logger.debug("ZZZ retrying Task {}".format(self.id))
                 self.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
 
     def _last_instance_procinfo(self):
@@ -121,7 +121,7 @@ class Task(DB.Model):
             return (None, None)
 
     def _validate_transition(self, new_state):
-        """Ensure the Job state transition is valid"""
+        """Ensure the task state transition is valid"""
         if (self.status, new_state) not in self.valid_transitions:
             raise InvalidStateTransition('Task', self.id, self.status,
                                          new_state)

@@ -223,6 +223,9 @@ class Executor:
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
         raise RemoteExitInfoNotAvailable
 
+    def get_errored_jobs(self):
+        raise NotImplementedError
+
     def get_actual_submitted_or_running(self) -> List[int]:
         raise NotImplementedError
 

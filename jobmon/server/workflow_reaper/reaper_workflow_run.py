@@ -64,8 +64,8 @@ class ReaperWorkflowRun(object):
                 f'code 200. Response content: {response}'
             )
         # Send a message to slack about the transitions
-        message = f"{__version__} Workflow Reaper Transition" \
-                  f"Workflow #{self.workflow_id} transitioned to FAILED state" \
+        message = f"{__version__} Workflow Reaper transitioned " \
+                  f"Workflow #{self.workflow_id} to FAILED state. " \
                   f"Workflow Run #{self.workflow_run_id} transitioned to ERROR state"
         logger.info(message)
         return message
@@ -82,8 +82,8 @@ class ReaperWorkflowRun(object):
                                   f'request through route {app_route}. Expected '
                                   f'code 200. Response content: {response}')
         # Notify Slack about the workflow transition
-        message = f"{__version__} Workflow Reaper Transition" \
-                  f"Workflow #{self.workflow_id} transitioned to SUSPENDED state"
+        message = f"{__version__} Workflow Reaper transitioned " \
+                  f"Workflow #{self.workflow_id} to SUSPENDED state"
         logger.info(message)
         return message
 
@@ -102,8 +102,8 @@ class ReaperWorkflowRun(object):
                                   f'code 200. Response content: {result}')
         if result["was_aborted"]:
             # Send a message to Slack saying that the transition happened
-            message = f"{__version__} Workflow Reaper Transition" \
-                      f"Workflow #{self.workflow_id} transitioned to ABORTED state" \
+            message = f"{__version__} Workflow Reaper transitioned " \
+                      f"Workflow #{self.workflow_id} to ABORTED state." \
                       f"Workflow Run #{self.workflow_run_id} transitioned to ABORTED state"
             logger.info(message)
         else:

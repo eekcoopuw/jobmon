@@ -461,7 +461,7 @@ def test_workflow_attribute(db_cfg, client_env):
         wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
             join(WorkflowAttribute, WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
             filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
-    assert set(wf_attributes) ==  set([('location_id', '5'), ('year', '2019'), ('sex', '1')])
+    assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '1')])
     
     # Add and update attributes
     wf1.add_attributes({'age_group_id': 1, 'sex': 2})
@@ -470,7 +470,7 @@ def test_workflow_attribute(db_cfg, client_env):
         wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
             join(WorkflowAttribute, WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
             filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
-    assert set(wf_attributes) ==  set([('location_id', '5'), ('year', '2019'), ('sex', '2'), ('age_group_id', '1')])
+    assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '2'), ('age_group_id', '1')])
     
     # Test workflow w/o attributes
     wf2 = UnknownWorkflow("test_empty_wf_attributes", executor_class="SequentialExecutor")

@@ -1,3 +1,4 @@
+from http import HTTPStatus as StatusCodes
 import os
 from subprocess import check_output
 from typing import List, Tuple, Dict, Optional
@@ -11,6 +12,10 @@ from jobmon.client.execution.strategies.sge import sge_utils
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.models.constants import qsub_attribute
+from jobmon.client import shared_requester
+from jobmon.exceptions import InvalidResponse
+from jobmon.models.task_instance import TaskInstanceStatus
+
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +85,21 @@ class SGEExecutor(Executor):
             working_dir=self.working_dir)
         logger.info(qsub_command)
         return self._execute_sge(qsub_command)
+
+    def get_errored_jobs(self):
+        """Get all jobs that are in EQW and return their executor ids and error messages.
+        Also, qdel the jobs."""
+        qstat_dict = sge_utils.qstat()
+        # qdel Eqw jobs so they get restarted naturally
+        exec_ids = {}
+        for job_id, info in qstat_dict.items():
+            if info["status"] == "Eqw":
+                resp = sge_utils.qstat_details(job_id)
+                error_reason = resp[job_id]["error reason"]
+                exec_ids[job_id] = error_reason
+        if exec_ids:
+            sge_utils.qdel(list(exec_ids.keys()))
+        return exec_ids
 
     def get_actual_submitted_or_running(self) -> List[int]:
         qstat_dict = sge_utils.qstat()
