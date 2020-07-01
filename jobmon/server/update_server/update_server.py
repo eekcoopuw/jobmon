@@ -316,6 +316,8 @@ def add_dag():
         # now get a lock to add the edges
         DB.session.refresh(dag, with_for_update=True)
 
+        edges_to_add = []
+
         for node_id, edges in nodes_and_edges.items():
             logger.debug(f'Edges: {edges}')
 
@@ -333,8 +335,10 @@ def add_dag():
                         node_id=node_id,
                         upstream_nodes=upstream_nodes,
                         downstream_nodes=downstream_nodes)
-            DB.session.add(edge)
-            DB.session.commit()
+            edges_to_add.append(edge)
+
+        DB.session.bulk_save_objects(edges_to_add)
+        DB.session.commit()
 
     except sqlalchemy.exc.IntegrityError:
         DB.session.rollback()
@@ -555,7 +559,7 @@ def update_workflow_attribute(workflow_id: int):
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
-    return(resp)
+    return resp
 
 
 @jsm.route('/workflow_run', methods=['POST'])
@@ -724,6 +728,37 @@ def log_executor_report_by(workflow_run_id: int):
         """
         DB.session.execute(query, params)
         DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jsm.route('/log_executor_error', methods=['POST'])
+def state_and_log_by_executor_id():
+    logger.info(logging.myself())
+    data = request.get_json()
+    ids_and_errors = data["executor_ids"]
+    for key in ids_and_errors:
+        query = """
+            SELECT
+                task_instance.*
+            FROM
+                task_instance
+            WHERE
+                task_instance.executor_id = :executor_id"""
+        task_instance = DB.session.query(TaskInstance).from_statement(text(query)).params(
+            executor_id=key).one()
+        DB.session.commit()
+
+        error_message = ids_and_errors[key]
+
+        try:
+            resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, error_message)
+        except sqlalchemy.exc.OperationalError:
+            # modify the error message and retry
+            new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+            resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, new_msg)
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK

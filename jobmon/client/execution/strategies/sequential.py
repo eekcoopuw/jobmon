@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import os
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import (Executor,
