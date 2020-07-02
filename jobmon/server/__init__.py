@@ -1,6 +1,3 @@
-import sys
-import logging
-
 from flask import Flask
 from flask_cors import CORS
 
@@ -18,10 +15,7 @@ def create_app(config=None):
     from jobmon.models import DB
     from jobmon.server.query_server.query_server import jqs
     from jobmon.server.update_server.update_server import jsm
-    from jobmon.server.visualization_server.visualization_server \
-        import jvs
-
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    from jobmon.server.visualization_server.visualization_server import jvs
 
     app = Flask(__name__)
     if config is None:
