@@ -1,8 +1,8 @@
 from time import sleep, time
+import logging
 import requests
 from flask_sqlalchemy import SQLAlchemy
 
-from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon import config
 from jobmon.server.integration.qpid.maxpss_queue import MaxpssQ
 from jobmon.server import app

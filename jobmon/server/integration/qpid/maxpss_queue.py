@@ -1,6 +1,6 @@
 import queue
 
-from jobmon.server.server_logging import jobmonLogging as logging
+import logging
 
 logger = logging.getLogger(__name__)
 
