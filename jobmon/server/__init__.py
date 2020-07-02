@@ -15,8 +15,7 @@ def create_app(config=None):
     from jobmon.models import DB
     from jobmon.server.query_server.query_server import jqs
     from jobmon.server.update_server.update_server import jsm
-    from jobmon.server.visualization_server.visualization_server \
-        import jvs
+    from jobmon.server.visualization_server.visualization_server import jvs
 
     app = Flask(__name__)
     if config is None:

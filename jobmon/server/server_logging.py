@@ -1,10 +1,9 @@
 import logging
-import socket
 import inspect
 import sys
 from typing import Any
+
 from flask import Flask
-from logging.handlers import SysLogHandler
 
 from jobmon import config
 
@@ -12,8 +11,7 @@ from jobmon import config
 class _LogLevelSingleton:
     __instance = None
 
-    def __init__(self, log_level: int = logging.INFO,
-                 log_level_flask=logging.WARNING):
+    def __init__(self, log_level: int = logging.INFO, log_level_flask=logging.WARNING):
         if _LogLevelSingleton.__instance is None:
             _LogLevelSingleton.__instance = self
             self.log_level = log_level
@@ -55,12 +53,10 @@ class jobmonLogging:
 
     TAG: str = "JOBMON_SERVER"
 
-    _format: str = TAG + ': %(asctime)s [%(name)-12s] ' + \
-                   config.jobmon_version + \
-                   ' %(module)s %(levelname)-8s %(threadName)s: %(message)s'
-    _syslogAttached: bool = config.use_rsyslog
-    # Flask prints too many logs at INFO level, so set it's level separately
+    _format: str = TAG + ': %(asctime)s [%(name)-12s] ' + config.jobmon_version + \
+        ' %(module)s %(levelname)-8s %(threadName)s: %(message)s'
 
+    # Flask prints too many logs at INFO level, so set it's level separately
     @staticmethod
     def myself():
         """
@@ -75,27 +71,18 @@ class jobmonLogging:
     def createFlaskLoggers():
         # Flask logger
         _flask_logger = Flask(__name__).logger
-        _flask_logger.setLevel(
-            _LogLevelSingleton.get_instance().get_log_level())
+        _flask_logger.setLevel(_LogLevelSingleton.get_instance().get_log_level())
+
         # werkzeug logger
         _werkzeug_logger = logging.getLogger("werkzeug")
         hs = logging.StreamHandler(sys.stdout)
         hs.setLevel(_LogLevelSingleton.get_instance().get_log_level())
         formatter = logging.Formatter(jobmonLogging._format)
         hs.setFormatter(formatter)
+
         # hs.setLevel(LogLevelSingleton.get_instance().get_log_level_flask())
         _flask_logger.addHandler(hs)
         _werkzeug_logger.addHandler(hs)
-        if jobmonLogging.isSyslogAttached():
-            p = socket.SOCK_DGRAM
-            if config.rsyslog_protocol == "TCP":
-                p = socket.SOCK_STREAM
-            jobmonLogging.attach_syslog_to_logger(
-                _flask_logger, config.rsyslog_host, config.rsyslog_port, p,
-                _LogLevelSingleton.get_instance().get_log_level())
-            jobmonLogging.attach_syslog_to_logger(
-                _werkzeug_logger, config.rsyslog_host, config.rsyslog_port, p,
-                _LogLevelSingleton.get_instance().get_log_level())
 
         # use different handles for sqlalchemy
         _sqlalchemy_logger = logging.getLogger('sqlalchemy')
@@ -104,33 +91,17 @@ class jobmonLogging:
         formatter = logging.Formatter(jobmonLogging._format)
         hs.setFormatter(formatter)
         _sqlalchemy_logger.addHandler(hs)
-        if jobmonLogging.isSyslogAttached():
-            p = socket.SOCK_DGRAM
-            if config.rsyslog_protocol == "TCP":
-                p = socket.SOCK_STREAM
-            jobmonLogging.attach_syslog_to_logger(
-                _sqlalchemy_logger, config.rsyslog_host, config.rsyslog_port,
-                p, _LogLevelSingleton.get_instance().get_log_level_flask())
 
     @staticmethod
     def createLoggers():
         root_logger = logging.getLogger("jobmon.server")
         # docker log handler
-        _handler = logging.StreamHandler()
+        _handler = logging.StreamHandler(sys.stdout)
         _handler.setLevel(_LogLevelSingleton.get_instance().get_log_level())
         formatter = logging.Formatter(jobmonLogging._format)
         _handler.setFormatter(formatter)
         root_logger.addHandler(_handler)
         root_logger.debug(f"Log level set to {jobmonLogging.getLevelName()}")
-        # syslog handler
-        if jobmonLogging.isSyslogAttached():
-            root_logger.info("Attach initial rsyslog")
-            p = socket.SOCK_DGRAM
-            if config.rsyslog_protocol == "TCP":
-                p = socket.SOCK_STREAM
-            jobmonLogging.attach_syslog_to_logger(
-                root_logger, config.rsyslog_host, config.rsyslog_port, p,
-                _LogLevelSingleton.get_instance().get_log_level())
         jobmonLogging.createFlaskLoggers()
 
     @staticmethod
@@ -153,8 +124,7 @@ class jobmonLogging:
         root_logger.warning("Log level set to " + jobmonLogging.getLevelName())
         root_logger.setLevel(level)
         # exclue sqlalchemy logger
-        jobmonLogging.setFlaskLogLevel(
-            _LogLevelSingleton.get_instance().get_log_level_flask())
+        jobmonLogging.setFlaskLogLevel(_LogLevelSingleton.get_instance().get_log_level_flask())
 
     @staticmethod
     def getlogLevel() -> int:
@@ -168,13 +138,11 @@ class jobmonLogging:
 
     @staticmethod
     def getLevelName() -> str:
-        return logging.getLevelName(
-            _LogLevelSingleton.get_instance().get_log_level())
+        return logging.getLevelName(_LogLevelSingleton.get_instance().get_log_level())
 
     @staticmethod
     def getFlaskLevelName() -> str:
-        return logging.getLevelName(
-            _LogLevelSingleton.get_instance().get_log_level_flask())
+        return logging.getLevelName(_LogLevelSingleton.get_instance().get_log_level_flask())
 
     @staticmethod
     def getLogger(name: str = __file__) -> logging.Logger:
@@ -188,33 +156,3 @@ class jobmonLogging:
         h.setFormatter(formatter)
         h.setLevel(l)
         logger.addHandler(h)
-
-    @staticmethod
-    def attach_syslog_to_logger(logger, host: str, port: int,
-                                socktype=socket.SOCK_DGRAM,
-                                l: int = logging.NOTSET):
-        logger.debug(jobmonLogging.myself())
-        logger.debug(jobmonLogging.logParameter("host", host))
-        logger.debug(jobmonLogging.logParameter("port", port))
-        logger.debug(jobmonLogging.logParameter("socktype", socktype))
-        logger.debug(jobmonLogging.logParameter("l", l))
-        h = SysLogHandler(address=(host, port), socktype=socktype)
-        h.setLevel(_LogLevelSingleton.get_instance().get_log_level())
-        jobmonLogging.attachHandler(logger, h, l)
-        if socktype == socket.SOCK_DGRAM:
-            logger.debug(
-                "UDP syslog handler {h}:{p} attached".format(h=host, p=port))
-        else:
-            logger.debug(
-                "TCP syslog handler {h}:{p} attached".format(h=host, p=port))
-        jobmonLogging._syslogAttached = True
-
-    @staticmethod
-    def attachSyslog(host: str, port: int, socktype=socket.SOCK_DGRAM,
-                     l: int = logging.DEBUG):
-        jobmonLogging.attach_syslog_to_logger(logging.getLogger(), host, port,
-                                              socktype, l)
-
-    @staticmethod
-    def isSyslogAttached():
-        return jobmonLogging._syslogAttached

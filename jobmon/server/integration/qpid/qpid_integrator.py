@@ -1,8 +1,8 @@
 from time import sleep, time
+import logging
 import requests
 from flask_sqlalchemy import SQLAlchemy
 
-from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon import config
 from jobmon.server.integration.qpid.maxpss_queue import MaxpssQ
 from jobmon.server import app
@@ -67,6 +67,7 @@ def _get_completed_task_instance(starttime: float, session):
     session.close()
     for r in rs:
         MaxpssQ().put(int(r[0]))
+
 
 def maxpss_forever():
     """A never stop method running in a thread to constantly query the maxpss value from qpid for completed jobmon jobs.
