@@ -68,6 +68,7 @@ def _get_completed_task_instance(starttime: float, session):
     for r in rs:
         MaxpssQ().put(int(r[0]))
 
+
 def maxpss_forever():
     """A never stop method running in a thread to constantly query the maxpss value from qpid for completed jobmon jobs.
        If the maxpss is not found in qpid, put the execution id back to the queue.
