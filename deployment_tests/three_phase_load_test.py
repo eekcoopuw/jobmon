@@ -33,25 +33,29 @@ def three_phase_load_test(n_jobs: int) -> None:
     os.chmod(command, st.st_mode | stat.S_IXUSR)
 
     tier1 = []
+    counter = 0
     # First Tier
     for i in range(n_jobs):
+        counter += 1
         sleep_time = random.randint(30, 41)
-        tier_1_task = BashTask(f"{command} {sleep_time} {i} {wfid}", num_cores=1)
+        tier_1_task = BashTask(f"{command} {sleep_time} {counter} {wfid}", num_cores=1)
         tier1.append(tier_1_task)
 
     tier2 = []
     # Second Tier, depend on 1 tier 1 task
     for i in range(n_jobs * 3):
+        counter += 1
         sleep_time = random.randint(30, 41)
-        tier_2_task = BashTask(f"{command} {sleep_time} {i} {wfid}",
+        tier_2_task = BashTask(f"{command} {sleep_time} {counter} {wfid}",
                                upstream_tasks=[tier1[(i % n_jobs)]], num_cores=1)
         tier2.append(tier_2_task)
 
     tier3 = []
     # Third Tier, depend on 3 tier 2 tasks
     for i in range(n_jobs):
+        counter += 1
         sleep_time = random.randint(30, 41)
-        tier_3_task = BashTask(f"{command} {sleep_time} {i} {wfid}",
+        tier_3_task = BashTask(f"{command} {sleep_time} {counter} {wfid}",
                                upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
                                                tier2[(i + (2 * n_jobs))]],
                                num_cores=1)
