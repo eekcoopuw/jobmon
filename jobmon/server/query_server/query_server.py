@@ -420,7 +420,6 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
         WHERE
             task.workflow_id = :workflow_id
             AND task.status = :task_status
-        ORDER BY task.id
         LIMIT :n_queued_jobs"""
     tasks = DB.session.query(Task).from_statement(text(query)).params(
         workflow_id=workflow_id,
