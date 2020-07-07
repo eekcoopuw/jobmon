@@ -20,8 +20,6 @@ def create_app(config=None):
     from jobmon.server.update_server.update_server import jsm
     from jobmon.server.visualization_server.visualization_server import jvs
 
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-
     app = Flask(__name__)
     if config is None:
         config = ServerConfig.from_defaults()

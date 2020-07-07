@@ -1,9 +1,9 @@
 from http import HTTPStatus as StatusCodes
 import os
 
-from datetime import datetime, timedelta
 from flask import jsonify, request, Blueprint
 from sqlalchemy.sql import text
+from sqlalchemy.orm import contains_eager
 from typing import Dict
 
 from jobmon.models import DB
@@ -82,8 +82,9 @@ def get_tool(tool_name: str):
             tool
         WHERE
             name = :tool_name"""
-    tool = DB.session.query(Tool).from_statement(
-        text(query)).params(tool_name=tool_name).one_or_none()
+    tool = DB.session.query(Tool).from_statement(text(query)).params(
+        tool_name=tool_name
+    ).one_or_none()
     DB.session.commit()
     if tool:
         tool = tool.to_wire_as_client_tool()
@@ -103,8 +104,9 @@ def get_tool_versions(tool_id: int):
             tool_version
         WHERE
             tool_id = :tool_id"""
-    tool_versions = DB.session.query(ToolVersion).from_statement(
-        text(query)).params(tool_id=tool_id).all()
+    tool_versions = DB.session.query(ToolVersion).from_statement(text(query)).params(
+        tool_id=tool_id
+    ).all()
     DB.session.commit()
     tool_versions = [t.to_wire_as_client_tool_version() for t in tool_versions]
     resp = jsonify(tool_versions=tool_versions)
@@ -120,16 +122,17 @@ def get_task_template():
     logger.debug(tool_version_id)
 
     query = """
-    SELECT
-        task_template.*
-    FROM task_template
-    WHERE
-        tool_version_id = :tool_version_id
-        AND name = :name
+        SELECT
+            task_template.*
+        FROM task_template
+        WHERE
+            tool_version_id = :tool_version_id
+            AND name = :name
     """
     tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
         tool_version_id=tool_version_id,
-        name=name).one_or_none()
+        name=name
+    ).one_or_none()
     if tt is not None:
         task_template_id = tt.id
     else:
@@ -150,19 +153,19 @@ def get_task_template_version(task_template_id: int):
 
     # get task template version object
     query = """
-    SELECT
-        task_template_version.*
-    FROM task_template_version
-    WHERE
-        task_template_id = :task_template_id
-        AND arg_mapping_hash = :arg_mapping_hash
-        AND command_template = :command_template
+        SELECT
+            task_template_version.*
+        FROM task_template_version
+        WHERE
+            task_template_id = :task_template_id
+            AND arg_mapping_hash = :arg_mapping_hash
+            AND command_template = :command_template
     """
-    ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query))\
-        .params(
+    ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
             task_template_id=task_template_id,
             command_template=command_template,
-            arg_mapping_hash=arg_mapping_hash).one_or_none()
+            arg_mapping_hash=arg_mapping_hash
+    ).one_or_none()
 
     if ttv is not None:
         wire_obj = ttv.to_wire_as_client_task_template_version()
@@ -310,7 +313,8 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
 
     res = DB.session.query(Workflow.task_hash, Workflow.tool_version_id,
                            Dag.hash).from_statement(text(query)).params(
-        workflow_args_hash=workflow_args_hash).all()
+        workflow_args_hash=workflow_args_hash
+    ).all()
     DB.session.commit()
     res = [(row.task_hash, row.tool_version_id, row.hash) for row in res]
     resp = jsonify(matching_workflows=res)
@@ -336,7 +340,8 @@ def workflow_run_is_terminated(workflow_run_id: int):
             )
     """
     res = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_id=workflow_run_id).one_or_none()
+        workflow_run_id=workflow_run_id
+    ).one_or_none()
     DB.session.commit()
 
     if res is not None:
@@ -369,8 +374,9 @@ def get_active_workflow_runs() -> Dict:
         WHERE
             workflow_run.status in :workflow_run_status
     """
-    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query))\
-        .params(workflow_run_status=request.args.getlist('status')).all()
+    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+        workflow_run_status=request.args.getlist('status')
+    ).all()
     DB.session.commit()
     workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
     resp = jsonify(workflow_runs=workflow_runs)
@@ -390,13 +396,25 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
     Args:
         last_sync (datetime): time since when to get tasks
     """
+    # <usertablename>_<columnname>.
 
     # If we want to prioritize by task or workflow level it would be done in this query
     query = """
         SELECT
-            task.*
+            task.*,
+            executor_parameter_set.max_runtime_seconds as executor_parameter_set_max_runtime_seconds,
+            executor_parameter_set.context_args as executor_parameter_set_context_args,
+            executor_parameter_set.resource_scales as executor_parameter_set_resource_scales,
+            executor_parameter_set.queue as executor_parameter_set_queue,
+            executor_parameter_set.num_cores as executor_parameter_set_num_cores,
+            executor_parameter_set.m_mem_free as executor_parameter_set_m_mem_free,
+            executor_parameter_set.j_resource as executor_parameter_set_j_resource,
+            executor_parameter_set.hard_limits as executor_parameter_set_hard_limits
         FROM
             task
+        JOIN
+            executor_parameter_set
+            ON task.executor_parameter_set_id = executor_parameter_set.id
         WHERE
             task.workflow_id = :workflow_id
             AND task.status = :task_status
@@ -406,7 +424,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
         workflow_id=workflow_id,
         task_status=TaskStatus.QUEUED_FOR_INSTANTIATION,
         n_queued_jobs=int(n_queued_tasks)
-    ).all()
+    ).options(contains_eager(Task.executor_parameter_set)).all()
     DB.session.commit()
     task_dcts = [t.to_wire_as_executor_task() for t in tasks]
     resp = jsonify(task_dcts=task_dcts)
@@ -414,22 +432,21 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
     return resp
 
 
-@jqs.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
-           methods=['GET'])
+@jqs.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances', methods=['GET'])
 def get_suspicious_task_instances(workflow_run_id: int):
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
 
     query = """
-    SELECT
-        task_instance.id, task_instance.workflow_run_id,
-        task_instance.executor_id
-    FROM
-        task_instance
-    WHERE
-        task_instance.workflow_run_id = :workflow_run_id
-        AND task_instance.status in :active_tasks
-        AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
+        SELECT
+            task_instance.id, task_instance.workflow_run_id,
+            task_instance.executor_id
+        FROM
+            task_instance
+        WHERE
+            task_instance.workflow_run_id = :workflow_run_id
+            AND task_instance.status in :active_tasks
+            AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
     """
     rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
         active_tasks=[TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
@@ -443,8 +460,7 @@ def get_suspicious_task_instances(workflow_run_id: int):
     return resp
 
 
-@jqs.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
-           methods=['GET'])
+@jqs.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate', methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int):
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id).one()
@@ -456,14 +472,14 @@ def get_task_instances_to_terminate(workflow_run_id: int):
                                 TaskInstanceStatus.RUNNING]
 
     query = """
-    SELECT
-        task_instance.id, task_instance.workflow_run_id,
-        task_instance.executor_id
-    FROM
-        task_instance
-    WHERE
-        task_instance.workflow_run_id = :workflow_run_id
-        AND task_instance.status in :task_instance_states
+        SELECT
+            task_instance.id, task_instance.workflow_run_id,
+            task_instance.executor_id
+        FROM
+            task_instance
+        WHERE
+            task_instance.workflow_run_id = :workflow_run_id
+            AND task_instance.status in :task_instance_states
     """
     rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
         task_instance_states=task_instance_states,
@@ -499,11 +515,8 @@ def get_task_by_status_only(workflow_id: int):
     str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
 
     if swarm_tasks_tuples:
-        swarm_tasks_tuples = [(int(task_id), str(status))
-                              for task_id, status in swarm_tasks_tuples]
         # Sample swarm_tasks_tuples: [(1, 'I')]
-        swarm_task_ids = ",".join(
-            [str(task_id[0]) for task_id in swarm_tasks_tuples])
+        swarm_task_ids = ",".join([str(task_id[0]) for task_id in swarm_tasks_tuples])
         swarm_tasks_tuples = [(int(task_id), str(status))
                               for task_id, status in swarm_tasks_tuples]
 
@@ -522,7 +535,8 @@ def get_task_by_status_only(workflow_id: int):
                 AND (
                     (
                         task.id IN ({swarm_task_ids})
-                        AND (task.id, status) NOT IN ({tuples}))
+                        AND (task.id, status) NOT IN ({tuples})
+                    )
                     OR status_date >= '{status_date}')
         """.format(workflow_id=workflow_id,
                    swarm_task_ids=swarm_task_ids,
@@ -539,9 +553,10 @@ def get_task_by_status_only(workflow_id: int):
             WHERE
                 workflow_id = :workflow_id
                 AND status_date >= :last_sync"""
-        rows = DB.session.query(Task).from_statement(
-            text(query)).params(workflow_id=workflow_id,
-                                last_sync=str(last_sync)).all()
+        rows = DB.session.query(Task).from_statement(text(query)).params(
+            workflow_id=workflow_id,
+            last_sync=str(last_sync)
+        ).all()
 
     DB.session.commit()
     task_dcts = [row.to_wire_as_swarm_task() for row in rows]
@@ -571,9 +586,10 @@ def kill_self(task_instance_id: int):
             AND task_instance.status in :statuses
 
     """
-    should_kill = DB.session.query(TaskInstance).from_statement(
-        text(query)).params(task_instance_id=task_instance_id,
-                            statuses=kill_statuses).one_or_none()
+    should_kill = DB.session.query(TaskInstance).from_statement(text(query)).params(
+        task_instance_id=task_instance_id,
+        statuses=kill_statuses
+    ).one_or_none()
     if should_kill is not None:
         resp = jsonify(should_kill=True)
     else:
@@ -607,8 +623,9 @@ def get_most_recent_ji_error(task_id: int):
         ORDER BY
             ti.id desc, tiel.id desc
         LIMIT 1"""
-    ti_error = DB.session.query(TaskInstanceErrorLog).from_statement(
-        text(query)).params(task_id=task_id).one_or_none()
+    ti_error = DB.session.query(TaskInstanceErrorLog).from_statement(text(query)).params(
+        task_id=task_id
+    ).one_or_none()
     DB.session.commit()
     if ti_error is not None:
         resp = jsonify({"error_description": ti_error.description})
