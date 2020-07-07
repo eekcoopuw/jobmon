@@ -13,7 +13,7 @@ from jobmon.client.templates.bash_task import BashTask
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 
-def three_phase_load_test(n_jobs: int) -> None:
+def three_phase_load_test(n_jobs: int, wfid: str = "") -> None:
     """
     Creates and runs one workflow with n jobs and another 3n jobs that have
     dependencies to the previous n jobsm then a final tier that has n jobs
@@ -21,7 +21,8 @@ def three_phase_load_test(n_jobs: int) -> None:
     will respond when there is a large load of connections and communication
     to and from the db (like when dismod or codcorrect run)
     """
-    wfid = uuid.uuid4()
+    if not wfid:
+        wfid = str(uuid.uuid4())
     user = getpass.getuser()
     wf = Workflow(f"load-test_{wfid}", "load_test",
                   stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",

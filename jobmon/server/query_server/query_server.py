@@ -37,8 +37,7 @@ def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening
     """
-    logmsg = "{}: Responder received is_alive?".format(os.getpid())
-    logger.debug(logmsg)
+    logger.debug(f"{os.getpid()}: Responder received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
     resp.status_code = StatusCodes.OK
     return resp

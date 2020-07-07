@@ -25,7 +25,7 @@ def create_app(config=None):
         config = ServerConfig.from_defaults()
     app.config['SQLALCHEMY_DATABASE_URI'] = config.conn_str
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 500}
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
 
     # register blueprints
     app.register_blueprint(jqs)
