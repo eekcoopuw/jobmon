@@ -33,7 +33,7 @@ class ExecutionConfig(object):
             workflow_run_heartbeat_interval=config.reconciliation_interval,
             task_heartbeat_interval=config.heartbeat_interval,
             report_by_buffer=config.report_by_buffer,
-            n_queued=1000,
+            n_queued=100,
             scheduler_poll_interval=10)
 
     def __init__(self, jobmon_command: Optional[str],
