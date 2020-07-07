@@ -463,9 +463,13 @@ def test_eqw_restarting(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 
+    # this directory exists but its perms wont let it be written to, this should cause eqw
+    unwriteable_dir = "/ihme/scratch/users/svcscicompci/unwriteable_test_dir"
+
     workflow = UnknownWorkflow(project="proj_scicomp", executor_class="SGEExecutor",
-                               seconds_until_timeout=3000, stdout="/ihme/homes/mm7148",
-                               stderr="/ihme/homes/mm7148")
+                               seconds_until_timeout=3000,
+                               stdout=unwriteable_dir,
+                               stderr=unwriteable_dir)
 
     task1 = BashTask(command="sleep 10",
                      executor_class="SGEExecutor",
