@@ -3,7 +3,7 @@ import os
 
 from flask import jsonify, request, Blueprint
 from sqlalchemy.sql import text
-from sqlalchemy.orm import contains_eager
+from sqlalchemy.orm import joinedload
 from typing import Dict
 
 from jobmon.models import DB
@@ -398,34 +398,11 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
     # <usertablename>_<columnname>.
 
     # If we want to prioritize by task or workflow level it would be done in this query
-    query = """
-        SELECT
-            task.*,
-            executor_parameter_set.id as executor_parameter_set_id,
-            executor_parameter_set.task_id as executor_parameter_set_task_id,
-            executor_parameter_set.parameter_set_type as executor_parameter_set_parameter_set_type,
-            executor_parameter_set.max_runtime_seconds as executor_parameter_set_max_runtime_seconds,
-            executor_parameter_set.context_args as executor_parameter_set_context_args,
-            executor_parameter_set.resource_scales as executor_parameter_set_resource_scales,
-            executor_parameter_set.queue as executor_parameter_set_queue,
-            executor_parameter_set.num_cores as executor_parameter_set_num_cores,
-            executor_parameter_set.m_mem_free as executor_parameter_set_m_mem_free,
-            executor_parameter_set.j_resource as executor_parameter_set_j_resource,
-            executor_parameter_set.hard_limits as executor_parameter_set_hard_limits
-        FROM
-            task
-        JOIN
-            executor_parameter_set
-            ON task.executor_parameter_set_id = executor_parameter_set.id
-        WHERE
-            task.workflow_id = :workflow_id
-            AND task.status = :task_status
-        LIMIT :n_queued_jobs"""
-    tasks = DB.session.query(Task).from_statement(text(query)).params(
+    DB.session.query(Task)
+    tasks = DB.session.query(Task).filter_by(
         workflow_id=workflow_id,
-        task_status=TaskStatus.QUEUED_FOR_INSTANTIATION,
-        n_queued_jobs=int(n_queued_tasks)
-    ).options(contains_eager(Task.executor_parameter_set)).all()
+        status=TaskStatus.QUEUED_FOR_INSTANTIATION
+    ).limit(n_queued_tasks).options(joinedload(Task.executor_parameter_set)).all()
     DB.session.commit()
     task_dcts = [t.to_wire_as_executor_task() for t in tasks]
     resp = jsonify(task_dcts=task_dcts)
