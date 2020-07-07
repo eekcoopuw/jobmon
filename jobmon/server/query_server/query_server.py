@@ -386,8 +386,7 @@ def get_active_workflow_runs() -> Dict:
 
 # ############################ SCHEDULER ROUTES ###############################
 
-@jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
-           methods=['GET'])
+@jqs.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>', methods=['GET'])
 def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
     """Returns oldest n tasks (or all tasks if total queued tasks < n) to be
     instantiated. Because the SGE can only qsub tasks at a certain rate, and we
@@ -402,6 +401,9 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
     query = """
         SELECT
             task.*,
+            executor_parameter_set.id as executor_parameter_set_id,
+            executor_parameter_set.task_id as executor_parameter_set_task_id,
+            executor_parameter_set.parameter_set_type as executor_parameter_set_parameter_set_type,
             executor_parameter_set.max_runtime_seconds as executor_parameter_set_max_runtime_seconds,
             executor_parameter_set.context_args as executor_parameter_set_context_args,
             executor_parameter_set.resource_scales as executor_parameter_set_resource_scales,
