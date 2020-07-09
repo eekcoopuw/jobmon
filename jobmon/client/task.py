@@ -259,10 +259,8 @@ class Task:
         return response["task_status"]
 
     def _add_task(self) -> int:
-        app_route = f'/task'
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
+        tasks = []
+        task = {
                 'workflow_id': self.workflow_id,
                 'node_id': self.node.node_id,
                 'task_args_hash': self.task_args_hash,
@@ -271,7 +269,12 @@ class Task:
                 'max_attempts': self.max_attempts,
                 'task_args': self.task_args,
                 'task_attributes': self.task_attributes
-            },
+            }
+        tasks.append(task)
+        app_route = f'/task'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={'tasks': tasks},
             request_type='post'
         )
         if return_code != StatusCodes.OK:
@@ -281,7 +284,7 @@ class Task:
                 f'200. Response content: {response}')
         # TODO: figure out why Megan wanted to return
         # response["task_attribute_ids"]
-        return response["task_id"]
+        return response["task_ids"][0]
 
     def add_attributes(self, task_attributes: dict) -> None:
         """Function that users can call either to update values of existing

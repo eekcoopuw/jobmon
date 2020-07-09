@@ -362,47 +362,55 @@ def add_task():
     """Add a job to the database
 
     Args:
-        workflow_id: workflow this task is associated with
-        node_id: structural node this task is associated with
-        task_arg_hash: hash of the data args for this task
-        name: task's name
-        command: task's command
-        max_attempts: how many times the job should be attempted
-        task_args: dictionary of data args for this task
-        task_attributes: dictionary of attributes associated with the task
+        a list of:
+            workflow_id: workflow this task is associated with
+            node_id: structural node this task is associated with
+            task_arg_hash: hash of the data args for this task
+            name: task's name
+            command: task's command
+            max_attempts: how many times the job should be attempted
+            task_args: dictionary of data args for this task
+            task_attributes: dictionary of attributes associated with the task
     """
     logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
-
-    task = Task(
-        workflow_id=data["workflow_id"],
-        node_id=data["node_id"],
-        task_args_hash=data["task_args_hash"],
-        name=data["name"],
-        command=data["command"],
-        max_attempts=data["max_attempts"],
-        status=TaskStatus.REGISTERED)
-    DB.session.add(task)
+    ts = data.pop("tasks")
+    tasks = []
+    task_args = []
+    task_attribute_list = []
+    for t in ts:
+        task = Task(
+            workflow_id=t["workflow_id"],
+            node_id=t["node_id"],
+            task_args_hash=t["task_args_hash"],
+            name=t["name"],
+            command=t["command"],
+            max_attempts=t["max_attempts"],
+            status=TaskStatus.REGISTERED)
+        tasks.append(task)
+        for _id, val in t["task_args"].items():
+            task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
+            task_args.append(task_arg)
+        if t["task_attributes"]:
+            for name, val in t["task_attributes"].items():
+                type_id = _add_or_get_attribute_type(name)
+                task_attribute = TaskAttribute(task_id=task.id,
+                                               attribute_type=type_id,
+                                               value=val)
+                task_attribute_list.append(task_attribute)
+    DB.session.add_all(tasks)
     DB.session.flush()
-    for _id, val in data["task_args"].items():
-        task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
-        DB.session.add(task_arg)
-        DB.session.flush()
+    DB.session.add_all(task_args)
+    DB.session.flush()
+    DB.session.add_all(task_attribute_list)
+    DB.session.flush()
     DB.session.commit()
-    if data["task_attributes"]:
-        task_attribute_list = []
-        for name, val in data["task_attributes"].items():
-            type_id = _add_or_get_attribute_type(name)
-            task_attribute = TaskAttribute(task_id=task.id,
-                                           attribute_type=type_id,
-                                           value=val)
-            task_attribute_list.append(task_attribute)
-        DB.session.add_all(task_attribute_list)
-        DB.session.flush()
-        DB.session.commit()
-
-    resp = jsonify(task_id=task.id)
+    # return value
+    task_ids = []
+    for t in tasks:
+        task_ids.append(t.id)
+    resp = jsonify(task_ids=task_ids)
     resp.status_code = StatusCodes.OK
     return resp
 
