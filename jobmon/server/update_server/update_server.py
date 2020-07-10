@@ -439,6 +439,57 @@ def update_task_parameters(task_id: int):
     return resp
 
 
+@jsm.route('/task/update_parameters', methods=['PUT'])
+def update_tasks_parameters():
+    """ Update many tasks at the same time
+        Input: dict {<task_id>: {}}
+        Output: dict {<task_id>: <status>}
+    """
+
+    logger.info(logging.myself())
+    all_data = request.get_json()
+    logger.debug(all_data)
+
+    tasks = []
+    inserts = []
+    updates = []
+    for task_id in all_data.keys():
+        data = all_data[task_id]
+        query = """SELECT task.* FROM task WHERE task.id = :task_id"""
+        task = DB.session.query(Task).from_statement(text(query)).params(
+            task_id=task_id).one()
+        task.reset(name=data["name"], command=data["command"],
+                   max_attempts=data["max_attempts"],
+                   reset_if_running=data["reset_if_running"])
+        tasks.append(task)
+        for name, val in data["task_attributes"].items():
+            attribute_type = _add_or_get_attribute_type(name)
+            insert_vals = insert(TaskAttribute).values(
+                task_id=task_id,
+                attribute_type=attribute_type,
+                value=val
+            )
+            inserts.append(insert_vals)
+            update_insert = insert_vals.on_duplicate_key_update(
+                value=insert_vals.inserted.value,
+                status='U'
+            )
+            updates.append(update_insert)
+    DB.session.add_all(tasks)
+    DB.session.flush()
+    DB.session.add_all(inserts)
+    DB.session.flush()
+    DB.session.add_all(updates)
+    DB.session.flush()
+    DB.session.commit()
+    return_value = {}
+    for t in tasks:
+        return_value[t.id] = t.status
+    resp = jsonify(task_status=return_value)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 def _add_or_get_attribute_type(name: str) -> int:
     try:
         attribute_type = TaskAttributeType(name=name)

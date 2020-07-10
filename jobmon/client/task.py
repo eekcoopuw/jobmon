@@ -239,16 +239,18 @@ class Task:
 
     def _update_task_parameters(self, task_id: int, reset_if_running: bool
                                 ) -> str:
-        app_route = f'/task/{task_id}/update_parameters'
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
+        app_route = f'/task/update_parameters'
+        parameters = {}
+        parameters[task_id] = {
                 'name': self.name,
                 'command': self.command,
                 'max_attempts': self.max_attempts,
                 'reset_if_running': reset_if_running,
                 'task_attributes': self.task_attributes
-            },
+            }
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message= parameters,
             request_type='put'
         )
         if return_code != StatusCodes.OK:
@@ -256,7 +258,7 @@ class Task:
                 f'Unexpected status code {return_code} from PUT '
                 f'request through route {app_route}. Expected code '
                 f'200. Response content: {response}')
-        return response["task_status"]
+        return response["task_status"][task_id]
 
     def _add_task(self) -> int:
         tasks = []
