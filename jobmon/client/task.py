@@ -154,12 +154,20 @@ class Task:
                 "task_id cannot be accessed before task is bound")
         return self._task_id
 
+    @task_id.setter
+    def task_id(self, val):
+        self._task_id = val
+
     @property
     def initial_status(self) -> str:
         if not hasattr(self, "_initial_status"):
             raise AttributeError("initial_status cannot be accessed before task is "
                                  "bound")
         return self._initial_status
+
+    @initial_status.setter
+    def initial_status(self, val):
+        self._initial_status = val
 
     @property
     def workflow_id(self) -> int:
@@ -170,7 +178,7 @@ class Task:
         return self._workflow_id
 
     @workflow_id.setter
-    def workflow_id(self, val) -> int:
+    def workflow_id(self, val):
         self._workflow_id = val
 
     def bind(self, reset_if_running: bool = True) -> int:
@@ -286,7 +294,7 @@ class Task:
                 f'200. Response content: {response}')
         # TODO: figure out why Megan wanted to return
         # response["task_attribute_ids"]
-        return response["task_ids"][0]
+        return response["tasks"].values()[0]
 
     def add_attributes(self, task_attributes: dict) -> None:
         """Function that users can call either to update values of existing

@@ -22,6 +22,7 @@ from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
                                SchedulerNotAlive, ResumeSet)
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.task_status import TaskStatus
 
 
 logger = logging.getLogger(__name__)
@@ -409,6 +410,82 @@ class Workflow(object):
                 f'code 200. Response content: {response}')
         return response["workflow_id"]
 
+    ########################################
+    def _add_tasks(self, task_list) -> list:
+        tasks = []
+        for t in task_list:
+            task = {
+                    'workflow_id': t.workflow_id,
+                    'node_id': t.node.node_id,
+                    'task_args_hash': t.task_args_hash,
+                    'name': t.name,
+                    'command': t.command,
+                    'max_attempts': t.max_attempts,
+                    'task_args': t.task_args,
+                    'task_attributes': t.task_attributes
+                }
+            tasks.append(task)
+        app_route = f'/task'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={'tasks': tasks},
+            request_type='post'
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}')
+        return response["tasks"]
+
+    def _update_tasks_parameters(self, tasks_list: list, reset_if_running: bool
+                                ) -> list:
+        app_route = f'/task/update_parameters'
+        parameters = {}
+        for t in tasks_list:
+            parameters[t.id] = {
+                    'name': t.name,
+                    'command': t.command,
+                    'max_attempts': t.max_attempts,
+                    'reset_if_running': reset_if_running,
+                    'task_attributes': t.task_attributes
+                }
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message= parameters,
+            request_type='put'
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from PUT '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}')
+        return response["task_status"]
+
+    def _bind_tasks(self, reset_if_running: bool = True):
+        tasks_to_add = []
+        tasks_to_update = []
+        for task in self.tasks.values():
+            task.workflow_id = self.workflow_id
+            task_id, status = task._get_task_id_and_status()
+            if task_id is None:
+                tasks_to_add.append(task)
+                task._initial_status = TaskStatus.REGISTERED
+            else:
+                tasks_to_update.append(task)
+        returned_tasks = self._add_tasks(tasks_to_add)
+        for hash in returned_tasks.keys():
+            for t in self.tasks.values():
+                if str(t.task_args_hash) == str(hash):
+                    t.task_id = returned_tasks[hash]
+                    t.initial_status = TaskStatus.REGISTERED
+        tasks_from_server = self._update_tasks_parameters(tasks_to_update, reset_if_running)
+        for task in tasks_to_update:
+            task._initial_status = tasks_from_server[task.task_id]
+            for t in self.tasks.values():
+                if t.task_id == task.task_id:
+                    t.initial_status = tasks_from_server[task.task_id]
+
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True) -> WorkflowRun:
         swarm_tasks: Dict[int, SwarmTask] = {}
@@ -421,11 +498,8 @@ class Workflow(object):
             requester=self.requester)
 
         try:
+            self._bind_tasks(reset_running_jobs)
             for task in self.tasks.values():
-                # bind tasks
-                task.workflow_id = self.workflow_id
-                task.bind(reset_if_running=reset_running_jobs)
-
                 # create swarmtasks
                 swarm_task = SwarmTask(
                     task_id=task.task_id,
