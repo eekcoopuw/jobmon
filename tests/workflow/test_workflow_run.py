@@ -244,3 +244,32 @@ def test_fail_fast(client_env):
     assert len(wfr.all_error) == 1
     assert len(wfr.all_done) >= 1
     assert len(wfr.all_done) <= 3
+
+
+def test_propagate_result():
+    """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
+    from jobmon.client.api import BashTask, Tool
+    from jobmon.client.execution.strategies.sequential import \
+        SequentialExecutor
+    unknown_tool = Tool()
+    workflow = unknown_tool.create_workflow(name="test_fail_fast")
+    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
+    t2 = BashTask("echo 2", executor_class="SequentialExecutor")
+    t3 = BashTask("echo 3", executor_class="SequentialExecutor")
+    t4 = BashTask("echo 4", upstream_tasks=[t1, t2, t3],
+                  executor_class="SequentialExecutor")
+    t5 = BashTask("echo 5", upstream_tasks=[t1, t2, t3],
+                  executor_class="SequentialExecutor")
+    t6 = BashTask("echo 6", upstream_tasks=[t1, t2, t3],
+                  executor_class="SequentialExecutor")
+    workflow.add_tasks([t1, t2, t3, t4, t5, t6])
+    workflow.set_executor(SequentialExecutor())
+    wfr = workflow.run(seconds_until_timeout=300)
+
+    assert len(wfr.all_done) == 6
+    
+
+def test_update_task_twice():
+    """in the case that a task reports itself done more than once, 
+       its downstreaming tasks do not double count. And run without all upstreams done"""
+    
