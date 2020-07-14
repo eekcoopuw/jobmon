@@ -49,6 +49,9 @@ class SwarmTask(object):
         # once the callable is evaluated, the resources should be saved here
         self.bound_parameters: list = []
 
+        self.num_upstreams_done: int = 0
+
+
     @staticmethod
     def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]
                   ) -> SwarmTask:
@@ -62,7 +65,10 @@ class SwarmTask(object):
     @property
     def all_upstreams_done(self) -> bool:
         """Return a bool of if upstreams are done or not"""
-        return all([u.is_done for u in self.upstream_tasks])
+        if (self.num_upstreams_done >= len(self.upstream_tasks)):
+            return all([u.is_done for u in self.upstream_tasks])
+        else:
+            return False
 
     @property
     def is_done(self) -> bool:

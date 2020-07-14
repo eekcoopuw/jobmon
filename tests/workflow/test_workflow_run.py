@@ -246,13 +246,15 @@ def test_fail_fast(client_env):
     assert len(wfr.all_done) <= 3
 
 
-def test_propagate_result():
+def test_propagate_result(client_env):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
     from jobmon.client.api import BashTask, Tool
     from jobmon.client.execution.strategies.sequential import \
         SequentialExecutor
+
     unknown_tool = Tool()
-    workflow = unknown_tool.create_workflow(name="test_fail_fast")
+    workflow = unknown_tool.create_workflow(name="test_propagate_result")
+
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
     t2 = BashTask("echo 2", executor_class="SequentialExecutor")
     t3 = BashTask("echo 3", executor_class="SequentialExecutor")
@@ -267,7 +269,74 @@ def test_propagate_result():
     wfr = workflow.run(seconds_until_timeout=300)
 
     assert len(wfr.all_done) == 6
-    
+    assert wfr.swarm_tasks[4].num_upstreams_done == 3
+    assert wfr.swarm_tasks[5].num_upstreams_done == 3
+    assert wfr.swarm_tasks[6].num_upstreams_done == 3
+
+
+from jobmon.client.swarm.swarm_task import SwarmTask
+from jobmon.client.swarm.workflow_run import WorkflowRun
+class MockWorkflowRun(WorkflowRun):
+    def _propagate_results(self, swarm_task: SwarmTask):
+        new_fringe = []
+        logger.debug(f"Propagate {swarm_task}")
+        for downstream in swarm_task.downstream_swarm_tasks:
+            logger.debug(f"downstream {downstream}")
+            downstream_done = (downstream.status == TaskStatus.DONE)
+            if (not downstream_done and
+                    downstream.status == TaskStatus.REGISTERED):
+                if downstream.all_upstreams_done:
+                    logger.debug(" and add to fringe")
+                    new_fringe += [downstream]  # make sure there's no dups
+                else:
+                    # don't do anything, task not ready yet
+                    logger.debug(" not ready yet")
+            else:
+                logger.debug(f" not ready yet or already queued, Status is "
+                             f"{downstream.status}")
+        return new_fringe
+
+
+def test_propagate_result_compare(monkeypatch, client_env):
+    """set up workflow with 100 tasks on one layer and 100 tasks as dependant"""
+    from jobmon.client.api import BashTask, Tool
+    from jobmon.client.execution.strategies.sequential import \
+        SequentialExecutor
+    import jobmon.client.swarm.workflow_run
+
+    unknown_tool = Tool()
+
+    def workflow_run(name):
+        workflow = unknown_tool.create_workflow(name)
+        t_l1_num = 1000
+        t_l2_num = 1000
+        t_l1 = []
+        t_l2 = []
+        for i in range(t_l1_num):
+            t_l1.append(BashTask("echo {}".format(i), executor_class="SequentialExecutor"))
+        for i in range(t_l2_num):
+            t_l2.append(BashTask("echo {}".format(t_l1_num+i), upstream_tasks=t_l1, executor_class="SequentialExecutor"))
+        workflow.add_tasks(t_l1 + t_l2)
+        workflow.set_executor(SequentialExecutor())
+        start = time.time()
+        wfr = workflow.run(seconds_until_timeout=300)
+        end = time.time()
+        exec_time = end - start
+        return wfr, exec_time
+
+    wfr_1, exec_time_1 = workflow_run(name="test_propagate_result_1")
+
+    monkeypatch.setattr(
+        jobmon.client.swarm.workflow_run,
+        "WorkflowRun",
+        MockWorkflowRun)
+
+    wfr_2, exec_time_2 = workflow_run(name="test_propagate_result_2")
+
+    import pdb
+    pdb.set_trace()
+    assert exec_time_1 < exec_time_2
+
 
 def test_update_task_twice():
     """in the case that a task reports itself done more than once, 
