@@ -443,7 +443,7 @@ class Workflow(object):
         app_route = f'/task/update_parameters'
         parameters = {}
         for t in tasks_list:
-            parameters[t.id] = {
+            parameters[t.task_id] = {
                     'name': t.name,
                     'command': t.command,
                     'max_attempts': t.max_attempts,
@@ -460,7 +460,9 @@ class Workflow(object):
                 f'Unexpected status code {return_code} from PUT '
                 f'request through route {app_route}. Expected code '
                 f'200. Response content: {response}')
-        return response["task_status"]
+        print("#3###########################")
+        print(response)
+        return response["tasks_status"]
 
     def _bind_tasks(self, reset_if_running: bool = True):
         tasks_to_add = []
@@ -472,19 +474,36 @@ class Workflow(object):
                 tasks_to_add.append(task)
                 task._initial_status = TaskStatus.REGISTERED
             else:
+                print("#1##################################")
+                print(task_id)
+                task.task_id = task_id
                 tasks_to_update.append(task)
+                print("#2######################################")
+                print(task.task_id)
         returned_tasks = self._add_tasks(tasks_to_add)
         for name in returned_tasks.keys():
-            for t in self.tasks.values():
-                if str(t.name) == str(name):
-                    t.task_id = returned_tasks[name]
-                    t.initial_status = TaskStatus.REGISTERED
+            i = 0
+            keep_looking = True
+            list_values = list(self.tasks.values())
+            while keep_looking or i < len(list_values):
+                if list_values[i].name == name:
+                    keep_looking = False
+                    list_values[i].task_id = returned_tasks[name]
+                    list_values[i].initial_status = TaskStatus.REGISTERED
+                i += 1
         tasks_from_server = self._update_tasks_parameters(tasks_to_update, reset_if_running)
+        print("#4###########################")
+        print(tasks_from_server)
         for task in tasks_to_update:
-            task._initial_status = tasks_from_server[task.task_id]
-            for t in self.tasks.values():
-                if t.task_id == task.task_id:
-                    t.initial_status = tasks_from_server[task.task_id]
+            task._initial_status = tasks_from_server[str(task.task_id)]
+            i = 0
+            keep_looking = True
+            list_values = list(self.tasks.values())
+            while keep_looking or i < len(list_values):
+                if int(list_values[i].task_id) == int(task.task_id):
+                    keep_looking = False
+                    list_values[i].initial_status = tasks_from_server[str(task.task_id)]
+                i += 1
 
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True) -> WorkflowRun:
@@ -498,9 +517,6 @@ class Workflow(object):
             requester=self.requester)
 
         try:
-            print("*1**************************************")
-            print(len(self.tasks))
-            print(self.tasks.values())
             self._bind_tasks(reset_running_jobs)
             for task in self.tasks.values():
                 # create swarmtasks

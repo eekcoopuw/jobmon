@@ -389,6 +389,9 @@ def add_task():
             max_attempts=t["max_attempts"],
             status=TaskStatus.REGISTERED)
         tasks.append(task)
+    DB.session.add_all(tasks)
+    DB.session.flush()
+    for task in tasks:
         for _id, val in t["task_args"].items():
             task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
             task_args.append(task_arg)
@@ -399,8 +402,6 @@ def add_task():
                                                attribute_type=type_id,
                                                value=val)
                 task_attribute_list.append(task_attribute)
-    DB.session.add_all(tasks)
-    DB.session.flush()
     DB.session.add_all(task_args)
     DB.session.flush()
     DB.session.add_all(task_attribute_list)
@@ -482,10 +483,10 @@ def update_tasks_parameters():
     DB.session.add_all(updates)
     DB.session.flush()
     DB.session.commit()
-    return_value = {}
+    return_values = {}
     for t in tasks:
-        return_value[t.id] = t.status
-    resp = jsonify(task_status=return_value)
+        return_values[t.id] = t.status
+    resp = jsonify(tasks_status=return_values)
     resp.status_code = StatusCodes.OK
     return resp
 
