@@ -268,6 +268,8 @@ def test_propagate_result(client_env):
     workflow.set_executor(SequentialExecutor())
     wfr = workflow.run(seconds_until_timeout=300)
 
+#    import pdb
+#    pdb.set_trace()
     assert len(wfr.all_done) == 6
     assert wfr.swarm_tasks[4].num_upstreams_done == 3
     assert wfr.swarm_tasks[5].num_upstreams_done == 3
