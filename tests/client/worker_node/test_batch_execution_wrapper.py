@@ -57,6 +57,11 @@ def test_sge_cli(db_cfg, client_env):
 
     job_name = "foo"
     log_dir = f'/ihme/scratch/users/{getuser()}'
+    workflow = UnknownWorkflow(name="sge_cli_simple_workflow",
+                               project='proj_scicomp',
+                               stderr=log_dir, stdout=log_dir,
+                               executor_class="SGEExecutor",
+                               seconds_until_timeout=300)
     t1 = BashTask(command=f"python {os.path.join(thisdir, 'fill_pipe.py')}",
                   executor_class="SGEExecutor",
                   name=job_name,
@@ -64,11 +69,6 @@ def test_sge_cli(db_cfg, client_env):
                   max_runtime_seconds=600,
                   m_mem_free='1G',
                   max_attempts=1)
-
-    workflow = UnknownWorkflow(name="sge_cli_simple_workflow", project='proj_scicomp',
-                               stderr=log_dir, stdout=log_dir,
-                               executor_class="SGEExecutor",
-                               seconds_until_timeout=300)
     workflow.add_tasks([t1])
     workflow.run()
 
