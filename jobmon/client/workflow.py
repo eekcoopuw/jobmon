@@ -460,8 +460,6 @@ class Workflow(object):
                 f'Unexpected status code {return_code} from PUT '
                 f'request through route {app_route}. Expected code '
                 f'200. Response content: {response}')
-        print("#3###########################")
-        print(response)
         return response["tasks_status"]
 
     def _bind_tasks(self, reset_if_running: bool = True):
@@ -474,12 +472,8 @@ class Workflow(object):
                 tasks_to_add.append(task)
                 task._initial_status = TaskStatus.REGISTERED
             else:
-                print("#1##################################")
-                print(task_id)
                 task.task_id = task_id
                 tasks_to_update.append(task)
-                print("#2######################################")
-                print(task.task_id)
         returned_tasks = self._add_tasks(tasks_to_add)
         for name in returned_tasks.keys():
             i = 0
@@ -492,8 +486,7 @@ class Workflow(object):
                     list_values[i].initial_status = TaskStatus.REGISTERED
                 i += 1
         tasks_from_server = self._update_tasks_parameters(tasks_to_update, reset_if_running)
-        print("#4###########################")
-        print(tasks_from_server)
+
         for task in tasks_to_update:
             task._initial_status = tasks_from_server[str(task.task_id)]
             i = 0
