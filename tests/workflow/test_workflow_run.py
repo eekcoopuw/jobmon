@@ -308,8 +308,8 @@ def test_propagate_result_compare(monkeypatch, client_env):
 
     def workflow_run(name):
         workflow = unknown_tool.create_workflow(name)
-        t_l1_num = 1000
-        t_l2_num = 1000
+        t_l1_num = 100
+        t_l2_num = 100
         t_l1 = []
         t_l2 = []
         for i in range(t_l1_num):
@@ -333,8 +333,8 @@ def test_propagate_result_compare(monkeypatch, client_env):
 
     wfr_2, exec_time_2 = workflow_run(name="test_propagate_result_2")
 
-    import pdb
-    pdb.set_trace()
+#    import pdb
+#    pdb.set_trace()
     assert exec_time_1 < exec_time_2
 
 
