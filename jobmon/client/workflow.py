@@ -474,10 +474,10 @@ class Workflow(object):
             else:
                 tasks_to_update.append(task)
         returned_tasks = self._add_tasks(tasks_to_add)
-        for hash in returned_tasks.keys():
+        for name in returned_tasks.keys():
             for t in self.tasks.values():
-                if str(t.task_args_hash) == str(hash):
-                    t.task_id = returned_tasks[hash]
+                if str(t.name) == str(name):
+                    t.task_id = returned_tasks[name]
                     t.initial_status = TaskStatus.REGISTERED
         tasks_from_server = self._update_tasks_parameters(tasks_to_update, reset_if_running)
         for task in tasks_to_update:
@@ -498,6 +498,9 @@ class Workflow(object):
             requester=self.requester)
 
         try:
+            print("*1**************************************")
+            print(len(self.tasks))
+            print(self.tasks.values())
             self._bind_tasks(reset_running_jobs)
             for task in self.tasks.values():
                 # create swarmtasks

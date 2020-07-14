@@ -407,9 +407,9 @@ def add_task():
     DB.session.flush()
     DB.session.commit()
     # return value
-    return_dict = {} #{<hash>: <id>}
+    return_dict = {} #{<name>: <id>}
     for t in tasks:
-        return_dict[t.task_args_hash] = t.id
+        return_dict[t.name] = t.id
     resp = jsonify(tasks=return_dict)
     resp.status_code = StatusCodes.OK
     return resp
