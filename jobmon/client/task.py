@@ -292,7 +292,7 @@ class Task:
                 f'200. Response content: {response}')
         # TODO: figure out why Megan wanted to return
         # response["task_attribute_ids"]
-        return response["tasks"].values()[0]
+        return list(response["tasks"].values())[0]
 
     def add_attributes(self, task_attributes: dict) -> None:
         """Function that users can call either to update values of existing
