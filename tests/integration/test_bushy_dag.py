@@ -1,10 +1,6 @@
 import getpass
 import pytest
 import uuid
-from datetime import datetime
-
-from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-from jobmon.client.templates.bash_task import BashTask
 
 
 @pytest.mark.integration_tests
@@ -12,6 +8,10 @@ def test_bushy_dag(db_cfg, client_env):
     """
     create workflow with 1000 task with 1000 dependant tasks to get a perfomance metrics.
     """
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    from jobmon.client.templates.bash_task import BashTask
+    # declaring app to enforce loading db config
+    app = db_cfg["app"]
     n_jobs = 10
     wfid = uuid.uuid4()
     user = getpass.getuser()
@@ -33,7 +33,7 @@ def test_bushy_dag(db_cfg, client_env):
     for i in range(n_jobs):
         uid = str(uuid.uuid4())
         tier_2_task = BashTask(f"echo {uid}",
-                               upstream_tasks=[tier1[(i % n_jobs)]], num_cores=1)
+                               upstream_tasks=tier1, num_cores=1)
         tier2.append(tier_2_task)
 
     wf.add_tasks(tier1 + tier2)
