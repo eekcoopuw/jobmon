@@ -77,6 +77,7 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.templates.bash_task import BashTask
+    import jobmon.client.swarm.workflow_run
 
     # monkey patching
     monkeypatch.setattr(
