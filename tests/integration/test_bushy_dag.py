@@ -19,7 +19,7 @@ def test_bushy_dag(db_cfg, client_env):
     wfid = uuid.uuid4()
     user = getpass.getuser()
     wf = Workflow(f"bushy_dag_{wfid}", "bushy_dag_test",
-                  executor_class = 'DummyExecutor',
+                  executor_class = 'SequentialExecutor',
                   stderr=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   project="proj_scicomp")
@@ -91,7 +91,7 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     wfid = uuid.uuid4()
     user = getpass.getuser()
     wf = Workflow(f"bushy_dag_{wfid}", "bushy_dag_test",
-                  executor_class = 'DummyExecutor',
+                  executor_class = 'SequentialExecutor',
                   stderr=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   project="proj_scicomp")
