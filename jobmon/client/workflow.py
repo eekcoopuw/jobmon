@@ -465,38 +465,29 @@ class Workflow(object):
     def _bind_tasks(self, reset_if_running: bool = True):
         tasks_to_add = []
         tasks_to_update = []
+        # create two hash tables for easy search
+        tasks_ht_add = {} #{<name>: task}
+        tasks_ht_update = {} #{<id>: task}
         for task in self.tasks.values():
             task.workflow_id = self.workflow_id
             task_id, status = task._get_task_id_and_status()
             if task_id is None:
+                tasks_ht_add[task.name] = task
                 tasks_to_add.append(task)
                 task._initial_status = TaskStatus.REGISTERED
             else:
+                tasks_ht_update[task.task_id] = task
                 task.task_id = task_id
                 tasks_to_update.append(task)
         returned_tasks = self._add_tasks(tasks_to_add)
         for name in returned_tasks.keys():
-            i = 0
-            keep_looking = True
-            list_values = list(self.tasks.values())
-            while keep_looking or i < len(list_values):
-                if list_values[i].name == name:
-                    keep_looking = False
-                    list_values[i].task_id = returned_tasks[name]
-                    list_values[i].initial_status = TaskStatus.REGISTERED
-                i += 1
-        tasks_from_server = self._update_tasks_parameters(tasks_to_update, reset_if_running)
+            tasks_ht_add[name].task_id = returned_tasks[name]
+            tasks_ht_add[name].initial_status = TaskStatus.REGISTERED
 
+        tasks_from_server = self._update_tasks_parameters(tasks_to_update, reset_if_running)
         for task in tasks_to_update:
             task._initial_status = tasks_from_server[str(task.task_id)]
-            i = 0
-            keep_looking = True
-            list_values = list(self.tasks.values())
-            while keep_looking or i < len(list_values):
-                if int(list_values[i].task_id) == int(task.task_id):
-                    keep_looking = False
-                    list_values[i].initial_status = tasks_from_server[str(task.task_id)]
-                i += 1
+            tasks_ht_update[task.task_id].initial_status = tasks_from_server[str(task.task_id)]
 
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True) -> WorkflowRun:
