@@ -376,10 +376,14 @@ def add_task():
     data = request.get_json()
     logger.debug(data)
     ts = data.pop("tasks")
+    # build a hash table for ts
+    ts_ht = {} #{<name>, task}
     tasks = []
     task_args = []
     task_attribute_list = []
+
     for t in ts:
+        ts_ht[t["name"]] = t
         task = Task(
             workflow_id=t["workflow_id"],
             node_id=t["node_id"],
@@ -392,9 +396,11 @@ def add_task():
     DB.session.add_all(tasks)
     DB.session.flush()
     for task in tasks:
+        t = ts_ht[task.name]
         for _id, val in t["task_args"].items():
             task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
             task_args.append(task_arg)
+
         if t["task_attributes"]:
             for name, val in t["task_attributes"].items():
                 type_id = _add_or_get_attribute_type(name)
