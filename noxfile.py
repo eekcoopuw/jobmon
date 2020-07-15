@@ -26,9 +26,9 @@ def tests(session: Session) -> None:
     # pytest sge integration tests
     try:
         os.environ['SGE_ENV']
-        extra_args: list = []
+        extra_args = ["-m", "not integration_tests"]
     except KeyError:
-        extra_args = ["-m", "not integration_sge"]
+        extra_args = ["-m", "not integration_sge and not integration_tests"]
 
     # pytest mproc
     disable_mproc = ["--disable-mproc", "True"]
