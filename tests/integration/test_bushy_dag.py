@@ -99,16 +99,21 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     wfid = uuid.uuid4()
     user = getpass.getuser()
     wf = Workflow(f"bushy_dag_{wfid}", "bushy_dag_test",
-                  executor_class = 'SequentialExecutor',
+                  executor_class = 'SGEExecutor',
                   stderr=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   project="proj_scicomp")
+
+    params = ExecutorParameters(m_mem_free="128M", 
+                                num_cores=1,
+                                queue="all.q",
+                                max_runtime_seconds=20)
 
     tier1 = []
     # First Tier
     for i in range(n_jobs):
         uid = str(uuid.uuid4())
-        tier_1_task = BashTask(f"echo {uid}", num_cores=1)
+        tier_1_task = BashTask(f"echo {uid}", executor_parameters=params, executor_class = 'SGEExecutor')
         tier1.append(tier_1_task)
 
     tier2 = []
@@ -116,7 +121,9 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     for i in range(n_jobs):
         uid = str(uuid.uuid4())
         tier_2_task = BashTask(f"echo {uid}",
-                               upstream_tasks=tier1, num_cores=1)
+                               upstream_tasks=tier1,
+                               executor_parameters=params,
+                               executor_class = 'SGEExecutor')
         tier2.append(tier_2_task)
 
     wf.add_tasks(tier1 + tier2)
