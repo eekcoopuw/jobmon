@@ -77,13 +77,13 @@ def test_bushy_dag(db_cfg, client_env):
 #                              f"{downstream.status}")
 #         return new_fringe
 
-from jobmon.client.swarm.swarm_task import SwarmTask
-class MockSwarmTask(SwarmTask):
-    @property
-    def all_upstreams_done(self):
-        """Return a bool of if upstreams are done or not"""
-        logger.debug("Using monkeypatch for all_upstreams_done.")
-        return all([u.is_done for u in self.upstream_tasks])
+# from jobmon.client.swarm.swarm_task import SwarmTask
+# class MockSwarmTask(SwarmTask):
+#     @property
+def mock_all_upstreams_done(self):
+    """Return a bool of if upstreams are done or not"""
+    logger.debug("Using monkeypatch for all_upstreams_done.")
+    return all([u.is_done for u in self.upstream_tasks])
         
 
 @pytest.mark.integration_tests
@@ -94,7 +94,7 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.templates.bash_task import BashTask
     # import jobmon.client.swarm.workflow_run
-    from jobmon.client.swarm import swarm_task
+    from jobmon.client.swarm.swarm_task import SwarmTask
 
     from jobmon.client.execution.strategies.base import ExecutorParameters
 
@@ -104,9 +104,10 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     #     "WorkflowRun",
     #     MockWorkflowRun)
     monkeypatch.setattr(
-        swarm_task,
-        "SwarmTask",
-        MockSwarmTask)
+        SwarmTask,
+        "all_upstreams_done",
+        property(mock_all_upstreams_done)
+    )
 
     # declaring app to enforce loading db config
     app = db_cfg["app"]
