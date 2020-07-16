@@ -462,7 +462,7 @@ class Workflow(object):
                 f'200. Response content: {response}')
         return response["tasks_status"]
 
-    def _bind_tasks(self, reset_if_running: bool = True):
+    def _bind_tasks2(self, reset_if_running: bool = True):
         tasks_to_add = []
         tasks_to_update = []
         for task in self.tasks.values():
@@ -497,6 +497,34 @@ class Workflow(object):
                     keep_looking = False
                     list_values[i].initial_status = tasks_from_server[str(task.task_id)]
                 i += 1
+
+    def _bind_tasks(self, reset_if_running: bool = True):
+        app_route = f'/task/bind_tasks'
+        parameters = {}
+        # send to server in a format of:
+        # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3),
+        # command(4), max_attempts(5)], reset_if_running(6), task_args(7), task_attributes(8)}
+        # flat the data structure so that the server won't depend on the client
+        tasks = {}
+        for k in self.tasks.keys():
+            tasks[k] = [self.workflow_id, self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
+                        self.tasks[k].name, self.tasks[k].command, self.tasks[k].max_attempts,
+                        reset_if_running, self.tasks[k].task_args, self.tasks[k].task_attributes]
+        parameters = {"tasks": tasks}
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message=parameters,
+            request_type='put'
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from PUT '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}')
+        return_tasks = response["tasks"]
+        for k in return_tasks.keys():
+            self.tasks[int(k)].task_id = return_tasks[k][0]
+            self.tasks[int(k)].initial_status = return_tasks[k][1]
 
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True) -> WorkflowRun:

@@ -497,6 +497,108 @@ def update_tasks_parameters():
     return resp
 
 
+@jsm.route('/task/bind_tasks', methods=['PUT'])
+def bind_tasks():
+    logger.info(logging.myself())
+    all_data = request.get_json()
+    logger.debug(all_data)
+    tasks = all_data["tasks"]
+    # receive from client the tasks in a format of:
+    #{<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5)], reset_if_running(6),
+    # task_args(7),task_attributes(8)}
+    to_add = {}
+    to_update = {}
+    for k in tasks.keys():
+        query = """
+                SELECT task.id, task.status
+                FROM task
+                WHERE
+                    workflow_id = :workflow_id
+                    AND node_id = :node_id
+                    AND task_args_hash = :task_args_hash
+            """
+        result = DB.session.query(Task).from_statement(text(query)).params(
+            workflow_id=tasks[k][0],
+            node_id=tasks[k][1],
+            task_args_hash=tasks[k][2]
+        ).one_or_none()
+
+        if result is None:
+            task = Task(
+                workflow_id=int(tasks[k][0]),
+                node_id=int(tasks[k][1]),
+                task_args_hash=tasks[k][2],
+                name=tasks[k][3],
+                command=tasks[k][4],
+                max_attempts=tasks[k][5],
+                status=TaskStatus.REGISTERED)
+            to_add[k] = task
+        else:
+            query = """SELECT task.* FROM task WHERE task.id = :task_id"""
+            task = DB.session.query(Task).from_statement(text(query)).params(
+                task_id=result.id).one()
+            task.reset(name=tasks[k][3], command=tasks[k][4],
+                       max_attempts=tasks[k][5],
+                       reset_if_running=tasks[k][6])
+            to_update[k] = task
+    DB.session.add_all(to_add.values())
+    DB.session.flush()
+    DB.session.add_all(to_update.values())
+    DB.session.flush()
+    # continue add
+    task_args = []
+    task_attribute_list = []
+    for k in to_add.keys():
+        task = to_add[k]
+        for _id, val in tasks[k][7]:
+            task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
+            task_args.append(task_arg)
+
+        if tasks[k][8]:
+            for name, val in tasks[k][8].items():
+                type_id = _add_or_get_attribute_type(name)
+                task_attribute = TaskAttribute(task_id=task.id,
+                                               attribute_type=type_id,
+                                               value=val)
+                task_attribute_list.append(task_attribute)
+    DB.session.add_all(task_args)
+    DB.session.flush()
+    DB.session.add_all(task_attribute_list)
+    DB.session.flush()
+    # continue update
+    inserts = []
+    updates = []
+    for k in to_update.keys():
+        task = to_update[k]
+        for name, val in tasks[k][7].items():
+            attribute_type = _add_or_get_attribute_type(name)
+            insert_vals = insert(TaskAttribute).values(
+                task_id=task.id,
+                attribute_type=attribute_type,
+                value=val
+            )
+            inserts.append(insert_vals)
+            update_insert = insert_vals.on_duplicate_key_update(
+                value=insert_vals.inserted.value,
+                status='U'
+            )
+            updates.append(update_insert)
+    DB.session.add_all(inserts)
+    DB.session.flush()
+    DB.session.add_all(updates)
+    DB.session.flush()
+    DB.session.commit()
+    #return a dick of tasks {<hash>: [id, status]}
+    return_tasks = {}
+    for k in to_add.keys():
+        return_tasks[k] = [to_add[k].id, to_add[k].status]
+    for k in to_update.keys():
+        return_tasks[k] = [to_update[k].id, to_update[k].status]
+        resp = jsonify(tasks=return_tasks)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 def _add_or_get_attribute_type(name: str) -> int:
     try:
         attribute_type = TaskAttributeType(name=name)
