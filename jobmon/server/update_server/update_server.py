@@ -1,12 +1,10 @@
 from http import HTTPStatus as StatusCodes
 from datetime import datetime, timedelta
 import json
-import os
-import socket
-import traceback
 from typing import Optional, Any
 
-from flask import jsonify, request, Blueprint
+from flask import jsonify, request, Blueprint, current_app as app
+from werkzeug.local import LocalProxy
 from sqlalchemy.sql import func, text
 from sqlalchemy.dialects.mysql import insert
 import sqlalchemy
@@ -42,16 +40,12 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_logging import jobmonLogging as logging
 from jobmon.server.server_side_exception import log_and_raise
 
 jsm = Blueprint("job_state_manager", __name__)
 
-# logging does not work well in python < 2.7 with Threads,
-# see https://docs.python.org/2/library/logging.html
-# Logging has to be set up BEFORE the Thread
-# Therefore see tests/conf_test.py
-logger = logging.getLogger(__name__)
+
+logger = LocalProxy(lambda: app.logger)
 
 
 @jsm.errorhandler(404)
@@ -70,9 +64,6 @@ def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening
     """
-    logger.info(logging.myself())
-    logmsg = "{}: Responder received is_alive?".format(os.getpid())
-    logger.debug(logmsg)
     resp = jsonify(msg="Yes, I am alive")
     resp.status_code = StatusCodes.OK
     return resp
@@ -98,9 +89,7 @@ def health():
 @jsm.route('/tool', methods=['POST'])
 def add_tool():
     """Add a tool to the database"""
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
 
     try:
         tool = Tool(name=data["name"])
@@ -117,9 +106,7 @@ def add_tool():
 
 @jsm.route('/tool_version', methods=['POST'])
 def add_tool_version():
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
     tool_version = ToolVersion(tool_id=data["tool_id"])
     DB.session.add(tool_version)
     DB.session.commit()
@@ -132,9 +119,7 @@ def add_tool_version():
 @jsm.route('/task_template', methods=['POST'])
 def add_task_template():
     """Add a tool to the database"""
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
 
     try:
         tt = TaskTemplate(tool_version_id=data["tool_version_id"],
@@ -181,9 +166,7 @@ def _add_or_get_arg(name: str) -> Arg:
 @jsm.route('/task_template/<task_template_id>/add_version', methods=['POST'])
 def add_task_template_version(task_template_id: int):
     """Add a tool to the database"""
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
 
     # populate the argument table
     arg_mapping_dct: dict = {ArgType.NODE_ARG: [],
@@ -251,9 +234,7 @@ def add_node():
                                   belongs to.
         node_args: key-value pairs of arg_id and a value.
     """
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
 
     # add node
     try:
@@ -268,8 +249,8 @@ def add_node():
         # add node_args
         node_args = json.loads(data['node_args'])
         for arg_id, value in node_args.items():
-            logger.info(f'Adding node_arg with node_id: {node.id}, '
-                        f'arg_id: {arg_id}, and val: {value}')
+            app.logger.info(f'Adding node_arg with node_id: {node.id}, '
+                            f'arg_id: {arg_id}, and val: {value}')
             node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)
             DB.session.add(node_arg)
         DB.session.commit()
@@ -301,9 +282,7 @@ def add_dag():
     Args:
         dag_hash: unique identifier of the dag, included in route
     """
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
 
     # add dag
     dag_hash = data.pop("dag_hash")
@@ -319,7 +298,7 @@ def add_dag():
         edges_to_add = []
 
         for node_id, edges in nodes_and_edges.items():
-            logger.debug(f'Edges: {edges}')
+            app.logger.debug(f'Edges: {edges}')
 
             if len(edges['upstream_nodes']) == 0:
                 upstream_nodes = None
@@ -371,9 +350,7 @@ def add_task():
         task_args: dictionary of data args for this task
         task_attributes: dictionary of attributes associated with the task
     """
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
 
     task = Task(
         workflow_id=data["workflow_id"],
@@ -409,9 +386,7 @@ def add_task():
 
 @jsm.route('/task/<task_id>/update_parameters', methods=['PUT'])
 def update_task_parameters(task_id: int):
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
 
     query = """SELECT task.* FROM task WHERE task.id = :task_id"""
     task = DB.session.query(Task).from_statement(text(query)).params(
@@ -482,9 +457,7 @@ def update_task_attribute(task_id: int):
 @jsm.route('/workflow', methods=['POST'])
 def add_workflow():
     """Add a workflow to the database."""
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
 
     workflow = Workflow(tool_version_id=data['tool_version_id'],
                         dag_id=data['dag_id'],
@@ -564,9 +537,7 @@ def update_workflow_attribute(workflow_id: int):
 
 @jsm.route('/workflow_run', methods=['POST'])
 def add_workflow_run():
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
 
     workflow_run = WorkflowRun(
         workflow_id=data["workflow_id"],
@@ -619,7 +590,7 @@ def add_workflow_run():
                     if wfr.status in active_states]
 
         else:
-            logger.error("how did I get here? all other transitions are valid")
+            app.logger.error("how did I get here? all other transitions are valid")
 
     resp = jsonify(workflow_run_id=workflow_run.id,
                    status=workflow_run.status,
@@ -630,8 +601,6 @@ def add_workflow_run():
 
 @jsm.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
 def terminate_workflow_run(workflow_run_id: int):
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id).one()
@@ -693,8 +662,6 @@ def terminate_workflow_run(workflow_run_id: int):
 
 @jsm.route('/workflow_run/<workflow_run_id>/delete', methods=['PUT'])
 def delete_workflow_run(workflow_run_id: int):
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
 
     query = "DELETE FROM workflow_run where workflow_run.id = :workflow_run_id"
     DB.session.execute(query,
@@ -710,7 +677,6 @@ def delete_workflow_run(workflow_run_id: int):
 @jsm.route('/workflow_run/<workflow_run_id>/log_executor_report_by',
            methods=['POST'])
 def log_executor_report_by(workflow_run_id: int):
-    logger.info(logging.myself())
     data = request.get_json()
 
     params = {"workflow_run_id": int(workflow_run_id)}
@@ -736,7 +702,6 @@ def log_executor_report_by(workflow_run_id: int):
 
 @jsm.route('/log_executor_error', methods=['POST'])
 def state_and_log_by_executor_id():
-    logger.info(logging.myself())
     data = request.get_json()
     ids_and_errors = data["executor_ids"]
     for key in ids_and_errors:
@@ -773,10 +738,7 @@ def add_task_instance():
         task_id (int): unique id for the task
         executor_type (str): string name of the executor type used
     """
-    logger.info(logging.myself())
     data = request.get_json()
-    logger.debug(data)
-    logger.debug(f"Add TI for task {data['task_id']}")
 
     # query task
     task = DB.session.query(Task).filter_by(id=data['task_id']).first()
@@ -799,7 +761,7 @@ def add_task_instance():
             msg = ("Caught InvalidStateTransition. Not transitioning task "
                    "{}'s task_instance_id {} from I to I"
                    .format(data['task_id'], task_instance.id))
-            logger.warning(msg)
+            app.logger.warning(msg)
         else:
             raise
     finally:
@@ -813,19 +775,17 @@ def add_task_instance():
 @jsm.route('/task_instance/<task_instance_id>/log_no_executor_id',
            methods=['POST'])
 def log_no_executor_id(task_instance_id: int):
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
-    logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."
-                 f"Data {data['executor_id']}")
-    logger.debug(f"Add TI for task ")
+    app.logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."
+                     f"Data {data['executor_id']}")
+    app.logger.debug(f"Add TI for task ")
 
     if data['executor_id'] == qsub_attribute.NO_EXEC_ID:
-        logger.info("Qsub was unsuccessful and caused an exception")
+        app.logger.info("Qsub was unsuccessful and caused an exception")
     else:
-        logger.info("Qsub may have run, but the sge job id could not be parsed"
-                    " from the qsub response so no executor id can be assigned"
-                    " at this time")
+        app.logger.info("Qsub may have run, but the sge job id could not be parsed"
+                        " from the qsub response so no executor id can be assigned"
+                        " at this time")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_EXECUTOR_ID)
@@ -845,11 +805,8 @@ def log_executor_id(task_instance_id: int):
 
         task_instance_id: id of the task_instance to log
     """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
-    logger.debug(f"Log EXECUTOR ID for TI {task_instance_id}."
-                 f"Data {data}")
+    app.logger.debug(f"Log EXECUTOR ID for TI {task_instance_id}. Data {data}")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(
@@ -874,14 +831,12 @@ def log_error_reconciler(task_instance_id: int):
         data:
         oom_killed: whether or not given job errored due to an oom-kill event
     """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
     error_state = data['error_state']
     error_message = data['error_message']
     executor_id = data.get('executor_id', None)
     nodename = data.get('nodename', None)
-    logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
+    app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
 
     query = """
         SELECT
@@ -914,10 +869,8 @@ def log_error_reconciler(task_instance_id: int):
 
 @jsm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def log_workflow_run_heartbeat(workflow_run_id: int):
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
     data = request.get_json()
-    logger.debug(f"Heartbeat data: {data}")
+    app.logger.debug(f"Heartbeat data: {data}")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id).one()
@@ -925,10 +878,10 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
     try:
         workflow_run.heartbeat(data["next_report_increment"])
         DB.session.commit()
-        logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
+        app.logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
     except InvalidStateTransition:
         DB.session.rollback()
-        logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
+        app.logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
 
     resp = jsonify(message=str(workflow_run.status))
     resp.status_code = StatusCodes.OK
@@ -944,8 +897,6 @@ def queue_job(task_id: int):
 
         job_id: id of the job to queue
     """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_id", task_id))
 
     task = DB.session.query(Task).filter_by(id=task_id).one()
     try:
@@ -955,7 +906,7 @@ def queue_job(task_id: int):
         if task.status == TaskStatus.QUEUED_FOR_INSTANTIATION:
             msg = ("Caught InvalidStateTransition. Not transitioning job "
                    f"{task_id} from Q to Q")
-            logger.warning(msg)
+            app.logger.warning(msg)
         else:
             raise
     DB.session.commit()
@@ -967,11 +918,9 @@ def queue_job(task_id: int):
 
 @jsm.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
 def log_workflow_run_status_update(workflow_run_id: int):
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
     data = request.get_json()
-    logger.debug(f"Log status update for workflow_run_id:{workflow_run_id}."
-                 f"Data: {data}")
+    app.logger.debug(f"Log status update for workflow_run_id:{workflow_run_id}."
+                     f"Data: {data}")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id).one()
@@ -985,7 +934,6 @@ def log_workflow_run_status_update(workflow_run_id: int):
 
 @jsm.route('/workflow_run/<workflow_run_id>/aborted', methods=['PUT'])
 def get_run_status_and_latest_task(workflow_run_id: int):
-    logger.info(logging.myself())
     query = """
         SELECT workflow_run.*, max(task.status_date) AS status_date
         FROM (workflow_run
@@ -1020,9 +968,6 @@ def log_wfr_heartbeat(workflow_run_id: int):
 
         workflow_run_id: id of the workflow_run to log
     """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
-
     params = {"workflow_run_id": int(workflow_run_id)}
     query = """
         UPDATE workflow_run
@@ -1084,9 +1029,6 @@ def update_task_resources(task_id: int):
             queue limits
     """
 
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_id", task_id))
-
     data = request.get_json()
     parameter_set_type = data["parameter_set_type"]
 
@@ -1120,8 +1062,6 @@ def update_task_resources(task_id: int):
 
 @jsm.route('/workflow/<workflow_id>/suspend', methods=['POST'])
 def suspend_workflow(workflow_id: int):
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("workflow_id", workflow_id))
     query = """
         UPDATE workflow
         SET status = "S"
@@ -1143,10 +1083,7 @@ def log_running(task_instance_id: int):
 
         task_instance_id: id of the task_instance to log as running
     """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
-    logger.debug(f"Log RUNNING for TI {task_instance_id}. Data={data}")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
@@ -1175,10 +1112,8 @@ def log_ti_report_by(task_instance_id: int):
 
         task_instance_id: id of the task_instance to log
     """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
-    logger.debug(f"Log report_by for TI {task_instance_id}. Data={data}")
+    app.logger.debug(f"Log report_by for TI {task_instance_id}. Data={data}")
 
     executor_id = data.get('executor_id', None)
     params = {}
@@ -1220,20 +1155,16 @@ def log_usage(task_instance_id: int):
         cpu (str, optional): cpu used
         io (str, optional): io used
     """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
     if data.get('maxrss', None) is None:
         data['maxrss'] = '-1'
 
-    logger.debug("usage_str is {}, wallclock is {}, maxrss is {}, "
-                 "maxpss is {}, cpu is {}, io is {}"
-                 .format(data.get('usage_str', None),
-                         data.get('wallclock', None),
-                         data.get('maxrss', None),
-                         data.get('maxpss', None),
-                         data.get('cpu', None),
-                         data.get('io', None)))
+    app.logger.debug(f"usage_str is {data.get('usage_str', None)}, "
+                     f"wallclock is {data.get('wallclock', None)}, "
+                     f"maxrss is {data.get('maxrss', None)}, "
+                     f"maxpss is {data.get('maxpss', None)}, "
+                     f"cpu is {data.get('cpu', None)}, "
+                     f" io is {data.get('io', None)}")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get('usage_str', None) is not None:
@@ -1262,10 +1193,8 @@ def log_done(task_instance_id: int):
     Args:
         task_instance_id: id of the task_instance to log done
     """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
-    logger.debug(f"Log DONE for TI {task_instance_id}. Data: {data}")
+    app.logger.debug(f"Log DONE for TI {task_instance_id}. Data: {data}")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get('executor_id', None) is not None:
@@ -1289,14 +1218,12 @@ def log_error_worker_node(task_instance_id: int):
         task_instance_id (str): id of the task_instance to log done
         error_message (str): message to log as error
     """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("task_instance_id", task_instance_id))
     data = request.get_json()
     error_state = data['error_state']
     error_message = data['error_message']
     executor_id = data.get('executor_id', None)
     nodename = data.get('nodename', None)
-    logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
+    app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     try:
@@ -1320,8 +1247,6 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
         task_instance (obj) object of time models.TaskInstance
         status_id (int): id of the status to which to transition
     """
-    logger.info(logging.myself())
-    logger.debug(f"Update TI state {status_id} for {task_instance}")
     response = ""
     try:
         task_instance.transition(status_id)
@@ -1332,23 +1257,22 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
                   f"Not transitioning task, tid= " \
                   f"{task_instance.id} from {task_instance.status} to " \
                   f"{status_id}"
-            logger.warning(msg)
+            app.logger.warning(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. Not transitioning task, " \
                   f"tid={task_instance.id}, from {task_instance.status} to " \
                   f"{status_id}"
-            logger.error(msg)
+            app.logger.error(msg)
     except KillSelfTransition:
-        msg = f"kill self, cannot transition " \
-              f"tid={task_instance.id}"
-        logger.warning(msg)
+        msg = f"kill self, cannot transition tid={task_instance.id}"
+        app.logger.warning(msg)
         response = "kill self"
     except Exception as e:
         msg = f"General exception in _update_task_instance_state, " \
               f"jid {task_instance}, transitioning to {task_instance}. " \
               f"Not transitioning task. {e}"
-        log_and_raise(msg, logger)
+        log_and_raise(msg, app.logger)
 
     return response
 
@@ -1356,7 +1280,6 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
 def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
                executor_id: Optional[int] = None,
                nodename: Optional[str] = None):
-    logger.info(logging.myself())
     if nodename is not None:
         ti.nodename = nodename
     if executor_id is not None:
@@ -1372,218 +1295,9 @@ def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
         resp.status_code = StatusCodes.OK
     except Exception as e:
         DB.session.rollback()
-        logger.warning(str(e))
+        app.logger.warning(str(e))
         raise
 
-    return resp
-
-
-@jsm.route('/log_level', methods=['GET'])
-def get_log_level():
-    """A simple 'action' to get the current server log level
-    """
-    logger.info(logging.myself())
-    level: str = logging.getLevelName()
-    logger.debug(level)
-    resp = jsonify({'level': level})
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jsm.route('/log_level/<level>', methods=['POST'])
-def set_log_level(level: str):
-    """Change log level
-    Args:
-
-        level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO,
-            DEBUG
-
-        data:
-             loggers: a list of logger
-                      Currently only support 'jobmonServer' and 'flask';
-                      Other values will be ignored;
-                      Empty list default to 'jobmonServer'.
-    """
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("level", level))
-    level = level.upper()
-    lev: int = logging.NOTSET
-
-    if level == "CRITICAL":
-        lev = logging.CRITICAL
-    elif level == "ERROR":
-        lev = logging.ERROR
-    elif level == "WARNING":
-        lev = logging.WARNING
-    elif level == "INFO":
-        lev = logging.INFO
-    elif level == "DEBUG":
-        lev = logging.DEBUG
-
-    data = request.get_json()
-    logger.debug(data)
-
-    logger_list = []
-    try:
-        logger_list = data['loggers']
-    except Exception:
-        # Deliberately eat the exception. If no data provided, change all other
-        # loggers except sqlalchemy
-        pass
-
-    if len(logger_list) == 0:
-        # Default to reset jobmonServer log level
-        logging.setlogLevel(lev)
-    else:
-        if 'jobmonServer' in logger_list:
-            logging.setlogLevel(lev)
-        elif 'flask' in logger_list:
-            logging.setFlaskLogLevel(lev)
-
-    resp = jsonify(msn="Set {loggers} server log to {level}".format(
-        level=level, loggers=logger_list))
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-def getLogLevelUseName(name: str) -> int:
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("name", name))
-    log_level_dict = {"CRITICAL": logging.CRITICAL,
-                      "ERROR": logging.ERROR,
-                      "WARNING": logging.WARNING,
-                      "INFO": logging.INFO,
-                      "DEBUG": logging.DEBUG,
-                      "NOTSET": logging.NOTSET}
-    level = name.upper()
-    if level not in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
-        level = "NOTSET"
-    return log_level_dict[level]
-
-
-@jsm.route('/attach_remote_syslog/<level>/<host>/<port>/<sockettype>',
-           methods=['POST'])
-def attach_remote_syslog(level: str, host: str, port: int, sockettype: str):
-    """
-    Add a remote syslog handler
-
-    :param level: remote syslog level
-    :param host: remote syslog server host
-    :param port: remote syslog server port
-    :param port: remote syslog server socket type; unless specified as TCP,
-    otherwise, UDP
-    :return:
-    """
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("level", level))
-    logger.debug(logging.logParameter("host", host))
-    logger.debug(logging.logParameter("port", port))
-    logger.debug(logging.logParameter("sockettype", sockettype))
-    level = level.upper()
-    if level not in ("CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"):
-        level = "NOTSET"
-
-    try:
-        port = int(port)
-    except Exception:
-        resp = jsonify(msn="Unable to convert {} to integer".format(port))
-        resp.status_code = StatusCodes.BAD_REQUEST
-        return resp
-
-    s = socket.SOCK_DGRAM
-    if sockettype.upper == "TCP":
-        s = socket.SOCK_STREAM
-
-    try:
-        logging.attachSyslog(host=host, port=port, socktype=s,
-                             l=getLogLevelUseName(level))
-        resp = jsonify(msn="Attach syslog {h}:{p}".format(h=host, p=port))
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception:
-        resp = jsonify(msn=traceback.format_exc())
-        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
-        return resp
-
-
-@jsm.route('/syslog_status', methods=['GET'])
-def syslog_status():
-    logger.info(logging.myself())
-    if logging.isSyslogAttached():
-        resp = jsonify({'syslog': True},
-                       {'host': config.rsyslog_host},
-                       {'port': config.rsyslog_port},
-                       {'protocol': config.rsyslog_protocol})
-        return resp
-    resp = jsonify({'syslog': False})
-    return resp
-
-
-@jsm.route('/log_level_flask', methods=['GET'])
-def get_log_level_flask():
-    """A simple 'action' to get the current server log level
-    """
-    logger.info(logging.myself())
-    level: str = logging.getFlaskLevelName()
-    logger.debug(level)
-    resp = jsonify({'level': level})
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jsm.route('/log_level_flask/<level>', methods=['POST'])
-def set_log_level_flask(level: str):
-    """Change log level
-    Args:
-
-        level: name of the log level. Takes CRITICAL, ERROR, WARNING, INFO,
-            DEBUG
-
-        data:
-             loggers: a list of logger
-                      Currently only support 'jobmonServer' and 'flask';
-                      Other values will be ignored;
-                      Empty list default to 'jobmonServer'.
-    """
-    logger.debug(logging.myself())
-    logger.debug(logging.logParameter("level", level))
-    level = level.upper()
-    lev: int = logging.NOTSET
-
-    if level == "CRITICAL":
-        lev = logging.CRITICAL
-    elif level == "ERROR":
-        lev = logging.ERROR
-    elif level == "WARNING":
-        lev = logging.WARNING
-    elif level == "INFO":
-        lev = logging.INFO
-    elif level == "DEBUG":
-        lev = logging.DEBUG
-
-    data = request.get_json()
-    logger.debug(data)
-
-    logger_list = []
-    try:
-        logger_list = data['loggers']
-    except Exception:
-        # Deliberately eat the exception. If no data provided, change all other
-        # loggers except sqlalchemy
-        pass
-
-    if len(logger_list) == 0:
-        # Default to reset jobmonServer log level
-        logging.setFlaskLogLevel(lev)
-    else:
-        if 'jobmonServer' in logger_list:
-            logging.setlogLevel(lev)
-        elif 'flask' in logger_list:
-            logging.setFlaskLogLevel(lev)
-
-    resp = jsonify(msn="Set {loggers} server log to {level}".format(
-        level=level, loggers=logger_list))
-    resp.status_code = StatusCodes.OK
     return resp
 
 
@@ -1594,9 +1308,6 @@ def set_maxpss(executor_id: int, maxpss: int):
     :param executor_id: sge execution id
     :return:
     """
-    logger.debug(logging.myself())
-    logging.logParameter("executor_id", executor_id)
-    logging.logParameter("maxpss", maxpss)
 
     try:
         sql = f"UPDATE task_instance SET maxpss={maxpss} WHERE executor_id={executor_id}"
@@ -1607,7 +1318,7 @@ def set_maxpss(executor_id: int, maxpss: int):
     except Exception as e:
         msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id,
                                                                              error=str(e))
-        logger.error(msg)
+        app.logger.error(msg)
         resp = jsonify(message=msg)
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
     finally:

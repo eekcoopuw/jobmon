@@ -17,7 +17,6 @@ class Task(DB.Model):
     __tablename__ = "task"
 
     def to_wire_as_executor_task(self):
-        lnode, lpgid = self._last_instance_procinfo()
         serialized = SerializeExecutorTask.to_wire(
             task_id=self.id,
             workflow_id=self.workflow_id,
@@ -96,8 +95,7 @@ class Task(DB.Model):
             self.num_attempts = self.num_attempts + 1
         self.status = new_state
         self.status_date = func.now()
-        logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        logger.info("Transition task status to {s} at {t}".format(s=new_state, t=self.status_date))
+        logger.info(f"Transition task status to {new_state} at {self.status_date}")
 
     def transition_after_task_instance_error(self, job_instance_error_state):
         """Transition the task to an error state"""
@@ -111,14 +109,6 @@ class Task(DB.Model):
             else:
                 logger.debug("ZZZ retrying Task {}".format(self.id))
                 self.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
-
-    def _last_instance_procinfo(self):
-        """Retrieve all process information on the last run of this Task"""
-        if self.task_instances:
-            last_ti = max(self.task_instances, key=lambda i: i.id)
-            return (last_ti.nodename, last_ti.process_group_id)
-        else:
-            return (None, None)
 
     def _validate_transition(self, new_state):
         """Ensure the task state transition is valid"""

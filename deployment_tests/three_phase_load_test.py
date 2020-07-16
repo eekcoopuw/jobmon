@@ -13,7 +13,7 @@ from jobmon.client.templates.bash_task import BashTask
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 
-def three_phase_load_test(n_jobs: int) -> None:
+def three_phase_load_test(n_jobs: int, wfid: str = "") -> None:
     """
     Creates and runs one workflow with n jobs and another 3n jobs that have
     dependencies to the previous n jobsm then a final tier that has n jobs
@@ -21,7 +21,8 @@ def three_phase_load_test(n_jobs: int) -> None:
     will respond when there is a large load of connections and communication
     to and from the db (like when dismod or codcorrect run)
     """
-    wfid = uuid.uuid4()
+    if not wfid:
+        wfid = str(uuid.uuid4())
     user = getpass.getuser()
     wf = Workflow(f"load-test_{wfid}", "load_test",
                   stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
@@ -33,28 +34,29 @@ def three_phase_load_test(n_jobs: int) -> None:
     os.chmod(command, st.st_mode | stat.S_IXUSR)
 
     tier1 = []
+    counter = 0
     # First Tier
     for i in range(n_jobs):
-        uid = str(uuid.uuid4())
+        counter += 1
         sleep_time = random.randint(30, 41)
-        tier_1_task = BashTask(f"{command} {sleep_time} {uid}", num_cores=1)
+        tier_1_task = BashTask(f"{command} {sleep_time} {counter} {wfid}", num_cores=1)
         tier1.append(tier_1_task)
 
     tier2 = []
     # Second Tier, depend on 1 tier 1 task
     for i in range(n_jobs * 3):
-        uid = str(uuid.uuid4())
+        counter += 1
         sleep_time = random.randint(30, 41)
-        tier_2_task = BashTask(f"{command} {sleep_time} {uid}",
+        tier_2_task = BashTask(f"{command} {sleep_time} {counter} {wfid}",
                                upstream_tasks=[tier1[(i % n_jobs)]], num_cores=1)
         tier2.append(tier_2_task)
 
     tier3 = []
     # Third Tier, depend on 3 tier 2 tasks
     for i in range(n_jobs):
-        uid = str(uuid.uuid4())
+        counter += 1
         sleep_time = random.randint(30, 41)
-        tier_3_task = BashTask(f"{command} {sleep_time} {uid}",
+        tier_3_task = BashTask(f"{command} {sleep_time} {counter} {wfid}",
                                upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
                                                tier2[(i + (2 * n_jobs))]],
                                num_cores=1)

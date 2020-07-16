@@ -3,14 +3,19 @@ RUN apt-get update && apt-get install -y mariadb-client
 
 ENV NGINX_WORKER_PROCESSES auto
 
-# move app files
+# jobmon packaging
 COPY ./jobmon /app/jobmon
-COPY ./uwsgi.ini /app/uwsgi.ini
 COPY ./setup.cfg /app/setup.cfg
 COPY ./setup.py /app/setup.py
 COPY ./versioneer.py  /app/versioneer.py
+
+# server configs
+COPY ./jobmon/server/deployment/container/prestart.sh /app/prestart.sh
+COPY ./jobmon/server/deployment/container/nginx_app.conf /app/nginx_app.conf
+COPY ./jobmon/server/deployment/container/uwsgi.ini /app/uwsgi.ini
 COPY ./jobmon/server/deployment/container/wait-for-tables.sh  /app/wait-for-tables.sh
-RUN chmod +x /app/setup.py /app/versioneer.py /app/wait-for-tables.sh
+
+RUN chmod +x /app/setup.py /app/versioneer.py /app/wait-for-tables.sh /app/prestart.sh
 WORKDIR /app
 
 # PIPS

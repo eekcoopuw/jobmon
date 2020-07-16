@@ -1,6 +1,7 @@
+import logging
 import requests
+
 from jobmon import config
-from jobmon.server.server_logging import jobmonLogging as logging
 
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,6 @@ class SlackNotifier(object):
         self.slack_api_url = config.slack_api_url
 
     def send(self, msg, channel=None):
-        logger.debug(logging.myself())
         """Send message to Slack using requests.post"""
         if not channel:
             channel = self.default_channel
