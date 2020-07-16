@@ -94,7 +94,7 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.templates.bash_task import BashTask
     # import jobmon.client.swarm.workflow_run
-    import jobmon.client.swarm.swarm_task
+    from jobmon.client.swarm import swarm_task
 
     from jobmon.client.execution.strategies.base import ExecutorParameters
 
@@ -104,7 +104,7 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     #     "WorkflowRun",
     #     MockWorkflowRun)
     monkeypatch.setattr(
-        jobmon.client.swarm.swarm_task,
+        swarm_task,
         "SwarmTask",
         MockSwarmTask)
 
