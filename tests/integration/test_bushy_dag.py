@@ -82,6 +82,7 @@ class MockSwarmTask(SwarmTask):
     @property
     def all_upstreams_done(self):
         """Return a bool of if upstreams are done or not"""
+        logger.debug("Using monkeypatch for all_upstreams_done.")
         return all([u.is_done for u in self.upstream_tasks])
         
 
