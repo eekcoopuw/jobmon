@@ -321,10 +321,7 @@ class WorkflowRun(object):
                          f"failed:{[t.task_id for t in failed]}")
 
             for swarm_task in completed:
-                start_time = time.time()    # added for test
                 task_to_add = self._propagate_results(swarm_task)
-                end_time = time.time()    # added for test
-                logger.debug(f"propagate results took: {end_time - start_time}")    # added for test
                 fringe = list(set(fringe + task_to_add))
             if (self._val_fail_after_n_executions is not None and
                     n_executions >= self._val_fail_after_n_executions):
