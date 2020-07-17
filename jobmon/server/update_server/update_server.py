@@ -425,7 +425,6 @@ def update_task_parameters(task_id: int):
 
 @jsm.route('/task/bind_tasks', methods=['PUT'])
 def bind_tasks():
-    logger.info(logging.myself())
     all_data = request.get_json()
     logger.debug(all_data)
     tasks = all_data["tasks"]
