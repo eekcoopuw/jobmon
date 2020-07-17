@@ -1,10 +1,11 @@
 from http import HTTPStatus as StatusCodes
 import os
+from typing import Dict
 
-from flask import jsonify, request, Blueprint
+from flask import jsonify, request, Blueprint, current_app as app
+from werkzeug.local import LocalProxy
 from sqlalchemy.sql import text
 from sqlalchemy.orm import joinedload
-from typing import Dict
 
 from jobmon.models import DB
 from jobmon.models.dag import Dag
@@ -23,13 +24,18 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_logging import jobmonLogging as logging
+
+
+logger = LocalProxy(lambda: app.logger)
 
 
 # TODO: rename?
 jqs = Blueprint("query_server", __name__)
 
-logger = logging.getLogger(__name__)
+
+@jqs.errorhandler(404)
+def page_not_found(error):
+    return 'This route does not exist {}'.format(request.url), 404
 
 
 @jqs.route('/', methods=['GET'])
@@ -37,7 +43,7 @@ def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening
     """
-    logger.debug(f"{os.getpid()}: Responder received is_alive?")
+    logger.info(f"{os.getpid()}: {jqs.__class__.__name__} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
     resp.status_code = StatusCodes.OK
     return resp
@@ -72,8 +78,7 @@ def health():
 
 @jqs.route('/tool/<tool_name>', methods=['GET'])
 def get_tool(tool_name: str):
-    logger.info(logging.myself())
-    logging.logParameter("tool_name", tool_name)
+    # get data from db
     query = """
         SELECT
             tool.*
@@ -94,8 +99,7 @@ def get_tool(tool_name: str):
 
 @jqs.route('/tool/<tool_id>/tool_versions', methods=['GET'])
 def get_tool_versions(tool_id: int):
-    logger.info(logging.myself())
-    logging.logParameter("tool_id", tool_id)
+    # get data from db
     query = """
         SELECT
             tool_version.*
@@ -115,11 +119,11 @@ def get_tool_versions(tool_id: int):
 
 @jqs.route('/task_template', methods=['GET'])
 def get_task_template():
-    logger.info(logging.myself())
+    # parse args
     tool_version_id = request.args.get("tool_version_id")
     name = request.args.get("task_template_name")
-    logger.debug(tool_version_id)
 
+    # get data from db
     query = """
         SELECT
             task_template.*
@@ -144,11 +148,9 @@ def get_task_template():
 
 @jqs.route('/task_template/<task_template_id>/version', methods=['GET'])
 def get_task_template_version(task_template_id: int):
-    logger.info(logging.myself())
+    # parse args
     command_template = request.args.get("command_template")
     arg_mapping_hash = request.args.get("arg_mapping_hash")
-    logger.debug(f"command_template={command_template}"
-                 f"arg_mapping_hash={arg_mapping_hash}")
 
     # get task template version object
     query = """
@@ -185,10 +187,6 @@ def get_node_id():
         task_template_version_id: version id of the task_template a node
                                   belongs to.
     """
-    logger.info(logging.myself())
-    data = request.args
-    logger.debug(data)
-
     query = """
         SELECT node.id
         FROM node
@@ -196,8 +194,8 @@ def get_node_id():
             node_args_hash = :node_args_hash
             AND task_template_version_id = :task_template_version_id"""
     result = DB.session.query(Node).from_statement(text(query)).params(
-        node_args_hash=data['node_args_hash'],
-        task_template_version_id=data['task_template_version_id']
+        node_args_hash=request.args['node_args_hash'],
+        task_template_version_id=request.args['task_template_version_id']
     ).one_or_none()
 
     if result is None:
@@ -215,13 +213,9 @@ def get_dag_id():
     Args:
         dag_hash: unique identifier of the dag, included in route
     """
-    logger.info(logging.myself())
-    data = request.args
-    logger.debug(data)
-
     query = """SELECT dag.id FROM dag WHERE hash = :dag_hash"""
     result = DB.session.query(Dag).from_statement(text(query)).params(
-        dag_hash=data["dag_hash"]
+        dag_hash=request.args["dag_hash"]
     ).one_or_none()
 
     if result is None:
@@ -234,10 +228,6 @@ def get_dag_id():
 
 @jqs.route('/task', methods=['GET'])
 def get_task_id_and_status():
-    logger.info(logging.myself())
-    data = request.args
-    logger.debug(data)
-
     query = """
         SELECT task.id, task.status
         FROM task
@@ -247,9 +237,9 @@ def get_task_id_and_status():
             AND task_args_hash = :task_args_hash
     """
     result = DB.session.query(Task).from_statement(text(query)).params(
-        workflow_id=data['workflow_id'],
-        node_id=data['node_id'],
-        task_args_hash=data["task_args_hash"]
+        workflow_id=request.args['workflow_id'],
+        node_id=request.args['node_id'],
+        task_args_hash=request.args["task_args_hash"]
     ).one_or_none()
 
     # send back json
@@ -263,10 +253,6 @@ def get_task_id_and_status():
 
 @jqs.route('/workflow', methods=['GET'])
 def get_workflow_id_and_status():
-    logger.info(logging.myself())
-    data = request.args
-    logger.debug(data)
-
     query = """
         SELECT workflow.id, workflow.status
         FROM workflow
@@ -277,10 +263,10 @@ def get_workflow_id_and_status():
             AND task_hash = :task_hash
     """
     result = DB.session.query(Workflow).from_statement(text(query)).params(
-        tool_version_id=data['tool_version_id'],
-        dag_id=data['dag_id'],
-        workflow_args_hash=data['workflow_args_hash'],
-        task_hash=data['task_hash']
+        tool_version_id=request.args['tool_version_id'],
+        dag_id=request.args['dag_id'],
+        workflow_args_hash=request.args['workflow_args_hash'],
+        task_hash=request.args['task_hash']
     ).one_or_none()
 
     # send back json
@@ -299,8 +285,6 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
     Return any dag hashes that are assigned to workflows with identical
     workflow args
     """
-    logger.debug(logging.myself())
-
     query = """
         SELECT workflow.task_hash, workflow.tool_version_id, dag.hash
         FROM workflow
@@ -323,9 +307,6 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
 
 @jqs.route('/workflow_run/<workflow_run_id>/is_resumable', methods=['GET'])
 def workflow_run_is_terminated(workflow_run_id: int):
-    logger.info(logging.myself())
-    logger.debug(logging.logParameter("workflow_run_id", workflow_run_id))
-
     query = """
         SELECT
             workflow_run.*
@@ -363,7 +344,7 @@ def workflow_run_is_terminated(workflow_run_id: int):
 @jqs.route('/workflow_run_status', methods=['GET'])
 def get_active_workflow_runs() -> Dict:
     """Return all workflow runs that are currently in the specified state."""
-    logger.info(logging.myself())
+    # logger.info(logging.myself())
 
     query = """
         SELECT
@@ -397,7 +378,6 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
     # <usertablename>_<columnname>.
 
     # If we want to prioritize by task or workflow level it would be done in this query
-    DB.session.query(Task)
     tasks = DB.session.query(Task).filter_by(
         workflow_id=workflow_id,
         status=TaskStatus.QUEUED_FOR_INSTANTIATION
@@ -440,7 +420,8 @@ def get_suspicious_task_instances(workflow_run_id: int):
 @jqs.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate', methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int):
     workflow_run = DB.session.query(WorkflowRun).filter_by(
-        id=workflow_run_id).one()
+        id=workflow_run_id
+    ).one()
 
     if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
         task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR]
@@ -479,13 +460,10 @@ def get_task_by_status_only(workflow_id: int):
         status (str): status to query for
         last_sync (datetime): time since when to get tasks
     """
-    logger.debug(logging.myself())
-    logging.logParameter("workflow_id", workflow_id)
     data = request.get_json()
 
     last_sync = data['last_sync']
     swarm_tasks_tuples = data.get('swarm_tasks_tuples', [])
-    logger.info("swarm_task_tuples: {}".format(swarm_tasks_tuples))
 
     # get time from db
     db_time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()['t']
@@ -537,7 +515,7 @@ def get_task_by_status_only(workflow_id: int):
 
     DB.session.commit()
     task_dcts = [row.to_wire_as_swarm_task() for row in rows]
-    logger.info("task_dcts={}".format(task_dcts))
+    logger.debug("task_dcts={}".format(task_dcts))
     resp = jsonify(task_dcts=task_dcts, time=str_time)
     resp.status_code = StatusCodes.OK
     return resp
@@ -550,8 +528,6 @@ def kill_self(task_instance_id: int):
     """Check a task instance's status to see if it needs to kill itself
     (state W, or L)"""
     kill_statuses = TaskInstance.kill_self_states
-    logger.debug(logging.myself())
-    logging.logParameter("task_instance_id", task_instance_id)
 
     query = """
         SELECT
@@ -561,7 +537,6 @@ def kill_self(task_instance_id: int):
         WHERE
             task_instance.id = :task_instance_id
             AND task_instance.status in :statuses
-
     """
     should_kill = DB.session.query(TaskInstance).from_statement(text(query)).params(
         task_instance_id=task_instance_id,
@@ -572,7 +547,6 @@ def kill_self(task_instance_id: int):
     else:
         resp = jsonify()
     resp.status_code = StatusCodes.OK
-    logger.debug(resp)
     return resp
 
 
@@ -583,10 +557,6 @@ def get_most_recent_ji_error(task_id: int):
     :param task_id:
     :return: error message
     """
-
-    logger.debug(logging.myself())
-    logging.logParameter("task_id", task_id)
-
     query = """
         SELECT
             tiel.*

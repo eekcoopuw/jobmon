@@ -24,6 +24,7 @@ def ephemera():
     because the ephemera db has to be started before any other code
     imports the_server_config
     """
+
     edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
     edb.db_name = "docker"
     conn_str = edb.start()
@@ -43,6 +44,7 @@ def ephemera():
     create_dir = os.path.join(here, "..",
                               "jobmon/server/deployment/container/db")
     create_files = glob.glob(os.path.join(create_dir, "*.sql"))
+
     for file in sorted(create_files):
         edb.execute_sql_script(file)
 
@@ -58,7 +60,6 @@ def ephemera():
         "DB_PASS": db_conn_dict["pass"],
         "DB_NAME": db_conn_dict["db"]
     }
-
     yield cfg
 
 
@@ -69,7 +70,7 @@ def real_jsm_jqs(ephemera):
     from tests.run_services import run_web_service
     # spawn ensures that no attributes are copied to the new process. Python
     # starts from scratch
-    jobmon_host = socket.gethostname()
+    jobmon_host = ephemera["DB_HOST"]
     jobmon_port = str(10_000 + os.getpid() % 30_000)
     ctx = mp.get_context('spawn')
     p1 = ctx.Process(target=run_web_service, args=(

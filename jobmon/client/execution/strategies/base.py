@@ -67,8 +67,16 @@ class ExecutorParameters:
         self._strategy: Optional[Type[ExecutorParameters]] = None
 
         if StrategyCls is None and executor_class == "SGEExecutor":
-            raise RuntimeError("SGEExecutor was specified but SGEExecutor was not imported "
-                               "before setting ExecutorParameters")
+            raise RuntimeError("SGEExecutor was specified but SGEExecutor was "
+                               "not imported before setting ExecutorParameters."
+                               "The Executor you use is a workflow-level "
+                               "relationship, therefore if you are initializing"
+                               " a Task with Executor Parameters before you "
+                               "have initialized the Workflow with the "
+                               "associated Executor Class, you may not yet be "
+                               "allowed to use that strategy. Initialize the "
+                               "Workflow and then create your tasks in order to"
+                               " ensure the strategy is available.")
 
         if StrategyCls is not None:
             StrategyCls.set_executor_parameters_strategy(self)

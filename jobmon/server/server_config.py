@@ -1,8 +1,4 @@
 from jobmon import config
-from jobmon.server.server_logging import jobmonLogging as logging
-
-
-logger = logging.getLogger(__file__)
 
 
 class InvalidConfig(Exception):

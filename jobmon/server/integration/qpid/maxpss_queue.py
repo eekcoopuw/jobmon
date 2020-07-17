@@ -19,7 +19,7 @@ class MaxpssQ:
         try:
             return MaxpssQ._q.get_nowait()
         except queue.Empty:
-            logger.info("Maxpss queue is empty")
+            logger.debug("Maxpss queue is empty")
             return None
 
     def put(self, execution_id, age=0):
@@ -35,4 +35,3 @@ class MaxpssQ:
         # this is for unit testing
         while self.get_size() > 0:
             self.get()
-

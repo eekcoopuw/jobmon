@@ -1,6 +1,8 @@
 from http import HTTPStatus as StatusCodes
-from flask import jsonify, request, Blueprint
-import logging
+from flask import jsonify, request, Blueprint, current_app as app
+from werkzeug.local import LocalProxy
+
+
 import pandas as pd
 
 
@@ -10,7 +12,7 @@ from jobmon.models import DB
 jvs = Blueprint("visualization_server", __name__)
 
 
-logger = logging.getLogger(__name__)
+logger = LocalProxy(lambda: app.logger)
 
 
 _viz_label_mapping = {
