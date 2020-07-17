@@ -272,26 +272,3 @@ def test_propagate_result(client_env):
     assert wfr.swarm_tasks[4].num_upstreams_done >= 3
     assert wfr.swarm_tasks[5].num_upstreams_done >= 3
     assert wfr.swarm_tasks[6].num_upstreams_done >= 3
-
-
-from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.client.swarm.workflow_run import WorkflowRun
-class MockWorkflowRun(WorkflowRun):
-    def _propagate_results(self, swarm_task: SwarmTask):
-        new_fringe = []
-        logger.debug(f"Propagate {swarm_task}")
-        for downstream in swarm_task.downstream_swarm_tasks:
-            logger.debug(f"downstream {downstream}")
-            downstream_done = (downstream.status == TaskStatus.DONE)
-            if (not downstream_done and
-                    downstream.status == TaskStatus.REGISTERED):
-                if downstream.all_upstreams_done:
-                    logger.debug(" and add to fringe")
-                    new_fringe += [downstream]  # make sure there's no dups
-                else:
-                    # don't do anything, task not ready yet
-                    logger.debug(" not ready yet")
-            else:
-                logger.debug(f" not ready yet or already queued, Status is "
-                             f"{downstream.status}")
-        return new_fringe
