@@ -422,8 +422,6 @@ class Workflow(object):
             tasks[k] = [self.workflow_id, self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
                         self.tasks[k].name, self.tasks[k].command, self.tasks[k].max_attempts,
                         reset_if_running, self.tasks[k].task_args, self.tasks[k].task_attributes]
-        print("~1~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
-        print(tasks)
         parameters = {"tasks": tasks}
         return_code, response = self.requester.send_request(
             app_route=app_route,
