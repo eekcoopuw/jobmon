@@ -53,33 +53,7 @@ def test_bushy_dag(db_cfg, client_env):
     assert len(wfr.all_error) == 0
 
 
-
-# # monkey patching with previous code (without counter)
-# from jobmon.client.swarm.swarm_task import SwarmTask
-# from jobmon.client.swarm.workflow_run import WorkflowRun
-# class MockWorkflowRun(WorkflowRun):
-#     def _propagate_results(self, swarm_task: SwarmTask):
-#         new_fringe = []
-#         logger.debug(f"Propagate {swarm_task}")
-#         for downstream in swarm_task.downstream_swarm_tasks:
-#             logger.debug(f"downstream {downstream}")
-#             downstream_done = (downstream.status == TaskStatus.DONE)
-#             if (not downstream_done and
-#                     downstream.status == TaskStatus.REGISTERED):
-#                 if downstream.all_upstreams_done:
-#                     logger.debug(" and add to fringe")
-#                     new_fringe += [downstream]  # make sure there's no dups
-#                 else:
-#                     # don't do anything, task not ready yet
-#                     logger.debug(" not ready yet")
-#             else:
-#                 logger.debug(f" not ready yet or already queued, Status is "
-#                              f"{downstream.status}")
-#         return new_fringe
-
-# from jobmon.client.swarm.swarm_task import SwarmTask
-# class MockSwarmTask(SwarmTask):
-#     @property
+# for monkey patch
 def mock_all_upstreams_done(self):
     """Return a bool of if upstreams are done or not"""
     logger.debug("Using monkeypatch for all_upstreams_done.")
@@ -93,16 +67,9 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.templates.bash_task import BashTask
-    # import jobmon.client.swarm.workflow_run
     from jobmon.client.swarm.swarm_task import SwarmTask
-
     from jobmon.client.execution.strategies.base import ExecutorParameters
 
-    # monkey patching
-    # monkeypatch.setattr(
-    #     jobmon.client.swarm.workflow_run,
-    #     "WorkflowRun",
-    #     MockWorkflowRun)
     monkeypatch.setattr(
         SwarmTask,
         "all_upstreams_done",
