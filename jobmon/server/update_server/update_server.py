@@ -351,7 +351,6 @@ def add_task():
             task_args: dictionary of data args for this task
             task_attributes: dictionary of attributes associated with the task
     """
-    logger.info(logging.myself())
     data = request.get_json()
     logger.debug(data)
     ts = data.pop("tasks")
