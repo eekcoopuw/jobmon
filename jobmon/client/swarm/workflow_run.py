@@ -508,11 +508,7 @@ class WorkflowRun(object):
             downstream.num_upstreams_done += 1            
             if (not downstream_done and
                     downstream.status == TaskStatus.REGISTERED):
-                time_start = time.time()
-                all_upstreams_done = downstream.all_upstreams_done
-                time_end = time.time()
-                logger.debug(f"all_upstreams_done time: {time_end - time_start}")
-                if all_upstreams_done:
+                if downstream.all_upstreams_done:
                     logger.debug(" and add to fringe")
                     new_fringe += [downstream]  # make sure there's no dups
                 else:
