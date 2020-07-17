@@ -499,32 +499,42 @@ def bind_tasks():
     task_attribute_list = []
     for k in to_add.keys():
         task = to_add[k]
-        for _id, val in tasks[k][7]:
-            task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
+        print("#1#######################################")
+        print(k)
+        print(tasks[k])
+        print(tasks[k][7])
+        print("#2#######################################")
+        print(tasks[k][7].keys())
+        for _id in tasks[k][7].keys():
+            task_arg = TaskArg(task_id=task.id, arg_id=int(_id), val=tasks[k][7][_id])
             task_args.append(task_arg)
-
-        if tasks[k][8]:
-            for name, val in tasks[k][8].items():
-                type_id = _add_or_get_attribute_type(name)
-                task_attribute = TaskAttribute(task_id=task.id,
-                                               attribute_type=type_id,
-                                               value=val)
-                task_attribute_list.append(task_attribute)
+        print("#3###########################################")
+        print(task_args)
+        for name in tasks[k][8].keys():
+            type_id = _add_or_get_attribute_type(name)
+            task_attribute = TaskAttribute(task_id=task.id,
+                                           attribute_type=type_id,
+                                           value=tasks[k][8][name])
+            task_attribute_list.append(task_attribute)
+        print("#4############################################")
+        print(task_attribute_list)
     DB.session.add_all(task_args)
     DB.session.flush()
+    print("#5#########################################")
     DB.session.add_all(task_attribute_list)
     DB.session.flush()
+    print("#6#########################################")
     # continue update
     inserts = []
     updates = []
     for k in to_update.keys():
         task = to_update[k]
-        for name, val in tasks[k][7].items():
+        for name in tasks[k][8].keys():
             attribute_type = _add_or_get_attribute_type(name)
             insert_vals = insert(TaskAttribute).values(
                 task_id=task.id,
                 attribute_type=attribute_type,
-                value=val
+                value=tasks[k][8][name]
             )
             inserts.append(insert_vals)
             update_insert = insert_vals.on_duplicate_key_update(
@@ -532,8 +542,10 @@ def bind_tasks():
                 status='U'
             )
             updates.append(update_insert)
+    print("#7####################################")
     DB.session.add_all(inserts)
     DB.session.flush()
+    print("#8####################################")
     DB.session.add_all(updates)
     DB.session.flush()
     DB.session.commit()
