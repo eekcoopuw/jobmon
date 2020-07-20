@@ -502,6 +502,7 @@ class WorkflowRun(object):
         for downstream in swarm_task.downstream_swarm_tasks:
             logger.debug(f"downstream {downstream}")
             downstream_done = (downstream.status == TaskStatus.DONE)
+            downstream.num_upstreams_done += 1            
             if (not downstream_done and
                     downstream.status == TaskStatus.REGISTERED):
                 if downstream.all_upstreams_done:
