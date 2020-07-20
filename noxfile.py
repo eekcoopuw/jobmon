@@ -26,9 +26,9 @@ def tests(session: Session) -> None:
     # pytest sge integration tests
     try:
         os.environ['SGE_ENV']
-        extra_args = ["-m", "not integration_tests"]
+        extra_args = ["-m", "not integration_tests and not performance_tests"]
     except KeyError:
-        extra_args = ["-m", "not integration_sge and not integration_tests"]
+        extra_args = ["-m", "not integration_sge and not integration_tests and not performance_tests"]
 
     # pytest mproc
     disable_mproc = ["--disable-mproc", "True"]
@@ -48,6 +48,24 @@ def integration(session: Session) -> None:
     session.install("-r", "requirements.txt")
     session.install("-e", ".")
     extra_args = ["-m", "integration_tests"]
+    # pytest mproc
+    disable_mproc = ["--disable-mproc", "True"]
+    if "--cores" not in args:
+        extra_args.extend(disable_mproc)
+    session.run("pytest", *args, *extra_args)
+
+
+@nox.session(python=python, venv_backend="conda")
+def performance(session: Session) -> None:
+    """Run performance tests that take a while."""
+    args = session.posargs or test_locations
+    session.conda_install("mysqlclient")
+    if python == "3.7":
+        session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
+    session.install("pytest", "pytest-mproc<=3.2.9", "mock")
+    session.install("-r", "requirements.txt")
+    session.install("-e", ".")
+    extra_args = ["-m", "performance_tests"]
     # pytest mproc
     disable_mproc = ["--disable-mproc", "True"]
     if "--cores" not in args:
