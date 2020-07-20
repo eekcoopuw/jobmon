@@ -107,7 +107,7 @@ def mock_execute(self, fail_fast: bool = False,
                                     len(previously_completed))
 
 
-@pytest.mark.integration_tests
+@pytest.mark.performance_tests
 def test_bushy_dag(db_cfg, client_env, monkeypatch):
     """
     create workflow with 1000 task with 1000 dependant tasks to get a perfomance metrics.
@@ -167,7 +167,7 @@ def test_bushy_dag(db_cfg, client_env, monkeypatch):
     assert len(wfr.all_error) == 0
 
 
-@pytest.mark.integration_tests
+@pytest.mark.performance_tests
 def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     """
     create workflow with 1000 task with 1000 dependant tasks to get a perfomance metrics.
