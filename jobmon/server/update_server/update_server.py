@@ -514,7 +514,7 @@ def bind_tasks():
     DB.session.add_all(updates)
     DB.session.flush()
     DB.session.commit()
-    #return a dick of tasks {<hash>: [id, status]}
+    #return a dict of tasks {<hash>: [id, status]}
     return_tasks = {}
     for k in to_add.keys():
         return_tasks[k] = [to_add[k].id, to_add[k].status]
