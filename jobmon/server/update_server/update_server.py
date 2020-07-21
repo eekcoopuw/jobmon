@@ -355,13 +355,13 @@ def add_task():
     logger.debug(data)
     ts = data.pop("tasks")
     # build a hash table for ts
-    ts_ht = {} #{<name>, task}
+    ts_ht = {} #{<node_id::task_arg_hash>, task}
     tasks = []
     task_args = []
     task_attribute_list = []
 
     for t in ts:
-        ts_ht[t["name"]] = t
+        ts_ht[str(t["node_id"]) + "::" + str(t["task_args_hash"])] = t
         task = Task(
             workflow_id=t["workflow_id"],
             node_id=t["node_id"],
@@ -374,7 +374,7 @@ def add_task():
     DB.session.add_all(tasks)
     DB.session.flush()
     for task in tasks:
-        t = ts_ht[task.name]
+        t = ts_ht[str(task.node_id) + "::" + str(task.task_args_hash)]
         for _id, val in t["task_args"].items():
             task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
             task_args.append(task_arg)
