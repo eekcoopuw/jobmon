@@ -154,12 +154,20 @@ class Task:
                 "task_id cannot be accessed before task is bound")
         return self._task_id
 
+    @task_id.setter
+    def task_id(self, val):
+        self._task_id = val
+
     @property
     def initial_status(self) -> str:
         if not hasattr(self, "_initial_status"):
             raise AttributeError("initial_status cannot be accessed before task is "
                                  "bound")
         return self._initial_status
+
+    @initial_status.setter
+    def initial_status(self, val):
+        self._initial_status = val
 
     @property
     def workflow_id(self) -> int:
@@ -170,7 +178,7 @@ class Task:
         return self._workflow_id
 
     @workflow_id.setter
-    def workflow_id(self, val) -> int:
+    def workflow_id(self, val):
         self._workflow_id = val
 
     def bind(self, reset_if_running: bool = True) -> int:
@@ -259,10 +267,8 @@ class Task:
         return response["task_status"]
 
     def _add_task(self) -> int:
-        app_route = f'/task'
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
+        tasks = []
+        task = {
                 'workflow_id': self.workflow_id,
                 'node_id': self.node.node_id,
                 'task_args_hash': self.task_args_hash,
@@ -271,7 +277,12 @@ class Task:
                 'max_attempts': self.max_attempts,
                 'task_args': self.task_args,
                 'task_attributes': self.task_attributes
-            },
+            }
+        tasks.append(task)
+        app_route = f'/task'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={'tasks': tasks},
             request_type='post'
         )
         if return_code != StatusCodes.OK:
@@ -281,7 +292,7 @@ class Task:
                 f'200. Response content: {response}')
         # TODO: figure out why Megan wanted to return
         # response["task_attribute_ids"]
-        return response["task_id"]
+        return list(response["tasks"].values())[0]
 
     def add_attributes(self, task_attributes: dict) -> None:
         """Function that users can call either to update values of existing
