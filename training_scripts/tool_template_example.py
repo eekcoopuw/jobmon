@@ -26,6 +26,7 @@ def tool_template_example():
     sexs = list(range(2))       # dummy data
     location_hierarchy_id = 0   # dummy data
     user = getpass.getuser()
+    script_path = os.path.abspath(os.path.dirname(__file__))
 
     # create a tool, workflow and set executor
     jobmon_tool = Tool.create_tool(name="jobmon_testing_tool")
@@ -97,7 +98,7 @@ def tool_template_example():
                 upstream_tasks = [],
                 max_attempts = 3,
                 python = sys.executable,
-                script = os.path.abspath(f"/ihme/scratch/users/{user}/script/transform.py"),
+                script = os.path.join(script_path, 'test_scripts/transform.py'),
                 location_id = location_id,
                 sex_id = sex_id,
                 output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/transform"
@@ -118,7 +119,7 @@ def tool_template_example():
             upstream_tasks = upstreams_tasks,
             max_attempts = 3,
             python = sys.executable,
-            script = os.path.abspath(f"/ihme/scratch/users/{user}/script/aggregate.py"),
+            script = os.path.join(script_path, 'test_scripts/aggregate.py'),
             location_id = location_id,
             output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/aggregate"
         )
@@ -132,7 +133,7 @@ def tool_template_example():
         upstream_tasks = task_aggregate_list,
         max_attempts = 1,
         python = sys.executable,
-        script = os.path.abspath(f"/ihme/scratch/users/{user}/script/summarize.py"),
+        script = os.path.join(script_path, 'test_scripts/summarize.py'),
         location_hierarchy_id = location_hierarchy_id,
         output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/summarize"
     )

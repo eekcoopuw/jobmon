@@ -1,3 +1,4 @@
+import os
 import getpass
 import uuid
 
@@ -26,6 +27,8 @@ def workflow_template_example():
 
     user = getpass.getuser()    
     wf_uuid = uuid.uuid4()
+    script_path = os.path.abspath(os.path.dirname(__file__))
+
 
     # create workflow
     workflow = Workflow(
@@ -50,7 +53,7 @@ def workflow_template_example():
     )
 
     task3 = PythonTask(
-        script = f"/ihme/scratch/users/{user}/script/test.py",
+        script = os.path.join(script_path, 'test_scripts/test.py'),
         args = ["--args1", "val1", "--args2", "val2"],
         executor_class = "SGEExecutor",
         upstream_tasks = [task2]
