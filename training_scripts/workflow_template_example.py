@@ -4,7 +4,6 @@ import uuid
 from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
 from jobmon.client.templates.bash_task import BashTask
 from jobmon.client.templates.python_task import PythonTask
-from jobmon.client.execution.strategies.base import ExecutorParameters
 
 
 def workflow_template_example():
@@ -22,7 +21,7 @@ def workflow_template_example():
 
     To Run:
         with jobmon installed in your conda environment from the root of the repo, run:
-           $ python training_scripts/tool_template_example.py
+           $ python training_scripts/workflow_template_example.py
     """
 
     user = getpass.getuser()    
