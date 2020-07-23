@@ -181,6 +181,8 @@ class Workflow(object):
         self._dag.add_node(task.node)
         logger.debug(f"Task {hash(task)} added")
 
+        return task
+
     def add_tasks(self, tasks: Sequence[Task]):
         """Add a list of task to the workflow to be executed"""
         for task in tasks:
