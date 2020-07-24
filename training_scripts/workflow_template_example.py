@@ -10,9 +10,9 @@ from jobmon.client.templates.python_task import PythonTask
 def workflow_template_example():
     """
     Instraction:
-        This workflow use workflow template (UnkownWorkflow, BashTaks / PythonTasks).
+        This workflow use workflow template (UnknownWorkflow, BashTaks / PythonTasks).
         One of benefit to use template is its compatibility with previous jobmon and new jobmon. (guppy relase)
-        It will create node and dag object in jobmon database, it helps to clarify task"s dependant info.
+        It will create node and dag object in jobmon database, it helps to clarify task's dependant info.
         The flow in this example is:
         1. create workflow (use Unknown Template)
         2. define executor params
@@ -37,7 +37,7 @@ def workflow_template_example():
         executor_class = "SGEExecutor",
         stderr = f"/ihme/scratch/users/{user}/{wf_uuid}",
         stdout = f"/ihme/scratch/users/{user}/{wf_uuid}",
-        project = "proj_scicomp"
+        project = "proj_scicomp"  # specify your team's project
     )
 
     # create tasks

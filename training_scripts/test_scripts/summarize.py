@@ -1,5 +1,7 @@
 import os
 import argparse
+from typing import Dict
+
 
 def get_args():
     parser = argparse.ArgumentParser()
@@ -14,11 +16,11 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def write_dummy_data(args):
+def write_dummy_data(args: Dict) -> None:
     if not os.path.exists(args.output_file_path):
         os.makedirs(args.output_file_path)
-    with open('{}/summarize_{}.txt'.format(args.output_file_path, args.location_hierarchy_id), 'w') as f:
-        f.write('location_hierarchy_id: {}'.format(args.location_hierarchy_id))
+    with open(f'{args.output_file_path}/summarize_{args.location_hierarchy_id}.txt', 'w') as f:
+        f.write(f'location_hierarchy_id: {args.location_hierarchy_id}')
 
 def main():
     args = get_args()

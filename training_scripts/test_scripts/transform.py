@@ -1,5 +1,6 @@
 import os
 import argparse
+from typing import Dict
 
 
 def get_args():
@@ -19,11 +20,11 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def write_dummy_data(args):
+def write_dummy_data(args: Dict) -> None:
     if not os.path.exists(args.output_file_path):
         os.makedirs(args.output_file_path)
-    with open('{}/transform_{}_{}.txt'.format(args.output_file_path, args.location_id, args.sex_id), 'w') as f:
-        f.write('location_id: {}, sex_id: {}'.format(args.location_id, args.sex_id))
+    with open(f'{args.output_file_path}/transform_{args.location_id}_{args.sex_id}.txt', 'w') as f:
+        f.write(f'location_id: {args.location_id}, sex_id: {args.sex_id}')
 
 def main():
     args = get_args()

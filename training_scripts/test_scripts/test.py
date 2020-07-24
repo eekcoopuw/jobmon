@@ -1,6 +1,7 @@
 import os
 import argparse
 import getpass
+from typing import Dict
 
 
 def get_args():
@@ -16,13 +17,13 @@ def get_args():
     args = parser.parse_args()
     return args
 
-def write_dummy_data(args):
+def write_dummy_data(args: Dict) -> None:
     user = getpass.getuser()
     output_path = f'/ihme/scratch/users/{user}/jobmon_test/'
     if not os.path.exists(output_path):
         os.makedirs(output_path)
-    with open('{}/test.txt'.format(output_path), 'w') as f:
-        f.write('args1: {}, args2: {}'.format(args.args1, args.args2))
+    with open(f'{output_path}/test.txt', 'w') as f:
+        f.write(f'args1: {args.args1}, args2: {args.args2}')
 
 def main():
     args = get_args()

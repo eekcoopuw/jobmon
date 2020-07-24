@@ -7,7 +7,7 @@ from jobmon.client.api import Tool, ExecutorParameters
 def tool_template_example():
     """
     Instraction:
-        This example workflow consists from 3 phases. (Transform, Aggregate, Summarize)
+        This example workflow consists of 3 phases. (Transform, Aggregate, Summarize)
         The flow in this example is:
         1. create tool and workfow
         2. create task template
@@ -23,7 +23,7 @@ def tool_template_example():
 
     # define some dummy variables for testing
     locations = list(range(10)) # dummy data
-    sexs = list(range(2))       # dummy data
+    sexes = list(range(2))       # dummy data
     location_hierarchy_id = 0   # dummy data
     user = getpass.getuser()
     script_path = os.path.abspath(os.path.dirname(__file__))
@@ -33,7 +33,7 @@ def tool_template_example():
     workflow = jobmon_tool.create_workflow(name="jobmon_workflow")
     workflow.set_executor(
         executor_class="SGEExecutor",
-        project="proj_scicomp"
+        project="proj_scicomp"  # specify your team's project
     )
 
     # create template
@@ -41,7 +41,7 @@ def tool_template_example():
     There is only one summarize job that will take the whole hierarchy of locations
     and write a file for each location. Therefore the number of nodes created in the dag
     will not be dictated by location hierarchy id, but the script will need that information
-    to create the correct output, therefore location hierarchy is not a node are, it is a task arg
+    to create the correct output, therefore location hierarchy is not a node arg, it is a task arg
     """
     template_transform = jobmon_tool.get_task_template(
         template_name = "transform",
@@ -91,7 +91,7 @@ def tool_template_example():
     task_transform_by_location = {}
     for location_id in locations:
         task_location_list = []
-        for sex_id in sexs:
+        for sex_id in sexes:
             task = template_transform.create_task(
                 executor_parameters = executor_parameters_transform,
                 name = f"transform_{location_id}_{sex_id}",
