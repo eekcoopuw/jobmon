@@ -156,7 +156,7 @@ class UnknownWorkflow(Workflow):
     def run(self) -> WorkflowRun:
         """Run this workflow
         Returns:
-
+            WorkflowRun
         """
 
         return super().run(self._fail_fast, self._seconds_until_timeout,

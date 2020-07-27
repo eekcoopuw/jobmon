@@ -305,7 +305,7 @@ class Task:
                              f'route {app_route}. Expected code 200. Response content: '
                              f'{response}')
 
-    def add_attribute(self, attribute: str, value: str) -> str:
+    def add_attribute(self, attribute: str, value: str):
         """Function that users can call to add a single attribute for a task"""
         self.task_attributes[str(attribute)] = str(value)
         # if the task has already been bound, bind the attributes
