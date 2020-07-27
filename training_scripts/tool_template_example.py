@@ -31,7 +31,10 @@ def tool_template_example():
     # create a tool, workflow and set executor
     jobmon_tool = Tool.create_tool(name="jobmon_testing_tool")
     """
-    If we want to create new version, comment out the line above, and put the following lines.
+    Only call this when you explicitly want to create a new version of your tool 
+    (when you have done an overhaul of your workflow or want to indicate widespread change for the tool). 
+    We do not recommend creating a new version for every run because that will make it hard to relate similar runs.
+
     jobmon_tool = Tool(name="jobmon_testing_tool")
     jobmon_tool.create_new_tool_version()
     """
