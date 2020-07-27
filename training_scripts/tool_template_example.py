@@ -30,6 +30,11 @@ def tool_template_example():
 
     # create a tool, workflow and set executor
     jobmon_tool = Tool.create_tool(name="jobmon_testing_tool")
+    """
+    If we want to create new version, comment out the line above, and put the following lines.
+    jobmon_tool = Tool(name="jobmon_testing_tool")
+    jobmon_tool.create_new_tool_version()
+    """
     workflow = jobmon_tool.create_workflow(name="jobmon_workflow")
     workflow.set_executor(
         executor_class="SGEExecutor",
