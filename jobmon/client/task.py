@@ -147,6 +147,10 @@ class Task:
             raise AttributeError("task_id cannot be accessed before task is bound")
         return self._task_id
 
+    @task_id.setter
+    def task_id(self, val):
+        self._task_id = val
+
     @property
     def initial_status(self) -> str:
         """Get initial status of the task if it has been bound to the db otherwise raise
@@ -155,6 +159,10 @@ class Task:
         if not hasattr(self, "_initial_status"):
             raise AttributeError("initial_status cannot be accessed before task is bound")
         return self._initial_status
+
+    @initial_status.setter
+    def initial_status(self, val):
+        self._initial_status = val
 
     @property
     def workflow_id(self) -> int:
@@ -165,7 +173,7 @@ class Task:
         return self._workflow_id
 
     @workflow_id.setter
-    def workflow_id(self, val) -> int:
+    def workflow_id(self, val):
         """Set the workflow id."""
         self._workflow_id = val
 
@@ -258,10 +266,9 @@ class Task:
 
     def _add_task(self) -> int:
         """Bind a task to the db with the node, and workflow ids that have been established"""
-        app_route = f'/task'
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
+
+        tasks = []
+        task = {
                 'workflow_id': self.workflow_id,
                 'node_id': self.node.node_id,
                 'task_args_hash': self.task_args_hash,
@@ -270,14 +277,19 @@ class Task:
                 'max_attempts': self.max_attempts,
                 'task_args': self.task_args,
                 'task_attributes': self.task_attributes
-            },
+            }
+        tasks.append(task)
+        app_route = f'/task'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={'tasks': tasks},
             request_type='post'
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST request through route '
                 f'{app_route}. Expected code 200. Response content: {response}')
-        return response["task_id"]
+        return list(response["tasks"].values())[0]
 
     def add_attributes(self, task_attributes: dict) -> None:
         """Function that users can call either to update values of existing attributes or add
