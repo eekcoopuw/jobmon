@@ -352,10 +352,11 @@ def add_task():
             task_attributes: dictionary of attributes associated with the task
     """
     data = request.get_json()
+
     logger.debug(data)
     ts = data.pop("tasks")
     # build a hash table for ts
-    ts_ht = {} #{<node_id::task_arg_hash>, task}
+    ts_ht = {}  # {<node_id::task_arg_hash>, task}
     tasks = []
     task_args = []
     task_attribute_list = []
@@ -392,7 +393,7 @@ def add_task():
     DB.session.flush()
     DB.session.commit()
     # return value
-    return_dict = {} #{<name>: <id>}
+    return_dict = {}  # {<name>: <id>}
     for t in tasks:
         return_dict[t.name] = t.id
     resp = jsonify(tasks=return_dict)
@@ -514,7 +515,7 @@ def bind_tasks():
     DB.session.add_all(updates)
     DB.session.flush()
     DB.session.commit()
-    #return a dict of tasks {<hash>: [id, status]}
+    # return a dict of tasks {<hash>: [id, status]}
     return_tasks = {}
     for k in to_add.keys():
         return_tasks[k] = [to_add[k].id, to_add[k].status]
@@ -586,8 +587,8 @@ def add_workflow():
                         name=data["name"],
                         workflow_args=data["workflow_args"])
     DB.session.add(workflow)
-    # TODO: doesn't work with flush, figure out why. Using commit breaks atomicity, workflow attributes may not populate
-    # correctly on a rerun
+    # TODO: doesn't work with flush, figure out why. Using commit breaks atomicity, workflow
+    # attributes may not populate correctly on a rerun
     DB.session.commit()
     if data['workflow_attributes']:
         wf_attributes_list = []
@@ -1070,7 +1071,8 @@ def get_run_status_and_latest_task(workflow_run_id: int):
     time_since_wfr_status = current_time - status.WorkflowRun.status_date
 
     # If the last task was more than 2 minutes ago, transition wfr to A state
-    # Also check WorkflowRun status_date to avoid possible race condition where reaper checks tasks from a different WorkflowRun with the same workflow id
+    # Also check WorkflowRun status_date to avoid possible race condition where reaper checks
+    # tasks from a different WorkflowRun with the same workflow id
     if time_since_task_status > timedelta(minutes=2) and time_since_wfr_status > timedelta(minutes=2):
         aborted = True
         status.WorkflowRun.transition("A")
