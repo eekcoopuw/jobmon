@@ -13,7 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 class Dag(object):
-    """Stores Nodes, talks to the server in regard to itself"""
+    """The DAG (Directed Acyclic Graph) captures the tasks (nodes) as they are
+    related to each other in their dependency structure. The Dag is traversed in
+    the order of node dependencies so a workflow run is a single instance of
+    traversing through a dag. This object stores the nodes and communicates
+    with the server with regard to itself."""
 
     def __init__(self, requester: Requester = shared_requester):
         self.nodes: Set[Node] = set()
@@ -21,13 +25,17 @@ class Dag(object):
 
     @property
     def dag_id(self) -> int:
+        """Database unique ID of this DAG"""
         if not hasattr(self, "_dag_id"):
             raise AttributeError(
                 "_dag_id cannot be accessed before dag is bound")
         return self._dag_id
 
     def add_node(self, node: Node) -> None:
-        """Add a node to this dag."""
+        """Add a node to this dag.
+        Args:
+            node (Node): Node to add to the dag
+        """
         # wf.add_task should call ClientNode.add_node() + pass the tasks' node
         self.nodes.add(node)
 

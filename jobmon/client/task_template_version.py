@@ -95,7 +95,7 @@ class TaskTemplateVersion:
                                  "instantiation")
         if not self.template_args.issuperset(val):
             raise ValueError("The format keys declared in command_template must be a "
-                             "superset of the keys declared in op_args. Values recieved "
+                             "superset of the keys declared in op_args. Values received "
                              f"were --- \ncommand_template is: {self.command_template}. "
                              f"\ncommand_template format keys are {self.template_args}. "
                              f"\nnode_args is: {val}. \nmissing format keys in "

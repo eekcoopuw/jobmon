@@ -26,7 +26,6 @@ class BashTask(Task):
                  queue: Optional[str] = None,
                  max_attempts: int = 3,
                  j_resource: bool = False,
-                 tag: Optional[str] = None,
                  context_args: Optional[dict] = None,
                  resource_scales: Optional[Dict] = None,
                  m_mem_free: Optional[str] = None,
@@ -35,6 +34,12 @@ class BashTask(Task):
                  executor_parameters:
                  Optional[Union[ExecutorParameters, Callable]] = None):
         """
+        Bash Task object can be used by users upgrading from older versions of
+        Jobmon (version < 2.0). It sets a default tool and task template for the
+        user, however if the user wants to build out their objects to better
+        classify their tasks, they should use the Task and Task Template 
+        objects.
+        
         Args:
             command (str): the command to execute using a python binary
             upstream_tasks: Task objects that must be run prior to this

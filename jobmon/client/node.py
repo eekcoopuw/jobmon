@@ -3,14 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 from http import HTTPStatus as StatusCodes
-from typing import Dict, List, Set, TYPE_CHECKING
+from typing import Dict, List, Set
 
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
 from jobmon.client.requests.requester import Requester
-
-if TYPE_CHECKING:
-    from jobmon.client.task import Task
 
 
 logger = logging.getLogger(__name__)
@@ -19,15 +16,18 @@ logger = logging.getLogger(__name__)
 class Node:
 
     def __init__(self, task_template_version_id: int, node_args: Dict,
-                 task: Task, requester: Requester = shared_requester):
-        """A node represents an individual node for a Dag.
-        A node stores node arguments and can register itself with the database
-        via the Jobmon Query Service and the Jobmon State Manager.
+                 requester: Requester = shared_requester):
+        """A node represents an individual task within a Dag. This includes its
+        relationship to other nodes that it is dependent upon or nodes that
+        depend upon it. A node stores node arguments (arguments relating to the
+        actual shape of the dag and number of tasks created for a given
+        stage/task template) and can register itself with the database via the
+        Jobmon Query Service and the Jobmon State Manager.
 
         Args:
             task_template_version_id: The associated task_template_version_id.
             node_args: key-value pairs of arg_id and a value.
-            upstream_nodes: list of nodes that this node is dependent on.
+            requester: the requester used to communicate with central services.
         """
         self.task_template_version_id = task_template_version_id
         self.node_args = node_args
@@ -106,24 +106,39 @@ class Node:
                              f'request through route /node. Expected code 200.'
                              f' Response content: {response}')
 
-    def add_upstream_node(self, upstream_node: Node) -> None:
-        """Add a node to this one's upstream Nodes."""
+    def add_upstream_node(self, upstream_node: 'Node') -> None:
+        """Add a single node to this one's upstream Nodes.
+        Args:
+            upstream_node (Node): node to add a dependency on
+        """
         self.upstream_nodes.add(upstream_node)
         # Add this node to the upstream nodes' downstream
         upstream_node.downstream_nodes.add(self)
 
-    def add_upstream_nodes(self, upstream_nodes: List[Node]) -> None:
-        """Add many nodes to this one's upstream Nodes."""
+    def add_upstream_nodes(self, upstream_nodes: List['Node']) -> None:
+        """Add many nodes to this one's upstream Nodes.
+
+        Args:
+            upstream_nodes (List[Node]): list of nodes to add dependencies on
+        """
         for node in upstream_nodes:
             self.add_upstream_node(node)
 
-    def add_downstream_node(self, downstream_node: Node) -> None:
-        """Add a node to this one's downstream Nodes."""
+    def add_downstream_node(self, downstream_node: 'Node') -> None:
+        """Add a node to this one's downstream Nodes.
+        Args:
+            downstream_node (Node): Node that will be dependent on this node
+        """
         self.downstream_nodes.add(downstream_node)
         # avoid endless recursion, set directly
         downstream_node.upstream_nodes.add(self)
 
-    def add_downstream_nodes(self, downstream_nodes: List[Node]) -> None:
+    def add_downstream_nodes(self, downstream_nodes: List['Node']) -> None:
+        """Add a list of nodes as this node's downstream nodes
+        Args:
+            downstream_nodes (List[Node]): Nodes that will be dependent on this
+                node.
+        """
         for node in downstream_nodes:
             self.add_downstream_node(node)
 
@@ -132,10 +147,10 @@ class Node:
                 f'node_args: {self.node_args}, '
                 f'node_args_hash: {self.node_args_hash}')
 
-    def __eq__(self, other: Node) -> bool:
+    def __eq__(self, other: 'Node') -> bool:
         return hash(self) == hash(other)
 
-    def __lt__(self, other: Node) -> bool:
+    def __lt__(self, other: 'Node') -> bool:
         return hash(self) < hash(other)
 
     def __hash__(self) -> int:

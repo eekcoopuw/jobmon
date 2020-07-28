@@ -19,12 +19,11 @@ class TaskTemplate:
 
     def __init__(self, tool_version_id: int, template_name: str,
                  requester: Requester = shared_requester) -> None:
-        """Groups tasks of a type, by declaring the concrete arguments that
-        instances may vary over
+        """Groups tasks of a type, by declaring the concrete arguments that instances may vary
+        over either from workflow to workflow or between nodes in the stage of a dag.
 
         Args:
-            tool_version_id: the version of the tool this task template is
-                associated with.
+            tool_version_id: the version of the tool this task template is associated with.
             template_name: the name of this task template.
             requester: requester for communicating with central services
         """
@@ -57,23 +56,20 @@ class TaskTemplate:
 
     def bind_task_template_version(self, command_template: str, node_args: List[str] = [],
                                    task_args: List[str] = [], op_args: List[str] = []):
-        """bind a task template version instance
+        """Bind a task template version instance to the db.
 
-            command_template: an abstract command representing a task, where
-                the arguments to the command have defined names but the values
-                are not assigned. eg:
-                    '{python} {script} --data {data} --para {para} {verbose}'
-            node_args: any named arguments in command_template that make the
-                command unique within this template for a given workflow run.
-                Generally these are arguments that can be parallelized over.
-            task_args: any named arguments in command_template that make the
-                command unique across workflows if the node args are the same
-                as a previous workflow. Generally these are arguments about
-                data moving though the task.
-            op_args: any named arguments in command_template that can change
-                without changing the identity of the task. Generally these
-                are things like the task executable location or the verbosity
-                of the script.
+            command_template: an abstract command representing a task, where the arguments to
+                the command have defined names but the values are not assigned.
+                eg: '{python} {script} --data {data} --para {para} {verbose}'
+            node_args: any named arguments in command_template that make the command unique
+                within this template for a given workflow run. Generally these are arguments
+                that can be parallelized over.
+            task_args: any named arguments in command_template that make the command unique
+                across workflows if the node args are the same as a previous workflow.
+                Generally these are arguments about data moving though the task.
+            op_args: any named arguments in command_template that can change without changing
+                the identity of the task. Generally these are things like the task executable
+                location or the verbosity of the script.
         """
         if not node_args:
             node_args = []
@@ -100,19 +96,23 @@ class TaskTemplate:
                     task_attributes: Union[List, dict] = {},
                     max_attempts: int = 3,
                     **kwargs) -> Task:
-        """Create an instance of a task associated with this template
+        """Create an instance of a task associated with this template.
 
         Args:
             executor_parameters: an instance of executor paremeters class
             name: a name associated with this specific task
-            upstream_task: Task objects that must be run prior to this one
-            task_attributes (dict or list): attributes and their values or
-                just the attributes that will be given values later
-            max_attempts: Number of attempts to try this task before giving up.
-                Default is 3.
+            upstream_tasks: Task objects that must be run prior to this one
+            task_attributes (dict or list): attributes and their values or just the attributes
+                that will be given values later
+            max_attempts: Number of attempts to try this task before giving up. Default is 3.
             **kwargs: values for each argument specified in command_template
 
-        Returns: ExecutableTask
+        Returns:
+            ExecutableTask
+
+        Raises:
+            ValueError: if the args that are supplied do not match the args in the command
+                template.
         """
         # if we have argument overlap
         if "name" in self.task_template_version.template_args:
@@ -122,7 +122,7 @@ class TaskTemplate:
         if self.task_template_version.template_args != set(kwargs.keys()):
             raise ValueError(
                 f"unexpected kwargs. expected {self.task_template_version.template_args} -"
-                f"recieved {set(kwargs.keys())}")
+                f"received {set(kwargs.keys())}")
 
         command = self.task_template_version.command_template.format(**kwargs)
 

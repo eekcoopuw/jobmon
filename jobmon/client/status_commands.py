@@ -14,10 +14,9 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
     """Get metadata about workflow progress
 
     Args:
-        workflow_id: workflow_id/s to retrieve info for. If not specified will
-            pull all workflows by user
-        user: user/s to retrieve info for. If not specified will return for
-            current user.
+        workflow_id: workflow_id/s to retrieve info for. If not specified will pull all
+            workflows by user
+        user: user/s to retrieve info for. If not specified will return for current user.
         json: Flag to return data as JSON
 
     Returns:
@@ -48,8 +47,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
 
     Args:
         workflow_id: workflow_id/s to retrieve info for
-        status: limit task state to one of [PENDING, RUNNING, DONE, FATAL]
-            tasks
+        status: limit task state to one of [PENDING, RUNNING, DONE, FATAL] tasks
         json: Flag to return data as JSON
 
     Returns:
@@ -70,11 +68,13 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
         return pd.read_json(res["workflow_tasks"])
 
 
-def task_status(task_ids: List[int], status: List[str] = None, json: bool = False) -> Tuple[str, pd.DataFrame]:
+def task_status(task_ids: List[int], status: List[str] = None, json: bool = False
+                ) -> Tuple[str, pd.DataFrame]:
     """Get metadata about a task and its task instances
 
     Args:
         task_ids: a list of task_ids to retrieve task_instance metadata for
+        status: a list of statuses to check for
         json: Flag to return data as JSON
 
     Returns:

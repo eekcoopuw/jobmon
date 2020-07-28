@@ -189,7 +189,7 @@ def test_task_attribute(db_cfg, client_env):
         f"{this_file}/../_scripts/remote_sleep_and_write.py"))
 
     task2 = PythonTask(script=script_path, num_cores=1,
-                     task_attributes=["NUM_CORES", "NUM_YEARS"])
+                       task_attributes=["NUM_CORES", "NUM_YEARS"])
     workflow1.add_tasks([task1, task2])
     workflow1.run()
 
