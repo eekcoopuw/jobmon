@@ -26,13 +26,14 @@ class Tool:
     def __init__(self, name: str = "unknown",
                  active_tool_version_id: Union[str, int] = "latest",
                  requester: Requester = shared_requester) -> None:
-        """A tool is an application with is expected to run many times on
-        variable inputs.
+        """A tool is an application which is expected to run many times on variable inputs but
+         which will serve a certain purpose over time even as the internal pipeline may change.
+         Example tools are Dismod, Burdenator, Codem.
 
         Args:
             name: the name of the tool
-            active_tool_version_id: which version of the tool to attach task
-                templates and workflows to
+            active_tool_version_id: which version of the tool to attach task templates and
+                workflows to.
             requester: requester object directed at a flask service instance
         """
         self.requester = requester
@@ -93,9 +94,8 @@ class Tool:
         else:
             if val not in self.tool_version_ids:
                 raise InvalidToolVersionError(
-                    f"tool_version_id {val} is not a valid tool version for "
-                    f"{self.name}. Valid tool versions are "
-                    f"{self.tool_version_ids}")
+                    f"tool_version_id {val} is not a valid tool version for {self.name}. Valid"
+                    f" tool versions are {self.tool_version_ids}")
             self._active_tool_version_id = int(val)
 
     def get_task_template(self, template_name: str, command_template: str,
@@ -105,21 +105,18 @@ class Tool:
 
         Args:
             template_name: the name of this task template.
-            command_template: an abstract command representing a task, where
-                the arguments to the command have defined names but the values
-                are not assigned. eg:
-                    '{python} {script} --data {data} --para {para} {verbose}'
-            node_args: any named arguments in command_template that make the
-                command unique within this template for a given workflow run.
-                Generally these are arguments that can be parallelized over.
-            task_args: any named arguments in command_template that make the
-                command unique across workflows if the node args are the same
-                as a previous workflow. Generally these are arguments about
-                data moving though the task.
-            op_args: any named arguments in command_template that can change
-                without changing the identity of the task. Generally these
-                are things like the task executable location or the verbosity
-                of the script.
+            command_template: an abstract command representing a task, where the arguments to
+                the command have defined names but the values are not assigned. eg: '{python}
+                {script} --data {data} --para {para} {verbose}'
+            node_args: any named arguments in command_template that make the command unique
+                within this template for a given workflow run. Generally these are arguments
+                that can be parallelized over.
+            task_args: any named arguments in command_template that make the command unique
+                across workflows if the node args are the same as a previous workflow.
+                Generally these are arguments about data moving though the task.
+            op_args: any named arguments in command_template that can change without changing
+                the identity of the task. Generally these are things like the task executable
+                location or the verbosity of the script.
         """
         tt = TaskTemplate(self.active_tool_version_id, template_name, self.requester)
         tt.bind()
@@ -130,9 +127,8 @@ class Tool:
         return tt
 
     def create_workflow(self, workflow_args: str = "", name: str = "",
-                        description: str = ""):
-        wf = Workflow(self.active_tool_version_id, workflow_args,
-                      name, description)
+                        description: str = "") -> Workflow:
+        wf = Workflow(self.active_tool_version_id, workflow_args, name, description)
         return wf
 
     def _get_tool_version_ids(self) -> List[int]:
@@ -155,8 +151,8 @@ class Tool:
             request_type='get')
         if res["tool"] is None:
             raise InvalidToolError(
-                f"no tool found in database for name: {name}. Use create_tool"
-                "to make a new tool.")
+                f"no tool found in database for name: {name}. Use create_tool to make a new "
+                f"tool.")
         else:
             return SerializeClientTool.kwargs_from_wire(res["tool"])["id"]
 

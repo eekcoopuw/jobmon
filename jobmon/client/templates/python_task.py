@@ -31,6 +31,12 @@ class PythonTask(Task):
                  executor_parameters:
                  Optional[Union[ExecutorParameters, Callable]] = None):
         """
+        Python Task object can be used by users upgrading from older versions of
+        Jobmon (version < 2.0). It sets a default of unknown tool and a task
+        template for each unique script for the user, however if the user wants 
+        to build out their objects to better classify their tasks, they should 
+        use the Task and Task Template objects.
+        
         Args:
             path_to_python_binary (str): the python install that should be used
                 Default is the Python install where Jobmon is installed
@@ -63,9 +69,9 @@ class PythonTask(Task):
             hard_limits: if the user wants jobs to stay on the chosen queue
                 and not expand if resources are exceeded, set this to true
             executor_class: the type of executor so we can instantiate the
-                executor parameters properly
+                executor parameters properly. Default is Dummy Executor.
             executor_parameters: an instance of executor
-                paremeters class
+                parameters class
             """
 
         # script cannot be None at this point

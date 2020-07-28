@@ -89,25 +89,30 @@ def test_bash_task_bind(db_cfg, client_env):
     """
     from jobmon.client.templates.bash_task import BashTask
     from jobmon.models.task import Task
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     app = db_cfg["app"]
     DB = db_cfg["DB"]
 
-    a = BashTask(command="echo 'Hello Jobmon'", max_attempts=1,
+    workflow1 = UnknownWorkflow(name="test_bash_task_bind",
+                                executor_class="SequentialExecutor")
+
+    task1 = BashTask(command="echo 'Hello Jobmon'", max_attempts=1,
                  executor_class="DummyExecutor")
-    a.workflow_id = 1
-    a.node.bind()
-    a.bind()
+    workflow1.add_tasks([task1])
+    workflow1._bind()
+    workflow1._create_workflow_run()
+    bound_task = workflow1.tasks[hash(task1)]
 
     with app.app_context():
-        task = DB.session.query(Task).filter_by(id=a.task_id).one()
+        task = DB.session.query(Task).filter_by(id=task1.task_id).one()
 
         # check all task args
-        assert task.workflow_id == 1
-        assert task.node_id == a.node.node_id
-        assert task.name == a.name
-        assert task.command == a.command
+        assert task.workflow_id == workflow1.workflow_id
+        assert task.node_id == bound_task.node.node_id
+        assert task.name == bound_task.name
+        assert task.command == bound_task.command
         assert task.num_attempts == 0
-        assert task.max_attempts == a.max_attempts
+        assert task.max_attempts == bound_task.max_attempts
 
         DB.session.commit()
 
@@ -132,30 +137,35 @@ def test_python_task_args(db_cfg, client_env):
     by python task"""
     from jobmon.client.templates.python_task import PythonTask
     from jobmon.models.task import Task
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     import sys
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
 
-    a = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
+    workflow1 = UnknownWorkflow(name="test_python_task_args",
+                                executor_class="SequentialExecutor")
+
+    task1 = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
                    num_cores=1, m_mem_free='2G', max_attempts=1)
-    a.workflow_id = 1
-    a.node.bind()
-    a.bind()
+    workflow1.add_tasks([task1])
+    workflow1._bind()
+    workflow1._create_workflow_run()
+    bound_task = workflow1.tasks[hash(task1)]
 
     with app.app_context():
-        task = DB.session.query(Task).filter_by(id=a.task_id).one()
+        task = DB.session.query(Task).filter_by(id=task1.task_id).one()
 
         # check all task args
-        assert task.workflow_id == 1
-        assert task.node_id == a.node.node_id
-        assert task.name == a.name
-        assert task.command == a.command
+        assert task.workflow_id == workflow1.workflow_id
+        assert task.node_id == bound_task.node.node_id
+        assert task.name == bound_task.name
+        assert task.command == bound_task.command
         assert task.num_attempts == 0
-        assert task.max_attempts == a.max_attempts
+        assert task.max_attempts == bound_task.max_attempts
 
         # check all job args
-        assert a.command == f'OP_NUM_THREADS=1 {sys.executable} ~/runme.py'
+        assert bound_task.command == f'OP_NUM_THREADS=1 {sys.executable} ~/runme.py'
 
 
 def test_task_attribute(db_cfg, client_env):
@@ -179,7 +189,7 @@ def test_task_attribute(db_cfg, client_env):
         f"{this_file}/../_scripts/remote_sleep_and_write.py"))
 
     task2 = PythonTask(script=script_path, num_cores=1,
-                     task_attributes=["NUM_CORES", "NUM_YEARS"])
+                       task_attributes=["NUM_CORES", "NUM_YEARS"])
     workflow1.add_tasks([task1, task2])
     workflow1.run()
 

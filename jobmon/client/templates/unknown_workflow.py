@@ -61,6 +61,13 @@ class UnknownWorkflow(Workflow):
                  report_by_buffer: Optional[float] = None,
                  workflow_attributes: Union[List, dict] = None) -> None:
         """
+        The Unknown Workflow object was created so that users of older versions
+        of Jobmon (before 2.0) are able to update the imports and run their
+        scripts as normal. In order to do this the Unknown Workflow associates
+        with the 'Unknown' Tool. We recommend however, that users use the
+        Workflow object to build out a better classification of what their
+        workflows and tasks are doing.
+
         Args:
             workflow_args: unique identifier of a workflow
             name: name of the workflow
@@ -68,18 +75,19 @@ class UnknownWorkflow(Workflow):
             stderr: filepath where stderr should be sent, if run on SGE
             stdout: filepath where stdout should be sent, if run on SGE
             project: SGE project to run under, if run on SGE
-            reset_running_jobs: whether or not to reset running jobs
+            reset_running_jobs: whether or not to reset running jobs upon resume
             working_dir: the working dir that a job should be run from,
                 if run on SGE
             executor_class: name of one of Jobmon's executors
             fail_fast: whether or not to break out of execution on
                 first failure
+            requester: the requester used to communicate with central services.
             seconds_until_timeout: amount of time (in seconds) to wait
                 until the whole workflow times out. Submitted jobs will
                 continue
             resume: whether the workflow should be resumed or not, if
-                it is not and an identical workflow already exists, the
-                workflow will error out
+                it is not set to resume and an identical workflow already
+                exists, the workflow will error out
             reconciliation_interval: rate at which reconciler reconciles
                 jobs to for errors and check state changes, default set to 10
                 seconds in client config, but user can reconfigure here
@@ -89,6 +97,8 @@ class UnknownWorkflow(Workflow):
                 report_by_date (default = 3.1) so a job in qw can miss 3
                 reconciliations or a running job can miss 3 worker heartbeats,
                 and then we will register that it as lost
+            workflow_attributes:  attributes that make this workflow different
+                from other workflows that the user wants to record.
         """
         self._set_executor(executor_class=executor_class, stderr=stderr,
                            stdout=stdout, working_dir=working_dir,
@@ -118,7 +128,8 @@ class UnknownWorkflow(Workflow):
             workflow_attributes=workflow_attributes)
 
     def _set_executor(self, executor_class: str, *args, **kwargs) -> None:
-        """Set which executor to use to run the tasks.
+        """Set which executor and parameters associated with that executor to
+        use to run the tasks.
 
         Args:
             executor_class (str): string referring to one of the executor
@@ -143,7 +154,10 @@ class UnknownWorkflow(Workflow):
             raise AttributeError("Executor must have an execute() method")
 
     def run(self) -> WorkflowRun:
-        """Run this workflow"""
+        """Run this workflow
+        Returns:
+            WorkflowRun
+        """
 
         return super().run(self._fail_fast, self._seconds_until_timeout,
                            self._resume, self._reset_running_jobs)

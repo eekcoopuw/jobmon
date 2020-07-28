@@ -22,6 +22,7 @@ from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
                                SchedulerNotAlive, ResumeSet)
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.models.task_status import TaskStatus
 
 
 logger = logging.getLogger(__name__)
@@ -65,33 +66,13 @@ class Workflow(object):
                  workflow_attributes: Union[List, dict] = None):
         """
         Args:
+            tool_version_id: id of the associated tool 
             workflow_args: unique identifier of a workflow
             name: name of the workflow
             description: description of the workflow
-            stderr: filepath where stderr should be sent, if run on SGE
-            stdout: filepath where stdout should be sent, if run on SGE
-            project: SGE project to run under, if run on SGE
-            reset_running_jobs: whether or not to reset running jobs
-            working_dir: the working dir that a job should be run from,
-                if run on SGE
-            executor_class: name of one of Jobmon's executors
-            fail_fast: whether or not to break out of execution on
-                first failure
-            seconds_until_timeout: amount of time (in seconds) to wait
-                until the whole workflow times out. Submitted jobs will
-                continue
-            resume: whether the workflow should be resumed or not, if
-                it is not and an identical workflow already exists, the
-                workflow will error out
-            reconciliation_interval: rate at which reconciler reconciles
-                jobs to for errors and check state changes, default set to 10
-                seconds in client config, but user can reconfigure here
-            heartbeat_interval: rate at which worker node reports
-                back if it is still alive and running
-            report_by_buffer: number of heartbeats we push out the
-                report_by_date (default = 3.1) so a job in qw can miss 3
-                reconciliations or a running job can miss 3 worker heartbeats,
-                and then we will register that it as lost
+            requester: the requester used to communicate with central services.
+            workflow_attributes: attributes that make this workflow different
+                from other workflows that the user wants to record.
         """
         self.tool_version_id = tool_version_id
         self.name = name
@@ -129,8 +110,9 @@ class Workflow(object):
                 for attr, val in workflow_attributes.items():
                     self.workflow_attributes[str(attr)] = str(val)
             else:
-                raise ValueError("workflow_attributes must be provided as a list of "
-                                 "attributes or a dictionary of attributes and their values")
+                raise ValueError("workflow_attributes must be provided as a "
+                                 "list of attributes or a dictionary of"
+                                 " attributes and their values")
 
     @property
     def is_bound(self):
@@ -164,7 +146,12 @@ class Workflow(object):
 
     def add_attributes(self, workflow_attributes: dict) -> None:
         """Function that users can call either to update values of existing
-        attributes or add new attributes"""
+        attributes or add new attributes
+
+        Args:
+            workflow_attributes: attributes to be bound to the db that describe
+                this workflow.
+        """
 
         app_route = f'/workflow/{self.workflow_id}/workflow_attributes'
         return_code, response = self.requester.send_request(
@@ -178,11 +165,14 @@ class Workflow(object):
                 f'request through route {app_route}. Expected code '
                 f'200. Response content: {response}')
 
-    def add_task(self, task: Task):
+    def add_task(self, task: Task) -> Task:
         """Add a task to the workflow to be executed.
            Set semantics - add tasks once only, based on hash name. Also
            creates the job. If is_no has no task_id the creates task_id and
            writes it onto object.
+
+           Args:
+               task: single task to add
         """
         logger.debug(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
@@ -205,7 +195,17 @@ class Workflow(object):
                      ExecutionConfig.from_defaults(),
                      executor_class: Optional[str] = 'SGEExecutor', *args,
                      **kwargs):
-        self._executor: Executor
+        """Set the executor and any arguments specific to that executor that
+        will be applied to the entire workflow (ex. specify project here for
+        SGEExecutor class).
+
+        Args:
+            executor: if an executor object has already been created, use it
+            execution_config: configuration of scheduling settings and other
+                execution related settings
+            executor_class: which executor to run your tasks on
+        """
+        self._executor: 'Executor'
         self._execution_config: ExecutionConfig = execution_config
 
         if executor is not None:
@@ -232,8 +232,26 @@ class Workflow(object):
             seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME,
             reset_running_jobs: bool = True,
-            scheduler_response_wait_timeout=180):
+            scheduler_response_wait_timeout=180) -> WorkflowRun:
+        """Run the workflow by traversing the dag and submitting new tasks when
+        their tasks have completed successfully.
+        Args:
+            fail_fast: whether or not to break out of execution on
+                first failure
+            seconds_until_timeout: amount of time (in seconds) to wait
+                until the whole workflow times out. Submitted jobs will
+                continue
+            resume: whether the workflow should be resumed or not, if
+                it is not set to resume and an identical workflow already
+                exists, the workflow will error out
+            reset_running_jobs: whether or not to reset running jobs upon resume
+            scheduler_response_wait_timeout: amount of time to wait for the
+                scheduler thread to start up
 
+        Returns:
+            WorkflowRun: object of WorkflowRun, can be checked to make sure all
+                jobs ran to completion, checked for status, etc.
+        """
         if not hasattr(self, "_executor"):
             logger.warning("using default project: ihme_general")
             self.set_executor(project="ihme_general")
@@ -256,12 +274,15 @@ class Workflow(object):
             # execute the workflow run
             wfr.execute_interruptible(scheduler_proc, fail_fast,
                                       seconds_until_timeout)
-            # TODO: report
+            logger.info(f"Scheduler started up successfully and the workflow "
+                        f"run finished executing. Workflow Run status is: "
+                        f"{wfr.status}")
             return wfr
 
         except KeyboardInterrupt:
             wfr.update_status(WorkflowRunStatus.STOPPED)
-            # TODO: report
+            logger.warning("Keyboard interrupt raised and Workflow Run set to "
+                           "Stopped")
             return wfr
 
         except SchedulerNotAlive:
@@ -310,6 +331,7 @@ class Workflow(object):
                 self._scheduler_proc.terminate()
 
     def _bind(self, resume: bool = ResumeStatus.DONT_RESUME):
+        """Bind objects to the database if they haven't already been"""
         # short circuit if already bound
         if self.is_bound:
             return
@@ -349,7 +371,8 @@ class Workflow(object):
             self._workflow_id = workflow_id
 
     def _matching_wf_args_diff_hash(self):
-        """Check """
+        """Check that an existing workflow with the same workflow_args does not
+         have a different hash indicating that it contains different tasks."""
         rc, response = self.requester.send_request(
             app_route=f'/workflow/{str(self.workflow_args_hash)}',
             message={},
@@ -409,6 +432,34 @@ class Workflow(object):
                 f'code 200. Response content: {response}')
         return response["workflow_id"]
 
+    def _bind_tasks(self, reset_if_running: bool = True):
+        app_route = f'/task/bind_tasks'
+        parameters = {}
+        # send to server in a format of:
+        # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3),
+        # command(4), max_attempts(5)], reset_if_running(6), task_args(7), task_attributes(8)}
+        # flat the data structure so that the server won't depend on the client
+        tasks = {}
+        for k in self.tasks.keys():
+            tasks[k] = [self.workflow_id, self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
+                        self.tasks[k].name, self.tasks[k].command, self.tasks[k].max_attempts,
+                        reset_if_running, self.tasks[k].task_args, self.tasks[k].task_attributes]
+        parameters = {"tasks": tasks}
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message=parameters,
+            request_type='put'
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from PUT '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}')
+        return_tasks = response["tasks"]
+        for k in return_tasks.keys():
+            self.tasks[int(k)].task_id = return_tasks[k][0]
+            self.tasks[int(k)].initial_status = return_tasks[k][1]
+
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True) -> WorkflowRun:
         swarm_tasks: Dict[int, SwarmTask] = {}
@@ -421,11 +472,8 @@ class Workflow(object):
             requester=self.requester)
 
         try:
+            self._bind_tasks(reset_running_jobs)
             for task in self.tasks.values():
-                # bind tasks
-                task.workflow_id = self.workflow_id
-                task.bind(reset_if_running=reset_running_jobs)
-
                 # create swarmtasks
                 swarm_task = SwarmTask(
                     task_id=task.task_id,
@@ -502,25 +550,3 @@ class Workflow(object):
         hash_value.update(str(self.task_hash).encode('utf-8'))
         hash_value.update(str(hash(self._dag)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
-
-    # def report(self, dag_status, n_new_done, n_prev_done, n_failed):
-    #     """Return the status of this workflow"""
-    #     if dag_status == WorkflowRunExecutionStatus.SUCCEEDED:
-    #         logger.info(
-    #             "Workflow finished successfully!")
-    #         logger.info("# finished jobs: {}".format(
-    #             n_new_done + n_prev_done))
-    #     elif dag_status == WorkflowRunExecutionStatus.FAILED:
-    #         logger.info(
-    #             "Workflow FAILED")
-    #         logger.info(
-    #             "# finished jobs (this run): {}".format(n_new_done))
-    #         logger.info("# finished jobs (previous runs): {}"
-    #                     .format(n_prev_done))
-    #         logger.info(
-    #             "# failed jobs: {}".format(n_failed))
-    #     elif dag_status == WorkflowRunExecutionStatus.STOPPED_BY_USER:
-    #         logger.info(
-    #             "Workflow STOPPED_BY_USER")
-    #         logger.info(
-    #             "# finished jobs: {}", n_new_done)
