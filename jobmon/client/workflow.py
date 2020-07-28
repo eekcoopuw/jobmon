@@ -66,6 +66,7 @@ class Workflow(object):
                  workflow_attributes: Union[List, dict] = None):
         """
         Args:
+            tool_version_id: id of the associated tool 
             workflow_args: unique identifier of a workflow
             name: name of the workflow
             description: description of the workflow
