@@ -2,6 +2,7 @@ FROM tiangolo/uwsgi-nginx-flask:python3.7
 RUN apt-get update && apt-get install -y mariadb-client
 
 ENV NGINX_WORKER_PROCESSES auto
+ENV UWSGI_INI /app/uwsgi.ini
 
 # jobmon packaging
 COPY ./jobmon /app/jobmon

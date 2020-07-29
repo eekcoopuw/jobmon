@@ -1,16 +1,20 @@
+from argparse import ArgumentParser, Namespace
+from datetime import datetime
 import getpass
 import os
 import random
+import shlex
 import stat
-import sys
+from typing import Optional
 import uuid
-from datetime import datetime
+
 
 from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
 from jobmon.client.templates.bash_task import BashTask
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
+random.seed(12345)
 
 
 def three_phase_load_test(n_jobs: int, wfid: str = "") -> None:
@@ -73,10 +77,23 @@ def three_phase_load_test(n_jobs: int, wfid: str = "") -> None:
     print(f"{time}: Workflow complete!")
 
 
+def parse_arguments(argstr: Optional[str] = None) -> Namespace:
+    """
+    Gets arguments from the command line or a command line string.
+    """
+    parser = ArgumentParser()
+    parser.add_argument("--num", type=int, required=True, default=1)
+    parser.add_argument("--wfid", type=str, required=True)
+
+    if argstr is not None:
+        arglist = shlex.split(argstr)
+        args = parser.parse_args(arglist)
+    else:
+        args = parser.parse_args()
+
+    return args
+
+
 if __name__ == "__main__":
-    n_jobs = 1
-    if len(sys.argv) > 1:
-        n_jobs = int(sys.argv[1])
-        assert n_jobs > 0, "Please provide an integer greater than 0 for the" \
-                           " number of jobs"
-    three_phase_load_test(n_jobs)
+    args = parse_arguments()
+    three_phase_load_test(n_jobs=args.num, wfid=args.wfid)
