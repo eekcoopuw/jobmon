@@ -11,6 +11,7 @@ from jobmon.server.server_config import ServerConfig
 
 def create_app(server_config: Optional[ServerConfig] = None):
     """Create a Flask app"""
+
     app = Flask(__name__)
 
     if server_config is None:
@@ -27,7 +28,7 @@ def create_app(server_config: Optional[ServerConfig] = None):
     from jobmon.server.jobmon_worker.jobmon_worker import jobmon_worker
     from jobmon.server.visualization_server.visualization_server import jvs
 
-    app.register_blueprint(jobmon_client, url_prefix='/') # default traffic goes to jobmon_client
+    app.register_blueprint(jobmon_client, url_prefix='/')  # default traffic goes to jobmon_client
     app.register_blueprint(jobmon_client, url_prefix='/client')
     app.register_blueprint(jobmon_scheduler, url_prefix='/scheduler')
     app.register_blueprint(jobmon_swarm, url_prefix='/swarm')
@@ -49,9 +50,6 @@ app = create_app()
 
 @app.before_first_request
 def setup_logging():
-    # TODO: log level should be configurable via ENV variables. use gunicorn_logger.level
-    # gunicorn_logger = logging.getLogger('gunicorn.error')
-
     # setup console handler
     log_formatter = logging.Formatter(
         '%(asctime)s [%(name)-12s] ' + config.jobmon_version + ' %(module)s %(levelname)-8s '

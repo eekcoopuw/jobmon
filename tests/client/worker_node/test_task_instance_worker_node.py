@@ -40,7 +40,7 @@ def test_wrong_jobmon_versions_get_remote_exit_info():
         m_exit_code.return_value = (ReturnCodes.WORKER_NODE_ENV_FAILURE, "I am making this up.")
         executor = SGEExecutor()
         r_value, r_msg = executor.get_remote_exit_info(1)
-        assert r_value == TaskInstanceStatus.UNKNOWN_ERROR
+        assert r_value == TaskInstanceStatus.ERROR_FATAL
         assert expected_words in r_msg
 
 
@@ -58,5 +58,5 @@ def test_wrong_jobmon_version_execute(db_cfg, client_env):
         executor.jobmon_command = "jobmon"
         executor.execute("date", "my execution", ExecutorParameters())
         r_value, r_msg = executor.get_remote_exit_info(1)
-        assert r_value == TaskInstanceStatus.UNKNOWN_ERROR
+        assert r_value == TaskInstanceStatus.ERROR_FATAL
         assert expected_words in r_msg

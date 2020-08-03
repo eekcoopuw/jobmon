@@ -13,6 +13,7 @@ from jobmon.models.task_status import TaskStatus
 from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 @pytest.mark.parametrize("ti_state", [TaskInstanceStatus.UNKNOWN_ERROR,
                                       TaskInstanceStatus.KILL_SELF])
@@ -230,3 +231,65 @@ def test_reset_attempts_on_resume(db_cfg, client_env):
             workflow_id=workflow2.workflow_id).all()
         assert len(wfrs) == 2
         DB.session.commit()
+
+
+def test_task_instance_error_fatal(db_cfg, client_env):
+    """test that num attempts gets reset on a resume"""
+
+    # Manually modify the database so that some mid-dag jobs appear in
+    # error state, max-ing out the attempts
+    from jobmon.client.api import BashTask, Tool
+    from jobmon.client.execution.strategies.sequential import \
+        SequentialExecutor
+
+    # setup workflow 1
+    tool = Tool()
+    workflow1 = tool.create_workflow(name=f"test_task_instance_error_fatal")
+    executor = SequentialExecutor()
+    workflow1.set_executor(executor)
+    task_a = BashTask("sleep 5", executor_class="SequentialExecutor",
+                      max_attempts=3)
+    workflow1.add_task(task_a)
+
+    # add workflow to database
+    workflow1._bind()
+    wfr_1 = workflow1._create_workflow_run()
+
+    # now set everything to error fail
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        # fake workflow run
+        DB.session.execute("""
+            UPDATE workflow_run
+            SET status ='{s}'
+            WHERE id={wfr_id}""".format(s=WorkflowRunStatus.RUNNING,
+                                        wfr_id=wfr_1.workflow_run_id))
+        DB.session.execute("""
+            INSERT INTO task_instance (workflow_run_id, task_id, status)
+            VALUES ({wfr_id}, {t_id}, '{s}')""".format(wfr_id=wfr_1.workflow_run_id,
+                                                           t_id=task_a.task_id,
+                                                           s=TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR))
+        ti = DB.session.execute("SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)).fetchone()
+        ti_id = ti[0]
+        DB.session.execute("""
+            UPDATE task
+            SET status ='{s}'
+            WHERE id={t_id}""".format(s=TaskStatus.RUNNING,
+                                      t_id=task_a.task_id))
+        DB.session.commit()
+
+    # log task_instance fatal error
+    app_route = f"/task_instance/{ti_id}/log_error_worker_node"
+    return_code, _ = workflow1.requester.send_request(
+        app_route=app_route,
+        message={"error_state": "F", "error_message": "bla bla bla"},
+        request_type='post'
+    )
+    assert return_code == 200
+    # Validate that the database indicates the Dag and its Jobs are complete
+    with app.app_context():
+        t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
+        assert t.status == TaskStatus.ERROR_FATAL
+        DB.session.commit()
+

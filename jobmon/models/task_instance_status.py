@@ -20,6 +20,7 @@ class TaskInstanceStatus(DB.Model):
     ERROR = 'E'
     DONE = 'D'
     KILL_SELF = 'K'
+    ERROR_FATAL = 'F'
 
     id = DB.Column(DB.String(1), primary_key=True)
     label = DB.Column(DB.String(150))

@@ -60,7 +60,7 @@ def test_get_actual_submitted_or_running():
 @pytest.mark.parametrize(
     "id, ex", [(100, (TaskInstanceStatus.RESOURCE_ERROR, "max_runtime")),
                (200, (TaskInstanceStatus.RESOURCE_ERROR, "Insufficient resources")),
-               (300, (TaskInstanceStatus.UNKNOWN_ERROR, "discrepancy")),
+               (300, (TaskInstanceStatus.ERROR_FATAL, "discrepancy")),
                (400, ('e', RemoteExitInfoNotAvailable))])
 def test_get_remote_exit_info(id, ex):
     """This test goes through the if else branches of get_remote_exit_info"""

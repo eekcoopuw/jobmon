@@ -197,6 +197,8 @@ class SGEParameters:
             else:
                 runtime = SGE_ALL_Q.max_runtime_seconds
 
+        # new resource can not exceeds long.q
+        runtime = min(runtime, SGE_LONG_Q.max_runtime_seconds)
         self.max_runtime_seconds = runtime
 
     def _validate_num_cores(self) -> Tuple[str, int]:

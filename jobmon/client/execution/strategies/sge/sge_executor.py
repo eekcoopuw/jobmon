@@ -140,8 +140,7 @@ class SGEExecutor(Executor):
                 "references a different version of jobmon than you intend "
                 f"to use. {self.__class__.__name__} accounting discovered "
                 f"exit code: {exit_code}")
-            # TODO change this to a fatal error so they can't attempt a retry
-            return TaskInstanceStatus.UNKNOWN_ERROR, msg
+            return TaskInstanceStatus.ERROR_FATAL, msg
         else:
             raise RemoteExitInfoNotAvailable
 

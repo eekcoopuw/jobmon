@@ -105,7 +105,10 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.KILL_SELF),
 
         # task instance finishes normally (happy path)
-        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.DONE)
+        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.DONE),
+
+        # allow task instance to transit to F to immediately fail the task
+        (TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR, TaskInstanceStatus.ERROR_FATAL),
     ]
 
     untimely_transitions = [
@@ -186,6 +189,10 @@ class TaskInstance(DB.Model):
                 self.task.transition(TaskStatus.DONE)
             elif new_state in self.error_states:
                 self.task.transition_after_task_instance_error(new_state)
+            elif new_state == TaskInstanceStatus.ERROR_FATAL:
+                # if the task instance is F, the task status should be F too
+                self.task.transition(TaskStatus.ERROR_RECOVERABLE)
+                self.task.transition(TaskStatus.ERROR_FATAL)
 
     def _validate_transition(self, new_state):
         """Ensure the TaskInstance status transition is valid"""
