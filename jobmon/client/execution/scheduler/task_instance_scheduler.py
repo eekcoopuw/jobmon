@@ -202,7 +202,7 @@ class TaskInstanceScheduler:
             errored_jobs = {}
 
         if errored_jobs:
-            app_route = f'/log_executor_error'
+            app_route = f'/scheduler/log_executor_error'
             return_code, response = shared_requester.send_request(
                 app_route=app_route,
                 message={'executor_ids': errored_jobs},
@@ -226,7 +226,7 @@ class TaskInstanceScheduler:
             actual = []
         if actual:
             app_route = (
-                f'/workflow_run/{self.workflow_run_id}/log_executor_report_by')
+                f'/scheduler/workflow_run/{self.workflow_run_id}/log_executor_report_by')
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message={'executor_ids': actual,
@@ -241,7 +241,7 @@ class TaskInstanceScheduler:
     def _log_workflow_run_heartbeat(self) -> None:
         next_report_increment = (
             self.config.task_heartbeat_interval * self.config.report_by_buffer)
-        app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
+        app_route = f"/scheduler/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'next_report_increment': next_report_increment},
@@ -266,7 +266,7 @@ class TaskInstanceScheduler:
 
     def _get_tasks_queued_for_instantiation(self) -> List[ExecutorTask]:
         app_route = (
-            f"/workflow/{self.workflow_id}/queued_tasks/{self.config.n_queued}"
+            f"/scheduler/workflow/{self.workflow_id}/queued_tasks/{self.config.n_queued}"
         )
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -343,7 +343,7 @@ class TaskInstanceScheduler:
 
     def _get_lost_task_instances(self) -> None:
         app_route = (
-            f'/workflow_run/{self.workflow_run_id}/'
+            f'/scheduler/workflow_run/{self.workflow_run_id}/'
             'get_suspicious_task_instances')
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -361,7 +361,7 @@ class TaskInstanceScheduler:
 
     def _terminate_active_task_instances(self) -> None:
         app_route = (
-            f'/workflow_run/{self.workflow_run_id}/'
+            f'/scheduler/workflow_run/{self.workflow_run_id}/'
             'get_task_instances_to_terminate')
         return_code, response = self.requester.send_request(
             app_route=app_route,

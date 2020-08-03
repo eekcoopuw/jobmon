@@ -67,7 +67,7 @@ class Dag(object):
         dag_hash = hash(self)
         logger.info(f'Querying for dag with hash: {dag_hash}')
         return_code, response = self.requester.send_request(
-            app_route=f'/dag',
+            app_route=f'/client/dag',
             message={"dag_hash": dag_hash},
             request_type='get'
         )
@@ -75,7 +75,7 @@ class Dag(object):
             return response['dag_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from GET '
-                             f'request through route /dag/{dag_hash} . '
+                             f'request through route /client/dag/{dag_hash} . '
                              f'Expected code 200. Response content: '
                              f'{response}')
 
@@ -101,7 +101,7 @@ class Dag(object):
         logger.debug(f'message included in edge post request: {nodes_and_edges}')
 
         return_code, response = self.requester.send_request(
-            app_route='/dag',
+            app_route='/client/dag',
             message={"dag_hash": hash(self),
                      "nodes_and_edges": nodes_and_edges},
             request_type='post'
@@ -110,7 +110,7 @@ class Dag(object):
             return response['dag_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from POST request through '
-                             f'route /dag/{dag_hash}. Expected code 200. Response content: '
+                             f'route /client/dag/{dag_hash}. Expected code 200. Response content: '
                              f'{response}')
 
     def __hash__(self) -> int:

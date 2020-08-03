@@ -227,9 +227,9 @@ class Task:
 
     def _get_task_id_and_status(self) -> Tuple[Optional[int], Optional[str]]:
         """Get the id and status for a task from the db."""
-        app_route = '/task'
+        app_route = '/client/task'
         return_code, response = self.requester.send_request(
-            app_route='/task',
+            app_route='/client/task',
             message={
                 'workflow_id': self.workflow_id,
                 'node_id': self.node.node_id,
@@ -246,7 +246,7 @@ class Task:
 
     def _update_task_parameters(self, task_id: int, reset_if_running: bool) -> str:
         """Update the executor parameters in the db for a task."""
-        app_route = f'/task/{task_id}/update_parameters'
+        app_route = f'/client/task/{task_id}/update_parameters'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
@@ -279,7 +279,7 @@ class Task:
                 'task_attributes': self.task_attributes
             }
         tasks.append(task)
-        app_route = f'/task'
+        app_route = f'/client/task'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'tasks': tasks},
@@ -294,7 +294,7 @@ class Task:
     def add_attributes(self, task_attributes: dict) -> None:
         """Function that users can call either to update values of existing attributes or add
         new attributes."""
-        app_route = f'/task/{self.task_id}/task_attributes'
+        app_route = f'/client/task/{self.task_id}/task_attributes'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"task_attributes": task_attributes},

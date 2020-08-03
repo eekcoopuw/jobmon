@@ -73,7 +73,7 @@ class Node:
     def _get_node_id(self) -> int:
         logger.info(f'Querying for node {self}')
         return_code, response = self.requester.send_request(
-            app_route='/node',
+            app_route='/client/node',
             message={
                 'task_template_version_id': self.task_template_version_id,
                 'node_args_hash': self.node_args_hash
@@ -84,14 +84,14 @@ class Node:
             return response['node_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from GET '
-                             f'request through route /node. Expected code 200.'
+                             f'request through route /client/node. Expected code 200.'
                              f' Response content:'
                              f' {response}')
 
     def _insert_node_and_node_args(self) -> int:
         logger.info(f'Insert node: {self}')
         return_code, response = self.requester.send_request(
-            app_route='/node',
+            app_route='/client/node',
             message={
                 'task_template_version_id': self.task_template_version_id,
                 'node_args_hash': self.node_args_hash,
@@ -103,7 +103,7 @@ class Node:
             return response['node_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from POST '
-                             f'request through route /node. Expected code 200.'
+                             f'request through route /client/node. Expected code 200.'
                              f' Response content: {response}')
 
     def add_upstream_node(self, upstream_node: 'Node') -> None:

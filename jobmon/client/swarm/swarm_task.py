@@ -94,7 +94,7 @@ class SwarmTask(object):
         """Transition a task to the Queued for Instantiation status in the db
         """
         rc, _ = self.requester.send_request(
-            app_route=f'/task/{self.task_id}/queue',
+            app_route=f'/swarm/task/{self.task_id}/queue',
             message={},
             request_type='post')
         if rc != StatusCodes.OK:
@@ -113,9 +113,9 @@ class SwarmTask(object):
         exec_param_set = self.bound_parameters[-1]
         only_scale = list(exec_param_set.resource_scales.keys())
 
-        app_route = f'/task/{self.task_id}/most_recent_ti_error'
+        app_route = f'/worker/task/{self.task_id}/most_recent_ti_error'
         return_code, response = self.requester.send_request(
-            app_route=f'/task/{self.task_id}/most_recent_ti_error',
+            app_route=f'/worker/task/{self.task_id}/most_recent_ti_error',
             message={},
             request_type='get')
         if return_code != StatusCodes.OK:
@@ -153,7 +153,7 @@ class SwarmTask(object):
             executor_parameters.validate()
 
         # bind to db
-        app_route = f'/task/{self.task_id}/update_resources'
+        app_route = f'/swarm/task/{self.task_id}/update_resources'
         msg = {'parameter_set_type': executor_parameter_set_type}
         msg.update(executor_parameters.to_wire())
         return_code, response = self.requester.send_request(

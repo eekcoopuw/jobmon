@@ -20,14 +20,14 @@ spec:
   selector:
     app: traefik
 
-# Query Service cluster IP. Used for communication between k8s deployments.
-# Eg traefik -> query service
-# Allows hostname "jobmon-query-service" to resolve inside k8s containers
+# jobmon_client cluster IP. Used for communication between k8s deployments.
+# Eg traefik -> jobmon_client
+# Allows hostname "jobmon-client" to resolve inside k8s containers
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: jobmon-query-service
+  name: jobmon-client
 spec:
   type: ClusterIP
   ports:
@@ -35,16 +35,16 @@ spec:
       name: web
       port: 80
   selector:
-    app: jobmon-query-service
+    app: jobmon-client
 
-# State Manager cluster IP. Used for communication between k8s deployments.
-# Eg traefik -> state manager
-# Allows hostname "jobmon-state-manager" to resolve inside k8s containers
+# jobmon_scheduler cluster IP. Used for communication between k8s deployments.
+# Eg traefik -> jobmon_scheduler
+# Allows hostname "jobmon-scheduler" to resolve inside k8s containers
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: jobmon-state-manager
+  name: jobmon-scheduler
 spec:
   type: ClusterIP
   ports:
@@ -52,7 +52,41 @@ spec:
       name: web
       port: 80
   selector:
-    app: jobmon-state-manager
+    app: jobmon-scheduler
+
+# jobmon_swarm cluster IP. Used for communication between k8s deployments.
+# Eg traefik -> jobmon_swarm
+# Allows hostname "jobmon-swarm" to resolve inside k8s containers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobmon-swarm
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: web
+      port: 80
+  selector:
+    app: jobmon-swarm
+
+# jobmon_worker cluster IP. Used for communication between k8s deployments.
+# Eg traefik -> jobmon_worker
+# Allows hostname "jobmon-worker" to resolve inside k8s containers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobmon-worker
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: web
+      port: 80
+  selector:
+    app: jobmon-worker
 
 # Viz Server cluster IP. Used for communication between k8s deployments.
 # Eg traefik -> viz server

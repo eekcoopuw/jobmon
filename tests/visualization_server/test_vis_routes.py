@@ -10,7 +10,7 @@
 
 # def test_job_status(env_var, db_cfg):
 #     rc, resp = req.send_request(
-#         app_route='/job_status',
+#         app_route='/viz/job_status',
 #         message={},
 #         request_type='get')
 #     assert len(resp["job_statuses_dict"]) > 0
@@ -76,13 +76,13 @@
 
 #     # check that we got 5 workflows back when not filtering
 #     rc, resp = req.send_request(
-#         app_route='/workflow',
+#         app_route='/client/workflow',
 #         message={},
 #         request_type='get')
 #     assert len(resp["workflow_dcts"]) == 5
 
 #     rc, resp = req.send_request(
-#         app_route='/workflow',
+#         app_route='/client/workflow',
 #         message={"status": [WorkflowStatus.RUNNING, WorkflowStatus.STOPPED]},
 #         request_type='get')
 #     assert len(resp["workflow_dcts"]) == 2

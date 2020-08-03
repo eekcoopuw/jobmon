@@ -62,7 +62,7 @@ class WorkflowRun(object):
         self.last_sync = '2010-01-01 00:00:00'
 
         # bind to database
-        app_route = "/workflow_run"
+        app_route = "/client/workflow_run"
         rc, response = self.requester.send_request(
             app_route=app_route,
             message={'workflow_id': self.workflow_id,
@@ -97,7 +97,7 @@ class WorkflowRun(object):
 
             # workflow wasn't terminated
             if prev_status != WorkflowRunStatus.TERMINATED:
-                app_route = f'/workflow_run/{self.workflow_run_id}/delete'
+                app_route = f'/client/workflow_run/{self.workflow_run_id}/delete'
                 return_code, response = self.requester.send_request(
                     app_route=app_route,
                     message={},
@@ -147,7 +147,7 @@ class WorkflowRun(object):
         """Update the status of the workflow_run with whatever status is
         passed
         """
-        app_route = f'/workflow_run/{self.workflow_run_id}/update_status'
+        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'status': status},
@@ -179,7 +179,7 @@ class WorkflowRun(object):
                     print("Continuing jobmon execution...")
 
     def terminate_workflow_run(self) -> None:
-        app_route = f'/workflow_run/{self.workflow_run_id}/terminate'
+        app_route = f'/client/workflow_run/{self.workflow_run_id}/terminate'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
@@ -195,7 +195,7 @@ class WorkflowRun(object):
         wait_start = time.time()
         wait_for_resume = True
         while wait_for_resume:
-            app_route = f'/workflow_run/{wfr_id}/is_resumable'
+            app_route = f'/client/workflow_run/{wfr_id}/is_resumable'
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message={},
@@ -446,7 +446,7 @@ class WorkflowRun(object):
         """update internal state of tasks to match the database. if no tasks
         are specified, get"""
         swarm_tasks_tuples = [t.to_wire() for t in swarm_tasks]
-        app_route = f'/workflow/{self.workflow_id}/task_status_updates'
+        app_route = f'/swarm/workflow/{self.workflow_id}/task_status_updates'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'last_sync': str(self.last_sync),

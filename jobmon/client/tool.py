@@ -58,7 +58,7 @@ class Tool:
 
         # call route to create tool
         _, res = requester.send_request(
-            app_route="/tool",
+            app_route="/client/tool",
             message={"name": name},
             request_type='post')
 
@@ -132,7 +132,7 @@ class Tool:
         return wf
 
     def _get_tool_version_ids(self) -> List[int]:
-        app_route = f"/tool/{self.id}/tool_versions"
+        app_route = f"/client/tool/{self.id}/tool_versions"
         _, res = self.requester.send_request(
             app_route=app_route,
             message={},
@@ -144,7 +144,7 @@ class Tool:
 
     @staticmethod
     def _get_tool_id(name: str, requester: Requester) -> int:
-        app_route = f"/tool/{name}"
+        app_route = f"/client/tool/{name}"
         _, res = requester.send_request(
             app_route=app_route,
             message={},
@@ -158,7 +158,7 @@ class Tool:
 
     @staticmethod
     def _create_new_tool_version(tool_id: int, requester: Requester) -> int:
-        app_route = "/tool_version"
+        app_route = "/client/tool_version"
         _, res = requester.send_request(
             app_route=app_route,
             message={"tool_id": tool_id},

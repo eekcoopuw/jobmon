@@ -2,25 +2,25 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: jobmon-state-manager
+  name: jobmon-scheduler
   namespace: {{namespace}}
   labels:
-    app: jobmon-state-manager
+    app: jobmon-scheduler
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: jobmon-state-manager
+      app: jobmon-scheduler
   template:
     metadata:
       labels:
-        app: jobmon-state-manager
-        name: jobmon-state-manager
+        app: jobmon-scheduler
+        name: jobmon-scheduler
     spec:
       terminationGracePeriodSeconds: 60
       containers:
       - image: {{jobmon_container_uri}}
-        name: jobmon-state-manager
+        name: jobmon-scheduler
         env:
         - name: EXTERNAL_DB_HOST
           value: "{{db_host}}"
@@ -43,23 +43,23 @@ spec:
           containerPort: 80
         resources:
           limits:
-            memory: 300Mi
+            memory: 600Mi
             cpu: 1
           requests:
             cpu: 300m # m = mhz
-            memory: 200Mi
+            memory: 400Mi
 ---
 # https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: jobmon-state-manager
+  name: jobmon-scheduler
   namespace: {{namespace}}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: jobmon-state-manager
+    name: jobmon-scheduler
   maxReplicas: 10
   minReplicas: 3
   metrics:

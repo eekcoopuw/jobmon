@@ -57,8 +57,10 @@ setup(
               'jobmon.server',
               'jobmon.server.deployment',
               'jobmon.server.workflow_reaper',
-              'jobmon.server.query_server',
-              'jobmon.server.update_server',
+              'jobmon.server.jobmon_client',
+              'jobmon.server.jobmon_scheduler',
+              'jobmon.server.jobmon_swarm',
+              'jobmon.server.jobmon_worker',
               'jobmon.server.visualization_server'
               ],
     include_package_data=True,
