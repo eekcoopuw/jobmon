@@ -19,13 +19,20 @@ def create_app(server_config: Optional[ServerConfig] = None):
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
 
+
     # register blueprints
-    from jobmon.server.query_server.query_server import jqs
-    from jobmon.server.update_server.update_server import jsm
+    from jobmon.server.jobmon_client.jobmon_client import jobmon_client
+    from jobmon.server.jobmon_scheduler.jobmon_scheduler import jobmon_scheduler
+    from jobmon.server.jobmon_swarm.jobmon_swarm import jobmon_swarm
+    from jobmon.server.jobmon_worker.jobmon_worker import jobmon_worker
     from jobmon.server.visualization_server.visualization_server import jvs
-    app.register_blueprint(jqs)
-    app.register_blueprint(jsm)
-    app.register_blueprint(jvs)
+
+    app.register_blueprint(jobmon_client, url_prefix='/') # default traffic goes to jobmon_client
+    app.register_blueprint(jobmon_client, url_prefix='/client')
+    app.register_blueprint(jobmon_scheduler, url_prefix='/scheduler')
+    app.register_blueprint(jobmon_swarm, url_prefix='/swarm')
+    app.register_blueprint(jobmon_worker, url_prefix='/worker')
+    app.register_blueprint(jvs, url_prefix='/viz')
 
     # register app with flask-sqlalchemy DB
     from jobmon.models import DB

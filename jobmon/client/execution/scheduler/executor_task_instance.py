@@ -76,7 +76,7 @@ class ExecutorTaskInstance:
             requester: requester for communicating with central services
         """
 
-        app_route = '/task_instance'
+        app_route = '/scheduler/task_instance'
         return_code, response = requester.send_request(
             app_route=app_route,
             message={'task_id': task_id,
@@ -100,7 +100,7 @@ class ExecutorTaskInstance:
         self.executor_id = executor_id
 
         app_route = (
-            f'/task_instance/{self.task_instance_id}/log_no_executor_id')
+            f'/scheduler/task_instance/{self.task_instance_id}/log_no_executor_id')
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'executor_id': executor_id},
@@ -124,7 +124,7 @@ class ExecutorTaskInstance:
         """
         self.executor_id = executor_id
 
-        app_route = f'/task_instance/{self.task_instance_id}/log_executor_id'
+        app_route = f'/scheduler/task_instance/{self.task_instance_id}/log_executor_id'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'executor_id': str(executor_id),
@@ -171,7 +171,7 @@ class ExecutorTaskInstance:
             }
 
         app_route = (
-                f"/task_instance/{self.task_instance_id}/"
+                f"/scheduler/task_instance/{self.task_instance_id}/"
                 "log_error_reconciler")
         return_code, response = self.requester.send_request(
             app_route=app_route,

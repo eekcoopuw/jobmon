@@ -72,7 +72,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.info("No Task ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=f'/task_instance/{self.task_instance_id}/log_done',
+            app_route=f'/worker/task_instance/{self.task_instance_id}/log_done',
             message=message,
             request_type='post')
         return rc
@@ -102,7 +102,7 @@ class WorkerNodeTaskInstance:
             logger.info("No Task ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route=(
-                f'/task_instance/{self.task_instance_id}/'
+                f'/worker/task_instance/{self.task_instance_id}/'
                 f'log_error_worker_node'),
             message=message,
             request_type='post')
@@ -119,7 +119,7 @@ class WorkerNodeTaskInstance:
                        'io']
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
             rc, _ = self.requester.send_request(
-                app_route=f'/task_instance/{self.task_instance_id}/log_usage',
+                app_route=f'/worker/task_instance/{self.task_instance_id}/log_usage',
                 message=msg,
                 request_type='post')
             return rc
@@ -146,7 +146,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.info("No Task ID was found in the qsub env at this time")
         rc, resp = self.requester.send_request(
-            app_route=(f'/task_instance/{self.task_instance_id}/log_running'),
+            app_route=(f'/worker/task_instance/{self.task_instance_id}/log_running'),
             message=message,
             request_type='post')
         logger.debug(f"Response from log_running was: {resp}")
@@ -161,7 +161,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.info("No Task ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=f'/task_instance/{self.task_instance_id}/log_report_by',
+            app_route=f'/worker/task_instance/{self.task_instance_id}/log_report_by',
             message=message,
             request_type='post')
         return rc
@@ -169,7 +169,7 @@ class WorkerNodeTaskInstance:
     def in_kill_self_state(self) -> bool:
         logger.info("kill_self for tid {}".format(self.task_instance_id))
         rc, resp = self.requester.send_request(
-            app_route=f'/task_instance/{self.task_instance_id}/kill_self',
+            app_route=f'/worker/task_instance/{self.task_instance_id}/kill_self',
             message={},
             request_type='get')
         if resp.get('should_kill'):

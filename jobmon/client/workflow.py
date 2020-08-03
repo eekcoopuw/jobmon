@@ -153,7 +153,7 @@ class Workflow(object):
                 this workflow.
         """
 
-        app_route = f'/workflow/{self.workflow_id}/workflow_attributes'
+        app_route = f'/client/workflow/{self.workflow_id}/workflow_attributes'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"workflow_attributes": workflow_attributes},
@@ -374,7 +374,7 @@ class Workflow(object):
         """Check that an existing workflow with the same workflow_args does not
          have a different hash indicating that it contains different tasks."""
         rc, response = self.requester.send_request(
-            app_route=f'/workflow/{str(self.workflow_args_hash)}',
+            app_route=f'/client/workflow/{str(self.workflow_args_hash)}',
             message={},
             request_type='get')
         bound_workflow_hashes = response['matching_workflows']
@@ -393,7 +393,7 @@ class Workflow(object):
     def _get_workflow_id_and_status(self) -> Tuple[Optional[int],
                                                    Optional[str]]:
         return_code, response = self.requester.send_request(
-            app_route='/workflow',
+            app_route='/client/workflow',
             message={
                 "tool_version_id": self.tool_version_id,
                 "dag_id": self._dag.dag_id,
@@ -405,12 +405,12 @@ class Workflow(object):
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from GET '
-                f'request through route /workflow. Expected code '
+                f'request through route /client/workflow. Expected code '
                 f'200. Response content: {response}')
         return response['workflow_id'], response["status"]
 
     def _add_workflow(self) -> int:
-        app_route = f'/workflow'
+        app_route = f'/client/workflow'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
@@ -433,7 +433,7 @@ class Workflow(object):
         return response["workflow_id"]
 
     def _bind_tasks(self, reset_if_running: bool = True):
-        app_route = f'/task/bind_tasks'
+        app_route = f'/client/task/bind_tasks'
         parameters = {}
         # send to server in a format of:
         # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3),

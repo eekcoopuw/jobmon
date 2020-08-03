@@ -269,6 +269,7 @@ def test_propagate_result(client_env):
     wfr = workflow.run(seconds_until_timeout=300)
 
     assert len(wfr.all_done) == 6
-    assert wfr.swarm_tasks[4].num_upstreams_done >= 3
-    assert wfr.swarm_tasks[5].num_upstreams_done >= 3
-    assert wfr.swarm_tasks[6].num_upstreams_done >= 3
+    keys = list(wfr.swarm_tasks.keys())
+    assert wfr.swarm_tasks[keys[3]].num_upstreams_done >= 3
+    assert wfr.swarm_tasks[keys[4]].num_upstreams_done >= 3
+    assert wfr.swarm_tasks[keys[5]].num_upstreams_done >= 3

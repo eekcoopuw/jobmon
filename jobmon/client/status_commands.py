@@ -32,7 +32,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
         msg["user"] = getpass.getuser()
 
     rc, res = shared_requester.send_request(
-        app_route="/workflow_status",
+        app_route="/viz/workflow_status",
         message=msg,
         request_type="get")
     if json:
@@ -59,7 +59,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
         msg["status"] = [i.upper() for i in status]
 
     rc, res = shared_requester.send_request(
-        app_route=f"/workflow/{workflow_id}/workflow_tasks",
+        app_route=f"/viz/workflow/{workflow_id}/workflow_tasks",
         message=msg,
         request_type="get")
     if json:
@@ -87,7 +87,7 @@ def task_status(task_ids: List[int], status: List[str] = None, json: bool = Fals
         msg["status"] = [i.upper() for i in status]
 
     rc, res = shared_requester.send_request(
-        app_route="/task_status",
+        app_route="/viz/task_status",
         message=msg,
         request_type="get")
     if json:

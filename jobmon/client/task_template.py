@@ -146,7 +146,7 @@ class TaskTemplate:
         return task
 
     def _get_task_template_id(self) -> Optional[int]:
-        app_route = "/task_template"
+        app_route = "/client/task_template"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"tool_version_id": self.tool_version_id,
@@ -163,7 +163,7 @@ class TaskTemplate:
         return response["task_template_id"]
 
     def _insert_task_template(self) -> int:
-        app_route = "/task_template"
+        app_route = "/client/task_template"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"tool_version_id": self.tool_version_id,

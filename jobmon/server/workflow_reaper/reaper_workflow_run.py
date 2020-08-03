@@ -51,7 +51,7 @@ class ReaperWorkflowRun(object):
 
     def transition_to_error(self) -> str:
         # Transition workflow run to E
-        app_route = f'/workflow_run/{self.workflow_run_id}/update_status'
+        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
         return_code, response = self._requester.send_request(
             app_route=app_route,
             message={'status': WorkflowRunStatus.ERROR},
@@ -71,7 +71,7 @@ class ReaperWorkflowRun(object):
         return message
 
     def transition_to_suspended(self) -> str:
-        app_route = f'/workflow/{self.workflow_id}/suspend'
+        app_route = f'/swarm/workflow/{self.workflow_id}/suspend'
         return_code, response = self._requester.send_request(
             app_route=app_route,
             message={},
@@ -91,7 +91,7 @@ class ReaperWorkflowRun(object):
         """Retrieve workflow_run status and status_date of the runs newest
         task."""
         # Get workflow_runs current state and the status_date of it's newest task
-        app_route = f'/workflow_run/{self.workflow_run_id}/aborted'
+        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/aborted'
         return_code, result = self._requester.send_request(
             app_route=app_route,
             message={},

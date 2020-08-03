@@ -136,7 +136,7 @@ class TaskTemplateVersion:
         self._id_name_map = response_dict["id_name_map"]
 
     def _get_task_template_version_info(self) -> Optional[tuple]:
-        app_route = f"/task_template/{self.task_template_id}/version"
+        app_route = f"/client/task_template/{self.task_template_id}/version"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"arg_mapping_hash": self.arg_mapping_hash,
@@ -153,7 +153,7 @@ class TaskTemplateVersion:
         return response["task_template_version"]
 
     def _insert_task_template_version(self) -> tuple:
-        app_route = f"/task_template/{self.task_template_id}/add_version"
+        app_route = f"/client/task_template/{self.task_template_id}/add_version"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"command_template": self.command_template,

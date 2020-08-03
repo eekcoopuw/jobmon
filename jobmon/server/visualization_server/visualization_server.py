@@ -51,7 +51,7 @@ _reversed_task_instance_label_mapping = {
 _viz_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 
-@jvs.route("/vs/health", methods=['GET'])
+@jvs.route("/health", methods=['GET'])
 def health():
     """
     Test connectivity to the database, return 200 if everything is ok
