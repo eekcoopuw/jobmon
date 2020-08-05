@@ -243,11 +243,11 @@ def state_and_log_by_executor_id():
         error_message = ids_and_errors[key]
 
         try:
-            resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, error_message)
+            resp = _log_error(task_instance, TaskInstanceStatus.ERROR_FATAL, error_message)
         except sqlalchemy.exc.OperationalError:
             # modify the error message and retry
             new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-            resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, new_msg)
+            resp = _log_error(task_instance, TaskInstanceStatus.ERROR_FATAL, new_msg)
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK

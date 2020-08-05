@@ -492,7 +492,7 @@ def test_eqw_restarting(db_cfg, client_env):
             WHERE task_instance.task_id = {}""".format(task1.task_id)
         res = DB.session.execute(query).fetchone()
         DB.session.commit()
-    assert res[0] == "U"
+    assert res[0] == "F"
 
     with app.app_context():
         query = """

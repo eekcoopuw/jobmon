@@ -280,7 +280,7 @@ def test_task_instance_error_fatal(db_cfg, client_env):
         DB.session.commit()
 
     # log task_instance fatal error
-    app_route = f"/task_instance/{ti_id}/log_error_worker_node"
+    app_route = f"/worker/task_instance/{ti_id}/log_error_worker_node"
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
         message={"error_state": "F", "error_message": "bla bla bla"},
