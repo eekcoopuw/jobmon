@@ -196,7 +196,8 @@ class SGEParameters:
                     runtime = self.max_runtime
             else:
                 runtime = SGE_ALL_Q.max_runtime_seconds
-
+        # new resource can not exceeds long.q
+        runtime = min(runtime, SGE_LONG_Q.max_runtime_seconds)
         self.max_runtime_seconds = runtime
 
     def _validate_num_cores(self) -> Tuple[str, int]:
@@ -327,7 +328,7 @@ class SGEParameters:
             self.max_runtime = SGE_LONG_Q.max_runtime_seconds
             self.max_memory_gb = SGE_LONG_Q.max_memory_gb
             self.min_memory_gb = SGE_LONG_Q.min_memory_gb
-            self.max_cores = SGE_ALL_Q.max_threads
+            self.max_cores = SGE_LONG_Q.max_threads
 
         elif queue == "geospatial.q":
             self.max_runtime = SGE_GEOSPATIAL_Q.max_runtime_seconds
