@@ -96,3 +96,14 @@ def test_allq_to_longq():
     assert "\n Queue" in msg
     resources.validate()
     assert resources.queue == "long.q"
+
+
+@pytest.mark.unittest
+def test_all_to_long_max():
+    from jobmon.client.execution.strategies.sge.sge_queue import SGE_LONG_Q
+    resources = SGEParameters(m_mem_free="1G", queue="all.q", max_runtime_seconds=1036800,
+                              j_resource=True, resource_scales={'max_runtime_seconds': 0.5})
+    resources.validate()
+    resources._scale_max_runtime_seconds()
+    assert resources.queue == "long.q"
+    assert resources.max_runtime_seconds == SGE_LONG_Q.max_runtime_seconds
