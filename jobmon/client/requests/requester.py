@@ -10,6 +10,10 @@ from jobmon.client import ClientLogging as logging
 logger = logging.getLogger(__name__)
 
 
+def http_request_ok(status_code: int) -> bool:
+    return status_code in (200, 302, 307)
+
+
 def is_5XX(result: Tuple[int, dict]) -> bool:
     '''
     return True if get_content result has 5XX status '''

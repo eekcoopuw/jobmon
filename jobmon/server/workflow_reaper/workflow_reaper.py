@@ -6,7 +6,7 @@ from typing import List
 
 from jobmon import __version__
 from jobmon.client import shared_requester
-from jobmon.client.requests.requester import Requester
+from jobmon.client.requests.requester import Requester, http_request_ok
 from jobmon.exceptions import InvalidResponse
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
 from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
@@ -65,7 +65,7 @@ class WorkflowReaper(object):
             app_route=app_route,
             message={'status': status},
             request_type='get')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                                   f'request through route {app_route}. Expected '
                                   f'code 200. Response content: {result}')
@@ -97,7 +97,7 @@ class WorkflowReaper(object):
             message={},
             request_type='get'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from GET '
                 f'request through route {app_route}. Expected '

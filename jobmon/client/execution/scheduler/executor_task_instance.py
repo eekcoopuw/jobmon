@@ -5,7 +5,7 @@ from typing import Optional
 
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.client.requests.requester import Requester
+from jobmon.client.requests.requester import Requester, http_request_ok
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.exceptions import RemoteExitInfoNotAvailable, InvalidResponse
 from jobmon.models.task_instance_status import TaskInstanceStatus
@@ -83,7 +83,7 @@ class ExecutorTaskInstance:
                      'workflow_run_id': workflow_run_id,
                      'executor_type': executor.__class__.__name__},
             request_type='post')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -105,7 +105,7 @@ class ExecutorTaskInstance:
             app_route=app_route,
             message={'executor_id': executor_id},
             request_type='post')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -130,7 +130,7 @@ class ExecutorTaskInstance:
             message={'executor_id': str(executor_id),
                      'next_report_increment': next_report_increment},
             request_type='post')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -177,7 +177,7 @@ class ExecutorTaskInstance:
             app_route=app_route,
             message=message,
             request_type='post')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
