@@ -1,5 +1,6 @@
 from http import HTTPStatus as StatusCodes
 import os
+import sys
 from datetime import datetime, timedelta
 import json
 from typing import Optional, Dict, Any
@@ -43,7 +44,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_side_exception import log_and_raise
+from jobmon.server.server_side_exception import log_and_raise, InvalidUsage, ServerError
 
 jobmon_worker = Blueprint("jobmon_worker", __name__)
 
@@ -69,11 +70,14 @@ def _is_alive():
 
 @jobmon_worker.route("/time", methods=['GET'])
 def get_pst_now():
-    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-    time = time['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
-    DB.session.commit()
-    resp = jsonify(time=time)
+    try:
+        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+        time = time['time']
+        time = time.strftime("%Y-%m-%d %H:%M:%S")
+        DB.session.commit()
+        resp = jsonify(time=time)
+    except:
+        raise ServerError("Unexpected jobmon server error: {}".format(sys.exc_info()[0]))
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -84,11 +88,13 @@ def health():
     Test connectivity to the database, return 200 if everything is ok
     Defined in each module with a different route, so it can be checked individually
     """
-    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-    time = time['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
-    DB.session.commit()
-    # Assume that if we got this far without throwing an exception, we should be online
+    try:
+        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+        time = time['time']
+        time = time.strftime("%Y-%m-%d %H:%M:%S")
+        DB.session.commit()
+    except:
+        raise ServerError("Unexpected jobmon server error: {}".format(sys.exc_info()[0]))
     resp = jsonify(status='OK')
     resp.status_code = StatusCodes.OK
     return resp
@@ -99,26 +105,29 @@ def kill_self(task_instance_id: int):
     """Check a task instance's status to see if it needs to kill itself
     (state W, or L)"""
     kill_statuses = TaskInstance.kill_self_states
-
-    query = """
-        SELECT
-            task_instance.id
-        FROM
-            task_instance
-        WHERE
-            task_instance.id = :task_instance_id
-            AND task_instance.status in :statuses
-    """
-    should_kill = DB.session.query(TaskInstance).from_statement(text(query)).params(
-        task_instance_id=task_instance_id,
-        statuses=kill_statuses
-    ).one_or_none()
+    try:
+        query = """
+            SELECT
+                task_instance.id
+            FROM
+                task_instance
+            WHERE
+                task_instance.id = :task_instance_id
+                AND task_instance.status in :statuses
+        """
+        should_kill = DB.session.query(TaskInstance).from_statement(text(query)).params(
+            task_instance_id=task_instance_id,
+            statuses=kill_statuses
+        ).one_or_none()
+    except:
+        raise ServerError("Unexpected jobmon server error: {}".format(sys.exc_info()[0]))
     if should_kill is not None:
         resp = jsonify(should_kill=True)
+        resp.status_code = StatusCodes.OK
+        return resp
     else:
-        resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
+        raise InvalidUsage("Unable to find the task_instance with id {}".format(task_instance_id))
+
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
