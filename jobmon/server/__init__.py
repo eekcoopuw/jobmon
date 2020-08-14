@@ -84,3 +84,22 @@ def log_request_info():
         app.logger.info(f"URL Path is {request.path}. Args are {request.args}")
     if request.method in ["POST", "PUT"]:
         app.logger.info(f'URL Path is {request.path}. Data is: {request.get_json()}')
+
+
+from flask import jsonify
+from jobmon.server.server_side_exception import InvalidUsage, ServerSideException
+
+
+# error handling
+@app.errorhandler(InvalidUsage)
+def handle_40x(error):
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
+
+
+@app.errorhandler(ServerSideException)
+def handle_50x(error):
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
