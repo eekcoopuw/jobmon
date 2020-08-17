@@ -41,7 +41,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_side_exception import log_and_raise
+from jobmon.server.server_side_exception import log_and_raise, raise_user_error
 
 jobmon_client = Blueprint("jobmon_client", __name__)
 
@@ -67,13 +67,16 @@ def _is_alive():
 
 @jobmon_client.route("/time", methods=['GET'])
 def get_pst_now():
-    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-    time = time['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
-    DB.session.commit()
-    resp = jsonify(time=time)
-    resp.status_code = StatusCodes.OK
-    return resp
+    try:
+        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+        time = time['time']
+        time = time.strftime("%Y-%m-%d %H:%M:%S")
+        DB.session.commit()
+        resp = jsonify(time=time)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_client.route("/health", methods=['GET'])
@@ -82,14 +85,17 @@ def health():
     Test connectivity to the database, return 200 if everything is ok
     Defined in each module with a different route, so it can be checked individually
     """
-    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-    time = time['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
-    DB.session.commit()
-    # Assume that if we got this far without throwing an exception, we should be online
-    resp = jsonify(status='OK')
-    resp.status_code = StatusCodes.OK
-    return resp
+    try:
+        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+        time = time['time']
+        time = time.strftime("%Y-%m-%d %H:%M:%S")
+        DB.session.commit()
+        # Assume that if we got this far without throwing an exception, we should be online
+        resp = jsonify(status='OK')
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_client.route('/tool', methods=['POST'])
@@ -101,101 +107,133 @@ def add_tool():
         tool = Tool(name=data["name"])
         DB.session.add(tool)
         DB.session.commit()
+        resp = jsonify(tool=tool)
+        resp.status_code = StatusCodes.OK
+        return resp
         tool = tool.to_wire_as_client_tool()
-    except sqlalchemy.exc.IntegrityError:
+    except sqlalchemy.exc.IntegrityError as e:
         DB.session.rollback()
-        tool = None
-    resp = jsonify(tool=tool)
-    resp.status_code = StatusCodes.OK
-    return resp
+        raise InvalidUsage("Failed to add tool {t}: {e}".format(t=data["name"], e=e))
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+
 
 
 @jobmon_client.route('/tool/<tool_name>', methods=['GET'])
 def get_tool(tool_name: str):
     # get data from db
-    query = """
-        SELECT
-            tool.*
-        FROM
-            tool
-        WHERE
-            name = :tool_name"""
-    tool = DB.session.query(Tool).from_statement(text(query)).params(
-        tool_name=tool_name
-    ).one_or_none()
-    DB.session.commit()
+    try:
+        query = """
+            SELECT
+                tool.*
+            FROM
+                tool
+            WHERE
+                name = :tool_name"""
+        tool = DB.session.query(Tool).from_statement(text(query)).params(
+            tool_name=tool_name
+        ).one_or_none()
+        DB.session.commit()
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
     if tool:
-        tool = tool.to_wire_as_client_tool()
-    resp = jsonify(tool=tool)
-    resp.status_code = StatusCodes.OK
-    return resp
+        try:
+            tool = tool.to_wire_as_client_tool()
+            resp = jsonify(tool=tool)
+            resp.status_code = StatusCodes.OK
+            return resp
+        except Exception as e:
+            log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+    else:
+        raise InvalidUsage("Tool {} does not exist in DB".format(tool_name))
+
 
 
 @jobmon_client.route('/tool/<tool_id>/tool_versions', methods=['GET'])
 def get_tool_versions(tool_id: int):
     # get data from db
-    query = """
-        SELECT
-            tool_version.*
-        FROM
-            tool_version
-        WHERE
-            tool_id = :tool_id"""
-    tool_versions = DB.session.query(ToolVersion).from_statement(text(query)).params(
-        tool_id=tool_id
-    ).all()
-    DB.session.commit()
-    tool_versions = [t.to_wire_as_client_tool_version() for t in tool_versions]
-    resp = jsonify(tool_versions=tool_versions)
-    resp.status_code = StatusCodes.OK
-    return resp
+    try:
+        query = """
+            SELECT
+                tool_version.*
+            FROM
+                tool_version
+            WHERE
+                tool_id = :tool_id"""
+        tool_versions = DB.session.query(ToolVersion).from_statement(text(query)).params(
+            tool_id=tool_id
+        ).all()
+        DB.session.commit()
+        tool_versions = [t.to_wire_as_client_tool_version() for t in tool_versions]
+        resp = jsonify(tool_versions=tool_versions)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_client.route('/tool_version', methods=['POST'])
 def add_tool_version():
     data = request.get_json()
-    tool_version = ToolVersion(tool_id=data["tool_id"])
-    DB.session.add(tool_version)
-    DB.session.commit()
-    tool_version = tool_version.to_wire_as_client_tool_version()
-    resp = jsonify(tool_version=tool_version)
-    resp.status_code = StatusCodes.OK
-    return resp
+    try:
+        int(data["tool_id"])
+    except Exception as e:
+        raise_user_error(str(e), app.logger):
+
+    try:
+        tool_version = ToolVersion(tool_id=data["tool_id"])
+        DB.session.add(tool_version)
+        DB.session.commit()
+        tool_version = tool_version.to_wire_as_client_tool_version()
+        resp = jsonify(tool_version=tool_version)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_client.route('/task_template', methods=['GET'])
 def get_task_template():
     # parse args
-    tool_version_id = request.args.get("tool_version_id")
-    name = request.args.get("task_template_name")
+    try:
+        tool_version_id = request.args.get("tool_version_id")
+        name = request.args.get("task_template_name")
+    except Exception as e:
+        raise_user_error(str(e), app.logger)
+    try:
+        # get data from db
+        query = """
+            SELECT
+                task_template.*
+            FROM task_template
+            WHERE
+                tool_version_id = :tool_version_id
+                AND name = :name
+        """
+        tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
+            tool_version_id=tool_version_id,
+            name=name
+        ).one_or_none()
+        if tt is not None:
+            task_template_id = tt.id
+        else:
+            task_template_id = None
 
-    # get data from db
-    query = """
-        SELECT
-            task_template.*
-        FROM task_template
-        WHERE
-            tool_version_id = :tool_version_id
-            AND name = :name
-    """
-    tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
-        tool_version_id=tool_version_id,
-        name=name
-    ).one_or_none()
-    if tt is not None:
-        task_template_id = tt.id
-    else:
-        task_template_id = None
-
-    resp = jsonify(task_template_id=task_template_id)
-    resp.status_code = StatusCodes.OK
-    return resp
+        resp = jsonify(task_template_id=task_template_id)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_client.route('/task_template', methods=['POST'])
 def add_task_template():
     """Add a tool to the database"""
     data = request.get_json()
+    try:
+        int(data["tool_version_id"])
+    except Exception as e:
+        raise_user_error(str(e), app.logger)
 
     try:
         tt = TaskTemplate(tool_version_id=data["tool_version_id"],
@@ -216,7 +254,8 @@ def add_task_template():
             name=data["task_template_name"]
         ).one()
         DB.session.commit()
-
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
     resp = jsonify(task_template_id=tt.id)
     resp.status_code = StatusCodes.OK
     return resp

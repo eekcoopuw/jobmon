@@ -69,13 +69,16 @@ def _is_alive():
 
 @jobmon_scheduler.route("/time", methods=['GET'])
 def get_pst_now():
-    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-    time = time['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
-    DB.session.commit()
-    resp = jsonify(time=time)
-    resp.status_code = StatusCodes.OK
-    return resp
+    try:
+        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+        time = time['time']
+        time = time.strftime("%Y-%m-%d %H:%M:%S")
+        DB.session.commit()
+        resp = jsonify(time=time)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route("/health", methods=['GET'])
@@ -84,14 +87,17 @@ def health():
     Test connectivity to the database, return 200 if everything is ok
     Defined in each module with a different route, so it can be checked individually
     """
-    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-    time = time['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
-    DB.session.commit()
-    # Assume that if we got this far without throwing an exception, we should be online
-    resp = jsonify(status='OK')
-    resp.status_code = StatusCodes.OK
-    return resp
+    try:
+        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+        time = time['time']
+        time = time.strftime("%Y-%m-%d %H:%M:%S")
+        DB.session.commit()
+        # Assume that if we got this far without throwing an exception, we should be online
+        resp = jsonify(status='OK')
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>', methods=['GET'])
@@ -106,152 +112,169 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
     # <usertablename>_<columnname>.
 
     # If we want to prioritize by task or workflow level it would be done in this query
-    tasks = DB.session.query(Task).filter_by(
-        workflow_id=workflow_id,
-        status=TaskStatus.QUEUED_FOR_INSTANTIATION
-    ).limit(n_queued_tasks).options(joinedload(Task.executor_parameter_set)).all()
-    DB.session.commit()
-    task_dcts = [t.to_wire_as_executor_task() for t in tasks]
-    resp = jsonify(task_dcts=task_dcts)
-    resp.status_code = StatusCodes.OK
-    return resp
+    try:
+        tasks = DB.session.query(Task).filter_by(
+            workflow_id=workflow_id,
+            status=TaskStatus.QUEUED_FOR_INSTANTIATION
+        ).limit(n_queued_tasks).options(joinedload(Task.executor_parameter_set)).all()
+        DB.session.commit()
+        task_dcts = [t.to_wire_as_executor_task() for t in tasks]
+        resp = jsonify(task_dcts=task_dcts)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances', methods=['GET'])
 def get_suspicious_task_instances(workflow_run_id: int):
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
-
-    query = """
-        SELECT
-            task_instance.id, task_instance.workflow_run_id,
-            task_instance.executor_id
-        FROM
-            task_instance
-        WHERE
-            task_instance.workflow_run_id = :workflow_run_id
-            AND task_instance.status in :active_tasks
-            AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
-    """
-    rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
-        active_tasks=[TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                      TaskInstanceStatus.RUNNING],
-        workflow_run_id=workflow_run_id
-    ).all()
-    DB.session.commit()
-    resp = jsonify(task_instances=[ti.to_wire_as_executor_task_instance()
-                                   for ti in rows])
-    resp.status_code = StatusCodes.OK
-    return resp
+    try:
+        query = """
+            SELECT
+                task_instance.id, task_instance.workflow_run_id,
+                task_instance.executor_id
+            FROM
+                task_instance
+            WHERE
+                task_instance.workflow_run_id = :workflow_run_id
+                AND task_instance.status in :active_tasks
+                AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
+        """
+        rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
+            active_tasks=[TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                          TaskInstanceStatus.RUNNING],
+            workflow_run_id=workflow_run_id
+        ).all()
+        DB.session.commit()
+        resp = jsonify(task_instances=[ti.to_wire_as_executor_task_instance()
+                                       for ti in rows])
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate', methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int):
-    workflow_run = DB.session.query(WorkflowRun).filter_by(
-        id=workflow_run_id
-    ).one()
+    try:
+        workflow_run = DB.session.query(WorkflowRun).filter_by(
+            id=workflow_run_id
+        ).one()
 
-    if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
-        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR]
-    if workflow_run.status == WorkflowRunStatus.COLD_RESUME:
-        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
-                                TaskInstanceStatus.RUNNING]
+        if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
+            task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR]
+        if workflow_run.status == WorkflowRunStatus.COLD_RESUME:
+            task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+                                    TaskInstanceStatus.RUNNING]
 
-    query = """
-        SELECT
-            task_instance.id, task_instance.workflow_run_id,
-            task_instance.executor_id
-        FROM
-            task_instance
-        WHERE
-            task_instance.workflow_run_id = :workflow_run_id
-            AND task_instance.status in :task_instance_states
-    """
-    rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
-        task_instance_states=task_instance_states,
-        workflow_run_id=workflow_run_id
-    ).all()
-    DB.session.commit()
-    resp = jsonify(task_instances=[ti.to_wire_as_executor_task_instance()
-                                   for ti in rows])
-    resp.status_code = StatusCodes.OK
-    return resp
+        query = """
+            SELECT
+                task_instance.id, task_instance.workflow_run_id,
+                task_instance.executor_id
+            FROM
+                task_instance
+            WHERE
+                task_instance.workflow_run_id = :workflow_run_id
+                AND task_instance.status in :task_instance_states
+        """
+        rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
+            task_instance_states=task_instance_states,
+            workflow_run_id=workflow_run_id
+        ).all()
+        DB.session.commit()
+        resp = jsonify(task_instances=[ti.to_wire_as_executor_task_instance()
+                                       for ti in rows])
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def log_workflow_run_heartbeat(workflow_run_id: int):
-    data = request.get_json()
-    app.logger.debug(f"Heartbeat data: {data}")
-
-    workflow_run = DB.session.query(WorkflowRun).filter_by(
-        id=workflow_run_id).one()
-
     try:
-        workflow_run.heartbeat(data["next_report_increment"])
-        DB.session.commit()
-        app.logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
-    except InvalidStateTransition:
-        DB.session.rollback()
-        app.logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
+        data = request.get_json()
+        app.logger.debug(f"Heartbeat data: {data}")
 
-    resp = jsonify(message=str(workflow_run.status))
-    resp.status_code = StatusCodes.OK
-    return resp
+        workflow_run = DB.session.query(WorkflowRun).filter_by(
+            id=workflow_run_id).one()
+
+        try:
+            workflow_run.heartbeat(data["next_report_increment"])
+            DB.session.commit()
+            app.logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
+        except InvalidStateTransition:
+            DB.session.rollback()
+            app.logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
+
+        resp = jsonify(message=str(workflow_run.status))
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_executor_report_by', methods=['POST'])
 def log_executor_report_by(workflow_run_id: int):
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    params = {"workflow_run_id": int(workflow_run_id)}
-    for key in ["next_report_increment", "executor_ids"]:
-        params[key] = data[key]
+        params = {"workflow_run_id": int(workflow_run_id)}
+        for key in ["next_report_increment", "executor_ids"]:
+            params[key] = data[key]
 
-    if params["executor_ids"]:
-        query = """
-            UPDATE task_instance
-            SET report_by_date = ADDTIME(
-                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-            WHERE
-                workflow_run_id = :workflow_run_id
-                AND executor_id in :executor_ids
-        """
-        DB.session.execute(query, params)
-        DB.session.commit()
+        if params["executor_ids"]:
+            query = """
+                UPDATE task_instance
+                SET report_by_date = ADDTIME(
+                    CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+                WHERE
+                    workflow_run_id = :workflow_run_id
+                    AND executor_id in :executor_ids
+            """
+            DB.session.execute(query, params)
+            DB.session.commit()
 
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/log_executor_error', methods=['POST'])
 def state_and_log_by_executor_id():
-    data = request.get_json()
-    ids_and_errors = data["executor_ids"]
-    for key in ids_and_errors:
-        query = """
-            SELECT
-                task_instance.*
-            FROM
-                task_instance
-            WHERE
-                task_instance.executor_id = :executor_id"""
-        task_instance = DB.session.query(TaskInstance).from_statement(text(query)).params(
-            executor_id=key).one()
-        DB.session.commit()
+    try:
+        data = request.get_json()
+        ids_and_errors = data["executor_ids"]
+        for key in ids_and_errors:
+            query = """
+                SELECT
+                    task_instance.*
+                FROM
+                    task_instance
+                WHERE
+                    task_instance.executor_id = :executor_id"""
+            task_instance = DB.session.query(TaskInstance).from_statement(text(query)).params(
+                executor_id=key).one()
+            DB.session.commit()
 
-        error_message = ids_and_errors[key]
+            error_message = ids_and_errors[key]
 
-        try:
-            resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, error_message)
-        except sqlalchemy.exc.OperationalError:
-            # modify the error message and retry
-            new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-            resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, new_msg)
+            try:
+                resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, error_message)
+            except sqlalchemy.exc.OperationalError:
+                # modify the error message and retry
+                new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+                resp = _log_error(task_instance, TaskInstanceStatus.UNKNOWN_ERROR, new_msg)
 
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/task_instance', methods=['POST'])
@@ -262,62 +285,70 @@ def add_task_instance():
         task_id (int): unique id for the task
         executor_type (str): string name of the executor type used
     """
-    data = request.get_json()
-
-    # query task
-    task = DB.session.query(Task).filter_by(id=data['task_id']).first()
-    DB.session.commit()
-
-    # create task_instance from task parameters
-    task_instance = TaskInstance(
-        workflow_run_id=data["workflow_run_id"],
-        executor_type=data['executor_type'],
-        task_id=data['task_id'],
-        executor_parameter_set_id=task.executor_parameter_set_id)
-    DB.session.add(task_instance)
-    DB.session.commit()
-
     try:
+        data = request.get_json()
+
+        # query task
+        task = DB.session.query(Task).filter_by(id=data['task_id']).first()
+        DB.session.commit()
+
+        # create task_instance from task parameters
+        task_instance = TaskInstance(
+            workflow_run_id=data["workflow_run_id"],
+            executor_type=data['executor_type'],
+            task_id=data['task_id'],
+            executor_parameter_set_id=task.executor_parameter_set_id)
+        DB.session.add(task_instance)
+        DB.session.commit()
         task_instance.task.transition(TaskStatus.INSTANTIATED)
-    except InvalidStateTransition:
+        DB.session.commit()
+        resp = jsonify(
+            task_instance=task_instance.to_wire_as_executor_task_instance())
+        resp.status_code = StatusCodes.OK
+        return resp
+    except InvalidStateTransition as e:
         # Handles race condition if the task is already instantiated state
         if task_instance.task.status == TaskStatus.INSTANTIATED:
             msg = ("Caught InvalidStateTransition. Not transitioning task "
                    "{}'s task_instance_id {} from I to I"
                    .format(data['task_id'], task_instance.id))
             app.logger.warning(msg)
+            DB.session.commit()
+            resp = jsonify(
+                task_instance=task_instance.to_wire_as_executor_task_instance())
+            resp.status_code = StatusCodes.OK
+            return resp
         else:
-            raise
-    finally:
-        DB.session.commit()
-    resp = jsonify(
-        task_instance=task_instance.to_wire_as_executor_task_instance())
-    resp.status_code = StatusCodes.OK
-    return resp
+            log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/task_instance/<task_instance_id>/log_no_executor_id', methods=['POST'])
 def log_no_executor_id(task_instance_id: int):
-    data = request.get_json()
-    app.logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."
-                     f"Data {data['executor_id']}")
-    app.logger.debug(f"Add TI for task ")
+    try:
+        data = request.get_json()
+        app.logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."
+                         f"Data {data['executor_id']}")
+        app.logger.debug(f"Add TI for task ")
 
-    if data['executor_id'] == qsub_attribute.NO_EXEC_ID:
-        app.logger.info("Qsub was unsuccessful and caused an exception")
-    else:
-        app.logger.info("Qsub may have run, but the sge job id could not be parsed"
-                        " from the qsub response so no executor id can be assigned"
-                        " at this time")
+        if data['executor_id'] == qsub_attribute.NO_EXEC_ID:
+            app.logger.info("Qsub was unsuccessful and caused an exception")
+        else:
+            app.logger.info("Qsub may have run, but the sge job id could not be parsed"
+                            " from the qsub response so no executor id can be assigned"
+                            " at this time")
 
-    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-    msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_EXECUTOR_ID)
-    ti.executor_id = data['executor_id']
-    DB.session.commit()
+        ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+        msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_EXECUTOR_ID)
+        ti.executor_id = data['executor_id']
+        DB.session.commit()
 
-    resp = jsonify(message=msg)
-    resp.status_code = StatusCodes.OK
-    return resp
+        resp = jsonify(message=msg)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/task_instance/<task_instance_id>/log_executor_id', methods=['POST'])
@@ -327,21 +358,24 @@ def log_executor_id(task_instance_id: int):
 
         task_instance_id: id of the task_instance to log
     """
-    data = request.get_json()
-    app.logger.debug(f"Log EXECUTOR ID for TI {task_instance_id}. Data {data}")
+    try:
+        data = request.get_json()
+        app.logger.debug(f"Log EXECUTOR ID for TI {task_instance_id}. Data {data}")
 
-    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-    msg = _update_task_instance_state(
-        ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
-    ti.executor_id = data['executor_id']
-    ti.report_by_date = func.ADDTIME(
-        func.now(),
-        func.SEC_TO_TIME(data["next_report_increment"]))
-    DB.session.commit()
+        ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+        msg = _update_task_instance_state(
+            ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
+        ti.executor_id = data['executor_id']
+        ti.report_by_date = func.ADDTIME(
+            func.now(),
+            func.SEC_TO_TIME(data["next_report_increment"]))
+        DB.session.commit()
 
-    resp = jsonify(message=msg)
-    resp.status_code = StatusCodes.OK
-    return resp
+        resp = jsonify(message=msg)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 @jobmon_scheduler.route('/task_instance/<task_instance_id>/log_error_reconciler', methods=['POST'])
@@ -352,40 +386,43 @@ def log_error_reconciler(task_instance_id: int):
         data:
         oom_killed: whether or not given job errored due to an oom-kill event
     """
-    data = request.get_json()
-    error_state = data['error_state']
-    error_message = data['error_message']
-    executor_id = data.get('executor_id', None)
-    nodename = data.get('nodename', None)
-    app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
+    try:
+        data = request.get_json()
+        error_state = data['error_state']
+        error_message = data['error_message']
+        executor_id = data.get('executor_id', None)
+        nodename = data.get('nodename', None)
+        app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
 
-    query = """
-        SELECT
-            task_instance.*
-        FROM
-            task_instance
-        WHERE
-            task_instance.id = :task_instance_id
-            AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
-    """
-    ti = DB.session.query(TaskInstance).from_statement(text(query)).params(
-        task_instance_id=task_instance_id).one_or_none()
+        query = """
+            SELECT
+                task_instance.*
+            FROM
+                task_instance
+            WHERE
+                task_instance.id = :task_instance_id
+                AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
+        """
+        ti = DB.session.query(TaskInstance).from_statement(text(query)).params(
+            task_instance_id=task_instance_id).one_or_none()
 
-    # make sure the task hasn't logged a new heartbeat since we began
-    # reconciliation
-    if ti is not None:
-        try:
-            resp = _log_error(ti, error_state, error_message, executor_id,
-                              nodename)
-        except sqlalchemy.exc.OperationalError:
-            # modify the error message and retry
-            new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-            resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
-    else:
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
+        # make sure the task hasn't logged a new heartbeat since we began
+        # reconciliation
+        if ti is not None:
+            try:
+                resp = _log_error(ti, error_state, error_message, executor_id,
+                                  nodename)
+            except sqlalchemy.exc.OperationalError:
+                # modify the error message and retry
+                new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+                resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
+        else:
+            resp = jsonify()
+            resp.status_code = StatusCodes.OK
 
-    return resp
+        return resp
+    except Exception as e:
+        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
 # ############################ HELPER FUNCTIONS ###############################
@@ -466,11 +503,9 @@ def set_maxpss(executor_id: int, maxpss: int):
         DB.session.commit()
         resp = jsonify(message=None)
         resp.status_code = StatusCodes.OK
+        return resp
     except Exception as e:
         msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id,
                                                                              error=str(e))
         app.logger.error(msg)
-        resp = jsonify(message=msg)
-        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
-    finally:
-        return resp
+        raise ServerError("Unexpected jobmon server error: {}".format(sys.exc_info()[0]))

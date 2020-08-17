@@ -98,7 +98,7 @@ def handle_40x(error):
     return response
 
 
-@app.errorhandler(ServerSideException)
+@app.errorhandler(ServerError)
 def handle_50x(error):
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
