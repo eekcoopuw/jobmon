@@ -10,6 +10,7 @@ from sqlalchemy.sql import func, text
 from sqlalchemy.orm import joinedload
 from sqlalchemy.dialects.mysql import insert
 import sqlalchemy
+import traceback
 
 
 from jobmon import config
@@ -54,6 +55,18 @@ logger = LocalProxy(lambda: app.logger)
 @jobmon_worker.errorhandler(404)
 def page_not_found(error):
     return 'This route does not exist {}'.format(request.url), 404
+
+
+@jobmon_worker.errorhandler(Exception)
+def handle_exception(e: Exception):
+    """Return JSON instead of HTML for exceptions."""
+    tb = e.__traceback__
+    stack_trace = traceback.format_list(traceback.extract_tb(tb))
+    response_dict = {"type": str(type(e)), "exception_message": str(e), "traceback": stack_trace}
+    response = jsonify(error=response_dict)
+    response.content_type = "application/json"
+    response.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+    return response
 
 
 @jobmon_worker.route('/', methods=['GET'])
