@@ -43,7 +43,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_side_exception import log_and_raise
+from jobmon.server.server_side_exception import log_and_raise, ServerError
 
 jobmon_scheduler = Blueprint("jobmon_scheduler", __name__)
 
@@ -54,6 +54,13 @@ logger = LocalProxy(lambda: app.logger)
 @jobmon_scheduler.errorhandler(404)
 def page_not_found(error):
     return 'This route does not exist {}'.format(request.url), 404
+
+
+@jobmon_scheduler.errorhandler(ServerError)
+def handle_50x(error):
+    response = jsonify(error.to_dict())
+    response.status_code = 500
+    return response
 
 
 @jobmon_scheduler.route('/', methods=['GET'])

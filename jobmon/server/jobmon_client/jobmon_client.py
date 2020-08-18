@@ -41,7 +41,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_side_exception import log_and_raise, raise_user_error, InvalidUsage
+from jobmon.server.server_side_exception import log_and_raise, raise_user_error, InvalidUsage, ServerError
 
 jobmon_client = Blueprint("jobmon_client", __name__)
 
@@ -52,6 +52,21 @@ logger = LocalProxy(lambda: app.logger)
 @jobmon_client.errorhandler(404)
 def page_not_found(error):
     return 'This route does not exist {}'.format(request.url), 404
+
+
+# error handling
+@jobmon_client.errorhandler(InvalidUsage)
+def handle_40x(error):
+    response = jsonify(error.to_dict())
+    response.status_code = 400
+    return response
+
+
+@jobmon_client.errorhandler(ServerError)
+def handle_50x(error):
+    response = jsonify(error.to_dict())
+    response.status_code = 500
+    return response
 
 
 @jobmon_client.route('/', methods=['GET'])
@@ -701,7 +716,9 @@ def add_task():
         resp = jsonify(tasks=return_dict)
         resp.status_code = StatusCodes.OK
         return resp
-    except TypeError, ValueError, KeyError as e:
+    except KeyError as e:
+        raise_user_error(str(e), app.logger)
+    except TypeError as e:
         raise_user_error(str(e), app.logger)
     except Exception as e:
         log_and_raise(str(e), app.logger)

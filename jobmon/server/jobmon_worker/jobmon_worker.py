@@ -43,7 +43,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_side_exception import log_and_raise
+from jobmon.server.server_side_exception import log_and_raise, ServerError
 
 jobmon_worker = Blueprint("jobmon_worker", __name__)
 
@@ -54,6 +54,13 @@ logger = LocalProxy(lambda: app.logger)
 @jobmon_worker.errorhandler(404)
 def page_not_found(error):
     return 'This route does not exist {}'.format(request.url), 404
+
+
+@jobmon_worker.errorhandler(ServerError)
+def handle_50x(error):
+    response = jsonify(error.to_dict())
+    response.status_code = 500
+    return response
 
 
 @jobmon_worker.route('/', methods=['GET'])
@@ -120,8 +127,10 @@ def kill_self(task_instance_id: int):
         ).one_or_none()
         if should_kill is not None:
             resp = jsonify(should_kill=True)
-            resp.status_code = StatusCodes.OK
-            return resp
+        else:
+            resp = jsonify()
+        resp.status_code = StatusCodes.OK
+        return resp
     except Exception as e:
         log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
