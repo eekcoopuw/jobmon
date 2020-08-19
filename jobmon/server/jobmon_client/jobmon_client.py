@@ -147,10 +147,6 @@ def add_tool():
 
 @jobmon_client.route('/tool/<tool_name>', methods=['GET'])
 def get_tool(tool_name: str):
-    # check input variable
-    if tool_name is None:
-        raise_user_error("Variable tool_name is None", app.logger)
-
     # get data from db
     try:
         query = """
@@ -216,10 +212,9 @@ def add_tool_version():
     data = request.get_json()
     try:
         tool_id = int(data["tool_id"])
-    except KeyError:
-        raise_user_error("Parameter tool_id is missing", app.logger)
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise_user_error(str(e), app.logger)
+
     try:
         tool_version = ToolVersion(tool_id=tool_id)
         DB.session.add(tool_version)
