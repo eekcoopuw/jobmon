@@ -136,7 +136,10 @@ def add_tool():
         return resp
     except sqlalchemy.exc.IntegrityError as e:
         DB.session.rollback()
-        raise_user_error("Failed to add tool {t}: {e}".format(t=data["name"], e=e), app.logger)
+        tool = None
+        resp = jsonify(tool=tool)
+        resp.status_code = StatusCodes.OK
+        return resp
     except Exception as e:
         log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
@@ -212,13 +215,13 @@ def add_tool_version():
     # check input variable
     data = request.get_json()
     try:
-        tool_id = data["tool_id"]
-    except KeyError as e:
+        tool_id = int(data["tool_id"])
+    except KeyError:
         raise_user_error("Parameter tool_id is missing", app.logger)
     except Exception as e:
         log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
     try:
-        tool_version = ToolVersion(tool_id)
+        tool_version = ToolVersion(tool_id=tool_id)
         DB.session.add(tool_version)
         DB.session.commit()
         tool_version = tool_version.to_wire_as_client_tool_version()
