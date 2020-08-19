@@ -231,7 +231,7 @@ def add_tool_version():
 def get_task_template():
     # parse args
     try:
-        tool_version_id = request.args.get("tool_version_id")
+        tool_version_id = int(request.args.get("tool_version_id"))
         name = request.args.get("task_template_name")
     except Exception as e:
         raise_user_error(str(e), app.logger)
@@ -268,8 +268,6 @@ def add_task_template():
     data = request.get_json()
     try:
         int(data["tool_version_id"])
-    except KeyError as e:
-        raise_user_error("Missing variable tool_version_id", app.logger)
     except Exception as e:
         raise_user_error(str(e), app.logger)
 
@@ -302,16 +300,6 @@ def add_task_template():
 
 @jobmon_client.route('/task_template/<task_template_id>/version', methods=['GET'])
 def get_task_template_version(task_template_id: int):
-    # parse args
-    if task_template_id is None:
-        raise_user_error("Missing variable task_template_id", app.logger)
-    try:
-        int(task_template_id)
-        command_template = request.args.get("command_template")
-        arg_mapping_hash = request.args.get("arg_mapping_hash")
-    except Exception as e:
-        raise_user_error(str(e), app.logger)
-
     # get task template version object
     try:
         query = """
@@ -619,6 +607,7 @@ def get_task_id_and_status():
         nid = request.args['node_id']
         int(nid)
         h = request.args["task_args_hash"]
+        int(h)
     except Exception as e:
         raise_user_error(str(e), app.logger)
     try:
