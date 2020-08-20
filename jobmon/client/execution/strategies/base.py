@@ -298,3 +298,22 @@ class TaskInstanceExecutorInfo:
 
     def get_exit_info(self, exit_code, error_msg) -> Tuple[str, str]:
         raise NotImplementedError
+
+
+class TaskInstanceStatus:
+    """Base class defining interface for executor specific status. Need to be kept in sync with
+    TaskInstanceStatus DB Model.
+
+    TODO: Break out statuses that are specific to their executor (eqw will only happen on SGE
+    as will Resource Error)
+    """
+
+    INSTANTIATED = 'I'
+    NO_EXECUTOR_ID = 'W'
+    SUBMITTED_TO_BATCH_EXECUTOR = 'B'
+    RUNNING = 'R'
+    RESOURCE_ERROR = 'Z'
+    UNKNOWN_ERROR = 'U'
+    ERROR = 'E'
+    DONE = 'D'
+    KILL_SELF = 'K'
