@@ -302,6 +302,9 @@ def add_task_template():
 def get_task_template_version(task_template_id: int):
     # get task template version object
     try:
+        # parse args
+        command_template = request.args.get("command_template")
+        arg_mapping_hash = request.args.get("arg_mapping_hash")
         query = """
             SELECT
                 task_template_version.*
@@ -504,7 +507,7 @@ def add_node():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(sr(e), app.logger)
+        log_and_raise(str(e), app.logger)
 
 
 
