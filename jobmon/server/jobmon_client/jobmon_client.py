@@ -510,6 +510,66 @@ def add_node():
         log_and_raise(str(e), app.logger)
 
 
+@jobmon_client.route('/nodes', methods=['POST'])
+def add_nodes():
+    """Add a chunk of nodes to the database.
+
+    Args:
+        nodes: a list of
+            node_args_hash: unique identifier of all NodeArgs associated with a
+                            node.
+            task_template_version_id: version id of the task_template a node
+                                      belongs to.
+            node_args: key-value pairs of arg_id and a value.
+    """
+    data = request.get_json()
+
+    # add nodes
+    try:
+        nodes = data["nodes"]
+        return_nodes = {}
+        for n in nodes:
+            try:
+                node = Node(task_template_version_id=n['task_template_version_id'],
+                            node_args_hash=n['node_args_hash'])
+                DB.session.add(node)
+                DB.session.commit()
+
+                # lock for insert to related tables
+                DB.session.refresh(node, with_for_update=True)
+
+                # add node_args
+                node_args = n['node_args']
+                for arg_id in node_args.keys():
+                    app.logger.info(f'Adding node_arg with node_id: {node.id}, '
+                                    f'arg_id: {arg_id}, and val: {node_args[arg_id]}')
+                    node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=node_args[arg_id])
+                    DB.session.add(node_arg)
+                DB.session.commit()
+                # return result
+            except sqlalchemy.exc.IntegrityError:
+                DB.session.rollback()
+                query = """
+                    SELECT *
+                    FROM node
+                    WHERE
+                        task_template_version_id = :task_template_version_id
+                        AND node_args_hash = :node_args_hash
+                """
+                node = DB.session.query(Node).from_statement(text(query)).params(
+                    task_template_version_id=n['task_template_version_id'],
+                    node_args_hash=n['node_args_hash']
+                ).one()
+                DB.session.commit()
+            finally:
+                return_nodes[f"{n['node_args_hash']}:{n['task_template_version_id']}"] = node.id
+        # return result
+        resp = jsonify(nodes=return_nodes)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        log_and_raise(str(e), app.logger)
+
 
 
 @jobmon_client.route('/dag', methods=['GET'])
