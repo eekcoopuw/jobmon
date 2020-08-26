@@ -339,6 +339,46 @@ class Workflow(object):
         return((chunk_number - 1) * self._chunk_size,
                min(total_nodes - 1, chunk_number * self._chunk_size - 1))
 
+    def _bulk_bind_nodes(self):
+        nodes_to_send = []
+        nodes_in_dag = list(self._dag.nodes)
+        nodes_received = {}
+        total_nodes = len(self._dag.nodes)
+        chunk_number = 1
+        chunk_boarder = self._get_chunk(total_nodes, chunk_number)
+        while chunk_boarder:
+            # do something to bind
+            for i in range(chunk_boarder[0], chunk_boarder[1] + 1):
+                node = nodes_in_dag[i]
+                n = {"task_template_version_id": node.task_template_version_id,
+                     "node_args_hash": node.node_args_hash,
+                     "node_args": node.node_args}
+                nodes_to_send.append(n)
+            rc, response = self.requester.send_request(
+                app_route='/client/nodes',
+                message={'nodes': nodes_to_send},
+                request_type='post'
+            )
+            if rc != 200:
+                raise InvalidResponse(
+                    f'Unexpected status code {rc} from GET '
+                    f'request through route /client/workflow. Expected code '
+                    f'200. Response content: {response}')
+            else:
+                nodes_received.update(response['nodes'])
+            chunk_number += 1
+            chunk_boarder = self._get_chunk(total_nodes, chunk_number)
+        for n in nodes_in_dag:
+            k = f"{n.node_args_hash}:{n.task_template_version_id}"
+            if k in nodes_received.keys():
+                n._node_id = int(nodes_received[k])
+            else:
+                raise InvalidResponse(
+                    f"Fail to find node_id in HTTP response for node_args_hash {n.node_args_hash} " 
+                    f"and task_template_version_id {n.task_template_version_id} "
+                    f"HTTP Response:\n {response}"
+                    )
+
     def _bind(self, resume: bool = ResumeStatus.DONT_RESUME):
         """Bind objects to the database if they haven't already been"""
         # short circuit if already bound
@@ -350,8 +390,9 @@ class Workflow(object):
         self._matching_wf_args_diff_hash()
 
         # bind structural elements to db
-        for node in self._dag.nodes:
-            node.bind()
+        self._bulk_bind_nodes()
+
+        # bind dag
         self._dag.bind()
 
         # bind workflow
