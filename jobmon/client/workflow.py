@@ -63,7 +63,8 @@ class Workflow(object):
     def __init__(self, tool_version_id: int, workflow_args: str = "",
                  name: str = "", description: str = "",
                  requester: Requester = shared_requester,
-                 workflow_attributes: Union[List, dict] = None):
+                 workflow_attributes: Union[List, dict] = None,
+                 chunk_size: int = 50000):
         """
         Args:
             tool_version_id: id of the associated tool 
@@ -82,6 +83,7 @@ class Workflow(object):
         # hash to task object mapping. ensure only 1
         self.tasks: Dict[int, Task] = {}
         self._swarm_tasks: dict = {}
+        self._chunk_size: int = chunk_size
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -329,6 +331,13 @@ class Workflow(object):
                 except Empty:
                     pass
                 self._scheduler_proc.terminate()
+
+    def _get_chunk(self, total_nodes:int, chunk_number: int):
+        # This function is created for unit testing
+        if (chunk_number - 1) * self._chunk_size >= total_nodes:
+            return None
+        return((chunk_number - 1) * self._chunk_size,
+               min(total_nodes - 1, chunk_number * self._chunk_size - 1))
 
     def _bind(self, resume: bool = ResumeStatus.DONT_RESUME):
         """Bind objects to the database if they haven't already been"""
