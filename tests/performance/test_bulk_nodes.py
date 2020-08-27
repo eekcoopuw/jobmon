@@ -7,7 +7,7 @@ from jobmon.client import shared_requester as requester
 # The testing threads that sending requests simultaneously
 TOTAL_THREADS = 2
 # The number of nodes to create in each threads
-TOTAL_NODES = 100000
+TOTAL_NODES = 1000
 
 """
 # the function to create node using /node

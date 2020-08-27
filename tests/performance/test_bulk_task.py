@@ -3,7 +3,7 @@ import pytest
 from jobmon.client import shared_requester as requester
 
 
-TOTAL_TASKS = 100000
+TOTAL_TASKS = 1000
 
 
 def test_one_by_one(db_cfg, client_env):
