@@ -13,7 +13,7 @@ from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
     TaskInstanceScheduler, ExceptionWrapper
 from jobmon.client.execution.strategies.base import Executor
-from jobmon.client.requests.requester import Requester
+from jobmon.client.requests.requester import Requester, http_request_ok
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
@@ -161,7 +161,7 @@ class Workflow(object):
             message={"workflow_attributes": workflow_attributes},
             request_type="put"
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected code '
@@ -359,7 +359,7 @@ class Workflow(object):
                 message={'nodes': nodes_to_send},
                 request_type='post'
             )
-            if rc != 200:
+            if http_request_ok(rc) is False:
                 raise InvalidResponse(
                     f'Unexpected status code {rc} from GET '
                     f'request through route /client/workflow. Expected code '
@@ -452,7 +452,7 @@ class Workflow(object):
             },
             request_type='get'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from GET '
                 f'request through route /client/workflow. Expected code '
@@ -475,7 +475,7 @@ class Workflow(object):
             },
             request_type='post'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -500,7 +500,7 @@ class Workflow(object):
             message=parameters,
             request_type='put'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from PUT '
                 f'request through route {app_route}. Expected code '
