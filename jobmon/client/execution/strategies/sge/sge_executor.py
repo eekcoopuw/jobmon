@@ -1,4 +1,3 @@
-from http import HTTPStatus as StatusCodes
 import os
 from subprocess import check_output
 from typing import List, Tuple, Dict, Optional
@@ -7,20 +6,16 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import (
-    Executor, TaskInstanceExecutorInfo, ExecutorParameters)
+    Executor, TaskInstanceExecutorInfo, ExecutorParameters, TaskInstanceStatus)
 from jobmon.client.execution.strategies.sge import sge_utils
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
-from jobmon.models.task_instance_status import TaskInstanceStatus
-from jobmon.models.constants import qsub_attribute
-from jobmon.client import shared_requester
-from jobmon.exceptions import InvalidResponse
-from jobmon.models.task_instance import TaskInstanceStatus
 
 
 logger = logging.getLogger(__name__)
 
 ERROR_SGE_JID = -99999
 ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
+UNPARSABLE = -33333
 
 
 class SGEExecutor(Executor):
@@ -46,12 +41,12 @@ class SGEExecutor(Executor):
             elif 'no suitable queue' in resp:
                 logger.error(f"The job could not be submitted as requested. Got SGE error "
                              f"{resp}. Tried submitting {qsub_cmd}")
-                sge_jid = qsub_attribute.NO_EXEC_ID
+                sge_jid = ERROR_SGE_JID
             else:
                 logger.error(f"The qsub was successfully submitted, but the "
                              f"job id could not be parsed from the response: "
                              f"{resp}")
-                sge_jid = qsub_attribute.UNPARSABLE
+                sge_jid = UNPARSABLE
             return sge_jid
 
         except Exception as e:
@@ -60,7 +55,7 @@ class SGEExecutor(Executor):
                 f"\n{e}")
             if isinstance(e, ValueError):
                 raise e
-            return qsub_attribute.NO_EXEC_ID
+            return ERROR_SGE_JID
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters) -> int:

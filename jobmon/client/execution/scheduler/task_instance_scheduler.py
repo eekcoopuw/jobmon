@@ -335,6 +335,8 @@ class TaskInstanceScheduler:
                 self.config.report_by_buffer)
             task_instance.register_submission_to_batch_executor(
                 executor_id, report_by_buffer)
+            if self.executor.__class__.__name__ == "DummyExecutor":
+                task_instance.dummy_executor_task_instance_run_and_done()
         else:
             msg = ("Did not receive an executor_id in _create_task_instance")
             logger.error(msg)
