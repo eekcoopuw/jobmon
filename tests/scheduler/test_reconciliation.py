@@ -8,16 +8,25 @@ class MockSchedulerProc:
         return True
 
 
-def test_unknown_state(db_cfg, client_env):
+def test_unknown_state(db_cfg, client_env, monkeypatch):
     """Creates a job instance, gets an executor id so it can be in submitted
     to the batch executor state, and then it will never be run (it will miss
     its report by date and the reconciler will kill it)"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
+    from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
     from jobmon.client.execution.scheduler.execution_config import \
         ExecutionConfig
+    
+    class MockExecutorTaskInstance(ExecutorTaskInstance):
+        def dummy_executor_task_instance_run_and_done(self):
+            # do nothing so job gets marked as Batch then Unknown
+            pass
+
+    monkeypatch.setattr(ExecutorTaskInstance, "dummy_executor_task_instance_run_and_done",
+                        MockExecutorTaskInstance.dummy_executor_task_instance_run_and_done)
 
     # Queue a job
     task = BashTask(command="ls", name="dummyfbb", max_attempts=1,
