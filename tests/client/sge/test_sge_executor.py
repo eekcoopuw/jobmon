@@ -3,8 +3,7 @@ import pytest
 from unittest.mock import patch
 
 from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
-from jobmon.client.execution.strategies.sge.sge_executor import \
-    ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES as ecir
+from jobmon.constants import QsubAttribute
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.models.task_instance_status import TaskInstanceStatus
 
@@ -35,9 +34,9 @@ def mock_qacct_exit_status(id):
     """mock jobmon.client.execution.strategies.sge.sge_utils.qacct_exit_status to
     return some fixed code and msg according to id"""
     if id == 100:
-        return ecir[0], "over runtime"
+        return QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES[0], "over runtime"
     if id == 200:
-        return ecir[1], "I run out of ideas of fake msgs"
+        return QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES[1], "I run out of ideas of fake msgs"
     if id == 300:
         return ReturnCodes.WORKER_NODE_ENV_FAILURE, "I run out of ideas of fake msgs again"
     if id == 400:

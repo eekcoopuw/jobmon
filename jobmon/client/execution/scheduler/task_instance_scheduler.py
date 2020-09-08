@@ -15,10 +15,9 @@ from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import \
     ExecutorTaskInstance
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
+from jobmon.constants import WorkflowRunStatus, QsubAttribute
 from jobmon.exceptions import InvalidResponse, WorkflowRunStateError, ResumeSet
-from jobmon.models.constants import qsub_attribute
-from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 
 logger = logging.getLogger(__name__)
@@ -319,12 +318,12 @@ class TaskInstanceScheduler:
             command=command,
             name=task.name,
             executor_parameters=task.executor_parameters)
-        if executor_id == qsub_attribute.NO_EXEC_ID:
+        if executor_id == QsubAttribute.NO_EXEC_ID:
             logger.debug(f"Received {executor_id} meaning "
                          f"the task did not qsub properly, moving "
                          f"to 'W' state")
             task_instance.register_no_executor_id(executor_id=executor_id)
-        elif executor_id == qsub_attribute.UNPARSABLE:
+        elif executor_id == QsubAttribute.UNPARSABLE:
             logger.debug(f"Got response from qsub but did not contain a "
                          f"valid executor_id. Using ({executor_id}), and "
                          f"moving to 'W' state")

@@ -7,7 +7,7 @@ from typing import Dict, List, Set
 
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
 
 
 logger = logging.getLogger(__name__)

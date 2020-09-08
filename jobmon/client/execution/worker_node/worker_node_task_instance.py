@@ -5,8 +5,8 @@ from typing import Optional, Union, Tuple, Dict
 
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
-from jobmon.client.requests.requester import Requester
-from jobmon.client.requests.connection_config import ConnectionConfig
+from jobmon.requests.requester import Requester
+from jobmon.requests.connection_config import ConnectionConfig
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class WorkerNodeTaskInstance:
         self._process_group_id: Optional[int] = None
         self.executor = task_instance_executor_info
         if requester is None:
-            requester = Requester(ConnectionConfig.from_defaults().url)
+            requester = Requester(ConnectionConfig.from_defaults().url, logger=logger)
         self.requester = requester
         logger.info(f"Instantiated WorkerNodeTaskInstance task_instance_id: "
                     f" {task_instance_id}; nodename: + {nodename}")

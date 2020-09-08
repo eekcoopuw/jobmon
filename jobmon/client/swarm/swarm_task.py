@@ -6,11 +6,10 @@ from typing import Callable, Set, Dict, Optional, List
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
+from jobmon.constants import ExecutorParameterSetType, TaskStatus
 from jobmon.exceptions import InvalidResponse, CallableReturnedInvalidObject
 from jobmon.serializers import SerializeSwarmTask
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 
 
 logger = logging.getLogger(__name__)

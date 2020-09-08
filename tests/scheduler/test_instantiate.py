@@ -1,6 +1,6 @@
 import pytest
 
-from jobmon.models.constants import qsub_attribute
+from jobmon.constants import QsubAttribute
 
 
 class MockSchedulerProc:
@@ -93,8 +93,8 @@ def test_n_queued(db_cfg, client_env):
     assert len(all_jobs) == 20
 
 
-@pytest.mark.parametrize('sge', [qsub_attribute.NO_EXEC_ID,
-                                 qsub_attribute.UNPARSABLE])
+@pytest.mark.parametrize('sge', [QsubAttribute.NO_EXEC_ID,
+                                 QsubAttribute.UNPARSABLE])
 def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
     """test that things move successfully into 'W' state if the executor
     returns the correct id"""

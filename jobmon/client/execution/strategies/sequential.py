@@ -9,7 +9,7 @@ from jobmon.client.execution.strategies.base import (Executor,
 from jobmon.client.execution.worker_node.execution_wrapper import (
     unwrap, parse_arguments)
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.models.task_instance_status import TaskInstanceStatus
+from jobmon.constants import TaskInstanceStatus
 
 
 logger = logging.getLogger(__name__)

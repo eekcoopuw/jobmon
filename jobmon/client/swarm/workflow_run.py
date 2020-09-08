@@ -9,13 +9,11 @@ from typing import Dict, Set, List, Tuple
 from jobmon import __version__
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
 from jobmon.client.swarm.swarm_task import SwarmTask
+from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import (InvalidResponse, WorkflowNotResumable,
                                SchedulerNotAlive)
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 logger = logging.getLogger(__name__)
 

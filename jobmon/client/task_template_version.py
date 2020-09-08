@@ -7,7 +7,7 @@ from typing import Optional, Dict
 
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.serializers import SerializeClientTaskTemplateVersion
 

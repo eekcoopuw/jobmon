@@ -5,10 +5,10 @@ from typing import Optional
 
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
 from jobmon.client.execution.strategies.base import Executor
+from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable, InvalidResponse
-from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.serializers import SerializeExecutorTaskInstance
 
 
