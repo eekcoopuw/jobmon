@@ -5,8 +5,7 @@ from time import sleep
 from typing import List
 
 from jobmon import __version__
-from jobmon.client import shared_requester
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
 from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
@@ -19,7 +18,7 @@ class WorkflowReaper(object):
                  poll_interval_minutes: int = None,
                  loss_threshold: int = None,
                  wf_notification_sink=None,
-                 requester: Requester = shared_requester):
+                 requester: Requester = None):
 
         config = WorkflowReaperConfig.from_defaults()
 
@@ -32,7 +31,7 @@ class WorkflowReaper(object):
         self._loss_threshold = (
             config.loss_threshold if loss_threshold is None
             else loss_threshold)
-        self._requester = requester
+        self._requester = (config.requester if requester is None else requester)
         self._wf_notification_sink = wf_notification_sink
 
         if self._poll_interval_minutes < self._loss_threshold:

@@ -17,7 +17,6 @@ from jobmon import config
 from jobmon.models import DB
 from jobmon.models.arg import Arg
 from jobmon.models.arg_type import ArgType
-from jobmon.models.constants import qsub_attribute, task_instance_attribute
 from jobmon.models.task_attribute import TaskAttribute
 from jobmon.models.task_attribute_type import TaskAttributeType
 from jobmon.models.workflow_attribute import WorkflowAttribute

@@ -13,7 +13,7 @@ from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
     TaskInstanceScheduler, ExceptionWrapper
 from jobmon.client.execution.strategies.base import Executor
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
@@ -22,8 +22,6 @@ from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
                                SchedulerNotAlive, ResumeSet)
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.models.task_status import TaskStatus
-
 
 logger = logging.getLogger(__name__)
 

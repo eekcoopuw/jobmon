@@ -7,7 +7,7 @@ from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.exceptions import InvalidResponse
 

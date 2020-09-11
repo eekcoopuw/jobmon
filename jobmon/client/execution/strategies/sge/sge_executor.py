@@ -6,16 +6,12 @@ from cluster_utils.io import makedirs_safely
 
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import (
-    Executor, TaskInstanceExecutorInfo, ExecutorParameters, TaskInstanceStatus)
+    Executor, TaskInstanceExecutorInfo, ExecutorParameters)
 from jobmon.client.execution.strategies.sge import sge_utils
+from jobmon.constants import TaskInstanceStatus, QsubAttribute
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 
-
 logger = logging.getLogger(__name__)
-
-ERROR_SGE_JID = -99999
-ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
-UNPARSABLE = -33333
 
 
 class SGEExecutor(Executor):
@@ -41,12 +37,12 @@ class SGEExecutor(Executor):
             elif 'no suitable queue' in resp:
                 logger.error(f"The job could not be submitted as requested. Got SGE error "
                              f"{resp}. Tried submitting {qsub_cmd}")
-                sge_jid = ERROR_SGE_JID
+                sge_jid = QsubAttribute.NO_EXEC_ID
             else:
                 logger.error(f"The qsub was successfully submitted, but the "
                              f"job id could not be parsed from the response: "
                              f"{resp}")
-                sge_jid = UNPARSABLE
+                sge_jid = QsubAttribute.UNPARSABLE
             return sge_jid
 
         except Exception as e:
@@ -55,7 +51,7 @@ class SGEExecutor(Executor):
                 f"\n{e}")
             if isinstance(e, ValueError):
                 raise e
-            return ERROR_SGE_JID
+            return QsubAttribute.NO_EXEC_ID
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters) -> int:
@@ -113,7 +109,7 @@ class SGEExecutor(Executor):
         """return the exit state associated with a given exit code"""
         exit_code, reason = sge_utils.qacct_exit_status(executor_id)
         logger.debug(f"exit_status info: {exit_code}")
-        if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
+        if exit_code in QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
             if 'over runtime' in reason:
                 msg = ("Task Instance killed because it exceeded max_runtime. "
                        f"{self.__class__.__name__} accounting discovered exit "
@@ -255,7 +251,7 @@ class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
         return sge_utils.qstat_usage([self.executor_id])[self.executor_id]
 
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
-        if exit_code in ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
+        if exit_code in QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
             msg = (f"Insufficient resources requested. Found exit code: "
                    f"{exit_code}. Application returned error message:\n" +
                    error_msg)

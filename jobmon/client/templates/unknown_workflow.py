@@ -2,7 +2,7 @@ from typing import Optional, Union, List
 
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
 from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
 

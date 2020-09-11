@@ -5,7 +5,7 @@ import itertools
 import os
 import re
 import subprocess
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple
 import numpy as np
 
 from jobmon.client import ClientLogging as logging

@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 from tenacity import stop_after_attempt
 
-from jobmon.client.requests.requester import Requester
+from jobmon.requests import requester
 
 
 def test_server_502(client_env):
@@ -26,10 +26,10 @@ def test_server_502(client_env):
         {'time': '2019-02-21 17:40:07'}
     )
 
-    test_requester = Requester(shared_requester.url)
+    test_requester = requester.Requester(shared_requester.url)
 
     # mock requester.get_content to return 2 502s then 200
-    with mock.patch('jobmon.client.requests.requester.get_content') as m:
+    with mock.patch('jobmon.requests.requester.get_content') as m:
         # Docs: If side_effect is an iterable then each call to the mock
         # will return the next value from the iterable
         m.side_effect = [err_response] * 2 + \

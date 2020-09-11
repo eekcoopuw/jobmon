@@ -8,10 +8,10 @@ from typing import Optional, List, Callable, Union, Tuple
 from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
 from jobmon.client.node import Node
-from jobmon.client.requests.requester import Requester
+from jobmon.requests.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
-from jobmon.models.task_status import TaskStatus
 
 logger = logging.getLogger(__name__)
 

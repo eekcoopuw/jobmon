@@ -9,7 +9,7 @@ from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import (Executor,
                                                      TaskInstanceExecutorInfo,
                                                      ExecutorParameters)
-from jobmon.models.task_instance_status import TaskInstanceStatus
+from jobmon.constants import TaskInstanceStatus
 
 logger = logging.getLogger(__name__)
 

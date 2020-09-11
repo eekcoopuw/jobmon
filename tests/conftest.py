@@ -5,7 +5,6 @@ import os
 import pwd
 import re
 import shutil
-import socket
 import uuid
 from time import sleep
 
@@ -141,7 +140,7 @@ def db_cfg(ephemera):
 @pytest.fixture(scope='function')
 def client_env(real_jsm_jqs, monkeypatch):
     from jobmon.client import shared_requester
-    from jobmon.client.requests.connection_config import ConnectionConfig
+    from jobmon.requests.connection_config import ConnectionConfig
     from jobmon import config
 
     monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])

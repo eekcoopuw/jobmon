@@ -14,10 +14,10 @@ import traceback
 
 
 from jobmon import config
+from jobmon.constants import QsubAttribute
 from jobmon.models import DB
 from jobmon.models.arg import Arg
 from jobmon.models.arg_type import ArgType
-from jobmon.models.constants import qsub_attribute, task_instance_attribute
 from jobmon.models.task_attribute import TaskAttribute
 from jobmon.models.task_attribute_type import TaskAttributeType
 from jobmon.models.workflow_attribute import WorkflowAttribute
@@ -316,7 +316,7 @@ def log_no_executor_id(task_instance_id: int):
                      f"Data {data['executor_id']}")
     app.logger.debug(f"Add TI for task ")
 
-    if data['executor_id'] == qsub_attribute.NO_EXEC_ID:
+    if data['executor_id'] == QsubAttribute.NO_EXEC_ID:
         app.logger.info("Qsub was unsuccessful and caused an exception")
     else:
         app.logger.info("Qsub may have run, but the sge job id could not be parsed"
