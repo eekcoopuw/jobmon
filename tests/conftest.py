@@ -43,7 +43,10 @@ def ephemera():
     here = os.path.dirname(__file__)
     create_dir = os.path.join(here, "..",
                               "jobmon/server/deployment/container/db")
+    updates_dir = os.path.join(here, "..", "jobmon/server/deployment/container/db/upgrade")
+
     create_files = glob.glob(os.path.join(create_dir, "*.sql"))
+    create_files.extend(glob.glob(os.path.join(updates_dir, "upgrade002-Guppyette.sql")))
 
     for file in sorted(create_files):
         edb.execute_sql_script(file)

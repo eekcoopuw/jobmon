@@ -180,7 +180,7 @@ def test_task_attribute(db_cfg, client_env):
                                 executor_class="SequentialExecutor")
     executor_parameters = ExecutorParameters(m_mem_free='1G', num_cores=1, queue='all.q',
                                              executor_class="SequentialExecutor")
-    task1 = BashTask("sleep 2", num_cores=1,
+    task1 = BashTask("sleep 2",
                      task_attributes={'LOCATION_ID': 1, 'AGE_GROUP_ID': 5, 'SEX': 1},
                      executor_parameters=executor_parameters)
 
@@ -190,19 +190,34 @@ def test_task_attribute(db_cfg, client_env):
 
     task2 = PythonTask(script=script_path, num_cores=1,
                        task_attributes=["NUM_CORES", "NUM_YEARS"])
-    workflow1.add_tasks([task1, task2])
+
+    task3 = BashTask("sleep 3", num_cores=1, task_attributes={'NUM_CORES': 3, 'NUM_YEARS': 5},
+                     executor_parameters=executor_parameters)
+    workflow1.add_tasks([task1, task2, task3])
     workflow1.run()
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
         query = """
-        SELECT task_attribute_type.name, task_attribute.value
+        SELECT task_attribute_type.name, task_attribute.value, task_attribute_type.id
         FROM task_attribute
         INNER JOIN task_attribute_type ON task_attribute.attribute_type=task_attribute_type.id
-        WHERE task_attribute.task_id = :task_id_1 OR :task_id_2
+        WHERE task_attribute.task_id IN (:task_id_1, :task_id_2, :task_id_3)
         """
-        resp = DB.session.query(TaskAttribute.value, TaskAttributeType.name).\
-            from_statement(text(query)).params(task_id_1=task1.task_id, task_id_2=task2.task_id).all()
-    assert set(resp) == set([('1', 'LOCATION_ID'), ('5', 'AGE_GROUP_ID'), ('1', 'SEX'),
-                             (None, 'NUM_CORES'), (None, 'NUM_YEARS')])
+        resp = DB.session.query(TaskAttribute.value, TaskAttributeType.name,
+                                TaskAttributeType.id).\
+            from_statement(text(query)).params(task_id_1=task1.task_id,
+                                               task_id_2=task2.task_id,
+                                               task_id_3=task3.task_id).all()
+        values = [tup[0] for tup in resp]
+        names = [tup[1] for tup in resp]
+        ids = [tup[2] for tup in resp]
+        expected_vals = ['5', '1', None, '3', None, '5', '1']
+        expected_names = ['AGE_GROUP_ID', 'LOCATION_ID', 'NUM_CORES', 'NUM_CORES', 'NUM_YEARS',
+                          'NUM_YEARS', 'SEX']
+
+        assert values == expected_vals
+        assert names == expected_names
+        assert ids[2] == ids[3] # will fail if adding non-unique task_attribute_types
+        assert ids[4] == ids[5]
