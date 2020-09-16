@@ -2,6 +2,16 @@ import pytest
 
 from jobmon.exceptions import WorkflowAlreadyComplete
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.client.workflow import Workflow
+
+
+def test_get_chunk():
+    wf = Workflow(tool_version_id=1, chunk_size=10)
+    assert wf._get_chunk(10, 2) is None
+    assert wf._get_chunk(10, 1) == (0, 9)
+    assert wf._get_chunk(20, 2) == (10, 19)
+    assert wf._get_chunk(19, 2) == (10, 18)
+    assert wf._get_chunk(8, 1)  == (0, 7)
 
 
 def test_wfargs_update(client_env, db_cfg):

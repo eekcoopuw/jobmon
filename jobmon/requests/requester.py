@@ -32,6 +32,10 @@ def raise_if_exceed_retry(retry_state: RetryCallState, logger: Optional[logging.
         f'Status code was {status} and content was {content}')
 
 
+def http_request_ok(status_code: int) -> bool:
+    return status_code in (200, 302, 307)
+    
+
 class Requester(object):
     """Sends an HTTP messages via the Requests library to one of the running
     services, either the JQS or the JSM, and returns the response from the
