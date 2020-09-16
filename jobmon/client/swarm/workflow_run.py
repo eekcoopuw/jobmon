@@ -11,11 +11,9 @@ from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
 from jobmon.requests.requester import Requester, http_request_ok
 from jobmon.client.swarm.swarm_task import SwarmTask
+from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import (InvalidResponse, WorkflowNotResumable,
                                SchedulerNotAlive)
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.workflow_run_status import WorkflowRunStatus
 
 logger = logging.getLogger(__name__)
 

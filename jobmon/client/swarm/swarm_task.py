@@ -7,10 +7,9 @@ from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.requests.requester import Requester, http_request_ok
+from jobmon.constants import ExecutorParameterSetType, TaskStatus
 from jobmon.exceptions import InvalidResponse, CallableReturnedInvalidObject
 from jobmon.serializers import SerializeSwarmTask
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.executor_parameter_set_type import ExecutorParameterSetType
 
 
 logger = logging.getLogger(__name__)
