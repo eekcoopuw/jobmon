@@ -26,9 +26,9 @@ can read the parameters from the Jenkinsfile.
 Updating an existing deployment
 -------------------------------
 
-1. Build and publish a docker container to Artifactory using build_docker.Jenkinsfile
+1. Build and publish a docker container to Artifactory using `Jenkins <https://jenkins.scicomp.ihme.washington.edu/job/scicomp/job/jobmon-deploy-k8s/>`_.
 2. Clear out the existing routes from Traefik.
-3. Run jenkins job that targets k8s/deploy.Jenkinsfile, targeting a the existing namespace
+3. Run jenkins job that targets k8s/deploy.Jenkinsfile, targeting the existing namespace
 
 
 Deleting  Ingressroutes from Traefik
