@@ -1,28 +1,17 @@
 from time import sleep, time
 import logging
 import requests
-from flask_sqlalchemy import SQLAlchemy
 
-from jobmon import config
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from jobmon.server.integration.qpid.qpid_config import QPIDConfig
 from jobmon.server.integration.qpid.maxpss_queue import MaxpssQ
-from jobmon.server import app
 
 logger = logging.getLogger(__name__)
 
 
-class _App:
-    _app = None
-
-    @staticmethod
-    def get_app():
-        if _App._app is None:
-            _App._app = app
-        return _App._app
-
-
-def _get_current_app():
-    """This method returns the current app. The main purpose is for easy patch in testing."""
-    return _App.get_app()
+config = QPIDConfig.from_defaults()
 
 
 def _get_pulling_interval():
@@ -73,9 +62,9 @@ def maxpss_forever():
     """A never stop method running in a thread to constantly query the maxpss value from qpid for completed jobmon jobs.
        If the maxpss is not found in qpid, put the execution id back to the queue.
     """
-    app = _get_current_app()
-    db = SQLAlchemy(app)
-    session = db.session
+    eng = create_engine(config.conn_str, pool_recycle=200)
+    Session = sessionmaker(bind=eng)
+    session = Session()
     last_heartbeat = time()
     while MaxpssQ.keep_running:
         # Since there isn't a good way to specify the thread priority in Python,

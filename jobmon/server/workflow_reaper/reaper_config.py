@@ -1,29 +1,44 @@
-import logging
+from __future__ import annotations
 
-from jobmon import config
-from jobmon.requests.connection_config import ConnectionConfig
-from jobmon.requests.requester import Requester
+from typing import Optional
 
-logger = logging.getLogger(__file__)
+from jobmon.config import CLI, ParserDefaults
 
 
-class WorkflowReaperConfig(object):
+class WorkflowReaperConfig:
+
     @classmethod
-    def from_defaults(cls):
-        reaper_config = ConnectionConfig.from_defaults()
-        reaper_requester = Requester(reaper_config.url, logger)
-        return cls(
-            poll_interval_minutes=config.poll_interval_minutes,
-            loss_threshold=config.loss_threshold,
-            requester=reaper_requester
-        )
+    def from_defaults(cls) -> WorkflowReaperConfig:
+        cli = CLI()
+        ParserDefaults.poll_interval_minutes(cli.parser)
+        ParserDefaults.loss_threshold(cli.parser)
+        ParserDefaults.web_service_fqdn(cli.parser)
+        ParserDefaults.web_service_port(cli.parser)
+        ParserDefaults.slack_api_url(cli.parser)
+        ParserDefaults.slack_token(cli.parser)
+        ParserDefaults.slack_channel_default(cli.parser)
 
-    def __init__(self, poll_interval_minutes: int, loss_threshold: int, requester: Requester):
+        args = cli.parse_args()
+
+        return cls(poll_interval_minutes=args.poll_interval_minutes,
+                   loss_threshold=args.loss_threshold,
+                   host=args.web_service_fqdn,
+                   port=args.web_service_port,
+                   slack_api_url=args.slack_api_url,
+                   slack_token=args.slack_token,
+                   slack_channel_default=args.slack_channel_default)
+
+    def __init__(self, poll_interval_minutes: int, loss_threshold: int, host: str, port: str,
+                 slack_api_url: Optional[str], slack_token: Optional[str],
+                 slack_channel_default: Optional[str]) -> None:
         self.poll_interval_minutes = poll_interval_minutes
         self.loss_threshold = loss_threshold
-        self.requester = requester
+        self.host = host
+        self.port = port
+        self.slack_api_url = slack_api_url
+        self.slack_token = slack_token
+        self.slack_channel_default = slack_channel_default
 
-    def __repr__(self):
-        return (f"WorkflowReaperConfig(poll_interval_minutes={self.poll_interval_minutes}, "
-                f"loss_threshold={self.loss_threshold}, requester_config: "
-                f"{self.requester.url})")
+    @property
+    def url(self):
+        return f"http://{self.host}:{self.port}"

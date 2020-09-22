@@ -44,7 +44,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_side_exception import log_and_raise
+from jobmon.server.web.server_side_exception import log_and_raise
 
 jobmon_scheduler = Blueprint("jobmon_scheduler", __name__)
 

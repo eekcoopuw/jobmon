@@ -14,9 +14,7 @@ class InvalidConfig(Exception):
 def derive_jobmon_command_from_env() -> Optional[str]:
     singularity_img_path = os.environ.get('IMGPATH', None)
     if singularity_img_path:
-        return (
-            'singularity run --app jobmon_command {}'
-            .format(singularity_img_path).encode())
+        return f'singularity run --app jobmon_command {singularity_img_path}'
     return None
 
 
