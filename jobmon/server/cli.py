@@ -58,7 +58,7 @@ class ServerCLI(CLI):
                              f'({args.command})')
 
     def qpid_integration(self, args):
-        from jobmon.server.integration.api import start_qpid_integration
+        from jobmon.server.qpid_integration.api import start_qpid_integration
         # TODO: need dependency injection into qpid integration
         if args.command == 'start':
             start_qpid_integration()
@@ -112,6 +112,7 @@ class ServerCLI(CLI):
             help=('The qpid_integration sub-command to run: (start). Start command runs '
                   'qpid.maxpss_forever().')
         )
+
 
 def main():
     cli = ServerCLI()

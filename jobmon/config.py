@@ -1,6 +1,7 @@
 import configargparse
 import os
 import shlex
+from typing import Optional, List
 
 
 CONFIG_FILE_NAME = '.jobmon.ini'
@@ -202,10 +203,9 @@ class CLI:
         attribute which can be used to dispatch to the appropriate downstream
         function
         '''
+        arglist: Optional[List[str]] = None
         if argstr is not None:
             arglist = shlex.split(argstr)
-        else:
-            arglist = None
 
         args = self.parser.parse_args(arglist)
 

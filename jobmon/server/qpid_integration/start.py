@@ -1,7 +1,7 @@
 import logging
 import sys
 
-import jobmon.server.integration.qpid.qpid_integrator as qpid
+import jobmon.server.qpid_integration.qpid_integrator as qpid
 
 
 def start_qpid_integration():

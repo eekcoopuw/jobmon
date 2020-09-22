@@ -7,13 +7,13 @@ from jobmon.server.web.web_config import WebConfig
 from jobmon.server.web.handlers import add_request_hooks
 
 
-def create_app(db_connection_config: Optional[WebConfig] = None):
+def create_app(web_config: Optional[WebConfig] = None):
     """Create a Flask app"""
     app = Flask(__name__)
 
-    if WebConfig is None:
-        db_connection_config = WebConfig.from_defaults()
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_connection_config.conn_str
+    if web_config is None:
+        web_config = WebConfig.from_defaults()
+    app.config['SQLALCHEMY_DATABASE_URI'] = web_config.conn_str
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
 

@@ -3,10 +3,10 @@ import logging
 import requests
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 
-from jobmon.server.integration.qpid.qpid_config import QPIDConfig
-from jobmon.server.integration.qpid.maxpss_queue import MaxpssQ
+from jobmon.server.qpid_integration.qpid_config import QPIDConfig
+from jobmon.server.qpid_integration.maxpss_queue import MaxpssQ
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ def _get_pulling_interval():
     return config.qpid_pulling_interval
 
 
-def _update_maxpss_in_db(ex_id: int, pss: int, session):
+def _update_maxpss_in_db(ex_id: int, pss: int, session: Session):
     try:
         # Doing single update instead of batch because if a banch update failed it's harder to tell
         # which task_instance has been updated
@@ -33,7 +33,7 @@ def _update_maxpss_in_db(ex_id: int, pss: int, session):
         return False
 
 
-def _get_qpid_response(ex_id):
+def _get_qpid_response(ex_id: int):
     qpid_api_url = f"{config.qpid_uri}/{config.qpid_cluster}/jobmaxpss/{ex_id}"
     logger.info(qpid_api_url)
     resp = requests.get(qpid_api_url)
@@ -46,7 +46,7 @@ def _get_qpid_response(ex_id):
         return (200, maxpss)
 
 
-def _get_completed_task_instance(starttime: float, session):
+def _get_completed_task_instance(starttime: float, session: Session):
     sql = "SELECT executor_id from task_instance " \
           "where status not in (\"B\", \"I\", \"R\", \"W\") " \
           "and UNIX_TIMESTAMP(status_date) > {} " \
@@ -71,8 +71,8 @@ def maxpss_forever():
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
         sleep(1)
-        # Update max_update_per_second of jobs as defined in jobmon.cfg
-        for i in range(config.max_update_per_second):
+        # Update qpid_max_update_per_second of jobs as defined in jobmon.cfg
+        for i in range(config.qpid_max_update_per_second):
             r = MaxpssQ().get()
             if r is not None:
                 (ex_id, age) = r
