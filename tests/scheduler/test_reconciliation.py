@@ -17,6 +17,7 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
     from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
+    from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
     from jobmon.client.execution.scheduler.execution_config import \
         ExecutionConfig
     
@@ -25,6 +26,13 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
             # do nothing so job gets marked as Batch then Unknown
             pass
 
+    monkeypatch.setattr(ExecutorTaskInstance, "dummy_executor_task_instance_run_and_done",
+                        MockExecutorTaskInstance.dummy_executor_task_instance_run_and_done)
+
+    class MockExecutorTaskInstance(ExecutorTaskInstance):
+        def dummy_executor_task_instance_run_and_done(self):
+            # do nothing so job gets marked as Batch then Unknown
+            pass
     monkeypatch.setattr(ExecutorTaskInstance, "dummy_executor_task_instance_run_and_done",
                         MockExecutorTaskInstance.dummy_executor_task_instance_run_and_done)
 

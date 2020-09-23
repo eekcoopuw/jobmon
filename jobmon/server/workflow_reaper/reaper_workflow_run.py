@@ -6,7 +6,7 @@ import logging
 from jobmon import __version__
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.requests.requester import Requester
+from jobmon.requests.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeWorkflowRun
 
 
@@ -57,7 +57,7 @@ class ReaperWorkflowRun(object):
             message={'status': WorkflowRunStatus.ERROR},
             request_type='put'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from PUT '
                 f'request through route {app_route}. Expected '
@@ -77,7 +77,7 @@ class ReaperWorkflowRun(object):
             message={},
             request_type='post'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                                   f'request through route {app_route}. Expected '
                                   f'code 200. Response content: {response}')
@@ -96,7 +96,7 @@ class ReaperWorkflowRun(object):
             app_route=app_route,
             message={},
             request_type='put')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from PUT '
                                   f'request through route {app_route}. Expected '
                                   f'code 200. Response content: {result}')

@@ -96,7 +96,7 @@ def slackSendFiltered(color, channel, msg) {
 }
 
 
-def nox_stage(project_name, target, stage_target, nox_sessions, continue_on_failure) {
+def nox_stage(project_name, target, stage_target, nox_sessions, continue_on_failure, override = "false") {
     // Runs the nox sessions in the nox_sessions string variable
     // ARGS:
     // project_name: is the standard PROJECT_NAME argument from jenkins, e.g. "db_tools"
@@ -105,14 +105,18 @@ def nox_stage(project_name, target, stage_target, nox_sessions, continue_on_fail
     // stage_target: The specific stage that is being run, so it CAN'T be "all"
     // nox_sesions: A string of the nox session names, blank separated.
     // continue_on_failure: If true, this stage should never report failure, even if it failed
+    // override: If true, will overwrite an existing artifactory deployment. Otherwise will error out
     if (target == "all" || target == "release" || target == stage_target) {
         // A shell trick to ignore failure is to put OR TRUE on the end
         or_true = continue_on_failure ? ' || true' : ''
+        // Whether to overwrite an existing deployment
+        overwrite = override.toBoolean() ? '-- --overwrite' : ''
+
         try {
             sh """
                 echo 'nox ${stage_target} STARTS'
                 cd ${project_name}
-                nox --session ${nox_sessions} ${or_true}
+                nox --session ${nox_sessions} ${or_true} ${overwrite}
                 echo 'nox ${stage_target} ENDS'
                 echo '--------'
             """
@@ -186,7 +190,7 @@ node('qlogin') {
             if (TARGET == "emergency-release" || TARGET == "release") {
                 // @TODO This shell fragment could possibly replace versioneer in the publish_docs python script,
                 // simplifying the python environment
-                nox_stage( project_name, "release", "release", "release", false)
+                nox_stage( project_name, "release", "release", "release", false, "${overide_package_on_pypi}")
 
             } else {
                 echo "Not a release target, therefore not deploying to artifactory or docs server"

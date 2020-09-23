@@ -84,3 +84,6 @@ def log_request_info():
         app.logger.info(f"URL Path is {request.path}. Args are {request.args}")
     if request.method in ["POST", "PUT"]:
         app.logger.info(f'URL Path is {request.path}. Data is: {request.get_json()}')
+
+
+

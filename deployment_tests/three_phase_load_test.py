@@ -43,7 +43,11 @@ def three_phase_load_test(n_jobs: int, wfid: str = "") -> None:
     for i in range(n_jobs):
         counter += 1
         sleep_time = random.randint(30, 41)
-        tier_1_task = BashTask(f"{command} {sleep_time} {counter} {wfid}", num_cores=1)
+        # 3  new attributes per task with values to cause full new bind for every attribute
+        attributes = {f'foo_{i}': str(sleep_time), f'bar_{i}': str(sleep_time),
+                      f'baz_{i}': str(sleep_time)}
+        tier_1_task = BashTask(f"{command} {sleep_time} {counter} {wfid}",
+                               task_attributes=attributes, num_cores=1)
         tier1.append(tier_1_task)
 
     tier2 = []
@@ -51,7 +55,10 @@ def three_phase_load_test(n_jobs: int, wfid: str = "") -> None:
     for i in range(n_jobs * 3):
         counter += 1
         sleep_time = random.randint(30, 41)
+        # Same 3 attributes for every tier 2 task
+        attributes = {'foo': 'foo_val', 'bar': 'bar_val', 'baz': 'baz_val'}
         tier_2_task = BashTask(f"{command} {sleep_time} {counter} {wfid}",
+                               task_attributes=attributes,
                                upstream_tasks=[tier1[(i % n_jobs)]], num_cores=1)
         tier2.append(tier_2_task)
 
@@ -60,7 +67,12 @@ def three_phase_load_test(n_jobs: int, wfid: str = "") -> None:
     for i in range(n_jobs):
         counter += 1
         sleep_time = random.randint(30, 41)
+        # each task has 30-40 attributes with no value assigned yet
+        attributes = []
+        for j in range(sleep_time):
+            attributes.append(f'attr_{j}')
         tier_3_task = BashTask(f"{command} {sleep_time} {counter} {wfid}",
+                               task_attributes=attributes,
                                upstream_tasks=[tier2[i], tier2[(i + n_jobs)],
                                                tier2[(i + (2 * n_jobs))]],
                                num_cores=1)
