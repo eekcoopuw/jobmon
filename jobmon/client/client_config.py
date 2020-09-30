@@ -1,21 +1,28 @@
 from __future__ import annotations
 
+
 from jobmon.config import CLI, ParserDefaults
+from jobmon.client import ClientLogging as logging
 
 
-class ConnectionConfig(object):
+logger = logging.getLogger(__name__)
+
+
+class ClientConfig(object):
     """
     This is intended to be a singleton. Any other usage should be done with
     CAUTION.
     """
 
     @classmethod
-    def from_defaults(cls) -> ConnectionConfig:
+    def from_defaults(cls) -> ClientConfig:
         cli = CLI()
         ParserDefaults.web_service_fqdn(cli.parser)
         ParserDefaults.web_service_port(cli.parser)
 
-        args = cli.parse_args()
+        # passing an empty string forces this method to ignore sys.argv
+        args = cli.parse_args("")
+
         return cls(host=args.web_service_fqdn, port=args.web_service_port)
 
     def __init__(self, host: str, port: int):

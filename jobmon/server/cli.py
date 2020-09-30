@@ -1,5 +1,6 @@
 import configargparse
 import logging
+from typing import Optional
 
 
 from jobmon.config import PARSER_KWARGS, ParserDefaults, CLI
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class ServerCLI(CLI):
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
         self._subparsers = self.parser.add_subparsers(
             dest='sub_command', parser_class=configargparse.ArgumentParser
@@ -20,7 +21,7 @@ class ServerCLI(CLI):
         self._add_workflow_reaper_subparser()
         self._add_qpid_integration_subparser()
 
-    def web_service(self, args):
+    def web_service(self, args: configargparse.Namespace) -> None:
         '''web service entrypoint logic'''
         from jobmon.server.web.api import create_app, WebConfig
 
@@ -38,7 +39,7 @@ class ServerCLI(CLI):
             raise ValueError('Invalid command choice. Options are (test, start), got '
                              f'({args.command})')
 
-    def workflow_reaper(self, args):
+    def workflow_reaper(self, args: configargparse.Namespace) -> None:
         '''workflow reaper entrypoint logic'''
         from jobmon.server.workflow_reaper.api import (WorkflowReaperConfig,
                                                        start_workflow_reaper)
@@ -57,7 +58,7 @@ class ServerCLI(CLI):
             raise ValueError('Invalid command choice. Options are (start), got '
                              f'({args.command})')
 
-    def qpid_integration(self, args):
+    def qpid_integration(self, args: configargparse.Namespace) -> None:
         from jobmon.server.qpid_integration.api import start_qpid_integration
         # TODO: need dependency injection into qpid integration
         if args.command == 'start':
@@ -66,7 +67,7 @@ class ServerCLI(CLI):
             raise ValueError('Invalid command choice. Options are (start), got '
                              f'({args.command})')
 
-    def _add_web_service_subparser(self):
+    def _add_web_service_subparser(self) -> None:
         web_service_parser = self._subparsers.add_parser('web_service', **PARSER_KWARGS)
         web_service_parser.set_defaults(func=self.web_service)
         web_service_parser.add_argument(
@@ -84,7 +85,7 @@ class ServerCLI(CLI):
         ParserDefaults.db_name(web_service_parser)
         ParserDefaults.web_service_port(web_service_parser)
 
-    def _add_workflow_reaper_subparser(self):
+    def _add_workflow_reaper_subparser(self) -> None:
         reaper_parser = self._subparsers.add_parser('workflow_reaper', **PARSER_KWARGS)
         reaper_parser.set_defaults(func=self.workflow_reaper)
         reaper_parser.add_argument(
@@ -94,15 +95,15 @@ class ServerCLI(CLI):
             help=('The workflow_reaper sub-command to run: (start). Start command runs '
                   'workflow_reaper.monitor_forever() method.')
         )
-        ParserDefaults.poll_interval_minutes(reaper_parser)
-        ParserDefaults.loss_threshold(reaper_parser)
+        ParserDefaults.reaper_poll_interval_minutes(reaper_parser)
+        ParserDefaults.reaper_loss_threshold(reaper_parser)
         ParserDefaults.web_service_fqdn(reaper_parser)
         ParserDefaults.web_service_port(reaper_parser)
         ParserDefaults.slack_api_url(reaper_parser)
         ParserDefaults.slack_token(reaper_parser)
         ParserDefaults.slack_channel_default(reaper_parser)
 
-    def _add_qpid_integration_subparser(self):
+    def _add_qpid_integration_subparser(self) -> None:
         qpid_parser = self._subparsers.add_parser('qpid_integration', **PARSER_KWARGS)
         qpid_parser.set_defaults(func=self.qpid_integration)
         qpid_parser.add_argument(
@@ -114,6 +115,6 @@ class ServerCLI(CLI):
         )
 
 
-def main():
+def main(argstr: Optional[str] = None) -> None:
     cli = ServerCLI()
-    cli.main()
+    cli.main(argstr)

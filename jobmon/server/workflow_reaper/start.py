@@ -15,7 +15,7 @@ def start_workflow_reaper(workflow_reaper_config: Optional[WorkflowReaperConfig]
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     if workflow_reaper_config is None:
-        workflow_reaper_config = workflow_reaper_config.from_defaults()
+        workflow_reaper_config = WorkflowReaperConfig.from_defaults()
 
     if workflow_reaper_config.slack_token and workflow_reaper_config.slack_api_url:
         wf_notifier = SlackNotifier(

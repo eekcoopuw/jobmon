@@ -10,18 +10,19 @@ class WorkflowReaperConfig:
     @classmethod
     def from_defaults(cls) -> WorkflowReaperConfig:
         cli = CLI()
-        ParserDefaults.poll_interval_minutes(cli.parser)
-        ParserDefaults.loss_threshold(cli.parser)
+        ParserDefaults.reaper_poll_interval_minutes(cli.parser)
+        ParserDefaults.reaper_loss_threshold(cli.parser)
         ParserDefaults.web_service_fqdn(cli.parser)
         ParserDefaults.web_service_port(cli.parser)
         ParserDefaults.slack_api_url(cli.parser)
         ParserDefaults.slack_token(cli.parser)
         ParserDefaults.slack_channel_default(cli.parser)
 
-        args = cli.parse_args()
+        # passing an empty string forces this method to ignore sys.argv
+        args = cli.parse_args("")
 
-        return cls(poll_interval_minutes=args.poll_interval_minutes,
-                   loss_threshold=args.loss_threshold,
+        return cls(poll_interval_minutes=args.reaper_poll_interval_minutes,
+                   loss_threshold=args.reaper_loss_threshold,
                    host=args.web_service_fqdn,
                    port=args.web_service_port,
                    slack_api_url=args.slack_api_url,

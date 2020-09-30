@@ -10,13 +10,19 @@ HOMEDIR_CONFIG_FILE = os.path.join('~/', CONFIG_FILE_NAME)
 
 
 PARSER_KWARGS = {
-    'description': 'Jobmon Server',
+    'description': 'Jobmon CLI',
     'default_config_files': [INSTALLED_CONFIG_FILE, HOMEDIR_CONFIG_FILE],
-    'auto_env_var_prefix': "JM_",
     'ignore_unknown_config_file_keys': True,
     'config_file_parser_class': configargparse.ConfigparserConfigFileParser,
-    'args_for_setting_config_path': ["--config"]
+    'args_for_setting_config_path': ['--config']
 }
+
+
+def derive_jobmon_command_from_env() -> Optional[str]:
+    singularity_img_path = os.environ.get('IMGPATH', None)
+    if singularity_img_path:
+        return f'singularity run --app jobmon_command {singularity_img_path}'
+    return None
 
 
 class ParserDefaults:
@@ -27,7 +33,8 @@ class ParserDefaults:
             '--db_host',
             type=str,
             help='database host to use',
-            required=True
+            required=True,
+            env_var='DB_HOST'
         )
         return parser
 
@@ -37,7 +44,8 @@ class ParserDefaults:
             '--db_port',
             type=str,
             help='database port to use',
-            required=True
+            required=True,
+            env_var='DB_PORT'
         )
         return parser
 
@@ -47,7 +55,8 @@ class ParserDefaults:
             '--db_user',
             type=str,
             help='database user to use',
-            required=True
+            required=True,
+            env_var='DB_USER'
         )
         return parser
 
@@ -57,7 +66,8 @@ class ParserDefaults:
             '--db_pass',
             type=str,
             help='database password to use',
-            required=True
+            required=True,
+            env_var='DB_PASS'
         )
         return parser
 
@@ -67,7 +77,8 @@ class ParserDefaults:
             '--db_name',
             type=str,
             help='default database to use',
-            default='docker'
+            default='docker',
+            env_var='DB_NAME'
         )
         return parser
 
@@ -78,7 +89,8 @@ class ParserDefaults:
             '--web_service_fqdn',
             type=str,
             help='fully qualified domain name of web service',
-            required=True
+            required=True,
+            env_var='WEB_SERVICE_FQDN'
         )
         return parser
 
@@ -89,28 +101,31 @@ class ParserDefaults:
             '--web_service_port',
             type=str,
             help='port that web service is listening on',
-            required=True
+            required=True,
+            env_var='WEB_SERVICE_PORT'
         )
         return parser
 
     @staticmethod
-    def poll_interval_minutes(parser: configargparse.ArgumentParser,
-                              ) -> configargparse.ArgumentParser:
+    def reaper_poll_interval_minutes(parser: configargparse.ArgumentParser,
+                                     ) -> configargparse.ArgumentParser:
         parser.add_argument(
-            '--poll_interval_minutes',
+            '--reaper_poll_interval_minutes',
             type=int,
             help='Duration in minutes to sleep between reaper loops',
-            default=10
+            default=10,
+            env_var='REAPER_POLL_INTERVAL_MINUTES'
         )
         return parser
 
     @staticmethod
-    def loss_threshold(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+    def reaper_loss_threshold(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
         parser.add_argument(
-            '--loss_threshold',
+            '--reaper_loss_threshold',
             type=int,
             help='Time to wait before reaping a workflow',
-            default=5
+            default=5,
+            env_var='REAPER_LOSS_THRESHOLD'
         )
         return parser
 
@@ -120,7 +135,8 @@ class ParserDefaults:
             '--slack_api_url',
             type=str,
             help='URL to post notifications',
-            default=''
+            default='',
+            env_var='SLACK_API_URL'
         )
         return parser
 
@@ -130,7 +146,8 @@ class ParserDefaults:
             '--slack_token',
             type=str,
             help='Authentication token for posting updates to slack',
-            default=''
+            default='',
+            env_var='SLACK_TOKEN'
         )
         return parser
 
@@ -141,7 +158,8 @@ class ParserDefaults:
             '--slack_channel_default',
             type=str,
             help='Default channel to post updates to',
-            default='jobmon-alerts'
+            default='jobmon-alerts',
+            env_var='SLACK_CHANNEL_DEFAULT'
         )
         return parser
 
@@ -152,7 +170,8 @@ class ParserDefaults:
             '--qpid_polling_interval',
             type=int,
             help='Interval between qpid polling cycles',
-            default=600
+            default=600,
+            env_var='QPID_POLLING_INTERVAL'
         )
         return parser
 
@@ -163,7 +182,8 @@ class ParserDefaults:
             '--qpid_max_update_per_second',
             type=int,
             help='Amount of maxpss updates per second',
-            default=10
+            default=10,
+            env_var='QPID_MAX_UPDATE_PER_SECOND'
         )
         return parser
 
@@ -173,7 +193,8 @@ class ParserDefaults:
             '--qpid_cluster',
             type=str,
             help='which cluster to pull maxpss for',
-            default='fair'
+            default='fair',
+            env_var='QPID_CLUSTER'
         )
         return parser
 
@@ -183,7 +204,56 @@ class ParserDefaults:
             '--qpid_uri',
             type=str,
             help='uri for qpid service',
-            required=True
+            required=True,
+            env_var='QPID_URI'
+        )
+        return parser
+
+    @staticmethod
+    def worker_node_entry_point(parser: configargparse.ArgumentParser
+                                ) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--worker_node_entry_point',
+            type=str,
+            help='Entry point to execute on worker node to run a task instance',
+            default=derive_jobmon_command_from_env(),
+            env_var='WORKER_NODE_ENTRY_POINT'
+        )
+        return parser
+
+    @staticmethod
+    def workflow_run_heartbeat_interval(parser: configargparse.ArgumentParser
+                                        ) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--workflow_run_heartbeat_interval',
+            type=int,
+            help='Entry point to execute on worker node to run a task instance',
+            default=30,
+            env_var='WORKFLOW_RUN_HEARTBEAT_INTERVAL'
+        )
+        return parser
+
+    @staticmethod
+    def task_instance_heartbeat_interval(parser: configargparse.ArgumentParser
+                                         ) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--task_instance_heartbeat_interval',
+            type=int,
+            help='Entry point to execute on worker node to run a task instance',
+            default=90,
+            env_var='TASK_INSTANCE_HEARTBEAT_INTERVAL'
+        )
+        return parser
+
+    @staticmethod
+    def task_instance_report_by_buffer(parser: configargparse.ArgumentParser
+                                       ) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--task_instance_report_by_buffer',
+            type=float,
+            help='Entry point to execute on worker node to run a task instance',
+            default=3.1,
+            env_var='TASK_INSTANCE_REPORT_BY_BUFFER'
         )
         return parser
 
@@ -193,11 +263,11 @@ class CLI:
     def __init__(self) -> None:
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
 
-    def main(self) -> None:
-        args = self.parse_args()
+    def main(self, argstr: Optional[str] = None) -> None:
+        args = self.parse_args(argstr)
         args.func(args)
 
-    def parse_args(self, argstr: str = None) -> configargparse.Namespace:
+    def parse_args(self, argstr: Optional[str] = None) -> configargparse.Namespace:
         '''Construct a parser, parse either sys.argv (default) or the provided
         argstr, returns a Namespace. The Namespace should have a 'func'
         attribute which can be used to dispatch to the appropriate downstream

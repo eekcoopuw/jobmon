@@ -3,10 +3,10 @@ from __future__ import annotations
 from http import HTTPStatus as StatusCodes
 from typing import Callable, Set, Dict, Optional, List
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
+from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.requests.requester import Requester
+from jobmon.requester import Requester
 from jobmon.constants import ExecutorParameterSetType, TaskStatus
 from jobmon.exceptions import InvalidResponse, CallableReturnedInvalidObject
 from jobmon.serializers import SerializeSwarmTask
@@ -19,8 +19,7 @@ class SwarmTask(object):
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  executor_parameters: Optional[Callable] = None,
-                 max_attempts: int = 3,
-                 requester: Requester = shared_requester):
+                 max_attempts: int = 3, requester_url: Optional[str] = None) -> None:
         """
         Implementing swarm behavior of tasks
 
@@ -31,7 +30,7 @@ class SwarmTask(object):
             executor_parameters: callable to be executed when Task is ready to
                 be run and resources can be assigned
             max_attempts: maximum number of task_instances before failure
-            requester: requester to use to contact the flask services
+            requester_url (str): url to communicate with the flask services.
         """
         self.task_id = task_id
         self.status = status
@@ -43,17 +42,17 @@ class SwarmTask(object):
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
 
-        self.requester = requester
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
 
         # once the callable is evaluated, the resources should be saved here
         self.bound_parameters: list = []
 
         self.num_upstreams_done: int = 0
 
-
     @staticmethod
-    def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]
-                  ) -> SwarmTask:
+    def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]) -> SwarmTask:
         kwargs = SerializeSwarmTask.kwargs_from_wire(wire_tuple)
         swarm_tasks_dict[kwargs["task_id"]].status = kwargs["status"]
         return swarm_tasks_dict[kwargs["task_id"]]
@@ -134,8 +133,7 @@ class SwarmTask(object):
         exec_param_set.adjust(**resources_adjusted)
         return exec_param_set
 
-    def bind_executor_parameters(self, executor_parameter_set_type: str
-                                 ) -> None:
+    def bind_executor_parameters(self, executor_parameter_set_type: str) -> None:
         """bind executor parameters to db"""
 
         # evaluate callable and validate it is the right type of object

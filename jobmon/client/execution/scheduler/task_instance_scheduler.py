@@ -9,13 +9,11 @@ from typing import Optional, List
 import tblib.pickling_support
 
 from jobmon.client import ClientLogging as logging
-from jobmon.client import shared_requester
+from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import Executor
-from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
-from jobmon.client.execution.scheduler.executor_task_instance import \
-    ExecutorTaskInstance
-from jobmon.requests.requester import Requester
+from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
+from jobmon.requester import Requester
 from jobmon.constants import WorkflowRunStatus, QsubAttribute
 from jobmon.exceptions import InvalidResponse, WorkflowRunStateError, ResumeSet
 
@@ -36,19 +34,31 @@ class ExceptionWrapper(object):
 
 class TaskInstanceScheduler:
 
-    def __init__(self, workflow_id: int, workflow_run_id: int,
-                 executor: Executor,
-                 config: ExecutionConfig = ExecutionConfig.from_defaults(),
-                 requester: Optional[Requester] = None):
+    def __init__(self, workflow_id: int, workflow_run_id: int, executor: Executor,
+                 workflow_run_heartbeat_interval: int = 30, task_heartbeat_interval: int = 90,
+                 report_by_buffer: float = 3.1, n_queued: int = 100,
+                 scheduler_poll_interval: int = 10, jobmon_command: Optional[str] = None,
+                 requester_url: Optional[str] = None):
 
-        #
+        # which workflow to schedule for
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
+
+        # executor interface
         self.executor = executor
-        self.config = config
-        if requester is None:
-            requester = shared_requester
-        self.requester = requester
+
+        # operational args
+        self._jobmon_command = jobmon_command
+        self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
+        self._task_heartbeat_interval = task_heartbeat_interval
+        self._report_by_buffer = report_by_buffer
+        self._n_queued = n_queued
+        self._scheduler_poll_interval = scheduler_poll_interval
+
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
+
         logger.info(f"scheduler: communicating at {self.requester.url}")
 
         # work to do
@@ -63,8 +73,8 @@ class TaskInstanceScheduler:
         try:
             # start up the worker thread and executor
             if not self.executor.started:
-                self.executor.start(self.config.jobmon_command)
-            logger.info(f"scheduler: executor has started")
+                self.executor.start(self._jobmon_command)
+            logger.info("scheduler: executor has started")
 
             # send response back to main
             if status_queue is not None:
@@ -74,14 +84,14 @@ class TaskInstanceScheduler:
             thread_stop_event = threading.Event()
             thread = threading.Thread(
                 target=self._schedule_forever,
-                args=(thread_stop_event, self.config.scheduler_poll_interval))
+                args=(thread_stop_event, self._scheduler_poll_interval)
+            )
             thread.daemon = True
             thread.start()
 
             # infinite blocking loop unless resume or stop requested from
             # main process
-            self._heartbeats_forever(
-                self.config.workflow_run_heartbeat_interval, stop_event)
+            self._heartbeats_forever(self._workflow_run_heartbeat_interval, stop_event)
 
             # stop worker thread
             thread_stop_event.set()
@@ -123,13 +133,13 @@ class TaskInstanceScheduler:
     def heartbeat(self) -> None:
         # log heartbeats for tasks queued for batch execution and for the
         # workflow run
-        logger.info(f"scheduler: logging heartbeat")
+        logger.info("scheduler: logging heartbeat")
         self._log_executor_report_by()
         self._log_workflow_run_heartbeat()
 
     def schedule(self, thread_stop_event: Optional[threading.Event] = None
                  ) -> None:
-        logger.info(f"scheduler: scheduling work. reconciling errors.")
+        logger.info("scheduler: scheduling work. reconciling errors.")
         # get work if there isn't any in the queues
         if not self._to_instantiate and not self._to_reconcile:
             self._get_tasks_queued_for_instantiation()
@@ -147,9 +157,8 @@ class TaskInstanceScheduler:
                 task_instance = self._to_reconcile.pop(0)
                 task_instance.log_error()
 
-    def _heartbeats_forever(
-            self, heartbeat_interval: int = 90,
-            process_stop_event: Optional[mp.synchronize.Event] = None) -> None:
+    def _heartbeats_forever(self, heartbeat_interval: int = 90,
+                            process_stop_event: Optional[mp.synchronize.Event] = None) -> None:
         keep_beating = True
         while keep_beating:
             self.heartbeat()
@@ -161,8 +170,7 @@ class TaskInstanceScheduler:
             else:
                 time.sleep(heartbeat_interval)
 
-    def _keep_scheduling(
-            self, thread_stop_event: Optional[threading.Event] = None) -> bool:
+    def _keep_scheduling(self, thread_stop_event: Optional[threading.Event] = None) -> bool:
         any_work_to_do = any(self._to_instantiate) or any(self._to_reconcile)
         # If we are running in a thread. This is the standard path
         if thread_stop_event is not None:
@@ -171,9 +179,8 @@ class TaskInstanceScheduler:
         else:
             return any_work_to_do
 
-    def _schedule_forever(
-            self, thread_stop_event: threading.Event,
-            poll_interval: float = 10) -> None:
+    def _schedule_forever(self, thread_stop_event: threading.Event,
+                          poll_interval: float = 10) -> None:
         sleep_time: float = 0.
         while not thread_stop_event.wait(timeout=sleep_time):
             poll_start = time.time()
@@ -201,8 +208,8 @@ class TaskInstanceScheduler:
             errored_jobs = {}
 
         if errored_jobs:
-            app_route = f'/scheduler/log_executor_error'
-            return_code, response = shared_requester.send_request(
+            app_route = '/scheduler/log_executor_error'
+            return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message={'executor_ids': errored_jobs},
                 request_type='post')
@@ -238,8 +245,7 @@ class TaskInstanceScheduler:
                     f'code 200. Response content: {response}')
 
     def _log_workflow_run_heartbeat(self) -> None:
-        next_report_increment = (
-            self.config.task_heartbeat_interval * self.config.report_by_buffer)
+        next_report_increment = (self._task_heartbeat_interval * self._report_by_buffer)
         app_route = f"/scheduler/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -265,7 +271,7 @@ class TaskInstanceScheduler:
 
     def _get_tasks_queued_for_instantiation(self) -> List[ExecutorTask]:
         app_route = (
-            f"/scheduler/workflow/{self.workflow_id}/queued_tasks/{self.config.n_queued}"
+            f"/scheduler/workflow/{self.workflow_id}/queued_tasks/{self._n_queued}"
         )
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -277,8 +283,7 @@ class TaskInstanceScheduler:
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-        tasks = [ExecutorTask.from_wire(j, self.executor.__class__.__name__,
-                                        self.requester)
+        tasks = [ExecutorTask.from_wire(j, self.executor.__class__.__name__, self.requester.url)
                  for j in response['task_dcts']]
         self._to_instantiate = tasks
         return tasks
@@ -294,8 +299,8 @@ class TaskInstanceScheduler:
         """
         try:
             task_instance = ExecutorTaskInstance.register_task_instance(
-                task.task_id, self.workflow_run_id, self.executor,
-                self.requester)
+                task.task_id, self.workflow_run_id, self.executor, self.requester.url
+            )
         except Exception as e:
             # we can't do anything more at this point so must return None
             logger.error(e)
@@ -307,13 +312,12 @@ class TaskInstanceScheduler:
         command = task_instance.executor.build_wrapped_command(
             command=task.command,
             task_instance_id=task_instance.task_instance_id,
-            heartbeat_interval=self.config.task_heartbeat_interval,
-            report_by_buffer=self.config.report_by_buffer)
+            heartbeat_interval=self._task_heartbeat_interval,
+            report_by_buffer=self._report_by_buffer
+        )
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
-        logger.debug(
-            "Using the following parameters in execution: "
-            f"{task.executor_parameters}")
+        logger.debug(f"Using the following parameters in execution {task.executor_parameters}")
         executor_id = task_instance.executor.execute(
             command=command,
             name=task.name,
@@ -330,10 +334,9 @@ class TaskInstanceScheduler:
             task_instance.register_no_executor_id(executor_id=executor_id)
         elif executor_id:
             report_by_buffer = (
-                self.config.task_heartbeat_interval *
-                self.config.report_by_buffer)
-            task_instance.register_submission_to_batch_executor(
-                executor_id, report_by_buffer)
+                self._task_heartbeat_interval *
+                self._report_by_buffer)
+            task_instance.register_submission_to_batch_executor(executor_id, report_by_buffer)
             if self.executor.__class__.__name__ == "DummyExecutor":
                 task_instance.dummy_executor_task_instance_run_and_done()
         else:
@@ -344,8 +347,8 @@ class TaskInstanceScheduler:
 
     def _get_lost_task_instances(self) -> None:
         app_route = (
-            f'/scheduler/workflow_run/{self.workflow_run_id}/'
-            'get_suspicious_task_instances')
+            f'/scheduler/workflow_run/{self.workflow_run_id}/get_suspicious_task_instances'
+        )
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
@@ -357,17 +360,19 @@ class TaskInstanceScheduler:
                 f'code 200. Response content: {response}')
         lost_task_instances = [
             ExecutorTaskInstance.from_wire(ti, self.executor, self.requester)
-            for ti in response["task_instances"]]
+            for ti in response["task_instances"]
+        ]
         self._to_reconcile = lost_task_instances
 
     def _terminate_active_task_instances(self) -> None:
         app_route = (
-            f'/scheduler/workflow_run/{self.workflow_run_id}/'
-            'get_task_instances_to_terminate')
+            f'/scheduler/workflow_run/{self.workflow_run_id}/get_task_instances_to_terminate'
+        )
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
-            request_type='get')
+            request_type='get'
+        )
 
         # eat bad responses here because we are outside of the exception
         # catching context
@@ -375,7 +380,7 @@ class TaskInstanceScheduler:
             to_terminate: List = []
         else:
             to_terminate = [
-                ExecutorTaskInstance.from_wire(
-                    ti, self.executor, self.requester).executor_id
-                for ti in response["task_instances"]]
+                ExecutorTaskInstance.from_wire(ti, self.executor, self.requester).executor_id
+                for ti in response["task_instances"]
+            ]
         self.executor.terminate_task_instances(to_terminate)

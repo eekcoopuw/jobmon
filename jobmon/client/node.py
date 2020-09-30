@@ -3,11 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 from http import HTTPStatus as StatusCodes
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Optional
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.requests.requester import Requester
+from jobmon.client.client_config import ClientConfig
+from jobmon.requester import Requester
 
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class Node:
 
     def __init__(self, task_template_version_id: int, node_args: Dict,
-                 requester: Requester = shared_requester):
+                 requester_url: Optional[str] = None):
         """A node represents an individual task within a Dag. This includes its
         relationship to other nodes that it is dependent upon or nodes that
         depend upon it. A node stores node arguments (arguments relating to the
@@ -27,14 +27,17 @@ class Node:
         Args:
             task_template_version_id: The associated task_template_version_id.
             node_args: key-value pairs of arg_id and a value.
-            requester: the requester used to communicate with central services.
+            requester_url (str): url to communicate with the flask services.
         """
         self.task_template_version_id = task_template_version_id
         self.node_args = node_args
         self.node_args_hash = self._hash_node_args()
-        self.requester = requester
         self.upstream_nodes: Set[Node] = set()
         self.downstream_nodes: Set[Node] = set()
+
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
 
     @property
     def node_id(self) -> int:

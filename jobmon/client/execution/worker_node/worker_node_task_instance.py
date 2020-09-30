@@ -4,9 +4,9 @@ import traceback
 from typing import Optional, Union, Tuple, Dict
 
 from jobmon.client import ClientLogging as logging
+from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
-from jobmon.requests.requester import Requester
-from jobmon.requests.connection_config import ConnectionConfig
+from jobmon.requester import Requester
 
 
 logger = logging.getLogger(__name__)
@@ -14,12 +14,9 @@ logger = logging.getLogger(__name__)
 
 class WorkerNodeTaskInstance:
 
-    def __init__(self,
-                 task_instance_id: int,
+    def __init__(self, task_instance_id: int,
                  task_instance_executor_info: TaskInstanceExecutorInfo,
-                 requester: Optional[Requester] = None,
-                 nodename: Optional[str] = None,
-                 process_group_id: Optional[int] = None):
+                 requester_url: Optional[str] = None):
         """
         The WorkerNodeTaskInstance is a mechanism whereby a running
         task_instance can communicate back to the JobStateManager to log its
@@ -33,17 +30,17 @@ class WorkerNodeTaskInstance:
             nodename (str): hostname where this job_instance is running
             process_group_id (int): linux process_group_id that this
                 job_instance is a part of
+            requester_url (str): url to communicate with the flask services.
         """
         self.task_instance_id = task_instance_id
         self._executor_id: Optional[int] = None
         self._nodename: Optional[str] = None
         self._process_group_id: Optional[int] = None
         self.executor = task_instance_executor_info
-        if requester is None:
-            requester = Requester(ConnectionConfig.from_defaults().url, logger=logger)
-        self.requester = requester
-        logger.info(f"Instantiated WorkerNodeTaskInstance task_instance_id: "
-                    f" {task_instance_id}; nodename: + {nodename}")
+
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
 
     @property
     def executor_id(self) -> Optional[int]:
@@ -89,8 +86,7 @@ class WorkerNodeTaskInstance:
                         "character limit for error messages. Only the final "
                         "10k will be captured by the database.")
 
-        error_state, msg = self.executor.get_exit_info(exit_status,
-                                                       error_message)
+        error_state, msg = self.executor.get_exit_info(exit_status, error_message)
 
         message = {'error_message': msg,
                    'error_state': error_state,
@@ -101,9 +97,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.info("No Task ID was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=(
-                f'/worker/task_instance/{self.task_instance_id}/'
-                f'log_error_worker_node'),
+            app_route=f'/worker/task_instance/{self.task_instance_id}/log_error_worker_node',
             message=message,
             request_type='post')
         return rc
@@ -173,8 +167,7 @@ class WorkerNodeTaskInstance:
             message={},
             request_type='get')
         if resp.get('should_kill'):
-            logger.debug("task_instance is in a state that indicates it needs "
-                         "to kill itself")
+            logger.debug("task_instance is in a state that indicates it needs to kill itself")
             return True
         else:
             logger.debug("task instance does not need to kill itself")

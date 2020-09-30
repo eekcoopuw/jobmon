@@ -5,9 +5,9 @@ from http import HTTPStatus as StatusCodes
 from string import Formatter
 from typing import Optional, Dict
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.requests.requester import Requester
+from jobmon.client.client_config import ClientConfig
+from jobmon.requester import Requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.serializers import SerializeClientTaskTemplateVersion
 
@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class TaskTemplateVersion:
 
     def __init__(self, task_template_id: int, command_template: str, node_args: list,
-                 task_args: list, op_args: list, requester: Requester = shared_requester):
+                 task_args: list, op_args: list, requester_url: Optional[str] = None):
         # id vars
         self.task_template_id = task_template_id
         self.command_template = command_template
@@ -31,7 +31,9 @@ class TaskTemplateVersion:
         self._op_args: set
         self.op_args = set(op_args)
 
-        self.requester = requester
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
 
     @property
     def template_args(self) -> set:

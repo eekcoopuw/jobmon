@@ -19,7 +19,8 @@ class WebConfig(object):
         ParserDefaults.db_pass(cli.parser)
         ParserDefaults.db_name(cli.parser)
 
-        args = cli.parse_args()
+        # passing an empty string forces this method to ignore sys.argv
+        args = cli.parse_args("")
         return cls(db_host=args.db_host, db_port=args.db_port, db_user=args.db_user,
                    db_pass=args.db_pass, db_name=args.db_name)
 

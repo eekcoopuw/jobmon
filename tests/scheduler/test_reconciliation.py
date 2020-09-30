@@ -19,7 +19,7 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
         TaskInstanceScheduler
     from jobmon.client.execution.scheduler.execution_config import \
         ExecutionConfig
-    
+
     class MockExecutorTaskInstance(ExecutorTaskInstance):
         def dummy_executor_task_instance_run_and_done(self):
             # do nothing so job gets marked as Batch then Unknown
@@ -38,14 +38,11 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
     # add workflow info to db and then time out.
     workflow._bind()
     wfr = workflow._create_workflow_run()
-    cfg = ExecutionConfig.from_defaults()
-    cfg.task_heartbeat_interval = 5
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id, workflow._executor,
-                                      cfg)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env,
+                                      task_heartbeat_interval=5)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(),
-                                  seconds_until_timeout=1)
+        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
 
     # How long we wait for a JI to report it is running before reconciler moves
     # it to error state.
@@ -109,11 +106,10 @@ def test_log_executor_report_by(db_cfg, client_env, monkeypatch):
     # add workflow info to db and then time out.
     workflow._bind()
     wfr = workflow._create_workflow_run()
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id, workflow._executor)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(),
-                                  seconds_until_timeout=1)
+        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
 
     # instantiate the job and then log a report by
     scheduler.schedule()
@@ -128,8 +124,7 @@ def test_log_executor_report_by(db_cfg, client_env, monkeypatch):
         JOIN task
             ON task_instance.task_id = task.id
         WHERE task.id = :task_id"""
-        res = DB.session.execute(sql, {"task_id": str(task.task_id)}
-                                 ).fetchone()
+        res = DB.session.execute(sql, {"task_id": str(task.task_id)}).fetchone()
         DB.session.commit()
     start, end = res
     assert start < end  # indicating at least one heartbeat got logged

@@ -155,9 +155,8 @@ def test_cold_resume(db_cfg, client_env):
     # create an in memory scheduler and start up the first 3 jobs
     workflow1._bind()
     wfr1 = workflow1._create_workflow_run()
-    scheduler = TaskInstanceScheduler(workflow1.workflow_id,
-                                      wfr1.workflow_run_id,
-                                      workflow1._executor)
+    scheduler = TaskInstanceScheduler(workflow1.workflow_id, wfr1.workflow_run_id,
+                                      workflow1._executor, requester_url=client_env)
     with pytest.raises(RuntimeError):
         wfr1.execute_interruptible(MockSchedulerProc(),
                                    seconds_until_timeout=1)
@@ -221,9 +220,10 @@ def hot_resumable_workflow():
     # prepare first workflow
     tasks = []
     for i in range(6):
-        t = tt.create_task(executor_parameters=ExecutorParameters(
-                               executor_class="MultiprocessExecutor"),
-                           time=60 + i)
+        t = tt.create_task(
+            executor_parameters=ExecutorParameters(executor_class="MultiprocessExecutor"),
+            time=60 + i
+        )
         tasks.append(t)
     workflow = unknown_tool.create_workflow(name="hot_resume",
                                             workflow_args="foo")

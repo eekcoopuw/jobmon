@@ -6,14 +6,15 @@ from queue import Empty
 from typing import Optional, Sequence, Tuple, Dict, Union, List
 import uuid
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
+from jobmon.client.client_config import ClientConfig
 from jobmon.client.dag import Dag
-from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
+from jobmon.client.execution.scheduler.api import SchedulerConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
     TaskInstanceScheduler, ExceptionWrapper
+from jobmon.client.execution.strategies.api import get_scheduling_executor_by_name
 from jobmon.client.execution.strategies.base import Executor
-from jobmon.requests.requester import Requester
+from jobmon.requester import Requester
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
@@ -60,17 +61,17 @@ class Workflow(object):
 
     def __init__(self, tool_version_id: int, workflow_args: str = "",
                  name: str = "", description: str = "",
-                 requester: Requester = shared_requester,
-                 workflow_attributes: Union[List, dict] = None):
+                 workflow_attributes: Union[List, dict] = None,
+                 requester_url: Optional[str] = None):
         """
         Args:
-            tool_version_id: id of the associated tool 
+            tool_version_id: id of the associated tool
             workflow_args: unique identifier of a workflow
             name: name of the workflow
             description: description of the workflow
-            requester: the requester used to communicate with central services.
             workflow_attributes: attributes that make this workflow different
                 from other workflows that the user wants to record.
+            requester_url (str): url to communicate with the flask services.
         """
         self.tool_version_id = tool_version_id
         self.name = name
@@ -95,7 +96,9 @@ class Workflow(object):
         self.workflow_args_hash = int(
             hashlib.sha1(self.workflow_args.encode('utf-8')).hexdigest(), 16)
 
-        self.requester = requester
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
         self._scheduler_proc: Optional[Process] = None
         self._scheduler_com_queue: Queue = Queue()
         self._scheduler_stop_event: synchronize.Event = Event()
@@ -189,48 +192,25 @@ class Workflow(object):
             self.add_task(task)
 
     def set_executor(self, executor: Executor = None,
-                     execution_config: ExecutionConfig =
-                     ExecutionConfig.from_defaults(),
-                     executor_class: Optional[str] = 'SGEExecutor', *args,
-                     **kwargs):
+                     executor_class: Optional[str] = 'SGEExecutor', *args, **kwargs):
         """Set the executor and any arguments specific to that executor that
         will be applied to the entire workflow (ex. specify project here for
         SGEExecutor class).
 
         Args:
             executor: if an executor object has already been created, use it
-            execution_config: configuration of scheduling settings and other
-                execution related settings
             executor_class: which executor to run your tasks on
         """
-        self._executor: 'Executor'
-        self._execution_config: ExecutionConfig = execution_config
 
         if executor is not None:
             self._executor = executor
         else:
-            if executor_class == "SequentialExecutor":
-                from jobmon.client.execution.strategies.sequential import \
-                    SequentialExecutor as Executor
-            elif executor_class == "SGEExecutor":
-                from jobmon.client.execution.strategies.sge.sge_executor import \
-                    SGEExecutor as Executor
-            elif executor_class == "DummyExecutor":
-                from jobmon.client.execution.strategies.dummy import \
-                    DummyExecutor as Executor
-            elif executor_class == "MultiprocessExecutor":
-                from jobmon.client.execution.strategies.multiprocess import \
-                    MultiprocessExecutor as Executor
-            else:
-                raise ValueError(f"{executor_class} is not a valid ExecutorClass")
-            self._executor = Executor(*args, **kwargs)
+            self._executor = get_scheduling_executor_by_name(executor_class, *args, **kwargs)
 
-    def run(self,
-            fail_fast: bool = False,
-            seconds_until_timeout: int = 36000,
-            resume: bool = ResumeStatus.DONT_RESUME,
-            reset_running_jobs: bool = True,
-            scheduler_response_wait_timeout=180) -> WorkflowRun:
+    def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
+            resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
+            scheduler_response_wait_timeout: int = 180,
+            scheduler_config: Optional[SchedulerConfig] = None) -> WorkflowRun:
         """Run the workflow by traversing the dag and submitting new tasks when
         their tasks have completed successfully.
         Args:
@@ -245,6 +225,7 @@ class Workflow(object):
             reset_running_jobs: whether or not to reset running jobs upon resume
             scheduler_response_wait_timeout: amount of time to wait for the
                 scheduler thread to start up
+            scheduler_config: a scheduler config object
 
         Returns:
             WorkflowRun: object of WorkflowRun, can be checked to make sure all
@@ -268,7 +249,8 @@ class Workflow(object):
         try:
             # start scheduler
             scheduler_proc = self._start_task_instance_scheduler(
-                wfr.workflow_run_id, scheduler_response_wait_timeout)
+                wfr.workflow_run_id, scheduler_response_wait_timeout, scheduler_config
+            )
             # execute the workflow run
             wfr.execute_interruptible(scheduler_proc, fail_fast,
                                       seconds_until_timeout)
@@ -311,6 +293,7 @@ class Workflow(object):
             finally:
                 scheduler_proc.terminate()
                 self._scheduler_proc = None
+                return wfr
 
         except Exception:
             wfr.update_status(WorkflowRunStatus.ERROR)
@@ -322,8 +305,7 @@ class Workflow(object):
                 self._scheduler_stop_event.set()
                 try:
                     # give it some time to shut down
-                    self._scheduler_com_queue.get(
-                        timeout=scheduler_response_wait_timeout)
+                    self._scheduler_com_queue.get(timeout=scheduler_response_wait_timeout)
                 except Empty:
                     pass
                 self._scheduler_proc.terminate()
@@ -350,7 +332,8 @@ class Workflow(object):
         if status == WorkflowStatus.DONE:
             raise WorkflowAlreadyComplete(
                 f"Workflow id ({workflow_id}) is already in done state and "
-                "cannot be resumed")
+                "cannot be resumed"
+            )
 
         if workflow_id is not None:
             if not resume:
@@ -359,7 +342,8 @@ class Workflow(object):
                     "resume a workflow, please set the resume flag  of the"
                     " workflow. If you are not trying to resume a "
                     "workflow, make sure the workflow args are unique or "
-                    "the tasks are unique")
+                    "the tasks are unique"
+                )
 
             # Add workflow attributes and workflow_id
             self._workflow_id = workflow_id
@@ -374,12 +358,12 @@ class Workflow(object):
         rc, response = self.requester.send_request(
             app_route=f'/client/workflow/{str(self.workflow_args_hash)}',
             message={},
-            request_type='get')
+            request_type='get'
+        )
         bound_workflow_hashes = response['matching_workflows']
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
-            match = (
-                self.task_hash == task_hash and self.tool_version_id and
-                hash(self.dag) == dag_hash)
+            match = (self.task_hash == task_hash and self.tool_version_id and
+                     hash(self.dag) == dag_hash)
             if match:
                 raise WorkflowAlreadyExists(
                     "The unique workflow_args already belong to a workflow "
@@ -408,7 +392,7 @@ class Workflow(object):
         return response['workflow_id'], response["status"]
 
     def _add_workflow(self) -> int:
-        app_route = f'/client/workflow'
+        app_route = '/client/workflow'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
@@ -431,7 +415,7 @@ class Workflow(object):
         return response["workflow_id"]
 
     def _bind_tasks(self, reset_if_running: bool = True):
-        app_route = f'/client/task/bind_tasks'
+        app_route = '/client/task/bind_tasks'
         parameters = {}
         # send to server in a format of:
         # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3),
@@ -439,9 +423,11 @@ class Workflow(object):
         # flat the data structure so that the server won't depend on the client
         tasks = {}
         for k in self.tasks.keys():
-            tasks[k] = [self.workflow_id, self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
-                        self.tasks[k].name, self.tasks[k].command, self.tasks[k].max_attempts,
-                        reset_if_running, self.tasks[k].task_args, self.tasks[k].task_attributes]
+            tasks[k] = [
+                self.workflow_id, self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
+                self.tasks[k].name, self.tasks[k].command, self.tasks[k].max_attempts,
+                reset_if_running, self.tasks[k].task_args, self.tasks[k].task_attributes
+            ]
         parameters = {"tasks": tasks}
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -467,7 +453,8 @@ class Workflow(object):
             executor_class=self._executor.__class__.__name__,
             resume=resume,
             reset_running_jobs=reset_running_jobs,
-            requester=self.requester)
+            requester_url=self.requester.url
+        )
 
         try:
             self._bind_tasks(reset_running_jobs)
@@ -501,27 +488,39 @@ class Workflow(object):
         return wfr
 
     def _start_task_instance_scheduler(self, workflow_run_id: int,
-                                       scheduler_startup_wait_timeout: int
+                                       scheduler_startup_wait_timeout: int,
+                                       scheduler_config: Optional[SchedulerConfig] = None
                                        ) -> Process:
+        if scheduler_config is None:
+            scheduler_config = SchedulerConfig.from_defaults()
 
         # instantiate scheduler and launch in separate proc. use event to
         # signal back when scheduler is started
-        scheduler = TaskInstanceScheduler(self.workflow_id, workflow_run_id,
-                                          self._executor,
-                                          self._execution_config)
+        scheduler = TaskInstanceScheduler(
+            workflow_id=self.workflow_id,
+            workflow_run_id=workflow_run_id,
+            executor=self._executor,
+            workflow_run_heartbeat_interval=scheduler_config.workflow_run_heartbeat_interval,
+            task_heartbeat_interval=scheduler_config.task_heartbeat_interval,
+            report_by_buffer=scheduler_config.report_by_buffer,
+            n_queued=scheduler_config.n_queued,
+            scheduler_poll_interval=scheduler_config.scheduler_poll_interval,
+            jobmon_command=scheduler_config.jobmon_command,
+            requester_url=self.requester.url
+        )
+
         try:
-            scheduler_proc = Process(target=scheduler.run_scheduler,
-                                     args=[self._scheduler_stop_event,
-                                           self._scheduler_com_queue])
+            scheduler_proc = Process(
+                target=scheduler.run_scheduler,
+                args=(self._scheduler_stop_event, self._scheduler_com_queue)
+            )
             scheduler_proc.start()
 
             # wait for response from scheduler
-            resp = self._scheduler_com_queue.get(
-                timeout=scheduler_startup_wait_timeout)
+            resp = self._scheduler_com_queue.get(timeout=scheduler_startup_wait_timeout)
         except Empty:  # mypy complains but this is correct
-            raise SchedulerStartupTimeout(
-                "Scheduler process did not start within the alloted timeout "
-                f"t={scheduler_startup_wait_timeout}s")
+            raise SchedulerStartupTimeout("Scheduler process did not start within the alloted "
+                                          f"timeout t={scheduler_startup_wait_timeout}s")
         else:
             # the first message can only be "ALIVE" or an ExceptionWrapper
             if isinstance(resp, ExceptionWrapper):

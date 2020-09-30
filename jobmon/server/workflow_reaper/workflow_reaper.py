@@ -5,7 +5,7 @@ from time import sleep
 from typing import List
 
 from jobmon import __version__
-from jobmon.requests.requester import Requester
+from jobmon.requester import Requester
 from jobmon.exceptions import InvalidResponse
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
 

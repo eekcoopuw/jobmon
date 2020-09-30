@@ -1,20 +1,21 @@
 import argparse
 from functools import partial
 from io import TextIOBase
-import pkg_resources
 import os
+import pkg_resources
 from queue import Queue
 import shlex
 import signal
 import subprocess
 import sys
-import traceback
 from threading import Thread
 from time import sleep, time
+import traceback
 from typing import Optional
 
 from jobmon.exceptions import ReturnCodes
 from jobmon.client import ClientLogging as logging
+from jobmon.client.execution.strategies.api import get_task_instance_executor_by_name
 from jobmon.client.execution.worker_node.worker_node_task_instance import (
     WorkerNodeTaskInstance)
 
@@ -46,7 +47,7 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
     stderr.close()
 
 
-def kill_self(child_process: subprocess.Popen = None):
+def kill_self(child_process: subprocess.Popen = None) -> None:
     """If the worker has received a signal to kill itself, kill the child
     processes and then self, will show up as an exit code 299 in qacct"""
     logger.info("kill self message received")
@@ -77,30 +78,9 @@ def parse_arguments(argstr: Optional[str] = None) -> dict:
     return vars(args)
 
 
-def _get_executor_class(executor_class: str):
-    """ Move out of unwrap for easy mock"""
-    # identify executor class
-    if executor_class == "SequentialExecutor":
-        from jobmon.client.execution.strategies.sequential import \
-            TaskInstanceSequentialInfo as TaskInstanceExecutorInfo
-    elif executor_class == "SGEExecutor":
-        from jobmon.client.execution.strategies.sge.sge_executor import \
-            TaskInstanceSGEInfo as TaskInstanceExecutorInfo
-    elif executor_class == "DummyExecutor":
-        from jobmon.client.execution.strategies.base import \
-            TaskInstanceExecutorInfo
-    elif executor_class == "MultiprocessExecutor":
-        from jobmon.client.execution.strategies.multiprocess import \
-            TaskInstanceMultiprocessInfo as TaskInstanceExecutorInfo
-    else:
-        raise ValueError("{} is not a valid ExecutorClass".format(
-            executor_class))
-    return executor_class, TaskInstanceExecutorInfo()
-
-
-def _run_in_sub_process(command: str, temp_dir: str, heartbeat_interval: float,
+def _run_in_sub_process(command: str, temp_dir: Optional[str], heartbeat_interval: float,
                         worker_node_task_instance: WorkerNodeTaskInstance,
-                        report_by_buffer: int):
+                        report_by_buffer: float):
     """Move out of unwrap for easy mock"""
     proc = subprocess.Popen(
         command,
@@ -108,7 +88,8 @@ def _run_in_sub_process(command: str, temp_dir: str, heartbeat_interval: float,
         env=os.environ.copy(),
         stderr=subprocess.PIPE,
         shell=True,
-        universal_newlines=True)
+        universal_newlines=True
+    )
     # open thread for reading stderr eagerly
     err_q: Queue = Queue()  # queues for returning stderr to main thread
     err_thread = Thread(target=enqueue_stderr, args=(proc.stderr, err_q))
@@ -127,8 +108,8 @@ def _run_in_sub_process(command: str, temp_dir: str, heartbeat_interval: float,
                 kill_self(child_process=proc)
             else:
                 worker_node_task_instance.log_report_by(
-                    next_report_increment=(heartbeat_interval *
-                                           report_by_buffer))
+                    next_report_increment=(heartbeat_interval * report_by_buffer)
+                )
 
             last_heartbeat_time = time()
         sleep(0.5)  # don't thrash CPU by polling as fast as possible
@@ -137,25 +118,24 @@ def _run_in_sub_process(command: str, temp_dir: str, heartbeat_interval: float,
 
 def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
            executor_class: str, temp_dir: Optional[str] = None,
-           heartbeat_interval: float = 90,
-           report_by_buffer: float = 3.1):
+           heartbeat_interval: float = 90, report_by_buffer: float = 3.1):
 
     # This script executes on the target node and wraps the target application.
     # Could be in any language, anything that can execute on linux.
     # Similar to a stub or a container
     # set ENV variables in case tasks need to access them
     os.environ["JOBMON_JOB_INSTANCE_ID"] = str(task_instance_id)
-    executor_class, ti_executor_info = _get_executor_class(executor_class)
+    ti_executor_info = get_task_instance_executor_by_name(executor_class)
     version = pkg_resources.get_distribution("jobmon").version
     if version != expected_jobmon_version:
-        msg = f"Your workflow master node is using, " \
-            f"{expected_jobmon_version} and your worker node is using" \
-            f" {version}. Please check your bash profile "
+        msg = (f"Your workflow master node is using, {expected_jobmon_version} and your "
+               f"worker node is using {version}. Please check your bash profile ")
         logger.error(msg)
         sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
     worker_node_task_instance = WorkerNodeTaskInstance(
         task_instance_id=task_instance_id,
-        task_instance_executor_info=ti_executor_info)
+        task_instance_executor_info=ti_executor_info
+    )
 
     # if it logs running and is in the 'W' or 'U' state then it will go
     # through the full process of trying to change states and receive a
@@ -166,8 +146,8 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
         kill_self()
 
     try:
-        err_q, returncode = _run_in_sub_process(command, temp_dir, heartbeat_interval, worker_node_task_instance,
-                                                report_by_buffer)
+        err_q, returncode = _run_in_sub_process(command, temp_dir, heartbeat_interval,
+                                                worker_node_task_instance, report_by_buffer)
 
         # compile stderr to send to db
         stderr = ""
@@ -175,8 +155,7 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
             stderr += err_q.get()
 
     except Exception as exc:
-        stderr = "{}: {}\n{}".format(type(exc).__name__, exc,
-                                     traceback.format_exc())
+        stderr = "{}: {}\n{}".format(type(exc).__name__, exc, traceback.format_exc())
         logger.warning(stderr)
         returncode = ReturnCodes.WORKER_NODE_CLI_FAILURE
 
@@ -186,8 +165,7 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
 
     # check return code
     if returncode != ReturnCodes.OK:
-        worker_node_task_instance.log_error(error_message=str(stderr),
-                                            exit_status=returncode)
+        worker_node_task_instance.log_error(error_message=str(stderr), exit_status=returncode)
     else:
         worker_node_task_instance.log_done()
 

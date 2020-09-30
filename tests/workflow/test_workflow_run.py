@@ -60,9 +60,8 @@ def test_sync(client_env):
     now = wfr.last_sync
     assert now is not None
 
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id,
-                                      workflow._executor)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
 
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
@@ -181,11 +180,10 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
         TaskStatus.REGISTERED
 
     # launch task on executor
-    cfg = ExecutionConfig.from_defaults()
     execute = MockDummyExecutor()
     execute.wedged_task_id = t2.task_id
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id, execute, cfg)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
     scheduler.executor.start()
     scheduler.schedule()
 

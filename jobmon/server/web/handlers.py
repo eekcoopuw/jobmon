@@ -3,7 +3,7 @@ import logging
 
 from flask import request
 
-from jobmon import config
+from jobmon import __version__
 
 
 def add_request_hooks(app):
@@ -15,7 +15,7 @@ def add_request_hooks(app):
 
         # setup console handler
         log_formatter = logging.Formatter(
-            '%(asctime)s [%(name)-12s] ' + config.jobmon_version + ' %(module)s %(levelname)-8s '
+            '%(asctime)s [%(name)-12s] ' + __version__ + ' %(module)s %(levelname)-8s '
             '%(threadName)s: %(message)s'
         )
         console_handler = logging.StreamHandler(sys.stdout)

@@ -3,9 +3,9 @@ from __future__ import annotations
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.requests.requester import Requester
+from jobmon.client.client_config import ClientConfig
+from jobmon.requester import Requester
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable, InvalidResponse
@@ -28,7 +28,7 @@ class ExecutorTaskInstance:
     """
 
     def __init__(self, task_instance_id: int, workflow_run_id: int,
-                 executor: Executor, requester: Requester,
+                 executor: Executor, requester_url: Optional[str] = None,
                  executor_id: Optional[int] = None):
 
         self.task_instance_id = task_instance_id
@@ -37,12 +37,14 @@ class ExecutorTaskInstance:
 
         # interfaces to the executor and server
         self.executor = executor
-        self.requester = requester
+
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
 
     @classmethod
     def from_wire(cls, wire_tuple: tuple, executor: Executor,
-                  requester: Requester = shared_requester
-                  ) -> ExecutorTaskInstance:
+                  requester_url: Optional[str] = None) -> ExecutorTaskInstance:
         """create an instance from json that the JQS returns
 
         Args:
@@ -62,11 +64,11 @@ class ExecutorTaskInstance:
                    workflow_run_id=kwargs["workflow_run_id"],
                    executor=executor,
                    executor_id=kwargs["executor_id"],
-                   requester=requester)
+                   requester_url=requester_url)
 
     @classmethod
     def register_task_instance(cls, task_id: int, workflow_run_id: int,
-                               executor: Executor, requester: Requester
+                               executor: Executor, requester_url: Optional[str] = None,
                                ) -> ExecutorTaskInstance:
         """register a new task instance for an existing task_id
 
@@ -75,6 +77,9 @@ class ExecutorTaskInstance:
             executor (Executor): which executor to schedule this task on
             requester: requester for communicating with central services
         """
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        requester = Requester(requester_url)
 
         app_route = '/scheduler/task_instance'
         return_code, response = requester.send_request(
@@ -112,8 +117,7 @@ class ExecutorTaskInstance:
                 f'code 200. Response content: {response}')
 
     def register_submission_to_batch_executor(self, executor_id: int,
-                                              next_report_increment: float
-                                              ) -> None:
+                                              next_report_increment: float) -> None:
         """register the submission of a new task instance to batch execution
 
         Args:
@@ -215,4 +219,3 @@ class ExecutorTaskInstance:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                                   f'request through route {done_app_route}. Expected '
                                   f'code 200. Response content: {response}')
-

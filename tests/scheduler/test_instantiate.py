@@ -23,9 +23,8 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
     workflow.add_tasks([t1])
     workflow._bind()
     wfr = workflow._create_workflow_run()
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id,
-                                      workflow._executor)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)
@@ -64,15 +63,13 @@ def test_n_queued(db_cfg, client_env):
 
     workflow = UnknownWorkflow("test_n_queued", seconds_until_timeout=1,
                                executor_class="DummyExecutor")
-    cfg = ExecutionConfig.from_defaults()
-    cfg.n_queued = 3
     workflow.set_executor(executor_class="DummyExecutor", execution_config=cfg)
     workflow.add_tasks(tasks)
     workflow._bind()
     wfr = workflow._create_workflow_run()
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id, workflow._executor,
-                                      cfg)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env,
+                                      n_queued=3)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)
@@ -110,8 +107,8 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
     workflow.add_task(t1)
     workflow._bind()
     wfr = workflow._create_workflow_run()
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id, workflow._executor)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)

@@ -146,9 +146,8 @@ def test_instantiation(db_cfg, client_env):
     workflow.add_tasks([t1])
     workflow._bind()
     wfr = workflow._create_workflow_run()
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id,
-                                      workflow._executor)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)

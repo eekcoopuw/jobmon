@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Union
+from typing import List, Union, Optional
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
+from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
-from jobmon.requests.requester import Requester
+from jobmon.requester import Requester
 from jobmon.client.workflow import Workflow
 from jobmon.serializers import SerializeClientTool, SerializeClientToolVersion
 
@@ -25,7 +25,7 @@ class Tool:
 
     def __init__(self, name: str = "unknown",
                  active_tool_version_id: Union[str, int] = "latest",
-                 requester: Requester = shared_requester) -> None:
+                 requester_url: Optional[str] = None) -> None:
         """A tool is an application which is expected to run many times on variable inputs but
          which will serve a certain purpose over time even as the internal pipeline may change.
          Example tools are Dismod, Burdenator, Codem.
@@ -34,9 +34,12 @@ class Tool:
             name: the name of the tool
             active_tool_version_id: which version of the tool to attach task templates and
                 workflows to.
-            requester: requester object directed at a flask service instance
+            requester_url (str): url to communicate with the flask services.
         """
-        self.requester = requester
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
+
         self.name = name
         self.id = self._get_tool_id(self.name, self.requester)
 
@@ -45,7 +48,7 @@ class Tool:
         self.active_tool_version_id = active_tool_version_id
 
     @classmethod
-    def create_tool(cls, name: str, requester: Requester = shared_requester) -> Tool:
+    def create_tool(cls, name: str, requester_url: Optional[str] = None) -> Tool:
         """create a new tool in the jobmon database
 
         Args:
@@ -55,6 +58,9 @@ class Tool:
         Returns:
             An instance of of Tool of with the provided name
         """
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        requester = Requester(requester_url)
 
         # call route to create tool
         _, res = requester.send_request(
@@ -76,8 +82,7 @@ class Tool:
         Returns: the version id for the new tool
         """
         # call route to create tool version
-        tool_version_id = self._create_new_tool_version(self.id,
-                                                        self.requester)
+        tool_version_id = self._create_new_tool_version(self.id, self.requester)
         self.tool_version_ids.append(tool_version_id)
         self.active_tool_version_id = tool_version_id
         return tool_version_id
@@ -118,7 +123,7 @@ class Tool:
                 the identity of the task. Generally these are things like the task executable
                 location or the verbosity of the script.
         """
-        tt = TaskTemplate(self.active_tool_version_id, template_name, self.requester)
+        tt = TaskTemplate(self.active_tool_version_id, template_name, self.requester.url)
         tt.bind()
         tt.bind_task_template_version(command_template=command_template,
                                       node_args=node_args,
@@ -139,7 +144,8 @@ class Tool:
             request_type='get')
         tool_versions = [
             SerializeClientToolVersion.kwargs_from_wire(wire_tuple)["id"]
-            for wire_tuple in res["tool_versions"]]
+            for wire_tuple in res["tool_versions"]
+        ]
         return tool_versions
 
     @staticmethod
@@ -163,6 +169,5 @@ class Tool:
             app_route=app_route,
             message={"tool_id": tool_id},
             request_type='post')
-        tool_version = SerializeClientToolVersion.kwargs_from_wire(
-            res["tool_version"])
+        tool_version = SerializeClientToolVersion.kwargs_from_wire(res["tool_version"])
         return tool_version["id"]

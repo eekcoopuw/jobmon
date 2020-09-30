@@ -9,24 +9,25 @@ from jobmon.client import ClientLogging as logging
 logger = logging.getLogger(__name__)
 
 
-
 # for monkey patch
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.models.task_status import TaskStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
+
 def mock_all_upstreams_done(self):
     """Return a bool of if upstreams are done or not"""
     logger.debug("Using monkeypatch for all_upstreams_done.")
     return all([u.is_done for u in self.upstream_tasks])
-        
+
+
 def mock_propagate_results(self, swarm_task: SwarmTask) -> List[SwarmTask]:
     new_fringe: List[SwarmTask] = []
     logger.debug(f"Propagate {swarm_task}")
     for downstream in swarm_task.downstream_swarm_tasks:
         logger.debug(f"downstream {downstream}")
         downstream_done = (downstream.status == TaskStatus.DONE)
-        downstream.num_upstreams_done += 1            
+        downstream.num_upstreams_done += 1
         if (not downstream_done and
                 downstream.status == TaskStatus.REGISTERED):
             time_start = time.time()
@@ -40,13 +41,13 @@ def mock_propagate_results(self, swarm_task: SwarmTask) -> List[SwarmTask]:
                 # don't do anything, task not ready yet
                 logger.debug(" not ready yet")
         else:
-            logger.debug(f" not ready yet or already queued, Status is "
-                            f"{downstream.status}")
+            logger.debug(f" not ready yet or already queued, Status is {downstream.status}")
     return new_fringe
 
+
 def mock_execute(self, fail_fast: bool = False,
-                seconds_until_timeout: int = 36000,
-                wedged_workflow_sync_interval: int = 600):
+                 seconds_until_timeout: int = 36000,
+                 wedged_workflow_sync_interval: int = 600):
 
     self.update_status(WorkflowRunStatus.RUNNING)
     self.last_sync = self._get_current_time()
@@ -76,18 +77,18 @@ def mock_execute(self, fail_fast: bool = False,
         if failed and fail_fast:
             break  # fail out early
         logger.debug(f"Return from blocking call, completed: "
-                        f"{[t.task_id for t in completed]}, "
-                        f"failed:{[t.task_id for t in failed]}")
+                     f"{[t.task_id for t in completed]}, "
+                     f"failed:{[t.task_id for t in failed]}")
         for swarm_task in completed:
             start_time = time.time()    # added for test
             task_to_add = self._propagate_results(swarm_task)
             end_time = time.time()    # added for test
-            logger.debug(f"propagate results took: {end_time - start_time}")    # added for test
+            logger.debug(f"propagate results took: {end_time - start_time}")  # added for test
             fringe = list(set(fringe + task_to_add))
         if (self._val_fail_after_n_executions is not None and
                 n_executions >= self._val_fail_after_n_executions):
             raise ValueError(f"Dag asked to fail after {n_executions} "
-                                f"executions. Failing now")
+                             f"executions. Failing now")
 
     all_completed = self.all_done
     num_new_completed = len(all_completed) - len(previously_completed)
@@ -97,14 +98,12 @@ def mock_execute(self, fail_fast: bool = False,
             logger.info("Failing after first failure, as requested")
         logger.info(f"DAG execute ended, failed {all_failed}")
         self.update_status(WorkflowRunStatus.ERROR)
-        self._completed_report = (num_new_completed,
-                                    len(previously_completed))
+        self._completed_report = (num_new_completed, len(previously_completed))
     else:
         logger.info(f"DAG execute finished successfully, "
                     f"{num_new_completed} jobs")
         self.update_status(WorkflowRunStatus.DONE)
-        self._completed_report = (num_new_completed,
-                                    len(previously_completed))
+        self._completed_report = (num_new_completed, len(previously_completed))
 
 
 @pytest.mark.performance_tests
@@ -134,12 +133,12 @@ def test_bushy_dag(db_cfg, client_env, monkeypatch):
     wfid = uuid.uuid4()
     user = getpass.getuser()
     wf = Workflow(f"bushy_dag_{wfid}", "bushy_dag_test",
-                  executor_class = 'SGEExecutor',
+                  executor_class='SGEExecutor',
                   stderr=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   project="proj_scicomp")
 
-    params = ExecutorParameters(m_mem_free="128M", 
+    params = ExecutorParameters(m_mem_free="128M",
                                 num_cores=1,
                                 queue="all.q",
                                 max_runtime_seconds=20)
@@ -148,7 +147,8 @@ def test_bushy_dag(db_cfg, client_env, monkeypatch):
     # First Tier
     for i in range(n_jobs):
         uid = str(uuid.uuid4())
-        tier_1_task = BashTask(f"echo {uid}", executor_parameters=params, executor_class = 'SGEExecutor')
+        tier_1_task = BashTask(f"echo {uid}", executor_parameters=params,
+                               executor_class='SGEExecutor')
         tier1.append(tier_1_task)
 
     tier2 = []
@@ -158,12 +158,12 @@ def test_bushy_dag(db_cfg, client_env, monkeypatch):
         tier_2_task = BashTask(f"echo {uid}",
                                upstream_tasks=tier1,
                                executor_parameters=params,
-                               executor_class = 'SGEExecutor')
+                               executor_class='SGEExecutor')
         tier2.append(tier_2_task)
 
     wf.add_tasks(tier1 + tier2)
     wfr = wf.run()
-    
+
     assert len(wfr.all_error) == 0
 
 
@@ -205,7 +205,7 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
                   stdout=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   project="proj_scicomp")
 
-    params = ExecutorParameters(m_mem_free="128M", 
+    params = ExecutorParameters(m_mem_free="128M",
                                 num_cores=1,
                                 queue="all.q",
                                 max_runtime_seconds=20)
@@ -214,7 +214,8 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     # First Tier
     for i in range(n_jobs):
         uid = str(uuid.uuid4())
-        tier_1_task = BashTask(f"echo {uid}", executor_parameters=params, executor_class = 'SGEExecutor')
+        tier_1_task = BashTask(f"echo {uid}", executor_parameters=params,
+                               executor_class='SGEExecutor')
         tier1.append(tier_1_task)
 
     tier2 = []
@@ -224,10 +225,10 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
         tier_2_task = BashTask(f"echo {uid}",
                                upstream_tasks=tier1,
                                executor_parameters=params,
-                               executor_class = 'SGEExecutor')
+                               executor_class='SGEExecutor')
         tier2.append(tier_2_task)
 
     wf.add_tasks(tier1 + tier2)
     wfr = wf.run()
-    
+
     assert len(wfr.all_error) == 0
