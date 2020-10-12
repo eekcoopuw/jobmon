@@ -9,7 +9,6 @@ from typing import Optional, List
 import tblib.pickling_support
 
 from jobmon.client import ClientLogging as logging
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
@@ -35,10 +34,10 @@ class ExceptionWrapper(object):
 class TaskInstanceScheduler:
 
     def __init__(self, workflow_id: int, workflow_run_id: int, executor: Executor,
-                 workflow_run_heartbeat_interval: int = 30, task_heartbeat_interval: int = 90,
-                 report_by_buffer: float = 3.1, n_queued: int = 100,
-                 scheduler_poll_interval: int = 10, jobmon_command: Optional[str] = None,
-                 requester_url: Optional[str] = None):
+                 requester_url: str, workflow_run_heartbeat_interval: int = 30,
+                 task_heartbeat_interval: int = 90, report_by_buffer: float = 3.1,
+                 n_queued: int = 100, scheduler_poll_interval: int = 10,
+                 jobmon_command: Optional[str] = None):
 
         # which workflow to schedule for
         self.workflow_id = workflow_id
@@ -55,8 +54,6 @@ class TaskInstanceScheduler:
         self._n_queued = n_queued
         self._scheduler_poll_interval = scheduler_poll_interval
 
-        if requester_url is None:
-            requester_url = ClientConfig.from_defaults().url
         self.requester = Requester(requester_url)
 
         logger.info(f"scheduler: communicating at {self.requester.url}")
@@ -110,10 +107,15 @@ class TaskInstanceScheduler:
             # terminate jobs via executor API
             self._terminate_active_task_instances()
 
+            print("Termination complete 1.")
+
             # send error back to main
             if status_queue is not None:
+                print(f"Termination complete. Returning {e} to main thread.")
+                logger.warning(f"Termination complete. Returning {e} to main thread.")
                 status_queue.put(ExceptionWrapper(e))
             else:
+                print("Failed to return to main thread.")
                 raise
 
         except Exception as e:
@@ -137,8 +139,7 @@ class TaskInstanceScheduler:
         self._log_executor_report_by()
         self._log_workflow_run_heartbeat()
 
-    def schedule(self, thread_stop_event: Optional[threading.Event] = None
-                 ) -> None:
+    def schedule(self, thread_stop_event: Optional[threading.Event] = None) -> None:
         logger.info("scheduler: scheduling work. reconciling errors.")
         # get work if there isn't any in the queues
         if not self._to_instantiate and not self._to_reconcile:
@@ -179,8 +180,8 @@ class TaskInstanceScheduler:
         else:
             return any_work_to_do
 
-    def _schedule_forever(self, thread_stop_event: threading.Event,
-                          poll_interval: float = 10) -> None:
+    def _schedule_forever(self, thread_stop_event: threading.Event, poll_interval: float = 10
+                          ) -> None:
         sleep_time: float = 0.
         while not thread_stop_event.wait(timeout=sleep_time):
             poll_start = time.time()
@@ -197,8 +198,7 @@ class TaskInstanceScheduler:
                 sleep_time = 0.
 
     def _log_executor_report_by(self) -> None:
-        next_report_increment = (
-            self.config.task_heartbeat_interval * self.config.report_by_buffer)
+        next_report_increment = self._task_heartbeat_interval * self._report_by_buffer
 
         try:
             errored_jobs = self.executor.get_errored_jobs()
@@ -283,13 +283,14 @@ class TaskInstanceScheduler:
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-        tasks = [ExecutorTask.from_wire(j, self.executor.__class__.__name__, self.requester.url)
-                 for j in response['task_dcts']]
+        tasks = [
+            ExecutorTask.from_wire(j, self.executor.__class__.__name__, self.requester.url)
+            for j in response['task_dcts']
+        ]
         self._to_instantiate = tasks
         return tasks
 
-    def _create_task_instance(self, task: ExecutorTask
-                              ) -> Optional[ExecutorTaskInstance]:
+    def _create_task_instance(self, task: ExecutorTask) -> Optional[ExecutorTaskInstance]:
         """
         Creates a TaskInstance based on the parameters of Task and tells the
         TaskStateManager to react accordingly.
@@ -321,21 +322,18 @@ class TaskInstanceScheduler:
         executor_id = task_instance.executor.execute(
             command=command,
             name=task.name,
-            executor_parameters=task.executor_parameters)
+            executor_parameters=task.executor_parameters
+        )
         if executor_id == QsubAttribute.NO_EXEC_ID:
-            logger.debug(f"Received {executor_id} meaning "
-                         f"the task did not qsub properly, moving "
-                         f"to 'W' state")
+            logger.debug(f"Received {executor_id} meaning the task did not qsub properly, "
+                         "moving to 'W' state")
             task_instance.register_no_executor_id(executor_id=executor_id)
         elif executor_id == QsubAttribute.UNPARSABLE:
-            logger.debug(f"Got response from qsub but did not contain a "
-                         f"valid executor_id. Using ({executor_id}), and "
-                         f"moving to 'W' state")
+            logger.debug(f"Got response from qsub but did not contain a valid executor_id. "
+                         f"Using ({executor_id}), and moving to 'W' state")
             task_instance.register_no_executor_id(executor_id=executor_id)
         elif executor_id:
-            report_by_buffer = (
-                self._task_heartbeat_interval *
-                self._report_by_buffer)
+            report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
             task_instance.register_submission_to_batch_executor(executor_id, report_by_buffer)
             if self.executor.__class__.__name__ == "DummyExecutor":
                 task_instance.dummy_executor_task_instance_run_and_done()
@@ -359,7 +357,7 @@ class TaskInstanceScheduler:
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
         lost_task_instances = [
-            ExecutorTaskInstance.from_wire(ti, self.executor, self.requester)
+            ExecutorTaskInstance.from_wire(ti, self.executor, self.requester.url)
             for ti in response["task_instances"]
         ]
         self._to_reconcile = lost_task_instances
@@ -379,8 +377,7 @@ class TaskInstanceScheduler:
         if return_code != StatusCodes.OK:
             to_terminate: List = []
         else:
-            to_terminate = [
-                ExecutorTaskInstance.from_wire(ti, self.executor, self.requester).executor_id
-                for ti in response["task_instances"]
-            ]
+            to_terminate = [ExecutorTaskInstance.from_wire(ti, self.executor,
+                                                           self.requester.url).executor_id
+                            for ti in response["task_instances"]]
         self.executor.terminate_task_instances(to_terminate)

@@ -12,8 +12,7 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunStatus
-from jobmon.exceptions import (InvalidResponse, WorkflowNotResumable,
-                               SchedulerNotAlive)
+from jobmon.exceptions import InvalidResponse, WorkflowNotResumable, SchedulerNotAlive
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +94,8 @@ class WorkflowRun(object):
             prev_status = self._wait_till_resumable(prev_wfr_id, resume_timeout)
 
             # workflow wasn't terminated
-            if prev_status != WorkflowRunStatus.TERMINATED:
+            hot_resume = prev_status == WorkflowRunStatus.HOT_RESUME and not reset_running_jobs
+            if prev_status != WorkflowRunStatus.TERMINATED and not hot_resume:
                 app_route = f'/client/workflow_run/{self.workflow_run_id}/delete'
                 return_code, response = self.requester.send_request(
                     app_route=app_route,
@@ -134,6 +134,7 @@ class WorkflowRun(object):
         if not hasattr(self, "_scheduler_proc"):
             return False
         else:
+            print(f"Scheduler proc is: {self._scheduler_proc.is_alive()}")
             return self._scheduler_proc.is_alive()
 
     @property
@@ -182,18 +183,21 @@ class WorkflowRun(object):
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
-            request_type='put')
+            request_type='put'
+        )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-    def _wait_till_resumable(self, wfr_id: int, resume_timeout: int = 300
-                             ) -> str:
+    def _wait_till_resumable(self, wfr_id: int, resume_timeout: int = 300) -> str:
         wait_start = time.time()
         wait_for_resume = True
         while wait_for_resume:
+            logger.info(
+                f"Waiting for resume. Timeout in {resume_timeout - (time.time() - wait_start)}"
+            )
             app_route = f'/client/workflow_run/{wfr_id}/is_resumable'
             return_code, response = self.requester.send_request(
                 app_route=app_route,
@@ -204,6 +208,7 @@ class WorkflowRun(object):
                     f'Unexpected status code {return_code} from POST '
                     f'request through route {app_route}. Expected '
                     f'code 200. Response content: {response}')
+
             if response.get("workflow_run_status") is not None:
                 wait_for_resume = False
                 status = response["workflow_run_status"]
@@ -213,7 +218,8 @@ class WorkflowRun(object):
                         "workflow_run timed out waiting for previous "
                         "workflow_run to exit. Try again in a few minutes.")
                 else:
-                    time.sleep(resume_timeout / 10)
+                    sleep_time = float(resume_timeout) / 10.
+                    time.sleep(sleep_time)
 
         return status
 

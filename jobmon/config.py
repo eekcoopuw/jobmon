@@ -227,7 +227,7 @@ class ParserDefaults:
         parser.add_argument(
             '--workflow_run_heartbeat_interval',
             type=int,
-            help='Entry point to execute on worker node to run a task instance',
+            help='',
             default=30,
             env_var='WORKFLOW_RUN_HEARTBEAT_INTERVAL'
         )
@@ -251,9 +251,33 @@ class ParserDefaults:
         parser.add_argument(
             '--task_instance_report_by_buffer',
             type=float,
-            help='Entry point to execute on worker node to run a task instance',
+            help='Multiplier for heartbeat interval that can be missed before job is lost',
             default=3.1,
             env_var='TASK_INSTANCE_REPORT_BY_BUFFER'
+        )
+        return parser
+
+    @staticmethod
+    def scheduler_n_queued(parser: configargparse.ArgumentParser
+                           ) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--scheduler_n_queued',
+            type=int,
+            help='How many jobs to schedule in one scheduler loop',
+            default=100,
+            env_var='SCHEDULER_N_QUEUED'
+        )
+        return parser
+
+    @staticmethod
+    def scheduler_poll_interval(parser: configargparse.ArgumentParser
+                                ) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--scheduler_poll_interval',
+            type=int,
+            help='How long to sleep between scheduler loops',
+            default=10,
+            env_var='SCHEDULER_POLL_INTERVAL'
         )
         return parser
 

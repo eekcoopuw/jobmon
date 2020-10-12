@@ -1,13 +1,11 @@
 from typing import Optional, Union, List
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.requests.requester import Requester
+from jobmon.client.client_config import ClientConfig
+from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
+from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
-
-from jobmon.client.execution.scheduler.execution_config import ExecutionConfig
-from jobmon.client.swarm.workflow_run import WorkflowRun
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +51,7 @@ class UnknownWorkflow(Workflow):
                  working_dir: Optional[str] = None,
                  executor_class: str = 'SGEExecutor',
                  fail_fast: bool = False,
-                 requester: Requester = shared_requester,
+                 requester_url: str = None,
                  seconds_until_timeout: int = 36000,
                  resume: bool = ResumeStatus.DONT_RESUME,
                  reconciliation_interval: Optional[int] = None,
@@ -103,7 +101,7 @@ class UnknownWorkflow(Workflow):
         self._set_executor(executor_class=executor_class, stderr=stderr,
                            stdout=stdout, working_dir=working_dir,
                            project=project)
-        cfg = ExecutionConfig.from_defaults()
+        cfg = SchedulerConfig.from_defaults()
         if reconciliation_interval is not None:
             cfg.reconciliation_interval = reconciliation_interval
         if heartbeat_interval is not None:
@@ -118,14 +116,18 @@ class UnknownWorkflow(Workflow):
         self._seconds_until_timeout = seconds_until_timeout
         self._resume = resume
 
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+
         # pass
         super().__init__(
             tool_version_id=self._tool.active_tool_version_id,
             workflow_args=workflow_args,
             name=name,
             description=description,
-            requester=requester,
-            workflow_attributes=workflow_attributes)
+            requester_url=requester_url,
+            workflow_attributes=workflow_attributes
+        )
 
     def _set_executor(self, executor_class: str, *args, **kwargs) -> None:
         """Set which executor and parameters associated with that executor to

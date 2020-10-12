@@ -36,7 +36,8 @@ def test_error_state(db_cfg, client_env):
 
     # Call the reaper, with a short loss_threshold, to trigger the reaper to
     # move the workflow run in to error state
-    reaper = WorkflowReaper(loss_threshold=1 / 20)
+    reaper = WorkflowReaper(poll_interval_minutes=1, loss_threshold=1 / 20,
+                            requester_url=client_env)
     i = 0
     while i < 10:
         time.sleep(10)
@@ -63,8 +64,9 @@ def test_error_state(db_cfg, client_env):
             FROM workflow_run
             WHERE workflow_run.id = :workflow_run_id
         """
-        workflow_run_res = DB.session.execute \
-            (workflow_run_query, {"workflow_run_id": wfr1.workflow_run_id}).fetchone()
+        workflow_run_res = DB.session.execute(
+            workflow_run_query, {"workflow_run_id": wfr1.workflow_run_id}
+        ).fetchone()
         DB.session.commit()
     assert workflow_run_res[0] == "E"
 
@@ -113,7 +115,7 @@ def test_suspended_state(db_cfg, client_env):
     wfr3.update_status("H")
 
     # Call workflow reaper suspended state
-    reaper = WorkflowReaper()
+    reaper = WorkflowReaper(5, 5, client_env)
     reaper._suspended_state()
 
     # Check that the workflow runs are in the same state (1 R, 1 C, 1 H)
@@ -193,7 +195,7 @@ def test_aborted_state(db_cfg, client_env):
     time.sleep(130)
 
     # Call aborted state logic
-    reaper = WorkflowReaper()
+    reaper = WorkflowReaper(5, 5, client_env)
     reaper._aborted_state(wfr.workflow_run_id)
 
     # Check that the workflow_run and workflow have both been moved to the

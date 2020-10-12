@@ -252,8 +252,7 @@ class Workflow(object):
                 wfr.workflow_run_id, scheduler_response_wait_timeout, scheduler_config
             )
             # execute the workflow run
-            wfr.execute_interruptible(scheduler_proc, fail_fast,
-                                      seconds_until_timeout)
+            wfr.execute_interruptible(scheduler_proc, fail_fast, seconds_until_timeout)
             logger.info(f"Scheduler started up successfully and the workflow "
                         f"run finished executing. Workflow Run status is: "
                         f"{wfr.status}")

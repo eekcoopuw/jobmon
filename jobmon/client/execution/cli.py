@@ -16,19 +16,21 @@ class ExecutorCLI(CLI):
 
     def scheduler(self, args: configargparse.Namespace) -> None:
         from jobmon.client.execution.scheduler.api import get_scheduler, SchedulerConfig
-        from jobmon.client.client_config import ClientConfig
 
-        requester_config = ClientConfig(args.web_service_host, args.web_service_port)
         scheduler_config = SchedulerConfig(
             jobmon_command=args.worker_node_entry_point,
             workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
             task_heartbeat_interval=args.task_instance_heartbeat_interval,
-            report_by_buffer=args.task_instance_report_by_buffer
+            report_by_buffer=args.task_instance_report_by_buffer,
+            n_queued=args.scheduler_n_queued,
+            scheduler_poll_interval=args.scheduler_poll_interval,
+            web_service_fqdn=args.web_service_fqdn,
+            web_service_port=args.web_service_port
         )
 
+        # TODO: how do we pass in executor args
         if args.command == 'start':
-            scheduler = get_scheduler(args.workflow_id, args.workflow_run_id,
-                                      requester_config.url, scheduler_config)
+            scheduler = get_scheduler(args.workflow_id, args.workflow_run_id, scheduler_config)
             scheduler.run_scheduler()
         else:
             raise ValueError(f"Command {args.command} not supported.")
@@ -61,6 +63,10 @@ class ExecutorCLI(CLI):
         ParserDefaults.workflow_run_heartbeat_interval(scheduler_parser)
         ParserDefaults.task_instance_heartbeat_interval(scheduler_parser)
         ParserDefaults.task_instance_report_by_buffer(scheduler_parser)
+        ParserDefaults.scheduler_n_queued(scheduler_parser)
+        ParserDefaults.scheduler_poll_interval(scheduler_parser)
+        ParserDefaults.web_service_fqdn(scheduler_parser)
+        ParserDefaults.web_service_port(scheduler_parser)
 
 
 def main(argstr: Optional[str] = None) -> None:

@@ -85,9 +85,6 @@ class WorkflowRun(DB.Model):
                           WorkflowRunStatus.ERROR,
                           WorkflowRunStatus.TERMINATED]
 
-    resume_states = [WorkflowRunStatus.COLD_RESUME,
-                     WorkflowRunStatus.HOT_RESUME]
-
     def is_active(self):
         return self.status in [WorkflowRunStatus.BOUND,
                                WorkflowRunStatus.RUNNING]
@@ -110,7 +107,7 @@ class WorkflowRun(DB.Model):
                 self.workflow.transition(WorkflowStatus.RUNNING)
             elif new_state == WorkflowRunStatus.DONE:
                 self.workflow.transition(WorkflowStatus.DONE)
-            elif new_state in self.resume_states:
+            elif new_state == WorkflowRunStatus.COLD_RESUME:
                 self.workflow.transition(WorkflowStatus.SUSPENDED)
             elif new_state in self.bound_error_states:
                 self.workflow.transition(WorkflowStatus.FAILED)

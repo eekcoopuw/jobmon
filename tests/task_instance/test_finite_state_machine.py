@@ -24,6 +24,7 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
         MultiprocessExecutor
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
+    from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
 
     tool = Tool()
     workflow = tool.create_workflow(name=f"test_ti_kill_self_state_{ti_state}")
@@ -54,8 +55,9 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
             swarm_task = tasks[0]
 
     # set task to kill self state. next heartbeat will fail and cause death
+    scheduler_config = SchedulerConfig.from_defaults()
     max_heartbeat = datetime.utcnow() + timedelta(
-        seconds=(cfg.task_heartbeat_interval * cfg.report_by_buffer))
+        seconds=(scheduler_config.task_heartbeat_interval * scheduler_config.report_by_buffer))
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():

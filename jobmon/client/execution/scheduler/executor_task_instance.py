@@ -4,7 +4,6 @@ from http import HTTPStatus as StatusCodes
 from typing import Optional
 
 from jobmon.client import ClientLogging as logging
-from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.constants import TaskInstanceStatus
@@ -28,7 +27,7 @@ class ExecutorTaskInstance:
     """
 
     def __init__(self, task_instance_id: int, workflow_run_id: int,
-                 executor: Executor, requester_url: Optional[str] = None,
+                 executor: Executor, requester_url: str,
                  executor_id: Optional[int] = None):
 
         self.task_instance_id = task_instance_id
@@ -38,13 +37,11 @@ class ExecutorTaskInstance:
         # interfaces to the executor and server
         self.executor = executor
 
-        if requester_url is None:
-            requester_url = ClientConfig.from_defaults().url
         self.requester = Requester(requester_url)
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, executor: Executor,
-                  requester_url: Optional[str] = None) -> ExecutorTaskInstance:
+    def from_wire(cls, wire_tuple: tuple, executor: Executor, requester_url: str
+                  ) -> ExecutorTaskInstance:
         """create an instance from json that the JQS returns
 
         Args:
@@ -67,9 +64,8 @@ class ExecutorTaskInstance:
                    requester_url=requester_url)
 
     @classmethod
-    def register_task_instance(cls, task_id: int, workflow_run_id: int,
-                               executor: Executor, requester_url: Optional[str] = None,
-                               ) -> ExecutorTaskInstance:
+    def register_task_instance(cls, task_id: int, workflow_run_id: int, executor: Executor,
+                               requester_url: str) -> ExecutorTaskInstance:
         """register a new task instance for an existing task_id
 
         Args:
@@ -77,8 +73,6 @@ class ExecutorTaskInstance:
             executor (Executor): which executor to schedule this task on
             requester: requester for communicating with central services
         """
-        if requester_url is None:
-            requester_url = ClientConfig.from_defaults().url
         requester = Requester(requester_url)
 
         app_route = '/scheduler/task_instance'
@@ -94,7 +88,8 @@ class ExecutorTaskInstance:
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-        return cls.from_wire(response['task_instance'], executor=executor)
+        return cls.from_wire(response['task_instance'], executor=executor,
+                             requester_url=requester_url)
 
     def register_no_executor_id(self, executor_id: int) -> None:
         """register that submission failed with the central service

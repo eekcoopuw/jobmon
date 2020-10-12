@@ -134,6 +134,7 @@ class MockSchedulerProc:
 
 
 @pytest.mark.systemtest
+@pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
 def test_instantiation(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
                                                                        Workflow)
@@ -170,6 +171,7 @@ def test_instantiation(db_cfg, client_env):
 
 @pytest.mark.smoketest
 @pytest.mark.systemtest
+@pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
 def test_workflow(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
                                                                        Workflow)
@@ -245,6 +247,7 @@ def test_workflow_timeout(db_cfg, client_env):
 
 @pytest.mark.smoketest
 @pytest.mark.systemtest
+@pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
 def test_workflow_137(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import \
         _TestUnknownWorkflow as Workflow

@@ -17,8 +17,6 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
     from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
-    from jobmon.client.execution.scheduler.execution_config import \
-        ExecutionConfig
 
     class MockExecutorTaskInstance(ExecutorTaskInstance):
         def dummy_executor_task_instance_run_and_done(self):
@@ -64,8 +62,7 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
     assert res[0] == "B"
 
     # sleep through the report by date
-    time.sleep(scheduler.config.task_heartbeat_interval *
-               (scheduler.config.report_by_buffer + 1))
+    time.sleep(scheduler._task_heartbeat_interval * (scheduler._report_by_buffer + 1))
 
     # job will move into lost track because it never logs a heartbeat
     scheduler._get_lost_task_instances()

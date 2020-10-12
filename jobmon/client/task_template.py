@@ -86,7 +86,7 @@ class TaskTemplate:
             node_args=node_args,
             task_args=task_args,
             op_args=op_args,
-            requester=self.requester
+            requester_url=self.requester.url
         )
         task_template_version.bind()
         self._task_template_version = task_template_version

@@ -48,8 +48,6 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
 def test_n_queued(db_cfg, client_env):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
-    from jobmon.client.execution.scheduler.execution_config import \
-        ExecutionConfig
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
@@ -63,7 +61,7 @@ def test_n_queued(db_cfg, client_env):
 
     workflow = UnknownWorkflow("test_n_queued", seconds_until_timeout=1,
                                executor_class="DummyExecutor")
-    workflow.set_executor(executor_class="DummyExecutor", execution_config=cfg)
+    workflow.set_executor(executor_class="DummyExecutor")
     workflow.add_tasks(tasks)
     workflow._bind()
     wfr = workflow._create_workflow_run()

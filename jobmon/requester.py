@@ -52,7 +52,7 @@ class Requester(object):
         self.url = url
 
     @retry(
-        wait=wait_exponential(max=10),
+        wait=wait_exponential(max=2),
         stop=stop_after_delay(120),
         retry=retry_if_result(is_5XX),
         retry_error_callback=raise_if_exceed_retry)

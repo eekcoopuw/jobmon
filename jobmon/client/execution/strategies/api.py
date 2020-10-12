@@ -3,7 +3,7 @@ from typing import Optional
 from jobmon.client.execution.strategies.base import Executor, TaskInstanceExecutorInfo
 
 
-def get_scheduling_executor_by_name(self, executor_class: Optional[str] = None, *args,
+def get_scheduling_executor_by_name(executor_class: Optional[str] = None, *args,
                                     **kwargs) -> Executor:
     """Return an instance of the scheduling executor
 
@@ -28,7 +28,7 @@ def get_scheduling_executor_by_name(self, executor_class: Optional[str] = None, 
     return SchedulingExecutor(*args, **kwargs)
 
 
-def get_task_instance_executor_by_name(self, executor_class: str) -> TaskInstanceExecutorInfo:
+def get_task_instance_executor_by_name(executor_class: str) -> TaskInstanceExecutorInfo:
     """Return an instance of the task instance executor
 
     Args:

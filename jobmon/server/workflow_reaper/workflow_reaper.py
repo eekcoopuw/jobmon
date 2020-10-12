@@ -14,10 +14,7 @@ logger = logging.getLogger(__file__)
 
 class WorkflowReaper(object):
 
-    def __init__(self,
-                 poll_interval_minutes: int,
-                 loss_threshold: int,
-                 requester_url: str,
+    def __init__(self, poll_interval_minutes: int, loss_threshold: int, requester_url: str,
                  wf_notification_sink=None):
 
         logger.info(
@@ -67,7 +64,7 @@ class WorkflowReaper(object):
                                   f'code 200. Response content: {result}')
         workflow_runs = []
         for wfr in result["workflow_runs"]:
-            workflow_runs.append(ReaperWorkflowRun.from_wire(wfr, self._requester))
+            workflow_runs.append(ReaperWorkflowRun.from_wire(wfr, self._requester.url))
 
         if workflow_runs:
             logger.info(f"Found workflow runs: {workflow_runs}")

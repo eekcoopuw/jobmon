@@ -2,8 +2,6 @@ import pytest
 import time
 
 from jobmon.client import ClientLogging as logging
-from jobmon.client.execution.scheduler.execution_config import \
-    ExecutionConfig
 from jobmon.models.task_status import TaskStatus
 from jobmon.models.task_instance import TaskInstance
 
@@ -204,15 +202,12 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     assert wfr.swarm_tasks[t3.task_id].status == \
         TaskStatus.QUEUED_FOR_INSTANTIATION
 
-    # schedule the second task
-    # swarm_task = wfr.swarm_tasks[t3.task_id]
-    # wfr._adjust_resources_and_queue(swarm_task)
+    # schedule the third task
     scheduler.schedule()
 
-    # confirm that the dag finishes appropiately
-    wfr._execute(seconds_until_timeout=1)
-
-    assert wfr.status == WorkflowRunStatus.DONE
+    # confirm that the final task finishes appropiately
+    completed, _ = wfr._block_until_any_done_or_error(timeout=1)
+    assert list(completed)[0].task_id == t3.task_id
 
 
 def test_fail_fast(client_env):
