@@ -89,3 +89,8 @@ class ExecutorCLI(CLI):
         task_status_parser.add_argument("-n", "--json", dest="json", action="store_true")
         ParserDefaults.web_service_fqdn(task_status_parser)
         ParserDefaults.web_service_port(task_status_parser)
+
+
+def main():
+    cli = CLI()
+    cli.main()
