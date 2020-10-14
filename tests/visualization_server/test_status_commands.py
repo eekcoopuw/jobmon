@@ -2,7 +2,7 @@ import getpass
 
 import pytest
 
-from jobmon.cli import CLI
+from jobmon.client.cli import ClientCLI as CLI
 
 
 class MockSchedulerProc:

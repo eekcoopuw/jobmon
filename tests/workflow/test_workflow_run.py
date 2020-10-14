@@ -76,6 +76,7 @@ def test_sync(client_env):
     assert len(wfr.all_error) > 0
 
 
+@pytest.mark.skip(reason="need executor plugin interface")
 def test_wedged_dag(monkeypatch, client_env, db_cfg):
     """This test runs a 3 task dag where one of the tasks updates it status
     without updating its status date. This would cause the normal pathway of
