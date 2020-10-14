@@ -1,7 +1,7 @@
 import pytest
 from threading import Thread
 
-from jobmon.client import shared_requester as requester
+from jobmon.requester import Requester
 
 
 # The testing threads that sending requests simultaneously
@@ -40,7 +40,9 @@ def test_1_multi_thread(db_cfg, client_env):
 """
 
 # the function to create node using /nodes
-def create_node_2(starter=0):
+def create_node_2(requester_url, starter=0):
+    requester = Requester(requester_url)
+
     nodes = []
     for i in range(0, TOTAL_NODES):
         node = {'task_template_version_id': 2, 'node_args_hash': i+starter, 'node_args': {}}
@@ -54,13 +56,13 @@ def create_node_2(starter=0):
 
 
 def test_2_single_thread(db_cfg, client_env):
-    create_node_2()
+    create_node_2(client_env)
 
 
 def test_2_multi_thread(db_cfg, client_env):
     threads = []
     for i in range(0, TOTAL_THREADS):
-        t = Thread(target=create_node_2, args=[5000000,])
+        t = Thread(target=create_node_2, args=[client_env, 5000000])
         threads.append(t)
         t.start()
 
