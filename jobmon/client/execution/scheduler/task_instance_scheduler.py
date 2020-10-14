@@ -12,7 +12,7 @@ from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
-from jobmon.requester import Requester
+from jobmon.requester import Requester, http_request_ok
 from jobmon.constants import WorkflowRunStatus, QsubAttribute
 from jobmon.exceptions import InvalidResponse, WorkflowRunStateError, ResumeSet
 
@@ -213,7 +213,7 @@ class TaskInstanceScheduler:
                 app_route=app_route,
                 message={'executor_ids': errored_jobs},
                 request_type='post')
-            if return_code != StatusCodes.OK:
+            if http_request_ok(return_code) is False:
                 raise InvalidResponse(
                     f'Unexpected status code {return_code} from POST '
                     f'request through route {app_route}. Expected '
@@ -238,7 +238,7 @@ class TaskInstanceScheduler:
                 message={'executor_ids': actual,
                          'next_report_increment': next_report_increment},
                 request_type='post')
-            if return_code != StatusCodes.OK:
+            if http_request_ok(return_code) is False:
                 raise InvalidResponse(
                     f'Unexpected status code {return_code} from POST '
                     f'request through route {app_route}. Expected '
@@ -251,7 +251,7 @@ class TaskInstanceScheduler:
             app_route=app_route,
             message={'next_report_increment': next_report_increment},
             request_type='post')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -277,7 +277,7 @@ class TaskInstanceScheduler:
             app_route=app_route,
             message={},
             request_type='get')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -351,7 +351,7 @@ class TaskInstanceScheduler:
             app_route=app_route,
             message={},
             request_type='get')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -374,7 +374,7 @@ class TaskInstanceScheduler:
 
         # eat bad responses here because we are outside of the exception
         # catching context
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             to_terminate: List = []
         else:
             to_terminate = [ExecutorTaskInstance.from_wire(ti, self.executor,

@@ -25,7 +25,7 @@ dev_requires = [
 
 # pip install -e .[docs]
 docs_requires = [
-    'spinx',
+    'sphinx',
     'sphinx-autodoc-typehints',
     'sphinx_rtd_theme',
 ]

@@ -109,7 +109,7 @@ def build(session: Session) -> None:
     session.run("python", "setup.py", "sdist")
 
 
-@nox.session(python="3.8", venv_backend="conda")
+@nox.session(python="3.7", venv_backend="conda")
 def release(session: Session) -> None:
     """Release the distribution."""
     # check if overwrite is an arg
@@ -125,3 +125,5 @@ def release(session: Session) -> None:
         "https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple",
         "--trusted-host",
         "artifactory.ihme.washington.edu")
+    session.install(".")
+    session.run(*cmd)

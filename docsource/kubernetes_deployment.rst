@@ -26,8 +26,29 @@ can read the parameters from the Jenkinsfile.
 Updating an existing deployment
 -------------------------------
 
-1. Build and publish a docker container to Artifactory using build_docker.Jenkinsfile
-2. Run jenkins job that targets k8s/deploy.Jenkinsfile, targeting a the existing namespace
+1. Build and publish a docker container to Artifactory using `Jenkins <https://jenkins.scicomp.ihme.washington.edu/job/scicomp/job/jobmon-deploy-k8s/>`_.
+2. Clear out the existing routes from Traefik.
+3. Run jenkins job that targets k8s/deploy.Jenkinsfile, targeting the existing namespace
+
+
+Deleting  Ingressroutes from Traefik
+--------------------------------------------
+If k8s is updated Traefik keeps the old routes and adds the new routes.
+If we have changed routes then the old ones will still be probed by Traefik
+and Traefik's logs will be flooded with errors.
+Use `kubectl` to delete old routes, e.g.:
+
+::
+
+    bash$ kubectl -n jobmon-dev get ingressroutes
+    NAME                                 AGE
+    grafana-routes                       100d
+    jobmon-client                        50d
+    jobmon-query-service-routes          100d
+    jobmon-scheduler                     50d
+    jobmon-state-manager-routes          100d
+    bash$ kubectl -n jobmon-dev delete ingressroutes/jobmon-query-service-routes
+    ingressroute.traefik.containo.us "jobmon-query-service-routes" deleted
 
 
 Jenkins Jobs

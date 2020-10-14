@@ -14,7 +14,7 @@ from jobmon.client.execution.scheduler.task_instance_scheduler import \
     TaskInstanceScheduler, ExceptionWrapper
 from jobmon.client.execution.strategies.api import get_scheduling_executor_by_name
 from jobmon.client.execution.strategies.base import Executor
-from jobmon.requester import Requester
+from jobmon.requester import Requester, http_request_ok
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
@@ -62,7 +62,8 @@ class Workflow(object):
     def __init__(self, tool_version_id: int, workflow_args: str = "",
                  name: str = "", description: str = "",
                  workflow_attributes: Union[List, dict] = None,
-                 requester_url: Optional[str] = None):
+                 requester_url: Optional[str] = None,
+                 chunk_size: int = 50000):
         """
         Args:
             tool_version_id: id of the associated tool
@@ -81,6 +82,7 @@ class Workflow(object):
         # hash to task object mapping. ensure only 1
         self.tasks: Dict[int, Task] = {}
         self._swarm_tasks: dict = {}
+        self._chunk_size: int = chunk_size
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -160,7 +162,7 @@ class Workflow(object):
             message={"workflow_attributes": workflow_attributes},
             request_type="put"
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected code '
@@ -309,6 +311,53 @@ class Workflow(object):
                     pass
                 self._scheduler_proc.terminate()
 
+    def _get_chunk(self, total_nodes: int, chunk_number: int):
+        # This function is created for unit testing
+        if (chunk_number - 1) * self._chunk_size >= total_nodes:
+            return None
+        return((chunk_number - 1) * self._chunk_size,
+               min(total_nodes - 1, chunk_number * self._chunk_size - 1))
+
+    def _bulk_bind_nodes(self):
+        nodes_to_send = []
+        nodes_in_dag = list(self._dag.nodes)
+        nodes_received = {}
+        total_nodes = len(self._dag.nodes)
+        chunk_number = 1
+        chunk_boarder = self._get_chunk(total_nodes, chunk_number)
+        while chunk_boarder:
+            # do something to bind
+            for i in range(chunk_boarder[0], chunk_boarder[1] + 1):
+                node = nodes_in_dag[i]
+                n = {"task_template_version_id": node.task_template_version_id,
+                     "node_args_hash": node.node_args_hash,
+                     "node_args": node.node_args}
+                nodes_to_send.append(n)
+            rc, response = self.requester.send_request(
+                app_route='/client/nodes',
+                message={'nodes': nodes_to_send},
+                request_type='post'
+            )
+            if http_request_ok(rc) is False:
+                raise InvalidResponse(
+                    f'Unexpected status code {rc} from GET '
+                    f'request through route /client/workflow. Expected code '
+                    f'200. Response content: {response}')
+            else:
+                nodes_received.update(response['nodes'])
+            chunk_number += 1
+            chunk_boarder = self._get_chunk(total_nodes, chunk_number)
+        for n in nodes_in_dag:
+            k = f"{n.node_args_hash}:{n.task_template_version_id}"
+            if k in nodes_received.keys():
+                n._node_id = int(nodes_received[k])
+            else:
+                raise InvalidResponse(
+                    f"Fail to find node_id in HTTP response for node_args_hash {n.node_args_hash} "
+                    f"and task_template_version_id {n.task_template_version_id} "
+                    f"HTTP Response:\n {response}"
+                    )
+
     def _bind(self, resume: bool = ResumeStatus.DONT_RESUME):
         """Bind objects to the database if they haven't already been"""
         # short circuit if already bound
@@ -320,8 +369,9 @@ class Workflow(object):
         self._matching_wf_args_diff_hash()
 
         # bind structural elements to db
-        for node in self._dag.nodes:
-            node.bind()
+        self._bulk_bind_nodes()
+
+        # bind dag
         self._dag.bind()
 
         # bind workflow
@@ -383,7 +433,7 @@ class Workflow(object):
             },
             request_type='get'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from GET '
                 f'request through route /client/workflow. Expected code '
@@ -406,7 +456,7 @@ class Workflow(object):
             },
             request_type='post'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -421,27 +471,33 @@ class Workflow(object):
         # command(4), max_attempts(5)], reset_if_running(6), task_args(7), task_attributes(8)}
         # flat the data structure so that the server won't depend on the client
         tasks = {}
-        for k in self.tasks.keys():
-            tasks[k] = [
-                self.workflow_id, self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
-                self.tasks[k].name, self.tasks[k].command, self.tasks[k].max_attempts,
-                reset_if_running, self.tasks[k].task_args, self.tasks[k].task_attributes
-            ]
-        parameters = {"tasks": tasks}
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message=parameters,
-            request_type='put'
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from PUT '
-                f'request through route {app_route}. Expected code '
-                f'200. Response content: {response}')
-        return_tasks = response["tasks"]
-        for k in return_tasks.keys():
-            self.tasks[int(k)].task_id = return_tasks[k][0]
-            self.tasks[int(k)].initial_status = return_tasks[k][1]
+        total_tasks = len(self.tasks)
+        chunk_number = 1
+        chunk_boarder = self._get_chunk(total_tasks, chunk_number)
+        list_task_key = list(self.tasks.keys())
+        while chunk_boarder:
+            for i in range(chunk_boarder[0], chunk_boarder[1] + 1):
+                k = list_task_key[i]
+                tasks[k] = [self.workflow_id, self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
+                            self.tasks[k].name, self.tasks[k].command, self.tasks[k].max_attempts,
+                            reset_if_running, self.tasks[k].task_args, self.tasks[k].task_attributes]
+            parameters = {"tasks": tasks}
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message=parameters,
+                request_type='put'
+            )
+            if http_request_ok(return_code) is False:
+                raise InvalidResponse(
+                    f'Unexpected status code {return_code} from PUT '
+                    f'request through route {app_route}. Expected code '
+                    f'200. Response content: {response}')
+            return_tasks = response["tasks"]
+            for k in return_tasks.keys():
+                self.tasks[int(k)].task_id = return_tasks[k][0]
+                self.tasks[int(k)].initial_status = return_tasks[k][1]
+            chunk_number += 1
+            chunk_boarder = self._get_chunk(total_tasks, chunk_number)
 
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True) -> WorkflowRun:

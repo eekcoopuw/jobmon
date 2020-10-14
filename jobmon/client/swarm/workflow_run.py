@@ -9,7 +9,7 @@ from typing import Dict, Set, List, Tuple, Optional
 from jobmon import __version__
 from jobmon.client import ClientLogging as logging
 from jobmon.client.client_config import ClientConfig
-from jobmon.requester import Requester
+from jobmon.requester import Requester, http_request_ok
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable, SchedulerNotAlive
@@ -71,7 +71,7 @@ class WorkflowRun(object):
                      'resume': resume,
                      'reset_running_jobs': reset_running_jobs},
             request_type='post')
-        if rc != StatusCodes.OK:
+        if http_request_ok(rc) is False:
             raise InvalidResponse(f"Invalid Response to {app_route}: {rc}")
 
         # check if we can continue
@@ -101,7 +101,7 @@ class WorkflowRun(object):
                     app_route=app_route,
                     message={},
                     request_type='put')
-                if return_code != StatusCodes.OK:
+                if http_request_ok(return_code) is False:
                     raise InvalidResponse(
                         f'Unexpected status code {return_code} from PUT '
                         f'request through route {app_route}. Expected '
@@ -152,7 +152,7 @@ class WorkflowRun(object):
             app_route=app_route,
             message={'status': status},
             request_type='put')
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -185,7 +185,7 @@ class WorkflowRun(object):
             message={},
             request_type='put'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -203,7 +203,7 @@ class WorkflowRun(object):
                 app_route=app_route,
                 message={},
                 request_type='get')
-            if return_code != StatusCodes.OK:
+            if http_request_ok(return_code) is False:
                 raise InvalidResponse(
                     f'Unexpected status code {return_code} from POST '
                     f'request through route {app_route}. Expected '
@@ -240,7 +240,7 @@ class WorkflowRun(object):
             message={},
             request_type='get')
 
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
@@ -449,7 +449,7 @@ class WorkflowRun(object):
                      'swarm_tasks_tuples': swarm_tasks_tuples},
             request_type='post'
         )
-        if return_code != StatusCodes.OK:
+        if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '

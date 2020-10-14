@@ -6,7 +6,7 @@ from typing import Callable, Set, Dict, Optional, List
 from jobmon.client import ClientLogging as logging
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.requester import Requester
+from jobmon.requester import Requester, http_request_ok
 from jobmon.constants import ExecutorParameterSetType, TaskStatus
 from jobmon.exceptions import InvalidResponse, CallableReturnedInvalidObject
 from jobmon.serializers import SerializeSwarmTask
@@ -95,7 +95,7 @@ class SwarmTask(object):
             app_route=f'/swarm/task/{self.task_id}/queue',
             message={},
             request_type='post')
-        if rc != StatusCodes.OK:
+        if http_request_ok(rc) is False:
             raise InvalidResponse(f"{rc}: Could not queue task")
         self.status = TaskStatus.QUEUED_FOR_INSTANTIATION
         return rc

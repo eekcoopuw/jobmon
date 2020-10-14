@@ -26,6 +26,13 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
     monkeypatch.setattr(ExecutorTaskInstance, "dummy_executor_task_instance_run_and_done",
                         MockExecutorTaskInstance.dummy_executor_task_instance_run_and_done)
 
+    class MockExecutorTaskInstance(ExecutorTaskInstance):
+        def dummy_executor_task_instance_run_and_done(self):
+            # do nothing so job gets marked as Batch then Unknown
+            pass
+    monkeypatch.setattr(ExecutorTaskInstance, "dummy_executor_task_instance_run_and_done",
+                        MockExecutorTaskInstance.dummy_executor_task_instance_run_and_done)
+
     # Queue a job
     task = BashTask(command="ls", name="dummyfbb", max_attempts=1,
                     executor_class="DummyExecutor")
