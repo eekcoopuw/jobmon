@@ -135,7 +135,7 @@ class ParserDefaults:
             '--slack_api_url',
             type=str,
             help='URL to post notifications',
-            default='',
+            default='https://slack.com/apis/chat.postMessage',
             env_var='SLACK_API_URL'
         )
         return parser
