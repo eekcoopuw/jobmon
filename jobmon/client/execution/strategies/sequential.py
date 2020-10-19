@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import os
-from typing import Optional, List, Tuple, Dict
+from typing import Optional, List, Tuple
 
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import (Executor,
@@ -60,8 +60,7 @@ class SequentialExecutor(Executor):
         else:
             return []
 
-    def execute(self, command: str, name: str,
-                executor_parameters: ExecutorParameters) -> int:
+    def execute(self, command: str, name: str, executor_parameters: ExecutorParameters) -> int:
         logger.debug(command)
 
         # add an executor id to the environment

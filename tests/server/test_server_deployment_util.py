@@ -4,9 +4,10 @@ from jobmon.server.deployment.slack_functions import validate_slack_token
 
 
 def test_validate_slack_token():
-    r = validate_slack_token("12345")
+    r = validate_slack_token("12345", "https://slack.com/api/chat.postMessage")
     assert r is False
-    r = validate_slack_token("xoxb-349025779811-pPm1nr1BMyd28dciIc0FILCW")
+    r = validate_slack_token("xoxb-349025779811-pPm1nr1BMyd28dciIc0FILCW",
+                             "https://slack.com/api/chat.postMessage")
     assert r is True
 
 

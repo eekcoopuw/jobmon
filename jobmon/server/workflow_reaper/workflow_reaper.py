@@ -5,34 +5,27 @@ from time import sleep
 from typing import List
 
 from jobmon import __version__
-from jobmon.client import shared_requester
-from jobmon.requests.requester import Requester, http_request_ok
+from jobmon.requester import Requester, http_request_ok
 from jobmon.exceptions import InvalidResponse
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
-from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 
 logger = logging.getLogger(__file__)
 
 
 class WorkflowReaper(object):
-    def __init__(self,
-                 poll_interval_minutes: int = None,
-                 loss_threshold: int = None,
-                 wf_notification_sink=None,
-                 requester: Requester = shared_requester):
 
-        config = WorkflowReaperConfig.from_defaults()
+    def __init__(self, poll_interval_minutes: int, loss_threshold: int, requester_url: str,
+                 wf_notification_sink=None):
 
-        logger.info(f"WorkflowReaper initializing with: {config}")
+        logger.info(
+            f"WorkflowReaper initializing with: poll_interval_minutes={poll_interval_minutes},"
+            f"loss_threshold={loss_threshold}, requester_url={requester_url}"
+        )
 
         # Set poll interval and loss threshold to config ones if nothing passed in
-        self._poll_interval_minutes = (
-            config.poll_interval_minutes if poll_interval_minutes is None
-            else poll_interval_minutes)
-        self._loss_threshold = (
-            config.loss_threshold if loss_threshold is None
-            else loss_threshold)
-        self._requester = requester
+        self._poll_interval_minutes = poll_interval_minutes
+        self._loss_threshold = loss_threshold
+        self._requester = Requester(requester_url)
         self._wf_notification_sink = wf_notification_sink
 
         if self._poll_interval_minutes < self._loss_threshold:
@@ -71,7 +64,7 @@ class WorkflowReaper(object):
                                   f'code 200. Response content: {result}')
         workflow_runs = []
         for wfr in result["workflow_runs"]:
-            workflow_runs.append(ReaperWorkflowRun.from_wire(wfr, self._requester))
+            workflow_runs.append(ReaperWorkflowRun.from_wire(wfr, self._requester.url))
 
         if workflow_runs:
             logger.info(f"Found workflow runs: {workflow_runs}")

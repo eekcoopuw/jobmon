@@ -77,9 +77,13 @@ class Workflow(DB.Model):
         # workflow run was running and then failed with an error
         (WorkflowStatus.RUNNING, WorkflowStatus.FAILED),
 
-        # workflow run was set to a resume state and successfully shut down.
+        # workflow run was set to a cold resume state and successfully shut down.
         # moved to failed
-        (WorkflowStatus.SUSPENDED, WorkflowStatus.FAILED)
+        (WorkflowStatus.SUSPENDED, WorkflowStatus.FAILED),
+
+        # workflow run was set to a hot resume state and successfully shut down.
+        # moved to registered
+        (WorkflowStatus.SUSPENDED, WorkflowStatus.REGISTERED)
         ]
 
     def transition(self, new_state):

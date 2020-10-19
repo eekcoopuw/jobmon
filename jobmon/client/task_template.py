@@ -3,11 +3,11 @@ from __future__ import annotations
 from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
+from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
-from jobmon.requests.requester import Requester
+from jobmon.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.exceptions import InvalidResponse
 
@@ -18,18 +18,20 @@ logger = logging.getLogger(__name__)
 class TaskTemplate:
 
     def __init__(self, tool_version_id: int, template_name: str,
-                 requester: Requester = shared_requester) -> None:
+                 requester_url: Optional[str] = None) -> None:
         """Groups tasks of a type, by declaring the concrete arguments that instances may vary
         over either from workflow to workflow or between nodes in the stage of a dag.
 
         Args:
             tool_version_id: the version of the tool this task template is associated with.
             template_name: the name of this task template.
-            requester: requester for communicating with central services
+            requester_url (str): url to communicate with the flask services.
         """
 
         # add requester for url
-        self.requester = requester
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
 
         # task template keys
         self.tool_version_id = tool_version_id
@@ -84,7 +86,7 @@ class TaskTemplate:
             node_args=node_args,
             task_args=task_args,
             op_args=op_args,
-            requester=self.requester
+            requester_url=self.requester.url
         )
         task_template_version.bind()
         self._task_template_version = task_template_version

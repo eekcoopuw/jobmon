@@ -5,7 +5,7 @@ import getpass
 import sys
 import platform
 
-from jobmon import config
+from jobmon import __version__
 
 
 class _ClientLoggingFilter(logging.Filter):
@@ -36,11 +36,12 @@ class ClientLogging():
     DEBUG: int = logging.DEBUG
     NOTSET: int = logging.NOTSET
 
-    _format: str = '%(tag)s: %(asctime)s %(username)s [%(hostname)s]'  + str(config.jobmon_version) + \
+    _format: str = '%(tag)s: %(asctime)s %(username)s [%(hostname)s]'  + str(__version__) + \
                    '[%(name)-12s] %(levelname)-8s %(threadName)s: %(message)s'
     _logLevel: int = WARNING
     _syslogLevel: int = INFO
-    _syslogAttached: bool = config.use_rsyslog
+    # _syslogAttached: bool = config.use_rsyslog
+    _syslogAttached: bool = False
     _handlerAttached: bool = False
 
     def remove_log_handler(logger):
@@ -60,17 +61,17 @@ class ClientLogging():
         h.setLevel(ClientLogging._logLevel)
         h.setFormatter(formatter)
         logger.addHandler(h)
-        if ClientLogging._syslogAttached:
-            p = socket.SOCK_DGRAM
-            if config.rsyslog_protocol == "TCP":
-                p = socket.SOCK_STREAM
-            hr = SysLogHandler(
-                address=(config.rsyslog_host, config.rsyslog_port),
-                socktype=p)
-            hr.addFilter(_ClientLoggingFilter())
-            hr.setFormatter(formatter)
-            hr.setLevel(ClientLogging._syslogLevel)
-            logger.addHandler(hr)
+        # if ClientLogging._syslogAttached:
+        #     p = socket.SOCK_DGRAM
+        #     if config.rsyslog_protocol == "TCP":
+        #         p = socket.SOCK_STREAM
+        #     hr = SysLogHandler(
+        #         address=(config.rsyslog_host, config.rsyslog_port),
+        #         socktype=p)
+        #     hr.addFilter(_ClientLoggingFilter())
+        #     hr.setFormatter(formatter)
+        #     hr.setLevel(ClientLogging._syslogLevel)
+        #     logger.addHandler(hr)
 
     @staticmethod
     def getLogger(name: str = __file__) -> logging.Logger:

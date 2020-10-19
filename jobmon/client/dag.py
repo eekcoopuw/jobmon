@@ -3,32 +3,39 @@ import hashlib
 from http import HTTPStatus as StatusCodes
 from typing import Optional, Set, Dict, List
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
+from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
-from jobmon.requests.requester import Requester
+from jobmon.requester import Requester
 
 
 logger = logging.getLogger(__name__)
 
 
 class Dag(object):
-    """The DAG (Directed Acyclic Graph) captures the tasks (nodes) as they are
-    related to each other in their dependency structure. The Dag is traversed in
-    the order of node dependencies so a workflow run is a single instance of
-    traversing through a dag. This object stores the nodes and communicates
-    with the server with regard to itself."""
 
-    def __init__(self, requester: Requester = shared_requester):
+    def __init__(self, requester_url: Optional[str] = None):
+        """The DAG (Directed Acyclic Graph) captures the tasks (nodes) as they are
+        related to each other in their dependency structure. The Dag is traversed in
+        the order of node dependencies so a workflow run is a single instance of
+        traversing through a dag. This object stores the nodes and communicates
+        with the server with regard to itself.
+
+        Args:
+            requester_url (str): url to communicate with the flask services.
+        """
+
         self.nodes: Set[Node] = set()
-        self.requester = requester
+
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
 
     @property
     def dag_id(self) -> int:
         """Database unique ID of this DAG"""
         if not hasattr(self, "_dag_id"):
-            raise AttributeError(
-                "_dag_id cannot be accessed before dag is bound")
+            raise AttributeError("_dag_id cannot be accessed before dag is bound")
         return self._dag_id
 
     def add_node(self, node: Node) -> None:
@@ -67,7 +74,7 @@ class Dag(object):
         dag_hash = hash(self)
         logger.info(f'Querying for dag with hash: {dag_hash}')
         return_code, response = self.requester.send_request(
-            app_route=f'/client/dag',
+            app_route='/client/dag',
             message={"dag_hash": dag_hash},
             request_type='get'
         )

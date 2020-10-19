@@ -353,7 +353,7 @@ def get_config_from_root(root):
     cfg.style = get(parser, "style") or ""
     cfg.versionfile_source = get(parser, "versionfile_source")
     cfg.versionfile_build = get(parser, "versionfile_build")
-    cfg.tag_prefix = get_tag_prefix()
+    cfg.tag_prefix = get(parser, "tag_prefix")
     if cfg.tag_prefix in ("''", '""'):
         cfg.tag_prefix = ""
     cfg.parentdir_prefix = get(parser, "parentdir_prefix")
@@ -1481,10 +1481,7 @@ def get_versions(verbose=False):
 
 def get_version():
     """Get the short version string for this project."""
-    cfg = configparser.ConfigParser()
-    cfg.read(os.path.abspath(os.path.dirname(__file__) + "/jobmon/jobmon.cfg"))
-    bv = cfg["basic values"]
-    return bv["jobmon_version"] if bv["test_mode"] == "True" else get_versions(True)["version"]
+    return get_versions()["version"]
 
 
 def get_cmdclass():
@@ -1700,11 +1697,6 @@ __version__ = get_versions()['version']
 del get_versions
 """
 
-def get_tag_prefix():
-    # add a hack to get prefix
-    jobmon_cfg = configparser.ConfigParser()
-    jobmon_cfg.read(os.path.join(get_root(), "jobmon/jobmon.cfg"))
-    return jobmon_cfg["basic values"]["tag_prefix"]
 
 def do_setup():
     """Main VCS-independent setup function for installing Versioneer."""
@@ -1726,7 +1718,7 @@ def do_setup():
         LONG = LONG_VERSION_PY[cfg.VCS]
         f.write(LONG % {"DOLLAR": "$",
                         "STYLE": cfg.style,
-                        "TAG_PREFIX": get_tag_prefix(),
+                        "TAG_PREFIX": cfg.tag_prefix,
                         "PARENTDIR_PREFIX": cfg.parentdir_prefix,
                         "VERSIONFILE_SOURCE": cfg.versionfile_source,
                         })

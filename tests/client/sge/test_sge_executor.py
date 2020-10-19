@@ -134,6 +134,7 @@ class MockSchedulerProc:
 
 
 @pytest.mark.systemtest
+@pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
 def test_instantiation(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
                                                                        Workflow)
@@ -146,9 +147,8 @@ def test_instantiation(db_cfg, client_env):
     workflow.add_tasks([t1])
     workflow._bind()
     wfr = workflow._create_workflow_run()
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id,
-                                      workflow._executor)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)
@@ -171,6 +171,7 @@ def test_instantiation(db_cfg, client_env):
 
 @pytest.mark.smoketest
 @pytest.mark.systemtest
+@pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
 def test_workflow(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
                                                                        Workflow)
@@ -246,6 +247,7 @@ def test_workflow_timeout(db_cfg, client_env):
 
 @pytest.mark.smoketest
 @pytest.mark.systemtest
+@pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
 def test_workflow_137(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import \
         _TestUnknownWorkflow as Workflow

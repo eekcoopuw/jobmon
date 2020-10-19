@@ -1,15 +1,13 @@
 import logging
 import requests
-
-from jobmon import config
-
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 
 class SlackNotifier(object):
 
-    def __init__(self, token, default_channel):
+    def __init__(self, slack_api_url: str, token: str, default_channel: str):
         """Container for connection with Slack
         Args:
             token (str): token gotten from your app in api.slack.com
@@ -17,11 +15,11 @@ class SlackNotifier(object):
         """
         self._token = token
         self.default_channel = default_channel
-        self.slack_api_url = config.slack_api_url
+        self.slack_api_url = slack_api_url
 
-    def send(self, msg, channel=None):
+    def send(self, msg: str, channel: Optional[str] = None):
         """Send message to Slack using requests.post"""
-        if not channel:
+        if channel is not None:
             channel = self.default_channel
         resp = requests.post(
             self.slack_api_url,

@@ -15,7 +15,8 @@ def task_template(db_cfg, client_env):
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
-        op_args=[])
+        op_args=[]
+    )
     return tt
 
 
@@ -97,7 +98,7 @@ def test_bash_task_bind(db_cfg, client_env):
                                 executor_class="SequentialExecutor")
 
     task1 = BashTask(command="echo 'Hello Jobmon'", max_attempts=1,
-                 executor_class="DummyExecutor")
+                     executor_class="DummyExecutor")
     workflow1.add_tasks([task1])
     workflow1._bind()
     workflow1._create_workflow_run()
@@ -147,7 +148,7 @@ def test_python_task_args(db_cfg, client_env):
                                 executor_class="SequentialExecutor")
 
     task1 = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
-                   num_cores=1, m_mem_free='2G', max_attempts=1)
+                       num_cores=1, m_mem_free='2G', max_attempts=1)
     workflow1.add_tasks([task1])
     workflow1._bind()
     workflow1._create_workflow_run()
@@ -219,5 +220,5 @@ def test_task_attribute(db_cfg, client_env):
 
         assert values == expected_vals
         assert names == expected_names
-        assert ids[2] == ids[3] # will fail if adding non-unique task_attribute_types
+        assert ids[2] == ids[3]  # will fail if adding non-unique task_attribute_types
         assert ids[4] == ids[5]

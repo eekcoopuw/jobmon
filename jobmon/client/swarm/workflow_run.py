@@ -4,16 +4,15 @@ from http import HTTPStatus as StatusCodes
 from multiprocessing import Process
 import time
 from datetime import datetime
-from typing import Dict, Set, List, Tuple
+from typing import Dict, Set, List, Tuple, Optional
 
 from jobmon import __version__
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.requests.requester import Requester, http_request_ok
+from jobmon.client.client_config import ClientConfig
+from jobmon.requester import Requester, http_request_ok
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunStatus
-from jobmon.exceptions import (InvalidResponse, WorkflowNotResumable,
-                               SchedulerNotAlive)
+from jobmon.exceptions import InvalidResponse, WorkflowNotResumable, SchedulerNotAlive
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +45,14 @@ class WorkflowRun(object):
     def __init__(self, workflow_id: int, executor_class: str,
                  slack_channel: str = 'jobmon-alerts', resume: bool = False,
                  reset_running_jobs: bool = True, resume_timeout: int = 300,
-                 requester: Requester = shared_requester):
+                 requester_url: Optional[str] = None):
         self.workflow_id = workflow_id
         self.executor_class = executor_class
         self.user = getpass.getuser()
 
-        self.requester = requester
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
 
         # state tracking
         self.swarm_tasks: Dict[int, SwarmTask] = {}
@@ -90,11 +91,11 @@ class WorkflowRun(object):
                     "There are multple active workflow runs already for "
                     f"workflow_id ({self.workflow_id}). Found previous "
                     f"workflow_run_id/status: {prev_wfr_id}/{prev_status}")
-            prev_status = self._wait_till_resumable(prev_wfr_id,
-                                                    resume_timeout)
+            prev_status = self._wait_till_resumable(prev_wfr_id, resume_timeout)
 
             # workflow wasn't terminated
-            if prev_status != WorkflowRunStatus.TERMINATED:
+            hot_resume = prev_status == WorkflowRunStatus.HOT_RESUME and not reset_running_jobs
+            if prev_status != WorkflowRunStatus.TERMINATED and not hot_resume:
                 app_route = f'/client/workflow_run/{self.workflow_run_id}/delete'
                 return_code, response = self.requester.send_request(
                     app_route=app_route,
@@ -133,6 +134,7 @@ class WorkflowRun(object):
         if not hasattr(self, "_scheduler_proc"):
             return False
         else:
+            print(f"Scheduler proc is: {self._scheduler_proc.is_alive()}")
             return self._scheduler_proc.is_alive()
 
     @property
@@ -181,18 +183,21 @@ class WorkflowRun(object):
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
-            request_type='put')
+            request_type='put'
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-    def _wait_till_resumable(self, wfr_id: int, resume_timeout: int = 300
-                             ) -> str:
+    def _wait_till_resumable(self, wfr_id: int, resume_timeout: int = 300) -> str:
         wait_start = time.time()
         wait_for_resume = True
         while wait_for_resume:
+            logger.info(
+                f"Waiting for resume. Timeout in {resume_timeout - (time.time() - wait_start)}"
+            )
             app_route = f'/client/workflow_run/{wfr_id}/is_resumable'
             return_code, response = self.requester.send_request(
                 app_route=app_route,
@@ -203,6 +208,7 @@ class WorkflowRun(object):
                     f'Unexpected status code {return_code} from POST '
                     f'request through route {app_route}. Expected '
                     f'code 200. Response content: {response}')
+
             if response.get("workflow_run_status") is not None:
                 wait_for_resume = False
                 status = response["workflow_run_status"]
@@ -212,7 +218,8 @@ class WorkflowRun(object):
                         "workflow_run timed out waiting for previous "
                         "workflow_run to exit. Try again in a few minutes.")
                 else:
-                    time.sleep(resume_timeout / 10)
+                    sleep_time = float(resume_timeout) / 10.
+                    time.sleep(sleep_time)
 
         return status
 
@@ -299,10 +306,9 @@ class WorkflowRun(object):
                 if swarm_task.is_done:
                     raise RuntimeError("Invalid DAG. Encountered a DONE node")
                 else:
-                    logger.debug(
-                        f"Instantiating resources for newly ready  task and "
-                        f"changing it to the queued state. Task: {swarm_task},"
-                        f" id: {swarm_task.task_id}")
+                    logger.debug(f"Instantiating resources for newly ready  task and "
+                                 f"changing it to the queued state. Task: {swarm_task},"
+                                 f" id: {swarm_task.task_id}")
                     self._adjust_resources_and_queue(swarm_task)
 
             # TBD timeout?
@@ -343,14 +349,11 @@ class WorkflowRun(object):
                 logger.info("Failing after first failure, as requested")
             logger.info(f"DAG execute ended, failed {all_failed}")
             self.update_status(WorkflowRunStatus.ERROR)
-            self._completed_report = (num_new_completed,
-                                      len(previously_completed))
+            self._completed_report = (num_new_completed, len(previously_completed))
         else:
-            logger.info(f"DAG execute finished successfully, "
-                        f"{num_new_completed} jobs")
+            logger.info(f"DAG execute finished successfully, {num_new_completed} jobs")
             self.update_status(WorkflowRunStatus.DONE)
-            self._completed_report = (num_new_completed,
-                                      len(previously_completed))
+            self._completed_report = (num_new_completed, len(previously_completed))
 
     def _compute_fringe(self) -> List[SwarmTask]:
         current_fringe: List[SwarmTask] = []
@@ -370,21 +373,17 @@ class WorkflowRun(object):
         task_id = swarm_task.task_id
         # Create original and validated entries if no params are bound yet
         if not swarm_task.bound_parameters:
-            swarm_task.bind_executor_parameters(
-                ExecutorParameterSetType.ORIGINAL)
-            swarm_task.bind_executor_parameters(
-                ExecutorParameterSetType.VALIDATED)
+            swarm_task.bind_executor_parameters(ExecutorParameterSetType.ORIGINAL)
+            swarm_task.bind_executor_parameters(ExecutorParameterSetType.VALIDATED)
         else:
-            swarm_task.bind_executor_parameters(
-                ExecutorParameterSetType.ADJUSTED)
+            swarm_task.bind_executor_parameters(ExecutorParameterSetType.ADJUSTED)
 
         logger.debug(f"Queueing task id: {task_id}")
         swarm_task.queue_task()
 
     def _block_until_any_done_or_error(self, timeout: int = 36000,
                                        poll_interval: int = 10,
-                                       wedged_workflow_sync_interval: int = 600
-                                       ):
+                                       wedged_workflow_sync_interval: int = 600):
         """Block code execution until a task is done or errored"""
         time_since_last_update = 0
         time_since_last_wedge_sync = 0
@@ -439,8 +438,7 @@ class WorkflowRun(object):
             time_since_last_update += poll_interval
             time_since_last_wedge_sync += poll_interval
 
-    def _task_status_updates(self, swarm_tasks: List[SwarmTask] = []
-                             ) -> List[SwarmTask]:
+    def _task_status_updates(self, swarm_tasks: List[SwarmTask] = []) -> List[SwarmTask]:
         """update internal state of tasks to match the database. if no tasks
         are specified, get"""
         swarm_tasks_tuples = [t.to_wire() for t in swarm_tasks]
@@ -459,8 +457,7 @@ class WorkflowRun(object):
 
         self.last_sync = response['time']
         # status gets updated in from_wire
-        return [SwarmTask.from_wire(task, self.swarm_tasks)
-                for task in response['task_dcts']]
+        return [SwarmTask.from_wire(task, self.swarm_tasks) for task in response['task_dcts']]
 
     def _parse_adjusting_done_and_errors(self, swarm_tasks: List[SwarmTask]) \
             -> Tuple[Set[SwarmTask], Set[SwarmTask], Set[SwarmTask]]:
@@ -500,7 +497,7 @@ class WorkflowRun(object):
         for downstream in swarm_task.downstream_swarm_tasks:
             logger.debug(f"downstream {downstream}")
             downstream_done = (downstream.status == TaskStatus.DONE)
-            downstream.num_upstreams_done += 1            
+            downstream.num_upstreams_done += 1
             if (not downstream_done and
                     downstream.status == TaskStatus.REGISTERED):
                 if downstream.all_upstreams_done:

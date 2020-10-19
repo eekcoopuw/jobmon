@@ -40,7 +40,8 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_side_exception import log_and_raise, raise_user_error, InvalidUsage, ServerError
+from jobmon.server.web.server_side_exception import (log_and_raise, raise_user_error,
+                                                     InvalidUsage, ServerError)
 
 jobmon_client = Blueprint("jobmon_client", __name__)
 
@@ -119,7 +120,7 @@ def add_tool():
     data = request.get_json()
     try:
         name = data["name"]
-    except KeyError as e:
+    except KeyError:
         raise_user_error("Parameter name is missing", app.logger)
     except Exception as e:
         log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
@@ -133,7 +134,7 @@ def add_tool():
         resp = jsonify(tool=tool)
         resp.status_code = StatusCodes.OK
         return resp
-    except sqlalchemy.exc.IntegrityError as e:
+    except sqlalchemy.exc.IntegrityError:
         DB.session.rollback()
         tool = None
         resp = jsonify(tool=tool)
@@ -141,7 +142,6 @@ def add_tool():
         return resp
     except Exception as e:
         log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
-
 
 
 @jobmon_client.route('/tool/<tool_name>', methods=['GET'])
@@ -173,7 +173,6 @@ def get_tool(tool_name: str):
         raise_user_error("Tool {} does not exist in DB".format(tool_name), app.logger)
 
 
-
 @jobmon_client.route('/tool/<tool_id>/tool_versions', methods=['GET'])
 def get_tool_versions(tool_id: int):
     # check input variable
@@ -181,7 +180,7 @@ def get_tool_versions(tool_id: int):
         raise_user_error("Variable tool_id is None", app.logger)
     try:
         int(tool_id)
-    except Exception as e:
+    except Exception:
         raise_user_error("Variable tool_id must be int", app.logger)
 
     # get data from db
@@ -420,7 +419,6 @@ def add_task_template_version(task_template_id: int):
         log_and_raise(str(e), app.logger)
 
 
-
 @jobmon_client.route('/node', methods=['GET'])
 def get_node_id():
     """Get a node id: If a matching node isn't found, return None.
@@ -570,7 +568,6 @@ def add_nodes():
         log_and_raise(str(e), app.logger)
 
 
-
 @jobmon_client.route('/dag', methods=['GET'])
 def get_dag_id():
     """Get a dag id: If a matching dag isn't found, return None.
@@ -658,7 +655,6 @@ def add_dag():
         return resp
     except Exception as e:
         log_and_raise(str(e), app.logger)
-
 
 
 @jobmon_client.route('/task', methods=['GET'])

@@ -1,7 +1,6 @@
 import random
 
-from jobmon.client.execution.strategies.base import (Executor,
-                                                     ExecutorParameters)
+from jobmon.client.execution.strategies.base import Executor, ExecutorParameters
 from jobmon.client import ClientLogging as logging
 
 logger = logging.getLogger(__name__)

@@ -5,11 +5,12 @@ import hashlib
 from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union, Tuple
 
-from jobmon.client import shared_requester
+
 from jobmon.client import ClientLogging as logging
-from jobmon.client.node import Node
-from jobmon.requests.requester import Requester
+from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.client.node import Node
+from jobmon.requester import Requester
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 
@@ -61,7 +62,7 @@ class Task:
                  max_attempts: int = 3,
                  upstream_tasks: Optional[List['Task']] = None,
                  task_attributes: Union[List, dict] = None,
-                 requester: Requester = shared_requester):
+                 requester_url: Optional[str] = None):
         """
         Create a single executable object in the workflow, aka a Task. Relate it to a Task
         Template in order to classify it as a type of job within the context of your workflow.
@@ -82,19 +83,21 @@ class Task:
                 up. Default is 3.
             task_attributes (list or dict): dictionary of attributes and their values or list
                 of attributes that will be assigned later.
-            requester (Requester): requester to communicate with the flask services.
+            requester_url (str): url to communicate with the flask services.
 
         Raise:
             ValueError: If the hashed command is not allowed as an SGE job name; see
                 is_valid_job_name
 
         """
-        self.requester = requester
+        if requester_url is None:
+            requester_url = ClientConfig.from_defaults().url
+        self.requester = Requester(requester_url)
 
         # pre bind hash defining attributes
         self.task_args = task_args
         self.task_args_hash = self._hash_task_args()
-        self.node = Node(task_template_version_id, node_args, requester)
+        self.node = Node(task_template_version_id, node_args, requester_url)
 
         # pre bind mutable attributes
         self.command = command
@@ -113,7 +116,7 @@ class Task:
         self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
         self.downstream_tasks: set = set()
 
-        for task in upstream_tasks:
+        for task in self.upstream_tasks:
             self.add_upstream(task)
 
         self.task_attributes: dict = {}
@@ -133,8 +136,7 @@ class Task:
             is_valid, msg = executor_parameters.is_valid()
             if not is_valid:
                 logger.warning(msg)
-            static_func = (
-                lambda executor_parameters, *args: executor_parameters)
+            static_func = (lambda executor_parameters, *args: executor_parameters)
             self.executor_parameters = partial(static_func, executor_parameters)
         else:
             # if a callable was provided instead
@@ -279,7 +281,7 @@ class Task:
                 'task_attributes': self.task_attributes
             }
         tasks.append(task)
-        app_route = f'/client/task'
+        app_route = '/client/task'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'tasks': tasks},

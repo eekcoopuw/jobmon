@@ -5,14 +5,15 @@ import os
 import pwd
 import re
 import shutil
+import signal
 import uuid
 from time import sleep
 
 import pytest
 import requests
+from sqlalchemy import create_engine
 
 from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
-from sqlalchemy import create_engine
 
 logger = logging.getLogger(__name__)
 
@@ -69,20 +70,26 @@ def ephemera():
 def real_jsm_jqs(ephemera):
     """This starts the flask dev server in separate processes"""
     import multiprocessing as mp
-    from tests.run_services import run_web_service
-    # spawn ensures that no attributes are copied to the new process. Python
-    # starts from scratch
+    from jobmon.server.cli import main
+
+    # host info for connecting to web service
     jobmon_host = ephemera["DB_HOST"]
     jobmon_port = str(10_000 + os.getpid() % 30_000)
+
+    # cli string
+    argstr = (
+        'web_service test '
+        f'--db_host {ephemera["DB_HOST"]} '
+        f'--db_port {ephemera["DB_PORT"]} '
+        f'--db_user {ephemera["DB_USER"]} '
+        f'--db_pass {ephemera["DB_PASS"]} '
+        f'--db_name {ephemera["DB_NAME"]} '
+        f'--web_service_port {jobmon_port}')
+
+    # spawn ensures that no attributes are copied to the new process. Python
+    # starts from scratch
     ctx = mp.get_context('spawn')
-    p1 = ctx.Process(target=run_web_service, args=(
-        jobmon_port,
-        ephemera["DB_HOST"],
-        ephemera["DB_PORT"],
-        ephemera["DB_USER"],
-        ephemera["DB_PASS"],
-        ephemera["DB_NAME"],
-    ))
+    p1 = ctx.Process(target=main, args=(argstr,))
     p1.start()
 
     # Wait for it to be up
@@ -92,7 +99,7 @@ def real_jsm_jqs(ephemera):
     while not status == 200 and count < max_tries:
         try:
             count += 1
-            r = requests.get(f'http://{jobmon_host}:{jobmon_port}')
+            r = requests.get(f'http://{jobmon_host}:{jobmon_port}/health')
             status = r.status_code
         except Exception:
             # Connection failures land here
@@ -106,15 +113,11 @@ def real_jsm_jqs(ephemera):
             f"Out-of-process jsm and jqs services did not answer after "
             f"{count} attempts, probably failed to start.")
 
-    # These are tests, so set log level to  DEBUG
-    message = {}
-    requests.post((f'http://{jobmon_host}:{jobmon_port}/log_level/DEBUG'),
-                  json=message,
-                  headers={'Content-Type': 'application/json'})
-
     yield {"JOBMON_HOST": jobmon_host, "JOBMON_PORT": jobmon_port}
 
-    p1.terminate()
+    # interrupt and join for coverage
+    os.kill(p1.pid, signal.SIGINT)
+    p1.join()
 
 
 @pytest.fixture(scope='session')
@@ -122,39 +125,28 @@ def db_cfg(ephemera):
     """This run at the beginning of every function to tear down the db
     of the previous test and restart it fresh"""
     from jobmon.models import DB
-    from jobmon.server import create_app
-    from jobmon.server.server_config import ServerConfig
+    from jobmon.server.web.api import WebConfig, create_app
 
     # The create_app call sets up database connections
-    server_config = ServerConfig(
+    web_config = WebConfig(
         db_host=ephemera["DB_HOST"],
         db_port=ephemera["DB_PORT"],
         db_user=ephemera["DB_USER"],
         db_pass=ephemera["DB_PASS"],
-        db_name=ephemera["DB_NAME"],
-        slack_token=None,
-        wf_slack_channel=None,
-        node_slack_channel=None)
-    app = create_app(server_config)
+        db_name=ephemera["DB_NAME"])
+    app = create_app(web_config)
 
-    yield {'app': app, 'DB': DB, "server_config": server_config}
+    yield {'app': app, 'DB': DB, "server_config": web_config}
 
 
 @pytest.fixture(scope='function')
 def client_env(real_jsm_jqs, monkeypatch):
-    from jobmon.client import shared_requester
-    from jobmon.requests.connection_config import ConnectionConfig
-    from jobmon import config
+    from jobmon.client.client_config import ClientConfig
+    monkeypatch.setenv("WEB_SERVICE_FQDN", real_jsm_jqs["JOBMON_HOST"])
+    monkeypatch.setenv("WEB_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
 
-    monkeypatch.setenv("JOBMON_SERVER_SQDN", real_jsm_jqs["JOBMON_HOST"])
-    monkeypatch.setenv("JOBMON_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
-    config.jobmon_server_sqdn = real_jsm_jqs["JOBMON_HOST"]
-    config.jobmon_service_port = real_jsm_jqs["JOBMON_PORT"]
-    cc = ConnectionConfig(real_jsm_jqs["JOBMON_HOST"],
-                          real_jsm_jqs["JOBMON_PORT"])
-
-    # modify shared requester
-    monkeypatch.setattr(shared_requester, "url", cc.url)
+    cc = ClientConfig(real_jsm_jqs["JOBMON_HOST"],  real_jsm_jqs["JOBMON_PORT"])
+    yield cc.url
 
 
 @pytest.fixture(scope='module')
@@ -164,29 +156,3 @@ def tmp_out_dir():
     output_root = f'/ihme/scratch/users/{user}/tests/jobmon/{uuid.uuid4()}'
     yield output_root
     shutil.rmtree(output_root, ignore_errors=True)
-
-
-# # @pytest.fixture(autouse=True)
-# # def execution_test_script_perms():
-# #     executed_files = ['executor_args_check.py', 'simple_R_script.r',
-# #                       'simple_stata_script.do', 'memory_usage_array.py',
-# #                       'remote_sleep_and_write.py', 'kill.py', 'exceed_mem.py']
-# #     if sys.version_info.major == 3:
-# #         perms = int("0o755", 8)
-# #     else:
-# #         perms = int("0755", 8)
-# #     path = os.path.dirname(os.path.realpath(__file__))
-# #     shell_path = os.path.join(path, 'shellfiles/')
-# #     files = os.listdir(shell_path)
-# #     os.chmod(shell_path, perms)
-# #     for file in files:
-# #         try:
-# #             os.chmod(f'{shell_path}{file}', perms)
-# #         except Exception as e:
-# #             raise e
-# #     for file in executed_files:
-# #         try:
-# #             os.chmod(f'{path}/{file}', perms)
-# #         except Exception as e:
-# #             raise e
-

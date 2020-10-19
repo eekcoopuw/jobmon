@@ -12,7 +12,8 @@ install_requires = [
     'psutil',
     'tabulate',
     'tenacity',
-    'tblib']
+    'tblib',
+    'configargparse']
 
 # pip install -e .[dev]
 dev_requires = [
@@ -32,12 +33,10 @@ docs_requires = [
 setup(
     version=versioneer.get_version(),
     name='jobmon',
-    description=('A centralized logging and management utility for a batch of'
-                 'SGE jobs'),
+    description='A logging and dependency management utility for batch computation',
     url='https://stash.ihme.washington.edu/projects/CC/repos/jobmon',
-    author='CentralComp',
-    author_email=('tomflem@uw.edu, mlsandar@uw.edu, gphipps@uw.edu, '
-                  'cpinho@uw.edu'),
+    author='IHME SciComp',
+    author_email=('gphipps@uw.edu, mlsandar@uw.edu, cpinho@uw.edu, tomflem@uw.edu'),
     install_requires=install_requires,
     extras_require={
         'dev': dev_requires,
@@ -53,19 +52,21 @@ setup(
               'jobmon.client.swarm',
               'jobmon.client.templates',
               'jobmon.models',
-              'jobmon.requests',
               'jobmon.server',
               'jobmon.server.deployment',
               'jobmon.server.workflow_reaper',
-              'jobmon.server.jobmon_client',
-              'jobmon.server.jobmon_scheduler',
-              'jobmon.server.jobmon_swarm',
-              'jobmon.server.jobmon_worker',
-              'jobmon.server.visualization_server'
-              ],
+              'jobmon.server.web.jobmon_client',
+              'jobmon.server.web.jobmon_scheduler',
+              'jobmon.server.web.jobmon_swarm',
+              'jobmon.server.web.jobmon_worker',
+              'jobmon.server.web.visualization_server'],
     include_package_data=True,
     entry_points={
         'console_scripts': [
-            "jobmon=jobmon.cli:main",
-            "jobmon_command=jobmon.client.execution.worker_node.execution_wrapper:main"
-        ]})
+            'jobmon=jobmon.client.cli:main',
+            'jobmon_scheduler=jobmon.client.execution.cli:main',
+            'jobmon_server=jobmon.server.cli:main',
+            'jobmon_command=jobmon.client.execution.worker_node.execution_wrapper:main'
+        ]
+    }
+)

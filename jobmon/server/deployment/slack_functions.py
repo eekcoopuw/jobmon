@@ -1,9 +1,7 @@
 import requests
 
-from jobmon import config
 
-
-def validate_slack_token(slack_token: str) -> bool:
+def validate_slack_token(slack_token: str, slack_api_url: str) -> bool:
     """
     Checks whether a given slack token is valid
 
@@ -11,7 +9,7 @@ def validate_slack_token(slack_token: str) -> bool:
     :return: True if the token validates, False otherwise
     """
     resp = requests.post(
-        config.slack_api_url,
+        slack_api_url,
         headers={'Authorization': 'Bearer {}'.format(slack_token)})
     if resp.status_code != 200:
         print(f"Response returned a bad status code: {resp.status_code} "

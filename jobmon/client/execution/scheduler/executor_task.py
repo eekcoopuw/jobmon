@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
-from jobmon.requests.requester import Requester
+from jobmon.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.serializers import SerializeExecutorTask
 
@@ -13,16 +12,9 @@ class ExecutorTask:
 
     # this API should always match what's returned by
     # serializers.SerializeExecutorTask
-    def __init__(self,
-                 task_id: int,
-                 workflow_id: int,
-                 node_id: int,
-                 task_args_hash: int,
-                 name: str,
-                 command: str,
-                 status: str,
-                 executor_parameters: ExecutorParameters,
-                 requester: Requester):
+    def __init__(self, task_id: int, workflow_id: int, node_id: int, task_args_hash: int,
+                 name: str, command: str, status: str, executor_parameters: ExecutorParameters,
+                 requester_url: str):
         """
         This is a Task object used on the RESTful API client side
         when constructing task instances.
@@ -49,11 +41,10 @@ class ExecutorTask:
 
         self.executor_parameters = executor_parameters
 
-        self.requester = requester
+        self.requester = Requester(requester_url)
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, executor_class: str,
-                  requester: Requester = shared_requester
+    def from_wire(cls, wire_tuple: tuple, executor_class: str, requester_url: str
                   ) -> ExecutorTask:
         """construct instance from wire format the JQS gives
 
@@ -88,6 +79,7 @@ class ExecutorTask:
                 m_mem_free=kwargs["m_mem_free"],
                 context_args=kwargs["context_args"],
                 resource_scales=kwargs["resource_scales"],
-                hard_limits=kwargs["hard_limits"]),
-            requester=requester)
+                hard_limits=kwargs["hard_limits"]
+            ),
+            requester_url=requester_url)
         return executor_task

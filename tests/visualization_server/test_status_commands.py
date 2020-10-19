@@ -2,7 +2,7 @@ import getpass
 
 import pytest
 
-from jobmon.cli import CLI
+from jobmon.client.cli import ClientCLI as CLI
 
 
 class MockSchedulerProc:
@@ -97,7 +97,7 @@ def test_workflow_tasks(db_cfg, client_env):
                   max_runtime_seconds=10, resource_scales={})
     t2 = BashTask("sleep 4", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={})
-    
+
     workflow.add_tasks([t1, t2])
     workflow._bind()
     wfr = workflow._create_workflow_run()
@@ -112,9 +112,8 @@ def test_workflow_tasks(db_cfg, client_env):
     assert len(df.STATUS.unique()) == 1
 
     # execute the tasks
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id,
-                                      workflow._executor)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)
@@ -147,7 +146,7 @@ def test_task_status(db_cfg, client_env):
     t2 = BashTask("exit -0", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={}, max_attempts=1)
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
-    workflow.add_tasks([t1,t2])
+    workflow.add_tasks([t1, t2])
     workflow.run()
 
     # we should get 2 failed task instances and 1 successful

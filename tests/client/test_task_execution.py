@@ -86,8 +86,9 @@ def test_exceed_mem_task(db_cfg, client_env):
     executor_parameters = ExecutorParameters(m_mem_free='130M', max_runtime_seconds=40,
                                              num_cores=1, queue='all.q',
                                              executor_class="SGEExecutor")
-    task = PythonTask(script=exceed_mem_path, name=name, executor_parameters=executor_parameters,
-                    executor_class="SGEExecutor", max_attempts=1)
+    task = PythonTask(script=exceed_mem_path, name=name,
+                      executor_parameters=executor_parameters,
+                      executor_class="SGEExecutor", max_attempts=1)
     workflow.add_tasks([task])
     workflow.run()
 

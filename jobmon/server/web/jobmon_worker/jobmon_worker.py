@@ -42,7 +42,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_side_exception import log_and_raise, ServerError
+from jobmon.server.web.server_side_exception import log_and_raise, ServerError
 
 jobmon_worker = Blueprint("jobmon_worker", __name__)
 
@@ -308,8 +308,6 @@ def log_error_worker_node(task_instance_id: int):
         return resp
     except Exception as e:
         log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
-
-
 
 
 @jobmon_worker.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])

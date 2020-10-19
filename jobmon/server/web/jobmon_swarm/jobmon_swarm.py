@@ -20,8 +20,7 @@ from jobmon.models.task_attribute import TaskAttribute
 from jobmon.models.task_attribute_type import TaskAttributeType
 from jobmon.models.workflow_attribute import WorkflowAttribute
 from jobmon.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.models.command_template_arg_type_mapping import \
-    CommandTemplateArgTypeMapping
+from jobmon.models.command_template_arg_type_mapping import CommandTemplateArgTypeMapping
 from jobmon.models.dag import Dag
 from jobmon.models.edge import Edge
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
@@ -42,7 +41,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.server_side_exception import log_and_raise, ServerError
+from jobmon.server.web.server_side_exception import log_and_raise, ServerError
 
 jobmon_swarm = Blueprint("jobmon_swarm", __name__)
 
@@ -384,4 +383,3 @@ def update_task_resources(task_id: int):
         return resp
     except Exception as e:
         log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
-

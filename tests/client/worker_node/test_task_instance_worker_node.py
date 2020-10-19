@@ -21,9 +21,10 @@ class BadSGEExecutor(TaskInstanceSGEInfo):
         raise subprocess.CalledProcessError(cmd="qstat", returncode=9)
 
 
-def test_bad_qstat_call():
+def test_bad_qstat_call(client_env):
     ji_intercom = WorkerNodeTaskInstance(
-        task_instance_id=12345, task_instance_executor_info=BadSGEExecutor())
+        task_instance_id=12345, task_instance_executor_info=BadSGEExecutor()
+    )
     # The following should not throw
     ji_intercom.log_task_stats()
     # But check that it did

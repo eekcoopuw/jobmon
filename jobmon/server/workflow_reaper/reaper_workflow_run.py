@@ -1,12 +1,11 @@
 from __future__ import annotations
 from datetime import datetime, timedelta
-from http import HTTPStatus as StatusCodes
 import logging
 
 from jobmon import __version__
 from jobmon.exceptions import InvalidResponse
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.requests.requester import Requester, http_request_ok
+from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeWorkflowRun
 
 
@@ -14,8 +13,9 @@ logger = logging.getLogger(__file__)
 
 
 class ReaperWorkflowRun(object):
+
     def __init__(self, workflow_run_id: int, workflow_id: int, heartbeat_date: datetime,
-                 requester: Requester):
+                 requester_url: str):
         """
         Implementing workflow reaper behavior of workflow run
 
@@ -28,16 +28,16 @@ class ReaperWorkflowRun(object):
         self.workflow_run_id = workflow_run_id
         self.workflow_id = workflow_id
         self.heartbeat_date = heartbeat_date
-        self._requester = requester
+        self._requester = Requester(requester_url)
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, requester: Requester) -> ReaperWorkflowRun:
+    def from_wire(cls, wire_tuple: tuple, requester_url: str) -> ReaperWorkflowRun:
         kwargs = SerializeWorkflowRun.kwargs_from_wire(wire_tuple)
         return cls(workflow_run_id=kwargs["id"],
                    workflow_id=kwargs["workflow_id"],
                    heartbeat_date=datetime.strptime(kwargs["heartbeat_date"],
                                                     '%a, %d %b %Y %H:%M:%S %Z'),
-                   requester=requester)
+                   requester_url=requester_url)
 
     def to_wire(self) -> tuple:
         return SerializeWorkflowRun.to_wire(self.workflow_run_id,

@@ -1,12 +1,14 @@
 import pytest
 
-from jobmon.client import shared_requester as requester
+from jobmon.requester import Requester
 
 
 TOTAL_TASKS = 1000
 
 
 def test_one_by_one(db_cfg, client_env):
+    requester = Requester(client_env)
+
     for i in range(0, TOTAL_TASKS):
         tasks = []
         task = {}
@@ -27,6 +29,7 @@ def test_one_by_one(db_cfg, client_env):
 
 
 def test_bulk(db_cfg, client_env):
+    requester = Requester(client_env)
     tasks = []
     for i in range(0, TOTAL_TASKS):
         task = {}

@@ -31,7 +31,7 @@ def test_executor_id_from_env():
             TaskInstanceSequentialInfo().executor_id == 77777
 
 
-def test_unwrap_happy_path():
+def test_unwrap_happy_path(client_env):
 
     with \
             patch.dict(os.environ, {'JOB_ID': '77777'}), \
@@ -59,7 +59,7 @@ def test_unwrap_happy_path():
         assert r == 0
 
 
-def test_stderr_buffering(capsys):
+def test_stderr_buffering(capsys, client_env):
     # this test checks 2 things.
     # 1) that we are getting logging messages from both jobmon and the
     # subprocess intermixed. This implies zero latency in stderr

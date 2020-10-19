@@ -4,8 +4,6 @@ from datetime import datetime, timedelta
 import pytest
 from unittest.mock import patch
 
-from jobmon.client.execution.scheduler.execution_config import \
-    ExecutionConfig
 from jobmon.models.task import Task
 from jobmon.models.task_instance import TaskInstance
 from jobmon.models.task_instance_status import TaskInstanceStatus
@@ -14,6 +12,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+
 
 @pytest.mark.parametrize("ti_state", [TaskInstanceStatus.UNKNOWN_ERROR,
                                       TaskInstanceStatus.KILL_SELF])
@@ -25,6 +24,7 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
         MultiprocessExecutor
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
+    from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
 
     tool = Tool()
     workflow = tool.create_workflow(name=f"test_ti_kill_self_state_{ti_state}")
@@ -42,10 +42,8 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
     wfr._adjust_resources_and_queue(swarm_task)
 
     # launch task on executor
-    cfg = ExecutionConfig.from_defaults()
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id, workflow._executor,
-                                      cfg)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
     scheduler.executor.start()
     scheduler.schedule()
 
@@ -57,8 +55,9 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
             swarm_task = tasks[0]
 
     # set task to kill self state. next heartbeat will fail and cause death
+    scheduler_config = SchedulerConfig.from_defaults()
     max_heartbeat = datetime.utcnow() + timedelta(
-        seconds=(cfg.task_heartbeat_interval * cfg.report_by_buffer))
+        seconds=(scheduler_config.task_heartbeat_interval * scheduler_config.report_by_buffer))
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
@@ -142,9 +141,8 @@ def test_ti_w_state(db_cfg, client_env):
     swarm_task = wfr.swarm_tasks[task_a.task_id]
     wfr._adjust_resources_and_queue(swarm_task)
 
-    scheduler = TaskInstanceScheduler(workflow.workflow_id,
-                                      wfr.workflow_run_id,
-                                      workflow._executor)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
 
     # patch register submission to go into 'W' state
     with patch.object(executor, "execute", mock_execute):
@@ -267,10 +265,13 @@ def test_task_instance_error_fatal(db_cfg, client_env):
                                         wfr_id=wfr_1.workflow_run_id))
         DB.session.execute("""
             INSERT INTO task_instance (workflow_run_id, task_id, status)
-            VALUES ({wfr_id}, {t_id}, '{s}')""".format(wfr_id=wfr_1.workflow_run_id,
-                                                           t_id=task_a.task_id,
-                                                           s=TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR))
-        ti = DB.session.execute("SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)).fetchone()
+            VALUES ({wfr_id}, {t_id}, '{s}')""".format(
+                wfr_id=wfr_1.workflow_run_id,
+                t_id=task_a.task_id,
+                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR))
+        ti = DB.session.execute(
+            "SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)
+        ).fetchone()
         ti_id = ti[0]
         DB.session.execute("""
             UPDATE task
@@ -292,4 +293,3 @@ def test_task_instance_error_fatal(db_cfg, client_env):
         t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
         assert t.status == TaskStatus.ERROR_FATAL
         DB.session.commit()
-

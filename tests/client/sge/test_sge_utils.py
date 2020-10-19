@@ -4,9 +4,8 @@ import os.path as path
 import pytest
 from unittest.mock import patch
 
-from jobmon.client.execution.strategies.sge.sge_utils import true_path, convert_wallclock_to_seconds, qacct_exit_status, \
-    qacct_hostname
-
+from jobmon.client.execution.strategies.sge.sge_utils import (
+    true_path, convert_wallclock_to_seconds, qacct_exit_status)
 
 
 def qacct_returns_h_rt(command, shell, universal_newlines):
@@ -75,4 +74,3 @@ def test_qacct_exit_status():
         m_check_output.side_effect = qacct_returns_h_rt
         exit_status = qacct_exit_status(11399639)
         assert exit_status == (1377, 'over runtime')
-

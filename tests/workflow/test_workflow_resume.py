@@ -2,6 +2,7 @@ from multiprocessing import Process
 import os
 import time
 import sys
+import collections
 
 import pytest
 from mock import patch
@@ -155,9 +156,8 @@ def test_cold_resume(db_cfg, client_env):
     # create an in memory scheduler and start up the first 3 jobs
     workflow1._bind()
     wfr1 = workflow1._create_workflow_run()
-    scheduler = TaskInstanceScheduler(workflow1.workflow_id,
-                                      wfr1.workflow_run_id,
-                                      workflow1._executor)
+    scheduler = TaskInstanceScheduler(workflow1.workflow_id, wfr1.workflow_run_id,
+                                      workflow1._executor, requester_url=client_env)
     with pytest.raises(RuntimeError):
         wfr1.execute_interruptible(MockSchedulerProc(),
                                    seconds_until_timeout=1)
@@ -176,8 +176,8 @@ def test_cold_resume(db_cfg, client_env):
             executor_class=workflow1._executor.__class__.__name__,
             resume=True,
             reset_running_jobs=True,
-            requester=workflow1.requester,
-            resume_timeout=1)
+            resume_timeout=1
+        )
 
     # test if resume signal is received
     with pytest.raises(ResumeSet):
@@ -221,9 +221,10 @@ def hot_resumable_workflow():
     # prepare first workflow
     tasks = []
     for i in range(6):
-        t = tt.create_task(executor_parameters=ExecutorParameters(
-                               executor_class="MultiprocessExecutor"),
-                           time=60 + i)
+        t = tt.create_task(
+            executor_parameters=ExecutorParameters(executor_class="MultiprocessExecutor"),
+            time=60 + i
+        )
         tasks.append(t)
     workflow = unknown_tool.create_workflow(name="hot_resume",
                                             workflow_args="foo")
@@ -238,8 +239,7 @@ def run_hot_resumable_workflow():
 
 
 def test_hot_resume(db_cfg, client_env):
-    from jobmon.client.execution.strategies.multiprocess import \
-        MultiprocessExecutor
+    from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
     p1 = Process(target=run_hot_resumable_workflow)
     p1.start()
 
@@ -257,7 +257,7 @@ def test_hot_resume(db_cfg, client_env):
         max_sleep = 180  # 3 min max till test fails
         slept = 0
 
-        while status != "R" and slept <= max_sleep:
+        while status not in ["R"] and slept <= max_sleep:
             q = """
                 SELECT
                     workflow.status
@@ -275,8 +275,7 @@ def test_hot_resume(db_cfg, client_env):
 
     # we need to time out early because the original job will never finish
     with pytest.raises(RuntimeError):
-        workflow.run(resume=True, reset_running_jobs=False,
-                     seconds_until_timeout=70)
+        workflow.run(resume=True, reset_running_jobs=False, seconds_until_timeout=200)
 
     session = db_cfg["DB"].session
     with db_cfg["app"].app_context():
@@ -290,12 +289,13 @@ def test_hot_resume(db_cfg, client_env):
         """.format(workflow.workflow_id)
         tasks = session.execute(q).fetchall()
 
-    assert tasks[0][9] == "R"  # the task before resume
-    assert tasks[1][9] == "D"  # a resume task that finished before timeout
-    assert tasks[2][9] == "D"  # a resume task that finished before timeout
-    assert tasks[3][9] == "D"  # a resume task that finished before timeout
-    assert tasks[4][9] == "Q"  # workflow timed out. task deleted
-    assert tasks[5][9] == "Q"  # workflow timed out. task deleted
+    task_dict = {}
+    for task in tasks:
+        task_dict[task[0]] = task[9]
+    tasks = list(collections.OrderedDict(sorted(task_dict.items())).values())
+
+    assert "R" in list(tuple(tasks))  # the task left hanging by hot resume
+    assert len([status for status in tasks if status == "D"]) == 5
 
 
 def test_stopped_resume(db_cfg, client_env):

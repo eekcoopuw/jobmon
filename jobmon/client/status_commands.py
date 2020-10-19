@@ -1,16 +1,17 @@
 import getpass
 import pandas as pd
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
-from jobmon.client import shared_requester
 from jobmon.client import ClientLogging as logging
+from jobmon.client.client_config import ClientConfig
+from jobmon.requester import Requester
 
 
 logger = logging.getLogger(__name__)
 
 
 def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
-                    json: bool = False) -> pd.DataFrame:
+                    json: bool = False, requester_url: Optional[str] = None) -> pd.DataFrame:
     """Get metadata about workflow progress
 
     Args:
@@ -31,7 +32,11 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
     else:
         msg["user"] = getpass.getuser()
 
-    rc, res = shared_requester.send_request(
+    if requester_url is None:
+        requester_url = ClientConfig.from_defaults().url
+    requester = Requester(requester_url)
+
+    rc, res = requester.send_request(
         app_route="/viz/workflow_status",
         message=msg,
         request_type="get")
@@ -41,8 +46,8 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
         return pd.read_json(res["workflows"])
 
 
-def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = False
-                   ) -> pd.DataFrame:
+def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = False,
+                   requester_url: Optional[str] = None) -> pd.DataFrame:
     """Get metadata about task state for a given workflow
 
     Args:
@@ -58,7 +63,11 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
     if status:
         msg["status"] = [i.upper() for i in status]
 
-    rc, res = shared_requester.send_request(
+    if requester_url is None:
+        requester_url = ClientConfig.from_defaults().url
+    requester = Requester(requester_url)
+
+    rc, res = requester.send_request(
         app_route=f"/viz/workflow/{workflow_id}/workflow_tasks",
         message=msg,
         request_type="get")
@@ -68,8 +77,8 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
         return pd.read_json(res["workflow_tasks"])
 
 
-def task_status(task_ids: List[int], status: List[str] = None, json: bool = False
-                ) -> Tuple[str, pd.DataFrame]:
+def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: bool = False,
+                requester_url: Optional[str] = None) -> Tuple[str, pd.DataFrame]:
     """Get metadata about a task and its task instances
 
     Args:
@@ -86,7 +95,11 @@ def task_status(task_ids: List[int], status: List[str] = None, json: bool = Fals
     if status:
         msg["status"] = [i.upper() for i in status]
 
-    rc, res = shared_requester.send_request(
+    if requester_url is None:
+        requester_url = ClientConfig.from_defaults().url
+    requester = Requester(requester_url)
+
+    rc, res = requester.send_request(
         app_route="/viz/task_status",
         message=msg,
         request_type="get")
