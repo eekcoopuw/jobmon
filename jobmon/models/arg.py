@@ -8,5 +8,5 @@ class Arg(DB.Model):
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))
 
-    command_template_arg_type_mappings = DB.relationship(
-        "CommandTemplateArgTypeMapping", back_populates="argument")
+    template_arg_map = DB.relationship(
+        "TemplateArgMap", back_populates="argument")

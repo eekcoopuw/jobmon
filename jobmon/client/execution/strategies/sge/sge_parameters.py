@@ -2,7 +2,7 @@ from typing import Tuple, Union, Dict, Optional
 
 from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.sge.sge_queue import SGE_ALL_Q, \
-    SGE_GEOSPATIAL_Q, SGE_I_Q, SGE_LONG_Q
+    SGE_GEOSPATIAL_Q, SGE_I_Q, SGE_LONG_Q, SGE_D_Q
 
 logger = logging.getLogger(__name__)
 
@@ -341,6 +341,12 @@ class SGEParameters:
             self.max_memory_gb = SGE_I_Q.max_memory_gb
             self.min_memory_gb = SGE_I_Q.min_memory_gb
             self.max_cores = SGE_I_Q.max_threads
+
+        elif queue == "d.q":
+            self.max_runtime = SGE_D_Q.max_runtime_seconds
+            self.max_memory_gb = SGE_D_Q.max_memory_gb
+            self.min_memory_gb = SGE_D_Q.min_memory_gb
+            self.max_cores = SGE_D_Q.max_threads
 
         else:
             logger.info("Unknown SGE queue name. Validating resources against "

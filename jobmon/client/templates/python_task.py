@@ -8,7 +8,7 @@ from jobmon.client.execution.strategies.base import ExecutorParameters
 
 class PythonTask(Task):
 
-    _python_task_template_registry: dict = {}
+    _python_task_template_registry: Dict = {}
     current_python = sys.executable
 
     def __init__(self, path_to_python_binary: str = current_python,
@@ -29,7 +29,11 @@ class PythonTask(Task):
                  hard_limits: bool = False,
                  executor_class: str = 'DummyExecutor',
                  executor_parameters:
-                 Optional[Union[ExecutorParameters, Callable]] = None):
+                 Optional[Union[ExecutorParameters, Callable]] = None,
+                 tool: Optional[Tool] = None,
+                 task_args: Dict = None,
+                 node_args: Dict = None,
+                 op_args: Dict = None):
         """
         Python Task object can be used by users upgrading from older versions of
         Jobmon (version < 2.0). It sets a default of unknown tool and a task
@@ -72,26 +76,58 @@ class PythonTask(Task):
                 executor parameters properly. Default is Dummy Executor.
             executor_parameters: an instance of executor
                 parameters class
+            tool: tool to associate python task with
+            task_args: if the user wants to supply arguments to describe the data arguments for
+                this task
+            node_args: if the user wants to supply arguments to describe the arguments that 
+                make this task unique within a set of task with identical command patterns
+            op_args: if the user wants to supply arguments to describe the operational 
+                arguments for this task 
             """
+        if task_args is None:
+            task_args = {}
+        if node_args is None:
+            node_args = {}
+        if op_args is None:
+            op_args = {}
 
         # script cannot be None at this point
         if script is None:
             raise ValueError("script cannot be None")
 
+        if env_variables is not None:
+            env_str = ' '.join(
+                '{}={}'.format(key, val) for key, val in env_variables.items())
+            op_args["env_variables"] = env_str
+        else:
+            env_str = ""
+        if args is not None:
+            command_line_args = ' '.join([str(x) for x in args])
+            if node_args or task_args or op_args:
+                node_args['command_line_args'] = command_line_args
+        else:
+            command_line_args = ""
+        if not node_args and not task_args and len(op_args) < 2:
+            command_template = '{command}'
+            node_args['command'] = f'{env_str} {path_to_python_binary} {script} ' \
+                                   f'{command_line_args}'
+        else:
+            op_args["path_to_python_binary"] = path_to_python_binary
+            split_command = f'{env_str} {path_to_python_binary} {script}'.strip()
+            command_template, node_args, task_args, op_args = self._parse_command_to_args(
+                split_command, node_args, task_args, op_args, command_line_args)
+
         try:
             task_template = self._python_task_template_registry[script]
         except KeyError:
-            tool = Tool("unknown")
+            if tool is None:
+                tool = Tool("unknown")
             task_template = tool.get_task_template(
-                template_name=script,
-                command_template=(
-                    "{env_variables} "
-                    "{path_to_python_binary} "
-                    f"{script} "
-                    "{command_line_args}"),
-                node_args=["env_variables", "command_line_args"],
-                task_args=[],
-                op_args=["path_to_python_binary"])
+                template_name=f'python_task',
+                command_template=command_template,
+                node_args=list(node_args.keys()),
+                task_args=list(task_args.keys()),
+                op_args=list(op_args.keys()))
             self._add_task_template_to_registry(script, task_template)
 
         # construct deprecated API for executor_parameters
@@ -107,35 +143,16 @@ class PythonTask(Task):
                 hard_limits=hard_limits,
                 executor_class=executor_class)
 
-        # build node arg dict
-        node_arg_vals = {}
-        if env_variables is not None:
-            env_str = ' '.join(
-                '{}={}'.format(key, val) for key, val in env_variables.items())
-        else:
-            env_str = ""
-        node_arg_vals["env_variables"] = env_str
-
-        if args is not None:
-            command_line_args = ' '.join([str(x) for x in args])
-        else:
-            command_line_args = ""
-        node_arg_vals["command_line_args"] = command_line_args
-
-        command = task_template.task_template_version.command_template.format(
-            env_variables=env_str, path_to_python_binary=path_to_python_binary,
-            command_line_args=command_line_args)
-        command = command.strip()
-
-        # arg id name mappings
-        node_args = {task_template.task_template_version.id_name_map[k]: v
-                     for k, v in node_arg_vals.items()}
+        node_args = {task_template.task_template_version.id_name_map[k]: v for k, v in
+                     node_args.items() if k in task_template.task_template_version.node_args}
+        task_args = {task_template.task_template_version.id_name_map[k]: v for k, v in
+                     task_args.items() if k in task_template.task_template_version.task_args}
 
         super().__init__(
-            command=command,
+            command=f'{env_str} {path_to_python_binary} {script} {command_line_args}'.strip(),
             task_template_version_id=task_template.task_template_version.id,
             node_args=node_args,
-            task_args={},
+            task_args=task_args,
             executor_parameters=executor_parameters,
             name=name,
             max_attempts=max_attempts,

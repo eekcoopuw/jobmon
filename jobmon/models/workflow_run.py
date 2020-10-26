@@ -110,7 +110,6 @@ class WorkflowRun(DB.Model):
             elif new_state == WorkflowRunStatus.HOT_RESUME:
                 self.workflow.transition(WorkflowStatus.SUSPENDED)
             elif new_state == WorkflowRunStatus.TERMINATED:
-
                 # if hot resume move to registered on term
                 if old_state == WorkflowRunStatus.COLD_RESUME:
                     self.workflow.transition(WorkflowStatus.FAILED)

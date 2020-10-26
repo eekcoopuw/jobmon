@@ -31,7 +31,7 @@ class Node:
         """
         self.task_template_version_id = task_template_version_id
         self.node_args = node_args
-        self.node_args_hash = self._hash_node_args()
+        self.node_args_hash = self._hash_node()
         self.upstream_nodes: Set[Node] = set()
         self.downstream_nodes: Set[Node] = set()
 
@@ -60,16 +60,17 @@ class Node:
         self._node_id = node_id
         return self.node_id
 
-    def _hash_node_args(self) -> int:
-        """a node_arg_hash is a hash of the encoded result of the args and
-        values concatenated together"""
+    def _hash_node(self) -> int:
+        """a node_hash is a hash of the encoded result of the args and values concatenated
+        together and concatenated with the task_template_version_id"""
         arg_ids = list(self.node_args.keys())
         arg_ids.sort()
 
         arg_values = [str(self.node_args[key]) for key in arg_ids]
         arg_ids = [str(arg) for arg in arg_ids]
 
-        hash_value = int(hashlib.sha1(''.join(arg_ids + arg_values).encode(
+        hash_value = int(hashlib.sha1(''.join(arg_ids + arg_values +
+                                              [str(self.task_template_version_id)]).encode(
             'utf-8')).hexdigest(), 16)
         return hash_value
 

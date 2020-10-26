@@ -7,12 +7,12 @@ DROP TABLE IF EXISTS `task_attribute`;
 CREATE TABLE `task_attribute` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `task_id` int(11) DEFAULT NULL,
-  `attribute_type` int(11) DEFAULT NULL,
+  `attribute_type_id` int(11) DEFAULT NULL,
   `value` varchar(255) DEFAULT NULL,
   `partition_date` timestamp NOT NULL DEFAULT current_timestamp,
   PRIMARY KEY (`id`, `partition_date`),
   KEY `task_id` (`task_id`),
-  KEY `attribute_type` (`attribute_type`)
+  KEY `attribute_type_id` (`attribute_type_id`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 /*!50100 PARTITION BY RANGE (UNIX_TIMESTAMP(partition_date))
 ( PARTITION p201908 VALUES LESS THAN (UNIX_TIMESTAMP('2019-09-01 00:00:00'))ENGINE = InnoDB,

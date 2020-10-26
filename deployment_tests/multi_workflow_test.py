@@ -4,7 +4,6 @@ import stat
 import sys
 import uuid
 
-
 from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
 from jobmon.client.templates.python_task import PythonTask
 
@@ -12,7 +11,7 @@ from jobmon.client.templates.python_task import PythonTask
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 
-def multi_workflow_test(n_workflows: int) -> None:
+def multi_workflow_test(n_workflows: int, n_tasks: int) -> None:
     """
     Creates and runs a workflow that creates and runs n workflows that each
     run 3 sleeping jobs. This will test the capacity for jobmon services to
@@ -39,16 +38,24 @@ def multi_workflow_test(n_workflows: int) -> None:
                          stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
                          project="proj_scicomp")
     for i in range(n_workflows):
-        task = PythonTask(script=f"{script}", args=[i, wfid],
+        tmp_hash = uuid.uuid4()
+        task = PythonTask(script=f"{script}", args=[i, tmp_hash, n_tasks],
                           name=f"worker_{i}", num_cores=2, m_mem_free='1G')
         master_wf.add_task(task)
-    master_wf.run()
+    status = master_wf.run()
+
+    return status
 
 
 if __name__ == "__main__":
-    n_wfs = 1
-    if len(sys.argv) > 1:
+
+    try:
         n_wfs = int(sys.argv[1])
-        assert n_wfs > 0, "Please provide an integer greater than 0 for the " \
-                          "number of workflows"
-    multi_workflow_test(n_wfs)
+        n_tasks = int(sys.argv[2])
+    except IndexError:
+        n_wfs = 500
+        n_tasks = 100
+
+    result = multi_workflow_test(n_wfs, n_tasks)
+    if result.status != 'D':
+        raise RuntimeError("Workflow failed")

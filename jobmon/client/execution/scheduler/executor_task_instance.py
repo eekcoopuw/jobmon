@@ -192,7 +192,7 @@ class ExecutorTaskInstance:
                          "Executor")
         logger.info("Moving the job to running, then done so that dependencies can proceed to "
                     "mock a successful dag traversal process")
-        run_app_route = f'/task_instance/{self.task_instance_id}/log_running'
+        run_app_route = f'/worker/task_instance/{self.task_instance_id}/log_running'
         run_message = {'process_group_id': '0', 'next_report_increment': 60}
         return_code, response = self.requester.send_request(
             app_route=run_app_route,
@@ -203,7 +203,7 @@ class ExecutorTaskInstance:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                                   f'request through route {run_app_route}. Expected '
                                   f'code 200. Response content: {response}')
-        done_app_route = f"/task_instance/{self.task_instance_id}/log_done"
+        done_app_route = f"/worker/task_instance/{self.task_instance_id}/log_done"
         done_message = {'nodename': 'DummyNode', 'executor_id': self.executor_id}
         return_code, response = self.requester.send_request(
             app_route=done_app_route,

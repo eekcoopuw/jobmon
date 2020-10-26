@@ -87,15 +87,21 @@ class ReaperWorkflowRun(object):
         logger.info(message)
         return message
 
-    def transition_to_aborted(self) -> str:
+    def transition_to_aborted(self, aborted_seconds: int = (60 * 2)) -> str:
         """Retrieve workflow_run status and status_date of the runs newest
+
+        Args:
+            aborted_seconds: how long to wait for new bind activity (adding tasks) before
+                declaring the workflow aborted.
         task."""
+        # TODO: move aborted time into config file
         # Get workflow_runs current state and the status_date of it's newest task
-        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/aborted'
+        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/aborted/{aborted_seconds}'
         return_code, result = self._requester.send_request(
             app_route=app_route,
             message={},
-            request_type='put')
+            request_type='put'
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from PUT '
                                   f'request through route {app_route}. Expected '
@@ -103,7 +109,7 @@ class ReaperWorkflowRun(object):
         if result["was_aborted"]:
             # Send a message to Slack saying that the transition happened
             message = f"{__version__} Workflow Reaper transitioned " \
-                      f"Workflow #{self.workflow_id} to ABORTED state." \
+                      f"Workflow #{self.workflow_id} to ABORTED state. " \
                       f"Workflow Run #{self.workflow_run_id} transitioned to ABORTED state"
             logger.info(message)
         else:

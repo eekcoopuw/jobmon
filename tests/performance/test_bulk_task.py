@@ -6,6 +6,7 @@ from jobmon.requester import Requester
 TOTAL_TASKS = 1000
 
 
+@pytest.mark.performance_tests
 def test_one_by_one(db_cfg, client_env):
     requester = Requester(client_env)
 
@@ -28,6 +29,7 @@ def test_one_by_one(db_cfg, client_env):
         assert rc == 200
 
 
+@pytest.mark.performance_tests
 def test_bulk(db_cfg, client_env):
     requester = Requester(client_env)
     tasks = []

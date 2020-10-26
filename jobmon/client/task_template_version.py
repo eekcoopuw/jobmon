@@ -17,8 +17,14 @@ logger = logging.getLogger(__name__)
 
 class TaskTemplateVersion:
 
-    def __init__(self, task_template_id: int, command_template: str, node_args: list,
-                 task_args: list, op_args: list, requester_url: Optional[str] = None):
+    def __init__(self,
+                 task_template_id: int,
+                 command_template: str,
+                 node_args: list,
+                 task_args: list,
+                 op_args: list,
+                 requester_url: Optional[str] = None):
+
         # id vars
         self.task_template_id = task_template_id
         self.command_template = command_template

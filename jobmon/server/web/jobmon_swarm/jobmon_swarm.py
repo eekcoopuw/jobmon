@@ -20,7 +20,7 @@ from jobmon.models.task_attribute import TaskAttribute
 from jobmon.models.task_attribute_type import TaskAttributeType
 from jobmon.models.workflow_attribute import WorkflowAttribute
 from jobmon.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.models.command_template_arg_type_mapping import CommandTemplateArgTypeMapping
+from jobmon.models.template_arg_map import TemplateArgMap
 from jobmon.models.dag import Dag
 from jobmon.models.edge import Edge
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
@@ -248,32 +248,49 @@ def get_time(session):
     return time
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/aborted', methods=['PUT'])
-def get_run_status_and_latest_task(workflow_run_id: int):
+@jobmon_swarm.route('/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>',
+                    methods=['PUT'])
+def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
+
     try:
-        query = """
-            SELECT workflow_run.*, max(task.status_date) AS status_date
-            FROM (workflow_run
-            INNER JOIN task ON workflow_run.workflow_id=task.workflow_id)
-            WHERE workflow_run.id = :workflow_run_id
-        """
-        aborted = False
-        status = DB.session.query(WorkflowRun, Task.status_date).from_statement(text(query)). \
-            params(workflow_run_id=workflow_run_id).one()
-        DB.session.commit()
-
-        # Get current time
-        current_time = datetime.strptime(get_time(DB.session), "%Y-%m-%d %H:%M:%S")
-        time_since_task_status = current_time - status.status_date
-        time_since_wfr_status = current_time - status.WorkflowRun.status_date
-
         # If the last task was more than 2 minutes ago, transition wfr to A state
         # Also check WorkflowRun status_date to avoid possible race condition where reaper checks
-        # tasks from a different WorkflowRun with the same workflow id
-        if time_since_task_status > timedelta(minutes=2) and time_since_wfr_status > timedelta(minutes=2):
-            aborted = True
-            status.WorkflowRun.transition("A")
+        # tasks from a different WorkflowRun with the same workflow id. Avoid setting while
+        # waiting for a resume (when workflow is in suspended state)
+        query = """
+            SELECT
+                workflow_run.*,
+                TIMESTAMPDIFF(
+                    SECOND, workflow_run.status_date, CURRENT_TIMESTAMP
+                ) AS workflow_created,
+                TIMESTAMPDIFF(
+                    SECOND, max(task.status_date), CURRENT_TIMESTAMP
+                ) AS task_created
+            FROM workflow_run
+            JOIN workflow ON workflow_run.workflow_id = workflow.id
+            LEFT JOIN task ON workflow_run.workflow_id = task.workflow_id
+            WHERE
+                workflow_run.id = :workflow_run_id
+                AND workflow.status != 'S'
+            HAVING
+                (
+                    workflow_created > :aborted_seconds
+                    AND task_created > :aborted_seconds
+                )
+                OR (workflow_created > :aborted_seconds and task_created is NULL)
+        """
+        wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+            workflow_run_id=workflow_run_id, aborted_seconds=aborted_seconds
+        ).one_or_none()
+        DB.session.commit()
+
+        if wfr is not None:
+            wfr.transition("A")
             DB.session.commit()
+            aborted = True
+        else:
+            aborted = False
+
         resp = jsonify(was_aborted=aborted)
         resp.status_code = StatusCodes.OK
         return resp

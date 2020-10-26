@@ -212,3 +212,40 @@ def test_aborted_state(db_cfg, client_env):
     _, workflow_status = workflow._get_workflow_id_and_status()
     assert workflow_status == "A"
     assert workflow_run_res[0] == "A"
+
+
+def test_aborted_state_null_case(db_cfg, client_env):
+    from jobmon.client.api import BashTask, UnknownWorkflow
+    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
+    from jobmon.client.workflow import WorkflowRun
+
+    # create a workflow without binding the tasks
+    task = BashTask("foo")
+    task2 = BashTask("bar")
+    workflow = UnknownWorkflow("aborted_workflow_1", executor_class="SequentialExecutor")
+    workflow.add_tasks([task, task2])
+    workflow._bind()
+    wfr = WorkflowRun(workflow_id=workflow.workflow_id, executor_class='SequentialExecutor')
+
+    time.sleep(5)
+
+    # Call aborted state logic
+    reaper = WorkflowReaper(5, 5, client_env)
+    reaper._aborted_state(wfr.workflow_run_id, 1)
+
+    # Check that the workflow_run and workflow have both been moved to the
+    # "A" state.
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        workflow_run_query = """
+            SELECT workflow_run.status
+            FROM workflow_run
+            WHERE workflow_run.id = :workflow_run_id
+        """
+        workflow_run_res = DB.session.execute \
+            (workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}).fetchone()
+        DB.session.commit()
+    _, workflow_status = workflow._get_workflow_id_and_status()
+    assert workflow_status == "A"
+    assert workflow_run_res[0] == "A"

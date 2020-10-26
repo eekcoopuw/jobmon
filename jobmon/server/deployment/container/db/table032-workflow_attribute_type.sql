@@ -1,5 +1,5 @@
 --
--- Table structure for table `task_attribute_type`
+-- Table structure for table `workflow_attribute_type`
 --
 use `docker`;
 

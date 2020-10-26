@@ -18,8 +18,7 @@ from jobmon.models.task_attribute import TaskAttribute
 from jobmon.models.task_attribute_type import TaskAttributeType
 from jobmon.models.workflow_attribute import WorkflowAttribute
 from jobmon.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.models.command_template_arg_type_mapping import \
-    CommandTemplateArgTypeMapping
+from jobmon.models.template_arg_map import TemplateArgMap
 from jobmon.models.dag import Dag
 from jobmon.models.edge import Edge
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
@@ -381,7 +380,7 @@ def add_task_template_version(task_template_id: int):
 
         for arg_type_id in arg_mapping_dct.keys():
             for arg in arg_mapping_dct[arg_type_id]:
-                ctatm = CommandTemplateArgTypeMapping(
+                ctatm = TemplateArgMap(
                     task_template_version_id=ttv.id,
                     arg_id=arg.id,
                     arg_type_id=arg_type_id)
@@ -395,7 +394,7 @@ def add_task_template_version(task_template_id: int):
     except sqlalchemy.exc.IntegrityError:
         DB.session.rollback()
         # if another process is adding this task_template_version then this query should block
-        # until the command_template_arg_type_mapping has been populated and committed
+        # until the template_arg_map has been populated and committed
         query = """
             SELECT *
             FROM task_template_version
@@ -521,46 +520,61 @@ def add_nodes():
     """
     data = request.get_json()
 
-    # add nodes
     try:
-        nodes = data["nodes"]
-        return_nodes = {}
-        for n in nodes:
-            try:
-                node = Node(task_template_version_id=n['task_template_version_id'],
-                            node_args_hash=n['node_args_hash'])
-                DB.session.add(node)
-                DB.session.commit()
 
-                # lock for insert to related tables
-                DB.session.refresh(node, with_for_update=True)
+        # Extract node and node_args
+        nodes = [(n['task_template_version_id'], n['node_args_hash']) for n in data['nodes']]
 
-                # add node_args
-                node_args = n['node_args']
-                for arg_id in node_args.keys():
-                    app.logger.info(f'Adding node_arg with node_id: {node.id}, '
-                                    f'arg_id: {arg_id}, and val: {node_args[arg_id]}')
-                    node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=node_args[arg_id])
-                    DB.session.add(node_arg)
-                DB.session.commit()
-                # return result
-            except sqlalchemy.exc.IntegrityError:
-                DB.session.rollback()
-                query = """
-                    SELECT *
-                    FROM node
-                    WHERE
-                        task_template_version_id = :task_template_version_id
-                        AND node_args_hash = :node_args_hash
-                """
-                node = DB.session.query(Node).from_statement(text(query)).params(
-                    task_template_version_id=n['task_template_version_id'],
-                    node_args_hash=n['node_args_hash']
-                ).one()
-                DB.session.commit()
-            finally:
-                return_nodes[f"{n['node_args_hash']}:{n['task_template_version_id']}"] = node.id
+        # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate keys
+        nodes_to_add = [{'task_template_version_id': ttv, 'node_args_hash': arghash} for ttv, arghash in nodes]
+        node_insert_stmt = insert(Node).prefix_with("IGNORE")
+        DB.session.execute(node_insert_stmt, nodes_to_add)
+        DB.session.commit()
+
+        # Retrieve the node IDs
+        ttvids, node_arg_hashes = zip(*nodes)
+        node_ids_query = """
+            SELECT *
+            FROM node
+            WHERE
+                task_template_version_id IN :task_template_version_id
+                AND node_args_hash IN :node_args_hash
+        """
+        node_ids = DB.session.query(Node).from_statement(text(node_ids_query)).params(
+            task_template_version_id=ttvids,
+            node_args_hash=node_arg_hashes
+        ).all()
+
+        node_id_dict = {
+            (n.task_template_version_id, str(n.node_args_hash)): n.id
+            for n in node_ids
+        }
+
+        # Add node args. Cast hash to string to match DB schema
+        node_args = {(n['task_template_version_id'], str(n['node_args_hash'])): n['node_args'] for n in data['nodes']}
+
+        node_args_list = []
+        for node_id_tuple, arg in node_args.items():
+
+            node_id = node_id_dict[node_id_tuple]
+
+            for arg_id, val in arg.items():
+                app.logger.info(f'Adding node_arg with node_id: {node_id}, '
+                                f'arg_id: {arg_id}, and val: {val}')
+                node_args_list.append({
+                    'node_id': node_id,
+                    'arg_id': arg_id,
+                    'val': val
+                })
+
+        # Bulk insert again with raw SQL
+        if node_args_list:
+            node_arg_insert_stmt = insert(NodeArg).prefix_with("IGNORE")
+            DB.session.execute(node_arg_insert_stmt, node_args_list)
+            DB.session.commit()
+
         # return result
+        return_nodes = {':'.join(str(i) for i in key): val for key, val in node_id_dict.items()}
         resp = jsonify(nodes=return_nodes)
         resp.status_code = StatusCodes.OK
         return resp
@@ -628,8 +642,8 @@ def add_dag():
 
             edge = Edge(dag_id=dag.id,
                         node_id=node_id,
-                        upstream_nodes=upstream_nodes,
-                        downstream_nodes=downstream_nodes)
+                        upstream_node_ids=upstream_nodes,
+                        downstream_node_ids=downstream_nodes)
             edges_to_add.append(edge)
 
         DB.session.bulk_save_objects(edges_to_add)
@@ -745,7 +759,7 @@ def add_task():
                 for name, val in t["task_attributes"].items():
                     type_id = _add_or_get_attribute_type(name)
                     task_attribute = TaskAttribute(task_id=task.id,
-                                                   attribute_type=type_id,
+                                                   attribute_type_id=type_id,
                                                    value=val)
                     task_attribute_list.append(task_attribute)
         DB.session.add_all(task_args)
@@ -860,7 +874,7 @@ def bind_tasks():
             for name in tasks[k][8].keys():
                 type_id = _add_or_get_attribute_type(name)
                 task_attribute = TaskAttribute(task_id=task.id,
-                                               attribute_type=type_id,
+                                               attribute_type_id=type_id,
                                                value=tasks[k][8][name])
                 task_attribute_list.append(task_attribute)
 
@@ -877,7 +891,7 @@ def bind_tasks():
                 attribute_type = _add_or_get_attribute_type(name)
                 insert_vals = insert(TaskAttribute).values(
                     task_id=task.id,
-                    attribute_type=attribute_type,
+                    attribute_type_id=attribute_type,
                     value=tasks[k][8][name]
                 )
                 inserts.append(insert_vals)
@@ -926,7 +940,7 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     attribute_type = _add_or_get_attribute_type(name)
     insert_vals = insert(TaskAttribute).values(
         task_id=task_id,
-        attribute_type=attribute_type,
+        attribute_type_id=attribute_type,
         value=value
     )
     update_insert = insert_vals.on_duplicate_key_update(

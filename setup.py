@@ -20,7 +20,7 @@ dev_requires = [
     'flake8',
     'nox',
     'cluster_utils',
-    'pymysql',
+    'pymysql'
 ]
 
 # pip install -e .[docs]

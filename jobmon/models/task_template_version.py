@@ -11,7 +11,7 @@ class TaskTemplateVersion(DB.Model):
         # serialized = SerializeClientTool.to_wire(id=self.id, name=self.name)
         # return serialized
         id_name_map = {}
-        for arg_mapping in self.command_template_arg_type_mappings:
+        for arg_mapping in self.template_arg_map:
             id_name_map[arg_mapping.argument.name] = arg_mapping.argument.id
         return SerializeClientTaskTemplateVersion.to_wire(self.id, id_name_map)
 
@@ -24,6 +24,6 @@ class TaskTemplateVersion(DB.Model):
     task_template = DB.relationship(
         "TaskTemplate",
         back_populates="task_template_versions")
-    command_template_arg_type_mappings = DB.relationship(
-        "CommandTemplateArgTypeMapping",
+    template_arg_map = DB.relationship(
+        "TemplateArgMap",
         back_populates="task_template_version")

@@ -61,7 +61,6 @@ class BuildContainer:
         self.envs["JOBMON_TAG"] = self.config.jobmon_version
         self.envs["SLACK_TOKEN"] = self.config.slack_token
         self.envs["WF_SLACK_CHANNEL"] = self.config.wf_slack_channel
-        self.envs["NODE_SLACK_CHANNEL"] = self.config.node_slack_channel
         self.envs["MONITOR_PORT"] = self.config.monitor_port
         self.envs["COMPOSE_PROJECT_NAME"] = self.config.compose_project_name
         self.envs["JOBMON_INTEGRATION_SERVICE_PORT"] = self.config.jobmon_integration_service_port

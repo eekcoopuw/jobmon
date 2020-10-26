@@ -13,5 +13,5 @@ class Edge(DB.Model):
     # for implementation details refer to
     # jobmon/client/swarm/workflow/clientdag.py
     # method: _insert_edges()
-    upstream_nodes = DB.Column(DB.Text)
-    downstream_nodes = DB.Column(DB.Text)
+    upstream_node_ids = DB.Column(DB.Text)
+    downstream_node_ids = DB.Column(DB.Text)

@@ -1,9 +1,9 @@
 from jobmon.models import DB
 
 
-class CommandTemplateArgTypeMapping(DB.Model):
+class TemplateArgMap(DB.Model):
 
-    __tablename__ = 'command_template_arg_type_mapping'
+    __tablename__ = 'template_arg_map'
 
     task_template_version_id = DB.Column(
         DB.Integer, DB.ForeignKey('task_template_version.id'),
@@ -15,10 +15,10 @@ class CommandTemplateArgTypeMapping(DB.Model):
 
     task_template_version = DB.relationship(
         "TaskTemplateVersion",
-        back_populates="command_template_arg_type_mappings")
+        back_populates="template_arg_map")
     argument = DB.relationship(
         "Arg",
-        back_populates="command_template_arg_type_mappings")
+        back_populates="template_arg_map")
     argument_type = DB.relationship(
         "ArgType",
-        back_populates="command_template_arg_type_mappings")
+        back_populates="template_arg_map")

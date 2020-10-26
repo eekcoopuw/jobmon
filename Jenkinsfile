@@ -26,7 +26,6 @@ def createSetupCfgFile() {
         slack_token=\${slack_token}
         slack_api_url=\${slack_api_url}
         wf_slack_channel=\${wf_slack_channel}
-        node_slack_channel=\${node_slack_channel}
         jobmon_server_hostname=\${jobmon_server_hostname}
         jobmon_server_sqdn=\${jobmon_server_sqdn}
         jobmon_service_port=\${jobmon_service_port}

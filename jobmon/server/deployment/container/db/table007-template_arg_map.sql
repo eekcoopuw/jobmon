@@ -4,9 +4,9 @@
 
 USE `docker`;
 
-DROP TABLE IF EXISTS `command_template_arg_type_mapping`;
+DROP TABLE IF EXISTS `template_arg_map`;
 
-CREATE TABLE `command_template_arg_type_mapping`(
+CREATE TABLE `template_arg_map`(
   `task_template_version_id` INTEGER NOT NULL,
   `arg_id` INTEGER NOT NULL,
   `arg_type_id` INTEGER NOT NULL,

@@ -44,9 +44,8 @@ services:
         - JOBMON_PORT=${EXTERNAL_SERVICE_PORT}
         - SLACK_TOKEN=${SLACK_TOKEN}
         - WF_SLACK_CHANNEL=${WF_SLACK_CHANNEL}
-        - NODE_SLACK_CHANNEL=${NODE_SLACK_CHANNEL}
         - TZ=America/Los_Angeles
-    command: ["jobmon", "start", "health_monitor"]
+    command: ["jobmon", "start", "workflow_reaper"]
     links:
         - db
         - jobmon
@@ -73,7 +72,6 @@ services:
         - JOBMON_PORT=${EXTERNAL_SERVICE_PORT}
         - SLACK_TOKEN=${SLACK_TOKEN}
         - WF_SLACK_CHANNEL=${WF_SLACK_CHANNEL}
-        - NODE_SLACK_CHANNEL=${NODE_SLACK_CHANNEL}
         - TZ=America/Los_Angeles
     command: ["jobmon", "start", "qpid_integration"]
     links:

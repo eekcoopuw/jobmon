@@ -85,7 +85,6 @@ k8s/deploy.Jenkinsfile
   * DB_HOST: Jobmon database hostname. Use a FQDN.  (Uses username and password from jenkins secret specified in Jenkinsfile)
   * DB_PORT: Jobmon database port number.
   * RANCHER_PROJECT_ID: Rancher project ID. Make a project in the webui and get the project ID from the URL.
-  * NODE_SLACK_CHANNEL: Slack Node Channel (Uses api key from jenkins secret specified in Jenkinsfile)
   * WF_SLACK_CHANNEL: Slack Workflow Channel (Uses api key from jenkins secret specified in Jenkinsfile)
 
 .. graphviz::

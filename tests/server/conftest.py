@@ -17,7 +17,6 @@ def test_app(ephemera):
         db_pass=ephemera["DB_PASS"],
         db_name=ephemera["DB_NAME"],
         wf_slack_channel=None,
-        node_slack_channel=None,
         slack_token=None)
     app = create_app(server_config)
     app.config['TESTING'] = True

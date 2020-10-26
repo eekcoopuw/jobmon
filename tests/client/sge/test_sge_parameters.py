@@ -25,7 +25,7 @@ def test_memory_transformed_correctly(mem_input, expected):
 
 
 @pytest.mark.unittest
-@pytest.mark.parametrize("mem_input,expected,q", [('1TB', 750, 'all.q'), ('751G', 750, 'long.q'),
+@pytest.mark.parametrize("mem_input,expected,q", [('1.5TB', 1010, 'all.q'), ('1040G', 1010, 'long.q'),
                                                   ('120MB', 0.128, 'all.q'), ('0B', 1, 'i.q'),
                                                   ('751G', 751, 'geospatial.q')])
 def test_memory_resource_validate(mem_input, expected, q):

@@ -68,11 +68,12 @@ def test_bash_task_equality(client_env):
 
     from jobmon.client.templates.bash_task import BashTask
 
-    a = BashTask(command="echo 'Hello World'")
-    a_again = BashTask(command="echo 'Hello World'")
-    assert a == a_again
+    a = BashTask(command="echo Hello World")
+    a_again = BashTask(command="echo Hello World")
 
-    b = BashTask(command="echo 'Hello Jobmon'", upstream_tasks=[a, a_again])
+    b = BashTask(command="echo Hello Jobmon", upstream_tasks=[a, a_again])
+
+    assert a == a_again
     assert b != a
     assert len(b.node.upstream_nodes) == 1
 
@@ -118,7 +119,46 @@ def test_bash_task_bind(db_cfg, client_env):
         DB.session.commit()
 
 
-def test_python_task_equality(client_env):
+def test_bash_task_command_parsing(db_cfg, client_env):
+    from jobmon.client.api import BashTask, UnknownWorkflow
+    bash_wf = UnknownWorkflow(name="test_bash_task_parsing", executor_class="DummyExecutor")
+    bash_a = BashTask('OP_NUM_THREADS 1 echo hello && sleep 3', task_args={'echo_str': 'hello'},
+                      node_args={'sleep': 3})
+    bash_b = BashTask('OP_NUM_THREADS 1 echo boo && sleep 5', task_args={'echo_str': 'boo'},
+                      node_args={'sleep': 5})
+    bash_c = BashTask('echo blah && sleep 6', task_args={'echo_str': 'blah'},
+                      node_args={'sleep': 6}, env_variables={'OP_NUM_THREADS': '1'})
+    bash_wf.add_tasks([bash_a, bash_b, bash_c])
+    bash_wf._bind()
+    bash_wf._create_workflow_run()
+
+    bound_a = bash_wf.tasks[hash(bash_a)]
+    bound_b = bash_wf.tasks[hash(bash_b)]
+    bound_c = bash_wf.tasks[hash(bash_c)]
+    assert bound_a.task_id != bound_b.task_id
+    assert bound_a.node.task_template_version_id == bound_b.node.task_template_version_id
+    assert list(bound_a.task_args.values())[0] == 'hello'
+    assert list(bound_b.task_args.values())[0] == 'boo'
+    assert bound_c.command == 'OP_NUM_THREADS=1 echo blah && sleep 6'
+
+
+def test_python_task_command_parsing(db_cfg, client_env):
+    from jobmon.client.api import PythonTask, UnknownWorkflow
+    wf = UnknownWorkflow(name="test_python_task_parsing", executor_class="DummyExecutor")
+    py_a = PythonTask(name="task_a", script='~/runme.py --blah 3 --bop 2 --hop 5',
+                   node_args={'blah': 3}, task_args={'bop': 2}, args=['baz', '4'])
+    py_b = PythonTask(name="task_a", script='~/runme.py --blah 4 --bop 6 --hop 5',
+                   node_args={'blah': 4}, task_args={'bop': 6}, args=['baz', '4'])
+    wf.add_tasks([py_a, py_b])
+    wf._bind()
+    wf._create_workflow_run()
+    bound_a = wf.tasks[hash(py_a)]
+    bound_b = wf.tasks[hash(py_b)]
+    assert bound_a.task_id != bound_b.task_id
+    assert bound_a.node.task_template_version_id == bound_b.node.task_template_version_id
+
+
+def test_python_task_equality(db_cfg, client_env):
     """Test that two identical python tasks are equal and that a non-identical
     task is not equal"""
     from jobmon.client.templates.python_task import PythonTask
@@ -203,7 +243,7 @@ def test_task_attribute(db_cfg, client_env):
         query = """
         SELECT task_attribute_type.name, task_attribute.value, task_attribute_type.id
         FROM task_attribute
-        INNER JOIN task_attribute_type ON task_attribute.attribute_type=task_attribute_type.id
+        INNER JOIN task_attribute_type ON task_attribute.attribute_type_id=task_attribute_type.id
         WHERE task_attribute.task_id IN (:task_id_1, :task_id_2, :task_id_3)
         """
         resp = DB.session.query(TaskAttribute.value, TaskAttributeType.name,

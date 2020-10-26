@@ -21,8 +21,7 @@ from jobmon.models.task_attribute import TaskAttribute
 from jobmon.models.task_attribute_type import TaskAttributeType
 from jobmon.models.workflow_attribute import WorkflowAttribute
 from jobmon.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.models.command_template_arg_type_mapping import \
-    CommandTemplateArgTypeMapping
+from jobmon.models.template_arg_map import TemplateArgMap
 from jobmon.models.dag import Dag
 from jobmon.models.edge import Edge
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition

@@ -319,7 +319,7 @@ class Workflow(object):
                min(total_nodes - 1, chunk_number * self._chunk_size - 1))
 
     def _bulk_bind_nodes(self):
-        nodes_to_send = []
+
         nodes_in_dag = list(self._dag.nodes)
         nodes_received = {}
         total_nodes = len(self._dag.nodes)
@@ -327,6 +327,7 @@ class Workflow(object):
         chunk_boarder = self._get_chunk(total_nodes, chunk_number)
         while chunk_boarder:
             # do something to bind
+            nodes_to_send = []
             for i in range(chunk_boarder[0], chunk_boarder[1] + 1):
                 node = nodes_in_dag[i]
                 n = {"task_template_version_id": node.task_template_version_id,
@@ -348,7 +349,7 @@ class Workflow(object):
             chunk_number += 1
             chunk_boarder = self._get_chunk(total_nodes, chunk_number)
         for n in nodes_in_dag:
-            k = f"{n.node_args_hash}:{n.task_template_version_id}"
+            k = f"{n.task_template_version_id}:{n.node_args_hash}"
             if k in nodes_received.keys():
                 n._node_id = int(nodes_received[k])
             else:

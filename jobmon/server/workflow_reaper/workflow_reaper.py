@@ -120,7 +120,8 @@ class WorkflowReaper(object):
             if self._wf_notification_sink:
                 self._wf_notification_sink(msg=message)
 
-    def _aborted_state(self, workflow_run_id: int = None) -> None:
+    def _aborted_state(self, workflow_run_id: int = None, aborted_seconds: int = (60 * 2)
+                       ) -> None:
         """Get all workflow runs in G state and validate if they should be in
         A state"""
 
@@ -131,13 +132,13 @@ class WorkflowReaper(object):
         for wfr in workflow_runs:
             if workflow_run_id:
                 if wfr.workflow_run_id == workflow_run_id:
-                    message = wfr.transition_to_aborted()
+                    message = wfr.transition_to_aborted(aborted_seconds)
                     # Send a message to slack about the transitions
                     if self._wf_notification_sink and message:
                         self._wf_notification_sink(msg=message)
                     break
             else:
-                message = wfr.transition_to_aborted()
+                message = wfr.transition_to_aborted(aborted_seconds)
                 # Send a message to slack about the transitions
                 if self._wf_notification_sink and message:
                     self._wf_notification_sink(msg=message)

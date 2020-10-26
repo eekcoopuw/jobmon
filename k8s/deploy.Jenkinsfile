@@ -23,9 +23,6 @@ pipeline {
     string(defaultValue: 'c-99499:p-4h54h',
      description: 'Rancher project must be created in the rancher web ui before running this job. Get this from the URL after you select the project in the rancher UI. Shouldnt change often',
      name: 'RANCHER_PROJECT_ID')
-    string(defaultValue: 'suspicious_nodes',
-     description: 'Node Slack Channel (default: suspicious_nodes)',
-     name: 'NODE_SLACK_CHANNEL')
     string(defaultValue: 'jobmon-alerts',
      description: 'Workflow Slack Channel (default: jobmon-alerts)',
      name: 'WF_SLACK_CHANNEL')
@@ -89,7 +86,6 @@ pipeline {
                       --jobmon_port="80" \
                       --slack_token="${SLACK_TOKEN}" \
                       --wf_slack_channel="${WF_SLACK_CHANNEL}" \
-                      --node_slack_channel="${NODE_SLACK_CHANNEL}" \
                       --rancherproject="${RANCHER_PROJECT_ID}" \
                       --grafana_image="${GRAFANA_CONTAINER_URI}" \
                       /data/${TEMPLATE}

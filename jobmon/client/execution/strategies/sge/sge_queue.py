@@ -30,25 +30,31 @@ ONE_DAY = 24 * 60 * 60
 # The three queues, max memory is below node memory size per INFRA suggestion
 
 SGE_ALL_Q = SGEQueue(name="all.q",
-                     max_threads=56,
-                     min_memory_gb=0.128, max_memory_gb=750,
+                     max_threads=102,
+                     min_memory_gb=0.128, max_memory_gb=1010,
                      default_runtime_seconds=ONE_DAY,
                      max_runtime_seconds=3 * ONE_DAY)
 
 SGE_LONG_Q = SGEQueue(name="long.q",
-                      max_threads=56,
-                      min_memory_gb=0.128, max_memory_gb=750,
+                      max_threads=102,
+                      min_memory_gb=0.128, max_memory_gb=1010,
                       default_runtime_seconds=ONE_DAY,
                       max_runtime_seconds=16 * ONE_DAY)
 
 SGE_GEOSPATIAL_Q = SGEQueue(name="geospatial.q",
-                            max_threads=64,
+                            max_threads=62,
                             min_memory_gb=0.128, max_memory_gb=1010,
                             default_runtime_seconds=ONE_DAY,
                             max_runtime_seconds=25 * ONE_DAY)
 
 SGE_I_Q = SGEQueue(name="i.q",
-                   max_threads=56,
+                   max_threads=78,
+                   min_memory_gb=0.128, max_memory_gb=750,
+                   default_runtime_seconds=ONE_DAY,
+                   max_runtime_seconds=7 * ONE_DAY)
+
+SGE_D_Q = SGEQueue(name="d.q",
+                   max_threads=78,
                    min_memory_gb=0.128, max_memory_gb=750,
                    default_runtime_seconds=ONE_DAY,
                    max_runtime_seconds=7 * ONE_DAY)
@@ -58,5 +64,6 @@ queues_by_name: Dict[str, SGEQueue] = {
     SGE_ALL_Q.name: SGE_ALL_Q,
     SGE_LONG_Q.name: SGE_LONG_Q,
     SGE_GEOSPATIAL_Q.name: SGE_GEOSPATIAL_Q,
-    SGE_I_Q.name: SGE_I_Q
+    SGE_I_Q.name: SGE_I_Q,
+    SGE_D_Q.name: SGE_D_Q
 }

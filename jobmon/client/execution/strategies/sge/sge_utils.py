@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Comes from object_name in `man sge_types`. Also, * excluded.
 UGE_NAME_POLICY = re.compile(
-    "[.#\n\t\r /\\\[\]:'{}\|\(\)@%,*]|[\n\t\r /\\\[\]:'{}\|\(\)@%,*]")
+    r"[.#\n\t\r /\\\[\]:'{}\|\(\)@%,*]|[\n\t\r /\\\[\]:'{}\|\(\)@%,*]")
 STATA_BINARY = "/usr/local/bin/stata-mp"
 R_BINARY = "/usr/local/bin/R"
 DEFAULT_CONDA_ENV_LOCATION = "~/.conda/envs"
@@ -202,7 +202,7 @@ def qstat_details(jids: List[int]):
                 continue
             ws = line.split(":")
             k = ws[0].strip()
-            k = re.sub('\s*1', '', k)  # remove inexplicable __1s in qstat keys
+            k = re.sub(r"\s*1", '', k)  # remove inexplicable __1s in qstat keys
             v = ":".join(ws[1:]).strip()
             if k == 'job_number':
                 v = int(v)

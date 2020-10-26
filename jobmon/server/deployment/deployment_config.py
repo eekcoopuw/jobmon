@@ -13,7 +13,6 @@ class DeploymentConfig(object):
                    jobmon_version=config.jobmon_version,
                    slack_token=config.slack_token,
                    wf_slack_channel=config.wf_slack_channel,
-                   node_slack_channel=config.node_slack_channel,
                    monitor_port=config.jobmon_monitor_port,
                    jobmon_service_user_pwd=config.jobmon_service_user_pwd,
                    existing_network=config.existing_network,
@@ -25,8 +24,7 @@ class DeploymentConfig(object):
 
     def __init__(self, jobmon_service_port, external_db_port,
                  external_db_host, internal_db_port, internal_db_host,
-                 jobmon_version, slack_token, wf_slack_channel,
-                 node_slack_channel, monitor_port,
+                 jobmon_version, slack_token, wf_slack_channel, monitor_port,
                  jobmon_service_user_pwd, existing_network,
                  same_host, existing_db, db_only, jobmon_integration_service_port):
         self.jobmon_service_port = jobmon_service_port
@@ -37,7 +35,6 @@ class DeploymentConfig(object):
         self.jobmon_version = jobmon_version
         self.slack_token = slack_token
         self.wf_slack_channel = wf_slack_channel
-        self.node_slack_channel = node_slack_channel
         self.monitor_port = monitor_port
         self.jobmon_service_user_pwd = jobmon_service_user_pwd
         self.existing_network = existing_network

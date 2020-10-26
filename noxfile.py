@@ -19,7 +19,7 @@ def tests(session: Session) -> None:
     session.conda_install("mysqlclient")
     if python == "3.7":
         session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
-    session.install("pytest", "pytest-mproc<=3.2.9", "mock")
+    session.install("pytest==6.0.2", "pytest-mproc<=3.2.9", "mock")
     session.install("-r", "requirements.txt")
     session.install("-e", ".")
 
@@ -27,6 +27,9 @@ def tests(session: Session) -> None:
     try:
         os.environ['SGE_ENV']
         extra_args = ["-m", "not integration_tests and not performance_tests"]
+        # if Jenkins server, skip jenkins_skip mark cases
+        if os.uname()[1] == 'scicomp-uge-submit-p01':
+            extra_args = ["-m", "not jenkins_skip and not integration_tests and not performance_tests"]
     except KeyError:
         extra_args = ["-m", "not integration_sge and not integration_tests and not performance_tests"]
 
@@ -44,7 +47,7 @@ def integration(session: Session) -> None:
     session.conda_install("mysqlclient")
     if python == "3.7":
         session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
-    session.install("pytest", "pytest-mproc<=3.2.9", "mock")
+    session.install("pytest==6.0.2", "pytest-mproc<=3.2.9", "mock")
     session.install("-r", "requirements.txt")
     session.install("-e", ".")
     extra_args = ["-m", "integration_tests"]
@@ -62,7 +65,7 @@ def performance(session: Session) -> None:
     session.conda_install("mysqlclient")
     if python == "3.7":
         session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
-    session.install("pytest", "pytest-mproc<=3.2.9", "mock")
+    session.install("pytest==6.0.2", "pytest-mproc<=3.2.9", "mock")
     session.install("-r", "requirements.txt")
     session.install("-e", ".")
     extra_args = ["-m", "performance_tests"]
@@ -109,7 +112,7 @@ def build(session: Session) -> None:
     session.run("python", "setup.py", "sdist")
 
 
-@nox.session(python="3.7", venv_backend="conda")
+@nox.session(python="3.8", venv_backend="conda")
 def release(session: Session) -> None:
     """Release the distribution."""
     # check if overwrite is an arg
