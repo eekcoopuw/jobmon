@@ -52,3 +52,7 @@ class WorkflowRunStateError(Exception):
 
 class ResumeSet(Exception):
     pass
+
+
+class TaskDependencyNotExistError(Exception):
+    pass
