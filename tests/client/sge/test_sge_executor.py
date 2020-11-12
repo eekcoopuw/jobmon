@@ -245,7 +245,6 @@ def test_workflow_timeout(db_cfg, client_env):
     assert res[0] == "F"
 
 
-@pytest.mark.jenkins_skip
 @pytest.mark.systemtest
 @pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
 def test_workflow_137(db_cfg, client_env):
@@ -305,7 +304,6 @@ def test_workflow_137(db_cfg, client_env):
         assert res[0] == 1
 
 
-@pytest.mark.jenkins_skip
 @pytest.mark.integration_sge
 def test_sge_workflow_one_task(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
@@ -324,7 +322,6 @@ def test_sge_workflow_one_task(db_cfg, client_env):
     assert len(wfr.all_error) == 0
 
 
-@pytest.mark.jenkins_skip
 @pytest.mark.integration_sge
 def test_sge_workflow_three_tasks(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
@@ -353,7 +350,6 @@ def test_sge_workflow_three_tasks(db_cfg, client_env):
     assert len(wfr.all_error) == 0
 
 
-@pytest.mark.jenkins_skip
 @pytest.mark.integration_sge
 def test_sge_workflow_timeout(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
@@ -391,7 +387,6 @@ def test_sge_workflow_timeout(db_cfg, client_env):
     assert res[0] == "F"
 
 
-@pytest.mark.jenkins_skip
 @pytest.mark.integration_sge
 def test_reconciler_sge_new_heartbeats(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow

@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+try:
+    # default to mysqldb if installed. ~10x faster than pymysql
+    import MySQLdb
+    driver = "mysqldb"
+except (ImportError, ModuleNotFoundError):
+    # otherwise use pymysql since it is pip installable
+    import pymysql
+    driver = "pymysql"
+
+
 from jobmon.config import CLI, ParserDefaults
 
 
@@ -34,8 +44,8 @@ class WebConfig(object):
 
     @property
     def conn_str(self) -> str:
-        conn_str = "mysql://{user}:{pw}@{host}:{port}/{db}".format(
-            user=self.db_user, pw=self.db_pass, host=self.db_host,
+        conn_str = "mysql+{driver}://{user}:{pw}@{host}:{port}/{db}".format(
+            driver=driver, user=self.db_user, pw=self.db_pass, host=self.db_host,
             port=self.db_port, db=self.db_name
         )
         return conn_str

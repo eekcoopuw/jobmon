@@ -32,6 +32,7 @@ class Node:
         self.task_template_version_id = task_template_version_id
         self.node_args = node_args
         self.node_args_hash = self._hash_node()
+
         self.upstream_nodes: Set[Node] = set()
         self.downstream_nodes: Set[Node] = set()
 

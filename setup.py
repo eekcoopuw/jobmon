@@ -2,25 +2,19 @@ import versioneer
 from setuptools import setup
 
 install_requires = [
-    'pandas',
-    'sqlalchemy',
-    'numpy',
+    'configargparse',
     'flask',
     'flask_cors',
     'Flask-SQLAlchemy',
-    'requests',
+    'numpy',
+    'pandas',
     'psutil',
+    'pymysql',  # install MySQLdb/mysqlclient for more performance
+    'requests',
+    'sqlalchemy',
     'tabulate',
     'tenacity',
     'tblib',
-    'configargparse']
-
-# pip install -e .[dev]
-dev_requires = [
-    'flake8',
-    'nox',
-    'cluster_utils',
-    'pymysql'
 ]
 
 # pip install -e .[docs]
@@ -29,6 +23,17 @@ docs_requires = [
     'sphinx-autodoc-typehints',
     'sphinx_rtd_theme',
 ]
+
+# pip install -e .[test]
+test_requires = [
+    "pytest",
+    "pytest-xdist",
+    "pytest-cov",
+    "mock",
+    "filelock",
+    'cluster_utils',
+]
+
 
 setup(
     version=versioneer.get_version(),
@@ -39,7 +44,7 @@ setup(
     author_email=('gphipps@uw.edu, mlsandar@uw.edu, cpinho@uw.edu, tomflem@uw.edu'),
     install_requires=install_requires,
     extras_require={
-        'dev': dev_requires,
+        'test': test_requires,
         'docs': docs_requires,
     },
     packages=['jobmon',

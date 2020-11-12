@@ -1,30 +1,28 @@
-from builtins import str
 import glob
+import json
 import logging
 import os
 import pwd
 import re
 import shutil
-import signal
-import uuid
+import socket
 from time import sleep
+import uuid
 
+from filelock import FileLock
 import pytest
 import requests
 from sqlalchemy import create_engine
 
 from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
 
+from jobmon.server.cli import main
+
+
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='global')
-def ephemera():
-    """Note: this function must be placed before the other imports
-    because the ephemera db has to be started before any other code
-    imports the_server_config
-    """
-
+def boot_db() -> dict:
     edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
     edb.db_name = "docker"
     conn_str = edb.start()
@@ -41,8 +39,7 @@ def ephemera():
 
     # load schema
     here = os.path.dirname(__file__)
-    create_dir = os.path.join(here, "..",
-                              "jobmon/server/deployment/container/db")
+    create_dir = os.path.join(here, "..", "jobmon/server/deployment/container/db")
     updates_dir = os.path.join(here, "..", "jobmon/server/deployment/container/db/upgrade")
 
     create_files = glob.glob(os.path.join(create_dir, "*.sql"))
@@ -63,17 +60,41 @@ def ephemera():
         "DB_PASS": db_conn_dict["pass"],
         "DB_NAME": db_conn_dict["db"]
     }
-    yield cfg
+    return cfg
+
+
+@pytest.fixture(scope="session")
+def ephemera(tmp_path_factory, worker_id):
+    if worker_id == "master":
+        # not executing in with multiple workers, just produce the data and let
+        # pytest's fixture caching do its job
+        return boot_db()
+
+    # get the temp directory shared by all workers
+    root_tmp_dir = tmp_path_factory.getbasetemp().parent
+
+    fn = root_tmp_dir / "data.json"
+    with FileLock(str(fn) + ".lock"):
+        if fn.is_file():
+            data = json.loads(fn.read_text())
+        else:
+            data = boot_db()
+            fn.write_text(json.dumps(data))
+    return data
 
 
 @pytest.fixture(scope='session')
 def real_jsm_jqs(ephemera):
     """This starts the flask dev server in separate processes"""
     import multiprocessing as mp
-    from jobmon.server.cli import main
+    import signal
 
     # host info for connecting to web service
-    jobmon_host = ephemera["DB_HOST"]
+    # spawn ensures that no attributes are copied to the new process. Python
+    # starts from scratch
+    # The Jobmon server and ephemera can communicate via localhost,
+    # But the worker node needs the FQDN of the jobmon server
+    jobmon_host = socket.getfqdn()
     jobmon_port = str(10_000 + os.getpid() % 30_000)
 
     # cli string
@@ -86,10 +107,17 @@ def real_jsm_jqs(ephemera):
         f'--db_name {ephemera["DB_NAME"]} '
         f'--web_service_port {jobmon_port}')
 
-    # spawn ensures that no attributes are copied to the new process. Python
-    # starts from scratch
-    ctx = mp.get_context('spawn')
-    p1 = ctx.Process(target=main, args=(argstr,))
+    def run_server_with_handler(argstr):
+        def sigterm_handler(_signo, _stack_frame):
+            # catch SIGTERM and shut down with 0 so pycov finalizers are run
+            # Raises SystemExit(0):
+            import sys
+            sys.exit(0)
+        signal.signal(signal.SIGTERM, sigterm_handler)
+        main(argstr)
+
+    ctx = mp.get_context('fork')
+    p1 = ctx.Process(target=run_server_with_handler, args=(argstr,))
     p1.start()
 
     # Wait for it to be up
@@ -116,8 +144,7 @@ def real_jsm_jqs(ephemera):
     yield {"JOBMON_HOST": jobmon_host, "JOBMON_PORT": jobmon_port}
 
     # interrupt and join for coverage
-    os.kill(p1.pid, signal.SIGINT)
-    p1.join()
+    p1.terminate()
 
 
 @pytest.fixture(scope='session')

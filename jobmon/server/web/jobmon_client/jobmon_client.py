@@ -2,7 +2,7 @@ from http import HTTPStatus as StatusCodes
 import os
 from datetime import datetime, timedelta
 import json
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Union, List, Set
 
 from flask import jsonify, request, Blueprint, current_app as app
 from werkzeug.local import LocalProxy
@@ -100,6 +100,7 @@ def health():
     Defined in each module with a different route, so it can be checked individually
     """
     try:
+        app.logger.info(DB.session.bind.pool.status())
         time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
         time = time['time']
         time = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -312,9 +313,9 @@ def get_task_template_version(task_template_id: int):
                 AND command_template = :command_template
         """
         ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
-                task_template_id=task_template_id,
-                command_template=command_template,
-                arg_mapping_hash=arg_mapping_hash
+            task_template_id=task_template_id,
+            command_template=command_template,
+            arg_mapping_hash=arg_mapping_hash
         ).one_or_none()
 
         if ttv is not None:
@@ -559,8 +560,8 @@ def add_nodes():
             node_id = node_id_dict[node_id_tuple]
 
             for arg_id, val in arg.items():
-                app.logger.info(f'Adding node_arg with node_id: {node_id}, '
-                                f'arg_id: {arg_id}, and val: {val}')
+                app.logger.debug(f'Adding node_arg with node_id: {node_id}, '
+                                 f'arg_id: {arg_id}, and val: {val}')
                 node_args_list.append({
                     'node_id': node_id,
                     'arg_id': arg_id,
@@ -757,7 +758,7 @@ def add_task():
 
             if t["task_attributes"]:
                 for name, val in t["task_attributes"].items():
-                    type_id = _add_or_get_attribute_type(name)
+                    type_id = _add_or_get_attribute_type([name]).id
                     task_attribute = TaskAttribute(task_id=task.id,
                                                    attribute_type_id=type_id,
                                                    value=val)
@@ -816,101 +817,144 @@ def update_task_parameters(task_id: int):
 def bind_tasks():
     try:
         all_data = request.get_json()
-        logger.debug(all_data)
         tasks = all_data["tasks"]
+        workflow_id = int(all_data["workflow_id"])
         # receive from client the tasks in a format of:
-        #{<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5)], reset_if_running(6),
-        # task_args(7),task_attributes(8)}
-        to_add = {}
-        to_update = {}
-        for k in tasks.keys():
-            query = """
-                    SELECT task.id, task.status
-                    FROM task
-                    WHERE
-                        workflow_id = :workflow_id
-                        AND node_id = :node_id
-                        AND task_args_hash = :task_args_hash
-                """
-            result = DB.session.query(Task).from_statement(text(query)).params(
-                workflow_id=tasks[k][0],
-                node_id=tasks[k][1],
-                task_args_hash=tasks[k][2]
-            ).one_or_none()
+        # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5), reset_if_running(6),
+        # task_args(7),task_attributes(8)]}
 
-            if result is None:
-                task = Task(
-                    workflow_id=int(tasks[k][0]),
-                    node_id=int(tasks[k][1]),
-                    task_args_hash=tasks[k][2],
-                    name=tasks[k][3],
-                    command=tasks[k][4],
-                    max_attempts=tasks[k][5],
-                    status=TaskStatus.REGISTERED)
-                to_add[k] = task
+        # Retrieve existing task_ids
+        task_query = """
+            SELECT task.id, task.node_id, task.task_args_hash, task.status
+            FROM task
+            WHERE workflow_id = {workflow_id}
+            AND (task.node_id, task.task_args_hash) IN ({tuples})
+        """
+
+        task_query_params = ','.join([f"({task[0]},{task[1]})" for task in tasks.values()])
+
+        prebound_task_query = task_query.format(workflow_id=workflow_id,
+                                                tuples=task_query_params)
+        prebound_tasks = DB.session.query(Task).from_statement(text(prebound_task_query)).all()
+
+        # Bind tasks not present in DB
+        tasks_to_add: List[Dict] = []  # Container for tasks not yet bound to the database
+        tasks_to_update = 0
+        present_tasks = {
+            (task.node_id, int(task.task_args_hash)): task
+            for task in prebound_tasks
+        }  # Dictionary mapping existing Tasks to the supplied arguments
+
+        arg_attr_mapping = {}  # Dictionary mapping input tasks to the corresponding args/attributes
+        task_hash_lookup = {}  # Reverse dictionary of inputs, maps hash back to values
+
+        for hashval, items in tasks.items():
+
+            node_id, arg_hash, name, command, max_att, reset, args, attrs = items
+
+            id_tuple = (node_id, int(arg_hash))
+
+            # Conditional logic: Has task already been bound to the DB? If yes, reset the task status and
+            # update the args/attributes
+            if id_tuple in present_tasks.keys():
+                task = present_tasks[id_tuple]
+                task.reset(name=name,
+                           command=command,
+                           max_attempts=max_att,
+                           reset_if_running=reset)
+                tasks_to_update += 1
+
+            # If not, add the task
             else:
-                query = """SELECT task.* FROM task WHERE task.id = :task_id"""
-                task = DB.session.query(Task).from_statement(text(query)).params(
-                    task_id=result.id).one()
-                task.reset(name=tasks[k][3], command=tasks[k][4],
-                           max_attempts=tasks[k][5],
-                           reset_if_running=tasks[k][6])
-                to_update[k] = task
-        DB.session.add_all(to_add.values())
-        DB.session.flush()
-        DB.session.add_all(to_update.values())
-        DB.session.flush()
-        # continue add
-        task_args = []
-        task_attribute_list = []
-        for k in to_add.keys():
-            task = to_add[k]
-            logger.debug(k)
-            logger.debug(tasks[k])
-            for _id in tasks[k][7].keys():
-                task_arg = TaskArg(task_id=task.id, arg_id=int(_id), val=tasks[k][7][_id])
-                task_args.append(task_arg)
+                task = {
+                    'workflow_id': workflow_id,
+                    'node_id': node_id,
+                    'task_args_hash': arg_hash,
+                    'name': name,
+                    'command': command,
+                    'max_attempts': max_att,
+                    'status': TaskStatus.REGISTERED
+                }
+                tasks_to_add.append(task)
 
-            for name in tasks[k][8].keys():
-                type_id = _add_or_get_attribute_type(name)
-                task_attribute = TaskAttribute(task_id=task.id,
-                                               attribute_type_id=type_id,
-                                               value=tasks[k][8][name])
-                task_attribute_list.append(task_attribute)
+            arg_attr_mapping[hashval] = (args, attrs)
+            task_hash_lookup[id_tuple] = hashval
 
-        DB.session.add_all(task_args)
-        DB.session.flush()
-        DB.session.add_all(task_attribute_list)
-        DB.session.flush()
-        # continue update
-        inserts = []
-        updates = []
-        for k in to_update.keys():
-            task = to_update[k]
-            for name in tasks[k][8].keys():
-                attribute_type = _add_or_get_attribute_type(name)
-                insert_vals = insert(TaskAttribute).values(
-                    task_id=task.id,
-                    attribute_type_id=attribute_type,
-                    value=tasks[k][8][name]
-                )
-                inserts.append(insert_vals)
-                update_insert = insert_vals.on_duplicate_key_update(
-                    value=insert_vals.inserted.value,
-                    status='U'
-                )
-                updates.append(update_insert)
-        DB.session.add_all(inserts)
-        DB.session.flush()
-        DB.session.add_all(updates)
-        DB.session.flush()
-        DB.session.commit()
-        # return a dict of tasks {<hash>: [id, status]}
+        # Update existing tasks
+        if tasks_to_update > 0:
+
+            # ORM task objects already updated in task.reset, flush the changes
+            DB.session.flush()
+
+        # Bind new tasks with raw SQL
+        if len(tasks_to_add):
+
+            DB.session.execute(insert(Task), tasks_to_add)
+            DB.session.flush()
+
+            # Fetch newly bound task ids
+            new_task_params = ','.join(
+                [f"({task['node_id']},{task['task_args_hash']})" for task in tasks_to_add]
+            )
+            new_task_query = task_query.format(workflow_id=workflow_id, tuples=new_task_params)
+
+            new_tasks = DB.session.query(Task).from_statement(text(new_task_query)).all()
+
+        else:
+            # Empty task list
+            new_tasks = []
+
+        # Create the response dict of tasks {<hash>: [id, status]}
+        # Done here to prevent modifying tasks, and necessitating a refresh.
         return_tasks = {}
-        for k in to_add.keys():
-            return_tasks[k] = [to_add[k].id, to_add[k].status]
-        for k in to_update.keys():
-            return_tasks[k] = [to_update[k].id, to_update[k].status]
+
+        for task in prebound_tasks + new_tasks:
+            id_tuple = (task.node_id, int(task.task_args_hash))
+            hashval = task_hash_lookup[id_tuple]
+            return_tasks[hashval] = [task.id, task.status]
+
+        # Add new task attribute types
+        attr_names = set([name for x in arg_attr_mapping.values() for name in x[1]])
+        if attr_names:
+            task_attributes_types = _add_or_get_attribute_type(attr_names)
+
+            # Map name to ID from resultant list
+            task_attr_type_mapping = {ta.name: ta.id for ta in task_attributes_types}
+        else:
+            task_attr_type_mapping = {}
+
+        # Add task_args and attributes to the DB
+
+        args_to_add = []
+        attrs_to_add = []
+
+        for hashval, task in return_tasks.items():
+
+            task_id = task[0]
+            args, attrs = arg_attr_mapping[hashval]
+
+            for key, val in args.items():
+                task_arg = {'task_id': task_id, 'arg_id': key, 'val': val}
+                args_to_add.append(task_arg)
+
+            for name, val in attrs.items():
+                attr_type_id = task_attr_type_mapping[name]
+                insert_vals = {
+                    'task_id': task_id,
+                    'attribute_type_id': attr_type_id,
+                    'value': val}
+                attrs_to_add.append(insert_vals)
+
+        if args_to_add:
+            arg_insert_stmt = insert(TaskArg).values(args_to_add).on_duplicate_key_update(
+                val=text("VALUES(val)"))
+            DB.session.execute(arg_insert_stmt)
+        if attrs_to_add:
+            attr_insert_stmt = insert(TaskAttribute).values(attrs_to_add).on_duplicate_key_update(
+                value=text("VALUES(value)"))
+            DB.session.execute(attr_insert_stmt)
+        DB.session.commit()
+
         resp = jsonify(tasks=return_tasks)
         resp.status_code = StatusCodes.OK
         return resp
@@ -918,22 +962,19 @@ def bind_tasks():
         log_and_raise(str(e), app.logger)
 
 
-def _add_or_get_attribute_type(name: str) -> int:
+def _add_or_get_attribute_type(names: Union[List[str], Set[str]]) -> List[TaskAttributeType]:
     try:
-        attribute_type = TaskAttributeType(name=name)
-        DB.session.add(attribute_type)
+        attribute_types = [{'name': name} for name in names]
+        insert_stmt = insert(TaskAttributeType).prefix_with("IGNORE")
+        DB.session.execute(insert_stmt, attribute_types)
         DB.session.commit()
-    except sqlalchemy.exc.IntegrityError:
-        DB.session.rollback()
-        query = """
-            SELECT id, name
-            FROM task_attribute_type
-            WHERE name = :name
-        """
-        attribute_type = DB.session.query(TaskAttributeType) \
-            .from_statement(text(query)).params(name=name).one()
 
-    return attribute_type.id
+        # Query the IDs
+        attribute_type_ids = DB.session.query(TaskAttributeType).filter(
+            TaskAttributeType.name.in_(names)).all()
+        return attribute_type_ids
+    except Exception as e:
+        log_and_raise(str(e), app.logger)
 
 
 def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
@@ -944,8 +985,7 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
         value=value
     )
     update_insert = insert_vals.on_duplicate_key_update(
-        value=insert_vals.inserted.value,
-        status='U'
+        value=insert_vals.inserted.value
     )
     attribute = DB.session.execute(update_insert)
     DB.session.commit()
@@ -1161,7 +1201,7 @@ def _upsert_wf_attribute(workflow_id: int, name: str, value: str):
         workflow_id=workflow_id,
         workflow_attribute_type_id=wf_attrib_id,
         value=value
-        )
+    )
 
     upsert_stmt = insert_vals.on_duplicate_key_update(
         value=insert_vals.inserted.value,

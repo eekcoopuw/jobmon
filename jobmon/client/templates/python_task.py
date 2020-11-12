@@ -37,10 +37,10 @@ class PythonTask(Task):
         """
         Python Task object can be used by users upgrading from older versions of
         Jobmon (version < 2.0). It sets a default of unknown tool and a task
-        template for each unique script for the user, however if the user wants 
-        to build out their objects to better classify their tasks, they should 
+        template for each unique script for the user, however if the user wants
+        to build out their objects to better classify their tasks, they should
         use the Task and Task Template objects.
-        
+
         Args:
             path_to_python_binary (str): the python install that should be used
                 Default is the Python install where Jobmon is installed
@@ -79,10 +79,10 @@ class PythonTask(Task):
             tool: tool to associate python task with
             task_args: if the user wants to supply arguments to describe the data arguments for
                 this task
-            node_args: if the user wants to supply arguments to describe the arguments that 
+            node_args: if the user wants to supply arguments to describe the arguments that
                 make this task unique within a set of task with identical command patterns
-            op_args: if the user wants to supply arguments to describe the operational 
-                arguments for this task 
+            op_args: if the user wants to supply arguments to describe the operational
+                arguments for this task
             """
         if task_args is None:
             task_args = {}
@@ -98,7 +98,6 @@ class PythonTask(Task):
         if env_variables is not None:
             env_str = ' '.join(
                 '{}={}'.format(key, val) for key, val in env_variables.items())
-            op_args["env_variables"] = env_str
         else:
             env_str = ""
         if args is not None:
@@ -107,11 +106,13 @@ class PythonTask(Task):
                 node_args['command_line_args'] = command_line_args
         else:
             command_line_args = ""
-        if not node_args and not task_args and len(op_args) < 2:
+        if not node_args and not task_args and not op_args:
             command_template = '{command}'
             node_args['command'] = f'{env_str} {path_to_python_binary} {script} ' \
                                    f'{command_line_args}'
         else:
+            if env_str != "":
+                op_args["env_variables"] = env_str
             op_args["path_to_python_binary"] = path_to_python_binary
             split_command = f'{env_str} {path_to_python_binary} {script}'.strip()
             command_template, node_args, task_args, op_args = self._parse_command_to_args(

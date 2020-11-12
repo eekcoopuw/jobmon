@@ -5,7 +5,6 @@ import hashlib
 from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union, Tuple, Dict
 
-
 from jobmon.client import ClientLogging as logging
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
@@ -341,7 +340,7 @@ class Task:
             if f'--{arg}' in cmd_list:  # if cmd uses flags
                 try:
                     val = cmd_list[cmd_list.index(f'--{arg}') + 1]
-                except IndexError as e:
+                except IndexError:
                     if args[arg] is True or args[arg] is False:
                         args[arg] = f'--{arg}'
                         cmd_list[cmd_list.index(f'--{arg}')] = f'{{{arg}}}'

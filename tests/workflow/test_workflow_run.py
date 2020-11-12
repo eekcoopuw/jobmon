@@ -218,13 +218,14 @@ def test_fail_fast(client_env):
     from jobmon.client.execution.strategies.sequential import \
         SequentialExecutor
 
-    #
+    # The sleep for t3 must be long so that the executor has time to notice that t2
+    # died and react accordingly.
     unknown_tool = Tool()
     workflow = unknown_tool.create_workflow(name="test_fail_fast")
     t1 = BashTask("sleep 1", executor_class="SequentialExecutor")
     t2 = BashTask("erroring_out 1", upstream_tasks=[t1],
                   executor_class="SequentialExecutor")
-    t3 = BashTask("sleep 2", upstream_tasks=[t1],
+    t3 = BashTask("sleep 20", upstream_tasks=[t1],
                   executor_class="SequentialExecutor")
     t4 = BashTask("sleep 3", upstream_tasks=[t3],
                   executor_class="SequentialExecutor")

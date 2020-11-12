@@ -21,8 +21,10 @@ downstream tasks depend on these jobs.
 .. code::
 
     # python 3
-    from jobmon.client.swarm.workflow import Workflow
-    from jobmon.client.swarm.python_task import PythonTask
+    import sys
+    from jobmon.client.tool import Tool
+    from jobmon.client.task_template import TaskTemplate
+    from jobmon.client.execution.strategies.base import ExecutorParameters
 
     from my_app.utils import split_locs_by_loc_set
 
@@ -39,38 +41,103 @@ downstream tasks depend on these jobs.
             self.sex_ids = sex_ids
             self.version = version
 
-            self.workflow = Workflow(
-                workflow_args='burdenator_v{v}'.format(v=self.version),
-                name='burdenator', project='proj_burdenator')
+            self.tool = Tool(name="Burdenator")
             self.most_detailed_jobs_by_command = {}
             self.pct_change_jobs_by_command = {}
             self.loc_agg_jobs_by_command = {}
             self.cleanup_jobs_by_command = {}
 
+            self.python = sys.executable
+
+        def create_workflow(self):
+            """ Instantiate the workflow """
+
+            self.workflow = self.tool.create_workflow(
+                workflow_args = f'burdenator_v{self.version}',
+                name = f'burdenator run {self.version}'
+            )
+
+        def create_task_templates(self):
+            """ Create the task template metadata objects """
+
+            self.most_detailed_tt = self.tool.get_task_template(
+                template_name = "run_burdenator_most_detailed",
+                command_template = "{python} {script} --location_id {location_id} --year {year}",
+                node_args = ["location_id", "year"],
+                op_args = ["python", "script"])
+
+            self.loc_agg_tt = self.tool.get_task_template(
+                template_name = "location_aggregation",
+                command_template = "{python} {script} --measure {measure} --year {year} --sex {sex} --rei {rei}",
+                node_args = ["measure", "year", "sex", "rei"],
+                op_args = ["python", "script"])
+
+            self.cleanup_jobs_tt = self.tool.get_task_template(
+                template_name = "cleanup_jobs",
+                command_template = "{python} {script} --measure {measure} --loc {loc} --year {year}",
+                node_args = ["measure", "loc", "year"],
+                op_args = ["python", "script"])
+
+            self.pct_change_tt = self.tool.get_task_template(
+                template_name = "pct_change",
+                command_template = ("{python} {script} --measure {measure} --loc {loc} --start_year {start_year}"
+                                    " --end_year {end_year}"),
+                node_args = ["measure", "loc", "start_year", "end_year"],
+                op_args = ["python", "script"])
+
+            self.upload_tt = self.tool.get_task_template(
+                template_name = "upload_jobs",
+                command_template = "{python} {script} --measure {measure}"
+                node_args = ["measure"],
+                op_args = ["python", "script"])
+
+
         def create_most_detailed_jobs(self):
             """First set of tasks, thus no upstream tasks"""
+
+            executor_parameters = ExecutorParameters(
+                num_cores=40,
+                m_mem_free="20G",
+                max_attempts=5,
+                max_runtime_seconds=360
+            )
+
             for loc in self.most_detailed_location_ids:
                 for year in self.year_ids:
-                    task = PythonTask(script='run_burdenator_most_detailed',
-                                      args=[loc, year],
+                    task = self.most_detailed_tt.create_task(
+                                      executor_parameters=executor_parameters,
                                       name='most_detailed_{}_{}'.format(loc, year),
-                                      num_cores=40, m_mem_free=20, max_attempts=5,
-                                      max_runtime=360)
+                                      python=self.python,
+                                      script='run_burdenator_most_detailed',
+                                      loc=loc,
+                                      year=year)
                     self.workflow.add_task(task)
                     self.most_detailed_jobs_by_command[task.name] = task
 
         def create_loc_agg_jobs(self):
             """Depends on most detailed jobs"""
+
+            executor_parameters = ExecutorParameters(
+                num_cores=20,
+                m_mem_free="40G",
+                max_attempts=11,
+                max_runtime_seconds=540
+            )
+
             for year in self.year_ids:
                 for sex in self.sex_ids:
                     for measure in self.measure_ids:
                         for rei in self.rei_ids:
-                            task = PythonTask(
-                                script='run_loc_agg',
-                                args=[measure, year, sex, rei],
+                            task = self.loc_agg_tt.create_task(
+                                executor_parameters=executor_parameters,
                                 name='loc_agg_{}_{}_{}_{}'.format(measure, year, sex, rei),
-                                num_cores=20, m_mem_free=40, max_runtime=540,
-                                max_attempts=11)
+                                python=self.python,
+                                script='run_loc_agg',
+                                measure=measure,
+                                year=year,
+                                sex=sex,
+                                rei=rei)
+
                             for loc in self.most_detailed_location_ids:
                                 task.add_upstream(
                                     self.most_detailed_jobs_by_command['most_detailed_{}_{}'
@@ -80,13 +147,26 @@ downstream tasks depend on these jobs.
 
         def create_cleanup_jobs(self):
             """Depends on aggregate locations coming out of loc agg jobs"""
+
+            executor_parameters = ExecutorParameters(
+                num_cores=25,
+                m_mem_free="50G",
+                max_attempts=11,
+                max_runtime_seconds=360
+            )
+
             for measure in self.measure_ids:
                 for loc in self.aggregate_location_ids:
                     for year in self.year_ids:
-                        task = PythonTask(script='run_cleanup', args=[measure, loc, year],
+                        task = self.cleanup_jobs_tt.create_task(
+                                          executor_parameters=executor_parameters,
                                           name='cleanup_{}_{}_{}'.format(measure, loc, year),
-                                          num_cores=25, m_mem_free=50, max_runtime=360,
-                                          max_attempts=11)
+                                          python=self.python,
+                                          script='run_cleanup',
+                                          measure=measure,
+                                          loc=loc,
+                                          year=year)
+
                         for sex in self.sex_ids:
                             for rei in self.rei_ids:
                                 task.add_upstream(
@@ -99,6 +179,14 @@ downstream tasks depend on these jobs.
         def create_pct_change_jobs(self):
             """For aggregate locations, depends on cleanup jobs.
             But for most_detailed locations, depends only on most_detailed jobs"""
+
+            executor_parameters = ExecutorParameters(
+                num_cores=45,
+                m_mem_free="90G",
+                max_attempts=11,
+                max_runtime_seconds=540
+            )
+
             for measure in self.measure_ids:
                 for start_year, end_year in zip(self.start_year_ids, self.end_year_ids):
                     for loc in self.location_ids:
@@ -106,13 +194,17 @@ downstream tasks depend on these jobs.
                             is_aggregate = True
                         else:
                             is_aggregate = False
-                        task = PythonTask(script='run_pct_change', args=[measure, loc,
-                                                                         start_year,
-                                                                         end_year],
+                        task = self.pct_change_tt.create_task(
+                                          executor_parameters=executor_parameters,
                                           name=('pct_change_{}_{}_{}_{}'
                                                 .format(measure, loc, start_year, end_year),
-                                          num_cores=45, m_mem_free=90, max_attempts=11,
-                                          max_runtime=540)
+                                          python=self.python,
+                                          script='run_pct_change',
+                                          measure=measure,
+                                          loc=loc,
+                                          start_year=start_year,
+                                          end_year=end_year)
+
                         for year in [start_year, end_year]:
                             if is_aggregate:
                                 task.add_upstream(
@@ -127,10 +219,21 @@ downstream tasks depend on these jobs.
 
         def create_upload_jobs(self):
             """Depends on pct-change jobs"""
+
+            executor_parameters = ExecutorParameters(
+                num_cores=20,
+                m_mem_free="40G",
+                max_attempts=3,
+                max_runtime_seconds=720
+            )
+
             for measure in self.measure_ids:
-                task = PythonTask(script='run_pct_change', args=[measure],
-                                  name='upload_{}'.format(measure), num_cores=20, m_mem_free=40,
-                                  max_runtime=720, max_attempts=3)
+                task = self.upload_tt.create_task(
+                                  executor_parameters=executor_parameters,
+                                  name='upload_{}'.format(measure)
+                                  script='run_pct_change',
+                                  measure=measure)
+
                 for location_id in self.all_location_ids:
                     for start_year, end_year in zip(self.start_year_ids, self.end_year_ids):
                         task.add_upstream(

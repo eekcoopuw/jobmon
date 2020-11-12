@@ -1,6 +1,5 @@
 """Nox Configuration for jobmon."""
 import os
-import sys
 
 import nox
 from nox.sessions import Session
@@ -9,34 +8,26 @@ from nox.sessions import Session
 src_locations = ["jobmon"]
 test_locations = ["tests"]
 
-python = "3.7"
+python = "3.8"
 
 
 @nox.session(python=python, venv_backend="conda")
 def tests(session: Session) -> None:
     """Run the test suite."""
     args = session.posargs or test_locations
-    session.conda_install("mysqlclient")
-    if python == "3.7":
-        session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
-    session.install("pytest==6.0.2", "pytest-mproc<=3.2.9", "mock")
-    session.install("-r", "requirements.txt")
-    session.install("-e", ".")
 
-    # pytest sge integration tests
+    session.conda_install("mysqlclient", "openssl")
+    session.install("-e", ".[test]")
+
+    # pytest skips. performance tests are a separate nox target
+    skip_string = "not performance_tests and not integration_tests "
     try:
         os.environ['SGE_ENV']
-        extra_args = ["-m", "not integration_tests and not performance_tests"]
-        # if Jenkins server, skip jenkins_skip mark cases
-        if os.uname()[1] == 'scicomp-uge-submit-p01':
-            extra_args = ["-m", "not jenkins_skip and not integration_tests and not performance_tests"]
     except KeyError:
-        extra_args = ["-m", "not integration_sge and not integration_tests and not performance_tests"]
+        skip_string += "and not integration_sge"
+    extra_args = ['-m', skip_string]
 
     # pytest mproc
-    disable_mproc = ["--disable-mproc", "True"]
-    if "--cores" not in args:
-        extra_args.extend(disable_mproc)
     session.run("pytest", *args, *extra_args)
 
 
@@ -44,17 +35,11 @@ def tests(session: Session) -> None:
 def integration(session: Session) -> None:
     """Run integration tests that take a while."""
     args = session.posargs or test_locations
-    session.conda_install("mysqlclient")
-    if python == "3.7":
-        session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
-    session.install("pytest==6.0.2", "pytest-mproc<=3.2.9", "mock")
-    session.install("-r", "requirements.txt")
-    session.install("-e", ".")
+
+    session.conda_install("mysqlclient", "openssl")
+    session.install("-e", ".[test]")
+
     extra_args = ["-m", "integration_tests"]
-    # pytest mproc
-    disable_mproc = ["--disable-mproc", "True"]
-    if "--cores" not in args:
-        extra_args.extend(disable_mproc)
     session.run("pytest", *args, *extra_args)
 
 
@@ -62,21 +47,15 @@ def integration(session: Session) -> None:
 def performance(session: Session) -> None:
     """Run performance tests that take a while."""
     args = session.posargs or test_locations
-    session.conda_install("mysqlclient")
-    if python == "3.7":
-        session.conda_install("-y", "-c", "conda-forge", "openssl=1.0.2p")
-    session.install("pytest==6.0.2", "pytest-mproc<=3.2.9", "mock")
-    session.install("-r", "requirements.txt")
-    session.install("-e", ".")
-    extra_args = ["-m", "performance_tests"]
-    # pytest mproc
-    disable_mproc = ["--disable-mproc", "True"]
-    if "--cores" not in args:
-        extra_args.extend(disable_mproc)
+
+    session.conda_install("mysqlclient", "openssl")
+    session.install("-e", ".[test]")
+
+    extra_args = ["-m", "integration_tests"]
     session.run("pytest", *args, *extra_args)
 
 
-@nox.session(python="3.7", venv_backend="conda")
+@nox.session(python=python, venv_backend="conda")
 def lint(session: Session) -> None:
     """Lint code using various plugins."""
     args = session.posargs or src_locations + test_locations
@@ -90,7 +69,7 @@ def lint(session: Session) -> None:
     session.run("flake8", *args)
 
 
-@nox.session(python="3.7", venv_backend="conda")
+@nox.session(python=python, venv_backend="conda")
 def typecheck(session: Session) -> None:
     """Type check code."""
     args = session.posargs or src_locations + test_locations
@@ -98,21 +77,19 @@ def typecheck(session: Session) -> None:
     session.run("mypy", *args)
 
 
-@nox.session(python="3.7", venv_backend="conda")
+@nox.session(python=python, venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
-    session.install(".")
-    session.install("sphinx", "sphinx-autodoc-typehints",
-                    "sphinx_rtd_theme")
+    session.install("-e", ".[docs]")
     session.run("sphinx-build", "docsource", "docsource/_build")
 
 
-@nox.session(python="3.7", venv_backend="conda")
+@nox.session(python=python, venv_backend="conda")
 def build(session: Session) -> None:
     session.run("python", "setup.py", "sdist")
 
 
-@nox.session(python="3.8", venv_backend="conda")
+@nox.session(python=python, venv_backend="conda")
 def release(session: Session) -> None:
     """Release the distribution."""
     # check if overwrite is an arg

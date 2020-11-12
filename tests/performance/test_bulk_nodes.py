@@ -28,6 +28,7 @@ def create_node_1(starter=0):
 def test_1_single_thread(db_cfg, client_env):
     create_node_1()
 
+
 @pytest.mark.performance_tests
 def test_1_multi_thread(db_cfg, client_env):
     threads = []
@@ -55,9 +56,11 @@ def create_node_2(requester_url, starter=0):
     assert rc == 200
     assert len(r['nodes']) == TOTAL_NODES
 
+
 @pytest.mark.performance_tests
 def test_2_single_thread(db_cfg, client_env):
     create_node_2(client_env)
+
 
 @pytest.mark.performance_tests
 def test_2_multi_thread(db_cfg, client_env):

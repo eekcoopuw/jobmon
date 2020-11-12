@@ -27,7 +27,7 @@ def createSetupCfgFile() {
         slack_api_url=\${slack_api_url}
         wf_slack_channel=\${wf_slack_channel}
         jobmon_server_hostname=\${jobmon_server_hostname}
-        jobmon_server_sqdn=\${jobmon_server_sqdn}
+        jobmon_server_fqdn=\${jobmon_server_fqdn}
         jobmon_service_port=\${jobmon_service_port}
         jobmon_monitor_port=\${jobmon_monitor_port}
         jobmon_version=\${jobmon_version}
@@ -65,18 +65,11 @@ def createSetupCfgFile() {
 }
 
 
-def cloneRepoToBuild(project_name) {
-    sh "echo \$(hostname)"
-    sh "rm -rf ${project_name}"
-    sh "git clone ${REPO_URL} ${project_name}"
-    dir("${project_name}") {
-        sh "git checkout ${BRANCH}"
-        sh "ls -l setup.cfg"
-        createSetupCfgFile()
-        sh "cat /tmp/jobmon.cfg"
-        sh "cp /tmp/jobmon.cfg jobmon/jobmon.cfg"
-        sh "echo setup.cfg"
-    }
+def setConfigFile() {
+    createSetupCfgFile()
+    sh "cat /tmp/jobmon.cfg"
+    sh "cp /tmp/jobmon.cfg jobmon/jobmon.cfg"
+    sh "echo setup.cfg"
 }
 
 
@@ -95,10 +88,9 @@ def slackSendFiltered(color, channel, msg) {
 }
 
 
-def nox_stage(project_name, target, stage_target, nox_sessions, continue_on_failure, override = "false") {
+def nox_stage(target, stage_target, nox_sessions, continue_on_failure, override = "false") {
     // Runs the nox sessions in the nox_sessions string variable
     // ARGS:
-    // project_name: is the standard PROJECT_NAME argument from jenkins, e.g. "db_tools"
     // target: The TARGET variable from  the Jenkins pipeline config page,
     //         so it could be "all" or "build" etc
     // stage_target: The specific stage that is being run, so it CAN'T be "all"
@@ -114,7 +106,6 @@ def nox_stage(project_name, target, stage_target, nox_sessions, continue_on_fail
         try {
             sh """
                 echo 'nox ${stage_target} STARTS'
-                cd ${project_name}
                 nox --session ${nox_sessions} ${or_true} ${overwrite}
                 echo 'nox ${stage_target} ENDS'
                 echo '--------'
@@ -133,74 +124,86 @@ def nox_stage(project_name, target, stage_target, nox_sessions, continue_on_fail
 
 // Pipeline stages
 node('qlogin') {
-    stage('clone build script & set vars') {
+    stage('Clone Build Script & Set Vars') {
         sshagent (credentials: ['jenkins']) {
             checkout scm
+
 
             slackSendFiltered('good', "#gbd-builds-all", "Started")
 
             // currently only 1 version of base env. may need to have 1 per release of the ci/deploytools repos
             sh """source activate base &> /dev/null"""
 
-            // create workspace for this build
-            project_name = "jobmon"
-            workspace_shared = "/ihme/scratch/users/svcscicompci/jenkins_workspaces/${project_name}/${env.BUILD_ID}"
-            sh "mkdir -p ${workspace_shared}"
-            try { sh "chmod -R 777 ${workspace_shared}"} catch(err) { echo "chmod error: ${err}" }
-            currentBuild.displayName = "#${BUILD_NUMBER} ${project_name}"
-        }
-    }
-}
+            setConfigFile()
 
-node('qlogin') {
-    stage('remote clone repo to build') {
-        sshagent (credentials: ['jenkins']) {
-            cloneRepoToBuild(project_name)
+            currentBuild.displayName = "#${BUILD_NUMBER} jobmon"
         }
     }
 }
 
 // All the NOX stages
 node('qlogin') {
-    stage('build wheel & docs') {
-        sshagent (credentials: ['jenkins']) {
-            if (TARGET == "emergency-release" ) {
-                // The wheel won't have been built because nox_stage does not check for emergency-release
-                nox_stage( project_name, "build", "build", "build docs", false)
-            }
-            nox_stage( project_name, TARGET, "build", "build docs", false)
-        }
-    }
-
-    stage('lint & types') {
-        sshagent (credentials: ['jenkins']) {
-            nox_stage( project_name, TARGET, "lint", "lint typecheck", true)
-        }
-    }
-
-    stage('tests') {
-        sshagent (credentials: ['jenkins']) {
-            nox_stage( project_name, TARGET, "tests", "tests", false)
-        }
-    }
-
-    stage('deploy to pypi and doc servers') {
-        sshagent (credentials: ['jenkins']) {
-            if (TARGET == "emergency-release" || TARGET == "release") {
-                // @TODO This shell fragment could possibly replace versioneer in the publish_docs python script,
-                // simplifying the python environment
-                nox_stage( project_name, "release", "release", "release", false, "${overide_package_on_pypi}")
-
-            } else {
-                echo "Not a release target, therefore not deploying to artifactory or docs server"
+    try {
+        stage("Notify Bitbucket Build Started") {
+            sshagent (credentials: ['jenkins']) {
+                notifyBitbucket()
             }
         }
-    }
 
-    stage('reports') {
-        // TODO Work out how to post test coverage and lint results somewhere
-        sshagent (credentials: ['jenkins']) {
-            slackSendFiltered('good', "#gbd-builds-all", "COMPLETE")
+        stage('Build Wheel & Docs') {
+            sshagent (credentials: ['jenkins']) {
+                if (TARGET == "emergency-release" ) {
+                    // The wheel won't have been built because nox_stage does not check for emergency-release
+                    nox_stage("build", "build", "build docs", false)
+                }
+                nox_stage(TARGET, "build", "build docs", false)
+            }
         }
+
+        stage('Lint & Typecheck') {
+            sshagent (credentials: ['jenkins']) {
+                nox_stage(TARGET, "lint", "lint typecheck", true)
+            }
+        }
+
+        stage('Tests') {
+            sshagent (credentials: ['jenkins']) {
+                nox_stage(TARGET, "tests", "tests", false)
+            }
+        }
+
+        stage('Deploy to PyPI & Doc Servers') {
+            sshagent (credentials: ['jenkins']) {
+                if (TARGET == "emergency-release" || TARGET == "release") {
+                    // @TODO This shell fragment could possibly replace versioneer in the publish_docs python script,
+                    // simplifying the python environment
+                    nox_stage("release", "release", "release", false, "${overide_package_on_pypi}")
+
+                } else {
+                    echo "Not a release target, therefore not deploying to artifactory or docs server"
+                }
+            }
+        }
+
+        stage('Reports') {
+            // TODO Work out how to post test coverage and lint results somewhere
+            sshagent (credentials: ['jenkins']) {
+                slackSendFiltered('good', "#gbd-builds-all", "COMPLETE")
+            }
+        }
+
+        stage('Notify Bitbucket of Status') {
+            sshagent (credentials: ['jenkins']) {
+                notifyBitbucket(buildStatus: 'SUCCESSFUL')
+            }
+        }
+
+    } catch (error) {
+        stage('Notify Bitbucket of Status') {
+            sshagent (credentials: ['jenkins']) {
+                notifyBitbucket(buildStatus: 'FAILED')
+            }
+        }
+        throw error
     }
 }

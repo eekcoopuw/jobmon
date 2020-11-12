@@ -31,7 +31,6 @@ def match_name_to_sge_name(jid):
     return sge_jobname
 
 
-@pytest.mark.jenkins_skip
 @pytest.mark.integration_sge
 def test_exceed_runtime_task(db_cfg, client_env):
     """Tests that when a task exceeds the requested amount of run time on SGE, it
@@ -67,11 +66,10 @@ def test_exceed_runtime_task(db_cfg, client_env):
     assert sge_jobname == name
 
 
-@pytest.mark.jenkins_skip
 @pytest.mark.integration_sge
 def test_exceed_mem_task(db_cfg, client_env):
     """Tests that when a task exceeds the requested amount of memory on SGE, it
-    succcessfully gets killed"""
+    successfully gets killed"""
     from jobmon.client.api import PythonTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.execution.strategies.base import ExecutorParameters
@@ -85,7 +83,7 @@ def test_exceed_mem_task(db_cfg, client_env):
 
     workflow = UnknownWorkflow(workflow_args="over_memory_task_args",
                                executor_class="SGEExecutor")
-    executor_parameters = ExecutorParameters(m_mem_free='130M', max_runtime_seconds=300,
+    executor_parameters = ExecutorParameters(m_mem_free='130M', max_runtime_seconds=600,
                                              num_cores=1, queue='all.q',
                                              executor_class="SGEExecutor")
     task = PythonTask(script=exceed_mem_path, name=name,
@@ -111,7 +109,6 @@ def test_exceed_mem_task(db_cfg, client_env):
     assert sge_jobname == name
 
 
-@pytest.mark.jenkins_skip
 @pytest.mark.integration_sge
 def test_under_request_memory_then_scale(db_cfg, client_env):
     """test that when a task gets killed due to under requested memory, it
@@ -155,4 +152,3 @@ def test_under_request_memory_then_scale(db_cfg, client_env):
         assert task.executor_parameter_set.max_runtime_seconds == 60
     sge_jobname = match_name_to_sge_name(tid)
     assert sge_jobname == name
-
