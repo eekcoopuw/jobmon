@@ -81,6 +81,7 @@ def typecheck(session: Session) -> None:
 def docs(session: Session) -> None:
     """Build the documentation."""
     session.install("-e", ".[docs]")
+    session.run('sphinx-apidoc', '-o', 'docsource', 'jobmon')
     session.run("sphinx-build", "docsource", "docsource/_build")
 
 
