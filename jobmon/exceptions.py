@@ -54,5 +54,5 @@ class ResumeSet(Exception):
     pass
 
 
-class TaskDependencyNotExistError(Exception):
+class NodeDependencyNotExistError(Exception):
     pass

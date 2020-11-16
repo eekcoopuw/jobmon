@@ -7,6 +7,7 @@ from jobmon.client import ClientLogging as logging
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.requester import Requester
+from jobmon.exceptions import NodeDependencyNotExistError
 
 
 logger = logging.getLogger(__name__)
@@ -68,7 +69,17 @@ class Dag(object):
         return self.dag_id
 
     def validate(self):
-        pass
+        nodes_in_dag = self.nodes
+        for node in nodes_in_dag:
+            # Make sure no task contains up/down stream tasks that are not in the workflow
+            for n in node.upstream_nodes:
+                if n not in nodes_in_dag:
+                    raise NodeDependencyNotExistError("Upstream node, {hash(n)}, for node, {hash(node)},"
+                                                      "does not exist in the dag.")
+            for n in node.downstream_nodes:
+                if n not in nodes_in_dag:
+                    raise NodeDependencyNotExistError("Downstream node, {hash(n)}, for node, {hash(node)},"
+                                                      "does not exist in the dag.")
 
     def _get_dag_id(self) -> Optional[int]:
         dag_hash = hash(self)

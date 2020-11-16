@@ -23,7 +23,6 @@ from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
                                SchedulerNotAlive, ResumeSet)
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.exceptions import TaskDependencyNotExistError
 
 logger = logging.getLogger(__name__)
 
@@ -192,15 +191,6 @@ class Workflow(object):
     def add_tasks(self, tasks: Sequence[Task]):
         """Add a list of task to the workflow to be executed"""
         for task in tasks:
-            # Make sure no task contains up/down stream tasks that are not in the workflow
-            for t in task.upstream_tasks:
-                if t not in tasks:
-                    raise TaskDependencyNotExistError("Upstream task, {hash(task)}, for task, {hash(task},"
-                                                      "does not exist in the workflow.")
-            for t in task.downstream_tasks:
-                if t not in tasks:
-                    raise TaskDependencyNotExistError("Downstream task, {hash(task)}, for task, {hash(task},"
-                                                      "does not exist in the workflow.")
             # add the task
             self.add_task(task)
 
@@ -330,7 +320,6 @@ class Workflow(object):
                min(total_nodes - 1, chunk_number * self._chunk_size - 1))
 
     def _bulk_bind_nodes(self):
-
         nodes_in_dag = list(self._dag.nodes)
         nodes_received = {}
         total_nodes = len(self._dag.nodes)
