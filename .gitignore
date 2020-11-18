@@ -38,3 +38,6 @@ htmlcov
 
 # ignore nox envs
 .nox/
+
+# ignore coverage files
+.coverage.*

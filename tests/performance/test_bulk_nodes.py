@@ -9,7 +9,6 @@ TOTAL_THREADS = 2
 # The number of nodes to create in each threads
 TOTAL_NODES = 1000
 
-
 # the function to create node using /nodes
 def create_node(requester_url, starter=0):
     requester = Requester(requester_url)
@@ -25,9 +24,11 @@ def create_node(requester_url, starter=0):
     assert rc == 200
     assert len(r['nodes']) == TOTAL_NODES
 
+
 @pytest.mark.performance_tests
 def test_single_thread(db_cfg, client_env):
     create_node(client_env)
+
 
 @pytest.mark.performance_tests
 def test_multi_thread(db_cfg, client_env):

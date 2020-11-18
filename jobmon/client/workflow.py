@@ -1,5 +1,4 @@
 import hashlib
-from http import HTTPStatus as StatusCodes
 from multiprocessing import Process, Event, Queue
 from multiprocessing import synchronize
 from queue import Empty
@@ -63,7 +62,7 @@ class Workflow(object):
                  name: str = "", description: str = "",
                  workflow_attributes: Union[List, dict] = None,
                  requester_url: Optional[str] = None,
-                 chunk_size: int = 50000):
+                 chunk_size: int = 500):
         """
         Args:
             tool_version_id: id of the associated tool
@@ -471,18 +470,18 @@ class Workflow(object):
         # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3),
         # command(4), max_attempts(5)], reset_if_running(6), task_args(7), task_attributes(8)}
         # flat the data structure so that the server won't depend on the client
-        tasks = {}
         total_tasks = len(self.tasks)
         chunk_number = 1
         chunk_boarder = self._get_chunk(total_tasks, chunk_number)
         list_task_key = list(self.tasks.keys())
         while chunk_boarder:
+            tasks = {}
             for i in range(chunk_boarder[0], chunk_boarder[1] + 1):
                 k = list_task_key[i]
-                tasks[k] = [self.workflow_id, self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
+                tasks[k] = [self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
                             self.tasks[k].name, self.tasks[k].command, self.tasks[k].max_attempts,
                             reset_if_running, self.tasks[k].task_args, self.tasks[k].task_attributes]
-            parameters = {"tasks": tasks}
+            parameters = {"workflow_id": self.workflow_id, "tasks": tasks}
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message=parameters,
