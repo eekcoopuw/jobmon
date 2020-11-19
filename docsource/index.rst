@@ -20,20 +20,18 @@ Table of Contents
 *****************
 
 .. toctree::
-    :maxdepth: 4
+    :maxdepth: 2
 
     quickstart
-    advanced_dependencies
-    dag_visualization
-    services
-    tests
-    azure
     glossary
+    advanced_dependencies
+    databases
     design_notes
     API Reference <modules>
-    future_work
     architecture
     kubernetes_deployment
+    tests
+    azure
 
 
 Indices and tables
