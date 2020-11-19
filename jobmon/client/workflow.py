@@ -190,6 +190,7 @@ class Workflow(object):
     def add_tasks(self, tasks: Sequence[Task]):
         """Add a list of task to the workflow to be executed"""
         for task in tasks:
+            # add the task
             self.add_task(task)
 
     def set_executor(self, executor: Executor = None,
@@ -318,7 +319,6 @@ class Workflow(object):
                min(total_nodes - 1, chunk_number * self._chunk_size - 1))
 
     def _bulk_bind_nodes(self):
-
         nodes_in_dag = list(self._dag.nodes)
         nodes_received = {}
         total_nodes = len(self._dag.nodes)
@@ -602,3 +602,4 @@ class Workflow(object):
         hash_value.update(str(self.task_hash).encode('utf-8'))
         hash_value.update(str(hash(self._dag)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
+

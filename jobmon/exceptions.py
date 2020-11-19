@@ -52,3 +52,7 @@ class WorkflowRunStateError(Exception):
 
 class ResumeSet(Exception):
     pass
+
+
+class NodeDependencyNotExistError(Exception):
+    pass
