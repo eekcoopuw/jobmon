@@ -32,6 +32,7 @@ class BashTask(Task):
                  node_args: Optional[Dict] = None,
                  op_args: Optional[Dict] = None):
         """
+
         Bash Task object can be used by users upgrading from older versions of Jobmon
         (version < 2.0). It sets a default tool and task template for the user, however if the
         user wants to build out their objects to better classify their tasks, they should use

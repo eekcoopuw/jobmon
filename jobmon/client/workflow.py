@@ -19,7 +19,7 @@ from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
 from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
                                InvalidResponse, SchedulerStartupTimeout,
-                               SchedulerNotAlive, ResumeSet)
+                               SchedulerNotAlive, ResumeSet, DuplicateNodeArgsError)
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 
@@ -181,8 +181,15 @@ class Workflow(object):
             raise ValueError(f"A task with hash {hash(task)} already exists. "
                              f"All tasks in a workflow must have unique "
                              f"commands. Your command was: {task.command}")
+        try:
+            self._dag.add_node(task.node)
+        except DuplicateNodeArgsError:
+            raise DuplicateNodeArgsError(
+                "All tasks for a given task template in a workflow must have unique node_args."
+                f"Found duplicate node args for {task}. task_template_version_id="
+                f"{task.node.task_template_version_id}, node_args={task.node.node_args}"
+            )
         self.tasks[hash(task)] = task
-        self._dag.add_node(task.node)
         logger.debug(f"Task {hash(task)} added")
 
         return task
@@ -602,4 +609,3 @@ class Workflow(object):
         hash_value.update(str(self.task_hash).encode('utf-8'))
         hash_value.update(str(hash(self._dag)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
-

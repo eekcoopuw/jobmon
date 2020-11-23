@@ -9,6 +9,7 @@ TOTAL_THREADS = 2
 # The number of nodes to create in each threads
 TOTAL_NODES = 1000
 
+
 # the function to create node using /nodes
 def create_node(requester_url, starter=0):
     requester = Requester(requester_url)

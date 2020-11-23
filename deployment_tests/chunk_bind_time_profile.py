@@ -1,6 +1,8 @@
 import time
 from jobmon.client.workflow import Workflow
 from jobmon.client.tool import Tool
+from jobmon.client.task_template import TaskTemplate
+from jobmon.client.templates.bash_task import BashTask
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 import logging

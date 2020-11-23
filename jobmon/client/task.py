@@ -320,10 +320,8 @@ class Task:
 
     def __hash__(self) -> int:
         hash_value = hashlib.sha1()
-        hash_value.update(
-            bytes(str(hash(self.node)).encode('utf-8')))
-        hash_value.update(
-            bytes(str(self.task_args_hash).encode('utf-8')))
+        hash_value.update(bytes(str(hash(self.node)).encode('utf-8')))
+        hash_value.update(bytes(str(self.task_args_hash).encode('utf-8')))
         return int(hash_value.hexdigest(), 16)
 
     def _parse_command_to_args(self, full_command: str, node_args: Dict, task_args: Dict,

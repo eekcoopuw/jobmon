@@ -32,7 +32,6 @@ class Node:
         self.task_template_version_id = task_template_version_id
         self.node_args = node_args
         self.node_args_hash = self._hash_node()
-
         self.upstream_nodes: Set[Node] = set()
         self.downstream_nodes: Set[Node] = set()
 
@@ -159,4 +158,7 @@ class Node:
         return hash(self) < hash(other)
 
     def __hash__(self) -> int:
-        return self.node_args_hash
+        hash_value = hashlib.sha1()
+        hash_value.update(bytes(str(self.node_args_hash).encode('utf-8')))
+        hash_value.update(bytes(str(self.task_template_version_id).encode('utf-8')))
+        return int(hash_value.hexdigest(), 16)

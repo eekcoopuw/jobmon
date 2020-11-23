@@ -14,6 +14,7 @@ import pytest
 import requests
 from sqlalchemy import create_engine
 
+from filelock import FileLock
 from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
 
 from jobmon.server.cli import main
