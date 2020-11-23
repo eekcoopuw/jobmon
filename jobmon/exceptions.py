@@ -56,3 +56,7 @@ class ResumeSet(Exception):
 
 class NodeDependencyNotExistError(Exception):
     pass
+
+
+class DuplicateNodeArgsError(Exception):
+    pass

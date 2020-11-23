@@ -7,7 +7,7 @@ from jobmon.client import ClientLogging as logging
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.requester import Requester
-from jobmon.exceptions import NodeDependencyNotExistError
+from jobmon.exceptions import NodeDependencyNotExistError, DuplicateNodeArgsError
 
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,12 @@ class Dag(object):
         Args:
             node (Node): Node to add to the dag
         """
+        # validate node has unique node args within this task template version
+        if node in self.nodes:
+            raise DuplicateNodeArgsError(
+                "A duplicate node was found for task_template_version_id="
+                f"{node.task_template_version_id}. Node args were {node.node_args}"
+            )
         # wf.add_task should call ClientNode.add_node() + pass the tasks' node
         self.nodes.add(node)
 
@@ -138,6 +144,5 @@ class Dag(object):
             for node in sorted(self.nodes):
                 hash_value.update(str(hash(node)).encode('utf-8'))
                 for downstream_node in sorted(node.downstream_nodes):
-                    hash_value.update(
-                        str(hash(downstream_node)).encode('utf-8'))
+                    hash_value.update(str(hash(downstream_node)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)

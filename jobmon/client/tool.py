@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Union, Optional
+from typing import List, Union, Optional, Dict
 
 from jobmon.client import ClientLogging as logging
 from jobmon.client.client_config import ClientConfig
@@ -8,7 +8,6 @@ from jobmon.client.task_template import TaskTemplate
 from jobmon.requester import Requester
 from jobmon.client.workflow import Workflow
 from jobmon.serializers import SerializeClientTool, SerializeClientToolVersion
-
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +41,7 @@ class Tool:
 
         self.name = name
         self.id = self._get_tool_id(self.name, self.requester)
+        self.task_templates: Dict[int, TaskTemplate] = {}
 
         # which tool version are they using for a run
         self.tool_version_ids = sorted(self._get_tool_version_ids())
@@ -124,7 +124,12 @@ class Tool:
                 location or the verbosity of the script.
         """
         tt = TaskTemplate(self.active_tool_version_id, template_name, self.requester.url)
-        tt.bind()
+        if hash(tt) in self.task_templates.keys():
+            task_template_id = self.task_templates[hash(tt)].task_template_id
+            tt.bind(task_template_id)
+        else:
+            self.task_templates[hash(tt)] = tt
+            tt.bind()
         tt.bind_task_template_version(command_template=command_template,
                                       node_args=node_args,
                                       task_args=task_args,

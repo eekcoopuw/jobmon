@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union
 
@@ -37,6 +38,8 @@ class TaskTemplate:
         self.tool_version_id = tool_version_id
         self.template_name = template_name
 
+        self._task_template_id = None
+
     @property
     def task_template_id(self) -> int:
         if not hasattr(self, "_task_template_id"):
@@ -50,10 +53,11 @@ class TaskTemplate:
                 "Cannot access task_template_version until TaskTemplateVersion is bound")
         return self._task_template_version
 
-    def bind(self):
-        task_template_id = self._get_task_template_id()
+    def bind(self, task_template_id=None):
         if task_template_id is None:
-            task_template_id = self._insert_task_template()
+            task_template_id = self._get_task_template_id()
+            if task_template_id is None:
+                task_template_id = self._insert_task_template()
         self._task_template_id = task_template_id
 
     def bind_task_template_version(self, command_template: str, node_args: List[str] = [],
@@ -180,3 +184,11 @@ class TaskTemplate:
             )
 
         return response["task_template_id"]
+
+    def __hash__(self):
+        """A task_template_hash is a hash of the TaskTemplate name and tool version
+        concatenated together."""
+        hash_value = int(hashlib.sha1(
+            ''.join(self.template_name + str(self.tool_version_id)).encode(
+                'utf-8')).hexdigest(), 16)
+        return hash_value

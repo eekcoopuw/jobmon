@@ -6,6 +6,7 @@ import pwd
 import re
 import shutil
 import socket
+import sys
 from time import sleep
 import uuid
 
@@ -15,8 +16,6 @@ import requests
 from sqlalchemy import create_engine
 
 from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
-
-from jobmon.server.cli import main
 
 
 logger = logging.getLogger(__name__)
@@ -94,8 +93,11 @@ def real_jsm_jqs(ephemera):
     # starts from scratch
     # The Jobmon server and ephemera can communicate via localhost,
     # But the worker node needs the FQDN of the jobmon server
-    jobmon_host = socket.getfqdn()
-    jobmon_port = str(10_000 + os.getpid() % 30_000)
+    if sys.platform == "darwin":
+        web_host = ephemera["DB_HOST"]
+    else:
+        web_host = socket.getfqdn()
+    web_port = str(10_000 + os.getpid() % 30_000)
 
     # cli string
     argstr = (
@@ -105,7 +107,7 @@ def real_jsm_jqs(ephemera):
         f'--db_user {ephemera["DB_USER"]} '
         f'--db_pass {ephemera["DB_PASS"]} '
         f'--db_name {ephemera["DB_NAME"]} '
-        f'--web_service_port {jobmon_port}')
+        f'--web_service_port {web_port}')
 
     def run_server_with_handler(argstr):
         def sigterm_handler(_signo, _stack_frame):
@@ -113,6 +115,8 @@ def real_jsm_jqs(ephemera):
             # Raises SystemExit(0):
             import sys
             sys.exit(0)
+        from jobmon.server.cli import main
+
         signal.signal(signal.SIGTERM, sigterm_handler)
         main(argstr)
 
@@ -127,7 +131,7 @@ def real_jsm_jqs(ephemera):
     while not status == 200 and count < max_tries:
         try:
             count += 1
-            r = requests.get(f'http://{jobmon_host}:{jobmon_port}/health')
+            r = requests.get(f'http://{web_host}:{web_port}/health')
             status = r.status_code
         except Exception:
             # Connection failures land here
@@ -141,7 +145,7 @@ def real_jsm_jqs(ephemera):
             f"Out-of-process jsm and jqs services did not answer after "
             f"{count} attempts, probably failed to start.")
 
-    yield {"JOBMON_HOST": jobmon_host, "JOBMON_PORT": jobmon_port}
+    yield {"JOBMON_HOST": web_host, "JOBMON_PORT": web_port}
 
     # interrupt and join for coverage
     p1.terminate()

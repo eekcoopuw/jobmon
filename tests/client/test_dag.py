@@ -1,5 +1,8 @@
+import pytest
+
 from jobmon.client.node import Node
 from jobmon.client.dag import Dag
+from jobmon.exceptions import DuplicateNodeArgsError
 
 
 def test_dag(client_env, db_cfg):
@@ -28,6 +31,10 @@ def test_dag(client_env, db_cfg):
     # test that you can add a dag twice without getting an error
     dag_1_id_redo = dag_1._insert_dag()
     assert dag_1_id == dag_1_id_redo
+
+    # test that adding the same node twice raises an error
+    with pytest.raises(DuplicateNodeArgsError):
+        dag_1.add_node(node_1)
 
     # build a dag identical to dag_1
     dag_2 = Dag()

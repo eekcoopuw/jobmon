@@ -3,6 +3,9 @@ import pytest
 from jobmon.exceptions import WorkflowAlreadyComplete
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.client.workflow import Workflow
+from jobmon.client.tool import Tool
+from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.exceptions import DuplicateNodeArgsError
 
 
 def test_get_chunk(client_env):
@@ -104,3 +107,22 @@ def test_workflow_identical_args(client_env, db_cfg):
     wf2.add_task(task)
     with pytest.raises(WorkflowAlreadyExists):
         wf2.run()
+
+
+def test_add_same_node_args_twice(client_env):
+    tool = Tool.create_tool(name="unknown")
+    tt = tool.get_task_template(
+        template_name="my_template",
+        command_template="{node_arg} {task_arg}",
+        node_args=["node_arg"],
+        task_args=["task_arg"],
+        op_args=[]
+    )
+    params = ExecutorParameters(executor_class="DummyExecutor")
+    a = tt.create_task(node_arg="a", task_arg="a", executor_parameters=params)
+    b = tt.create_task(node_arg="a", task_arg="b", executor_parameters=params)
+
+    workflow = tool.create_workflow()
+    workflow.add_task(a)
+    with pytest.raises(DuplicateNodeArgsError):
+        workflow.add_task(b)
