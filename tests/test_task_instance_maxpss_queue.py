@@ -196,7 +196,7 @@ def test_worker_with_mock_500(qpidcfg):
         assert r[1] > 0
 
 
-def test_route_get_maxpss_error_path(client_env):
+def test_route_get_maxpss_error_path(qpidcfg, client_env):
     """This is to test the restful API to get maxpss of a job instance in jobmon side"""
     from jobmon.server.qpid_integration.qpid_integrator import MaxpssQ
     req = Requester(client_env)

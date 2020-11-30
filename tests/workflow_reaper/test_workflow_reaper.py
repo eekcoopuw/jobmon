@@ -2,6 +2,15 @@ import time
 from typing import Dict
 
 
+def get_workflow_status(db_cfg, workflow_id):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = f"SELECT status FROM workflow WHERE id = {workflow_id}"
+        resp = DB.session.execute(query).fetchone()[0]
+    return resp
+
+
 def test_error_state(db_cfg, client_env):
     """Tests that the workflow reaper successfully checks for error state.
     Suspended state occurs when a workflow run has not logged a heartbeat in a
@@ -49,8 +58,8 @@ def test_error_state(db_cfg, client_env):
 
     # Check that the workflow that exceeded the loss threshold now has an F
     # status, make sure the other workflow is untouched
-    _, workflow1_status = workflow1._get_workflow_id_and_status()
-    _, workflow2_status = workflow2._get_workflow_id_and_status()
+    workflow1_status = get_workflow_status(db_cfg, workflow1.workflow_id)
+    workflow2_status = get_workflow_status(db_cfg, workflow2.workflow_id)
 
     assert workflow1_status == "F"
     assert workflow2_status == "D"
@@ -124,9 +133,9 @@ def test_suspended_state(db_cfg, client_env):
     assert wfr2.status == "C"
     assert wfr3.status == "H"
 
-    _, workflow1_status = workflow1._get_workflow_id_and_status()
-    _, workflow2_status = workflow2._get_workflow_id_and_status()
-    _, workflow3_status = workflow3._get_workflow_id_and_status()
+    workflow1_status = get_workflow_status(db_cfg, workflow1.workflow_id)
+    workflow2_status = get_workflow_status(db_cfg, workflow2.workflow_id)
+    workflow3_status = get_workflow_status(db_cfg, workflow3.workflow_id)
     assert workflow1_status[0] == "R"
     assert workflow2_status[0] == "S"
     assert workflow3_status[0] == "S"
@@ -209,7 +218,8 @@ def test_aborted_state(db_cfg, client_env):
         workflow_run_res = DB.session.execute \
             (workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}).fetchone()
         DB.session.commit()
-    _, workflow_status = workflow._get_workflow_id_and_status()
+
+    workflow_status = get_workflow_status(db_cfg, workflow.workflow_id)
     assert workflow_status == "A"
     assert workflow_run_res[0] == "A"
 
@@ -246,6 +256,6 @@ def test_aborted_state_null_case(db_cfg, client_env):
         workflow_run_res = DB.session.execute \
             (workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}).fetchone()
         DB.session.commit()
-    _, workflow_status = workflow._get_workflow_id_and_status()
+    workflow_status = get_workflow_status(db_cfg, workflow.workflow_id)
     assert workflow_status == "A"
     assert workflow_run_res[0] == "A"

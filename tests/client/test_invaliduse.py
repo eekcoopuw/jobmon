@@ -130,31 +130,6 @@ def test_update_task_attribute(db_cfg, client_env):
     assert rc == 400
 
 
-def test_get_workflow_id_and_status(db_cfg, client_env):
-    # @jobmon_client.route('/workflow', methods=['GET'])
-    requester = Requester(client_env)
-    rc, response = requester.send_request(
-        app_route=f'/workflow',
-        message={'dag_id': 'abc'},
-        request_type='get')
-    assert rc == 400
-    rc, response = requester.send_request(
-        app_route=f'/workflow',
-        message={'tool_version_id': 'abc'},
-        request_type='get')
-    assert rc == 400
-    rc, response = requester.send_request(
-        app_route=f'/workflow',
-        message={'workflow_args_hash': 'abc'},
-        request_type='get')
-    assert rc == 400
-    rc, response = requester.send_request(
-        app_route=f'/workflow',
-        message={'task_hash': 'abc'},
-        request_type='get')
-    assert rc == 400
-
-
 def test_add_workflow(db_cfg, client_env):
     # @jobmon_client.route('/workflow', methods=['POST'])
     requester = Requester(client_env)

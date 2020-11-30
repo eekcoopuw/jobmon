@@ -10,13 +10,6 @@ class Workflow(DB.Model):
 
     __tablename__ = 'workflow'
 
-    @classmethod
-    def from_wire(cls, dct):
-        pass
-
-    def to_wire(self):
-        pass
-
     id = DB.Column(DB.Integer, primary_key=True)
     tool_version_id = DB.Column(DB.Integer, DB.ForeignKey("tool_version.id"))
     dag_id = DB.Column(DB.Integer, DB.ForeignKey('dag.id'))
@@ -25,6 +18,7 @@ class Workflow(DB.Model):
     description = DB.Column(DB.Text(collation='utf8_general_ci'))
     name = DB.Column(DB.String(150))
     workflow_args = DB.Column(DB.Text(collation='utf8_general_ci'))
+    max_concurrently_running = DB.Column(DB.Integer)
     status = DB.Column(DB.String(1),
                        DB.ForeignKey('workflow_status.id'),
                        default=WorkflowStatus.REGISTERED)

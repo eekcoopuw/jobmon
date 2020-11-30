@@ -2,7 +2,7 @@ import hashlib
 from multiprocessing import Process, Event, Queue
 from multiprocessing import synchronize
 from queue import Empty
-from typing import Optional, Sequence, Tuple, Dict, Union, List
+from typing import Optional, Sequence, Dict, Union, List
 import uuid
 
 from jobmon.client import ClientLogging as logging
@@ -58,24 +58,32 @@ class Workflow(object):
         tasks must be added with the same dependencies between tasks.
     """
 
-    def __init__(self, tool_version_id: int, workflow_args: str = "",
-                 name: str = "", description: str = "",
+    def __init__(self,
+                 tool_version_id: int,
+                 workflow_args: str = "",
+                 name: str = "",
+                 description: str = "",
                  workflow_attributes: Union[List, dict] = None,
+                 max_concurrently_running: int = 10_000,
                  requester_url: Optional[str] = None,
-                 chunk_size: int = 500):
+                 chunk_size: int = 500  # TODO: should be in the config
+                 ):
         """
         Args:
             tool_version_id: id of the associated tool
-            workflow_args: unique identifier of a workflow
-            name: name of the workflow
-            description: description of the workflow
-            workflow_attributes: attributes that make this workflow different
-                from other workflows that the user wants to record.
+            workflow_args: Unique identifier of a workflow
+            name: Name of the workflow
+            description: Description of the workflow
+            workflow_attributes: Attributes that make this workflow different from other
+                workflows that the user wants to record.
+            max_concurrently_running: How many running jobs to allow in parallel
             requester_url (str): url to communicate with the flask services.
+            chunk_size: how many tasks to bind in a single request
         """
         self.tool_version_id = tool_version_id
         self.name = name
         self.description = description
+        self.max_concurrently_running = max_concurrently_running
 
         self._dag = Dag()
         # hash to task object mapping. ensure only 1
@@ -112,9 +120,10 @@ class Workflow(object):
                 for attr, val in workflow_attributes.items():
                     self.workflow_attributes[str(attr)] = str(val)
             else:
-                raise ValueError("workflow_attributes must be provided as a "
-                                 "list of attributes or a dictionary of"
-                                 " attributes and their values")
+                raise ValueError(
+                    "workflow_attributes must be provided as a list of attributes or a "
+                    "dictionary of attributes and their values"
+                )
 
     @property
     def is_bound(self):
@@ -126,15 +135,13 @@ class Workflow(object):
     @property
     def workflow_id(self) -> int:
         if not self.is_bound:
-            raise AttributeError(
-                "workflow_id cannot be accessed before workflow is bound")
+            raise AttributeError("workflow_id cannot be accessed before workflow is bound")
         return self._workflow_id
 
     @property
     def dag_id(self) -> int:
         if not self.is_bound:
-            raise AttributeError(
-                "dag_id cannot be accessed before workflow is bound")
+            raise AttributeError("dag_id cannot be accessed before workflow is bound")
         return self._dag.dag_id
 
     @property
@@ -382,31 +389,50 @@ class Workflow(object):
         self._dag.bind()
 
         # bind workflow
-        workflow_id, status = self._get_workflow_id_and_status()
+        self._workflow_id = self._get_workflow_id(resume)
+
+    def _get_workflow_id(self, resume: bool) -> int:
+        app_route = '/client/workflow'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={
+                "tool_version_id": self.tool_version_id,
+                "dag_id": self._dag.dag_id,
+                "workflow_args_hash": self.workflow_args_hash,
+                "task_hash": self.task_hash,
+                "description": self.description,
+                "name": self.name,
+                "workflow_args": self.workflow_args,
+                "max_concurrently_running": self.max_concurrently_running,
+                "workflow_attributes": self.workflow_attributes,
+                "resume": resume,
+            },
+            request_type='post'
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
+        workflow_id = response["workflow_id"]
+        status = response["status"]
+        newly_created = response["newly_created"]
 
         # raise error if workflow exists and is done
         if status == WorkflowStatus.DONE:
             raise WorkflowAlreadyComplete(
-                f"Workflow id ({workflow_id}) is already in done state and "
-                "cannot be resumed"
+                f"Workflow id ({workflow_id}) is already in done state and cannot be resumed"
             )
 
-        if workflow_id is not None:
-            if not resume:
-                raise WorkflowAlreadyExists(
-                    "This workflow already exist. If you are trying to "
-                    "resume a workflow, please set the resume flag  of the"
-                    " workflow. If you are not trying to resume a "
-                    "workflow, make sure the workflow args are unique or "
-                    "the tasks are unique"
-                )
+        if not newly_created and not resume:
+            raise WorkflowAlreadyExists(
+                "This workflow already exist. If you are trying to resume a workflow, "
+                "please set the resume flag of the workflow. If you are not trying to "
+                "resume a workflow, make sure the workflow args are unique or the tasks "
+                "are unique"
+            )
 
-            # Add workflow attributes and workflow_id
-            self._workflow_id = workflow_id
-            self.add_attributes(self.workflow_attributes)
-        else:
-            workflow_id = self._add_workflow()
-            self._workflow_id = workflow_id
+        return workflow_id
 
     def _matching_wf_args_diff_hash(self):
         """Check that an existing workflow with the same workflow_args does not
@@ -427,48 +453,6 @@ class Workflow(object):
                     "creating, either change your workflow args so that they "
                     "are unique for this set of tasks, or make sure your tasks"
                     " match the workflow you are trying to resume")
-
-    def _get_workflow_id_and_status(self) -> Tuple[Optional[int],
-                                                   Optional[str]]:
-        return_code, response = self.requester.send_request(
-            app_route='/client/workflow',
-            message={
-                "tool_version_id": self.tool_version_id,
-                "dag_id": self._dag.dag_id,
-                "workflow_args_hash": self.workflow_args_hash,
-                "task_hash": self.task_hash
-            },
-            request_type='get'
-        )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from GET '
-                f'request through route /client/workflow. Expected code '
-                f'200. Response content: {response}')
-        return response['workflow_id'], response["status"]
-
-    def _add_workflow(self) -> int:
-        app_route = '/client/workflow'
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "tool_version_id": self.tool_version_id,
-                "dag_id": self._dag.dag_id,
-                "workflow_args_hash": self.workflow_args_hash,
-                "task_hash": self.task_hash,
-                "description": self.description,
-                "name": self.name,
-                "workflow_args": self.workflow_args,
-                "workflow_attributes": self.workflow_attributes
-            },
-            request_type='post'
-        )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
-        return response["workflow_id"]
 
     def _bind_tasks(self, reset_if_running: bool = True):
         app_route = '/client/task/bind_tasks'

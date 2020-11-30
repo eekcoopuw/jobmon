@@ -106,8 +106,9 @@ def health():
         log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
 
 
-@jobmon_scheduler.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>', methods=['GET'])
-def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
+@jobmon_scheduler.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
+                        methods=['GET'])
+def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
     """Returns oldest n tasks (or all tasks if total queued tasks < n) to be
     instantiated. Because the SGE can only qsub tasks at a certain rate, and we
     poll every 10 seconds, it does not make sense to return all tasks that are
@@ -119,12 +120,73 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Dict:
 
     # If we want to prioritize by task or workflow level it would be done in this query
     try:
-        tasks = DB.session.query(Task).filter_by(
-            workflow_id=workflow_id,
-            status=TaskStatus.QUEUED_FOR_INSTANTIATION
-        ).limit(n_queued_tasks).options(joinedload(Task.executor_parameter_set)).all()
-        DB.session.commit()
-        task_dcts = [t.to_wire_as_executor_task() for t in tasks]
+        queue_limit_query = """
+            SELECT (
+                SELECT
+                    max_concurrently_running
+                FROM
+                    workflow
+                WHERE
+                    id = :workflow_id
+                ) - (
+                SELECT
+                    count(*)
+                FROM
+                    task
+                WHERE
+                    task.workflow_id = :workflow_id
+                    AND task.status IN ("I", "R")
+                )
+            AS queue_limit
+        """
+        concurrency_limit = DB.session.execute(
+            queue_limit_query, {'workflow_id': int(workflow_id)}
+        ).fetchone()[0]
+        print(concurrency_limit)
+
+        # query if we aren't at the concurrency_limit
+        if concurrency_limit > 0:
+            concurrency_limit = min(int(concurrency_limit), int(n_queued_tasks))
+            task_query = """
+                SELECT
+                    task.id AS task_id,
+                    task.workflow_id AS task_workflow_id,
+                    task.node_id AS task_node_id,
+                    task.task_args_hash AS task_task_args_hash,
+                    task.name AS task_name,
+                    task.command AS task_command,
+                    task.status AS task_status,
+                    executor_parameter_set.max_runtime_seconds AS
+                        executor_parameter_set_max_runtime_seconds,
+                    executor_parameter_set.context_args AS executor_parameter_set_context_args,
+                    executor_parameter_set.resource_scales AS
+                        executor_parameter_set_resource_scales,
+                    executor_parameter_set.queue AS executor_parameter_set_queue,
+                    executor_parameter_set.num_cores AS executor_parameter_set_num_cores,
+                    executor_parameter_set.m_mem_free AS executor_parameter_set_m_mem_free,
+                    executor_parameter_set.j_resource AS executor_parameter_set_j_resource,
+                    executor_parameter_set.hard_limits AS executor_parameter_set_hard_limits
+                FROM
+                    task
+                JOIN
+                    executor_parameter_set
+                    ON task.executor_parameter_set_id = executor_parameter_set.id
+                JOIN
+                    workflow
+                    ON task.workflow_id = workflow.id
+                WHERE
+                    task.workflow_id = :workflow_id
+                    AND task.status = "Q"
+                LIMIT :concurrency_limit
+            """
+            tasks = DB.session.query(Task).from_statement(text(task_query)).params(
+                workflow_id=workflow_id,
+                concurrency_limit=concurrency_limit
+            ).all()
+            DB.session.commit()
+            task_dcts = [t.to_wire_as_executor_task() for t in tasks]
+        else:
+            task_dcts = []
         resp = jsonify(task_dcts=task_dcts)
         resp.status_code = StatusCodes.OK
         return resp

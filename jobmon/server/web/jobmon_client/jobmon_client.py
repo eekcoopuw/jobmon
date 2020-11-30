@@ -1013,22 +1013,38 @@ def update_task_attribute(task_id: int):
         log_and_raise(str(e), app.logger)
 
 
-@jobmon_client.route('/workflow', methods=['GET'])
-def get_workflow_id_and_status():
+def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, str]):
+    # add attribute
+    wf_attributes_list = []
+    for name, val in workflow_attributes.items():
+        wf_type_id = _add_or_get_wf_attribute_type(name)
+        wf_attribute = WorkflowAttribute(workflow_id=workflow_id,
+                                         workflow_attribute_type_id=wf_type_id,
+                                         value=val)
+        wf_attributes_list.append(wf_attribute)
+    DB.session.add_all(wf_attributes_list)
+    DB.session.flush()
+
+
+@jobmon_client.route('/workflow', methods=['POST'])
+def bind_workflow():
+    data = request.get_json()
     try:
-        dag_id = request.args['dag_id']
-        int(dag_id)
-        tv_id = request.args['tool_version_id']
-        int(tv_id)
-        whash = request.args['workflow_args_hash']
-        int(whash)
-        thash = request.args['task_hash']
-        int(thash)
+        tv_id = int(data['tool_version_id'])
+        dag_id = int(data['dag_id'])
+        whash = int(data['workflow_args_hash'])
+        thash = int(data['task_hash'])
+        description = data['description']
+        name = data["name"]
+        workflow_args = data["workflow_args"]
+        max_concurrently_running = data['max_concurrently_running']
+        resume = bool(data["resume"])
+        workflow_attributes = data["workflow_attributes"]
     except Exception as e:
         raise_user_error(str(e), app.logger)
     try:
         query = """
-            SELECT workflow.id, workflow.status
+            SELECT workflow.*
             FROM workflow
             WHERE
                 tool_version_id = :tool_version_id
@@ -1036,65 +1052,51 @@ def get_workflow_id_and_status():
                 AND workflow_args_hash = :workflow_args_hash
                 AND task_hash = :task_hash
         """
-        result = DB.session.query(Workflow).from_statement(text(query)).params(
+        workflow = DB.session.query(Workflow).from_statement(text(query)).params(
             tool_version_id=tv_id,
             dag_id=dag_id,
             workflow_args_hash=whash,
             task_hash=thash
         ).one_or_none()
 
-        # send back json
-        if result is None:
-            resp = jsonify({'workflow_id': None, 'status': None})
+        if workflow is None:
+            # create a new workflow
+            workflow = Workflow(tool_version_id=tv_id,
+                                dag_id=dag_id,
+                                workflow_args_hash=whash,
+                                task_hash=thash,
+                                description=description,
+                                name=name,
+                                workflow_args=workflow_args,
+                                max_concurrently_running=max_concurrently_running)
+            DB.session.add(workflow)
+            DB.session.commit()
+
+            # add attributes
+            if workflow_attributes:
+                _add_workflow_attributes(workflow.id, workflow_attributes)
+                DB.session.commit()
+
+            newly_created = True
+
         else:
-            resp = jsonify({'workflow_id': result.id,
-                            'status': result.status})
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        log_and_raise(str(e), app.logger)
+            # if workflow isn't already done and resume is set modify fields
+            if workflow.status != WorkflowStatus.DONE and resume:
+                workflow.description = description
+                workflow.name = name
+                workflow.workflow_args = workflow_args
+                workflow.max_concurrently_running = max_concurrently_running
+                DB.session.commit()
 
+                # update attributes
+                if workflow_attributes:
+                    _add_workflow_attributes(workflow.id, workflow_attributes)
+                    DB.session.commit()
 
-@jobmon_client.route('/workflow', methods=['POST'])
-def add_workflow():
-    """Add a workflow to the database."""
-    data = request.get_json()
-    try:
-        tv_id = data['tool_version_id']
-        int(tv_id)
-        dag_id = data['dag_id']
-        int(dag_id)
-        whash = data['workflow_args_hash']
-        int(whash)
-        thash = data['task_hash']
-        int(thash)
-    except Exception as e:
-        raise_user_error(str(e), app.logger)
-    try:
-        workflow = Workflow(tool_version_id=tv_id,
-                            dag_id=dag_id,
-                            workflow_args_hash=whash,
-                            task_hash=thash,
-                            description=data['description'],
-                            name=data["name"],
-                            workflow_args=data["workflow_args"])
-        DB.session.add(workflow)
-        # TODO: doesn't work with flush, figure out why. Using commit breaks atomicity, workflow
-        # attributes may not populate correctly on a rerun
-        DB.session.commit()
-        if data['workflow_attributes']:
-            wf_attributes_list = []
-            for name, val in data['workflow_attributes'].items():
-                wf_type_id = _add_or_get_wf_attribute_type(name)
-                wf_attribute = WorkflowAttribute(workflow_id=workflow.id,
-                                                 workflow_attribute_type_id=wf_type_id,
-                                                 value=val)
-                wf_attributes_list.append(wf_attribute)
-            DB.session.add_all(wf_attributes_list)
-            DB.session.flush()
-        DB.session.commit()
+            newly_created = False
 
-        resp = jsonify(workflow_id=workflow.id)
+        resp = jsonify({'workflow_id': workflow.id, 'status': workflow.status,
+                        'newly_created': newly_created})
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:

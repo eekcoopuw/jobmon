@@ -245,6 +245,7 @@ def test_task_attribute(db_cfg, client_env):
         FROM task_attribute
         INNER JOIN task_attribute_type ON task_attribute.attribute_type_id=task_attribute_type.id
         WHERE task_attribute.task_id IN (:task_id_1, :task_id_2, :task_id_3)
+        ORDER BY task_attribute_type.name, task_id
         """
         resp = DB.session.query(TaskAttribute.value, TaskAttributeType.name,
                                 TaskAttributeType.id).\

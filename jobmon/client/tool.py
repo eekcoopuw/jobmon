@@ -136,9 +136,11 @@ class Tool:
                                       op_args=op_args)
         return tt
 
-    def create_workflow(self, workflow_args: str = "", name: str = "",
-                        description: str = "") -> Workflow:
-        wf = Workflow(self.active_tool_version_id, workflow_args, name, description)
+    def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",
+                        workflow_attributes: Union[List, dict] = None,
+                        max_concurrently_running: int = 10_000) -> Workflow:
+        wf = Workflow(self.active_tool_version_id, workflow_args, name, description,
+                      workflow_attributes, max_concurrently_running)
         return wf
 
     def _get_tool_version_ids(self) -> List[int]:

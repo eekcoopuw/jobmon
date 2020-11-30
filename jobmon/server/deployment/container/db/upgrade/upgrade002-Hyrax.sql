@@ -1,9 +1,4 @@
---
--- Table structure for table `task_instance_status`
---
-
 use `docker`;
 
-LOCK TABLES `task_instance_status` WRITE;
-INSERT INTO `task_instance_status` VALUES ('F','ERROR_FATAL');
-UNLOCK TABLES;
+-- workflow updates
+ALTER TABLE `workflow` ADD COLUMN `max_concurrently_running` int DEFAULT 10000 AFTER `workflow_args`
