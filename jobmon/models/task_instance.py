@@ -1,14 +1,13 @@
-import logging
-
 from sqlalchemy.sql import func
 
+from jobmon.log_config import configure_logger
 from jobmon.models import DB
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.models.task_instance_status import TaskInstanceStatus
 from jobmon.models.task_status import TaskStatus
 from jobmon.serializers import SerializeExecutorTaskInstance
 
-logger = logging.getLogger(__name__)
+logger = configure_logger(__name__)
 
 
 class TaskInstance(DB.Model):

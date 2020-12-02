@@ -1,16 +1,14 @@
 from http import HTTPStatus as StatusCodes
 import os
-from datetime import datetime, timedelta
 import json
-from typing import Optional, Dict, Any, Union, List, Set
+from typing import Dict, Union, List, Set
 
 from flask import jsonify, request, Blueprint, current_app as app
 from werkzeug.local import LocalProxy
-from sqlalchemy.sql import func, text
+from sqlalchemy.sql import text
 from sqlalchemy.dialects.mysql import insert
 import sqlalchemy
 
-from jobmon import config
 from jobmon.models import DB
 from jobmon.models.arg import Arg
 from jobmon.models.arg_type import ArgType
@@ -21,14 +19,11 @@ from jobmon.models.workflow_attribute_type import WorkflowAttributeType
 from jobmon.models.template_arg_map import TemplateArgMap
 from jobmon.models.dag import Dag
 from jobmon.models.edge import Edge
-from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
-from jobmon.models.executor_parameter_set import ExecutorParameterSet
+from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.node import Node
 from jobmon.models.node_arg import NodeArg
 from jobmon.models.task import Task
 from jobmon.models.task_arg import TaskArg
-from jobmon.models.task_instance import TaskInstance
-from jobmon.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.models.task_instance import TaskInstanceStatus
 from jobmon.models.task_status import TaskStatus
 from jobmon.models.task_template import TaskTemplate
@@ -39,8 +34,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.web.server_side_exception import (log_and_raise, raise_user_error,
-                                                     InvalidUsage, ServerError)
+from jobmon.server.web.server_side_exception import (ServerError, InvalidUsage)
 
 jobmon_client = Blueprint("jobmon_client", __name__)
 
@@ -48,24 +42,11 @@ jobmon_client = Blueprint("jobmon_client", __name__)
 logger = LocalProxy(lambda: app.logger)
 
 
-@jobmon_client.errorhandler(404)
-def page_not_found(error):
-    return 'This route does not exist {}'.format(request.url), 404
-
-
-# error handling
-@jobmon_client.errorhandler(InvalidUsage)
-def handle_40x(error):
-    response = jsonify(error.to_dict())
-    response.status_code = 400
-    return response
-
-
-@jobmon_client.errorhandler(ServerError)
-def handle_50x(error):
-    response = jsonify(error.to_dict())
-    response.status_code = 500
-    return response
+@jobmon_client.before_request # try before_first_request so its quicker
+def log_request_info():
+    app.logger = app.logger.new()
+    app.logger = app.logger.bind(blueprint=__name__)
+    app.logger = app.logger.bind(request_method=request.method)
 
 
 @jobmon_client.route('/', methods=['GET'])
@@ -90,7 +71,8 @@ def get_pst_now():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route("/health", methods=['GET'])
@@ -110,7 +92,8 @@ def health():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/tool', methods=['POST'])
@@ -120,10 +103,13 @@ def add_tool():
     data = request.get_json()
     try:
         name = data["name"]
-    except KeyError:
-        raise_user_error("Parameter name is missing", app.logger)
+        app.logger = app.logger.bind(tool_name=name)
+    except KeyError as e:
+        raise InvalidUsage(f"Parameter name is missing in path {request.path}",
+                           status_code=400) from e
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
     # add tool to db
     try:
@@ -141,12 +127,15 @@ def add_tool():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/tool/<tool_name>', methods=['GET'])
 def get_tool(tool_name: str):
     # get data from db
+    app.logger = app.logger.bind(tool_name=tool_name)
+    app.logger.info("Getting tool by name")
     try:
         query = """
             SELECT
@@ -160,7 +149,8 @@ def get_tool(tool_name: str):
         ).one_or_none()
         DB.session.commit()
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
     if tool:
         try:
             tool = tool.to_wire_as_client_tool()
@@ -168,20 +158,25 @@ def get_tool(tool_name: str):
             resp.status_code = StatusCodes.OK
             return resp
         except Exception as e:
-            log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+            raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                              status_code=500) from e
     else:
-        raise_user_error("Tool {} does not exist in DB".format(tool_name), app.logger)
+        raise InvalidUsage(f"Tool {tool_name} does not exist with request to {request.path}",
+                           status_code=400)
 
 
 @jobmon_client.route('/tool/<tool_id>/tool_versions', methods=['GET'])
 def get_tool_versions(tool_id: int):
     # check input variable
+    app.logger = app.logger.bind(tool_id=tool_id)
+    app.logger.info("Getting available tool versions")
     if tool_id is None:
-        raise_user_error("Variable tool_id is None", app.logger)
+        raise InvalidUsage(f"Variable tool_id is None in {request.path}", status_code=400)
     try:
         int(tool_id)
-    except Exception:
-        raise_user_error("Variable tool_id must be int", app.logger)
+    except Exception as e:
+        raise InvalidUsage(f"Variable tool_id must be an int in {request.path}",
+                           status_code=400) from e
 
     # get data from db
     try:
@@ -201,7 +196,8 @@ def get_tool_versions(tool_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/tool_version', methods=['POST'])
@@ -210,8 +206,9 @@ def add_tool_version():
     data = request.get_json()
     try:
         tool_id = int(data["tool_id"])
+        app.logger = app.logger.bind(tool_id=tool_id)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     try:
         tool_version = ToolVersion(tool_id=tool_id)
@@ -222,7 +219,8 @@ def add_tool_version():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/task_template', methods=['GET'])
@@ -231,8 +229,10 @@ def get_task_template():
     try:
         tool_version_id = int(request.args.get("tool_version_id"))
         name = request.args.get("task_template_name")
+        app.logger = app.logger.bind(tool_version_id=tool_version_id)
+        app.logger = app.logger.bind(task_template_name=name)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         # get data from db
         query = """
@@ -256,18 +256,20 @@ def get_task_template():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/task_template', methods=['POST'])
 def add_task_template():
-    """Add a tool to the database"""
+    """Add a task template for a given tool to the database"""
     # check input variable
     data = request.get_json()
     try:
-        int(data["tool_version_id"])
+        tool_version_id = int(data["tool_version_id"])
+        app.logger = app.logger.bind(tool_version_id=tool_version_id)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     # add to DB
     try:
@@ -290,7 +292,8 @@ def add_task_template():
         ).one()
         DB.session.commit()
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
     resp = jsonify(task_template_id=tt.id)
     resp.status_code = StatusCodes.OK
     return resp
@@ -299,6 +302,8 @@ def add_task_template():
 @jobmon_client.route('/task_template/<task_template_id>/version', methods=['GET'])
 def get_task_template_version(task_template_id: int):
     # get task template version object
+    app.logger = app.logger.bind(task_template_id=task_template_id)
+    app.logger.info(f"Getting task template version for task template: {task_template_id}")
     try:
         # parse args
         command_template = request.args.get("command_template")
@@ -327,7 +332,7 @@ def get_task_template_version(task_template_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 def _add_or_get_arg(name: str) -> Arg:
@@ -351,9 +356,11 @@ def _add_or_get_arg(name: str) -> Arg:
 def add_task_template_version(task_template_id: int):
     """Add a tool to the database"""
     # check input variables
+    app.logger = app.logger.bind(task_template_id=task_template_id)
     data = request.get_json()
     if task_template_id is None:
-        raise_user_error("Missing variable task_template_id", app.logger)
+        raise InvalidUsage(f"Missing variable task_template_id in {request.path}",
+                           status_code=400)
     try:
         int(task_template_id)
         # populate the argument table
@@ -367,7 +374,7 @@ def add_task_template_version(task_template_id: int):
         for arg_name in data["op_args"]:
             arg_mapping_dct[ArgType.OP_ARG].append(_add_or_get_arg(arg_name))
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     try:
         ttv = TaskTemplateVersion(task_template_id=task_template_id,
@@ -416,7 +423,8 @@ def add_task_template_version(task_template_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/node', methods=['GET'])
@@ -447,7 +455,7 @@ def get_node_id():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/node', methods=['POST'])
@@ -462,6 +470,8 @@ def add_node():
         node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
+    app.logger = app.logger.bind(task_template_version_id=data['task_template_version_id'],
+                                 node_args_hash=data['node_args_hash'])
 
     # add node
     try:
@@ -504,7 +514,8 @@ def add_node():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/nodes', methods=['POST'])
@@ -520,7 +531,6 @@ def add_nodes():
             node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
-
     try:
 
         # Extract node and node_args
@@ -560,6 +570,7 @@ def add_nodes():
             node_id = node_id_dict[node_id_tuple]
 
             for arg_id, val in arg.items():
+                app.logger.bind(node_id=node_id)
                 app.logger.debug(f'Adding node_arg with node_id: {node_id}, '
                                  f'arg_id: {arg_id}, and val: {val}')
                 node_args_list.append({
@@ -580,7 +591,7 @@ def add_nodes():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/dag', methods=['GET'])
@@ -591,9 +602,11 @@ def get_dag_id():
         dag_hash: unique identifier of the dag, included in route
     """
     try:
+        dag_hash = request.args["dag_hash"]
+        app.logger.bind(dag_hash=dag_hash)
         query = """SELECT dag.id FROM dag WHERE hash = :dag_hash"""
         result = DB.session.query(Dag).from_statement(text(query)).params(
-            dag_hash=request.args["dag_hash"]
+            dag_hash=dag_hash
         ).one_or_none()
 
         if result is None:
@@ -603,7 +616,8 @@ def get_dag_id():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/dag', methods=['POST'])
@@ -618,6 +632,7 @@ def add_dag():
     # add dag
     dag_hash = data.pop("dag_hash")
     nodes_and_edges = data.pop("nodes_and_edges")
+    app.logger.bind(dag_hash=dag_hash)
     try:
         dag = Dag(hash=dag_hash)
         DB.session.add(dag)
@@ -669,7 +684,8 @@ def add_dag():
 
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/task', methods=['GET'])
@@ -681,8 +697,9 @@ def get_task_id_and_status():
         int(nid)
         h = request.args["task_args_hash"]
         int(h)
+        app.logger.bind(workflow_id=wid, node_id=nid, task_args_hash=h)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         query = """
             SELECT task.id, task.status
@@ -706,7 +723,8 @@ def get_task_id_and_status():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_client.route('/task', methods=['POST'])
@@ -726,7 +744,7 @@ def add_task():
     """
     try:
         data = request.get_json()
-        logger.debug(data)
+        app.logger.debug(data)
         ts = data.pop("tasks")
         # build a hash table for ts
         ts_ht = {}  # {<node_id::task_arg_hash>, task}
@@ -777,20 +795,21 @@ def add_task():
         resp.status_code = StatusCodes.OK
         return resp
     except KeyError as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     except TypeError as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/task/<task_id>/update_parameters', methods=['PUT'])
 def update_task_parameters(task_id: int):
+    app.logger.bind(task_id=task_id)
     data = request.get_json()
     try:
         int(task_id)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     try:
         query = """SELECT task.* FROM task WHERE task.id = :task_id"""
@@ -810,7 +829,7 @@ def update_task_parameters(task_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/task/bind_tasks', methods=['PUT'])
@@ -959,7 +978,7 @@ def bind_tasks():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 def _add_or_get_attribute_type(names: Union[List[str], Set[str]]) -> List[TaskAttributeType]:
@@ -974,7 +993,7 @@ def _add_or_get_attribute_type(names: Union[List[str], Set[str]]) -> List[TaskAt
             TaskAttributeType.name.in_(names)).all()
         return attribute_type_ids
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
@@ -995,10 +1014,11 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
 @jobmon_client.route('/task/<task_id>/task_attributes', methods=['PUT'])
 def update_task_attribute(task_id: int):
     """Add or update attributes for a task"""
+    app.logger.bind(task_id=task_id)
     try:
         int(task_id)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         data = request.get_json()
         attributes = data["task_attributes"]
@@ -1010,7 +1030,7 @@ def update_task_attribute(task_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, str]):
@@ -1040,25 +1060,26 @@ def bind_workflow():
         max_concurrently_running = data['max_concurrently_running']
         resume = bool(data["resume"])
         workflow_attributes = data["workflow_attributes"]
+        app.logger.bind(dag_id=dag_id, tool_version_id=tv_id, workflow_args_hash=whash,
+                        task_hash=thash)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         query = """
-            SELECT workflow.*
-            FROM workflow
-            WHERE
-                tool_version_id = :tool_version_id
-                AND dag_id = :dag_id
-                AND workflow_args_hash = :workflow_args_hash
-                AND task_hash = :task_hash
-        """
+                    SELECT workflow.*
+                    FROM workflow
+                    WHERE
+                        tool_version_id = :tool_version_id
+                        AND dag_id = :dag_id
+                        AND workflow_args_hash = :workflow_args_hash
+                        AND task_hash = :task_hash
+                """
         workflow = DB.session.query(Workflow).from_statement(text(query)).params(
             tool_version_id=tv_id,
             dag_id=dag_id,
             workflow_args_hash=whash,
             task_hash=thash
         ).one_or_none()
-
         if workflow is None:
             # create a new workflow
             workflow = Workflow(tool_version_id=tv_id,
@@ -1078,7 +1099,6 @@ def bind_workflow():
                 DB.session.commit()
 
             newly_created = True
-
         else:
             # if workflow isn't already done and resume is set modify fields
             if workflow.status != WorkflowStatus.DONE and resume:
@@ -1092,15 +1112,13 @@ def bind_workflow():
                 if workflow_attributes:
                     _add_workflow_attributes(workflow.id, workflow_attributes)
                     DB.session.commit()
-
             newly_created = False
-
         resp = jsonify({'workflow_id': workflow.id, 'status': workflow.status,
                         'newly_created': newly_created})
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/workflow/<workflow_args_hash>', methods=['GET'])
@@ -1111,8 +1129,9 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
     """
     try:
         int(workflow_args_hash)
+        app.logger.bind(workflow_args_hash=workflow_args_hash)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         query = """
             SELECT workflow.task_hash, workflow.tool_version_id, dag.hash
@@ -1133,15 +1152,16 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/is_resumable', methods=['GET'])
 def workflow_run_is_terminated(workflow_run_id: int):
+    app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         query = """
             SELECT
@@ -1176,7 +1196,7 @@ def workflow_run_is_terminated(workflow_run_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 def _add_or_get_wf_attribute_type(name: str) -> int:
@@ -1215,10 +1235,11 @@ def _upsert_wf_attribute(workflow_id: int, name: str, value: str):
 
 @jobmon_client.route('/workflow/<workflow_id>/workflow_attributes', methods=['PUT'])
 def update_workflow_attribute(workflow_id: int):
+    app.logger.bind(workflow_id=workflow_id)
     try:
         int(workflow_id)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     """ Add/update attributes for a workflow """
     try:
         data = request.get_json()
@@ -1231,7 +1252,7 @@ def update_workflow_attribute(workflow_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/workflow_run', methods=['POST'])
@@ -1240,8 +1261,9 @@ def add_workflow_run():
         data = request.get_json()
         wid = data["workflow_id"]
         int(wid)
+        app.logger.bind(workflow_id=wid)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         workflow_run = WorkflowRun(
             workflow_id=wid,
@@ -1304,15 +1326,16 @@ def add_workflow_run():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
 def terminate_workflow_run(workflow_run_id: int):
+    app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         workflow_run = DB.session.query(WorkflowRun).filter_by(
             id=workflow_run_id).one()
@@ -1371,15 +1394,16 @@ def terminate_workflow_run(workflow_run_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/delete', methods=['PUT'])
 def delete_workflow_run(workflow_run_id: int):
+    app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
     except Exception as e:
-        raise_user_error(str(e), app.logger)
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         query = "DELETE FROM workflow_run where workflow_run.id = :workflow_run_id"
         DB.session.execute(query,
@@ -1390,13 +1414,12 @@ def delete_workflow_run(workflow_run_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/workflow_run_status', methods=['GET'])
 def get_active_workflow_runs() -> Dict:
     """Return all workflow runs that are currently in the specified state."""
-    # logger.info(logging.myself())
     try:
         query = """
             SELECT
@@ -1415,4 +1438,4 @@ def get_active_workflow_runs() -> Dict:
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise(str(e), app.logger)
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e

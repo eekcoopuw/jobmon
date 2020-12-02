@@ -1,10 +1,5 @@
-import logging
-
 from jobmon.constants import WorkflowRunStatus as Statuses
 from jobmon.models import DB
-
-
-logger = logging.getLogger(__name__)
 
 
 class WorkflowRunStatus(DB.Model):

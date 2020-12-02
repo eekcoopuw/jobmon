@@ -28,19 +28,30 @@ class WebConfig(object):
         ParserDefaults.db_user(cli.parser)
         ParserDefaults.db_pass(cli.parser)
         ParserDefaults.db_name(cli.parser)
+        ParserDefaults.use_rsyslog(cli.parser)
+        ParserDefaults.rsyslog_host(cli.parser)
+        ParserDefaults.rsyslog_port(cli.parser)
+        ParserDefaults.rsyslog_protocol(cli.parser)
 
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
         return cls(db_host=args.db_host, db_port=args.db_port, db_user=args.db_user,
-                   db_pass=args.db_pass, db_name=args.db_name)
+                   db_pass=args.db_pass, db_name=args.db_name, use_rsyslog=args.use_rsyslog,
+                   rsyslog_host=args.rsyslog_host, rsyslog_port=args.rsyslog_port,
+                   rsyslog_protocol=args.rsyslog_protocol)
 
     def __init__(self, db_host: str, db_port: str, db_user: str, db_pass: str,
-                 db_name: str):
+                 db_name: str, use_rsyslog: bool = None, rsyslog_host: str = None,
+                 rsyslog_port: str = None, rsyslog_protocol: str = None):
         self.db_host = db_host
         self.db_port = db_port
         self.db_user = db_user
         self.db_pass = db_pass
         self.db_name = db_name
+        self.use_rsyslog = use_rsyslog
+        self.rsyslog_host = rsyslog_host
+        self.rsyslog_port = rsyslog_port
+        self.rsyslog_protocol = rsyslog_protocol
 
     @property
     def conn_str(self) -> str:

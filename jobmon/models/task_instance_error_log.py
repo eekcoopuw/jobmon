@@ -1,10 +1,6 @@
-import logging
-
 from sqlalchemy.sql import func
 
 from jobmon.models import DB
-
-logger = logging.getLogger(__name__)
 
 
 class TaskInstanceErrorLog(DB.Model):

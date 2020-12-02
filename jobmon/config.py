@@ -28,6 +28,53 @@ def derive_jobmon_command_from_env() -> Optional[str]:
 class ParserDefaults:
 
     @staticmethod
+    def rsyslog_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--rsyslog_host',
+            type=str,
+            help='rsyslog host to use',
+            default='syslog.ihme.washington.edu',
+            env_var='RSYSLOG_HOST'
+        )
+        return parser
+
+    @staticmethod
+    def rsyslog_port(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--rsyslog_port',
+            type=str,
+            help='rsyslog port to use',
+            default='514',
+            env_var='RSYSLOG_PORT'
+        )
+        return parser
+
+    @staticmethod
+    def rsyslog_protocol(
+            parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--rsyslog_protocol',
+            type=str,
+            help='rsyslog protocol to use',
+            default='UDP',
+            env_var='RSYSLOG_PROTOCOL'
+        )
+        return parser
+
+    @staticmethod
+    def use_rsyslog(
+            parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            '--use_rsyslog',
+            type=bool,
+            help='whether to use rsyslog',
+            default=False,
+            env_var='USE_RSYSLOG'
+        )
+        return parser
+
+
+    @staticmethod
     def db_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
         parser.add_argument(
             '--db_host',

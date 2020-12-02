@@ -301,7 +301,7 @@ class Task:
             request_type="put"
         )
         if return_code != StatusCodes.OK:
-            raise ValueError(f'Unexepected status code {return_code} from PUT request through '
+            raise ValueError(f'Unexpected status code {return_code} from PUT request through '
                              f'route {app_route}. Expected code 200. Response content: '
                              f'{response}')
 

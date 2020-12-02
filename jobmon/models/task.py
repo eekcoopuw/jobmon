@@ -1,7 +1,6 @@
-import logging
-
 from sqlalchemy.sql import func
 
+from jobmon.log_config import configure_logger
 from jobmon.models import DB
 from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.task_instance_status import TaskInstanceStatus
@@ -9,7 +8,7 @@ from jobmon.models.task_status import TaskStatus
 from jobmon.serializers import SerializeExecutorTask, SerializeSwarmTask
 
 
-logger = logging.getLogger(__name__)
+logger = configure_logger(__name__)
 
 
 class Task(DB.Model):

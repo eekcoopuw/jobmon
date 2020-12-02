@@ -1,47 +1,20 @@
 from http import HTTPStatus as StatusCodes
 import os
-from datetime import datetime, timedelta
-import json
-from typing import Optional, Dict, Any
+from datetime import datetime
+from typing import Any
 
 from flask import jsonify, request, Blueprint, current_app as app
 from werkzeug.local import LocalProxy
-from sqlalchemy.sql import func, text
-from sqlalchemy.orm import joinedload
-from sqlalchemy.dialects.mysql import insert
-import sqlalchemy
+from sqlalchemy.sql import text
 
 
-from jobmon import config
 from jobmon.models import DB
-from jobmon.models.arg import Arg
-from jobmon.models.arg_type import ArgType
-from jobmon.models.task_attribute import TaskAttribute
-from jobmon.models.task_attribute_type import TaskAttributeType
-from jobmon.models.workflow_attribute import WorkflowAttribute
-from jobmon.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.models.template_arg_map import TemplateArgMap
-from jobmon.models.dag import Dag
-from jobmon.models.edge import Edge
-from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
+from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.executor_parameter_set import ExecutorParameterSet
-from jobmon.models.node import Node
-from jobmon.models.node_arg import NodeArg
 from jobmon.models.task import Task
-from jobmon.models.task_arg import TaskArg
-from jobmon.models.task_instance import TaskInstance
-from jobmon.models.task_instance_error_log import TaskInstanceErrorLog
-from jobmon.models.task_instance import TaskInstanceStatus
 from jobmon.models.task_status import TaskStatus
-from jobmon.models.task_template import TaskTemplate
-from jobmon.models.task_template_version import TaskTemplateVersion
-from jobmon.models.tool import Tool
-from jobmon.models.tool_version import ToolVersion
-from jobmon.models.workflow import Workflow
-from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run import WorkflowRun
-from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.web.server_side_exception import log_and_raise, ServerError
+from jobmon.server.web.server_side_exception import ServerError
 
 jobmon_swarm = Blueprint("jobmon_swarm", __name__)
 
@@ -49,16 +22,11 @@ jobmon_swarm = Blueprint("jobmon_swarm", __name__)
 logger = LocalProxy(lambda: app.logger)
 
 
-@jobmon_swarm.errorhandler(404)
-def page_not_found(error):
-    return 'This route does not exist {}'.format(request.url), 404
-
-
-@jobmon_swarm.errorhandler(ServerError)
-def handle_50x(error):
-    response = jsonify(error.to_dict())
-    response.status_code = 500
-    return response
+@jobmon_swarm.before_request # try before_first_request so its quicker
+def log_request_info():
+    app.logger = app.logger.new()
+    app.logger = app.logger.bind(blueprint=__name__)
+    app.logger = app.logger.bind(request_method=request.method)
 
 
 @jobmon_swarm.route('/', methods=['GET'])
@@ -83,7 +51,8 @@ def get_pst_now():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_swarm.route("/health", methods=['GET'])
@@ -102,7 +71,8 @@ def health():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_swarm.route('/workflow/<workflow_id>/task_status_updates', methods=['POST'])
@@ -113,6 +83,7 @@ def get_task_by_status_only(workflow_id: int):
         status (str): status to query for
         last_sync (datetime): time since when to get tasks
     """
+    app.logger.bind(workflow_id=workflow_id)
     try:
         data = request.get_json()
 
@@ -174,11 +145,13 @@ def get_task_by_status_only(workflow_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_swarm.route('/workflow/<workflow_id>/suspend', methods=['POST'])
 def suspend_workflow(workflow_id: int):
+    app.logger.bind(workflow_id=workflow_id)
     try:
         query = """
             UPDATE workflow
@@ -192,7 +165,8 @@ def suspend_workflow(workflow_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_swarm.route('/task/<task_id>/queue', methods=['POST'])
@@ -202,6 +176,7 @@ def queue_job(task_id: int):
 
         job_id: id of the job to queue
     """
+    app.logger.bind(task_id=task_id)
     try:
         task = DB.session.query(Task).filter_by(id=task_id).one()
         try:
@@ -220,11 +195,13 @@ def queue_job(task_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
 def log_workflow_run_status_update(workflow_run_id: int):
+    app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Log status update for workflow_run_id:{workflow_run_id}."
@@ -239,7 +216,8 @@ def log_workflow_run_status_update(workflow_run_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 def get_time(session):
@@ -251,7 +229,7 @@ def get_time(session):
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>',
                     methods=['PUT'])
 def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
-
+    app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         # If the last task was more than 2 minutes ago, transition wfr to A state
         # Also check WorkflowRun status_date to avoid possible race condition where reaper checks
@@ -295,7 +273,8 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
@@ -305,6 +284,7 @@ def log_wfr_heartbeat(workflow_run_id: int):
 
         workflow_run_id: id of the workflow_run to log
     """
+    app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         params = {"workflow_run_id": int(workflow_run_id)}
         query = """
@@ -318,7 +298,8 @@ def log_wfr_heartbeat(workflow_run_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 def _transform_mem_to_gb(mem_str: Any) -> float:
@@ -368,6 +349,7 @@ def update_task_resources(task_id: int):
         hard_limit (bool): whether to move queues if requester resources exceed
             queue limits
     """
+    app.logger.bind(task_id=task_id)
     try:
         data = request.get_json()
         parameter_set_type = data["parameter_set_type"]
@@ -399,4 +381,5 @@ def update_task_resources(task_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e

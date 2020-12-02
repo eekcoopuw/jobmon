@@ -5,12 +5,14 @@ from typing import Optional, Tuple, Any
 from tenacity import (retry, wait_exponential, retry_if_result,
                       stop_after_delay, RetryCallState)
 
+from jobmon.log_config import configure_logger
+
 
 def is_5XX(result: Tuple[int, dict], logger: Optional[logging.Logger] = None) -> bool:
     '''
     return True if get_content result has 5XX status '''
     if logger is None:
-        logger = logging.getLogger(__file__)
+        logger = configure_logger(__file__)
     logger.info("is_5XX")
     status = result[0]
     logger.info("status: {}".format(status))
@@ -24,7 +26,7 @@ def raise_if_exceed_retry(retry_state: RetryCallState, logger: Optional[logging.
     if we trigger retry error, raise informative RuntimeError
     '''
     if logger is None:
-        logger = logging.getLogger(__file__)
+        logger = configure_logger(__file__)
     logger.info("raise_if_exceed_retry")
     status, content = retry_state.outcome.result()
     raise RuntimeError(
@@ -48,7 +50,7 @@ class Requester(object):
     def __init__(self, url: str, logger: Optional[logging.Logger] = None):
         """set class defaults. attempt to connect with server."""
         if logger is None:
-            self.logger = logging.getLogger(__file__)
+            self.logger = configure_logger(__file__)
         else:
             self.logger = logger
         self.logger.info("Requester __init__")
@@ -129,7 +131,7 @@ class Requester(object):
 
 def get_content(response: requests.Response, logger: Optional[logging.Logger] = None) -> Tuple[int, dict]:
     if logger is None:
-        logger = logging.getLogger(__file__)
+        logger = configure_logger(__file__)
     if 'application/json' in response.headers.get('Content-Type'):
         try:
             content = response.json()

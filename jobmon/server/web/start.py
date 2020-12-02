@@ -3,8 +3,8 @@ from typing import Optional
 from flask import Flask
 from flask_cors import CORS
 
+from jobmon.server.web.handlers import add_hooks_and_handlers
 from jobmon.server.web.web_config import WebConfig
-from jobmon.server.web.handlers import add_request_hooks
 
 
 def create_app(web_config: Optional[WebConfig] = None):
@@ -39,6 +39,7 @@ def create_app(web_config: Optional[WebConfig] = None):
     CORS(app)
 
     # add request logging hooks
-    add_request_hooks(app)
+    add_hooks_and_handlers(app, web_config.use_rsyslog, web_config.rsyslog_host,
+                           web_config.rsyslog_port, web_config.rsyslog_protocol)
 
     return app

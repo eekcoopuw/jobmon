@@ -1,5 +1,3 @@
-import logging
-
 from sqlalchemy.sql import func
 
 from jobmon.models import DB
@@ -7,8 +5,6 @@ from jobmon.models.exceptions import InvalidStateTransition
 from jobmon.models.workflow_run_status import WorkflowRunStatus
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.serializers import SerializeWorkflowRun
-
-logger = logging.getLogger(__name__)
 
 
 class WorkflowRun(DB.Model):

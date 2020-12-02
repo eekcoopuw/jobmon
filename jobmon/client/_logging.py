@@ -6,6 +6,7 @@ import sys
 import platform
 
 from jobmon import __version__
+from jobmon.log_config import configure_logger
 
 
 class _ClientLoggingFilter(logging.Filter):
@@ -50,31 +51,23 @@ class ClientLogging():
             logger.removeHandler(h)
 
     @staticmethod
-    def attach_log_handler():
+    def attach_log_handler(use_rsyslog=None, rsyslog_host=None, rsyslog_port=None,
+                           rsyslog_protocol=None):
         if ClientLogging._handlerAttached:
             return
         ClientLogging._handlerAttached = True
-        logger = logging.getLogger("jobmon.client")
+        logger = ClientLogging.getLogger("jobmon.client", use_rsyslog, rsyslog_host,
+                                         rsyslog_port, rsyslog_protocol)
         formatter = logging.Formatter(ClientLogging._format)
         h = logging.StreamHandler(sys.stdout)
         h.addFilter(_ClientLoggingFilter())
         h.setLevel(ClientLogging._logLevel)
         h.setFormatter(formatter)
         logger.addHandler(h)
-        # if ClientLogging._syslogAttached:
-        #     p = socket.SOCK_DGRAM
-        #     if config.rsyslog_protocol == "TCP":
-        #         p = socket.SOCK_STREAM
-        #     hr = SysLogHandler(
-        #         address=(config.rsyslog_host, config.rsyslog_port),
-        #         socktype=p)
-        #     hr.addFilter(_ClientLoggingFilter())
-        #     hr.setFormatter(formatter)
-        #     hr.setLevel(ClientLogging._syslogLevel)
-        #     logger.addHandler(hr)
 
     @staticmethod
-    def getLogger(name: str = __file__) -> logging.Logger:
-        return logging.getLogger(name)
-        logger = logging.getLogger(name)
+    def getLogger(name: str = __file__, use_rsyslog=None, rsyslog_host=None,
+                  rsyslog_port=None, rsyslog_protocol=None) -> logging.Logger:
+        logger = configure_logger(name, use_rsyslog, rsyslog_host, rsyslog_port,
+                                  rsyslog_protocol)
         return logger

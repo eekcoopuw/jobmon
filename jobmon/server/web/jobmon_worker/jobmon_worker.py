@@ -1,47 +1,19 @@
 from http import HTTPStatus as StatusCodes
 import os
-from datetime import datetime, timedelta
-import json
 from typing import Optional, Dict, Any
 
 from flask import jsonify, request, Blueprint, current_app as app
 from werkzeug.local import LocalProxy
 from sqlalchemy.sql import func, text
-from sqlalchemy.orm import joinedload
-from sqlalchemy.dialects.mysql import insert
 import sqlalchemy
 
 
-from jobmon import config
 from jobmon.models import DB
-from jobmon.models.arg import Arg
-from jobmon.models.arg_type import ArgType
-from jobmon.models.task_attribute import TaskAttribute
-from jobmon.models.task_attribute_type import TaskAttributeType
-from jobmon.models.workflow_attribute import WorkflowAttribute
-from jobmon.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.models.template_arg_map import TemplateArgMap
-from jobmon.models.dag import Dag
-from jobmon.models.edge import Edge
 from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
-from jobmon.models.executor_parameter_set import ExecutorParameterSet
-from jobmon.models.node import Node
-from jobmon.models.node_arg import NodeArg
-from jobmon.models.task import Task
-from jobmon.models.task_arg import TaskArg
 from jobmon.models.task_instance import TaskInstance
 from jobmon.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.models.task_instance import TaskInstanceStatus
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.task_template import TaskTemplate
-from jobmon.models.task_template_version import TaskTemplateVersion
-from jobmon.models.tool import Tool
-from jobmon.models.tool_version import ToolVersion
-from jobmon.models.workflow import Workflow
-from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.models.workflow_run import WorkflowRun
-from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.web.server_side_exception import log_and_raise, ServerError
+from jobmon.server.web.server_side_exception import ServerError
 
 jobmon_worker = Blueprint("jobmon_worker", __name__)
 
@@ -49,16 +21,11 @@ jobmon_worker = Blueprint("jobmon_worker", __name__)
 logger = LocalProxy(lambda: app.logger)
 
 
-@jobmon_worker.errorhandler(404)
-def page_not_found(error):
-    return 'This route does not exist {}'.format(request.url), 404
-
-
-@jobmon_worker.errorhandler(ServerError)
-def handle_50x(error):
-    response = jsonify(error.to_dict())
-    response.status_code = 500
-    return response
+@jobmon_worker.before_request # try before_first_request so its quicker
+def log_request_info():
+    app.logger = app.logger.new()
+    app.logger = app.logger.bind(blueprint=__name__)
+    app.logger = app.logger.bind(request_method=request.method)
 
 
 @jobmon_worker.route('/', methods=['GET'])
@@ -83,7 +50,8 @@ def get_pst_now():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_worker.route("/health", methods=['GET'])
@@ -101,13 +69,15 @@ def health():
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
 def kill_self(task_instance_id: int):
     """Check a task instance's status to see if it needs to kill itself
     (state W, or L)"""
+    app.logger.bind(task_instance_id=task_instance_id)
     kill_statuses = TaskInstance.kill_self_states
     try:
         query = """
@@ -130,7 +100,8 @@ def kill_self(task_instance_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
@@ -140,6 +111,7 @@ def log_running(task_instance_id: int):
 
         task_instance_id: id of the task_instance to log as running
     """
+    app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
@@ -157,7 +129,8 @@ def log_running(task_instance_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_report_by', methods=['POST'])
@@ -171,6 +144,7 @@ def log_ti_report_by(task_instance_id: int):
 
         task_instance_id: id of the task_instance to log
     """
+    app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Log report_by for TI {task_instance_id}. Data={data}")
@@ -200,7 +174,8 @@ def log_ti_report_by(task_instance_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_usage', methods=['POST'])
@@ -216,6 +191,7 @@ def log_usage(task_instance_id: int):
         cpu (str, optional): cpu used
         io (str, optional): io used
     """
+    app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         if data.get('maxrss', None) is None:
@@ -247,7 +223,8 @@ def log_usage(task_instance_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_done', methods=['POST'])
@@ -257,6 +234,7 @@ def log_done(task_instance_id: int):
     Args:
         task_instance_id: id of the task_instance to log done
     """
+    app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Log DONE for TI {task_instance_id}. Data: {data}")
@@ -273,7 +251,8 @@ def log_done(task_instance_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_error_worker_node', methods=['POST'])
@@ -284,6 +263,7 @@ def log_error_worker_node(task_instance_id: int):
         task_instance_id (str): id of the task_instance to log done
         error_message (str): message to log as error
     """
+    app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         error_state = data['error_state']
@@ -294,7 +274,8 @@ def log_error_worker_node(task_instance_id: int):
 
         ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
     try:
         resp = _log_error(ti, error_state, error_message, executor_id,
@@ -306,7 +287,8 @@ def log_error_worker_node(task_instance_id: int):
         resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 @jobmon_worker.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])
@@ -316,6 +298,7 @@ def get_most_recent_ji_error(task_id: int):
     :param task_id:
     :return: error message
     """
+    app.logger.bind(task_id=task_id)
     try:
         query = """
             SELECT
@@ -341,7 +324,8 @@ def get_most_recent_ji_error(task_id: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        log_and_raise("Unexpected jobmon server error: {}".format(e), app.logger)
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
 
 # ############################ HELPER FUNCTIONS ###############################
@@ -379,7 +363,10 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
         msg = f"General exception in _update_task_instance_state, " \
               f"jid {task_instance}, transitioning to {task_instance}. " \
               f"Not transitioning task. {e}"
-        log_and_raise(msg, app.logger)
+        raise ServerError(f"General exception in _update_task_instance_state, jid "
+                          f"{task_instance}, transitioning to {task_instance}. Not "
+                          f"transitioning task. Server Error in {request.path}",
+                          status_code=500) from e
 
     return response
 
@@ -403,6 +390,7 @@ def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
     except Exception as e:
         DB.session.rollback()
         app.logger.warning(str(e))
-        raise
+        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+                          status_code=500) from e
 
     return resp

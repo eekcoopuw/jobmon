@@ -6,25 +6,23 @@ def test_app(ephemera):
     """This sets up the JSM/JQS using the test_client which is a
     fake server
     """
-    from jobmon.server import create_app
-    from jobmon.server.server_config import ServerConfig
+    from jobmon.server.web.start import create_app
+    from jobmon.server.web.web_config import WebConfig
 
     # The create_app call sets up database connections
-    server_config = ServerConfig(
+    server_config = WebConfig(
         db_host=ephemera["DB_HOST"],
         db_port=ephemera["DB_PORT"],
         db_user=ephemera["DB_USER"],
         db_pass=ephemera["DB_PASS"],
-        db_name=ephemera["DB_NAME"],
-        wf_slack_channel=None,
-        slack_token=None)
+        db_name=ephemera["DB_NAME"])
     app = create_app(server_config)
     app.config['TESTING'] = True
     client = app.test_client()
     yield client, client
 
 
-def get_flask_content(response):
+def get_flask_content(response, logger):
     """The function called by the no_request_jsm_jqs to query the fake
     test_client for a response
     """
@@ -43,7 +41,10 @@ def in_memory_jsm_jqs(monkeypatch, test_app):
     test_client
     """
     import requests
-    from jobmon.client import requester
+    from jobmon import requester
+    monkeypatch.setenv("WEB_SERVICE_FQDN", 1)
+    monkeypatch.setenv("WEB_SERVICE_PORT", 2)
+
     jsm_client, jqs_client = test_app
 
     def get_jqs(url, params, headers):

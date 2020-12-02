@@ -1,9 +1,5 @@
-import logging
-
 from jobmon.constants import TaskInstanceStatus as Statuses
 from jobmon.models import DB
-
-logger = logging.getLogger(__name__)
 
 
 class TaskInstanceStatus(DB.Model):

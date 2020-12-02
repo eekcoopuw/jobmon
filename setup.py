@@ -10,8 +10,10 @@ install_requires = [
     'pandas',
     'psutil',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
+    'python_json_logger',
     'requests',
     'sqlalchemy',
+    'structlog',
     'tabulate',
     'tenacity',
     'tblib',

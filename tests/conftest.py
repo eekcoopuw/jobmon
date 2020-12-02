@@ -2,6 +2,7 @@ import glob
 import json
 import logging
 import os
+import platform
 import pwd
 import re
 import shutil
@@ -19,6 +20,15 @@ from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
 
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope='session', autouse=True)
+def set_mac_to_fork():
+    """necessary for running tests on a mac with python 3.8 see:
+    https://github.com/pytest-dev/pytest-flask/issues/104"""
+    if platform.system() == 'Darwin':
+        import multiprocessing
+        multiprocessing.set_start_method("fork")
 
 
 def boot_db() -> dict:
@@ -187,3 +197,4 @@ def tmp_out_dir():
     output_root = f'/ihme/scratch/users/{user}/tests/jobmon/{uuid.uuid4()}'
     yield output_root
     shutil.rmtree(output_root, ignore_errors=True)
+
