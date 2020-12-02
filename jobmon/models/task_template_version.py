@@ -21,9 +21,8 @@ class TaskTemplateVersion(DB.Model):
     arg_mapping_hash = DB.Column(DB.Integer)
 
     # orm relationship
-    task_template = DB.relationship(
-        "TaskTemplate",
-        back_populates="task_template_versions")
+    task_template = DB.relationship("TaskTemplate", back_populates="task_template_versions")
     template_arg_map = DB.relationship(
         "TemplateArgMap",
-        back_populates="task_template_version")
+        back_populates="task_template_version"
+    )

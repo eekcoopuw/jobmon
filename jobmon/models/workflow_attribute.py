@@ -1,5 +1,6 @@
 from jobmon.models import DB
 
+
 class WorkflowAttribute(DB.Model):
     __tablename__ = 'workflow_attribute'
 

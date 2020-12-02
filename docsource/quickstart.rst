@@ -14,8 +14,8 @@ To get started::
     If you get the error **"Could not find a version that satisfies the requirement jobmon (from version: )"** then create (or append) the following to your ``~/.pip/pip.conf``::
 
         [global]
-		extra-index-url = https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple
-		trusted-host = artifactory.ihme.washington.edu
+        extra-index-url = https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple
+        trusted-host = artifactory.ihme.washington.edu
 
 .. note::
 
@@ -405,7 +405,7 @@ There are currently three supported commands:
     Entering ``jobmon workflow_status`` in to the command line will show you
     a table of how many tasks are in each state within that workflow. You
     can specify the workflow by user using the -u flag. For example:
-    ``jobmon workflow-status -u {user}``. You can also specify the workflow
+    ``jobmon workflow_status -u {user}``. You can also specify the workflow
     using the -w flag. For example: ``jobmon workflow_status -w 9876``.
     You can also use the -w flag to specify multiple workflows at the same
     time. For example, if you have one workflow named 9876 and one
@@ -424,9 +424,14 @@ There are currently three supported commands:
     Entering ``jobmon task_status`` in to the command line will show you the
     state of each task instance for a certain task. You may specify the task
     by adding a -t flag. For example: ``jobmon task_status -t 1234``. You may also filter by
-    multipe task ids and statuses. The -s flag will allow you to filter upon a specific status.
-    For example if you wanted to query all task instances in the Done state for task 1234 and
+    multiple task ids and statuses. The -s flag will allow you to filter upon a specific status.
+    For example, if you wanted to query all task instances in the Done state for task 1234 and
     task 7652 you would do the following ``jobmon task_status -t 1234 7652 -s done``
+
+**JSON flag**
+    A new flag has been added to the Jobmon CLI to allow users to return their workflow and
+    task statuses in JSON format. To use this feature add a ``-n`` flag to any of the Jobmon
+    CLI commands. For example: ``jobmon task_status -t 1234 7652 -s done -n``
 
 Possible states: PENDING, RUNNING, DONE, FATAL
 
@@ -948,4 +953,3 @@ To raise a Scientific Computing help desk request:
 When requesting help try to provide the team with as much information as you have about your
 problem. Please include your Workflow id, the Jobmon version that you're using, and any
 TaskInstance error logs that you have.
-

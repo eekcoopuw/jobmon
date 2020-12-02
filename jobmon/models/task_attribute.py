@@ -5,10 +5,12 @@ from jobmon.models.task_attribute_type import TaskAttributeType
 class TaskAttribute(DB.Model):
     __tablename__ = 'task_attribute'
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'))
-    attribute_type_id = DB.Column(DB.Integer,
-                                  DB.ForeignKey('task_attribute_type.id'))
+    task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'), primary_key=True)
+    task_attribute_type_id = DB.Column(
+        DB.Integer,
+        DB.ForeignKey('task_attribute_type.id'),
+        primary_key=True
+    )
     value = DB.Column(DB.String(2000))
 
     @classmethod

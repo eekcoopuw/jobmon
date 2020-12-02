@@ -24,7 +24,6 @@ class TaskTemplateVersion:
                  task_args: list,
                  op_args: list,
                  requester_url: Optional[str] = None):
-
         # id vars
         self.task_template_id = task_template_id
         self.command_template = command_template

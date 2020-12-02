@@ -778,7 +778,7 @@ def add_task():
                 for name, val in t["task_attributes"].items():
                     type_id = _add_or_get_attribute_type([name]).id
                     task_attribute = TaskAttribute(task_id=task.id,
-                                                   attribute_type_id=type_id,
+                                                   task_attribute_type_id=type_id,
                                                    value=val)
                     task_attribute_list.append(task_attribute)
         DB.session.add_all(task_args)
@@ -960,7 +960,7 @@ def bind_tasks():
                 attr_type_id = task_attr_type_mapping[name]
                 insert_vals = {
                     'task_id': task_id,
-                    'attribute_type_id': attr_type_id,
+                    'task_attribute_type_id': attr_type_id,
                     'value': val}
                 attrs_to_add.append(insert_vals)
 
@@ -1000,7 +1000,7 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     attribute_type = _add_or_get_attribute_type(name)
     insert_vals = insert(TaskAttribute).values(
         task_id=task_id,
-        attribute_type_id=attribute_type,
+        task_attribute_type_id=attribute_type,
         value=value
     )
     update_insert = insert_vals.on_duplicate_key_update(
@@ -1418,7 +1418,7 @@ def delete_workflow_run(workflow_run_id: int):
 
 
 @jobmon_client.route('/workflow_run_status', methods=['GET'])
-def get_active_workflow_runs() -> Dict:
+def get_active_workflow_runs():
     """Return all workflow runs that are currently in the specified state."""
     try:
         query = """

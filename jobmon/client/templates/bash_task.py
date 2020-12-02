@@ -25,14 +25,12 @@ class BashTask(Task):
                  m_mem_free: Optional[str] = None,
                  hard_limits: bool = False,
                  executor_class: str = 'DummyExecutor',
-                 executor_parameters:
-                 Optional[Union[ExecutorParameters, Callable]] = None,
+                 executor_parameters: Optional[Union[ExecutorParameters, Callable]] = None,
                  tool: Optional[Tool] = None,
                  task_args: Optional[Dict] = None,
                  node_args: Optional[Dict] = None,
                  op_args: Optional[Dict] = None):
         """
-
         Bash Task object can be used by users upgrading from older versions of Jobmon
         (version < 2.0). It sets a default tool and task template for the user, however if the
         user wants to build out their objects to better classify their tasks, they should use
@@ -113,7 +111,7 @@ class BashTask(Task):
             if tool is None:
                 tool = Tool("unknown")
             task_template = tool.get_task_template(
-                template_name=f'bash_task',
+                template_name='bash_task',
                 command_template=command_template,
                 node_args=list(node_args.keys()),
                 task_args=list(task_args.keys()),
