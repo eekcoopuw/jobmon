@@ -107,3 +107,35 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
         return res["task_instance_status"]
     else:
         return pd.read_json(res["task_instance_status"])
+
+
+def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
+                       requester_url: Optional[str] = None) -> None:
+    """
+    Set the specified task IDs to the new status, pending validation.
+
+    Args:
+        task_ids: List of task IDs to reset in the database
+        workflow_id: The workflow to which each task belongs. Users can only self-service
+            1 workflow at a time for the moment.
+        new_status: the status to set tasks to
+    """
+
+    if requester_url is None:
+        requester_url = ClientConfig.from_defaults().url
+    requester = Requester(requester_url)
+
+    # Validate that the user is approved to make these changes
+    rc, res = requester.send_request(
+        app_route=f"/viz/workflow/{workflow_id}/usernames",
+        message={},
+        request_type="get")
+
+    username = getpass.getuser()
+    breakpoint()
+    if username not in res:
+        raise AssertionError(f"User {username} is not allowed to reset this workflow.",
+                             f"Only the following users have permission: {', '.join(res)}")
+
+    pass  # Not in scope of GBDSCI-2999.
+    # TODO: add in sub-DAG reconstruction, workflow validation, and reset route call

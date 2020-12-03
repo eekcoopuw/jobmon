@@ -3,6 +3,7 @@ import getpass
 import pytest
 
 from jobmon.client.cli import ClientCLI as CLI
+# from jobmon.client import WorkflowRun
 
 
 class MockSchedulerProc:
@@ -168,3 +169,32 @@ def test_task_status(db_cfg, client_env):
     all_args = cli.parse_args(all_cmd)
     df_all = task_status(all_args.task_ids, all_args.status)
     assert len(df_all) == 3
+
+
+def test_task_reset(db_cfg, client_env):
+    from jobmon.client.api import BashTask
+    from jobmon.client.api import UnknownWorkflow
+    from jobmon.client.status_commands import update_task_status
+
+    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
+    t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t2 = BashTask("sleep 4", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+
+    workflow.add_tasks([t1, t2])
+    workflow.run()
+
+    # Check that this user is allowed to update
+    command_str = f"update_task_status -t {t1.task_id} {t2.task_id} -w {workflow.workflow_id} -s F"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    update_task_status(args.task_ids, args.workflow_id, args.new_status)
+    breakpoint()
+
+    # Change the username, and try again. Should raise an error
+    # app = db_cfg["app"]
+    # DB = db_cfg["DB"]
+
+    # with app.app_context():
+    #     DB.session.update(WorkflowRun)
