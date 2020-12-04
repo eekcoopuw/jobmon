@@ -270,3 +270,26 @@ def get_task_status():
 
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@jvs.route('/workflow/<workflow_id>/usernames', methods=['GET'])
+def get_workflow_users(workflow_id: int):
+    """
+    Return all usernames associated with a given workflow_id's workflow runs.
+
+    Used to validate permissions for a self-service request.
+    """
+
+    query = """
+        SELECT DISTINCT user
+        FROM workflow_run
+        WHERE workflow_run.workflow_id = {workflow_id}
+    """.format(workflow_id=workflow_id)
+
+    result = DB.session.execute(query)
+
+    usernames = [row.user for row in result]
+    resp = jsonify(usernames=usernames)
+
+    resp.status_code = StatusCodes.OK
+    return resp

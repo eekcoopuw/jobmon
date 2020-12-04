@@ -18,6 +18,7 @@ class ClientCLI(CLI):
         self._add_workflow_status_subparser()
         self._add_workflow_tasks_subparser()
         self._add_task_status_subparser()
+        self._add_update_task_status_subparser()
 
     def workflow_status(self, args: configargparse.Namespace) -> None:
         from tabulate import tabulate
@@ -52,6 +53,12 @@ class ClientCLI(CLI):
             print(df)
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
+
+    def update_task_status(self, args: configargparse.Namespace) -> None:
+        from jobmon.client.status_commands import update_task_status
+
+        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
+        update_task_status(args.task_ids, args.workflow_id, args.new_status, cc.url)
 
     def _add_workflow_status_subparser(self) -> None:
         workflow_status_parser = self._subparsers.add_parser("workflow_status",
@@ -101,6 +108,20 @@ class ClientCLI(CLI):
         task_status_parser.add_argument("-n", "--json", dest="json", action="store_true")
         ParserDefaults.web_service_fqdn(task_status_parser)
         ParserDefaults.web_service_port(task_status_parser)
+
+    def _add_update_task_status_subparser(self) -> None:
+        update_task_parser = self._subparsers.add_parser("update_task_status", **PARSER_KWARGS)
+        update_task_parser.add_argument(
+            "-t", "--task_ids", nargs="+", help="task_ids to reset",
+            required=True, type=int)
+        update_task_parser.add_argument(
+            "-w", "--workflow_id", help="workflow_id of the tasks to reset",
+            required=True, type=int)
+        update_task_parser.add_argument(
+            "-s", "--new_status", help="status to set to",
+            choices=["D", "F"], type=str)
+        ParserDefaults.web_service_fqdn(update_task_parser)
+        ParserDefaults.web_service_port(update_task_parser)
 
 
 def main(argstr: Optional[str] = None) -> None:
