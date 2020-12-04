@@ -125,17 +125,25 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
         requester_url = ClientConfig.from_defaults().url
     requester = Requester(requester_url)
 
+    # Validate the username is appropriate
+    user = getpass.getuser()
+
+    validate_username(workflow_id, user, requester)
+
+    pass  # Not in scope of GBDSCI-2999.
+    # TODO: add in sub-DAG reconstruction, workflow validation, and reset route call
+
+
+def validate_username(workflow_id: int, username: str, requester: Requester) -> None:
+
     # Validate that the user is approved to make these changes
     rc, res = requester.send_request(
         app_route=f"/viz/workflow/{workflow_id}/usernames",
         message={},
         request_type="get")
 
-    username = getpass.getuser()
-    breakpoint()
-    if username not in res:
+    if username not in res['usernames']:
         raise AssertionError(f"User {username} is not allowed to reset this workflow.",
                              f"Only the following users have permission: {', '.join(res)}")
 
-    pass  # Not in scope of GBDSCI-2999.
-    # TODO: add in sub-DAG reconstruction, workflow validation, and reset route call
+    return

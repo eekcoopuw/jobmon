@@ -174,7 +174,7 @@ def test_task_status(db_cfg, client_env):
 def test_task_reset(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.api import UnknownWorkflow
-    from jobmon.client.status_commands import update_task_status
+    from jobmon.client.status_commands import update_task_status, validate_username
 
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
@@ -190,11 +190,9 @@ def test_task_reset(db_cfg, client_env):
     cli = CLI()
     args = cli.parse_args(command_str)
     update_task_status(args.task_ids, args.workflow_id, args.new_status)
-    breakpoint()
 
-    # Change the username, and try again. Should raise an error
-    # app = db_cfg["app"]
-    # DB = db_cfg["DB"]
-
-    # with app.app_context():
-    #     DB.session.update(WorkflowRun)
+    # Validation with a different user raises an error
+    with pytest.raises(AssertionError):
+        from jobmon.requester import Requester
+        requester = Requester(client_env)
+        validate_username(workflow.workflow_id, 'notarealuser', requester)
