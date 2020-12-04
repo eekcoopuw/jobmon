@@ -285,12 +285,10 @@ def get_workflow_users(workflow_id: int):
         FROM workflow_run
         WHERE workflow_run.workflow_id = {workflow_id}
     """.format(workflow_id=workflow_id)
-    print(query)
-    print(type(query))
+
     result = DB.session.execute(query)
 
-    usernames = list(result.fetchall())
-    print(usernames)
+    usernames = [row.user for row in result]
     resp = jsonify(usernames=usernames)
 
     resp.status_code = StatusCodes.OK
