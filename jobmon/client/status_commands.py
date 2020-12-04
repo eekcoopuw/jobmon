@@ -144,6 +144,6 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
 
     if username not in res['usernames']:
         raise AssertionError(f"User {username} is not allowed to reset this workflow.",
-                             f"Only the following users have permission: {', '.join(res)}")
+                             f"Only the following users have permission: {', '.join(res['usernames'])}")
 
     return
