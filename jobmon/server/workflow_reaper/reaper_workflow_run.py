@@ -28,7 +28,7 @@ class ReaperWorkflowRun(object):
         self.workflow_run_id = workflow_run_id
         self.workflow_id = workflow_id
         self.heartbeat_date = heartbeat_date
-        self._requester = Requester(requester_url)
+        self._requester = Requester(requester_url, logger)
 
     @classmethod
     def from_wire(cls, wire_tuple: tuple, requester_url: str) -> ReaperWorkflowRun:

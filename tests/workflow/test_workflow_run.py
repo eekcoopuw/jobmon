@@ -1,7 +1,7 @@
 import pytest
+import logging
 import time
 
-from jobmon.client import ClientLogging as logging
 from jobmon.models.task_status import TaskStatus
 from jobmon.models.task_instance import TaskInstance
 

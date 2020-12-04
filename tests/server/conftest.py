@@ -22,7 +22,7 @@ def test_app(ephemera):
     yield client, client
 
 
-def get_flask_content(response, logger):
+def get_flask_content(response):
     """The function called by the no_request_jsm_jqs to query the fake
     test_client for a response
     """
@@ -42,8 +42,8 @@ def in_memory_jsm_jqs(monkeypatch, test_app):
     """
     import requests
     from jobmon import requester
-    monkeypatch.setenv("WEB_SERVICE_FQDN", 1)
-    monkeypatch.setenv("WEB_SERVICE_PORT", 2)
+    monkeypatch.setenv("WEB_SERVICE_FQDN", '1')
+    monkeypatch.setenv("WEB_SERVICE_PORT", '2')
 
     jsm_client, jqs_client = test_app
 

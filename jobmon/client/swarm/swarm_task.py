@@ -3,7 +3,8 @@ from __future__ import annotations
 from http import HTTPStatus as StatusCodes
 from typing import Callable, Set, Dict, Optional, List
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.requester import Requester, http_request_ok
@@ -44,7 +45,7 @@ class SwarmTask(object):
 
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
         # once the callable is evaluated, the resources should be saved here
         self.bound_parameters: list = []

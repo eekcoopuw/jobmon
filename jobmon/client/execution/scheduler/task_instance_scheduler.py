@@ -6,9 +6,9 @@ import threading
 import time
 from typing import Optional, List
 
+import structlog as logging
 import tblib.pickling_support
 
-from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
@@ -54,7 +54,7 @@ class TaskInstanceScheduler:
         self._n_queued = n_queued
         self._scheduler_poll_interval = scheduler_poll_interval
 
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
         logger.info(f"scheduler: communicating at {self.requester.url}")
 

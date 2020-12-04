@@ -1,8 +1,9 @@
 import getpass
-import pandas as pd
 from typing import List, Tuple, Optional
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+import pandas as pd
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
 
@@ -34,7 +35,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
 
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+    requester = Requester(requester_url, logger)
 
     rc, res = requester.send_request(
         app_route="/viz/workflow_status",
@@ -65,7 +66,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
 
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+    requester = Requester(requester_url, logger)
 
     rc, res = requester.send_request(
         app_route=f"/viz/workflow/{workflow_id}/workflow_tasks",
@@ -97,7 +98,7 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
 
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+    requester = Requester(requester_url, logger)
 
     rc, res = requester.send_request(
         app_route="/viz/task_status",

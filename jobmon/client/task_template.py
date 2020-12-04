@@ -4,7 +4,8 @@ import hashlib
 from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
@@ -32,7 +33,7 @@ class TaskTemplate:
         # add requester for url
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
         # task template keys
         self.tool_version_id = tool_version_id

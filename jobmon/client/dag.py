@@ -1,9 +1,9 @@
 import hashlib
-
 from http import HTTPStatus as StatusCodes
 from typing import Optional, Set, Dict, List
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.requester import Requester
@@ -30,7 +30,7 @@ class Dag(object):
 
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
     @property
     def dag_id(self) -> int:

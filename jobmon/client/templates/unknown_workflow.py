@@ -1,6 +1,7 @@
 from typing import Optional, Union, List
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
 from jobmon.client.swarm.workflow_run import WorkflowRun

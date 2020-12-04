@@ -2,9 +2,10 @@ import os
 from subprocess import check_output
 from typing import List, Tuple, Dict, Optional
 
+import structlog as logging
+
 from cluster_utils.io import makedirs_safely
 
-from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import (
     Executor, TaskInstanceExecutorInfo, ExecutorParameters)
 from jobmon.client.execution.strategies.sge import sge_utils

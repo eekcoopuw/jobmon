@@ -2,41 +2,14 @@ import logging
 import requests
 from typing import Optional, Tuple, Any
 
-from tenacity import (retry, wait_exponential, retry_if_result,
-                      stop_after_delay, RetryCallState)
+import tenacity
 
-from jobmon.log_config import configure_logger
-
-
-def is_5XX(result: Tuple[int, dict], logger: Optional[logging.Logger] = None) -> bool:
-    '''
-    return True if get_content result has 5XX status '''
-    if logger is None:
-        logger = configure_logger(__file__)
-    logger.info("is_5XX")
-    status = result[0]
-    logger.info("status: {}".format(status))
-    is_bad = status > 499 and status < 600
-    logger.debug("is_bad: {}".format(is_bad))
-    return is_bad
-
-
-def raise_if_exceed_retry(retry_state: RetryCallState, logger: Optional[logging.Logger] = None):
-    '''
-    if we trigger retry error, raise informative RuntimeError
-    '''
-    if logger is None:
-        logger = configure_logger(__file__)
-    logger.info("raise_if_exceed_retry")
-    status, content = retry_state.outcome.result()
-    raise RuntimeError(
-        f'Exceeded HTTP request retry budget. '
-        f'Status code was {status} and content was {content}')
+from jobmon import log_config
 
 
 def http_request_ok(status_code: int) -> bool:
     return status_code in (200, 302, 307)
-    
+
 
 class Requester(object):
     """Sends an HTTP messages via the Requests library to one of the running
@@ -47,21 +20,41 @@ class Requester(object):
 
     """
 
-    def __init__(self, url: str, logger: Optional[logging.Logger] = None):
-        """set class defaults. attempt to connect with server."""
+    def __init__(self, url: str, logger: Optional[logging.Logger] = None,
+                 max_retries: int = 10, stop_after_delay: int = 120):
+        self.url = url
         if logger is None:
-            self.logger = configure_logger(__file__)
+            self.logger = log_config.configure_logger(__name__)
         else:
             self.logger = logger
-        self.logger.info("Requester __init__")
-        self.logger.info("url: {}".format(url))
-        self.url = url
+        self.logger.debug(f"Requester url is: {url}")
 
-    @retry(
-        wait=wait_exponential(max=1),
-        stop=stop_after_delay(10),
-        retry=retry_if_result(is_5XX),
-        retry_error_callback=raise_if_exceed_retry)
+        def is_5XX(result: Tuple[int, dict]) -> bool:
+            '''return True if get_content result has 5XX status '''
+            status = result[0]
+            is_bad = status > 499 and status < 600
+            if is_bad:
+                self.logger.warning(f"is_5XX? status: {status}")
+            else:
+                self.logger.debug(f"is_5XX? status: {status}")
+            return is_bad
+
+        def raise_if_exceed_retry(retry_state: tenacity.RetryCallState):
+            '''if we trigger retry error, raise informative RuntimeError'''
+            self.logger.exception(f"Retry exceeded. {retry_state}")
+            status, content = retry_state.outcome.result()
+            raise RuntimeError(
+                f'Exceeded HTTP request retry budget. '
+                f'Status code was {status} and content was {content}')
+
+        # so we can access it in tests
+        self._retry = tenacity.Retrying(
+            stop=tenacity.stop_after_delay(stop_after_delay),
+            wait=tenacity.wait_exponential(max_retries),
+            retry=tenacity.retry_if_result(is_5XX),
+            retry_error_callback=raise_if_exceed_retry
+        )
+
     def send_request(self, app_route: str, message: dict, request_type: str,
                      verbose: Optional[bool] = True) -> Tuple[int, Any]:
         """
@@ -101,43 +94,43 @@ class Requester(object):
         Raises:
             RuntimeError if 500 errors occur for > 2 minutes
         """
-        route = self.build_full_url(app_route)
-        self.logger.info("send_request route: {}".format(route))
-        if request_type not in ['get', 'post', 'put']:
-            self.logger.error("Invalid request_type: {}".format(request_type))
-            raise ValueError("request_type must be one of 'get', 'post', or "
-                             "'put'. Got {}".format(request_type))
-        self.logger.debug("Request message: {}".format(message))
+        return self._retry.call(self._wrapped_send_request, app_route, message, request_type, verbose)
+
+    def _wrapped_send_request(self, app_route: str, message: dict, request_type: str,
+                              verbose: Optional[bool] = True) -> Tuple[int, Any]:
+        # construct url
+        route = self.url + app_route
+        self.logger.debug(f"Request route: {route}, message: {message}")
+
+        # send request to server
         if request_type == 'post':
-            r = requests.post(route, json=message,
-                              headers={'Content-Type': 'application/json'})
+            response = requests.post(route, json=message,
+                                     headers={'Content-Type': 'application/json'})
         elif request_type == 'get':
-            r = requests.get(route, params=message,
-                             headers={'Content-Type': 'application/json'})
+            response = requests.get(route, params=message,
+                                    headers={'Content-Type': 'application/json'})
+        elif request_type == 'put':
+            response = requests.put(route, json=message,
+                                    headers={'Content-Type': 'application/json'})
         else:
-            r = requests.put(route, json=message,
-                             headers={'Content-Type': 'application/json'})
-        status_code, content = get_content(r, self.logger)
-        if content:
-            if verbose is True:
-                self.logger.debug(f"Received: {content}")
+            raise ValueError(
+                f"request_type must be one of 'get', 'post', or 'put'. Got {request_type}"
+            )
+
+        status_code, content = get_content(response)
+        if content and verbose is True:
+            self.logger.info(f"response status:{status_code}; content:{content}")
         self.logger.debug("Response content: {}".format(content))
         return status_code, content
 
-    def build_full_url(self, app_route: str) -> str:
-        self.logger.info(self.url + app_route)
-        return self.url + app_route
 
-
-def get_content(response: requests.Response, logger: Optional[logging.Logger] = None) -> Tuple[int, dict]:
-    if logger is None:
-        logger = configure_logger(__file__)
-    if 'application/json' in response.headers.get('Content-Type'):
+def get_content(response) -> Tuple[int, Any]:
+    # parse reponse
+    if 'application/json' in response.headers.get('Content-Type', ''):
         try:
             content = response.json()
         except TypeError:  # for test_client, response.json is a dict not fn
             content = response.json
     else:
         content = response.content
-    logger.debug(f"response status:{response.status_code}; content:{content}")
     return response.status_code, content

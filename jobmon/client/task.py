@@ -5,7 +5,8 @@ import hashlib
 from http import HTTPStatus as StatusCodes
 from typing import Optional, List, Callable, Union, Tuple, Dict
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.node import Node
@@ -91,7 +92,7 @@ class Task:
         """
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
         # pre bind hash defining attributes
         self.task_args = task_args

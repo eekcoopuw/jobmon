@@ -1,13 +1,13 @@
 import copy
 import getpass
-from http import HTTPStatus as StatusCodes
 from multiprocessing import Process
 import time
 from datetime import datetime
 from typing import Dict, Set, List, Tuple, Optional
 
+import structlog as logging
+
 from jobmon import __version__
-from jobmon.client import ClientLogging as logging
 from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester, http_request_ok
 from jobmon.client.swarm.swarm_task import SwarmTask
@@ -52,7 +52,7 @@ class WorkflowRun(object):
 
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
         # state tracking
         self.swarm_tasks: Dict[int, SwarmTask] = {}
@@ -134,7 +134,7 @@ class WorkflowRun(object):
         if not hasattr(self, "_scheduler_proc"):
             return False
         else:
-            print(f"Scheduler proc is: {self._scheduler_proc.is_alive()}")
+            logger.debug(f"Scheduler proc is: {self._scheduler_proc.is_alive()}")
             return self._scheduler_proc.is_alive()
 
     @property

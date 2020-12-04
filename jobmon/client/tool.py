@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import List, Union, Optional, Dict
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
 from jobmon.requester import Requester
@@ -37,7 +38,7 @@ class Tool:
         """
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
         self.name = name
         self.id = self._get_tool_id(self.name, self.requester)
@@ -60,7 +61,7 @@ class Tool:
         """
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        requester = Requester(requester_url)
+        requester = Requester(requester_url, logger)
 
         # call route to create tool
         _, res = requester.send_request(

@@ -3,7 +3,8 @@ import socket
 import traceback
 from typing import Optional, Union, Tuple, Dict
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
 from jobmon.requester import Requester
@@ -40,7 +41,7 @@ class WorkerNodeTaskInstance:
 
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
     @property
     def executor_id(self) -> Optional[int]:

@@ -5,7 +5,8 @@ from http import HTTPStatus as StatusCodes
 from string import Formatter
 from typing import Optional, Dict
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
 from jobmon.exceptions import InvalidResponse
@@ -38,7 +39,7 @@ class TaskTemplateVersion:
 
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
     @property
     def template_args(self) -> set:

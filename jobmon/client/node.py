@@ -5,7 +5,8 @@ import json
 from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Set, Optional
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
 
@@ -37,7 +38,7 @@ class Node:
 
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
     @property
     def node_id(self) -> int:

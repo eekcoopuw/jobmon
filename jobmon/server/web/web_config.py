@@ -41,8 +41,8 @@ class WebConfig(object):
                    rsyslog_protocol=args.rsyslog_protocol)
 
     def __init__(self, db_host: str, db_port: str, db_user: str, db_pass: str,
-                 db_name: str, use_rsyslog: bool = None, rsyslog_host: str = None,
-                 rsyslog_port: str = None, rsyslog_protocol: str = None):
+                 db_name: str, use_rsyslog: bool = False, rsyslog_host: str = "",
+                 rsyslog_port: str = "", rsyslog_protocol: str = ""):
         self.db_host = db_host
         self.db_port = db_port
         self.db_user = db_user

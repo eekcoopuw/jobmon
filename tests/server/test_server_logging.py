@@ -27,4 +27,3 @@ def test_capsys(in_memory_jsm_jqs, capsys):
         if 'blueprint' in log:
             val = json.loads(log)
             assert 'jobmon.server.web' in val['blueprint']
-

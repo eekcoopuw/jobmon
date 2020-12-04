@@ -6,9 +6,10 @@ import os
 import re
 import subprocess
 from typing import List, Dict, Tuple
-import numpy as np
 
-from jobmon.client import ClientLogging as logging
+import numpy as np
+import structlog as logging
+
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)

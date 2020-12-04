@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.serializers import SerializeExecutorTask
@@ -41,7 +42,7 @@ class ExecutorTask:
 
         self.executor_parameters = executor_parameters
 
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
     @classmethod
     def from_wire(cls, wire_tuple: tuple, executor_class: str, requester_url: str

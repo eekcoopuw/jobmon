@@ -1,9 +1,9 @@
 from __future__ import annotations
-
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.requester import Requester, http_request_ok
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.constants import TaskInstanceStatus
@@ -37,7 +37,7 @@ class ExecutorTaskInstance:
         # interfaces to the executor and server
         self.executor = executor
 
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
 
     @classmethod
     def from_wire(cls, wire_tuple: tuple, executor: Executor, requester_url: str
@@ -73,7 +73,7 @@ class ExecutorTaskInstance:
             executor (Executor): which executor to schedule this task on
             requester: requester for communicating with central services
         """
-        requester = Requester(requester_url)
+        requester = Requester(requester_url, logger)
 
         app_route = '/scheduler/task_instance'
         return_code, response = requester.send_request(

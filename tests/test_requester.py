@@ -37,7 +37,7 @@ def test_server_502(client_env):
         test_requester.send_request("/time", {}, "get")  # fails at first
 
         # should have retried twice + one success
-        retrier = test_requester.send_request.retry
+        retrier = test_requester._retry
         assert retrier.statistics['attempt_number'] == 3
 
         # if we end up stopping we should get an error

@@ -5,7 +5,8 @@ from queue import Empty
 from typing import Optional, Sequence, Dict, Union, List
 import uuid
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.dag import Dag
 from jobmon.client.execution.scheduler.api import SchedulerConfig
@@ -107,7 +108,7 @@ class Workflow(object):
 
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+        self.requester = Requester(requester_url, logger)
         self._scheduler_proc: Optional[Process] = None
         self._scheduler_com_queue: Queue = Queue()
         self._scheduler_stop_event: synchronize.Event = Event()

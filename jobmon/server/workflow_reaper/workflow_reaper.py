@@ -1,5 +1,4 @@
 from datetime import datetime
-from http import HTTPStatus as StatusCodes
 import logging
 from time import sleep
 from typing import List
@@ -25,7 +24,7 @@ class WorkflowReaper(object):
         # Set poll interval and loss threshold to config ones if nothing passed in
         self._poll_interval_minutes = poll_interval_minutes
         self._loss_threshold = loss_threshold
-        self._requester = Requester(requester_url)
+        self._requester = Requester(requester_url, logger)
         self._wf_notification_sink = wf_notification_sink
 
         if self._poll_interval_minutes < self._loss_threshold:
