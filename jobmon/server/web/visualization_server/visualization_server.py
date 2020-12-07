@@ -7,6 +7,7 @@ import pandas as pd
 
 
 from jobmon.models import DB
+from jobmon.constants import WorkflowStatus as Statuses
 
 
 jvs = Blueprint("visualization_server", __name__)
@@ -63,6 +64,40 @@ def health():
     DB.session.commit()
     # Assume that if we got this far without throwing an exception, we should be online
     resp = jsonify(status='OK')
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jvs.route("/workflow_validation", methods=['GET'])
+def get_workflow_validation_status():
+    # initial params
+    task_ids = request.args.getlist('task_ids')
+
+    # if the given list is empty, return True
+    if len(task_ids) == 0:
+        resp = jsonify(validation=True)
+        resp.status_code = StatusCodes.OK
+        return resp
+
+    task_list = ''
+    for id in task_ids:
+        task_list = task_list + str(id) + ","
+    task_list = task_list[:-1]
+
+    # execute query
+    q = f"""
+        SELECT
+            distinct workflow_id, status
+        FROM task
+        WHERE id IN ({task_list})
+    """
+    res = DB.session.execute(q).fetchall()
+    # Validate if all tasks are in the same workflow and the workflow status is dead
+    if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED, Statuses.SUSPENDED):
+        resp = jsonify(validation=True)
+    else:
+        resp = jsonify(validation=False)
+
     resp.status_code = StatusCodes.OK
     return resp
 

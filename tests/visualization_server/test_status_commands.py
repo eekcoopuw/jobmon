@@ -195,3 +195,30 @@ def test_task_reset(db_cfg, client_env):
         from jobmon.requester import Requester
         requester = Requester(client_env)
         validate_username(workflow.workflow_id, 'notarealuser', requester)
+
+
+def test_task_reset_wf_validation(db_cfg, client_env):
+    from jobmon.client.api import BashTask
+    from jobmon.client.api import UnknownWorkflow
+    from jobmon.client.status_commands import update_task_status, validate_username
+
+    workflow1 = UnknownWorkflow(executor_class="SequentialExecutor")
+    workflow2 = UnknownWorkflow(executor_class="SequentialExecutor")
+    t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t2 = BashTask("sleep 4", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+
+    workflow1.add_tasks([t1])
+    workflow1.run()
+    workflow2.add_tasks([t2])
+    workflow2.run()
+
+    # Check that this user is allowed to update
+    command_str = f"update_task_status -t {t1.task_id} {t2.task_id} -w {workflow1.workflow_id} -s F"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+
+    # Validation with a task not in the workflow raises an error
+    with pytest.raises(AssertionError):
+        update_task_status([t1.task_id, t2.task_id], args.workflow_id, args.new_status)

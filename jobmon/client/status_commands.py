@@ -129,6 +129,7 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
     user = getpass.getuser()
 
     validate_username(workflow_id, user, requester)
+    validate_workflow(task_ids, requester)
 
     pass  # Not in scope of GBDSCI-2999.
     # TODO: add in sub-DAG reconstruction, workflow validation, and reset route call
@@ -146,4 +147,15 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
         raise AssertionError(f"User {username} is not allowed to reset this workflow.",
                              f"Only the following users have permission: {', '.join(res['usernames'])}")
 
+    return
+
+
+def validate_workflow(task_ids: List[int], requester: Requester) -> None:
+    rc, res = requester.send_request(
+        app_route="/viz/workflow_validation",
+        message={'task_ids': task_ids},
+        request_type="get")
+
+    if not bool(res["validation"]):
+        raise AssertionError("The give task ids belong to multiple workflow.")
     return
