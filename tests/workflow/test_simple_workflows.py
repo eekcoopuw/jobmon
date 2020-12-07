@@ -481,3 +481,22 @@ def test_workflow_attribute(db_cfg, client_env):
         wf_attributes = DB.session.query(WorkflowAttribute).filter_by(workflow_id=wf2.workflow_id).all()
 
     assert wf_attributes == []
+
+
+def test_chunk_size(db_cfg, client_env):
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
+    from jobmon.client.api import Tool, BashTask
+
+    wf_a = UnknownWorkflow("test_wf_chunks_a", chunk_size=3)
+
+    task_a = BashTask(
+        "echo a", executor_class="SequentialExecutor",
+        upstream_tasks=[]  # To be clear
+    )
+    wf_a.add_task(task_a)
+
+    tool = Tool()
+    wf_b = tool.create_workflow("test_wf_chunks_b", chunk_size=10)
+
+    assert wf_a._chunk_size == 3
+    assert wf_b._chunk_size == 10

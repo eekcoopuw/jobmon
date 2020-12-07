@@ -137,10 +137,14 @@ class Tool:
         return tt
 
     def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",
-                        workflow_attributes: Union[List, dict] = None,
-                        max_concurrently_running: int = 10_000) -> Workflow:
+                        workflow_attributes: Optional[Union[List, dict]] = None,
+                        max_concurrently_running: int = 10_000,
+                        requester_url: Optional[str] = None, chunk_size: int = 500) \
+            -> Workflow:
+        if requester_url is None:
+            requester_url = self.requester.url
         wf = Workflow(self.active_tool_version_id, workflow_args, name, description,
-                      workflow_attributes, max_concurrently_running)
+                      workflow_attributes, max_concurrently_running, requester_url, chunk_size)
         return wf
 
     def _get_tool_version_ids(self) -> List[int]:
