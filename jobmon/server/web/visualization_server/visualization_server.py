@@ -68,7 +68,6 @@ def health():
     return resp
 
 
-# use post in case the client sends a huge list
 @jvs.route("/workflow_validation", methods=['GET'])
 def get_workflow_validation_status():
     # initial params
