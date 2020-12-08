@@ -387,7 +387,7 @@ For example::
         # Run the workflow
         workflow.run()
 
-Jobmon Status Commands
+Jobmon Commands
 =======================================
 Jobmon status commands are available as of version 1.1.0. The Jobmon status
 commands allow you to check that status of your Workflows and Tasks from the
@@ -434,6 +434,18 @@ There are currently three supported commands:
     CLI commands. For example: ``jobmon task_status -t 1234 7652 -s done -n``
 
 Possible states: PENDING, RUNNING, DONE, FATAL
+
+Jobmon Self-Service Commands
+****************************
+
+Jobmon 2.1.0 will introduce a suite of additional commands to not only visualize job statuses from the database, but to allow the users to modify the states of their workflows. These self-service commands can be invoked from the command line in the same way as the status commands.
+
+There are two supported:
+
+**rate_limit**
+    Entering ``jobmon rate_limit`` will allow the user to change the maximum running job instances allowed in his or her workflow. When a workflow is instantiated, the user can specify a maximum limit to the number of concurrent jobs in case a very wide workflow threatens to resource-throttle the cluster. While running, the user can use this command to change the maximum allowed concurrency as needed if cluster busyness starts to wax or wane.
+
+    As an example, if we plan on running 100,000 jobs at once and don't specify a default, Jobmon will ensure only 10,000 jobs at once will be queued and run. If the cluster is particularly free, the user can use ``jobmon rate_limit -w <workflow_id> -n 100000`` to run all 100,000 jobs simultaneously without interrupting the current workflow execution. If cluster usage starts to pick back up and we need to make space for others, we can use ``jobmon rate_limit -w <workflow_id> -n 100`` to ensure that only 100 jobs at once will be queued and that we can make space for others.
 
 
 Restart Tasks and Resume Workflows

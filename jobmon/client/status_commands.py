@@ -115,7 +115,7 @@ def rate_limit(workflow_id: int, num_tasks: int, requester_url: Optional[str] = 
     Used to dynamically adjust the allowed number of jobs concurrently running.
 
     Args:
-        workflow_id: ID of the running workflow who's max_running value needs to be reset
+        workflow_id: ID of the running workflow whose max_running value needs to be reset
         num_tasks: new allowed value of parallel tasks
 
     Returns: None
@@ -132,5 +132,3 @@ def rate_limit(workflow_id: int, num_tasks: int, requester_url: Optional[str] = 
         app_route=f"/viz/workflow/{workflow_id}/update_max_running",
         message=msg,
         request_type="put")
-
-    return
