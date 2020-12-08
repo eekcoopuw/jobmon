@@ -168,3 +168,26 @@ def test_task_status(db_cfg, client_env):
     all_args = cli.parse_args(all_cmd)
     df_all = task_status(all_args.task_ids, all_args.status)
     assert len(df_all) == 3
+
+
+def test_dynamic_rate_limiting_cli(db_cfg, client_env):
+    """ The server-side logic is checked in scheduler/test_instantiate.
+
+    This test checks the logic of the CLI only
+    """
+
+    # Check that a valid ask returns error free
+    cli = CLI()
+    good_command = "rate_limit -w 5 -n 10"
+    args = cli.parse_args(good_command)
+
+    assert args.workflow_id == 5
+    assert args.num_tasks == 10
+
+    # Check that an invalid ask will be rejected
+    bad_command = "rate_limit -w 5 -n {}"
+    with pytest.raises(SystemExit):
+        args = cli.parse_args(bad_command.format(0))
+
+    with pytest.raises(SystemExit):
+        args = cli.parse_args(bad_command.format(-59))

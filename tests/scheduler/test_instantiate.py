@@ -178,3 +178,44 @@ def test_rate_limiting(db_cfg, client_env):
     assert len(select_tasks) == 0
 
     scheduler.executor.stop()
+
+
+def test_dynamic_rate_limiting(db_cfg, client_env):
+    """ tests that the CLI functionality to update concurrent jobs behaves as expected"""
+    from jobmon.client.execution.scheduler.task_instance_scheduler import \
+        TaskInstanceScheduler
+    from jobmon.client.api import Tool, BashTask
+    from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
+    from jobmon.client.status_commands import rate_limit
+    from jobmon.constants import WorkflowRunStatus
+
+    tasks = []
+    for i in range(20):
+        task = BashTask(command=f"sleep {i}", num_cores=1)
+        tasks.append(task)
+    unknown_tool = Tool()
+    workflow = unknown_tool.create_workflow(name="dynamic_rate_limiting",
+                                            max_concurrently_running=2)
+    workflow.set_executor(MultiprocessExecutor(parallelism=3))
+    workflow.add_tasks(tasks)
+
+    workflow._bind()
+    wfr = workflow._create_workflow_run()
+
+    with pytest.raises(RuntimeError):
+        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+
+    wfr.update_status(WorkflowRunStatus.ERROR)
+
+    # Started with a default of 2. Adjust up to 5 and try again
+    rate_limit(workflow.workflow_id, 5)
+
+    wfr2 = workflow._create_workflow_run(resume=True)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr2.workflow_run_id,
+                                      workflow._executor, requester_url=client_env)
+    with pytest.raises(RuntimeError):
+        wfr2.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+
+    # Query should return 5 jobs
+    select_tasks = scheduler._get_tasks_queued_for_instantiation()
+    assert len(select_tasks) == 5

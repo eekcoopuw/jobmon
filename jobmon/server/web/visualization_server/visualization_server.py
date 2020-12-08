@@ -270,3 +270,23 @@ def get_task_status():
 
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@jvs.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
+def update_max_running(workflow_id):
+
+    data = request.get_json()
+    new_limit = data['num_tasks']
+
+    q = """
+        UPDATE workflow
+        SET max_concurrently_running = {new_limit}
+        WHERE id = {workflow_id}
+    """.format(new_limit=new_limit, workflow_id=workflow_id)
+
+    DB.session.execute(q)
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp

@@ -107,3 +107,30 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
         return res["task_instance_status"]
     else:
         return pd.read_json(res["task_instance_status"])
+
+
+def rate_limit(workflow_id: int, num_tasks: int, requester_url: Optional[str] = None) -> None:
+    """ Update a workflow's max_running_instances field in the database
+
+    Used to dynamically adjust the allowed number of jobs concurrently running.
+
+    Args:
+        workflow_id: ID of the running workflow who's max_running value needs to be reset
+        num_tasks: new allowed value of parallel tasks
+
+    Returns: None
+    """
+
+    msg = {}
+    msg["num_tasks"] = num_tasks
+
+    if requester_url is None:
+        requester_url = ClientConfig.from_defaults().url
+    requester = Requester(requester_url)
+
+    _, _ = requester.send_request(
+        app_route=f"/viz/workflow/{workflow_id}/update_max_running",
+        message=msg,
+        request_type="put")
+
+    return
