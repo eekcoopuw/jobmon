@@ -258,3 +258,8 @@ def test_sub_dag(db_cfg, client_env):
     assert str(t1_1.task_id) in tree.keys()
     assert str(t1_2.task_id) in tree.keys()
     assert str(t1_2_1.task_id) in tree.keys()
+
+    # test non exit status
+    tree = get_sub_task_tree(t1.task_id, task_status=["XX"])
+    assert len(tree.items()) == 0
+
