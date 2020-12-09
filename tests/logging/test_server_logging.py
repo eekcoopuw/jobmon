@@ -4,7 +4,6 @@ import json
 
 from jobmon.log_config import configure_logger
 from jobmon.requester import Requester
-from jobmon.server.web.server_side_exception import (ServerError, InvalidUsage)
 
 
 @pytest.fixture(scope="function")
