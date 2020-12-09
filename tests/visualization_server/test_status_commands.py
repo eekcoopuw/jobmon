@@ -222,3 +222,39 @@ def test_task_reset_wf_validation(db_cfg, client_env):
     # Validation with a task not in the workflow raises an error
     with pytest.raises(AssertionError):
         update_task_status([t1.task_id, t2.task_id], args.workflow_id, args.new_status)
+
+
+def test_sub_dag(db_cfg, client_env):
+    from jobmon.client.api import BashTask
+    from jobmon.client.api import UnknownWorkflow
+    from jobmon.client.status_commands import get_sub_task_tree
+
+    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
+    t1 = BashTask("echo 1", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t1_1 = BashTask("echo 11", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t1_2 = BashTask("echo 12", executor_class="SequentialExecutor",
+                    max_runtime_seconds=10, resource_scales={})
+    t1_2_1 = BashTask("echo 121", executor_class="SequentialExecutor",
+                    max_runtime_seconds=10, resource_scales={})
+    t2 = BashTask("echo 2", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t1_2_1.add_upstream(t1_2)
+    t1_2.add_upstream(t1)
+    t1_1.add_upstream(t1)
+    workflow.add_tasks([t1, t1_1, t1_2, t1_2_1, t2])
+    workflow.run()
+
+    # test node with no sub nodes
+    tree = get_sub_task_tree(t2.task_id)
+    assert len(tree.items()) == 1
+    assert str(t2.task_id) in tree.keys()
+
+    # test sub tree
+    tree = get_sub_task_tree(t1.task_id)
+    assert len(tree.items()) == 4
+    assert str(t1.task_id) in tree.keys()
+    assert str(t1_1.task_id) in tree.keys()
+    assert str(t1_2.task_id) in tree.keys()
+    assert str(t1_2_1.task_id) in tree.keys()

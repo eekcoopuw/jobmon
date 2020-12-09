@@ -330,7 +330,7 @@ def get_workflow_users(workflow_id: int):
     return resp
 
 
-def _get_node_downstream(node_id: int, dag_id: int):
+def _get_node_downstream(node_id: int, dag_id: int) -> list:
     """
     Get all downstream nodes of a node
     :param node_id:
@@ -343,16 +343,16 @@ def _get_node_downstream(node_id: int, dag_id: int):
         AND node_id = {node_id}
     """
     result = DB.session.execute(q).fetchone()
-    if result is None:
+    if result is None or result['downstream_node_ids'] is None:
         return None
     ids = result['downstream_node_ids'].strip()[1:-1].split(",")
     ids = [int(i) for i in ids]
     return ids
 
 
-def _get_subdag(node_id: int, dag_id: int):
+def _get_subdag(node_id: int, dag_id: int) -> list:
     """
-    Get all descendants of a given nodes
+    Get all descendants of a given nodes. It only queries the primary keys on the edge table without join.
     :param node_id:
     :return: a list of node_id
     """
@@ -367,24 +367,30 @@ def _get_subdag(node_id: int, dag_id: int):
     return node_descendants
 
 
-def _get_tasks_from_nodes(workflow_id: int, nodes: list):
+def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> dict:
     """
     Get task ids of the given node ids
     :param workflow_id:
     :param nodes:
     :return: a dict of {<id>: <status>}
     """
+    node_str =str((tuple(nodes))).replace(",)", ")")
+
     q = f"""
         SELECT id, status
         FROM task
         WHERE workflow_id={workflow_id}
-        AND node_id in {str(tuple(nodes))}
+        AND node_id in {node_str}
     """
     result = DB.session.execute(q).fetchall()
-    task_ids = {}
+    task_dict = {}
     for r in result:
-        task_ids[int(r[0])] = r[1]
-    return task_ids
+        if len(task_status) == 0:
+            task_dict[int(r[0])] = r[1]
+        else:
+            if r[1] in task_status:
+                task_dict[int(r[0])] = r[1]
+    return task_dict
 
 
 @jvs.route('/task/<task_id>/subdag', methods=['GET'])
@@ -394,23 +400,29 @@ def get_task_subdag(task_id: int):
     :param task_id:
     :return:
     """
+    # Only return sub tasks in the following status. If empty or None, return all
+    task_status = request.args.getlist('task_status')
+    if task_status is None:
+        task_status = []
     q = f"""
-        SELECT workflow.id as worflow_id, dag_id, node_id 
+        SELECT workflow.id as workflow_id, dag_id, node_id 
         FROM task, workflow 
         WHERE task.id ={task_id} and task.workflow_id = workflow.id
     """
     result = DB.session.execute(q).fetchone()
     if result is None:
         # return empty values when task_id does not exist or db out of consistency
-        resp = jsonify(task_id=task_id, workflow_id=None, dag_id=None, sub_task=None, sub_dag=None)
+        resp = jsonify(workflow_id=None, sub_task=None)
+        resp.status_code = StatusCodes.OK
+        return resp
 
     workflow_id = result['workflow_id']
     dag_id = result['dag_id']
     node_id = result['node_id']
-    sub_dag = _get_subdag(node_id, dag_id)
-    sub_task = _get_tasks_from_nodes(workflow_id, sub_dag)
-    resp = jsonify(task_id=task_id, workflow_id=workflow_id, dag_id=dag_id,
-                   sub_task=sub_task, sub_dag=sub_dag)
+    sub_dag_tree = _get_subdag(node_id, dag_id)
+    sub_task_tree = _get_tasks_from_nodes(workflow_id, sub_dag_tree, task_status)
+    resp = jsonify(workflow_id=workflow_id, sub_task=sub_task_tree)
 
     resp.status_code = StatusCodes.OK
     return resp
+
