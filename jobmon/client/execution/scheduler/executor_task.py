@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import structlog as logging
 
-from jobmon.requester import Requester
 from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.requester import Requester
 from jobmon.serializers import SerializeExecutorTask
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ class ExecutorTask:
     # serializers.SerializeExecutorTask
     def __init__(self, task_id: int, workflow_id: int, node_id: int, task_args_hash: int,
                  name: str, command: str, status: str, executor_parameters: ExecutorParameters,
-                 requester_url: str):
+                 requester: Requester):
         """
         This is a Task object used on the RESTful API client side
         when constructing task instances.
@@ -42,10 +42,10 @@ class ExecutorTask:
 
         self.executor_parameters = executor_parameters
 
-        self.requester = Requester(requester_url, logger)
+        self.requester = requester
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, executor_class: str, requester_url: str
+    def from_wire(cls, wire_tuple: tuple, executor_class: str, requester: Requester
                   ) -> ExecutorTask:
         """construct instance from wire format the JQS gives
 
@@ -82,5 +82,6 @@ class ExecutorTask:
                 resource_scales=kwargs["resource_scales"],
                 hard_limits=kwargs["hard_limits"]
             ),
-            requester_url=requester_url)
+            requester=requester
+        )
         return executor_task

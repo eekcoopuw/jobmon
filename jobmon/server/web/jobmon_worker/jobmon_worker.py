@@ -1,9 +1,8 @@
 from http import HTTPStatus as StatusCodes
 import os
-from typing import Optional, Dict, Any
+from typing import Optional
 
 from flask import jsonify, request, Blueprint, current_app as app
-from werkzeug.local import LocalProxy
 from sqlalchemy.sql import func, text
 import sqlalchemy
 
@@ -18,14 +17,10 @@ from jobmon.server.web.server_side_exception import ServerError
 jobmon_worker = Blueprint("jobmon_worker", __name__)
 
 
-logger = LocalProxy(lambda: app.logger)
-
-
-@jobmon_worker.before_request # try before_first_request so its quicker
+@jobmon_worker.before_request  # try before_first_request so its quicker
 def log_request_info():
-    app.logger = app.logger.new()
-    app.logger = app.logger.bind(blueprint=__name__)
-    app.logger = app.logger.bind(request_method=request.method)
+    app.logger = app.logger.bind(blueprint=jobmon_worker.name)
+    app.logger.debug("starting route execution")
 
 
 @jobmon_worker.route('/', methods=['GET'])
@@ -33,7 +28,7 @@ def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening
     """
-    logger.info(f"{os.getpid()}: {jobmon_worker.__class__.__name__} received is_alive?")
+    app.logger.info(f"{os.getpid()}: {jobmon_worker.__class__.__name__} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
     resp.status_code = StatusCodes.OK
     return resp
@@ -77,7 +72,7 @@ def health():
 def kill_self(task_instance_id: int):
     """Check a task instance's status to see if it needs to kill itself
     (state W, or L)"""
-    app.logger.bind(task_instance_id=task_instance_id)
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
     kill_statuses = TaskInstance.kill_self_states
     try:
         query = """
@@ -111,7 +106,7 @@ def log_running(task_instance_id: int):
 
         task_instance_id: id of the task_instance to log as running
     """
-    app.logger.bind(task_instance_id=task_instance_id)
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
@@ -144,7 +139,7 @@ def log_ti_report_by(task_instance_id: int):
 
         task_instance_id: id of the task_instance to log
     """
-    app.logger.bind(task_instance_id=task_instance_id)
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Log report_by for TI {task_instance_id}. Data={data}")
@@ -191,7 +186,7 @@ def log_usage(task_instance_id: int):
         cpu (str, optional): cpu used
         io (str, optional): io used
     """
-    app.logger.bind(task_instance_id=task_instance_id)
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         if data.get('maxrss', None) is None:
@@ -234,7 +229,7 @@ def log_done(task_instance_id: int):
     Args:
         task_instance_id: id of the task_instance to log done
     """
-    app.logger.bind(task_instance_id=task_instance_id)
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Log DONE for TI {task_instance_id}. Data: {data}")
@@ -263,7 +258,7 @@ def log_error_worker_node(task_instance_id: int):
         task_instance_id (str): id of the task_instance to log done
         error_message (str): message to log as error
     """
-    app.logger.bind(task_instance_id=task_instance_id)
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         error_state = data['error_state']
@@ -298,7 +293,7 @@ def get_most_recent_ji_error(task_id: int):
     :param task_id:
     :return: error message
     """
-    app.logger.bind(task_id=task_id)
+    app.logger = app.logger.bind(task_id=task_id)
     try:
         query = """
             SELECT

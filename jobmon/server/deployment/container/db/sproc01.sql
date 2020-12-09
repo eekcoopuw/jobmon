@@ -8,7 +8,7 @@ CREATE PROCEDURE split_future_partition(p_schema varchar(64), p_table varchar(64
    LANGUAGE SQL
    NOT DETERMINISTIC
    SQL SECURITY INVOKER
-BEGIN  
+BEGIN
 
    -- construct the reorganize statement
    SELECT CONCAT(
@@ -16,12 +16,12 @@ BEGIN
       ' REORGANIZE PARTITION future INTO (',
       'PARTITION ', @p_name, ' VALUES LESS THAN (', @p_max_value, '), '
       'PARTITION future VALUES LESS THAN (MAXVALUE))'
-   );
+   ) INTO @query;
 
    -- And then we prepare and execute the ALTER TABLE query.
    PREPARE st FROM @query;
    EXECUTE st;
-   DEALLOCATE PREPARE st;  
+   DEALLOCATE PREPARE st;
 
 END$$
 DELIMITER ;
@@ -35,12 +35,12 @@ CREATE PROCEDURE repartition(p_schema varchar(64), p_name varchar(64))
    LANGUAGE SQL
    NOT DETERMINISTIC
    SQL SECURITY INVOKER
-BEGIN  
+BEGIN
 
    -- workflow partitioning
    SELECT MAX(id) FROM workflow INTO @p_max_value;
    CALL split_future_partition(@p_schema, 'workflow', @p_name, @p_max_value);
-      
+
    -- workflow_run partitioning
    SELECT MAX(id) FROM workflow_run INTO @p_max_value;
    CALL split_future_partition(@p_schema, 'workflow_run', @p_name, @p_max_value);

@@ -17,15 +17,12 @@ def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
         werkzeug_logger = logging.getLogger("werkzeug")
         werkzeug_logger.disabled = True
         werkzeug_logger.setLevel(logging.ERROR)
-        werkzeug_logger.addHandler(app.logger.handlers)
 
         # sqlalchemy logger
         sqlalchemy_logger = logging.getLogger('sqlalchemy')
         sqlalchemy_logger.setLevel(logging.WARNING)
-        sqlalchemy_logger.addHandler(app.logger.handlers)
 
-        # handle 404 at the application level not the blueprint level
-
+    # handle 404 at the application level not the blueprint level
     @app.errorhandler(404)
     def page_not_found(e):
         return f'This route does not exist: {request.url}', 404
@@ -54,9 +51,16 @@ def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
 
     @app.before_request
     def log_request_info():
+        app.logger = app.logger.new()
+        app.logger = app.logger.bind(request_method=request.method)
+        data = request.get_json() or {}
         if request.method == "GET":
-            app.logger.info(f"URL Path is {request.path}. Args are {request.args}")
+            server_structlog_context = data
+            app.logger = app.logger.bind(path=request.path, data=request.args)
         if request.method in ["POST", "PUT"]:
-            app.logger.info(f'URL Path is {request.path}. Data is: {request.get_json()}')
+            server_structlog_context = data.pop("server_structlog_context", {})
+            app.logger = app.logger.bind(path=request.path, data=data)
+        if server_structlog_context:
+            app.logger = app.logger.bind(**server_structlog_context)
 
     return app

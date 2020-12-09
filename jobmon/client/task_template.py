@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class TaskTemplate:
 
     def __init__(self, tool_version_id: int, template_name: str,
-                 requester_url: Optional[str] = None) -> None:
+                 requester: Optional[Requester] = None) -> None:
         """Groups tasks of a type, by declaring the concrete arguments that instances may vary
         over either from workflow to workflow or between nodes in the stage of a dag.
 
@@ -30,10 +30,10 @@ class TaskTemplate:
             requester_url (str): url to communicate with the flask services.
         """
 
-        # add requester for url
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url, logger)
+            requester = Requester(requester_url)
+        self.requester = requester
 
         # task template keys
         self.tool_version_id = tool_version_id
@@ -91,7 +91,7 @@ class TaskTemplate:
             node_args=node_args,
             task_args=task_args,
             op_args=op_args,
-            requester_url=self.requester.url
+            requester=self.requester
         )
         task_template_version.bind()
         self._task_template_version = task_template_version
@@ -158,7 +158,8 @@ class TaskTemplate:
             app_route=app_route,
             message={"tool_version_id": self.tool_version_id,
                      "task_template_name": self.template_name},
-            request_type='get'
+            request_type='get',
+            logger=logger
         )
 
         if return_code != StatusCodes.OK:
@@ -175,7 +176,8 @@ class TaskTemplate:
             app_route=app_route,
             message={"tool_version_id": self.tool_version_id,
                      "task_template_name": self.template_name},
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
 
         if return_code != StatusCodes.OK:

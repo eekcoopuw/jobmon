@@ -5,6 +5,7 @@ from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.execution.scheduler.task_instance_scheduler import TaskInstanceScheduler
 from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
 from jobmon.log_config import configure_logger, get_rsyslog_handler_config
+from jobmon.requester import Requester
 
 
 def get_scheduler(workflow_id: int, workflow_run_id: int,
@@ -28,11 +29,12 @@ def get_scheduler(workflow_id: int, workflow_run_id: int,
     if executor is None:
         executor = get_scheduling_executor_by_name(executor_class, *args, **kwargs)
 
+    requester = Requester(scheduler_config.url)
     scheduler = TaskInstanceScheduler(
         workflow_id=workflow_id,
         workflow_run_id=workflow_run_id,
         executor=executor,
-        requester_url=scheduler_config.url,
+        requester=requester,
         workflow_run_heartbeat_interval=scheduler_config.workflow_run_heartbeat_interval,
         task_heartbeat_interval=scheduler_config.task_heartbeat_interval,
         report_by_buffer=scheduler_config.report_by_buffer,

@@ -4,7 +4,6 @@ import json
 from typing import Dict, Union, List, Set
 
 from flask import jsonify, request, Blueprint, current_app as app
-from werkzeug.local import LocalProxy
 from sqlalchemy.sql import text
 from sqlalchemy.dialects.mysql import insert
 import sqlalchemy
@@ -39,14 +38,10 @@ from jobmon.server.web.server_side_exception import (ServerError, InvalidUsage)
 jobmon_client = Blueprint("jobmon_client", __name__)
 
 
-logger = LocalProxy(lambda: app.logger)
-
-
-@jobmon_client.before_request # try before_first_request so its quicker
+@jobmon_client.before_request  # try before_first_request so its quicker
 def log_request_info():
-    app.logger = app.logger.new()
-    app.logger = app.logger.bind(blueprint=__name__)
-    app.logger = app.logger.bind(request_method=request.method)
+    app.logger = app.logger.bind(blueprint=jobmon_client.name)
+    app.logger.debug("starting route execution")
 
 
 @jobmon_client.route('/', methods=['GET'])
@@ -54,19 +49,24 @@ def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening
     """
-    logger.info(f"{os.getpid()}: {jobmon_client.__class__.__name__} received is_alive?")
+    app.logger.info(f"{os.getpid()}: {app.name} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
     resp.status_code = StatusCodes.OK
     return resp
 
 
+def _get_time():
+    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+    time = time['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    DB.session.commit()
+    return time
+
+
 @jobmon_client.route("/time", methods=['GET'])
 def get_pst_now():
     try:
-        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-        time = time['time']
-        time = time.strftime("%Y-%m-%d %H:%M:%S")
-        DB.session.commit()
+        time = _get_time()
         resp = jsonify(time=time)
         resp.status_code = StatusCodes.OK
         return resp
@@ -83,10 +83,7 @@ def health():
     """
     try:
         app.logger.info(DB.session.bind.pool.status())
-        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-        time = time['time']
-        time = time.strftime("%Y-%m-%d %H:%M:%S")
-        DB.session.commit()
+        _get_time()
         # Assume that if we got this far without throwing an exception, we should be online
         resp = jsonify(status='OK')
         resp.status_code = StatusCodes.OK
@@ -229,8 +226,7 @@ def get_task_template():
     try:
         tool_version_id = int(request.args.get("tool_version_id"))
         name = request.args.get("task_template_name")
-        app.logger = app.logger.bind(tool_version_id=tool_version_id)
-        app.logger = app.logger.bind(task_template_name=name)
+        app.logger = app.logger.bind(tool_version_id=tool_version_id, task_template_name=name)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
@@ -470,8 +466,10 @@ def add_node():
         node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
-    app.logger = app.logger.bind(task_template_version_id=data['task_template_version_id'],
-                                 node_args_hash=data['node_args_hash'])
+    app.logger = app.logger.bind(
+        task_template_version_id=data['task_template_version_id'],
+        node_args_hash=data['node_args_hash']
+    )
 
     # add node
     try:
@@ -486,8 +484,9 @@ def add_node():
         # add node_args
         node_args = json.loads(data['node_args'])
         for arg_id, value in node_args.items():
-            app.logger.info(f'Adding node_arg with node_id: {node.id}, '
-                            f'arg_id: {arg_id}, and val: {value}')
+            app.logger.info(
+                f'Adding node_arg with node_id: {node.id}, arg_id: {arg_id}, and val: {value}'
+            )
             node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)
             DB.session.add(node_arg)
         DB.session.commit()
@@ -536,8 +535,12 @@ def add_nodes():
         # Extract node and node_args
         nodes = [(n['task_template_version_id'], n['node_args_hash']) for n in data['nodes']]
 
-        # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate keys
-        nodes_to_add = [{'task_template_version_id': ttv, 'node_args_hash': arghash} for ttv, arghash in nodes]
+        # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
+        # keys
+        nodes_to_add = [
+            {'task_template_version_id': ttv, 'node_args_hash': arghash}
+            for ttv, arghash in nodes
+        ]
         node_insert_stmt = insert(Node).prefix_with("IGNORE")
         DB.session.execute(node_insert_stmt, nodes_to_add)
         DB.session.commit()
@@ -562,7 +565,8 @@ def add_nodes():
         }
 
         # Add node args. Cast hash to string to match DB schema
-        node_args = {(n['task_template_version_id'], str(n['node_args_hash'])): n['node_args'] for n in data['nodes']}
+        node_args = {(n['task_template_version_id'], str(n['node_args_hash'])): n['node_args']
+                     for n in data['nodes']}
 
         node_args_list = []
         for node_id_tuple, arg in node_args.items():
@@ -570,9 +574,10 @@ def add_nodes():
             node_id = node_id_dict[node_id_tuple]
 
             for arg_id, val in arg.items():
-                app.logger.bind(node_id=node_id)
-                app.logger.debug(f'Adding node_arg with node_id: {node_id}, '
-                                 f'arg_id: {arg_id}, and val: {val}')
+                app.logger.debug(
+                    f'Adding node_arg with node_id: {node_id}, arg_id: {arg_id}, and val: {val}',
+                    node_id=node_id
+                )
                 node_args_list.append({
                     'node_id': node_id,
                     'arg_id': arg_id,
@@ -603,7 +608,7 @@ def get_dag_id():
     """
     try:
         dag_hash = request.args["dag_hash"]
-        app.logger.bind(dag_hash=dag_hash)
+        app.logger = app.logger.bind(dag_hash=dag_hash)
         query = """SELECT dag.id FROM dag WHERE hash = :dag_hash"""
         result = DB.session.query(Dag).from_statement(text(query)).params(
             dag_hash=dag_hash
@@ -632,7 +637,7 @@ def add_dag():
     # add dag
     dag_hash = data.pop("dag_hash")
     nodes_and_edges = data.pop("nodes_and_edges")
-    app.logger.bind(dag_hash=dag_hash)
+    app.logger = app.logger.bind(dag_hash=dag_hash)
     try:
         dag = Dag(hash=dag_hash)
         DB.session.add(dag)
@@ -697,7 +702,7 @@ def get_task_id_and_status():
         int(nid)
         h = request.args["task_args_hash"]
         int(h)
-        app.logger.bind(workflow_id=wid, node_id=nid, task_args_hash=h)
+        app.logger = app.logger.bind(workflow_id=wid, node_id=nid, task_args_hash=h)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
@@ -804,7 +809,7 @@ def add_task():
 
 @jobmon_client.route('/task/<task_id>/update_parameters', methods=['PUT'])
 def update_task_parameters(task_id: int):
-    app.logger.bind(task_id=task_id)
+    app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
     try:
         int(task_id)
@@ -1014,7 +1019,7 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
 @jobmon_client.route('/task/<task_id>/task_attributes', methods=['PUT'])
 def update_task_attribute(task_id: int):
     """Add or update attributes for a task"""
-    app.logger.bind(task_id=task_id)
+    app.logger = app.logger.bind(task_id=task_id)
     try:
         int(task_id)
     except Exception as e:
@@ -1060,8 +1065,8 @@ def bind_workflow():
         max_concurrently_running = data['max_concurrently_running']
         resume = bool(data["resume"])
         workflow_attributes = data["workflow_attributes"]
-        app.logger.bind(dag_id=dag_id, tool_version_id=tv_id, workflow_args_hash=whash,
-                        task_hash=thash)
+        app.logger = app.logger.bind(dag_id=dag_id, tool_version_id=tv_id,
+                                     workflow_args_hash=whash, task_hash=thash)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
@@ -1129,7 +1134,7 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
     """
     try:
         int(workflow_args_hash)
-        app.logger.bind(workflow_args_hash=workflow_args_hash)
+        app.logger = app.logger.bind(workflow_args_hash=workflow_args_hash)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
@@ -1157,7 +1162,7 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/is_resumable', methods=['GET'])
 def workflow_run_is_terminated(workflow_run_id: int):
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
     except Exception as e:
@@ -1235,7 +1240,7 @@ def _upsert_wf_attribute(workflow_id: int, name: str, value: str):
 
 @jobmon_client.route('/workflow/<workflow_id>/workflow_attributes', methods=['PUT'])
 def update_workflow_attribute(workflow_id: int):
-    app.logger.bind(workflow_id=workflow_id)
+    app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         int(workflow_id)
     except Exception as e:
@@ -1261,7 +1266,7 @@ def add_workflow_run():
         data = request.get_json()
         wid = data["workflow_id"]
         int(wid)
-        app.logger.bind(workflow_id=wid)
+        app.logger = app.logger.bind(workflow_id=wid)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
@@ -1331,7 +1336,7 @@ def add_workflow_run():
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
 def terminate_workflow_run(workflow_run_id: int):
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
     except Exception as e:
@@ -1399,7 +1404,7 @@ def terminate_workflow_run(workflow_run_id: int):
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/delete', methods=['PUT'])
 def delete_workflow_run(workflow_run_id: int):
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
     except Exception as e:

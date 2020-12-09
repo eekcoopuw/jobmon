@@ -45,14 +45,15 @@ class WorkflowRun(object):
     def __init__(self, workflow_id: int, executor_class: str,
                  slack_channel: str = 'jobmon-alerts', resume: bool = False,
                  reset_running_jobs: bool = True, resume_timeout: int = 300,
-                 requester_url: Optional[str] = None):
+                 requester: Optional[Requester] = None):
         self.workflow_id = workflow_id
         self.executor_class = executor_class
         self.user = getpass.getuser()
 
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url, logger)
+            requester = Requester(requester_url)
+        self.requester = requester
 
         # state tracking
         self.swarm_tasks: Dict[int, SwarmTask] = {}
@@ -70,7 +71,9 @@ class WorkflowRun(object):
                      'jobmon_version': __version__,
                      'resume': resume,
                      'reset_running_jobs': reset_running_jobs},
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         if http_request_ok(rc) is False:
             raise InvalidResponse(f"Invalid Response to {app_route}: {rc}")
 
@@ -100,7 +103,9 @@ class WorkflowRun(object):
                 return_code, response = self.requester.send_request(
                     app_route=app_route,
                     message={},
-                    request_type='put')
+                    request_type='put',
+                    logger=logger
+                )
                 if http_request_ok(return_code) is False:
                     raise InvalidResponse(
                         f'Unexpected status code {return_code} from PUT '
@@ -151,7 +156,9 @@ class WorkflowRun(object):
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'status': status},
-            request_type='put')
+            request_type='put',
+            logger=logger
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
@@ -183,7 +190,8 @@ class WorkflowRun(object):
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
-            request_type='put'
+            request_type='put',
+            logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -202,7 +210,9 @@ class WorkflowRun(object):
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message={},
-                request_type='get')
+                request_type='get',
+                logger=logger
+            )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(
                     f'Unexpected status code {return_code} from POST '
@@ -238,7 +248,9 @@ class WorkflowRun(object):
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
-            request_type='get')
+            request_type='get',
+            logger=logger
+        )
 
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -447,7 +459,8 @@ class WorkflowRun(object):
             app_route=app_route,
             message={'last_sync': str(self.last_sync),
                      'swarm_tasks_tuples': swarm_tasks_tuples},
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(

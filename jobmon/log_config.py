@@ -34,7 +34,8 @@ def _processor_add_version(logger, log_method, event_dict):
     return event_dict
 
 
-def configure_logger(name, add_handlers: Optional[Dict] = None):
+def configure_logger(name, add_handlers: Optional[Dict] = None,
+                     json_formatter_prefix: str = "") -> logging.Logger:
     dict_config = {
         "version": 1,
         "disable_existing_loggers": False,
@@ -46,6 +47,7 @@ def configure_logger(name, add_handlers: Optional[Dict] = None):
             },
             "json": {
                 "()": jsonlogger.JsonFormatter,
+                "prefix": json_formatter_prefix
             },
         },
         # only stream handler by default. can add syslog using args

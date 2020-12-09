@@ -24,7 +24,7 @@ class TaskTemplateVersion:
                  node_args: list,
                  task_args: list,
                  op_args: list,
-                 requester_url: Optional[str] = None):
+                 requester: Optional[Requester] = None):
         # id vars
         self.task_template_id = task_template_id
         self.command_template = command_template
@@ -37,9 +37,10 @@ class TaskTemplateVersion:
         self._op_args: set
         self.op_args = set(op_args)
 
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url, logger)
+            requester = Requester(requester_url)
+        self.requester = requester
 
     @property
     def template_args(self) -> set:
@@ -149,7 +150,8 @@ class TaskTemplateVersion:
             app_route=app_route,
             message={"arg_mapping_hash": self.arg_mapping_hash,
                      "command_template": self.command_template},
-            request_type="get"
+            request_type="get",
+            logger=logger
         )
 
         if return_code != StatusCodes.OK:
@@ -169,7 +171,8 @@ class TaskTemplateVersion:
                      "node_args": list(self.node_args),
                      "task_args": list(self.task_args),
                      "op_args": list(self.op_args)},
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
 
         if return_code != StatusCodes.OK:

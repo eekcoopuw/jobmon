@@ -20,7 +20,7 @@ class SwarmTask(object):
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  executor_parameters: Optional[Callable] = None,
-                 max_attempts: int = 3, requester_url: Optional[str] = None) -> None:
+                 max_attempts: int = 3, requester: Optional[Requester] = None) -> None:
         """
         Implementing swarm behavior of tasks
 
@@ -43,9 +43,10 @@ class SwarmTask(object):
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
 
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url, logger)
+            requester = Requester(requester_url)
+        self.requester = requester
 
         # once the callable is evaluated, the resources should be saved here
         self.bound_parameters: list = []
@@ -95,7 +96,9 @@ class SwarmTask(object):
         rc, _ = self.requester.send_request(
             app_route=f'/swarm/task/{self.task_id}/queue',
             message={},
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         if http_request_ok(rc) is False:
             raise InvalidResponse(f"{rc}: Could not queue task")
         self.status = TaskStatus.QUEUED_FOR_INSTANTIATION
@@ -116,7 +119,9 @@ class SwarmTask(object):
         return_code, response = self.requester.send_request(
             app_route=f'/worker/task/{self.task_id}/most_recent_ti_error',
             message={},
-            request_type='get')
+            request_type='get',
+            logger=logger
+        )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
@@ -157,7 +162,9 @@ class SwarmTask(object):
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message=msg,
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '

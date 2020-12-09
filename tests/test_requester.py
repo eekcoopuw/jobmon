@@ -31,8 +31,7 @@ def test_server_502(client_env):
     with mock.patch('jobmon.requester.get_content') as m:
         # Docs: If side_effect is an iterable then each call to the mock
         # will return the next value from the iterable
-        m.side_effect = [err_response] * 2 + \
-            [good_response] + [err_response] * 2
+        m.side_effect = [err_response] * 2 + [good_response] + [err_response] * 2
 
         test_requester.send_request("/time", {}, "get")  # fails at first
 
@@ -43,4 +42,4 @@ def test_server_502(client_env):
         # if we end up stopping we should get an error
         with pytest.raises(RuntimeError, match='Status code was 502'):
             retrier.stop = stop_after_attempt(1)
-            test_requester.send_request("/time", {}, "get")
+            retrier.call(test_requester._send_request, "/time", {}, "get")

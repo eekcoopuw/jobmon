@@ -15,7 +15,7 @@ logger = logging.getLogger(__file__)
 class ReaperWorkflowRun(object):
 
     def __init__(self, workflow_run_id: int, workflow_id: int, heartbeat_date: datetime,
-                 requester_url: str):
+                 requester: Requester):
         """
         Implementing workflow reaper behavior of workflow run
 
@@ -28,16 +28,16 @@ class ReaperWorkflowRun(object):
         self.workflow_run_id = workflow_run_id
         self.workflow_id = workflow_id
         self.heartbeat_date = heartbeat_date
-        self._requester = Requester(requester_url, logger)
+        self._requester = requester
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, requester_url: str) -> ReaperWorkflowRun:
+    def from_wire(cls, wire_tuple: tuple, requester: Requester) -> ReaperWorkflowRun:
         kwargs = SerializeWorkflowRun.kwargs_from_wire(wire_tuple)
         return cls(workflow_run_id=kwargs["id"],
                    workflow_id=kwargs["workflow_id"],
                    heartbeat_date=datetime.strptime(kwargs["heartbeat_date"],
                                                     '%a, %d %b %Y %H:%M:%S %Z'),
-                   requester_url=requester_url)
+                   requester=requester)
 
     def to_wire(self) -> tuple:
         return SerializeWorkflowRun.to_wire(self.workflow_run_id,
@@ -55,7 +55,8 @@ class ReaperWorkflowRun(object):
         return_code, response = self._requester.send_request(
             app_route=app_route,
             message={'status': WorkflowRunStatus.ERROR},
-            request_type='put'
+            request_type='put',
+            logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -75,7 +76,8 @@ class ReaperWorkflowRun(object):
         return_code, response = self._requester.send_request(
             app_route=app_route,
             message={},
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
@@ -100,7 +102,8 @@ class ReaperWorkflowRun(object):
         return_code, result = self._requester.send_request(
             app_route=app_route,
             message={},
-            request_type='put'
+            request_type='put',
+            logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from PUT '

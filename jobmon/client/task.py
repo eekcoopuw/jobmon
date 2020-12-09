@@ -62,7 +62,7 @@ class Task:
                  max_attempts: int = 3,
                  upstream_tasks: Optional[List['Task']] = None,
                  task_attributes: Union[List, dict] = None,
-                 requester_url: Optional[str] = None):
+                 requester: Optional[Requester] = None):
         """
         Create a single executable object in the workflow, aka a Task. Relate it to a Task
         Template in order to classify it as a type of job within the context of your workflow.
@@ -90,9 +90,10 @@ class Task:
                 is_valid_job_name
 
         """
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url, logger)
+            requester = Requester(requester_url)
+        self.requester = requester
 
         # pre bind hash defining attributes
         self.task_args = task_args
@@ -237,7 +238,8 @@ class Task:
                 'node_id': self.node.node_id,
                 'task_args_hash': self.task_args_hash
             },
-            request_type='get'
+            request_type='get',
+            logger=logger
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
@@ -258,7 +260,8 @@ class Task:
                 'reset_if_running': reset_if_running,
                 'task_attributes': self.task_attributes
             },
-            request_type='put'
+            request_type='put',
+            logger=logger
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
@@ -284,7 +287,8 @@ class Task:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'tasks': tasks},
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
@@ -299,7 +303,8 @@ class Task:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"task_attributes": task_attributes},
-            request_type="put"
+            request_type="put",
+            logger=logger
         )
         if return_code != StatusCodes.OK:
             raise ValueError(f'Unexpected status code {return_code} from PUT request through '

@@ -25,7 +25,7 @@ class Tool:
 
     def __init__(self, name: str = "unknown",
                  active_tool_version_id: Union[str, int] = "latest",
-                 requester_url: Optional[str] = None) -> None:
+                 requester: Optional[Requester] = None) -> None:
         """A tool is an application which is expected to run many times on variable inputs but
          which will serve a certain purpose over time even as the internal pipeline may change.
          Example tools are Dismod, Burdenator, Codem.
@@ -36,9 +36,10 @@ class Tool:
                 workflows to.
             requester_url (str): url to communicate with the flask services.
         """
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url, logger)
+            requester = Requester(requester_url)
+        self.requester = requester
 
         self.name = name
         self.id = self._get_tool_id(self.name, self.requester)
@@ -67,7 +68,9 @@ class Tool:
         _, res = requester.send_request(
             app_route="/client/tool",
             message={"name": name},
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
 
         if res["tool"] is not None:
             tool_id = SerializeClientTool.kwargs_from_wire(res["tool"])["id"]
@@ -124,7 +127,7 @@ class Tool:
                 the identity of the task. Generally these are things like the task executable
                 location or the verbosity of the script.
         """
-        tt = TaskTemplate(self.active_tool_version_id, template_name, self.requester.url)
+        tt = TaskTemplate(self.active_tool_version_id, template_name, self.requester)
         if hash(tt) in self.task_templates.keys():
             task_template_id = self.task_templates[hash(tt)].task_template_id
             tt.bind(task_template_id)
@@ -149,7 +152,9 @@ class Tool:
         _, res = self.requester.send_request(
             app_route=app_route,
             message={},
-            request_type='get')
+            request_type='get',
+            logger=logger
+        )
         tool_versions = [
             SerializeClientToolVersion.kwargs_from_wire(wire_tuple)["id"]
             for wire_tuple in res["tool_versions"]
@@ -162,7 +167,9 @@ class Tool:
         _, res = requester.send_request(
             app_route=app_route,
             message={},
-            request_type='get')
+            request_type='get',
+            logger=logger
+        )
         if res["tool"] is None:
             raise InvalidToolError(
                 f"no tool found in database for name: {name}. Use create_tool to make a new "
@@ -176,6 +183,8 @@ class Tool:
         _, res = requester.send_request(
             app_route=app_route,
             message={"tool_id": tool_id},
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         tool_version = SerializeClientToolVersion.kwargs_from_wire(res["tool_version"])
         return tool_version["id"]

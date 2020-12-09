@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class Dag(object):
 
-    def __init__(self, requester_url: Optional[str] = None):
+    def __init__(self, requester: Optional[Requester] = None):
         """The DAG (Directed Acyclic Graph) captures the tasks (nodes) as they are
         related to each other in their dependency structure. The Dag is traversed in
         the order of node dependencies so a workflow run is a single instance of
@@ -28,9 +28,10 @@ class Dag(object):
 
         self.nodes: Set[Node] = set()
 
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url, logger)
+            requester = Requester(requester_url)
+        self.requester = requester
 
     @property
     def dag_id(self) -> int:
@@ -93,7 +94,8 @@ class Dag(object):
         return_code, response = self.requester.send_request(
             app_route='/client/dag',
             message={"dag_hash": dag_hash},
-            request_type='get'
+            request_type='get',
+            logger=logger
         )
         if return_code == StatusCodes.OK:
             return response['dag_id']
@@ -128,7 +130,8 @@ class Dag(object):
             app_route='/client/dag',
             message={"dag_hash": hash(self),
                      "nodes_and_edges": nodes_and_edges},
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
         if return_code == StatusCodes.OK:
             return response['dag_id']

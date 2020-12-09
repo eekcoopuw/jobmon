@@ -28,8 +28,7 @@ class PythonTask(Task):
                  m_mem_free: Optional[str] = None,
                  hard_limits: bool = False,
                  executor_class: str = 'DummyExecutor',
-                 executor_parameters:
-                 Optional[Union[ExecutorParameters, Callable]] = None,
+                 executor_parameters: Optional[Union[ExecutorParameters, Callable]] = None,
                  tool: Optional[Tool] = None,
                  task_args: Dict = None,
                  node_args: Dict = None,

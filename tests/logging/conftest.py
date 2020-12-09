@@ -15,14 +15,15 @@ def test_app(ephemera):
         db_port=ephemera["DB_PORT"],
         db_user=ephemera["DB_USER"],
         db_pass=ephemera["DB_PASS"],
-        db_name=ephemera["DB_NAME"])
+        db_name=ephemera["DB_NAME"]
+    )
     app = create_app(server_config)
     app.config['TESTING'] = True
     client = app.test_client()
-    yield client, client
+    yield client
 
 
-def get_flask_content(response):
+def get_test_content(response):
     """The function called by the no_request_jsm_jqs to query the fake
     test_client for a response
     """
@@ -36,7 +37,7 @@ def get_flask_content(response):
 
 
 @pytest.fixture(scope='function')
-def in_memory_jsm_jqs(monkeypatch, test_app):
+def web_server_in_memory(monkeypatch, test_app):
     """This function monkeypatches the requests library to use the
     test_client
     """
@@ -45,16 +46,19 @@ def in_memory_jsm_jqs(monkeypatch, test_app):
     monkeypatch.setenv("WEB_SERVICE_FQDN", '1')
     monkeypatch.setenv("WEB_SERVICE_PORT", '2')
 
-    jsm_client, jqs_client = test_app
-
-    def get_jqs(url, params, headers):
+    def get_in_mem(url, params, data, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return jqs_client.get(path=url, query_string=params, headers=headers)
-    monkeypatch.setattr(requests, 'get', get_jqs)
-    monkeypatch.setattr(requester, 'get_content', get_flask_content)
+        return test_app.get(path=url, query_string=params, data=data, headers=headers)
 
-    def post_jsm(url, json, headers):
+    def post_in_mem(url, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return jsm_client.post(url, json=json, headers=headers)
-    monkeypatch.setattr(requests, 'post', post_jsm)
-    monkeypatch.setattr(requester, 'get_content', get_flask_content)
+        return test_app.post(url, json=json, headers=headers)
+
+    def put_in_mem(url, json, headers):
+        url = "/" + url.split(":")[-1].split("/", 1)[1]
+        return test_app.put(url, json=json, headers=headers)
+
+    monkeypatch.setattr(requests, 'get', get_in_mem)
+    monkeypatch.setattr(requests, 'post', post_in_mem)
+    monkeypatch.setattr(requests, 'put', post_in_mem)
+    monkeypatch.setattr(requester, 'get_content', get_test_content)

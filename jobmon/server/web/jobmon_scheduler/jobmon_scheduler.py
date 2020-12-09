@@ -1,13 +1,10 @@
 from http import HTTPStatus as StatusCodes
 import os
-from datetime import datetime, timedelta
 import sys
-from typing import Optional, Dict, Any
+from typing import Optional
 
 from flask import jsonify, request, Blueprint, current_app as app
-from werkzeug.local import LocalProxy
 from sqlalchemy.sql import func, text
-from sqlalchemy.orm import joinedload
 import sqlalchemy
 
 
@@ -26,14 +23,10 @@ from jobmon.server.web.server_side_exception import ServerError
 jobmon_scheduler = Blueprint("jobmon_scheduler", __name__)
 
 
-logger = LocalProxy(lambda: app.logger)
-
-
 @jobmon_scheduler.before_request
 def log_request_info():
-    app.logger = app.logger.new()
-    app.logger = app.logger.bind(blueprint=__name__)
-    app.logger = app.logger.bind(request_method=request.method)
+    app.logger = app.logger.bind(blueprint=jobmon_scheduler.name)
+    app.logger.debug("starting route execution")
 
 
 @jobmon_scheduler.route('/', methods=['GET'])
@@ -41,7 +34,7 @@ def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening
     """
-    app.logger.info(f"{os.getpid()}: {jobmon_scheduler.__class__.__name__} received is_alive?")
+    app.logger.info(f"{os.getpid()}: {__name__} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
     resp.status_code = StatusCodes.OK
     return resp
@@ -95,7 +88,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
     # <usertablename>_<columnname>.
 
     # If we want to prioritize by task or workflow level it would be done in this query
-    app.logger.bind(workflow_id=workflow_id)
+    app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         queue_limit_query = """
             SELECT (
@@ -176,7 +169,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
 def get_suspicious_task_instances(workflow_run_id: int):
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         query = """
             SELECT
@@ -206,7 +199,7 @@ def get_suspicious_task_instances(workflow_run_id: int):
 
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate', methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int):
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         workflow_run = DB.session.query(WorkflowRun).filter_by(
             id=workflow_run_id
@@ -244,7 +237,7 @@ def get_task_instances_to_terminate(workflow_run_id: int):
 
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def log_workflow_run_heartbeat(workflow_run_id: int):
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Heartbeat data: {data}")
@@ -270,7 +263,7 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
 
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_executor_report_by', methods=['POST'])
 def log_executor_report_by(workflow_run_id: int):
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         data = request.get_json()
         params = {"workflow_run_id": int(workflow_run_id)}
@@ -342,7 +335,7 @@ def add_task_instance():
     try:
         data = request.get_json()
         task_id = data['task_id']
-        app.logger.bind(task_id=task_id)
+        app.logger = app.logger.bind(task_id=task_id)
         # query task
         task = DB.session.query(Task).filter_by(id=task_id).first()
         DB.session.commit()
@@ -383,7 +376,7 @@ def add_task_instance():
 
 @jobmon_scheduler.route('/task_instance/<task_instance_id>/log_no_executor_id', methods=['POST'])
 def log_no_executor_id(task_instance_id: int):
-    app.logger.bind(task_instance_id=task_instance_id)
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."
@@ -417,7 +410,7 @@ def log_executor_id(task_instance_id: int):
 
         task_instance_id: id of the task_instance to log
     """
-    app.logger.bind(task_instance_id=task_instance_id)
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Log EXECUTOR ID for TI {task_instance_id}. Data {data}")
@@ -447,7 +440,7 @@ def log_error_reconciler(task_instance_id: int):
         data:
         oom_killed: whether or not given job errored due to an oom-kill event
     """
-    app.logger.bind(task_instance_id=task_instance_id)
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         error_state = data['error_state']
@@ -561,7 +554,7 @@ def set_maxpss(executor_id: int, maxpss: int):
     :param executor_id: sge execution id
     :return:
     """
-    app.logger.bind(executor_id=executor_id)
+    app.logger = app.logger.bind(executor_id=executor_id)
     try:
         sql = f"UPDATE task_instance SET maxpss={maxpss} WHERE executor_id={executor_id}"
         DB.session.execute(sql)

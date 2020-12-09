@@ -7,6 +7,8 @@ from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
+from jobmon.requester import Requester
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +54,7 @@ class UnknownWorkflow(Workflow):
                  working_dir: Optional[str] = None,
                  executor_class: str = 'SGEExecutor',
                  fail_fast: bool = False,
-                 requester_url: str = None,
+                 requester: Optional[Requester] = None,
                  seconds_until_timeout: int = 36000,
                  resume: bool = ResumeStatus.DONT_RESUME,
                  reconciliation_interval: Optional[int] = None,
@@ -119,8 +121,10 @@ class UnknownWorkflow(Workflow):
         self._seconds_until_timeout = seconds_until_timeout
         self._resume = resume
 
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
+            requester = Requester(requester_url)
+        self.requester = requester
 
         # pass
         super().__init__(
@@ -128,7 +132,7 @@ class UnknownWorkflow(Workflow):
             workflow_args=workflow_args,
             name=name,
             description=description,
-            requester_url=requester_url,
+            requester=self.requester,
             workflow_attributes=workflow_attributes,
             max_concurrently_running=max_concurrently_running
         )

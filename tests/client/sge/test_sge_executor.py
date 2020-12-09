@@ -135,11 +135,12 @@ class MockSchedulerProc:
 
 @pytest.mark.systemtest
 @pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
-def test_instantiation(db_cfg, client_env):
+def test_instantiation(db_cfg, requester_no_retries):
     from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
                                                                        Workflow)
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import TaskInstanceScheduler
+    from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="_SimulatorSGEExecutor")
     workflow = Workflow(executor_class="_SimulatorSGEExecutor",
@@ -148,7 +149,7 @@ def test_instantiation(db_cfg, client_env):
     workflow._bind()
     wfr = workflow._create_workflow_run()
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester_no_retries)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)
