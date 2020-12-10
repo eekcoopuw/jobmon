@@ -61,7 +61,8 @@ class UnknownWorkflow(Workflow):
                  heartbeat_interval: Optional[int] = None,
                  report_by_buffer: Optional[float] = None,
                  workflow_attributes: Union[List, dict] = None,
-                 max_concurrently_running: int = 10_000) -> None:
+                 max_concurrently_running: int = 10_000,
+                 chunk_size: int = 500) -> None:
         """
         The Unknown Workflow object was created so that users of older versions
         of Jobmon (before 2.0) are able to update the imports and run their
@@ -102,6 +103,7 @@ class UnknownWorkflow(Workflow):
             workflow_attributes:  attributes that make this workflow different
                 from other workflows that the user wants to record.
             max_concurrently_running: How many running jobs to allow in parallel
+            chunk_size: size of task and node chunks that are bound in one call to the db
         """
         self._set_executor(executor_class=executor_class, stderr=stderr,
                            stdout=stdout, working_dir=working_dir,
@@ -134,7 +136,8 @@ class UnknownWorkflow(Workflow):
             description=description,
             requester=self.requester,
             workflow_attributes=workflow_attributes,
-            max_concurrently_running=max_concurrently_running
+            max_concurrently_running=max_concurrently_running,
+            chunk_size=chunk_size
         )
 
     def _set_executor(self, executor_class: str, *args, **kwargs) -> None:

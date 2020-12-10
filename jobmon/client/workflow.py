@@ -64,7 +64,7 @@ class Workflow(object):
                  workflow_args: str = "",
                  name: str = "",
                  description: str = "",
-                 workflow_attributes: Union[List, dict] = None,
+                 workflow_attributes: Optional[Union[List, dict]] = None,
                  max_concurrently_running: int = 10_000,
                  requester: Optional[Requester] = None,
                  chunk_size: int = 500  # TODO: should be in the config
