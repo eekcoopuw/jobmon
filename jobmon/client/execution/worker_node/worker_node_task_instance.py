@@ -3,7 +3,8 @@ import socket
 import traceback
 from typing import Optional, Union, Tuple, Dict
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
 from jobmon.requester import Requester
@@ -71,7 +72,9 @@ class WorkerNodeTaskInstance:
         rc, _ = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/log_done',
             message=message,
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         return rc
 
     def log_error(self, error_message: str, exit_status: int) -> int:
@@ -99,7 +102,9 @@ class WorkerNodeTaskInstance:
         rc, _ = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/log_error_worker_node',
             message=message,
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         return rc
 
     def log_task_stats(self) -> None:
@@ -115,7 +120,9 @@ class WorkerNodeTaskInstance:
             rc, _ = self.requester.send_request(
                 app_route=f'/worker/task_instance/{self.task_instance_id}/log_usage',
                 message=msg,
-                request_type='post')
+                request_type='post',
+                logger=logger
+            )
             return rc
         except NotImplementedError:
             logger.warning("Usage stats not available for "
@@ -142,7 +149,9 @@ class WorkerNodeTaskInstance:
         rc, resp = self.requester.send_request(
             app_route=(f'/worker/task_instance/{self.task_instance_id}/log_running'),
             message=message,
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         logger.debug(f"Response from log_running was: {resp}")
         return rc, resp
 
@@ -157,7 +166,9 @@ class WorkerNodeTaskInstance:
         rc, _ = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/log_report_by',
             message=message,
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         return rc
 
     def in_kill_self_state(self) -> bool:
@@ -165,7 +176,9 @@ class WorkerNodeTaskInstance:
         rc, resp = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/kill_self',
             message={},
-            request_type='get')
+            request_type='get',
+            logger=logger
+        )
         if resp.get('should_kill'):
             logger.debug("task_instance is in a state that indicates it needs to kill itself")
             return True

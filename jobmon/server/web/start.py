@@ -3,6 +3,7 @@ from typing import Optional
 from flask import Flask
 from flask_cors import CORS
 
+from jobmon.log_config import get_rsyslog_handler_config
 from jobmon.server.web.handlers import add_hooks_and_handlers
 from jobmon.server.web.web_config import WebConfig
 
@@ -13,6 +14,15 @@ def create_app(web_config: Optional[WebConfig] = None):
 
     if web_config is None:
         web_config = WebConfig.from_defaults()
+    if web_config.use_rsyslog:
+        syslog_handler_config = get_rsyslog_handler_config(
+            rsyslog_host=web_config.rsyslog_host,
+            rsyslog_port=web_config.rsyslog_port,
+            rsyslog_protocol=web_config.rsyslog_protocol
+        )
+    else:
+        syslog_handler_config = None
+
     app.config['SQLALCHEMY_DATABASE_URI'] = web_config.conn_str
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
@@ -39,7 +49,6 @@ def create_app(web_config: Optional[WebConfig] = None):
     CORS(app)
 
     # add request logging hooks
-    add_hooks_and_handlers(app, web_config.use_rsyslog, web_config.rsyslog_host,
-                           web_config.rsyslog_port, web_config.rsyslog_protocol)
+    add_hooks_and_handlers(app, syslog_handler_config)
 
     return app

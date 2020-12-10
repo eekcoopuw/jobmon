@@ -1,6 +1,9 @@
+import logging
 import pytest
 
 from jobmon.requester import Requester
+
+logger = logging.getLogger(__name__)
 
 
 TOTAL_TASKS = 1000
@@ -8,7 +11,7 @@ TOTAL_TASKS = 1000
 
 @pytest.mark.performance_tests
 def test_one_by_one(db_cfg, client_env):
-    requester = Requester(client_env)
+    requester = Requester(client_env, logger)
 
     for i in range(0, TOTAL_TASKS):
         tasks = []
@@ -31,7 +34,7 @@ def test_one_by_one(db_cfg, client_env):
 
 @pytest.mark.performance_tests
 def test_bulk(db_cfg, client_env):
-    requester = Requester(client_env)
+    requester = Requester(client_env, logger)
     tasks = []
     for i in range(0, TOTAL_TASKS):
         task = {}

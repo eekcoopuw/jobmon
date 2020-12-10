@@ -17,6 +17,10 @@ class SchedulerConfig:
         ParserDefaults.scheduler_poll_interval(cli.parser)
         ParserDefaults.web_service_fqdn(cli.parser)
         ParserDefaults.web_service_port(cli.parser)
+        ParserDefaults.use_rsyslog(cli.parser)
+        ParserDefaults.rsyslog_host(cli.parser)
+        ParserDefaults.rsyslog_port(cli.parser)
+        ParserDefaults.rsyslog_protocol(cli.parser)
 
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
@@ -29,13 +33,18 @@ class SchedulerConfig:
             n_queued=args.scheduler_n_queued,
             scheduler_poll_interval=args.scheduler_poll_interval,
             web_service_fqdn=args.web_service_fqdn,
-            web_service_port=args.web_service_port
+            web_service_port=args.web_service_port,
+            use_rsyslog=args.use_rsyslog,
+            rsyslog_host=args.rsyslog_host,
+            rsyslog_port=args.rsyslog_port,
+            rsyslog_protocol=args.rsyslog_protocol
         )
 
     def __init__(self, workflow_run_heartbeat_interval: int, task_heartbeat_interval: int,
                  report_by_buffer: float, n_queued: int, scheduler_poll_interval: int,
                  web_service_fqdn: str, web_service_port: str,
-                 jobmon_command: Optional[str] = None):
+                 jobmon_command: Optional[str] = None, use_rsyslog: bool = False,
+                 rsyslog_host: str = "", rsyslog_port: str = "", rsyslog_protocol: str = ""):
         self.jobmon_command = jobmon_command
         self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self.task_heartbeat_interval = task_heartbeat_interval
@@ -44,6 +53,10 @@ class SchedulerConfig:
         self.scheduler_poll_interval = scheduler_poll_interval
         self.web_service_fqdn = web_service_fqdn
         self.web_service_port = web_service_port
+        self.use_rsyslog = use_rsyslog
+        self.rsyslog_host = rsyslog_host
+        self.rsyslog_port = rsyslog_port
+        self.rsyslog_protocol = rsyslog_protocol
 
     @property
     def url(self):

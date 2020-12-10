@@ -92,6 +92,7 @@ def test_workflow_tasks(db_cfg, client_env):
     from jobmon.client.status_commands import workflow_tasks
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
+    from jobmon.requester import Requester
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={})
@@ -112,8 +113,9 @@ def test_workflow_tasks(db_cfg, client_env):
     assert len(df.STATUS.unique()) == 1
 
     # execute the tasks
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)

@@ -1,5 +1,2 @@
-from jobmon.client._logging import ClientLogging
-
-
-ClientLogging.attach_log_handler()
-logger = ClientLogging.getLogger(__name__)
+from jobmon.log_config import configure_logger
+configure_logger("jobmon.client")

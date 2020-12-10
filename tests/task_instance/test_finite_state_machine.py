@@ -12,6 +12,7 @@ from jobmon.models.workflow import Workflow
 from jobmon.models.workflow_run import WorkflowRun
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.requester import Requester
 
 
 @pytest.mark.parametrize("ti_state", [TaskInstanceStatus.UNKNOWN_ERROR,
@@ -42,8 +43,9 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
     wfr._adjust_resources_and_queue(swarm_task)
 
     # launch task on executor
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     scheduler.executor.start()
     scheduler.schedule()
 
@@ -141,8 +143,9 @@ def test_ti_w_state(db_cfg, client_env):
     swarm_task = wfr.swarm_tasks[task_a.task_id]
     wfr._adjust_resources_and_queue(swarm_task)
 
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
 
     # patch register submission to go into 'W' state
     with patch.object(executor, "execute", mock_execute):

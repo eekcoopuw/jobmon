@@ -1,8 +1,12 @@
-import pytest
+import logging
 from threading import Thread
+
+import pytest
 
 from jobmon.requester import Requester
 
+
+logger = logging.getLogger(__name__)
 
 # The testing threads that sending requests simultaneously
 TOTAL_THREADS = 2
@@ -12,7 +16,7 @@ TOTAL_NODES = 1000
 
 # the function to create node using /nodes
 def create_node(requester_url, starter=0):
-    requester = Requester(requester_url)
+    requester = Requester(requester_url, logger)
 
     nodes = []
     for i in range(0, TOTAL_NODES):

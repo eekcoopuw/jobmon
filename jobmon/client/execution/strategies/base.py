@@ -3,7 +3,8 @@ import pkg_resources
 import shutil
 from typing import List, Tuple, Dict, Optional, Type, Union
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 

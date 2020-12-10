@@ -22,7 +22,6 @@ class Workflow(DB.Model):
     status = DB.Column(DB.String(1),
                        DB.ForeignKey('workflow_status.id'),
                        default=WorkflowStatus.REGISTERED)
-    heartbeat_date = DB.Column(DB.DateTime, default=datetime.utcnow)
     created_date = DB.Column(DB.DateTime, default=func.now())
     status_date = DB.Column(DB.DateTime, default=func.now())
 

@@ -5,9 +5,9 @@ import copy
 import time
 from typing import List
 
-from jobmon.client import ClientLogging as logging
-logger = logging.getLogger(__name__)
+import structlog as logging
 
+logger = logging.getLogger(__name__)
 
 # for monkey patch
 from jobmon.client.swarm.swarm_task import SwarmTask

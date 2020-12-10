@@ -16,6 +16,7 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
+    from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
     workflow = UnknownWorkflow("test_instantiate_queued_jobs",
@@ -24,8 +25,9 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
     workflow.add_tasks([t1])
     workflow._bind()
     wfr = workflow._create_workflow_run()
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)
@@ -54,6 +56,7 @@ def test_n_queued(db_cfg, client_env):
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
     from jobmon.serializers import SerializeExecutorTask
+    from jobmon.requester import Requester
 
     tasks = []
     for i in range(20):
@@ -66,8 +69,9 @@ def test_n_queued(db_cfg, client_env):
     workflow.add_tasks(tasks)
     workflow._bind()
     wfr = workflow._create_workflow_run()
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env,
+                                      workflow._executor, requester=requester,
                                       n_queued=3)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
@@ -98,6 +102,7 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
+    from jobmon.requester import Requester
 
     t1 = BashTask("echo 2", executor_class="DummyExecutor")
     workflow = UnknownWorkflow(f"my_simple_dag_{sge}",
@@ -106,8 +111,9 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
     workflow.add_task(t1)
     workflow._bind()
     wfr = workflow._create_workflow_run()
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)
@@ -139,7 +145,7 @@ def test_rate_limiting(db_cfg, client_env):
         TaskInstanceScheduler
     from jobmon.client.api import Tool, BashTask
     from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
-    from jobmon.serializers import SerializeExecutorTask
+    from jobmon.requester import Requester
 
     tasks = []
     for i in range(20):
@@ -153,8 +159,9 @@ def test_rate_limiting(db_cfg, client_env):
 
     workflow._bind()
     wfr = workflow._create_workflow_run()
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
 

@@ -1,9 +1,9 @@
 from __future__ import annotations
-
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.requester import Requester, http_request_ok
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.constants import TaskInstanceStatus
@@ -27,7 +27,7 @@ class ExecutorTaskInstance:
     """
 
     def __init__(self, task_instance_id: int, workflow_run_id: int,
-                 executor: Executor, requester_url: str,
+                 executor: Executor, requester: Requester,
                  executor_id: Optional[int] = None):
 
         self.task_instance_id = task_instance_id
@@ -37,21 +37,19 @@ class ExecutorTaskInstance:
         # interfaces to the executor and server
         self.executor = executor
 
-        self.requester = Requester(requester_url)
+        self.requester = requester
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, executor: Executor, requester_url: str
+    def from_wire(cls, wire_tuple: tuple, executor: Executor, requester: Requester
                   ) -> ExecutorTaskInstance:
         """create an instance from json that the JQS returns
 
         Args:
-            wire_tuple (tuple): tuple representing the wire format for this
+            wire_tuple: tuple representing the wire format for this
                 task. format = serializers.SerializeExecutorTask.to_wire()
-            executor (Executor): which executor this task instance is
+            executor: which executor this task instance is
                 being run on
-            requester (Requester, shared_requester): requester for
-                communicating with central services
-                  requester: Requester
+            requester: requester for communicating with central services
 
         Returns:
             ExecutorTaskInstance
@@ -61,11 +59,11 @@ class ExecutorTaskInstance:
                    workflow_run_id=kwargs["workflow_run_id"],
                    executor=executor,
                    executor_id=kwargs["executor_id"],
-                   requester_url=requester_url)
+                   requester=requester)
 
     @classmethod
     def register_task_instance(cls, task_id: int, workflow_run_id: int, executor: Executor,
-                               requester_url: str) -> ExecutorTaskInstance:
+                               requester: Requester) -> ExecutorTaskInstance:
         """register a new task instance for an existing task_id
 
         Args:
@@ -73,7 +71,6 @@ class ExecutorTaskInstance:
             executor (Executor): which executor to schedule this task on
             requester: requester for communicating with central services
         """
-        requester = Requester(requester_url)
 
         app_route = '/scheduler/task_instance'
         return_code, response = requester.send_request(
@@ -81,15 +78,16 @@ class ExecutorTaskInstance:
             message={'task_id': task_id,
                      'workflow_run_id': workflow_run_id,
                      'executor_type': executor.__class__.__name__},
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-        return cls.from_wire(response['task_instance'], executor=executor,
-                             requester_url=requester_url)
+        return cls.from_wire(response['task_instance'], executor=executor, requester=requester)
 
     def register_no_executor_id(self, executor_id: int) -> None:
         """register that submission failed with the central service
@@ -104,7 +102,9 @@ class ExecutorTaskInstance:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'executor_id': executor_id},
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
@@ -128,7 +128,9 @@ class ExecutorTaskInstance:
             app_route=app_route,
             message={'executor_id': str(executor_id),
                      'next_report_increment': next_report_increment},
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
@@ -175,7 +177,9 @@ class ExecutorTaskInstance:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message=message,
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
@@ -197,7 +201,8 @@ class ExecutorTaskInstance:
         return_code, response = self.requester.send_request(
             app_route=run_app_route,
             message=run_message,
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
@@ -208,7 +213,8 @@ class ExecutorTaskInstance:
         return_code, response = self.requester.send_request(
             app_route=done_app_route,
             message=done_message,
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '

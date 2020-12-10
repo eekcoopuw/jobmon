@@ -13,8 +13,9 @@ from time import sleep, time
 import traceback
 from typing import Optional
 
+import structlog as logging
+
 from jobmon.exceptions import ReturnCodes
-from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.api import get_task_instance_executor_by_name
 from jobmon.client.execution.worker_node.worker_node_task_instance import (
     WorkerNodeTaskInstance)

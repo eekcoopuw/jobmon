@@ -6,10 +6,12 @@ from jobmon.client.workflow import Workflow
 from jobmon.client.tool import Tool
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.exceptions import DuplicateNodeArgsError
+from jobmon.requester import Requester
 
 
 def test_get_chunk(client_env):
-    wf = Workflow(tool_version_id=1, chunk_size=10, requester_url=client_env)
+    requester = Requester(client_env)
+    wf = Workflow(tool_version_id=1, chunk_size=10, requester=requester)
     assert wf._get_chunk(10, 2) is None
     assert wf._get_chunk(10, 1) == (0, 9)
     assert wf._get_chunk(20, 2) == (10, 19)
