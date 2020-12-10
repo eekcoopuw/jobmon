@@ -50,7 +50,7 @@ class Tool:
         self.active_tool_version_id = active_tool_version_id
 
     @classmethod
-    def create_tool(cls, name: str, requester_url: Optional[str] = None) -> Tool:
+    def create_tool(cls, name: str, requester: Optional[Requester] = None) -> Tool:
         """create a new tool in the jobmon database
 
         Args:
@@ -60,9 +60,9 @@ class Tool:
         Returns:
             An instance of of Tool of with the provided name
         """
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        requester = Requester(requester_url, logger)
+            requester = Requester(requester_url)
 
         # call route to create tool
         _, res = requester.send_request(

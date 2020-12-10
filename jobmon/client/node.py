@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class Node:
 
     def __init__(self, task_template_version_id: int, node_args: Dict,
-                 requester_url: Optional[str] = None):
+                 requester: Optional[Requester] = None):
         """A node represents an individual task within a Dag. This includes its
         relationship to other nodes that it is dependent upon or nodes that
         depend upon it. A node stores node arguments (arguments relating to the
@@ -36,9 +36,10 @@ class Node:
         self.upstream_nodes: Set[Node] = set()
         self.downstream_nodes: Set[Node] = set()
 
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url, logger)
+            requester = Requester(requester_url)
+        self.requester = requester
 
     @property
     def node_id(self) -> int:

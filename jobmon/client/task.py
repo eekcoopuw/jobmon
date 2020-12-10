@@ -98,7 +98,7 @@ class Task:
         # pre bind hash defining attributes
         self.task_args = task_args
         self.task_args_hash = self._hash_task_args()
-        self.node = Node(task_template_version_id, node_args, requester_url)
+        self.node = Node(task_template_version_id, node_args, requester)
 
         # pre bind mutable attributes
         self.command = command

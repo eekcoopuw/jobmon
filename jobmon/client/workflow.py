@@ -86,7 +86,12 @@ class Workflow(object):
         self.description = description
         self.max_concurrently_running = max_concurrently_running
 
-        self._dag = Dag()
+        if requester is None:
+            requester_url = ClientConfig.from_defaults().url
+            requester = Requester(requester_url)
+        self.requester = requester
+
+        self._dag = Dag(requester)
         # hash to task object mapping. ensure only 1
         self.tasks: Dict[int, Task] = {}
         self._swarm_tasks: dict = {}
@@ -105,11 +110,6 @@ class Workflow(object):
                         .format(self.workflow_args))
         self.workflow_args_hash = int(
             hashlib.sha1(self.workflow_args.encode('utf-8')).hexdigest(), 16)
-
-        if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
-        self.requester = requester
 
         self._scheduler_proc: Optional[Process] = None
         self._scheduler_com_queue: Queue = Queue()
