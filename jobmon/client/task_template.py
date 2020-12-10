@@ -149,7 +149,9 @@ class TaskTemplate:
             name=name,
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
-            task_attributes=task_attributes)
+            task_attributes=task_attributes,
+            requester=self.requester
+        )
         return task
 
     def _get_task_template_id(self) -> Optional[int]:

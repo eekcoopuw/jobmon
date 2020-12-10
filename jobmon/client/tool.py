@@ -144,7 +144,7 @@ class Tool:
                         workflow_attributes: Union[List, dict] = None,
                         max_concurrently_running: int = 10_000) -> Workflow:
         wf = Workflow(self.active_tool_version_id, workflow_args, name, description,
-                      workflow_attributes, max_concurrently_running)
+                      workflow_attributes, max_concurrently_running, requester=self.requester)
         return wf
 
     def _get_tool_version_ids(self) -> List[int]:
