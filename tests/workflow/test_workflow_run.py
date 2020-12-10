@@ -1,9 +1,10 @@
 import pytest
+import logging
 import time
 
-from jobmon.client import ClientLogging as logging
 from jobmon.models.task_status import TaskStatus
 from jobmon.models.task_instance import TaskInstance
+from jobmon.requester import Requester
 
 logger = logging.getLogger(__name__)
 
@@ -58,8 +59,9 @@ def test_sync(client_env):
     now = wfr.last_sync
     assert now is not None
 
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
 
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
@@ -181,8 +183,9 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     # launch task on executor
     execute = MockDummyExecutor()
     execute.wedged_task_id = t2.task_id
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     scheduler.executor.start()
     scheduler.schedule()
 

@@ -2,6 +2,9 @@ import time
 from typing import Dict
 
 
+from jobmon.requester import Requester
+
+
 def get_workflow_status(db_cfg, workflow_id):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -11,7 +14,7 @@ def get_workflow_status(db_cfg, workflow_id):
     return resp
 
 
-def test_error_state(db_cfg, client_env):
+def test_error_state(db_cfg, requester_no_retry):
     """Tests that the workflow reaper successfully checks for error state.
     Suspended state occurs when a workflow run has not logged a heartbeat in a
     give amount of time. The reaper will then transition the workflow to F
@@ -46,7 +49,7 @@ def test_error_state(db_cfg, client_env):
     # Call the reaper, with a short loss_threshold, to trigger the reaper to
     # move the workflow run in to error state
     reaper = WorkflowReaper(poll_interval_minutes=1, loss_threshold=1 / 20,
-                            requester_url=client_env)
+                            requester=requester_no_retry)
     i = 0
     while i < 10:
         time.sleep(10)
@@ -80,7 +83,7 @@ def test_error_state(db_cfg, client_env):
     assert workflow_run_res[0] == "E"
 
 
-def test_suspended_state(db_cfg, client_env):
+def test_suspended_state(db_cfg, requester_no_retry):
     """Tests that the workflow reaper successfully checks for suspended state.
     Suspended state occurs when a workflow run is either in C (cold resume) or
     H (hot resume) state. The reaper will then transition the workflow to S
@@ -124,7 +127,7 @@ def test_suspended_state(db_cfg, client_env):
     wfr3.update_status("H")
 
     # Call workflow reaper suspended state
-    reaper = WorkflowReaper(5, 5, client_env)
+    reaper = WorkflowReaper(5, 5, requester=requester_no_retry)
     reaper._suspended_state()
 
     # Check that the workflow runs are in the same state (1 R, 1 C, 1 H)
@@ -141,7 +144,7 @@ def test_suspended_state(db_cfg, client_env):
     assert workflow3_status[0] == "S"
 
 
-def test_aborted_state(db_cfg, client_env):
+def test_aborted_state(db_cfg, requester_no_retry):
     """Tests that the workflow reaper successfully checks for aborted state.
     Aborted state occurs when the workflow_run is in the G state and the last
     task associated with it has a status_date that is more than two minutes
@@ -204,7 +207,7 @@ def test_aborted_state(db_cfg, client_env):
     time.sleep(130)
 
     # Call aborted state logic
-    reaper = WorkflowReaper(5, 5, client_env)
+    reaper = WorkflowReaper(5, 5, requester=requester_no_retry)
     reaper._aborted_state(wfr.workflow_run_id)
 
     # Check that the workflow_run and workflow have both been moved to the
@@ -224,7 +227,7 @@ def test_aborted_state(db_cfg, client_env):
     assert workflow_run_res[0] == "A"
 
 
-def test_aborted_state_null_case(db_cfg, client_env):
+def test_aborted_state_null_case(db_cfg, requester_no_retry):
     from jobmon.client.api import BashTask, UnknownWorkflow
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
     from jobmon.client.workflow import WorkflowRun
@@ -240,7 +243,7 @@ def test_aborted_state_null_case(db_cfg, client_env):
     time.sleep(5)
 
     # Call aborted state logic
-    reaper = WorkflowReaper(5, 5, client_env)
+    reaper = WorkflowReaper(5, 5, requester=requester_no_retry)
     reaper._aborted_state(wfr.workflow_run_id, 1)
 
     # Check that the workflow_run and workflow have both been moved to the

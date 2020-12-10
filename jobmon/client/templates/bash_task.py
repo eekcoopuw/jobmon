@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Callable, Union, Tuple
+from typing import Optional, List, Dict, Callable, Union
 
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool

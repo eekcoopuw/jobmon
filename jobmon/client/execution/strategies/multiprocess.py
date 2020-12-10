@@ -5,7 +5,8 @@ import subprocess
 from typing import List, Optional, Dict, Tuple
 import queue
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.execution.strategies.base import (Executor,
                                                      TaskInstanceExecutorInfo,
                                                      ExecutorParameters)

@@ -1,10 +1,8 @@
 from http import HTTPStatus as StatusCodes
 import os
-from datetime import datetime
 from typing import Any
 
 from flask import jsonify, request, Blueprint, current_app as app
-from werkzeug.local import LocalProxy
 from sqlalchemy.sql import text
 
 
@@ -19,14 +17,10 @@ from jobmon.server.web.server_side_exception import ServerError
 jobmon_swarm = Blueprint("jobmon_swarm", __name__)
 
 
-logger = LocalProxy(lambda: app.logger)
-
-
-@jobmon_swarm.before_request # try before_first_request so its quicker
+@jobmon_swarm.before_request  # try before_first_request so its quicker
 def log_request_info():
-    app.logger = app.logger.new()
-    app.logger = app.logger.bind(blueprint=__name__)
-    app.logger = app.logger.bind(request_method=request.method)
+    app.logger = app.logger.bind(blueprint=jobmon_swarm.name)
+    app.logger.debug("starting route execution")
 
 
 @jobmon_swarm.route('/', methods=['GET'])
@@ -34,7 +28,7 @@ def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
     that this responder is in fact listening
     """
-    logger.info(f"{os.getpid()}: {jobmon_swarm.__class__.__name__} received is_alive?")
+    app.logger.info(f"{os.getpid()}: {jobmon_swarm.__class__.__name__} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
     resp.status_code = StatusCodes.OK
     return resp
@@ -83,7 +77,7 @@ def get_task_by_status_only(workflow_id: int):
         status (str): status to query for
         last_sync (datetime): time since when to get tasks
     """
-    app.logger.bind(workflow_id=workflow_id)
+    app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         data = request.get_json()
 
@@ -122,7 +116,7 @@ def get_task_by_status_only(workflow_id: int):
                        swarm_task_ids=swarm_task_ids,
                        tuples=query_swarm_tasks_tuples,
                        status_date=last_sync)
-            logger.debug(query)
+            app.logger.debug(query)
             rows = DB.session.query(Task).from_statement(text(query)).all()
 
         else:
@@ -140,7 +134,7 @@ def get_task_by_status_only(workflow_id: int):
 
         DB.session.commit()
         task_dcts = [row.to_wire_as_swarm_task() for row in rows]
-        logger.debug("task_dcts={}".format(task_dcts))
+        app.logger.debug("task_dcts={}".format(task_dcts))
         resp = jsonify(task_dcts=task_dcts, time=str_time)
         resp.status_code = StatusCodes.OK
         return resp
@@ -151,7 +145,7 @@ def get_task_by_status_only(workflow_id: int):
 
 @jobmon_swarm.route('/workflow/<workflow_id>/suspend', methods=['POST'])
 def suspend_workflow(workflow_id: int):
-    app.logger.bind(workflow_id=workflow_id)
+    app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         query = """
             UPDATE workflow
@@ -176,7 +170,7 @@ def queue_job(task_id: int):
 
         job_id: id of the job to queue
     """
-    app.logger.bind(task_id=task_id)
+    app.logger = app.logger.bind(task_id=task_id)
     try:
         task = DB.session.query(Task).filter_by(id=task_id).one()
         try:
@@ -201,7 +195,7 @@ def queue_job(task_id: int):
 
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
 def log_workflow_run_status_update(workflow_run_id: int):
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Log status update for workflow_run_id:{workflow_run_id}."
@@ -229,7 +223,7 @@ def get_time(session):
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>',
                     methods=['PUT'])
 def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         # If the last task was more than 2 minutes ago, transition wfr to A state
         # Also check WorkflowRun status_date to avoid possible race condition where reaper checks
@@ -284,7 +278,7 @@ def log_wfr_heartbeat(workflow_run_id: int):
 
         workflow_run_id: id of the workflow_run to log
     """
-    app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         params = {"workflow_run_id": int(workflow_run_id)}
         query = """
@@ -349,7 +343,7 @@ def update_task_resources(task_id: int):
         hard_limit (bool): whether to move queues if requester resources exceed
             queue limits
     """
-    app.logger.bind(task_id=task_id)
+    app.logger = app.logger.bind(task_id=task_id)
     try:
         data = request.get_json()
         parameter_set_type = data["parameter_set_type"]

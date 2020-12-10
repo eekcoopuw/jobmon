@@ -5,7 +5,8 @@ from queue import Empty
 from typing import Optional, Sequence, Dict, Union, List
 import uuid
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.dag import Dag
 from jobmon.client.execution.scheduler.api import SchedulerConfig
@@ -13,7 +14,6 @@ from jobmon.client.execution.scheduler.task_instance_scheduler import \
     TaskInstanceScheduler, ExceptionWrapper
 from jobmon.client.execution.strategies.api import get_scheduling_executor_by_name
 from jobmon.client.execution.strategies.base import Executor
-from jobmon.requester import Requester, http_request_ok
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
@@ -22,6 +22,7 @@ from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
                                SchedulerNotAlive, ResumeSet, DuplicateNodeArgsError)
 from jobmon.models.workflow_status import WorkflowStatus
 from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.requester import Requester, http_request_ok
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ class Workflow(object):
                  description: str = "",
                  workflow_attributes: Optional[Union[List, dict]] = None,
                  max_concurrently_running: int = 10_000,
-                 requester_url: Optional[str] = None,
+                 requester: Optional[Requester] = None,
                  chunk_size: int = 500  # TODO: should be in the config
                  ):
         """
@@ -77,7 +78,7 @@ class Workflow(object):
             workflow_attributes: Attributes that make this workflow different from other
                 workflows that the user wants to record.
             max_concurrently_running: How many running jobs to allow in parallel
-            requester_url (str): url to communicate with the flask services.
+            requester: object to communicate with the flask services.
             chunk_size: how many tasks to bind in a single request
         """
         self.tool_version_id = tool_version_id
@@ -85,7 +86,12 @@ class Workflow(object):
         self.description = description
         self.max_concurrently_running = max_concurrently_running
 
-        self._dag = Dag()
+        if requester is None:
+            requester_url = ClientConfig.from_defaults().url
+            requester = Requester(requester_url)
+        self.requester = requester
+
+        self._dag = Dag(requester)
         # hash to task object mapping. ensure only 1
         self.tasks: Dict[int, Task] = {}
         self._swarm_tasks: dict = {}
@@ -105,9 +111,6 @@ class Workflow(object):
         self.workflow_args_hash = int(
             hashlib.sha1(self.workflow_args.encode('utf-8')).hexdigest(), 16)
 
-        if requester_url is None:
-            requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
         self._scheduler_proc: Optional[Process] = None
         self._scheduler_com_queue: Queue = Queue()
         self._scheduler_stop_event: synchronize.Event = Event()
@@ -166,7 +169,8 @@ class Workflow(object):
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"workflow_attributes": workflow_attributes},
-            request_type="put"
+            request_type="put",
+            logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -350,7 +354,8 @@ class Workflow(object):
             rc, response = self.requester.send_request(
                 app_route='/client/nodes',
                 message={'nodes': nodes_to_send},
-                request_type='post'
+                request_type='post',
+                logger=logger
             )
             if http_request_ok(rc) is False:
                 raise InvalidResponse(
@@ -407,7 +412,8 @@ class Workflow(object):
                 "workflow_attributes": self.workflow_attributes,
                 "resume": resume,
             },
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -440,7 +446,8 @@ class Workflow(object):
         rc, response = self.requester.send_request(
             app_route=f'/client/workflow/{str(self.workflow_args_hash)}',
             message={},
-            request_type='get'
+            request_type='get',
+            logger=logger
         )
         bound_workflow_hashes = response['matching_workflows']
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
@@ -476,7 +483,8 @@ class Workflow(object):
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message=parameters,
-                request_type='put'
+                request_type='put',
+                logger=logger,
             )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(
@@ -499,7 +507,7 @@ class Workflow(object):
             executor_class=self._executor.__class__.__name__,
             resume=resume,
             reset_running_jobs=reset_running_jobs,
-            requester_url=self.requester.url
+            requester=self.requester
         )
 
         try:
@@ -552,7 +560,7 @@ class Workflow(object):
             n_queued=scheduler_config.n_queued,
             scheduler_poll_interval=scheduler_config.scheduler_poll_interval,
             jobmon_command=scheduler_config.jobmon_command,
-            requester_url=self.requester.url
+            requester=self.requester
         )
 
         try:

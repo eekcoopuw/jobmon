@@ -1,14 +1,13 @@
 from __future__ import annotations
-from http import HTTPStatus as StatusCodes
 import multiprocessing as mp
 import sys
 import threading
 import time
 from typing import Optional, List
 
+import structlog as logging
 import tblib.pickling_support
 
-from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
@@ -34,7 +33,7 @@ class ExceptionWrapper(object):
 class TaskInstanceScheduler:
 
     def __init__(self, workflow_id: int, workflow_run_id: int, executor: Executor,
-                 requester_url: str, workflow_run_heartbeat_interval: int = 30,
+                 requester: Requester, workflow_run_heartbeat_interval: int = 30,
                  task_heartbeat_interval: int = 90, report_by_buffer: float = 3.1,
                  n_queued: int = 100, scheduler_poll_interval: int = 10,
                  jobmon_command: Optional[str] = None):
@@ -54,7 +53,7 @@ class TaskInstanceScheduler:
         self._n_queued = n_queued
         self._scheduler_poll_interval = scheduler_poll_interval
 
-        self.requester = Requester(requester_url)
+        self.requester = requester
 
         logger.info(f"scheduler: communicating at {self.requester.url}")
 
@@ -212,7 +211,9 @@ class TaskInstanceScheduler:
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message={'executor_ids': errored_jobs},
-                request_type='post')
+                request_type='post',
+                logger=logger
+            )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(
                     f'Unexpected status code {return_code} from POST '
@@ -237,7 +238,9 @@ class TaskInstanceScheduler:
                 app_route=app_route,
                 message={'executor_ids': actual,
                          'next_report_increment': next_report_increment},
-                request_type='post')
+                request_type='post',
+                logger=logger
+            )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(
                     f'Unexpected status code {return_code} from POST '
@@ -250,7 +253,9 @@ class TaskInstanceScheduler:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'next_report_increment': next_report_increment},
-            request_type='post')
+            request_type='post',
+            logger=logger
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
@@ -276,7 +281,9 @@ class TaskInstanceScheduler:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
-            request_type='get')
+            request_type='get',
+            logger=logger
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
@@ -284,8 +291,8 @@ class TaskInstanceScheduler:
                 f'code 200. Response content: {response}')
 
         tasks = [
-            ExecutorTask.from_wire(j, self.executor.__class__.__name__, self.requester.url)
-            for j in response['task_dcts']
+            ExecutorTask.from_wire(t, self.executor.__class__.__name__, self.requester)
+            for t in response['task_dcts']
         ]
         self._to_instantiate = tasks
         return tasks
@@ -300,7 +307,7 @@ class TaskInstanceScheduler:
         """
         try:
             task_instance = ExecutorTaskInstance.register_task_instance(
-                task.task_id, self.workflow_run_id, self.executor, self.requester.url
+                task.task_id, self.workflow_run_id, self.executor, self.requester
             )
         except Exception as e:
             # we can't do anything more at this point so must return None
@@ -350,14 +357,16 @@ class TaskInstanceScheduler:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
-            request_type='get')
+            request_type='get',
+            logger=logger
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
         lost_task_instances = [
-            ExecutorTaskInstance.from_wire(ti, self.executor, self.requester.url)
+            ExecutorTaskInstance.from_wire(ti, self.executor, self.requester)
             for ti in response["task_instances"]
         ]
         self._to_reconcile = lost_task_instances
@@ -369,7 +378,8 @@ class TaskInstanceScheduler:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
-            request_type='get'
+            request_type='get',
+            logger=logger
         )
 
         # eat bad responses here because we are outside of the exception
@@ -377,7 +387,7 @@ class TaskInstanceScheduler:
         if http_request_ok(return_code) is False:
             to_terminate: List = []
         else:
-            to_terminate = [ExecutorTaskInstance.from_wire(ti, self.executor,
-                                                           self.requester.url).executor_id
+            to_terminate = [ExecutorTaskInstance.from_wire(ti, self.executor, self.requester
+                                                           ).executor_id
                             for ti in response["task_instances"]]
         self.executor.terminate_task_instances(to_terminate)

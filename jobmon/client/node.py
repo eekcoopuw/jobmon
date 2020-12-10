@@ -5,7 +5,8 @@ import json
 from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Set, Optional
 
-from jobmon.client import ClientLogging as logging
+import structlog as logging
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
 
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 class Node:
 
     def __init__(self, task_template_version_id: int, node_args: Dict,
-                 requester_url: Optional[str] = None):
+                 requester: Optional[Requester] = None):
         """A node represents an individual task within a Dag. This includes its
         relationship to other nodes that it is dependent upon or nodes that
         depend upon it. A node stores node arguments (arguments relating to the
@@ -35,9 +36,10 @@ class Node:
         self.upstream_nodes: Set[Node] = set()
         self.downstream_nodes: Set[Node] = set()
 
-        if requester_url is None:
+        if requester is None:
             requester_url = ClientConfig.from_defaults().url
-        self.requester = Requester(requester_url)
+            requester = Requester(requester_url)
+        self.requester = requester
 
     @property
     def node_id(self) -> int:
@@ -82,7 +84,8 @@ class Node:
                 'task_template_version_id': self.task_template_version_id,
                 'node_args_hash': self.node_args_hash
             },
-            request_type='get'
+            request_type='get',
+            logger=logger
         )
         if return_code == StatusCodes.OK:
             return response['node_id']
@@ -101,7 +104,8 @@ class Node:
                 'node_args_hash': self.node_args_hash,
                 'node_args': json.dumps(self.node_args)
             },
-            request_type='post'
+            request_type='post',
+            logger=logger
         )
         if return_code == StatusCodes.OK:
             return response['node_id']

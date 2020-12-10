@@ -33,7 +33,7 @@ class ParserDefaults:
             '--rsyslog_host',
             type=str,
             help='rsyslog host to use',
-            default='syslog.ihme.washington.edu',
+            default='',
             env_var='RSYSLOG_HOST'
         )
         return parser
@@ -44,7 +44,7 @@ class ParserDefaults:
             '--rsyslog_port',
             type=str,
             help='rsyslog port to use',
-            default='514',
+            default='',
             env_var='RSYSLOG_PORT'
         )
         return parser
@@ -56,7 +56,7 @@ class ParserDefaults:
             '--rsyslog_protocol',
             type=str,
             help='rsyslog protocol to use',
-            default='UDP',
+            default='',
             env_var='RSYSLOG_PROTOCOL'
         )
         return parser
@@ -72,7 +72,6 @@ class ParserDefaults:
             env_var='USE_RSYSLOG'
         )
         return parser
-
 
     @staticmethod
     def db_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:

@@ -1,5 +1,4 @@
 from datetime import datetime
-from http import HTTPStatus as StatusCodes
 import logging
 from time import sleep
 from typing import List
@@ -14,18 +13,18 @@ logger = logging.getLogger(__file__)
 
 class WorkflowReaper(object):
 
-    def __init__(self, poll_interval_minutes: int, loss_threshold: int, requester_url: str,
+    def __init__(self, poll_interval_minutes: int, loss_threshold: int, requester: Requester,
                  wf_notification_sink=None):
 
         logger.info(
             f"WorkflowReaper initializing with: poll_interval_minutes={poll_interval_minutes},"
-            f"loss_threshold={loss_threshold}, requester_url={requester_url}"
+            f"loss_threshold={loss_threshold}, requester_url={requester.url}"
         )
 
         # Set poll interval and loss threshold to config ones if nothing passed in
         self._poll_interval_minutes = poll_interval_minutes
         self._loss_threshold = loss_threshold
-        self._requester = Requester(requester_url)
+        self._requester = requester
         self._wf_notification_sink = wf_notification_sink
 
         if self._poll_interval_minutes < self._loss_threshold:
@@ -57,14 +56,16 @@ class WorkflowReaper(object):
         return_code, result = self._requester.send_request(
             app_route=app_route,
             message={'status': status},
-            request_type='get')
+            request_type='get',
+            logger=logger
+        )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                                   f'request through route {app_route}. Expected '
                                   f'code 200. Response content: {result}')
         workflow_runs = []
         for wfr in result["workflow_runs"]:
-            workflow_runs.append(ReaperWorkflowRun.from_wire(wfr, self._requester.url))
+            workflow_runs.append(ReaperWorkflowRun.from_wire(wfr, self._requester))
 
         if workflow_runs:
             logger.info(f"Found workflow runs: {workflow_runs}")
@@ -88,7 +89,8 @@ class WorkflowReaper(object):
         return_code, response = self._requester.send_request(
             app_route=app_route,
             message={},
-            request_type='get'
+            request_type='get',
+            logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
