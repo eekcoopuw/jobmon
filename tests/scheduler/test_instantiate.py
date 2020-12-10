@@ -208,7 +208,7 @@ def test_dynamic_rate_limiting(db_cfg, client_env):
     wfr.update_status(WorkflowRunStatus.ERROR)
 
     # Started with a default of 2. Adjust up to 5 and try again
-    rate_limit(workflow.workflow_id, 5)
+    _ = rate_limit(workflow.workflow_id, 5)
 
     wfr2 = workflow._create_workflow_run(resume=True)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr2.workflow_run_id,

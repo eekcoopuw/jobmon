@@ -276,7 +276,7 @@ def get_task_status():
 def update_max_running(workflow_id):
 
     data = request.get_json()
-    new_limit = data['num_tasks']
+    new_limit = data['max_tasks']
 
     q = """
         UPDATE workflow
@@ -284,9 +284,14 @@ def update_max_running(workflow_id):
         WHERE id = {workflow_id}
     """.format(new_limit=new_limit, workflow_id=workflow_id)
 
-    DB.session.execute(q)
+    res = DB.session.execute(q)
     DB.session.commit()
 
-    resp = jsonify()
+    if res.rowcount == 0:  # Return a warning message if no update was performed
+        message = f"No update performed for workflow ID {workflow_id}, max_concurrency is {new_limit}"
+    else:
+        message = f"Workflow ID {workflow_id} max concurrency updated to {new_limit}"
+
+    resp = jsonify(message=message)
     resp.status_code = StatusCodes.OK
     return resp

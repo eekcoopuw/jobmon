@@ -59,7 +59,8 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import rate_limit
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        rate_limit(args.workflow_id, args.num_tasks, cc.url)
+        response = rate_limit(args.workflow_id, args.max_tasks, cc.url)
+        print(response)
 
     def _add_workflow_status_subparser(self) -> None:
         workflow_status_parser = self._subparsers.add_parser("workflow_status",
@@ -120,12 +121,16 @@ class ClientCLI(CLI):
 
         # Define a custom function to validate the user's input.
         def _validate_ntasks(x):
-            if int(x) < 1:
-                raise ArgumentError("Max concurrent tasks must be at least 1")
-            return int(x)
+            try:
+                x = int(x)
+            except ValueError:
+                raise ArgumentError(f"{x} is not coercible to an integer.")
+            if x < 0:
+                raise ArgumentError("Max concurrent tasks must be at least 0")
+            return x
 
         rate_limit_parser.add_argument(
-            "-n", "--num_tasks",
+            "-m", "--max_tasks",
             required=True,
             type=_validate_ntasks,
             help="Number of concurrent tasks to allow. Must be at least 1.")
