@@ -357,13 +357,19 @@ def _get_subdag(node_id: int, dag_id: int) -> list:
     :return: a list of node_id
     """
     node_stack = [node_id]
+    # Keep a set of all the nodes that have been added to the stack. This prevents the infinite loop of ill defined dag.
+    node_set = set()
+    node_set.add(node_id)
     node_descendants = []
     while len(node_stack) > 0:
         node = node_stack.pop()
         node_descendants.append(node)
         node_kids = _get_node_downstream(node, dag_id)
         if node_kids is not None:
-            node_stack = node_stack + node_kids
+            for n in node_kids:
+                if n not in node_set:
+                    node_set.add(n)
+                    node_stack.append(n)
     return node_descendants
 
 
@@ -384,7 +390,9 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> di
     """
     result = DB.session.execute(q).fetchall()
     task_dict = {}
+
     for r in result:
+        # When task_status not specified, return the full subdag
         if len(task_status) == 0:
             task_dict[int(r[0])] = r[1]
         else:

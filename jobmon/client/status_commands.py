@@ -166,6 +166,11 @@ def get_sub_task_tree(task_id: int, task_status: list = None, requester: Request
     # This is to make the test case happy. Otherwise, requester should not be None.
     if requester is None:
         requester = Requester(ClientConfig.from_defaults().url)
+    # Valid input
+    try:
+        int(task_id)
+    except:
+        raise AssertionError("Invalid input. The task_id must be integer.")
     rc, res = requester.send_request(
         app_route=f"/viz/task/{task_id}/subdag",
         message={'task_status': task_status},
