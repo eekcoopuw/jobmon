@@ -23,10 +23,10 @@ class ClientCLI(CLI):
 
     def workflow_status(self, args: configargparse.Namespace) -> None:
         from tabulate import tabulate
-        from jobmon.client.status_commands import workflow_status
+        from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_status(args.workflow_id, args.user, args.json, cc.url)
+        df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url)
         if args.json:
             print(df)
         else:
@@ -34,10 +34,10 @@ class ClientCLI(CLI):
 
     def workflow_tasks(self, args: configargparse.Namespace) -> None:
         from tabulate import tabulate
-        from jobmon.client.status_commands import workflow_tasks
+        from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_tasks(args.workflow_id, args.status, args.json, cc.url)
+        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url)
         if args.json:
             print(df)
         else:
@@ -45,10 +45,10 @@ class ClientCLI(CLI):
 
     def task_status(self, args: configargparse.Namespace) -> None:
         from tabulate import tabulate
-        from jobmon.client.status_commands import task_status
+        from jobmon.client.status_commands import task_status as task_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = task_status(args.task_ids, args.status, args.json, cc.url)
+        df = task_status_cmd(args.task_ids, args.status, args.json, cc.url)
         print(f"\nTASK_IDS: {args.task_ids}")
         if args.json:
             print(df)
@@ -56,10 +56,10 @@ class ClientCLI(CLI):
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     def rate_limit(self, args: configargparse.Namespace) -> None:
-        from jobmon.client.status_commands import rate_limit
+        from jobmon.client.status_commands import rate_limit as rate_limit_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        response = rate_limit(args.workflow_id, args.max_tasks, cc.url)
+        response = rate_limit_cmd(args.workflow_id, args.max_tasks, cc.url)
         print(response)
 
     def _add_workflow_status_subparser(self) -> None:

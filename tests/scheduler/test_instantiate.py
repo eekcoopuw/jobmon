@@ -195,6 +195,7 @@ def test_dynamic_rate_limiting(db_cfg, client_env):
     from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
     from jobmon.client.status_commands import rate_limit
     from jobmon.constants import WorkflowRunStatus
+    from jobmon.requester import Requester
 
     tasks = []
     for i in range(20):
@@ -218,8 +219,9 @@ def test_dynamic_rate_limiting(db_cfg, client_env):
     _ = rate_limit(workflow.workflow_id, 5)
 
     wfr2 = workflow._create_workflow_run(resume=True)
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr2.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
         wfr2.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
 
