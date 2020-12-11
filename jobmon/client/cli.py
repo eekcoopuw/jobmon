@@ -1,4 +1,5 @@
 import configargparse
+from argparse import ArgumentError
 
 from typing import Optional
 
@@ -18,13 +19,14 @@ class ClientCLI(CLI):
         self._add_workflow_status_subparser()
         self._add_workflow_tasks_subparser()
         self._add_task_status_subparser()
+        self._add_rate_limit_subparser()
 
     def workflow_status(self, args: configargparse.Namespace) -> None:
         from tabulate import tabulate
-        from jobmon.client.status_commands import workflow_status
+        from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_status(args.workflow_id, args.user, args.json, cc.url)
+        df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url)
         if args.json:
             print(df)
         else:
@@ -32,10 +34,10 @@ class ClientCLI(CLI):
 
     def workflow_tasks(self, args: configargparse.Namespace) -> None:
         from tabulate import tabulate
-        from jobmon.client.status_commands import workflow_tasks
+        from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_tasks(args.workflow_id, args.status, args.json, cc.url)
+        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url)
         if args.json:
             print(df)
         else:
@@ -43,15 +45,22 @@ class ClientCLI(CLI):
 
     def task_status(self, args: configargparse.Namespace) -> None:
         from tabulate import tabulate
-        from jobmon.client.status_commands import task_status
+        from jobmon.client.status_commands import task_status as task_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = task_status(args.task_ids, args.status, args.json, cc.url)
+        df = task_status_cmd(args.task_ids, args.status, args.json, cc.url)
         print(f"\nTASK_IDS: {args.task_ids}")
         if args.json:
             print(df)
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
+
+    def rate_limit(self, args: configargparse.Namespace) -> None:
+        from jobmon.client.status_commands import rate_limit as rate_limit_cmd
+
+        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
+        response = rate_limit_cmd(args.workflow_id, args.max_tasks, cc.url)
+        print(response)
 
     def _add_workflow_status_subparser(self) -> None:
         workflow_status_parser = self._subparsers.add_parser("workflow_status",
@@ -101,6 +110,32 @@ class ClientCLI(CLI):
         task_status_parser.add_argument("-n", "--json", dest="json", action="store_true")
         ParserDefaults.web_service_fqdn(task_status_parser)
         ParserDefaults.web_service_port(task_status_parser)
+
+    def _add_rate_limit_subparser(self) -> None:
+        rate_limit_parser = self._subparsers.add_parser("rate_limit", **PARSER_KWARGS)
+        rate_limit_parser.add_argument(
+            "-w", "--workflow_id",
+            required=True,
+            type=int,
+            help="Workflow ID of the workflow to be adjusted")
+
+        # Define a custom function to validate the user's input.
+        def _validate_ntasks(x):
+            try:
+                x = int(x)
+            except ValueError:
+                raise ArgumentError(f"{x} is not coercible to an integer.")
+            if x < 0:
+                raise ArgumentError("Max concurrent tasks must be at least 0")
+            return x
+
+        rate_limit_parser.add_argument(
+            "-m", "--max_tasks",
+            required=True,
+            type=_validate_ntasks,
+            help="Number of concurrent tasks to allow. Must be at least 1.")
+        ParserDefaults.web_service_fqdn(rate_limit_parser)
+        ParserDefaults.web_service_port(rate_limit_parser)
 
 
 def main(argstr: Optional[str] = None) -> None:
