@@ -38,7 +38,7 @@ def test_subdag(db_cfg, client_env):
     t1 = time.time()
     base_id = large_dag()
     t2 = time.time()
-    r = get_sub_task_tree(int(base_id))
+    r = get_sub_task_tree([int(base_id)])
     t3 = time.time()
 
     print("\n\n\n")

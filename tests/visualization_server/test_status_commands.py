@@ -269,18 +269,18 @@ def test_sub_dag(db_cfg, client_env):
     workflow._bind_tasks()
 
     # test node with no sub nodes
-    tree = get_sub_task_tree(t2.task_id)
+    tree = get_sub_task_tree([t2.task_id])
     assert len(tree.items()) == 1
     assert str(t2.task_id) in tree.keys()
 
     # test node with two upstream
-    tree = get_sub_task_tree(t3.task_id)
+    tree = get_sub_task_tree([t3.task_id])
     assert len(tree.items()) == 3
     assert str(t3.task_id) in tree.keys()
     assert str(t13_1.task_id) in tree.keys()
 
     # test sub tree
-    tree = get_sub_task_tree(t1.task_id)
+    tree = get_sub_task_tree([t1.task_id])
     assert len(tree.items()) == 5
     assert str(t1.task_id) in tree.keys()
     assert str(t1_1.task_id) in tree.keys()
@@ -289,7 +289,7 @@ def test_sub_dag(db_cfg, client_env):
     assert str(t13_1.task_id) in tree.keys()
 
     # test sub tree with status G
-    tree = get_sub_task_tree(t1.task_id, task_status=["G"])
+    tree = get_sub_task_tree([t1.task_id], task_status=["G"])
     assert len(tree.items()) == 5
     assert str(t1.task_id) in tree.keys()
     assert str(t1_1.task_id) in tree.keys()
@@ -298,5 +298,13 @@ def test_sub_dag(db_cfg, client_env):
     assert str(t13_1.task_id) in tree.keys()
 
     # test no status match returns 0 nodes
-    tree = get_sub_task_tree(t1.task_id, task_status=["F"])
+    tree = get_sub_task_tree([t1.task_id], task_status=["F"])
     assert len(tree.items()) == 0
+
+    # test >1 task id list
+    # test node with two upstream
+    tree = get_sub_task_tree([t3.task_id, t2.task_id])
+    assert len(tree.items()) == 4
+    assert str(t3.task_id) in tree.keys()
+    assert str(t13_1.task_id) in tree.keys()
+    assert str(t2.task_id) in tree.keys()

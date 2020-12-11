@@ -350,16 +350,15 @@ def _get_node_downstream(node_id: int, dag_id: int) -> list:
     return ids
 
 
-def _get_subdag(node_id: int, dag_id: int) -> list:
+def _get_subdag(node_ids: list, dag_id: int) -> list:
     """
     Get all descendants of a given nodes. It only queries the primary keys on the edge table without join.
     :param node_id:
     :return: a list of node_id
     """
-    node_stack = [node_id]
+    node_stack = node_ids
     # Keep a set of all the nodes that have been added to the stack. This prevents the infinite loop of ill defined dag.
-    node_set = set()
-    node_set.add(node_id)
+    node_set = set(node_ids)
     node_descendants = []
     while len(node_stack) > 0:
         node = node_stack.pop()
@@ -401,33 +400,42 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> di
     return task_dict
 
 
-@jvs.route('/task/<task_id>/subdag', methods=['GET'])
-def get_task_subdag(task_id: int):
+@jvs.route('/task/subdag', methods=['GET'])
+def get_task_subdag():
     """
     Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a list of sub nodes.
     :param task_id:
     :return:
     """
     # Only return sub tasks in the following status. If empty or None, return all
+    task_ids = request.args.getlist('task_ids')
     task_status = request.args.getlist('task_status')
+    task_ids_str = "("
+    for t in task_ids:
+        task_ids_str += str(t) + ","
+    task_ids_str = task_ids_str[:-1] + ")"
     if task_status is None:
         task_status = []
     q = f"""
         SELECT workflow.id as workflow_id, dag_id, node_id 
         FROM task, workflow 
-        WHERE task.id ={task_id} and task.workflow_id = workflow.id
+        WHERE task.id in {task_ids_str} and task.workflow_id = workflow.id
     """
-    result = DB.session.execute(q).fetchone()
+    result = DB.session.execute(q).fetchall()
     if result is None:
         # return empty values when task_id does not exist or db out of consistency
         resp = jsonify(workflow_id=None, sub_task=None)
         resp.status_code = StatusCodes.OK
         return resp
 
-    workflow_id = result['workflow_id']
-    dag_id = result['dag_id']
-    node_id = result['node_id']
-    sub_dag_tree = _get_subdag(node_id, dag_id)
+    #Since we have validated all the tasks belong to the same wf in status_command before this call,
+    #assume they all belong to the same wf.
+    workflow_id = result[0]['workflow_id']
+    dag_id = result[0]['dag_id']
+    node_ids = []
+    for r in result:
+        node_ids.append(r['node_id'])
+    sub_dag_tree = _get_subdag(node_ids, dag_id)
     sub_task_tree = _get_tasks_from_nodes(workflow_id, sub_dag_tree, task_status)
     resp = jsonify(workflow_id=workflow_id, sub_task=sub_task_tree)
 

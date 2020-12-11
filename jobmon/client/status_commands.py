@@ -131,8 +131,10 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
     validate_username(workflow_id, user, requester)
     validate_workflow(task_ids, requester)
 
-    pass  # Not in scope of GBDSCI-2999.
-    # TODO: add in sub-DAG reconstruction, workflow validation, and reset route call
+    subdag_tasks = get_sub_task_tree(task_ids, ["G"], requester).keys()
+
+    pass  # Not in scope of GBDSCI-3001.
+    # TODO: Confirm with the client about the subdag and continue modify status
 
 
 
@@ -162,18 +164,15 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> None:
     return
 
 
-def get_sub_task_tree(task_id: int, task_status: list = None, requester: Requester = None) -> dict:
+def get_sub_task_tree(task_ids: list, task_status: list = None, requester: Requester = None) -> dict:
     # This is to make the test case happy. Otherwise, requester should not be None.
     if requester is None:
         requester = Requester(ClientConfig.from_defaults().url)
     # Valid input
-    try:
-        int(task_id)
-    except:
-        raise AssertionError("Invalid input. The task_id must be integer.")
     rc, res = requester.send_request(
-        app_route=f"/viz/task/{task_id}/subdag",
-        message={'task_status': task_status},
+        app_route=f"/viz/task/subdag",
+        message={'task_ids': task_ids,
+            'task_status': task_status},
         request_type="get")
     if rc != 200:
         raise AssertionError(f"Server return HTTP error code: {rc}")
