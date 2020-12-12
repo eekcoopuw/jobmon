@@ -20,8 +20,7 @@ from jobmon.client.task import Task
 from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
                                InvalidResponse, SchedulerStartupTimeout,
                                SchedulerNotAlive, ResumeSet, DuplicateNodeArgsError)
-from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.constants import WorkflowStatus, WorkflowRunStatus
 from jobmon.requester import Requester, http_request_ok
 
 logger = logging.getLogger(__name__)

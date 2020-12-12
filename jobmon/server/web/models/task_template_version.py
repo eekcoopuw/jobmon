@@ -1,4 +1,4 @@
-from jobmon.models import DB
+from jobmon.server.web.models import DB
 
 from jobmon.serializers import SerializeClientTaskTemplateVersion
 

@@ -7,11 +7,11 @@ from sqlalchemy.sql import func, text
 import sqlalchemy
 
 
-from jobmon.models import DB
-from jobmon.models.exceptions import InvalidStateTransition, KillSelfTransition
-from jobmon.models.task_instance import TaskInstance
-from jobmon.models.task_instance_error_log import TaskInstanceErrorLog
-from jobmon.models.task_instance import TaskInstanceStatus
+from jobmon.server.web.models import DB
+from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
+from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
+from jobmon.server.web.models.task_instance import TaskInstanceStatus
 from jobmon.server.web.server_side_exception import ServerError
 
 jobmon_worker = Blueprint("jobmon_worker", __name__)

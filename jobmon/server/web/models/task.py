@@ -1,14 +1,14 @@
 from sqlalchemy.sql import func
+import structlog as logging
 
-from jobmon.log_config import configure_logger
-from jobmon.models import DB
-from jobmon.models.exceptions import InvalidStateTransition
-from jobmon.models.task_instance_status import TaskInstanceStatus
-from jobmon.models.task_status import TaskStatus
+from jobmon.server.web.models import DB
+from jobmon.server.web.models.exceptions import InvalidStateTransition
+from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
+from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.serializers import SerializeExecutorTask, SerializeSwarmTask
 
 
-logger = configure_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class Task(DB.Model):

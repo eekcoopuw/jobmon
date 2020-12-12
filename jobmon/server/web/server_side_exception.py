@@ -1,6 +1,3 @@
-from logging import Logger
-import sys
-
 
 # Use as base class for server side error
 class ServerSideException(Exception):
@@ -45,31 +42,3 @@ class ServerError(ServerSideException):
         rv = dict(self.payload or ())
         rv['message'] = self.msg
         return rv
-
-
-# Use to log and raise server errors
-def log_and_raise(msg: str, logger: Logger):
-    """
-    Something bad happened, send the message to warnings, logger and
-    re-raise as a wrapped exception. A useful place to add global error
-    handling without boiler-plate code
-    """
-    logger.error(msg)
-    # Use value and traceback so that the original exception is not lost
-    (_, value, traceback) = sys.exc_info()
-    print(msg)
-    print(value)
-    raise ServerError(f"{msg} from {value}").with_traceback(traceback)
-
-
-# Use to raise user mistakes
-def raise_user_error(msg: str, logger: Logger):
-    """
-    Something bad happened, send the message to warnings, logger and
-    re-raise as a wrapped exception. A useful place to add global error
-    handling without boiler-plate code
-    """
-    logger.info(msg)
-    # Use value and traceback so that the original exception is not lost
-    (_, value, traceback) = sys.exc_info()
-    raise InvalidUsage(f"{msg} from {value}").with_traceback(traceback)

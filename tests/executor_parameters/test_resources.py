@@ -4,7 +4,7 @@ import pytest
 
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.exceptions import CallableReturnedInvalidObject
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))

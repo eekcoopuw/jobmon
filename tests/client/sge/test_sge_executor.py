@@ -3,9 +3,8 @@ import pytest
 from unittest.mock import patch
 
 from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
-from jobmon.constants import QsubAttribute
+from jobmon.constants import QsubAttribute, TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
-from jobmon.models.task_instance_status import TaskInstanceStatus
 
 path_to_file = os.path.dirname(__file__)
 
@@ -140,7 +139,6 @@ def test_instantiation(db_cfg, requester_no_retries):
                                                                        Workflow)
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import TaskInstanceScheduler
-    from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="_SimulatorSGEExecutor")
     workflow = Workflow(executor_class="_SimulatorSGEExecutor",

@@ -38,7 +38,7 @@ def test_exceed_runtime_task(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.execution.strategies.base import ExecutorParameters
-    from jobmon.models.task import Task
+    from jobmon.server.web.models.task import Task
 
     name = "over_run_time_task"
     workflow = UnknownWorkflow(workflow_args="over_run_time_task_args",
@@ -73,8 +73,8 @@ def test_exceed_mem_task(db_cfg, client_env):
     from jobmon.client.api import PythonTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.execution.strategies.base import ExecutorParameters
-    from jobmon.models.task import Task
-    from jobmon.models.task_instance_error_log import TaskInstanceErrorLog
+    from jobmon.server.web.models.task import Task
+    from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
 
     name = "exeeded_requested_memory_test"
     this_file = os.path.dirname(__file__)
@@ -116,7 +116,7 @@ def test_under_request_memory_then_scale(db_cfg, client_env):
     from jobmon.client.api import PythonTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.execution.strategies.base import ExecutorParameters
-    from jobmon.models.task import Task
+    from jobmon.server.web.models.task import Task
 
     name = "exeeded_requested_memory_scaling_test"
     this_file = os.path.dirname(__file__)

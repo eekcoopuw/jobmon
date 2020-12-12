@@ -6,12 +6,12 @@ from flask import jsonify, request, Blueprint, current_app as app
 from sqlalchemy.sql import text
 
 
-from jobmon.models import DB
-from jobmon.models.exceptions import InvalidStateTransition
-from jobmon.models.executor_parameter_set import ExecutorParameterSet
-from jobmon.models.task import Task
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.workflow_run import WorkflowRun
+from jobmon.server.web.models import DB
+from jobmon.server.web.models.exceptions import InvalidStateTransition
+from jobmon.server.web.models.executor_parameter_set import ExecutorParameterSet
+from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_status import TaskStatus
+from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.server_side_exception import ServerError
 
 jobmon_swarm = Blueprint("jobmon_swarm", __name__)

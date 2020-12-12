@@ -106,15 +106,11 @@ class TaskInstanceScheduler:
             # terminate jobs via executor API
             self._terminate_active_task_instances()
 
-            print("Termination complete 1.")
-
             # send error back to main
             if status_queue is not None:
-                print(f"Termination complete. Returning {e} to main thread.")
                 logger.warning(f"Termination complete. Returning {e} to main thread.")
                 status_queue.put(ExceptionWrapper(e))
             else:
-                print("Failed to return to main thread.")
                 raise
 
         except Exception as e:

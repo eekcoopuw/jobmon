@@ -1,5 +1,5 @@
 from jobmon.constants import WorkflowRunStatus as Statuses
-from jobmon.models import DB
+from jobmon.server.web.models import DB
 
 
 class WorkflowRunStatus(DB.Model):

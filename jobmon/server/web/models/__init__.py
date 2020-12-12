@@ -1,4 +1,4 @@
 from flask_sqlalchemy import SQLAlchemy
-from jobmon.models import *
+from jobmon.server.web.models import *
 
 DB = SQLAlchemy()

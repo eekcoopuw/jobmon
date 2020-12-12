@@ -1,9 +1,8 @@
-from datetime import datetime
 from sqlalchemy.sql import func
 
-from jobmon.models import DB
-from jobmon.models.exceptions import InvalidStateTransition
-from jobmon.models.workflow_status import WorkflowStatus
+from jobmon.server.web.models import DB
+from jobmon.server.web.models.exceptions import InvalidStateTransition
+from jobmon.server.web.models.workflow_status import WorkflowStatus
 
 
 class Workflow(DB.Model):

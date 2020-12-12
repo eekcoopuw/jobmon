@@ -2,8 +2,7 @@ import os
 
 import pytest
 
-from jobmon.models.workflow_run_status import WorkflowRunStatus
-from jobmon.models.task_status import TaskStatus
+from jobmon.constants import WorkflowRunStatus, TaskStatus
 
 this_file = os.path.dirname(__file__)
 remote_sleep_and_write = os.path.abspath(os.path.expanduser(
@@ -442,13 +441,12 @@ def test_workflow_attribute(db_cfg, client_env):
     """Test the workflow attributes feature"""
     from jobmon.client.api import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.models.workflow_attribute import WorkflowAttribute
-    from jobmon.models.workflow_attribute_type import WorkflowAttributeType
-    
-    wf1 = UnknownWorkflow("test_wf_attributes",
-                               executor_class="SequentialExecutor",
-                               workflow_attributes = {'location_id': 5, 'year': 2019, 'sex': 1})
-    
+    from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
+    from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
+
+    wf1 = UnknownWorkflow("test_wf_attributes", executor_class="SequentialExecutor",
+                          workflow_attributes = {'location_id': 5, 'year': 2019, 'sex': 1})
+
     t1 = BashTask("exit -0", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={}, max_attempts=1)
     wf1.add_task(t1)
@@ -462,7 +460,7 @@ def test_workflow_attribute(db_cfg, client_env):
             join(WorkflowAttribute, WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
             filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
     assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '1')])
-    
+
     # Add and update attributes
     wf1.add_attributes({'age_group_id': 1, 'sex': 2})
 
@@ -471,7 +469,7 @@ def test_workflow_attribute(db_cfg, client_env):
             join(WorkflowAttribute, WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
             filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
     assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '2'), ('age_group_id', '1')])
-    
+
     # Test workflow w/o attributes
     wf2 = UnknownWorkflow("test_empty_wf_attributes", executor_class="SequentialExecutor")
     wf2.add_task(t1)

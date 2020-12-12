@@ -42,7 +42,7 @@ def create_app(web_config: Optional[WebConfig] = None):
     app.register_blueprint(jvs, url_prefix='/viz')
 
     # register app with flask-sqlalchemy DB
-    from jobmon.models import DB
+    from jobmon.server.web.models import DB
     DB.init_app(app)
 
     # enable CORS

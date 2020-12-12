@@ -1,12 +1,7 @@
 import os
-from functools import partial
-from time import sleep
 import pytest
 
-from jobmon.client.execution.strategies.sge import sge_utils as sge
 from jobmon.client.execution.strategies.sge.sge_parameters import SGEParameters
-from jobmon.client.templates.python_task import PythonTask
-from jobmon.models.task import Task
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))

@@ -1,7 +1,7 @@
 import pytest
 
 from jobmon.exceptions import WorkflowAlreadyComplete
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus
 from jobmon.client.workflow import Workflow
 from jobmon.client.tool import Tool
 from jobmon.client.execution.strategies.base import ExecutorParameters

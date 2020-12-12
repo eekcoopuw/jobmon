@@ -165,7 +165,7 @@ def web_server_process(ephemera):
 def db_cfg(ephemera):
     """This run at the beginning of every function to tear down the db
     of the previous test and restart it fresh"""
-    from jobmon.models import DB
+    from jobmon.server.web.models import DB
     from jobmon.server.web.api import WebConfig, create_app
 
     # The create_app call sets up database connections

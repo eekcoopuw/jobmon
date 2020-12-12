@@ -58,7 +58,6 @@ setup(
               'jobmon.client.execution.worker_node',
               'jobmon.client.swarm',
               'jobmon.client.templates',
-              'jobmon.models',
               'jobmon.server',
               'jobmon.server.deployment',
               'jobmon.server.workflow_reaper',
@@ -66,6 +65,7 @@ setup(
               'jobmon.server.web.jobmon_scheduler',
               'jobmon.server.web.jobmon_swarm',
               'jobmon.server.web.jobmon_worker',
+              'jobmon.server.web.models',
               'jobmon.server.web.visualization_server'],
     include_package_data=True,
     entry_points={

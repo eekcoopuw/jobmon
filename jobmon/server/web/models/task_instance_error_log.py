@@ -1,6 +1,6 @@
 from sqlalchemy.sql import func
 
-from jobmon.models import DB
+from jobmon.server.web.models import DB
 
 
 class TaskInstanceErrorLog(DB.Model):

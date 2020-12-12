@@ -4,7 +4,7 @@ import logging
 
 from jobmon import __version__
 from jobmon.exceptions import InvalidResponse
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeWorkflowRun
 

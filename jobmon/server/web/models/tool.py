@@ -1,5 +1,5 @@
-from jobmon.models import DB
 from jobmon.serializers import SerializeClientTool
+from jobmon.server.web.models import DB
 
 
 class Tool(DB.Model):

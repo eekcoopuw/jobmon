@@ -4,14 +4,14 @@ from datetime import datetime, timedelta
 import pytest
 from unittest.mock import patch
 
-from jobmon.models.task import Task
-from jobmon.models.task_instance import TaskInstance
-from jobmon.models.task_instance_status import TaskInstanceStatus
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.workflow import Workflow
-from jobmon.models.workflow_run import WorkflowRun
-from jobmon.models.workflow_status import WorkflowStatus
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
+from jobmon.server.web.models.task_status import TaskStatus
+from jobmon.server.web.models.workflow import Workflow
+from jobmon.server.web.models.workflow_run import WorkflowRun
+from jobmon.server.web.models.workflow_status import WorkflowStatus
+from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.requester import Requester
 
 

@@ -1,5 +1,5 @@
 from jobmon.constants import ExecutorParameterSetType as Types
-from jobmon.models import DB
+from jobmon.server.web.models import DB
 
 
 class ExecutorParameterSetType(DB.Model):

@@ -183,7 +183,7 @@ class WorkflowRun(object):
                 if confirm == "y":
                     raise
                 else:
-                    print("Continuing jobmon execution...")
+                    logger.info("Continuing jobmon execution...")
 
     def terminate_workflow_run(self) -> None:
         app_route = f'/client/workflow_run/{self.workflow_run_id}/terminate'

@@ -2,8 +2,8 @@ import pytest
 import logging
 import time
 
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_status import TaskStatus
+from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.requester import Requester
 
 logger = logging.getLogger(__name__)
@@ -90,7 +90,6 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
         import parse_arguments
     from jobmon.client.api import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.models.workflow_run_status import WorkflowRunStatus
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
 

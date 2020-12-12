@@ -6,7 +6,7 @@ from jobmon.client.execution.strategies.sge import TaskInstanceSGEInfo
 from jobmon.client.execution.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 from jobmon.exceptions import ReturnCodes
 from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
-from jobmon.models.task_instance_status import TaskInstanceStatus
+from jobmon.constants import TaskInstanceStatus
 from jobmon.client.execution.strategies.base import ExecutorParameters
 
 error_raised = False

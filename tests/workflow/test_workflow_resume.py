@@ -9,7 +9,7 @@ from mock import patch
 
 from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowNotResumable,
                                ResumeSet)
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus
 
 
 this_file = os.path.dirname(__file__)

@@ -7,12 +7,12 @@ from typing import List
 
 import structlog as logging
 
-logger = logging.getLogger(__name__)
-
 # for monkey patch
 from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.constants import TaskStatus, WorkflowRunStatus
+
+
+logger = logging.getLogger(__name__)
 
 
 def mock_all_upstreams_done(self):
