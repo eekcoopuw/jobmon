@@ -330,24 +330,29 @@ def get_workflow_users(workflow_id: int):
     return resp
 
 
-def _get_node_downstream(node_id: int, dag_id: int) -> list:
+def _get_node_downstream(nodes: set, dag_id: int) -> set:
     """
     Get all downstream nodes of a node
     :param node_id:
     :return: a list of node_id
     """
+    nodes_str = str((tuple(nodes))).replace(",)", ")")
     q = f"""
         SELECT downstream_node_ids
         FROM edge
         WHERE dag_id = {dag_id}
-        AND node_id = {node_id}
+        AND node_id in {nodes_str}
     """
-    result = DB.session.execute(q).fetchone()
-    if result is None or result['downstream_node_ids'] is None:
-        return None
-    ids = result['downstream_node_ids'].strip()[1:-1].split(",")
-    ids = [int(i) for i in ids]
-    return ids
+    result = DB.session.execute(q).fetchall()
+    if result is None or len(result) == 0:
+        return []
+    node_ids = set()
+    for r in result:
+        if r['downstream_node_ids'] is not None:
+            ids = r['downstream_node_ids'].strip()[1:-1].split(",")
+            ids = [int(i) for i in ids]
+            node_ids = node_ids.union(set(ids))
+    return node_ids
 
 
 def _get_subdag(node_ids: list, dag_id: int) -> list:
@@ -356,20 +361,12 @@ def _get_subdag(node_ids: list, dag_id: int) -> list:
     :param node_id:
     :return: a list of node_id
     """
-    node_stack = node_ids
-    # Keep a set of all the nodes that have been added to the stack. This prevents the infinite loop of ill defined dag.
     node_set = set(node_ids)
-    node_descendants = []
-    while len(node_stack) > 0:
-        node = node_stack.pop()
-        node_descendants.append(node)
-        node_kids = _get_node_downstream(node, dag_id)
-        if node_kids is not None:
-            for n in node_kids:
-                if n not in node_set:
-                    node_set.add(n)
-                    node_stack.append(n)
-    return node_descendants
+    node_descendants = node_set
+    while len(node_descendants) > 0:
+        node_descendants = _get_node_downstream(node_descendants, dag_id)
+        node_set = node_set.union(node_descendants)
+    return list(node_set)
 
 
 def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> dict:
@@ -379,6 +376,8 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> di
     :param nodes:
     :return: a dict of {<id>: <status>}
     """
+    if nodes is None or len(nodes) == 0:
+        return {}
     node_str =str((tuple(nodes))).replace(",)", ")")
 
     q = f"""
