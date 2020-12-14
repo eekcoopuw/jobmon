@@ -1,7 +1,7 @@
 from http import HTTPStatus as StatusCodes
 from flask import jsonify, request, Blueprint, current_app as app
 from werkzeug.local import LocalProxy
-
+import json
 
 import pandas as pd
 
@@ -349,8 +349,7 @@ def _get_node_downstream(nodes: set, dag_id: int) -> set:
     node_ids = set()
     for r in result:
         if r['downstream_node_ids'] is not None:
-            ids = r['downstream_node_ids'].strip()[1:-1].split(",")
-            ids = [int(i) for i in ids]
+            ids = json.loads(r['downstream_node_ids'])
             node_ids = node_ids.union(set(ids))
     return node_ids
 
