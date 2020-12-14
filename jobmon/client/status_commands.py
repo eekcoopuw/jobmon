@@ -131,8 +131,11 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
     validate_username(workflow_id, user, requester)
     validate_workflow(task_ids, requester)
 
-    pass  # Not in scope of GBDSCI-2999.
-    # TODO: add in sub-DAG reconstruction, workflow validation, and reset route call
+    subdag_tasks = get_sub_task_tree(task_ids, ["G"], requester).keys()
+
+    pass  # Not in scope of GBDSCI-3001.
+    # TODO: Confirm with the client about the subdag and continue modify status
+
 
 
 def validate_username(workflow_id: int, username: str, requester: Requester) -> None:
@@ -159,3 +162,19 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> None:
     if not bool(res["validation"]):
         raise AssertionError("The give task ids belong to multiple workflow.")
     return
+
+
+def get_sub_task_tree(task_ids: list, task_status: list = None, requester: Requester = None) -> dict:
+    # This is to make the test case happy. Otherwise, requester should not be None.
+    if requester is None:
+        requester = Requester(ClientConfig.from_defaults().url)
+    # Valid input
+    rc, res = requester.send_request(
+        app_route=f"/viz/task/subdag",
+        message={'task_ids': task_ids,
+            'task_status': task_status},
+        request_type="get")
+    if rc != 200:
+        raise AssertionError(f"Server return HTTP error code: {rc}")
+    task_tree_dict = res["sub_task"]
+    return task_tree_dict

@@ -1,7 +1,7 @@
 from http import HTTPStatus as StatusCodes
 from flask import jsonify, request, Blueprint, current_app as app
 from werkzeug.local import LocalProxy
-
+import json
 
 import pandas as pd
 
@@ -328,3 +328,115 @@ def get_workflow_users(workflow_id: int):
 
     resp.status_code = StatusCodes.OK
     return resp
+
+
+def _get_node_downstream(nodes: set, dag_id: int) -> set:
+    """
+    Get all downstream nodes of a node
+    :param node_id:
+    :return: a list of node_id
+    """
+    nodes_str = str((tuple(nodes))).replace(",)", ")")
+    q = f"""
+        SELECT downstream_node_ids
+        FROM edge
+        WHERE dag_id = {dag_id}
+        AND node_id in {nodes_str}
+    """
+    result = DB.session.execute(q).fetchall()
+    if result is None or len(result) == 0:
+        return []
+    node_ids = set()
+    for r in result:
+        if r['downstream_node_ids'] is not None:
+            ids = json.loads(r['downstream_node_ids'])
+            node_ids = node_ids.union(set(ids))
+    return node_ids
+
+
+def _get_subdag(node_ids: list, dag_id: int) -> list:
+    """
+    Get all descendants of a given nodes. It only queries the primary keys on the edge table without join.
+    :param node_id:
+    :return: a list of node_id
+    """
+    node_set = set(node_ids)
+    node_descendants = node_set
+    while len(node_descendants) > 0:
+        node_descendants = _get_node_downstream(node_descendants, dag_id)
+        node_set = node_set.union(node_descendants)
+    return list(node_set)
+
+
+def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> dict:
+    """
+    Get task ids of the given node ids
+    :param workflow_id:
+    :param nodes:
+    :return: a dict of {<id>: <status>}
+    """
+    if nodes is None or len(nodes) == 0:
+        return {}
+    node_str =str((tuple(nodes))).replace(",)", ")")
+
+    q = f"""
+        SELECT id, status
+        FROM task
+        WHERE workflow_id={workflow_id}
+        AND node_id in {node_str}
+    """
+    result = DB.session.execute(q).fetchall()
+    task_dict = {}
+
+    for r in result:
+        # When task_status not specified, return the full subdag
+        if len(task_status) == 0:
+            task_dict[int(r[0])] = r[1]
+        else:
+            if r[1] in task_status:
+                task_dict[int(r[0])] = r[1]
+    return task_dict
+
+
+@jvs.route('/task/subdag', methods=['GET'])
+def get_task_subdag():
+    """
+    Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a list of sub nodes.
+    :param task_id:
+    :return:
+    """
+    # Only return sub tasks in the following status. If empty or None, return all
+    task_ids = request.args.getlist('task_ids')
+    task_status = request.args.getlist('task_status')
+    task_ids_str = "("
+    for t in task_ids:
+        task_ids_str += str(t) + ","
+    task_ids_str = task_ids_str[:-1] + ")"
+    if task_status is None:
+        task_status = []
+    q = f"""
+        SELECT workflow.id as workflow_id, dag_id, node_id 
+        FROM task, workflow 
+        WHERE task.id in {task_ids_str} and task.workflow_id = workflow.id
+    """
+    result = DB.session.execute(q).fetchall()
+    if result is None:
+        # return empty values when task_id does not exist or db out of consistency
+        resp = jsonify(workflow_id=None, sub_task=None)
+        resp.status_code = StatusCodes.OK
+        return resp
+
+    #Since we have validated all the tasks belong to the same wf in status_command before this call,
+    #assume they all belong to the same wf.
+    workflow_id = result[0]['workflow_id']
+    dag_id = result[0]['dag_id']
+    node_ids = []
+    for r in result:
+        node_ids.append(r['node_id'])
+    sub_dag_tree = _get_subdag(node_ids, dag_id)
+    sub_task_tree = _get_tasks_from_nodes(workflow_id, sub_dag_tree, task_status)
+    resp = jsonify(workflow_id=workflow_id, sub_task=sub_task_tree)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
