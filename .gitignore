@@ -11,8 +11,7 @@
 __pycache__
 
 # Python egg metadata, regenerated from source files by setuptools.
-/*.egg-info
-/*.egg
+/jobmon/jobmon.egg-info/*
 /build
 /dist
 
