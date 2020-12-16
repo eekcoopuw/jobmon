@@ -109,7 +109,8 @@ class Requester(object):
             retry_error_callback=raise_if_exceed_retry
         )
 
-        return self._retry.call(self._send_request, app_route, message, request_type, logger)
+        return self._retry.__call__(self._send_request, app_route, message, request_type,
+                                    logger)
 
     def _send_request(self, app_route: str, message: dict, request_type: str,
                       logger: logging.Logger = default_logger) -> Tuple[int, Any]:

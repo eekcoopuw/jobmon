@@ -59,7 +59,7 @@ pipeline {
         reportTitles: ''
       ])
       junit([
-        testResults: "**/*_test_report.xml",
+        testResults: "test_report.xml",
         allowEmptyResults: true
       ])
 

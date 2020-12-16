@@ -159,6 +159,7 @@ def web_server_process(ephemera):
 
     # interrupt and join for coverage
     p1.terminate()
+    p1.join()
 
 
 @pytest.fixture(scope='session')
