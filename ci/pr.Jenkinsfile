@@ -41,7 +41,9 @@ pipeline {
       }
     }
     stage('Tests') {
+      steps {
         sh "${ACTIVATE} && nox --session tests"
+      }
     }
   }
   post {
