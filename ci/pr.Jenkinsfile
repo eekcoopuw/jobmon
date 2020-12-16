@@ -42,7 +42,7 @@ pipeline {
     }
     stage('Tests') {
       steps {
-        sh "${ACTIVATE} && nox --session tests"
+        sh "${ACTIVATE} && nox --session tests -- ./tests/client"
       }
     }
   }
@@ -64,11 +64,17 @@ pipeline {
       ])
 
       // Delete the workspace directory.
-      deleteDir()
+      // deleteDir()
 
-      // Tell BitBucket whether the build succeeded or failed.
+    }
+    failure {
       script {
-        notifyBitbucket()
+        notifyBitbucket(buildStatus: 'FAILED')
+      }
+    }
+    success {
+      script {
+        notifyBitbucket(buildStatus: 'SUCCESSFUL')
       }
     }
   }
