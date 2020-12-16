@@ -32,8 +32,41 @@ pipeline {
     }
     stage("Lint") {
       steps {
-        sh "${ACTIVATE} && nox --session lint"
+        sh "${ACTIVATE} && nox --session lint || true"
       }
     }
+    stage("Typecheck") {
+      steps {
+        sh "${ACTIVATE} && nox --session typecheck || true"
+      }
+    }
+    stage('Tests') {
+        sh "${ACTIVATE} && nox --session tests"
+    }
   }
+  post {
+    always {
+      // Publish the coverage reports and test results.
+      publishHTML([
+        allowMissing: true,
+        alwaysLinkToLastBuild: false,
+        keepAll: true,
+        reportDir: 'jobmon_coverage_html_report',
+        reportFiles: 'index.html',
+        reportName: 'Coverage Report',
+        reportTitles: ''
+      ])
+      junit([
+        testResults: "**/*_test_report.xml",
+        allowEmptyResults: true
+      ])
+
+      // Delete the workspace directory.
+      deleteDir()
+
+      // Tell BitBucket whether the build succeeded or failed.
+      script {
+        notifyBitbucket()
+      }
+    }
 }
