@@ -26,10 +26,11 @@ pipeline {
       }
     }
     stage('Clone Build Script & Set Vars') {
+      steps {
         checkout scm
         currentBuild.displayName = "#${BUILD_NUMBER} jobmon"
+      }
     }
-
     stage("Lint") {
       steps {
         sh "${ACTIVATE} && nox --session lint"
