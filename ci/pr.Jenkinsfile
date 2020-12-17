@@ -54,7 +54,7 @@ pipeline {
         alwaysLinkToLastBuild: false,
         keepAll: true,
         reportDir: 'jobmon_coverage_html_report',
-        reportFiles: 'index.html',
+        reportFiles: '*',
         reportName: 'Coverage Report',
         reportTitles: ''
       ])

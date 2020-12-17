@@ -21,7 +21,8 @@ jobmon/_version.py
 # Ignore coverage reports
 .coverage
 .coverage.*
-htmlcov
+jobmon_coverage_html_report
+test_report.xml
 
 # Ignore mac files
 ._*
