@@ -39,6 +39,11 @@ pipeline {
         sh "${ACTIVATE} && nox --session typecheck || true"
       }
     }
+    stage("Build Docs") {
+      steps {
+        sh "${ACTIVATE} && nox --session docs"
+      }
+    }
     stage('Tests') {
       steps {
         sh "${ACTIVATE} && nox --session tests -- ./tests/client/test_task.py"
@@ -47,7 +52,7 @@ pipeline {
   }
   post {
     always {
-      // Publish the coverage reports and test results.
+      // Publish the coverage reports.
       publishHTML([
         allowMissing: true,
         alwaysLinkToLastBuild: false,
@@ -57,6 +62,17 @@ pipeline {
         reportName: 'Coverage Report',
         reportTitles: ''
       ])
+      // Publish the documentation.
+      publishHTML([
+        allowMissing: true,
+        alwaysLinkToLastBuild: false,
+        keepAll: true,
+        reportDir: 'docsource/_build',
+        reportFiles: '*',
+        reportName: 'documentation',
+        reportTitles: ''
+      ])
+      // Publish the test results
       junit([
         testResults: "test_report.xml",
         allowEmptyResults: true
