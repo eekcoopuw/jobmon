@@ -44,29 +44,27 @@ pipeline {
         sh "${ACTIVATE} && nox --session tests -- ./tests/client/test_task.py"
       }
     }
-    post {
-      always {
-        // Publish the coverage reports and test results.
-        publishHTML([
-          allowMissing: true,
-          alwaysLinkToLastBuild: false,
-          keepAll: true,
-          reportDir: 'jobmon_coverage_html_report',
-          reportFiles: '*',
-          reportName: 'Coverage Report',
-          reportTitles: ''
-        ])
-        junit([
-          testResults: "test_report.xml",
-          allowEmptyResults: true
-        ])
-      }
-    }
   }
   post {
     always {
+      // Publish the coverage reports and test results.
+      publishHTML([
+        allowMissing: true,
+        alwaysLinkToLastBuild: false,
+        keepAll: true,
+        reportDir: 'jobmon_coverage_html_report',
+        reportFiles: '*',
+        reportName: 'Coverage Report',
+        reportTitles: ''
+      ])
+      junit([
+        testResults: "test_report.xml",
+        allowEmptyResults: true
+      ])
+
       // Delete the workspace directory.
       deleteDir()
+
     }
     failure {
       script {
