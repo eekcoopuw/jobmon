@@ -12,8 +12,7 @@ pipeline {
   }
   environment {
 
-    // Jenkins commands run in separate processes, so need to activate the environment every
-    // time we run pip, poetry, etc.
+    // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base &> /dev/null"
   }
   stages {
@@ -25,7 +24,7 @@ pipeline {
         }
       }
     }
-    stage('Clone Build Script & Set Vars') {
+    stage('Remote Checkout Repo') {
       steps {
         checkout scm
       }
@@ -54,7 +53,7 @@ pipeline {
         alwaysLinkToLastBuild: false,
         keepAll: true,
         reportDir: 'jobmon_coverage_html_report',
-        reportFiles: '*',
+        reportFiles: '*.html',
         reportName: 'Coverage Report',
         reportTitles: ''
       ])
@@ -64,7 +63,7 @@ pipeline {
       ])
 
       // Delete the workspace directory.
-      // deleteDir()
+      deleteDir()
 
     }
     failure {
