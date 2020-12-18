@@ -35,6 +35,10 @@ class ServerCLI(CLI):
         elif args.command == 'test':
             app.run(host='0.0.0.0', port=args.web_service_port, debug=True,
                     use_reloader=False, use_evalex=False, threaded=False)
+        elif args.command == 'start_uwsgi':
+            import subprocess
+            subprocess.run("/entrypoint.sh")
+            subprocess.run("/start.sh")
         else:
             raise ValueError('Invalid command choice. Options are (test, start), got '
                              f'({args.command})')
@@ -44,8 +48,8 @@ class ServerCLI(CLI):
         from jobmon.server.workflow_reaper.api import (WorkflowReaperConfig,
                                                        start_workflow_reaper)
         reaper_config = WorkflowReaperConfig(
-            poll_interval_minutes=args.poll_interval_minutes,
-            loss_threshold=args.loss_threshold,
+            poll_interval_minutes=args.reaper_poll_interval_minutes,
+            loss_threshold=args.reaper_loss_threshold,
             host=args.web_service_fqdn,
             port=args.web_service_port,
             slack_api_url=args.slack_api_url,
@@ -73,10 +77,10 @@ class ServerCLI(CLI):
         web_service_parser.add_argument(
             'command',
             type=str,
-            choices=['start', 'test'],
-            help=('The web_server sub-command to run: (start, test). Start is not currently '
-                  'supported. Test creates a test instance of the jobmon Flask app using the '
-                  'Flask dev server and should not be used for production')
+            choices=['start', 'test', 'start_uwsgi'],
+            help=('The web_server sub-command to run: (start, test, start_uwsgi). Start is not'
+                  ' currently supported. Test creates a test instance of the jobmon Flask app '
+                  'using the Flask dev server and should not be used for production')
         )
         ParserDefaults.db_host(web_service_parser)
         ParserDefaults.db_port(web_service_parser)
