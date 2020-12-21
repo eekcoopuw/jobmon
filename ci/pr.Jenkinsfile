@@ -12,9 +12,8 @@ pipeline {
   }
   environment {
 
-    // Jenkins commands run in separate processes, so need to activate the environment every
-    // time we run pip, poetry, etc.
-    ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base &> /dev/null"
+    // Jenkins commands run in separate processes, so need to activate the environment to run nox.
+    ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base &> /dev/null"
   }
   stages {
     stage("Notify BitBucket") {
@@ -25,14 +24,78 @@ pipeline {
         }
       }
     }
-    stage('Clone Build Script & Set Vars') {
+    stage('Remote Checkout Repo') {
       steps {
         checkout scm
       }
     }
     stage("Lint") {
       steps {
-        sh "${ACTIVATE} && nox --session lint"
+        sh "${ACTIVATE} && nox --session lint || true"
+      }
+    }
+    stage("Typecheck") {
+      steps {
+        sh "${ACTIVATE} && nox --session typecheck || true"
+      }
+    }
+    stage("Build Docs") {
+      steps {
+        sh "${ACTIVATE} && nox --session docs"
+      }
+      post {
+        always {
+          // Publish the documentation.
+          publishHTML([
+            allowMissing: true,
+            alwaysLinkToLastBuild: false,
+            keepAll: true,
+            reportDir: 'docsource/_build',
+            reportFiles: '*',
+            reportName: 'documentation',
+            reportTitles: ''
+          ])
+        }
+      }
+    }
+    stage('Tests') {
+      steps {
+        sh "${ACTIVATE} && nox --session tests -- ./tests/client/test_task.py"
+      }
+      post {
+        always {
+          // Publish the coverage reports.
+          publishHTML([
+            allowMissing: true,
+            alwaysLinkToLastBuild: false,
+            keepAll: true,
+            reportDir: 'jobmon_coverage_html_report',
+            reportFiles: '*',
+            reportName: 'Coverage Report',
+            reportTitles: ''
+          ])
+          // Publish the test results
+          junit([
+            testResults: "test_report.xml",
+            allowEmptyResults: true
+          ])
+        }
+      }
+    }
+  }
+  post {
+    always {
+      // Delete the workspace directory.
+      deleteDir()
+    }
+    failure {
+      script {
+        notifyBitbucket(buildStatus: 'FAILED')
+      }
+    }
+    success {
+      script {
+        notifyBitbucket(buildStatus: 'SUCCESSFUL')
       }
     }
   }

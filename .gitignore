@@ -4,29 +4,25 @@
 # editor files
 *.sublime*
 
-# log files
-*.log
-
-# Setuptools distribution folder.
-__pycache__
-
 # Python egg metadata, regenerated from source files by setuptools.
-/jobmon/jobmon.egg-info/*
+jobmon.egg-info/*
 /build
 /dist
 
 # ignore cache directories
+__pycache__
 .pytest_cache
 .mypy_cache
 
 # Ignore build artifacts
 /docsource/_build
-
-.idea
+jobmon/_version.py
 
 # Ignore coverage reports
 .coverage
-htmlcov
+.coverage.*
+jobmon_coverage_html_report
+test_report.xml
 
 # Ignore mac files
 ._*
@@ -37,9 +33,6 @@ htmlcov
 
 # ignore nox envs
 .nox/
-
-# ignore coverage files
-.coverage.*
 
 # ignore auto generated docs
 docsource/jobmon.*
