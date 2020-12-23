@@ -16,5 +16,5 @@ until [[ $NUM_TABLES -gt 0 ]]; do
     sleep 3
 done
 
->&2 echo "DB is up - executing command"
+>&2 echo "DB is up - installing jobmon and executing command"
 $cmd

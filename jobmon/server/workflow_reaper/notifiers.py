@@ -28,7 +28,7 @@ class SlackNotifier(object):
         logger.debug(resp)
         if resp.status_code != requests.codes.OK:
             error = "Could not send Slack message. {}".format(resp.content)
-            # To raise an exception here causes the docker container stop, and
+            # To raise an exception here causes the docker-compose container stop, and
             # becomes hard to restart.
             # Log the error instead. So we can enter the container to fix
             # issues when necessary.

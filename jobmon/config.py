@@ -123,7 +123,7 @@ class ParserDefaults:
             '--db_name',
             type=str,
             help='default database to use',
-            default='docker',
+            default='docker-compose',
             env_var='DB_NAME'
         )
         return parser

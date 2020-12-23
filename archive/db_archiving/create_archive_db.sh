@@ -8,8 +8,8 @@
 # 1. Export/mysqldump the whole database through SequelPro (gear icon on bottom left) and save the file to your local storage. This can take a while.
 #       - Make sure all of the database tables have been selected! Leave the other options as default.
 # 2. SSH into the archive host and run create_archive_db.sh
-# 3. Through SequelPro, connect to the archive database. Credentials are root/docker.
-# 4. In SequelPro's query tab, run "CREATE DATABASE docker;" and "USE docker;"
+# 3. Through SequelPro, connect to the archive database. Credentials are root/docker-compose.
+# 4. In SequelPro's query tab, run "CREATE DATABASE docker-compose;" and "USE docker-compose;"
 # 5. Through SequelPro, select File > Import, then select the .sql file from step 1 and click confirm. This can take a while.
 # 6. Stop the original database container.
 
@@ -33,7 +33,7 @@ port=$3
 # aka directory to put in 'source' field for bind mount in command below
 source_dir="/Database/jobmon_db_archive/$mount"
 
-# docker requires an existing directory - it won't make one for us.
+# docker-compose requires an existing directory - it won't make one for us.
 mkdir $source_dir
 
 docker run --name $logical_name --mount type=bind,source=$source_dir,target=/var/lib/mysql -e MYSQL_ROOT_PASSWORD=docker -p $port:3306 mysql:5.7 &
