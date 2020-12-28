@@ -5,24 +5,23 @@
 *.sublime*
 
 # Python egg metadata, regenerated from source files by setuptools.
+# and other build artifacts
 jobmon.egg-info/*
 /build
 /dist
-
-# ignore cache directories
-__pycache__
-.pytest_cache
-.mypy_cache
-
-# Ignore build artifacts
-/docsource/_build
 jobmon/_version.py
+requirements.txt
 
 # Ignore coverage reports
 .coverage
 .coverage.*
 jobmon_coverage_html_report
 test_report.xml
+
+# ignore cache directories
+__pycache__
+.pytest_cache
+.mypy_cache
 
 # Ignore mac files
 ._*
@@ -37,3 +36,4 @@ test_report.xml
 # ignore auto generated docs
 docsource/jobmon.*
 docsource/modules.rst
+docsource/_build
