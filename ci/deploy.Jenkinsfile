@@ -38,30 +38,34 @@ pipeline {
 
             // create .jobmon.ini
             sh '''
-            # pull kubectl container
-            INFRA_PUB_REG_URL="docker-infrapub.artifactory.ihme.washington.edu"
-            KUBECTL_CONTAINER="$INFRA_PUB_REG_URL/kubectl:latest"
-            docker pull $KUBECTL_CONTAINER
+              # pull kubectl container
+              INFRA_PUB_REG_URL="docker-infrapub.artifactory.ihme.washington.edu"
+              KUBECTL_CONTAINER="$INFRA_PUB_REG_URL/kubectl:latest"
+              docker pull $KUBECTL_CONTAINER
 
-            # get metallb configmap
-            . ${WORKSPACE}/ci/deploy.sh || (echo Failed to import deploy.sh; exit 1)
-            docker run -t \
-              --rm \
-              -v ${KUBECONFIG}:/root/.kube/config \
-              --mount type=bind,source="${WORKSPACE}",target=/data \
-              $KUBECTL_CONTAINER  \
-                -n metallb-system \
-                get configmap config \
-                -o "jsonpath={.data.config}" > metallb_cfg.txt
+              # get metallb configmap
+              . ${WORKSPACE}/ci/deploy.sh || (echo Failed to import deploy.sh; exit 1)
+              docker run -t \
+                --rm \
+                -v ${KUBECONFIG}:/root/.kube/config \
+                --mount type=bind,source="${WORKSPACE}",target=/data \
+                $KUBECTL_CONTAINER  \
+                  -n metallb-system \
+                  get configmap config \
+                  -o "jsonpath={.data.config}" > metallb_cfg.txt
             '''
           }
-          sh "cat metallb_cfg.txt"
-          // script {
-          //   TARGET_IP = sh (
-          //       script: '$(cat ${WORKSPACE}/metallb_ip.cfg | grep "\\- [0-9].*/[0-9]*" | sed -e "s/  - \\(.*\\)\\/32/\\1/")',
-          //       returnStdout: true
-          //   ).trim()
-          // }
+          script {
+            TARGET_IP = sh (
+                script: '''
+                  # 4th line after entry is VIP.
+                  grep -A 4 "${METALLB_IP_POOL}" ${WORKSPACE}/metallb_ip.cfg | \
+                  grep "\\- [0-9].*/[0-9]*" | \
+                  sed -e "s/  - \\(.*\\)\\/32/\\1/"
+                ''',
+                returnStdout: true
+            ).trim()
+          }
         }
       }
     }
