@@ -47,10 +47,11 @@ pipeline {
             docker run -t \
               --rm \
               -v ${KUBECONFIG}:/root/.kube/config \
-              --mount type=bind,source="${WORKSPACE}/ci",target=/data \
-              --entrypoint /bin/bash \
               $KUBECTL_CONTAINER  \
-              /bin/bash -c ". /data/deploy.sh; jobmon_ini_file ${METALLB_IP_POOL}"
+                -n metallb-system \
+                get configmap config \
+                -o "jsonpath={.data.config}" | \
+            grep -A 4 ${METALLB_IP_POOL} > metallb_ip.txt
             '''
           }
         }
