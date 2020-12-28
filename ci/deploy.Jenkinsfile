@@ -86,8 +86,7 @@ pipeline {
 
           sh "echo ${WORKSPACE}/jobmon/.jobmon.ini"
 
-          ${ACTIVATE} && nox --session distribute
-          '''
+          sh "${ACTIVATE} && nox --session distribute"
         }
       }
     }
