@@ -1,5 +1,5 @@
 pipeline {
-  agent None
+  agent none
   options {
     disableConcurrentBuilds()
     buildDiscarder(logRotator(numToKeepStr: '20'))
