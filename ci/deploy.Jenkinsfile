@@ -78,8 +78,8 @@ pipeline {
           checkout scm
           sh '''
           rm ${WORKSPACE}/jobmon/.jobmon.ini
-          echo "[client]\n" > ${WORKSPACE}/jobmon/.jobmon.ini
-          echo "${TARGET_IP}\n" > ${WORKSPACE}/jobmon/.jobmon.ini
+          echo "[client]" > ${WORKSPACE}/jobmon/.jobmon.ini
+          echo "${TARGET_IP}" > ${WORKSPACE}/jobmon/.jobmon.ini
           echo "web_service_port=80\n" > ${WORKSPACE}/jobmon/.jobmon.ini
 
           echo $(cat ${WORKSPACE}/jobmon/.jobmon.ini)
