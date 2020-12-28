@@ -52,12 +52,12 @@ pipeline {
                 -n metallb-system \
                 get configmap config \
                 -o "jsonpath={.data.config}" | \
-            grep -A 4 ${METALLB_IP_POOL} > metallb_ip.txt
+            grep -A 4 ${METALLB_IP_POOL} > ${WORKSPACE}/metallb_ip.txt
             '''
           }
           script {
             TARGET_IP = sh (
-                script: '$(cat metallb_ip.cfg | grep "\\- [0-9].*/[0-9]*" | sed -e "s/  - \\(.*\\)\\/32/\\1/")',
+                script: '$(cat ${WORKSPACE}/metallb_ip.cfg | grep "\\- [0-9].*/[0-9]*" | sed -e "s/  - \\(.*\\)\\/32/\\1/")',
                 returnStdout: true
             ).trim()
           }
