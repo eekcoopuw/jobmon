@@ -78,10 +78,10 @@ pipeline {
           checkout scm
 
           sh '''
-          echo "
-          [client]
+          cat >> ${WORKSPACE}/jobmon/.jobmon.ini <<EOL
           web_service_fqdn=${env.TARGET_IP}
-          web_service_port=80" > ${WORKSPACE}/jobmon/.jobmon.ini
+          web_service_port=80
+          EOL
 
           cat ${WORKSPACE}/jobmon/.jobmon.ini
           ${ACTIVATE} && nox --session distribute
