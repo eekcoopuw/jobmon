@@ -55,11 +55,12 @@ pipeline {
             grep -A 4 ${METALLB_IP_POOL} > metallb_ip.txt
             '''
           }
-
-          TARGET_IP = sh (
-              script: '$(cat metallb_ip.cfg | grep "\\- [0-9].*/[0-9]*" | sed -e "s/  - \\(.*\\)\\/32/\\1/")',
-              returnStdout: true
-          ).trim()
+          step {
+            TARGET_IP = sh (
+                script: '$(cat metallb_ip.cfg | grep "\\- [0-9].*/[0-9]*" | sed -e "s/  - \\(.*\\)\\/32/\\1/")',
+                returnStdout: true
+            ).trim()
+          }
         }
       }
     }
