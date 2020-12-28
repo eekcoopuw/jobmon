@@ -48,9 +48,9 @@ pipeline {
               --rm \
               -v ${KUBECONFIG}:/root/.kube/config \
               --mount type=bind,source="${WORKSPACE}/ci",target=/data \
-              --entrypoint /bin/bash -c \
+              --entrypoint /bin/bash \
               $KUBECTL_CONTAINER  \
-              ". /data/deploy.sh; jobmon_ini_file ${METALLB_IP_POOL}"
+              /bin/bash -c ". /data/deploy.sh; jobmon_ini_file ${METALLB_IP_POOL}"
             '''
           }
         }
