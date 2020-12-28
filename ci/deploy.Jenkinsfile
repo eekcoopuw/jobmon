@@ -25,7 +25,6 @@ pipeline {
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base &> /dev/null"
-    TARGET_IP = ""
   }
   stages {
     stage ('Get TARGET_IP address') {
@@ -56,7 +55,7 @@ pipeline {
             '''
           }
           script {
-            TARGET_IP = sh (
+            env.TARGET_IP = sh (
                 script: '''
                   # 4th line after entry is VIP.
                   grep -A 4 "${METALLB_IP_POOL}" ${WORKSPACE}/metallb.cfg | \
@@ -66,6 +65,7 @@ pipeline {
                 returnStdout: true
             ).trim()
           }
+          echo "setting TARGET_IP=${env.TARGET_IP}"
         }
       }
     }
