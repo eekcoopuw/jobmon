@@ -79,8 +79,8 @@ pipeline {
           sh "echo '${WORKSPACE}/jobmon/.jobmon.ini'"
 
           sh '''
-          cat >> "${WORKSPACE}/jobmon/.jobmon.ini" <<EOL
-          web_service_fqdn=${env.TARGET_IP}
+          cat >> ${WORKSPACE}/jobmon/.jobmon.ini <<EOL
+          web_service_fqdn=${TARGET_IP}
           web_service_port=80
           EOL'''
 
