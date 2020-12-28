@@ -64,7 +64,6 @@ pipeline {
         }
       }
     }
-  }
   stage ('ECHO TARGET_IP') {
     steps {
       node('docker') {
