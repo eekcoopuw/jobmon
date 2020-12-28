@@ -43,13 +43,13 @@ pipeline {
             docker pull $KUBECTL_CONTAINER
 
             # get metallb configmap
-            . ${WORKSPACE}/deploy.sh || (echo Failed to import deploy.sh; exit 1)
+            . ${WORKSPACE}/ci/deploy.sh || (echo Failed to import deploy.sh; exit 1)
             docker run -t \
               --rm \
               --mount type=volume,source=${KUBECONFIG},target=/root/.kube/config \
-              --mount type=bind,source="${WORKSPACE}",target=/data \
+              --mount type=bind,source="${WORKSPACE}/ci",target=/data \
               $KUBECTL_CONTAINER \
-              jobmon_ini_file ${METALLB_IP_POOL}
+              . /data/deploy.sh && jobmon_ini_file ${METALLB_IP_POOL}
             '''
           }
         }
