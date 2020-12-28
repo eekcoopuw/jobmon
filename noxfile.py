@@ -86,8 +86,27 @@ def docs(session: Session) -> None:
 
 
 @nox.session(python=python, venv_backend="conda")
-def build(session: Session) -> None:
-    session.run("python", "setup.py", "sdist")
+def freeze(session: Session) -> None:
+    # build source and export env to build location
+    args = session.posargs
+    session.install(".", *args)
+    jobmon_version = session.run(
+        "python", "-c", "from jobmon import __version__; print(__version__)", silent=True
+    )
+    requirements = session.run("pip", "freeze", silent=True)
+    with open("requirements.txt", "w") as req_file:
+        for line in requirements.split("\n"):
+            if not line:
+                continue
+            if "jobmon" not in line:
+                req_file.write(line + "\n")
+            else:
+                req_file.write(f"jobmon=={jobmon_version}")
+
+
+@nox.session(python=python, venv_backend="conda")
+def distribute(session: Session) -> None:
+    session.run("python", "setup.py", "sdist", "bdist_wheel")
 
 
 @nox.session(python=python, venv_backend="conda")

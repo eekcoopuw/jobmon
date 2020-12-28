@@ -35,6 +35,8 @@ DOCS_REQUIRES = [
     'sphinx_rtd_theme',
 ]
 
+# TODO: consider splitting into 3 builds: jobmon_server, jobmon_client, jobmon.
+# Subclass install to accept parameters https://stackoverflow.com/questions/18725137/how-to-obtain-arguments-passed-to-setup-py-from-pip-with-install-option
 setup(
     name='jobmon',
     maintainer='IHME SciComp',
