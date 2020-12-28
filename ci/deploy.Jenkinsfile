@@ -64,12 +64,12 @@ pipeline {
         }
       }
     }
-  stage ('ECHO TARGET_IP') {
-    steps {
-      node('docker') {
-        sh 'echo ${TARGET_IP}'
+    stage ('ECHO TARGET_IP') {
+      steps {
+        node('docker') {
+          sh 'echo ${TARGET_IP}'
+        }
       }
     }
   }
 }
-
