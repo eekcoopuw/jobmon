@@ -1,5 +1,5 @@
 from setuptools import setup, find_packages
-from setuptools_scm.version import guess_next_dev_version
+
 
 INSTALL_REQUIRES = [
     'configargparse',
@@ -69,6 +69,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
 
+    setup_requires=["setuptools_scm"],
     use_scm_version={'local_scheme': local_scheme,
                      'write_to': 'jobmon/_version.py'},
 
