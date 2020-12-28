@@ -132,4 +132,10 @@ pipeline {
       }
     }
   }
+  post {
+    always {
+      // Delete the workspace directory.
+      deleteDir()
+    }
+  }
 }
