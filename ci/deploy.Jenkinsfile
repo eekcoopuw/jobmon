@@ -48,11 +48,11 @@ pipeline {
             docker run -t \
               --rm \
               -v ${KUBECONFIG}:/root/.kube/config \
+              --mount type=bind,source="${WORKSPACE}",target=/data \
               $KUBECTL_CONTAINER  \
                 -n metallb-system \
                 get configmap config \
-                -o "jsonpath={.data.config}" | \
-            grep -A 4 ${METALLB_IP_POOL} > ${WORKSPACE}/metallb_ip.txt
+                -o "jsonpath={.data.config}" > /data/metallb_cfg.txt
             '''
           }
           script {
