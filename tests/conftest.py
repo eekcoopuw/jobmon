@@ -33,7 +33,7 @@ def set_mac_to_fork():
 
 def boot_db() -> dict:
     edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
-    edb.db_name = "docker-compose"
+    edb.db_name = "docker"
     conn_str = edb.start()
 
     # Set the time zone
