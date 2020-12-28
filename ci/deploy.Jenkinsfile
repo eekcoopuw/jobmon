@@ -80,8 +80,8 @@ pipeline {
           echo "
           [client]
           web_service_fqdn=${env.TARGET_IP}
-          web_service_port=80
-          " > ${WORKSPACE}/jobmon/.jobmon.ini
+          web_service_port=80" > ${WORKSPACE}/jobmon/.jobmon.ini
+
           echo $(cat ${WORKSPACE}/jobmon/.jobmon.ini)
           ${ACTIVATE} && nox --session distribute
           '''
