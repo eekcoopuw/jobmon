@@ -73,7 +73,7 @@ pipeline {
     }
     stage ('Build Python Distribution') {
       steps {
-        node('qlogin') {
+        node('docker') {
 
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
@@ -105,15 +105,16 @@ pipeline {
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
                                             passwordVariable: 'REG_PASSWORD')]) {
-            checkout scm
 
             // sh '''git tag -l | xargs git tag -d || true'''
             sh '''
             # this builds a requirements.txt with the correct jobmon version number
             ${ACTIVATE} && nox --session freeze
 
+            echo "$(cat ${WORKSPACE}/requirements.txt)"
+
             # now check if dev is in the version string and pick a container name based on that
-            JOBMON_VERSION=$(grep "jobmon==" requirements.txt | sed 's/^jobmon==//')
+            JOBMON_VERSION=$(grep "jobmon==" ${WORKSPACE}/requirements.txt | sed 's/^jobmon==//')
             if [[ "$JOBMON_VERSION" == *"$dev"* ]]
             then
               CONTAINER_NAME="jobmon_dev"
