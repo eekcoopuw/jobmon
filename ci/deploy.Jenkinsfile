@@ -76,17 +76,15 @@ pipeline {
         node('qlogin') {
           // sh '''git tag -l | xargs git tag -d || true'''
           checkout scm
-          sh "echo '${WORKSPACE}/jobmon/.jobmon.ini'"
-
           sh '''
-          cat >> ${WORKSPACE}/jobmon/.jobmon.ini <<EOL
-          web_service_fqdn=${TARGET_IP}
-          web_service_port=80
-          EOL'''
+          rm ${WORKSPACE}/jobmon/.jobmon.ini
+          echo "[client]\n" ${WORKSPACE}/jobmon/.jobmon.ini
+          echo "${TARGET_IP}\n" ${WORKSPACE}/jobmon/.jobmon.ini
+          echo "web_service_port=80\n" ${WORKSPACE}/jobmon/.jobmon.ini
 
-
-
-          sh "${ACTIVATE} && nox --session distribute"
+          echo $(cat ${WORKSPACE}/jobmon/.jobmon.ini)
+          ${ACTIVATE} && nox --session distribute
+          '''
         }
       }
     }
