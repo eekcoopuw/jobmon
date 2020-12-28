@@ -52,7 +52,7 @@ pipeline {
               $KUBECTL_CONTAINER  \
                 -n metallb-system \
                 get configmap config \
-                -o "jsonpath={.data.config}" > /data/metallb_cfg.txt
+                -o "jsonpath={.data.config}" > metallb_cfg.txt
             '''
           }
           script {
