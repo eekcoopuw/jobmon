@@ -33,7 +33,7 @@ pipeline {
           // Scicomp kubernetes cluster container
           withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
                                 variable: 'KUBECONFIG')]) {
-            sh '''git tag -l | xargs git tag -d || true'''
+            // sh '''git tag -l | xargs git tag -d || true'''
 
             checkout scm
 
@@ -74,17 +74,17 @@ pipeline {
     stage ('Build Python Distribution') {
       steps {
         node('qlogin') {
-          sh '''git tag -l | xargs git tag -d || true'''
+          // sh '''git tag -l | xargs git tag -d || true'''
           checkout scm
+          sh "echo '${WORKSPACE}/jobmon/.jobmon.ini'"
 
           sh '''
-          cat >> ${WORKSPACE}/jobmon/.jobmon.ini <<EOL
+          cat >> "${WORKSPACE}/jobmon/.jobmon.ini" <<EOL
           web_service_fqdn=${env.TARGET_IP}
           web_service_port=80
           EOL'''
 
 
-          sh "echo ${WORKSPACE}/jobmon/.jobmon.ini"
 
           sh "${ACTIVATE} && nox --session distribute"
         }
