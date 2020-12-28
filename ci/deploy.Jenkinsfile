@@ -77,14 +77,12 @@ pipeline {
           // sh '''git tag -l | xargs git tag -d || true'''
           checkout scm
           sh '''
-          rm ${WORKSPACE}/jobmon/.jobmon.ini
-          echo "[client]" > ${WORKSPACE}/jobmon/.jobmon.ini
-          echo "${TARGET_IP}" > ${WORKSPACE}/jobmon/.jobmon.ini
-          echo "web_service_port=80\n" > ${WORKSPACE}/jobmon/.jobmon.ini
-
-          echo $(cat ${WORKSPACE}/jobmon/.jobmon.ini)
-          ${ACTIVATE} && nox --session distribute
+          INI=${WORKSPACE}/jobmon/.jobmon.ini
+          rm $INI
+          echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
+          echo $(cat $INI)
           '''
+          sh "${ACTIVATE} && nox --session distribute"
         }
       }
     }
