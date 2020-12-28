@@ -87,7 +87,7 @@ pipeline {
             rm $INI
             echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
             ${ACTIVATE} && nox --session distribute
-            PYPI_URL="https://pypi.ihme.washington.edu"
+            PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple"
             twine upload --repository-url $PYPI_URL \
                          --username $REG_USERNAME \
                          --password $REG_PASSWORD \
