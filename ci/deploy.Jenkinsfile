@@ -55,12 +55,13 @@ pipeline {
                 -o "jsonpath={.data.config}" > metallb_cfg.txt
             '''
           }
-          script {
-            TARGET_IP = sh (
-                script: '$(cat ${WORKSPACE}/metallb_ip.cfg | grep "\\- [0-9].*/[0-9]*" | sed -e "s/  - \\(.*\\)\\/32/\\1/")',
-                returnStdout: true
-            ).trim()
-          }
+          sh "cat metallb_cfg.txt"
+          // script {
+          //   TARGET_IP = sh (
+          //       script: '$(cat ${WORKSPACE}/metallb_ip.cfg | grep "\\- [0-9].*/[0-9]*" | sed -e "s/  - \\(.*\\)\\/32/\\1/")',
+          //       returnStdout: true
+          //   ).trim()
+          // }
         }
       }
     }
