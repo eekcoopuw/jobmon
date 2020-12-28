@@ -25,9 +25,10 @@ pipeline {
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base &> /dev/null"
+    TARGET_IP = ""
   }
   stages {
-    stage ('Write "jobmon.ini" File') {
+    stage ('Get TARGET_IP address') {
       steps {
         node('docker') {
           // Scicomp kubernetes cluster container
@@ -54,8 +55,21 @@ pipeline {
             grep -A 4 ${METALLB_IP_POOL} > metallb_ip.txt
             '''
           }
+
+          TARGET_IP = sh (
+              script: '$(cat metallb_ip.cfg | grep "\- [0-9].*/[0-9]*" | sed -e "s/  - \(.*\)\/32/\1/")',
+              returnStdout: true
+          ).trim()
         }
       }
     }
   }
+  stage ('ECHO TARGET_IP') {
+    steps {
+      node('docker') {
+        sh 'echo ${TARGET_IP}'
+      }
+    }
+  }
 }
+
