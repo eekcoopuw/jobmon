@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from setuptools_scm.version import guess_next_dev_version
 
 INSTALL_REQUIRES = [
     'configargparse',
@@ -35,6 +36,13 @@ DOCS_REQUIRES = [
     'sphinx_rtd_theme',
 ]
 
+
+def local_scheme(version):
+    """Skip the local version (eg. +xyz of 0.6.1.dev4+gdf99fe2)
+    to be able to upload to Test PyPI"""
+    return ""
+
+
 # TODO: consider splitting into 3 builds: jobmon_server, jobmon_client, jobmon.
 # Subclass install to accept parameters https://stackoverflow.com/questions/18725137/how-to-obtain-arguments-passed-to-setup-py-from-pip-with-install-option
 setup(
@@ -60,6 +68,9 @@ setup(
 
     packages=find_packages(),
     include_package_data=True,
+
+    use_scm_version={'local_scheme': local_scheme,
+                     'write_to': 'jobmon/_version.py'},
 
     entry_points={
         'console_scripts': [
