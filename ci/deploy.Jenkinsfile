@@ -52,14 +52,14 @@ pipeline {
                 $KUBECTL_CONTAINER  \
                   -n metallb-system \
                   get configmap config \
-                  -o "jsonpath={.data.config}" > metallb_cfg.txt
+                  -o "jsonpath={.data.config}" > metallb.cfg
             '''
           }
           script {
             TARGET_IP = sh (
                 script: '''
                   # 4th line after entry is VIP.
-                  grep -A 4 "${METALLB_IP_POOL}" ${WORKSPACE}/metallb_ip.cfg | \
+                  grep -A 4 "${METALLB_IP_POOL}" ${WORKSPACE}/metallb.cfg | \
                   grep "\\- [0-9].*/[0-9]*" | \
                   sed -e "s/  - \\(.*\\)\\/32/\\1/"
                 ''',
