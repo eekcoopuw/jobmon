@@ -74,15 +74,27 @@ pipeline {
     stage ('Build Python Distribution') {
       steps {
         node('qlogin') {
-          // sh '''git tag -l | xargs git tag -d || true'''
-          checkout scm
-          sh '''
-          INI=${WORKSPACE}/jobmon/.jobmon.ini
-          rm $INI
-          echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
-          echo $(cat $INI)
-          '''
-          sh "${ACTIVATE} && nox --session distribute"
+
+          // Artifactory user with write permissions
+          withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
+                                            usernameVariable: 'REG_USERNAME',
+                                            passwordVariable: 'REG_PASSWORD')]) {
+
+            // sh '''git tag -l | xargs git tag -d || true'''
+            checkout scm
+            sh '''
+            INI=${WORKSPACE}/jobmon/.jobmon.ini
+            rm $INI
+            echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
+            echo $(cat $INI)
+            ${ACTIVATE} && nox --session distribute
+            PYPI_URL="pypi.ihme.washington.edu"
+            twine upload --repository-url $PYPI_URL \
+                         --username $REG_USERNAME \
+                         --password $REG_PASSWORD \
+                         ./dist/*
+            '''
+          }
         }
       }
     }
