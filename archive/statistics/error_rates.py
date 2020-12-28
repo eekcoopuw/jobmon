@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 def define_database_connections():
     jobmon_p01 = 'jobmon-p01.ihme.washington.edu'
-    jobmon_docker_cont_p01 = 'jobmon-docker-compose-cont-p01.hosts.ihme.washington.edu'
+    jobmon_docker_cont_p01 = 'jobmon-docker-cont-p01.hosts.ihme.washington.edu'
     dev_tomflem = 'dev-tomflem.ihme.washington.edu'
 
     db_config = DBConfig(load_base_defs=False, load_odbc_defs=False)
@@ -22,7 +22,7 @@ def define_database_connections():
             "v063a": {
                 "host": dev_tomflem,
                 "port": 3305,
-                "user_name": "docker-compose",
+                "user_name": "docker",
                 "password": "****"
             },
             "jobmon-nov2018": {
@@ -36,42 +36,42 @@ def define_database_connections():
                 "port": 3311,
                 "user_name": "read_only",
                 "password": "*****",
-                "default_schema": "docker-compose"
+                "default_schema": "docker"
             },
             "v061": {
                 "host": dev_tomflem,
                 "port": 3312,
                 "user_name": "read_only",
                 "password": "*****",
-                "default_schema": "docker-compose"
+                "default_schema": "docker"
             },
             "v066": {
                 "host": jobmon_p01,
                 "port": 3313,
                 "user_name": "read_only",
                 "password": "*****",
-                "default_schema": "docker-compose"
+                "default_schema": "docker"
             },
             "v067": {
                 "host": jobmon_p01,
                 "port": 3314,
                 "user_name": "root",
                 "password": "*****",
-                "default_schema": "docker-compose"
+                "default_schema": "docker"
             },
             "v071": {
                 "host": jobmon_p01,
                 "port": 3316,
                 "user_name": "read_only",
                 "password": "*****",
-                "default_schema": "docker-compose"
+                "default_schema": "docker"
             },
             "v072": {
                 "host": jobmon_p01,
                 "port": 3317,
                 "user_name": "read_only",
                 "password": "*****",
-                "default_schema": "docker-compose"
+                "default_schema": "docker"
             },
             "v080": {
                 "host": jobmon_p01,
@@ -141,8 +141,8 @@ def get_workflow_statistics(conn_name: str) -> pd.DataFrame:
       workflow.id, workflow.workflow_args, workflow.description,
       workflow.status, workflow.status_date,  
       COUNT(job.job_id) as number_of_jobs 
-    FROM docker-compose.workflow
-    JOIN docker-compose.job
+    FROM docker.workflow
+    JOIN docker.job
     WHERE job.dag_id = workflow.dag_id 
     GROUP BY workflow.id
     """
@@ -163,7 +163,7 @@ def get_job_statistics(conn_name: str) -> pd.DataFrame:
     SELECT
       dag_id, job_id, status, status_date, 
       num_attempts, max_attempts
-    FROM docker-compose.job
+    FROM docker.job
     """
     print(f"  Querying get_job_statistics: {conn_name}")
     df = ezfuncs.query(query, conn_def=conn_name)
@@ -183,8 +183,8 @@ SELECT
       W.status as w_status, 
       WR.status as wr_status,
       WR.status_date as wr_status_date
-    FROM docker-compose.workflow W
-    JOIN docker-compose.workflow_run WR 
+    FROM docker.workflow W
+    JOIN docker.workflow_run WR 
     where W.id = WR.workflow_id
     """
     print(f"  Querying get_resume_statistics: {conn_name}")

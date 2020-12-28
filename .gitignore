@@ -11,6 +11,7 @@ jobmon.egg-info/*
 /dist
 jobmon/_version.py
 requirements.txt
+.idea
 
 # Ignore coverage reports
 .coverage
