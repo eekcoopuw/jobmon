@@ -128,6 +128,7 @@ pipeline {
             fi
             DOCKER_REG_URL="docker-scicomp.artifactory.ihme.washington.edu"
             CONTAINER_IMAGE=$DOCKER_REG_URL/$CONTAINER_NAME:${JOBMON_VERSION}
+            echo "$CONTAINER_IMAGE"
 
             docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$DOCKER_REG_URL"
             docker build --no-cache -t "$CONTAINER_IMAGE" -f ./deployment/k8s/Dockerfile .
