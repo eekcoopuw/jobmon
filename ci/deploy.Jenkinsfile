@@ -33,12 +33,9 @@ pipeline {
           // Scicomp kubernetes cluster container
           withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
                                 variable: 'KUBECONFIG')]) {
-            // sh '''git tag -l | xargs git tag -d || true'''
-
             checkout scm
-
             // create .jobmon.ini
-            sh '''
+            sh '''#!/bin/bash
               # pull kubectl container
               INFRA_PUB_REG_URL="docker-infrapub.artifactory.ihme.washington.edu"
               KUBECTL_CONTAINER="$INFRA_PUB_REG_URL/kubectl:latest"
@@ -57,17 +54,18 @@ pipeline {
             '''
           }
           script {
+            // TODO: more robust parsing script
             env.TARGET_IP = sh (
-                script: '''
-                  # 4th line after entry is VIP.
-                  grep -A 4 "${METALLB_IP_POOL}" ${WORKSPACE}/metallb.cfg | \
-                  grep "\\- [0-9].*/[0-9]*" | \
-                  sed -e "s/  - \\(.*\\)\\/32/\\1/"
-                ''',
-                returnStdout: true
+              script: '''#!/bin/bash
+                # 4th line after entry is VIP.
+                grep -A 4 "${METALLB_IP_POOL}" ${WORKSPACE}/metallb.cfg | \
+                grep "\\- [0-9].*/[0-9]*" | \
+                sed -e "s/  - \\(.*\\)\\/32/\\1/"
+              ''',
+              returnStdout: true
             ).trim()
           }
-          echo "setting TARGET_IP=${env.TARGET_IP}"
+          echo "Setting TARGET_IP=${env.TARGET_IP}"
         }
       }
     }
@@ -80,9 +78,8 @@ pipeline {
                                             usernameVariable: 'REG_USERNAME',
                                             passwordVariable: 'REG_PASSWORD')]) {
 
-            // sh '''git tag -l | xargs git tag -d || true'''
             checkout scm
-            sh '''
+            sh '''#!/bin/bash
             INI=${WORKSPACE}/jobmon/.jobmon.ini
             rm $INI
             echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
@@ -95,12 +92,13 @@ pipeline {
             '''
             script {
               env.JOBMON_VERSION = sh (
-                  script: '''
-                  basename $(find ./dist/jobmon-*.tar.gz) | sed "s/jobmon-\\(.*\\)\\.tar\\.gz/\\1/"
-                  ''',
-                  returnStdout: true
+                script: '''
+                basename $(find ./dist/jobmon-*.tar.gz) | sed "s/jobmon-\\(.*\\)\\.tar\\.gz/\\1/"
+                ''',
+                returnStdout: true
               ).trim()
             }
+            echo "Jobmon Version=${env.JOBMON_VERSION}"
           }
         }
       }
@@ -127,14 +125,28 @@ pipeline {
               CONTAINER_NAME="jobmon"
             fi
             DOCKER_REG_URL="docker-scicomp.artifactory.ihme.washington.edu"
-            CONTAINER_IMAGE=$DOCKER_REG_URL/$CONTAINER_NAME:${JOBMON_VERSION}
-            echo "$CONTAINER_IMAGE"
+            export CONTAINER_IMAGE=$DOCKER_REG_URL/$CONTAINER_NAME:${JOBMON_VERSION}
 
             docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$DOCKER_REG_URL"
-            docker build --no-cache -t "$CONTAINER_IMAGE" -f ./deployment/k8s/Dockerfile .
-            docker push "$CONTAINER_IMAGE"
+            docker build --no-cache -t "${CONTAINER_IMAGE}" -f ./deployment/k8s/Dockerfile .
+            docker push "${CONTAINER_IMAGE}"
             '''
           }
+          script {
+            env.CONTAINER_IMAGE = sh (
+              script: 'echo "${CONTAINER_IMAGE}',
+              returnStdout: true
+            ).trim()
+          }
+          echo "Server Container Image=${env.CONTAINER_IMAGE}"
+
+        }
+      }
+    }
+    stage ('Deploy K8s') {
+      steps {
+        node('docker') {
+          echo "Server Container Image=${env.CONTAINER_IMAGE}"
         }
       }
     }
