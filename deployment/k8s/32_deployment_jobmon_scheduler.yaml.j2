@@ -22,20 +22,26 @@ spec:
       - image: {{jobmon_container_uri}}
         name: jobmon-scheduler
         env:
-        - name: EXTERNAL_DB_HOST
-          value: "{{db_host}}"
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              key: DB_HOST
+              name: {{rancher_db_secret}}
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              key: DB_PORT
+              name: {{rancher_db_secret}}
         - name: DB_USER
-          value: "{{db_user}}"
-        - name: EXTERNAL_DB_PORT
-          value: "{{db_port}}"
-        - name: JOBMON_SERVICE_USER_PWD
-          value: "{{db_pass}}"
-        - name: JOBMON_PORT
-          value: "{{jobmon_port}}"
-        - name: SLACK_TOKEN
-          value: "{{slack_token}}"
-        - name: WF_SLACK_CHANNEL
-          value: "{{wf_slack_channel}}"
+          valueFrom:
+            secretKeyRef:
+              key: DB_USER
+              name: {{rancher_db_secret}}
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              key: DB_PASS
+              name: {{rancher_db_secret}}
         ports:
         - name: http
           containerPort: 80

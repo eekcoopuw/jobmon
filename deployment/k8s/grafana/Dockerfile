@@ -6,4 +6,4 @@ FROM grafana/grafana:7.0.3
 RUN grafana-cli plugins install grafana-influxdb-flux-datasource 5.4.1
 
 # Just add some files to the grafana image
-ADD k8s/grafana/provisioning /etc/grafana/provisioning
+ADD ./deployment/k8s/grafana/provisioning /etc/grafana/provisioning

@@ -24,21 +24,22 @@ spec:
         command: ["jobmon"]
         args: ["start", "workflow_reaper"]
         env:
-        - name: EXTERNAL_DB_HOST
-          value: "{{db_host}}"
-        - name: DB_USER
-          value: "{{db_user}}"
-        - name: EXTERNAL_DB_PORT
-          value: "{{db_port}}"
-        - name: JOBMON_SERVICE_USER_PWD
-          value: "{{db_pass}}"
-        - name: JOBMON_PORT
-          value: "{{jobmon_port}}"
+        - name: SLACK_API_URL
+          valueFrom:
+            secretKeyRef:
+              key: SLACK_API_URL
+              name: {{rancher_slack_secret}}
+        - name: SLACK_CHANNEL_DEFAULT
+          valueFrom:
+            secretKeyRef:
+              key: SLACK_CHANNEL_DEFAULT
+              name: {{rancher_slack_secret}}
         - name: SLACK_TOKEN
-          value: "{{slack_token}}"
-        - name: WF_SLACK_CHANNEL
-          value: "{{wf_slack_channel}}"
-        - name: JOBMON_SERVER_FQDN
+          valueFrom:
+            secretKeyRef:
+              key: SLACK_TOKEN
+              name: {{rancher_slack_secret}}
+        - name: WEB_SERVICE_FQDN
           value: "traefik"
-        - name: JOBMON_SERVICE_PORT
+        - name: WEB_SERVICE_PORT
           value: "80"

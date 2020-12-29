@@ -11,9 +11,18 @@ pipeline {
     string(defaultValue: 'jobmon-dev-ips',
      description: 'Name of the MetalLB IP Pool you wish to get IPs from: https://stash.ihme.washington.edu/projects/ID/repos/metallb-scicomp/browse/k8s/scicomp-cluster-metallb.yml',
      name: 'METALLB_IP_POOL')
-    string(defaultValue: 'foo',
-     description: 'name of configmap to use for server variables',
-     name: 'K8S_CONFIGMAP')
+    string(defaultValue: 'jobmon-dev-db',
+     description: 'name of rancher secret to use for db variables',
+     name: 'RANCHER_DB_SECRET')
+    string(defaultValue: 'jobmon-slack',
+     description: 'name of rancher secret to use for slack variables',
+     name: 'RANCHER_SLACK_SECRET')
+    string(defaultValue: 'jobmon-qpid',
+     description: 'name of rancher secret to use for qpid variables',
+     name: 'RANCHER_QPID_SECRET')
+    string(defaultValue: 'c-99499:p-4h54h',
+     description: 'Rancher project must be created in the rancher web ui before running this job. Get this from the URL after you select the project in the rancher UI. Shouldnt change often',
+     name: 'RANCHER_PROJECT_ID')
   }
   triggers {
     // This cron expression runs seldom, or never runs, but having the value set
@@ -80,15 +89,15 @@ pipeline {
                                             passwordVariable: 'REG_PASSWORD')]) {
 
             sh '''#!/bin/bash
-            INI=${WORKSPACE}/jobmon/.jobmon.ini
-            rm $INI
-            echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
-            ${ACTIVATE} && nox --session distribute
-            PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
-            twine upload --repository-url $PYPI_URL \
-                         --username $REG_USERNAME \
-                         --password $REG_PASSWORD \
-                         ./dist/*
+              INI=${WORKSPACE}/jobmon/.jobmon.ini
+              rm $INI
+              echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
+              ${ACTIVATE} && nox --session distribute
+              PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
+              twine upload --repository-url $PYPI_URL \
+                           --username $REG_USERNAME \
+                           --password $REG_PASSWORD \
+                           ./dist/*
             '''
             script {
               env.JOBMON_VERSION = sh (
@@ -103,11 +112,11 @@ pipeline {
         }
       }
     }
-    stage ('Build Server Container') {
+    stage ('Build Server Containers') {
       steps {
         node('docker') {
           script {
-            env.CONTAINER_IMAGE = sh (
+            env.JOBMON_CONTAINER_URI = sh (
               script: '''#!/bin/bash
                 # check if dev is in the version string and pick a container name based on that
                 if [[ "$JOBMON_VERSION" =~ "dev" ]]
@@ -120,8 +129,12 @@ pipeline {
               ''',
               returnStdout: true
             ).trim()
+            env.GRAFANA_CONTAINER_URI = sh (
+              script: '''echo ${SCICOMP_DOCKER_REG_URL}/${K8S_NAMESPACE}-grafana:${BUILD_NUMBER}''',
+              returnStdout: true
+            ).trim()
           }
-          echo "Server Container Image=${env.CONTAINER_IMAGE}"
+          echo "Server Container Images:\nJobmon=${env.JOBMON_CONTAINER_URI}\nGrafana=${env.GRAFANA_CONTAINER_URI}"
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
@@ -129,10 +142,15 @@ pipeline {
             // this builds a requirements.txt with the correct jobmon version number and uses
             // it to build a dockerfile for the jobmon services
             sh '''#!/bin/bash
-            echo "jobmon==${JOBMON_VERSION}" > ${WORKSPACE}/requirements.txt
-            docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://${SCICOMP_DOCKER_REG_URL}"
-            docker build --no-cache -t "${CONTAINER_IMAGE}" -f ./deployment/k8s/Dockerfile .
-            docker push "${CONTAINER_IMAGE}"
+              # build jobmon container
+              echo "jobmon==${JOBMON_VERSION}" > ${WORKSPACE}/requirements.txt
+              docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://${SCICOMP_DOCKER_REG_URL}"
+              docker build --no-cache -t "${JOBMON_CONTAINER_URI}" -f ./deployment/k8s/Dockerfile .
+              docker push "${JOBMON_CONTAINER_URI}"
+
+              # build grafana container
+              docker build --no-cache -t "${GRAFANA_CONTAINER_URI}" -f ./deployment/k8s/Dockerfile .
+              docker push "${GRAFANA_CONTAINER_URI}"
             '''
           }
         }
@@ -141,7 +159,64 @@ pipeline {
     stage ('Deploy K8s') {
       steps {
         node('docker') {
-          echo "Server Container Image=${env.CONTAINER_IMAGE}"
+          // Scicomp kubernetes cluster container
+          withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
+                                variable: 'KUBECONFIG')]) {
+
+            sh '''#!/bin/bash
+              # Render each .yaml.j2 template in the k8s dir (return only the basename)
+              YASHA_CONTAINER="${INFRA_PUB_REG_URL}/yasha:latest"
+              docker pull $YASHA_CONTAINER
+              for TEMPLATE in $(find "${WORKSPACE}/deployment/k8s/" -maxdepth 1 -type f -name '*.yaml.j2' -printf "%f\n"|sort -n)
+              do
+                docker run \
+                --rm \
+                -v "${WORKSPACE}/deployment/k8s:/data" \
+                -t \
+                $YASHA_CONTAINER \
+                --jobmon_container_uri="${JOBMON_CONTAINER_URI}" \
+                --ip_pool="${METALLB_IP_POOL}" \
+                --namespace="${K8S_NAMESPACE}" \
+                --rancherproject="${RANCHER_PROJECT_ID}" \
+                --grafana_image="${GRAFANA_CONTAINER_URI}" \
+                --rancher_db_secret="${RANCHER_DB_SECRET}" \
+                --rancher_slack_secret="${RANCHER_SLACK_SECRET}" \
+                --rancher_qpid_secret="${RANCHER_QPID_SECRET}" \
+                /data/${TEMPLATE}
+              done
+
+              chown -R "$(id -u):$(id -g)" .
+
+              docker run -t \
+                --rm \
+                -v ${KUBECONFIG}:/root/.kube/config \
+                -v "${WORKSPACE}/deployment/k8s:/data" \
+                ${KUBECTL_CONTAINER} \
+                get namespace "${K8S_NAMESPACE}" ||
+                docker run -t \
+                  --rm \
+                  -v ${KUBECONFIG}:/root/.kube/config \
+                  -v "${WORKSPACE}/deployment/k8s:/data" \
+                  ${KUBECTL_CONTAINER} \
+                  apply \
+                  -f /data/01_namespace.yaml
+              # Remove the rendered namespace setup yaml before proceeding
+              rm -f ./deployment/k8s/01_namespace.yaml
+
+              log_info Deploying deployment and service configurations to k8s
+              for TEMPLATE in $(find "${WORKSPACE}/deployment/k8s/" -maxdepth 1 -type f -name '*.yaml' -printf "%f\n" |sort -n)
+              do
+                docker run -t \
+                --rm \
+                -v ${KUBECONFIG}:/root/.kube/config \
+                -v "${WORKSPACE}/deployment/k8s:/data" \
+                ${KUBECTL_CONTAINER} \
+                --namespace="${K8S_NAMESPACE}" \
+                apply \
+                -f /data/${TEMPLATE}
+              done
+            '''
+          }
         }
       }
     }
