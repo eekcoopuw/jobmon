@@ -24,7 +24,7 @@ pipeline {
   }
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
+    ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
   }
   stages {
     stage ('Get TARGET_IP address') {
@@ -135,8 +135,10 @@ pipeline {
   }
   post {
     always {
-      // Delete the workspace directory.
-      deleteDir()
+      node('docker') {
+        // Delete the workspace directory.
+        deleteDir()
+      }
     }
   }
 }
