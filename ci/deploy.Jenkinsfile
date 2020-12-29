@@ -24,7 +24,7 @@ pipeline {
   }
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
+    ACTIVATE = ". /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
   }
   stages {
     stage ('Get TARGET_IP address') {
@@ -83,7 +83,6 @@ pipeline {
             // sh '''git tag -l | xargs git tag -d || true'''
             checkout scm
             sh '''
-            ls /mnt/team/scicomp/pub/jenkins/miniconda3
             INI=${WORKSPACE}/jobmon/.jobmon.ini
             rm $INI
             echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
@@ -101,33 +100,39 @@ pipeline {
     stage ('Build Server Container') {
       steps {
         node('docker') {
-
+          script {
+            sh "${ACTIVATE} && nox --session freeze"
+            env.JOBMON_VERSION = sh (
+                script: '''
+                  grep "jobmon=="" ${WORKSPACE}/requirements.txt | sed "s/^jobmon==//"")
+                ''',
+                returnStdout: true
+            ).trim()
+          }
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
                                             passwordVariable: 'REG_PASSWORD')]) {
 
             // sh '''git tag -l | xargs git tag -d || true'''
-            sh '''
-            # this builds a requirements.txt with the correct jobmon version number
-            ${ACTIVATE} && nox --session freeze
+            // this builds a requirements.txt with the correct jobmon version number
 
+            sh '''
             echo "$(cat ${WORKSPACE}/requirements.txt)"
 
             # now check if dev is in the version string and pick a container name based on that
-            JOBMON_VERSION=$(grep "jobmon==" ${WORKSPACE}/requirements.txt | sed 's/^jobmon==//')
-            if [[ "$JOBMON_VERSION" == *"$dev"* ]]
+            if [[ "${JOBMON_VERSION}" == *"$dev"* ]]
             then
               CONTAINER_NAME="jobmon_dev"
             else
               CONTAINER_NAME="jobmon"
             fi
             DOCKER_REG_URL="docker-scicomp.artifactory.ihme.washington.edu"
-            CONTAINER_IMAGE=${DOCKER_REG_URL}/${CONTAINER_NAME}:${JOBMON_VERSION}
+            CONTAINER_IMAGE=$DOCKER_REG_URL/$CONTAINER_NAME:${JOBMON_VERSION}
 
-            docker login -u "${DOCKER_REG_USERNAME}" -p "${DOCKER_REG_PASSWORD}" https://"${DOCKER_REG_URL}"
-            docker build --no-cache -t "${CONTAINER_IMAGE}" -f ./deployment/k8s/Dockerfile .
-            docker push "${IMAGE_NAME}"
+            docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$DOCKER_REG_URL"
+            docker build --no-cache -t "$CONTAINER_IMAGE" -f ./deployment/k8s/Dockerfile .
+            docker push "$IMAGE_NAME"
             '''
           }
         }
