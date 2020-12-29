@@ -116,11 +116,12 @@ pipeline {
                 else
                   CONTAINER_NAME="jobmon"
                 fi
-                echo "$DOCKER_REG_URL/$CONTAINER_NAME:${JOBMON_VERSION}"
+                echo "${DOCKER_REG_URL}/$CONTAINER_NAME:${JOBMON_VERSION}"
               ''',
               returnStdout: true
             ).trim()
           }
+          echo "Server Container Image=${env.CONTAINER_IMAGE}"
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
@@ -134,7 +135,6 @@ pipeline {
             docker push "${CONTAINER_IMAGE}"
             '''
           }
-          echo "Server Container Image=${env.CONTAINER_IMAGE}"
         }
       }
     }
