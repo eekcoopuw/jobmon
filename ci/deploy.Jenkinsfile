@@ -24,7 +24,7 @@ pipeline {
   }
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    ACTIVATE = ". /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base &> /dev/null"
+    ACTIVATE = ". /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
 
   }
