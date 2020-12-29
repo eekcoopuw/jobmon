@@ -21,7 +21,7 @@ spec:
       containers:
       - image: {{jobmon_container_uri}}
         name: jobmon-qpid-integration
-        command: ["jobmon"]
+        command: ["jobmon_server"]
         args: ["start", "qpid_integration"]
         env:
         - name: DB_HOST

@@ -21,7 +21,7 @@ spec:
       containers:
       - image: {{jobmon_container_uri}}
         name: jobmon-workflow-reaper
-        command: ["jobmon"]
+        command: ["jobmon_server"]
         args: ["start", "workflow_reaper"]
         env:
         - name: SLACK_API_URL
