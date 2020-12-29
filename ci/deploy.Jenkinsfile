@@ -93,6 +93,14 @@ pipeline {
                          --password $REG_PASSWORD \
                          ./dist/*
             '''
+            script {
+              env.JOBMON_VERSION = sh (
+                  script: '''
+                  basename $(find ./dist/jobmon-*.tar.gz) | sed "s/jobmon-\\(.*\\)\\.tar\\.gz/\\1/"
+                  ''',
+                  returnStdout: true
+              ).trim()
+            }
           }
         }
       }
@@ -100,15 +108,6 @@ pipeline {
     stage ('Build Server Container') {
       steps {
         node('docker') {
-          script {
-            sh "${ACTIVATE} && nox --session freeze"
-            env.JOBMON_VERSION = sh (
-                script: '''
-                  grep "jobmon=="" ${WORKSPACE}/requirements.txt | sed "s/^jobmon==//"")
-                ''',
-                returnStdout: true
-            ).trim()
-          }
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
@@ -118,7 +117,7 @@ pipeline {
             // this builds a requirements.txt with the correct jobmon version number
 
             sh '''
-            echo "$(cat ${WORKSPACE}/requirements.txt)"
+            echo "jobmon=${JOBMON_VERSION}" > ${WORKSPACE}/requirements.txt"
 
             # now check if dev is in the version string and pick a container name based on that
             if [[ "${JOBMON_VERSION}" == *"$dev"* ]]
