@@ -187,6 +187,8 @@ pipeline {
 
               chown -R "$(id -u):$(id -g)" .
 
+              KUBECTL_CONTAINER="${INFRA_PUB_REG_URL}/kubectl:latest"
+              docker pull $KUBECTL_CONTAINER
               docker run -t \
                 --rm \
                 -v ${KUBECONFIG}:/root/.kube/config \
