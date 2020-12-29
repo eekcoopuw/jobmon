@@ -106,40 +106,36 @@ pipeline {
     stage ('Build Server Container') {
       steps {
         node('docker') {
+          script {
+            env.CONTAINER_IMAGE = sh (
+              script: '''#!/bin/bash
+                # check if dev is in the version string and pick a container name based on that
+                if [[ "$JOBMON_VERSION" =~ "dev" ]]
+                then
+                  CONTAINER_NAME="jobmon_dev"
+                else
+                  CONTAINER_NAME="jobmon"
+                fi
+                DOCKER_REG_URL="docker-scicomp.artifactory.ihme.washington.edu"
+                export CONTAINER_IMAGE=$DOCKER_REG_URL/$CONTAINER_NAME:${JOBMON_VERSION}
+              ''',
+              returnStdout: true
+            ).trim()
+          }
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
                                             passwordVariable: 'REG_PASSWORD')]) {
-
-            // sh '''git tag -l | xargs git tag -d || true'''
-            // this builds a requirements.txt with the correct jobmon version number
-
+            // this builds a requirements.txt with the correct jobmon version number and uses
+            // it to build a dockerfile for the jobmon services
             sh '''#!/bin/bash
             echo "jobmon==${JOBMON_VERSION}" > ${WORKSPACE}/requirements.txt
-
-            # now check if dev is in the version string and pick a container name based on that
-            if [[ "$JOBMON_VERSION" =~ "dev" ]]
-            then
-              CONTAINER_NAME="jobmon_dev"
-            else
-              CONTAINER_NAME="jobmon"
-            fi
-            DOCKER_REG_URL="docker-scicomp.artifactory.ihme.washington.edu"
-            export CONTAINER_IMAGE=$DOCKER_REG_URL/$CONTAINER_NAME:${JOBMON_VERSION}
-
             docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$DOCKER_REG_URL"
             docker build --no-cache -t "${CONTAINER_IMAGE}" -f ./deployment/k8s/Dockerfile .
             docker push "${CONTAINER_IMAGE}"
             '''
           }
-          script {
-            env.CONTAINER_IMAGE = sh (
-              script: 'echo "${CONTAINER_IMAGE}"',
-              returnStdout: true
-            ).trim()
-          }
           echo "Server Container Image=${env.CONTAINER_IMAGE}"
-
         }
       }
     }
