@@ -16,7 +16,7 @@ config = QPIDConfig.from_defaults()
 
 def _get_pulling_interval():
     """This method returns the current app. The main purpose is for easy patch in testing."""
-    return config.qpid_pulling_interval
+    return config.qpid_polling_interval
 
 
 def _update_maxpss_in_db(ex_id: int, pss: int, session: Session):
