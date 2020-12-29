@@ -24,7 +24,9 @@ pipeline {
   }
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    ACTIVATE = ". /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
+    ACTIVATE = ". /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base &> /dev/null"
+    SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
+
   }
   stages {
     stage ('Get TARGET_IP address') {
@@ -72,13 +74,11 @@ pipeline {
     stage ('Build Python Distribution') {
       steps {
         node('docker') {
-
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
                                             passwordVariable: 'REG_PASSWORD')]) {
 
-            checkout scm
             sh '''#!/bin/bash
             INI=${WORKSPACE}/jobmon/.jobmon.ini
             rm $INI
@@ -116,8 +116,7 @@ pipeline {
                 else
                   CONTAINER_NAME="jobmon"
                 fi
-                DOCKER_REG_URL="docker-scicomp.artifactory.ihme.washington.edu"
-                export CONTAINER_IMAGE=$DOCKER_REG_URL/$CONTAINER_NAME:${JOBMON_VERSION}
+                echo "$DOCKER_REG_URL/$CONTAINER_NAME:${JOBMON_VERSION}"
               ''',
               returnStdout: true
             ).trim()
@@ -130,7 +129,7 @@ pipeline {
             // it to build a dockerfile for the jobmon services
             sh '''#!/bin/bash
             echo "jobmon==${JOBMON_VERSION}" > ${WORKSPACE}/requirements.txt
-            docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$DOCKER_REG_URL"
+            docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://${SCICOMP_DOCKER_REG_URL}"
             docker build --no-cache -t "${CONTAINER_IMAGE}" -f ./deployment/k8s/Dockerfile .
             docker push "${CONTAINER_IMAGE}"
             '''
