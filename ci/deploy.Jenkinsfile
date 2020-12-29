@@ -120,8 +120,7 @@ pipeline {
             echo "jobmon==${JOBMON_VERSION}" > ${WORKSPACE}/requirements.txt
 
             # now check if dev is in the version string and pick a container name based on that
-            if [[ "$JOBMON_VERSION" =~ "dev" ]]
-            then
+            if [[ "$JOBMON_VERSION" == *"dev"* ]]; then
               CONTAINER_NAME="jobmon_dev"
             else
               CONTAINER_NAME="jobmon"
