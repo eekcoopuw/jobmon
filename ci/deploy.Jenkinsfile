@@ -131,7 +131,7 @@ pipeline {
 
             docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$DOCKER_REG_URL"
             docker build --no-cache -t "$CONTAINER_IMAGE" -f ./deployment/k8s/Dockerfile .
-            docker push "$IMAGE_NAME"
+            docker push "$CONTAINER_IMAGE"
             '''
           }
         }
