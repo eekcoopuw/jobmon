@@ -16,4 +16,5 @@ RUN chmod +x /app/prestart.sh
 WORKDIR /app
 
 # PIPS
+RUN pip install mysqlclient
 RUN pip install -r /app/requirements.txt --extra-index-url https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple --trusted-host artifactory.ihme.washington.edu
