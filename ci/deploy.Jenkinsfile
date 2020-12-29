@@ -83,6 +83,8 @@ pipeline {
             // sh '''git tag -l | xargs git tag -d || true'''
             checkout scm
             sh '''
+            ls /homes/svcscicompci/miniconda3/bin/activate
+            ls /mnt/team/scicomp/pub/jenkins/miniconda3
             INI=${WORKSPACE}/jobmon/.jobmon.ini
             rm $INI
             echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
