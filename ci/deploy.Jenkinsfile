@@ -134,7 +134,7 @@ pipeline {
           }
           script {
             env.CONTAINER_IMAGE = sh (
-              script: 'echo "${CONTAINER_IMAGE}',
+              script: 'echo "${CONTAINER_IMAGE}"',
               returnStdout: true
             ).trim()
           }
