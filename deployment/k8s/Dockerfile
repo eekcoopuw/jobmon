@@ -5,16 +5,15 @@ ENV NGINX_WORKER_PROCESSES auto
 ENV UWSGI_INI /app/uwsgi.ini
 
 # jobmon packaging and dependencies
-COPY ./jobmon/requirements.txt /app/requirements.txt
+COPY ./requirements.txt /app/requirements.txt
 
 # server configs
-COPY ./deployment/config/prestart.sh /app/prestart.sh
-COPY ./deployment/config/nginx_app.conf /app/nginx_app.conf
-COPY ./deployment/config//uwsgi.ini /app/uwsgi.ini
+COPY ./deployment/config/app/prestart.sh /app/prestart.sh
+COPY ./deployment/config/app/nginx_app.conf /app/nginx_app.conf
+COPY ./deployment/config/app/uwsgi.ini /app/uwsgi.ini
 
 RUN chmod +x /app/prestart.sh
 WORKDIR /app
 
 # PIPS
-RUN pip install cluster_utils --extra-index-url https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple --trusted-host artifactory.ihme.washington.edu
-RUN pip install -r ./requirements.txt
+RUN pip install -r /app/requirements.txt --extra-index-url https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple --trusted-host artifactory.ihme.washington.edu
