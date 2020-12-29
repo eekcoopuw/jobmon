@@ -116,7 +116,7 @@ pipeline {
                 else
                   CONTAINER_NAME="jobmon"
                 fi
-                echo "${DOCKER_REG_URL}/$CONTAINER_NAME:${JOBMON_VERSION}"
+                echo "${SCICOMP_DOCKER_REG_URL}/$CONTAINER_NAME:${JOBMON_VERSION}"
               ''',
               returnStdout: true
             ).trim()
