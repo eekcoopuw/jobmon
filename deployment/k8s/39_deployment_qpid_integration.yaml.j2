@@ -22,7 +22,7 @@ spec:
       - image: {{jobmon_container_uri}}
         name: jobmon-qpid-integration
         command: ["jobmon_server"]
-        args: ["start", "qpid_integration"]
+        args: ["qpid_integration", "start"]
         env:
         - name: DB_HOST
           valueFrom:

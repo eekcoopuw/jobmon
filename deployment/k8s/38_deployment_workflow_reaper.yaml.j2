@@ -22,7 +22,7 @@ spec:
       - image: {{jobmon_container_uri}}
         name: jobmon-workflow-reaper
         command: ["jobmon_server"]
-        args: ["start", "workflow_reaper"]
+        args: ["workflow_reaper", "start"]
         env:
         - name: SLACK_API_URL
           valueFrom:
