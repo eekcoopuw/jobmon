@@ -35,6 +35,7 @@ pipeline {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     ACTIVATE = ". /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
+    INFRA_PUB_REG_URL="docker-infrapub.artifactory.ihme.washington.edu"
 
   }
   stages {
@@ -48,8 +49,7 @@ pipeline {
             // create .jobmon.ini
             sh '''#!/bin/bash
               # pull kubectl container
-              INFRA_PUB_REG_URL="docker-infrapub.artifactory.ihme.washington.edu"
-              KUBECTL_CONTAINER="$INFRA_PUB_REG_URL/kubectl:latest"
+              KUBECTL_CONTAINER="${INFRA_PUB_REG_URL}/kubectl:latest"
               docker pull $KUBECTL_CONTAINER
 
               # get metallb configmap
