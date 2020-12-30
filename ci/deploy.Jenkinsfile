@@ -228,9 +228,9 @@ pipeline {
           sh '''#!/bin/bash
             CONDA_DIR=${WORKSPACE}/.conda_env/load_test
             ${ACTIVATE} && conda create --prefix $CONDA_DIR python==3.7
-            ${ACTIVATE} && conda activate $CONDA_DIR
-            pip install jobmon==${JOBMON_VERSION}
-            python ./deployment/tests/six_job_test.py
+            ${ACTIVATE} && conda activate $CONDA_DIR && \
+              pip install jobmon==${JOBMON_VERSION} && \
+              python ./deployment/tests/six_job_test.py
           '''
         }
       }
