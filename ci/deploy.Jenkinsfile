@@ -225,6 +225,7 @@ pipeline {
     stage ('Test Deployment') {
       steps {
         node('qlogin') {
+          checkout scm
           sh '''#!/bin/bash
             CONDA_DIR=${WORKSPACE}/.conda_env/load_test
             ${QLOGIN_ACTIVATE} && conda create --prefix $CONDA_DIR python==3.7
