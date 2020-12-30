@@ -88,7 +88,6 @@ pipeline {
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
                                             passwordVariable: 'REG_PASSWORD')]) {
-
             sh '''#!/bin/bash
               INI=${WORKSPACE}/jobmon/.jobmon.ini
               rm $INI
@@ -231,7 +230,7 @@ pipeline {
             ${QLOGIN_ACTIVATE} && conda create --prefix $CONDA_DIR python==3.7
             ${QLOGIN_ACTIVATE} && conda activate $CONDA_DIR && \
               pip install jobmon==${JOBMON_VERSION} && \
-              python ./deployment/tests/six_job_test.py
+              python ${WORKSPACE}/deployment/tests/six_job_test.py
           '''
         }
       }
