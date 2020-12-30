@@ -40,8 +40,8 @@ class ServerCLI(CLI):
             subprocess.run("/entrypoint.sh")
             subprocess.run("/start.sh")
         else:
-            raise ValueError('Invalid command choice. Options are (test, start), got '
-                             f'({args.command})')
+            raise ValueError('Invalid command choice. Options are (test, start and '
+                             f'start_uwsgi), got ({args.command})')
 
     def workflow_reaper(self, args: configargparse.Namespace) -> None:
         '''workflow reaper entrypoint logic'''

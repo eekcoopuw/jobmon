@@ -8,7 +8,6 @@ ENV UWSGI_INI /app/uwsgi.ini
 COPY ./jobmon /app/jobmon
 COPY ./setup.cfg /app/setup.cfg
 COPY ./setup.py /app/setup.py
-COPY ./deployment/docker-compose/pyproject.toml /app/pyproject.toml
 COPY ./README.md /app/README.md
 COPY ./LICENSE /app/LICENSE
 COPY ./MANIFEST.in /app/MANIFEST.in
@@ -19,7 +18,7 @@ COPY ./deployment/config/app/uwsgi.ini /app/uwsgi.ini
 COPY ./deployment/docker-compose/wait-for-tables.sh  /app/wait-for-tables.sh
 COPY ./deployment/docker-compose/setup-client-container.sh /app/setup-client-container.sh
 
-RUN chmod +x /app/setup.py /app/pyproject.toml /app/wait-for-tables.sh /app/setup-client-container.sh
+RUN chmod +x /app/setup.py /app/wait-for-tables.sh /app/setup-client-container.sh
 WORKDIR /app
 
 # PIPS
