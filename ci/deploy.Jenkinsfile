@@ -33,7 +33,8 @@ pipeline {
   }
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    ACTIVATE = ". /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
+    DOCKER_ACTIVATE = ". /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
+    QLOGIN_ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
     INFRA_PUB_REG_URL="docker-infrapub.artifactory.ihme.washington.edu"
 
@@ -92,7 +93,7 @@ pipeline {
               INI=${WORKSPACE}/jobmon/.jobmon.ini
               rm $INI
               echo "[client]\nweb_service_fqdn=${TARGET_IP}\nweb_service_port=80" > $INI
-              ${ACTIVATE} && nox --session distribute
+              ${DOCKER_ACTIVATE} && nox --session distribute
               PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
               twine upload --repository-url $PYPI_URL \
                            --username $REG_USERNAME \
@@ -227,8 +228,8 @@ pipeline {
         node('qlogin') {
           sh '''#!/bin/bash
             CONDA_DIR=${WORKSPACE}/.conda_env/load_test
-            ${ACTIVATE} && conda create --prefix $CONDA_DIR python==3.7
-            ${ACTIVATE} && conda activate $CONDA_DIR && \
+            ${QLOGIN_ACTIVATE} && conda create --prefix $CONDA_DIR python==3.7
+            ${QLOGIN_ACTIVATE} && conda activate $CONDA_DIR && \
               pip install jobmon==${JOBMON_VERSION} && \
               python ./deployment/tests/six_job_test.py
           '''
