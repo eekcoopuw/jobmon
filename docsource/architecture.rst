@@ -222,7 +222,7 @@ What is a Component?
 Components are mini-products. Control and responsibility are their defining characteristics.
 
 In the source control system a component is one directory tree.
-It contains every kind of code needed for that component: python, sql, javascript, etc.
+It contains every kind of code needed for that component: Python, sql, javascript, etc.
 
 Suppose we needed to add authentication and authorisation to the rate limiting feature in jobmon.
 For this example, also assume that we could not find an existing external system for people,
@@ -258,7 +258,7 @@ QPIDF, UGE, the organizational component described above.
 Components in Guppy
 ===================
 
-The python packages are currently organized according to the deployment architecture,
+The Python packages are currently organized according to the deployment architecture,
 not by the major noun, although there is strong correlation.
 
 Perhaps components make sense within a deployment unit,
@@ -276,7 +276,7 @@ UML diagrams to represent process view include the sequence diagram, communicati
 
 The Python Client Path
 ======================
-TO DO Trace the call from the User's python code:
+TO DO Trace the call from the User's Python code:
 1. through jobmons Python library,
 #. HTTP to Kubernetees
 # Metal-lb
@@ -334,40 +334,45 @@ Deployment View
 
 *Which pieces of code are deployed where.*
 
-Jobmon is deployed in three place:
+Jobmon is deployed in three places:
+
 - Client, in the same process as the Python control script
 - Worker-node, a wrapper container around the actual UGE Task
 - Server, as a set of Kubernetes services, defined below
 
 Python Client
 =============
-This ia standard python wheel that is pip-installable. At run-time it is within the
-Application's Python process and is called directly. It communicates via http to the
-kubernetes services.
+This ia standard Python wheel that is pip-installable. At run-time the Python client is within the
+Application's Python process and is just an ordinary library. It communicates via http to the
+central kubernetes services.
 
 *Strategies aka Executors*
 
 The strategy package is part of the client. It represents the Cluster Operating system.
 Jobmon has three at present:
+
 - UGE (aka SGE)
 - Sequential (one job after another), and
 - Multiprocessing (jobs launched using Python MP)
+- Dummy, which does nothing and is used to test Jobmon's internal machinery.
 
-Only the UGE scheduler is used in production, the other two are useful for testing, and for
+Only the UGE scheduler is used in production, the others are useful for testing, and for
 the upcoming Jobmon-on-a-laptop deployment.
 
 Be very aware of the difference between where:
-1. Jobmon services are deployed (kubernetes or docker), are
-2. Where the jobs it controls are running.
 
-**These are two separate axes:
-(Kubernetes, Docker) CROSS (UGE, SLURM, Azure, Python-Sequential, Python-MP)**
+1. Where the Jobmon services are deployed (kubernetes or docker), and
+2. Where the jobs that Jobmon controls are running.
+
+**These are two separate axes:**
+
+**(Kubernetes, Docker) CROSS (UGE, SLURM, Azure, Python-Sequential, Python-MP, Dummy)**
 
 R-Client & Executor Service
 ===========================
-As of January 202 we are experimenting with an R-client that calls Python immediately
+As of January 2021 we are experimenting with an R-client that calls Python immediately
 via the R reticulate package. Each Python API call has an R equivalent.
-The python interpreter runs in the same process as the R interpreter, so values are passed
+The Python interpreter runs in the same process as the R interpreter, so values are passed
 directly in memory. The translation overhead is not known.
 
 The second step will be to separate all the machinery that is currently in the Python client
@@ -379,9 +384,8 @@ a highly-scaled kubernetes container.
 
 Worker-node
 ===========
-The worker_node code is inside the Client package, it should move.
-The client package mostly has the code that runs inside the end-users python process,
-but it also contains the worker-node code.
+The worker_node code is inside the Client package, it should move into its own package.
+
 If Jobmon was only on a UGE then move it to a new top-level package, named worker-node.
 However, UGE and Slurm can probably share the same execution_wrapper because they both run on Linux.
 Azure needs a different execution wrapper.
@@ -391,19 +395,20 @@ Therefore this package will be moved as part of the port to Azure.
 Server
 ======
 
-The server pacakge contains the kubernetes service, plus the model objects for communicating
+The server package contains the kubernetes service, plus the model objects for communicating
 to the mysql database.
 
 As of 2.0 (Guppy) the Jobmon production server is deployed as a series of Kubernetes containers.
-Prior to 1.0.3 Jobmon serves were deplpoyed using docker. That capability will return in 2.2 as
-the "Bootable on a Laptop" feature.
+Prior to 1.0.3 Jobmon, services were deployed using docker. That docker capability will return
+in 2.2 as the "Bootable on a Laptop" feature.
+
 Each container is responsible for the routes from one external system or client.
-The containers are organized according to the load they carry, and will scale independently:
+The containers are organized according to the load they carry, so that they scale independently:
 
 +-------------------+-----------------------------------------------------+-------------------+
 | Container/Package | Description and Comments                            | Domain Objects    |
 +===================+=====================================================+===================+
-| jobmon-client     | Handles requests from the the python client inside  | Tool, Workflow    |
+| jobmon-client     | Handles requests from the the Python client inside  | Tool, Workflow    |
 |                   | the application code.Therefore it creates workflows | Task, Attributes  |
 |                   | and tasks. Basically a CRUD service.                | TaskTemplate      |
 +-------------------+-----------------------------------------------------+-------------------+
@@ -420,6 +425,8 @@ The containers are organized according to the load they carry, and will scale in
 +-------------------+-----------------------------------------------------+-------------------+
 | jobmon-qpid-      | Calls QPID to get updated TaskInstance resource     |    TaskInstance   |
 | integration       | usage. UGE qacct returns bad information.           |                   |
++-------------------+-----------------------------------------------------+-------------------+
+| workflow-reaper   | Continually check for lost & dead workflows         |    WorkflowRun    |
 +-------------------+-----------------------------------------------------+-------------------+
 
 
@@ -726,7 +733,7 @@ Take a simple Jobmon request: we want to manually set the state of a workflow ru
   - If all containers are at high capacity, a new container is created.
 4. uWSGI, running inside the container, assigns resources to handle the request.
   - The main process either assigns a worker to the request, or instantiates a new worker process to handle the request.
-5. The requested python/SQL logic is executed within the worker process, and the returned data is sent back to the main process.
+5. The requested Python/SQL logic is executed within the worker process, and the returned data is sent back to the main process.
 6. The main process sends the returned data back to the client application.
 
 
