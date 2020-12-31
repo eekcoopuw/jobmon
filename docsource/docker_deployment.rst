@@ -7,7 +7,7 @@ Basic Steps
 2. Make sure you have docker installed on your local machine
 3. From the root of the jobmon directory, run::
 
-    docker-compose -f deployment/docker-compose/docker-compose.yml.local_deploy --env-file deployment/docker-compose/.jobmon.ini up -d
+    docker-compose -f deployment/docker-compose/docker-compose.yml.local_db_client_services --env-file deployment/docker-compose/.jobmon.ini up -d
 
 4. Once the containers are up and running you can get into the client container to begin running your code by running::
 
