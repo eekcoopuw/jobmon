@@ -1,4 +1,4 @@
-On Premise Kubernetes Deployments
+On-Premise Kubernetes Deployments
 =================================
 
 Deployment on new cluster (From scratch)

@@ -6,14 +6,15 @@
 Jobmon
 ######
 
-The jobmon package intends to provide simple, central monitoring of statuses
-and errors encountered by distributed tasks. It seeks to easily drop-in
-to existing code bases without significant refactoring.
+Jobmon is a Scientific Workflow Management system developed at IHME< specifically for IHME's
+needs. Jobmon aims to reduce human pain by providing :
+- an easy to use Python API that matches existing code patterns
+- centralized monitoring of jobs, their status and errors
+- automatic retries to protect against random cluster failures
+- automatic retries following a resource failures, e.g. re-running a job with increased memory
+- whole-of-application resumes to handle missing data or inflight code fixes
+- fine-grained job dependencies
 
-In addition to simple monitoring, it provides utilities for managing a graph of
-interrelated jobs. It can manage the sequencing of job execution based on the
-interdependencies you declare and can retry jobs that might fail due to random
-cluster instability.
 
 
 Table of Contents
@@ -25,13 +26,12 @@ Table of Contents
     quickstart
     glossary
     advanced_dependencies
-    databases
-    design_notes
-    API Reference <modules>
     architecture
+    databases
     kubernetes_deployment
     tests
-    azure
+    API Reference <modules>
+    experimental_azure_kubernetes_deployment
 
 
 Indices and tables

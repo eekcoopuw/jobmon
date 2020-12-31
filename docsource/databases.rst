@@ -1,12 +1,36 @@
 Database Deployments
-#################
+####################
+
+Beginning with 1.1, each major release has had one database shared between all the dot releases.
+For example, 1.1.0 through 1.1.5 all share the same database. 2.0.0 through 2..0.4 share the
+same database.
+
+Prior to 1.1 each dot release usually had its own database.
+From 2.0 onwards, the database is on a separate VM from the services.
+The mysql database runs as a docker container, in fact the only docker container on that host.
+Therefore it can be configured to use 80% of the memory for its buffers, and all of the threads.
+
+The data is mounted on a persistent storage volume, mounted to that container.
+It is persistent and therefore is not deleted when the container is stopped, or if the images
+are pruned.
+
+Critical Database Config Values
+*******************************
+
+  +------------------+------------------------+
+  + Setting          + Value                  +
+  +==================+========================+
+  + WAIT_TIMEOUT     +  600                   +
+  +------------------+------------------------+
+
+
 
 Using mysqldump to copy a database
 **********************************
 
 On the cluster, run a command like the following:
-
-  mysqldump -h jobmon-p01.ihme.washington.edu --port 3305 -u docker -p docker --database docker  > dbs_3305_dump.sql
+::
+  mysqldump -h jobmon-p01.ihme.washington.edu --port 3305 -u docker -p docker --database docker > dbs_3305_dump.sql
 
 
 Spinning down a database
@@ -42,12 +66,4 @@ Make sure the database has been copied/backed up before doing the next two steps
 Historical Port and Host Versions
 *********************************
 Can be found on the hub at https://hub.ihme.washington.edu/display/DataScience/Jobmon+Version+Record
-
-Steps to Deploy Services
-************************
-Can be found on the hub at https://hub.ihme.washington.edu/display/DataScience/Jobmon+Deployment
-
-Deployment architecture
-***********************
-.. image:: images/deployment_architecture.png
 

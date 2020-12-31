@@ -43,7 +43,7 @@ setup(
     description='A logging and dependency management utility for batch computation',
     url='https://stash.ihme.washington.edu/projects/CC/repos/jobmon',
     author='IHME SciComp',
-    author_email=('gphipps@uw.edu, mlsandar@uw.edu, cpinho@uw.edu, tomflem@uw.edu'),
+    author_email=('gphipps@uw.edu, mlsandar@uw.edu, mm7148@uw.edu, limingxu@uw.edu, everdyke@uw.edu, dhs2018@uw.edu'),
     install_requires=install_requires,
     extras_require={
         'test': test_requires,

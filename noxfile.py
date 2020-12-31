@@ -82,7 +82,7 @@ def docs(session: Session) -> None:
     """Build the documentation."""
     session.install("-e", ".[docs]")
     session.run('sphinx-apidoc', '-o', 'docsource', 'jobmon')
-    session.run("sphinx-build", "docsource", "docsource/_build")
+    session.run("sphinx-build", "docsource", "out/_html")
 
 
 @nox.session(python=python, venv_backend="conda")

@@ -1,7 +1,7 @@
-Example for How to Use Jobmon for Advanced Dependencies
-*******************************************************
+Advanced Task Dependencies
+**************************
 
-For this example, we'll use a slighly simplified version of the Burdenator which has five
+For this example, we'll use a slightly simplified version of the Burdenator which has five
 "phases": most-detailed, pct-change, loc-agg, cleanup, and upload. To reduce runtime,
 we want to link up each job only to the previous jobs that it requires, not to every job
 in that phase. The parallelization strategies for each phase are a little different,

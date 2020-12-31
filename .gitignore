@@ -21,7 +21,7 @@ __pycache__
 .mypy_cache
 
 # Ignore build artifacts
-/docsource/_build
+/out
 
 .idea
 
