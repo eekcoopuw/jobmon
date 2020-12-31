@@ -1,6 +1,5 @@
-from cluster_utils.io import makedirs_safely
-
-from jobmon.client.swarm.executors import sge_utils as sge
+from jobmon.client.execution.strategies.sge.sge_executor import makedirs_safely
+from jobmon.client.execution.strategies.sge import sge_utils as sge
 from tests.mock_sleep_and_write_task import SleepAndWriteFileMockTask
 
 

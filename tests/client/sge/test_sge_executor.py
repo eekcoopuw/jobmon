@@ -90,7 +90,8 @@ def test_build_qsub_command():
             "ihme_general   -w e  -V") in r
     assert "\"date\"" in r
     # dir
-    with patch("cluster_utils.io.makedirs_safely") as m_makedirs_safely:
+    with patch("jobmon.client.execution.strategies.sge.sge_executor.makedirs_safely") as\
+            m_makedirs_safely:
         m_makedirs_safely.side_effect = mock_do_nothing
         r = SGEExecutor()._build_qsub_command(base_cmd="date",
                                               name="test",
@@ -108,7 +109,8 @@ def test_build_qsub_command():
                 "-l h_rt=10000 -P proj_test -e ~ -o ~ -w e  -V") in r
         assert "\"date\"" in r
         # context_args
-        with patch("cluster_utils.io.makedirs_safely") as m_makedirs_safely:
+        with patch("jobmon.client.execution.strategies.sge.sge_executor.makedirs_safely") as \
+                m_makedirs_safely:
             m_makedirs_safely.side_effect = mock_do_nothing
             r = SGEExecutor()._build_qsub_command(base_cmd="date",
                                                   name="test",

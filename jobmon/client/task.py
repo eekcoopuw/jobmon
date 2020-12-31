@@ -27,8 +27,6 @@ class Task:
         restrictions SGE places on job names. The list of illegal characters might not be
         complete, I could not find an official list.
 
-        TBD This should probably be moved to the cluster_utils package
-
         Must:
           - Not be null or the empty string
           - being with a digit
