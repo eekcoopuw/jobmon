@@ -72,7 +72,7 @@ setup(
     setup_requires=["setuptools_scm"],
     use_scm_version={'local_scheme': local_scheme,
                      'write_to': 'jobmon/_version.py',
-                     'fallback_version': '2.0.3'},
+                     'fallback_version': '0.0.0'},
 
     entry_points={
         'console_scripts': [
