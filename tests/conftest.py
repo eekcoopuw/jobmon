@@ -52,7 +52,6 @@ def boot_db() -> dict:
     updates_dir = os.path.join(here, "..", "deployment/config/db/upgrade")
 
     create_files = glob.glob(os.path.join(create_dir, "*.sql"))
-    create_files.extend(glob.glob(os.path.join(updates_dir, "upgrade002-Hyrax.sql")))
 
     for file in sorted(create_files):
         edb.execute_sql_script(file)
