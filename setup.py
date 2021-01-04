@@ -1,5 +1,9 @@
-from setuptools import setup, find_packages
+from glob import glob
+from os.path import basename
+from os.path import splitext
 
+from setuptools import setup
+from setuptools import find_packages
 
 INSTALL_REQUIRES = [
     'configargparse',
@@ -66,12 +70,15 @@ setup(
         'docs': DOCS_REQUIRES,
     },
 
-    packages=find_packages(),
+    packages=find_packages('src'),
+    package_dir={'': 'src'},
+    py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
     include_package_data=True,
+    zip_safe=False,
 
     setup_requires=["setuptools_scm"],
     use_scm_version={'local_scheme': local_scheme,
-                     'write_to': 'jobmon/_version.py',
+                     'write_to': 'src/jobmon/_version.py',
                      'fallback_version': '0.0.0'},
 
     entry_points={

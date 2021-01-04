@@ -9,7 +9,7 @@ from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 path_to_file = os.path.dirname(__file__)
 
 
-def mock_do_nothing():
+def mock_do_nothing(d):
     """This is an empty method used for mock"""
     pass
 
@@ -209,6 +209,7 @@ def test_workflow(db_cfg, client_env):
 
 @pytest.mark.smoketest
 @pytest.mark.systemtest
+@pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
 def test_workflow_timeout(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
                                                                        Workflow)
