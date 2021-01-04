@@ -58,7 +58,7 @@ pipeline {
             env.TARGET_IP = sh (
               script: '''#!/bin/bash
                          . ${WORKSPACE}/ci/deploy_utils.sh
-                         get_metallb_ip "${METALLB_IP_POOL}" ${WORKSPACE}
+                         get_metallb_ip_from_cfg "${METALLB_IP_POOL}" ${WORKSPACE}
                       ''',
               returnStdout: true
             ).trim()
