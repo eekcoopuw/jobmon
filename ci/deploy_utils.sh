@@ -89,24 +89,23 @@ upload_jobmon_image () {
 
 
 deploy_jobmon_to_k8s () {
-    YASHA_CONTAINER=$1
-    WORKSPACE=$2
-    JOBMON_CONTAINER_URI=$3
-    METALLB_IP_POOL=$4
-    K8S_NAMESPACE=$5
-    RANCHER_PROJECT_ID=$6
-    GRAFANA_CONTAINER_URI=$7
-    RANCHER_DB_SECRET=$8
-    RANCHER_SLACK_SECRET=$9
-    RANCHER_QPID_SECRET=$10
-    KUBECTL_CONTAINER=$11
-    KUBECONFIG=$12
+    YASHA_CONTAINER=${1}
+    WORKSPACE=${2}
+    JOBMON_CONTAINER_URI=${3}
+    METALLB_IP_POOL=${4}
+    K8S_NAMESPACE=${5}
+    RANCHER_PROJECT_ID=${6}
+    GRAFANA_CONTAINER_URI=${7}
+    RANCHER_DB_SECRET=${8}
+    RANCHER_SLACK_SECRET=${9}
+    RANCHER_QPID_SECRET=${10}
+    KUBECTL_CONTAINER=${11}
+    KUBECONFIG=${12}
 
     # Render each .yaml.j2 template in the k8s dir (return only the basename)
     docker pull $YASHA_CONTAINER
     for TEMPLATE in $(find "$WORKSPACE/deployment/k8s/" -maxdepth 1 -type f -name '*.yaml.j2' -printf "%f\n"|sort -n)
     do
-        echo "$YASHA_CONTAINER ${TEMPLATE} $JOBMON_CONTAINER_URI"
         docker run -t \
             --rm \
             -v "$WORKSPACE/deployment/k8s:/data" \
