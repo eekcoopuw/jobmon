@@ -240,7 +240,6 @@ def run_hot_resumable_workflow():
     workflow.run()
 
 
-@pytest.mark.jenkins_skip
 def test_hot_resume(db_cfg, client_env):
     from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
     p1 = Process(target=run_hot_resumable_workflow)

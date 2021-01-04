@@ -48,11 +48,10 @@ def boot_db() -> dict:
 
     # load schema
     here = os.path.dirname(__file__)
-    create_dir = os.path.join(here, "..", "jobmon/server/deployment/container/db")
-    updates_dir = os.path.join(here, "..", "jobmon/server/deployment/container/db/upgrade")
+    create_dir = os.path.join(here, "..", "deployment/config/db")
+    updates_dir = os.path.join(here, "..", "deployment/config/db/upgrade")
 
     create_files = glob.glob(os.path.join(create_dir, "*.sql"))
-    create_files.extend(glob.glob(os.path.join(updates_dir, "upgrade001-Guppyette.sql")))
 
     for file in sorted(create_files):
         edb.execute_sql_script(file)
@@ -159,6 +158,7 @@ def web_server_process(ephemera):
 
     # interrupt and join for coverage
     p1.terminate()
+    p1.join()
 
 
 @pytest.fixture(scope='session')
