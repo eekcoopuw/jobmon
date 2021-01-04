@@ -106,10 +106,10 @@ deploy_jobmon_to_k8s () {
     docker pull $YASHA_CONTAINER
     for TEMPLATE in $(find "$WORKSPACE/deployment/k8s/" -maxdepth 1 -type f -name '*.yaml.j2' -printf "%f\n"|sort -n)
     do
-        docker run \
+        echo "$YASHA_CONTAINER ${TEMPLATE} $JOBMON_CONTAINER_URI"
+        docker run -t \
             --rm \
             -v "$WORKSPACE/deployment/k8s:/data" \
-            -t \
             $YASHA_CONTAINER \
                 --jobmon_container_uri="$JOBMON_CONTAINER_URI" \
                 --ip_pool="$METALLB_IP_POOL" \
