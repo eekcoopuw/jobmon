@@ -61,7 +61,7 @@ get_container_name_from_version () {
     else
       CONTAINER_NAME="jobmon"
     fi
-    echo "SCICOMP_DOCKER_REG_URL/$CONTAINER_NAME:$JOBMON_VERSION"
+    echo "$SCICOMP_DOCKER_REG_URL/$CONTAINER_NAME:$JOBMON_VERSION"
 }
 
 
