@@ -49,7 +49,7 @@ pipeline {
             // create .jobmon.ini
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
-                  docker image prune
+                  docker image prune -f
                   get_metallb_cfg "${INFRA_PUB_REG_URL}/kubectl:latest" ${WORKSPACE}
                '''
           }
