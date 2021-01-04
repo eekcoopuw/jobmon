@@ -39,7 +39,7 @@ upload_python_dist () {
 
     INI=$WORKSPACE/jobmon/.jobmon.ini
     rm $INI
-    echo "[client]\\nweb_service_fqdn=$TARGET_IP\\nweb_service_port=80" > $INI
+    echo -e "[client]\nweb_service_fqdn=$TARGET_IP\nweb_service_port=80" > $INI
     $ACTIVATE && nox --session distribute
     PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
     $ACTIVATE && twine upload \
