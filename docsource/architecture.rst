@@ -14,20 +14,24 @@ Jobmon exists because UGE is not reliable and is difficult to use.
 IHME was unable to reliably run applications with more than perhaps 10,000 jobs
 without heroic and unreliable work practises.
 
+Document History
+****************
+This document is work in progress; the most mature section is the Deployment Architecture.
+
 Features
 ********
 
-Current (as of 2.0)
+Current (as of 2.1)
 ===================
 
-- Easier monitoring of Python applications through centralization in a sql database
+- Easier monitoring of Python applications by centralizing statuses in a sql database
 - Finer-grained job dependencies
-- Automatic Job Retries
+- Automatic job retries
 - Resource-retries
-- Whole-of-Application Resumes
+- Whole-of-Application resumes
 - Kubernetes deployment
-- Meta-Type foundation for Resource Prediction
-- Deployment on Kubernetes and a Simple Docker System
+- Meta-Type foundation for resource prediction
+- Deployment as a lightweight standalone Docker System
 
 Future
 ======
@@ -35,9 +39,8 @@ Future
 - R Control Script
 - Resource Prediction
 - GUI for code-less operations
-- Stand-alone deployment on a laptop using Docker
-- Operate on Azure Batch
-- Operate on SLURM
+- Control jobs on Azure Batch
+- Control jobs on SLURM
 
 Requirements View
 *****************
@@ -46,13 +49,14 @@ Roles
 =====
 
 A Role (aka Actor) is a human or an external system that interacts with Jobmon.
-Technically, a Role is a Domain Object that can initiate a Use Case.
 Most roles are human, but some system roles exist because they initiate a use case.
 For example, the UGE scheduler is a system role because it initiates the Use Case "Launch a Job."
 
 One person will often play the part of different Roles during the same day.
 For example, at IHME a Coder will often also be an Application Operator.
 Therefore Roles are not job titles.
+
+Technically, a Role is a Domain Object that can initiate a Use Case.
 
 Human Roles
 ===========
@@ -61,14 +65,14 @@ Human Roles
 - R Coder
 - Stata Coder
 - Other-language Coder
-- Python Control Script
-- R Control Script
 - Application Operator
 - Application Owner
 
 System Roles
 ============
 
+- Python Control Script
+- R Control Script
 - UGE Scheduler (it starts jobs)
 - cgroups (it kills jobs)
 - OOM Killer (it also kills jobs if cgroups failes)
@@ -102,11 +106,11 @@ Use Cases
 =========
 Use Cases all follow the naming pattern:
 
-*<Role> <verb> <Domain-Object Phrase>*
+*<Role> <Verb> <Domain-Object Phrase>*
 
 For example:
 
-- UGE launches Job
+- UGE Launches Job
 - Python-Application Creates Workflow
 - Python-Application Runs Workflow
 - Gremlin breaks a Cluster Node
@@ -114,13 +118,13 @@ For example:
 
 In a waterfall project this Use Case section would be much bigger. Jobmon was developed using
 the agile process, therefore the requirements were defined along the way.
-The use cases identified here are looking forward to an operating GUI.
+The use cases identified here are looking forward to an operating GUI, and as examples.
 
 
 Coder Use Cases
 ===============
 
-100. Coder Converts a Qsub Control Script to Jobmon
+100. Coder Converts a direct Qsub Control Script to Jobmon
 
 Included to emphasize the importance of usability, this use case will describe the extra steps that are necessary
 
@@ -132,26 +136,34 @@ Application Operator Use Cases
 
 220. Application Operator Monitors Application
 
-How is it going? Are there any Failures? When will it be done?
-Originally they looked in the database. Now they use a CLI. A GUI would be good.
+They ask questions like: *How is it going? Are there any Failures? When will it be done?*
+Originally they had to run queries in the database. Now they can use a CLI.
+A GUI would open up this feature to more Application Owners.
 
 230. Application Operator Debugs Application
 
-How do they find the task statuses? Errors from their own applications
+How do they find the task statuses? How do they find Errors from their own applications?
 
 Jobmon Scheduler Use Cases
 ==========================
 
 330. Jobmon submits a Job to UGE
 
-Key use case. Discuss bash scripts, Python Tasks (split the use case?), What a qsub command must look like
+This is a key use case. It must show the flow from the control node to UGE and the special
+flags to qsub command needed for the environment.
 
 UGE Use Cases
 =============
 
 410. UGE Job starts
 
-Phone homes, launches UGE sub-process
+Discuss the
+# initial bash script
+# the python execution wrapper
+# Call-backs to central services to show progress
+# Launching the actual application code in a sub-process
+# Need for careful exception handling
+
 
 420. UGE Job finishes, with or without error
 
@@ -165,8 +177,8 @@ Scaling
 
 The goal will be to run "all jobs" on the cluster.
 The current largest workflow is the Burdenator, with about 500k jobs.
-Twice we have seen workflows of size about 1.5 million, although they are arguably
- over-parallelized.
+Application Operators have twice submitted workflows with about 1.5 million tasks,
+although they are arguably over-parallelized.
 On IHME's cluster Jobmon should plan for 20% annual growth in all dimensions.
 
 +-----------+-----------------------+---------------------------+---------------------------+
@@ -177,13 +189,16 @@ On IHME's cluster Jobmon should plan for 20% annual growth in all dimensions.
 | June 2021 |	1 million           |                           |                           |
 +-----------+-----------------------+---------------------------+---------------------------+
 
+Performacne numbers need to more carefully reocrded.
+
 
 Security
 ========
-Security does not have to be especially high, except that it should not be possible to use
-Jobmon to launch bad-actor jobs on the cluster. Therefore exposing a service to the internet
-that allows Jobmon to run jobs on the cluster would be a big security risk. Jobmon relies
-on existing IHME security systems.
+Security does not have to be especially high because Jobmon only has metadat on jobs.
+However, it must not be possible to use
+Jobmon to launch bad-actor jobs on the cluster. For example, exposing a service to the internet
+that allows an external Jobmon to run jobs on the cluster would be a big security risk.
+Jobmon relies on existing IHME security systems.
 
 Jobmon stores no data apart from commands, so the cost of
 a data breach would be low.
@@ -194,7 +209,7 @@ Plan for a 5-10 year lifetime
 
 Portability
 ===========
-Jobmon was designed and developed as a seqqunece of Minimal Viable Product releases, so it was not
+Jobmon was designed and developed as a sequence of Minimal Viable Product releases, so it was not
 designed to be a cross-platform system. However, it is highly portable because it only depends
 on Python, web technologies, sql, and the cluster OS is abstracted behind the Executor API.
 
@@ -217,7 +232,6 @@ Logical View (aka software layers, Component View)
 **************************************************
 
 What is a Component?
-
 
 Components are mini-products. Control and responsibility are their defining characteristics.
 
@@ -249,17 +263,23 @@ Organize the source tree by the are of responsibility, it makes it easier for a 
 
 FYI CRUD = Create, Read, Update, Delete.
 
-*In hindsight I think thix is a little Hyper-modern: abstractly appealing,
-but too fiddly in practise.* Systems rarely need to be so modular that new ones can be
-composed from arbitrary subsets. Jobmon is probably one component in its own right, as is
-QPIDF, UGE, the organizational component described above.
+*In hindsight I think the following is a little Hyper-modern: abstractly appealing,
+but too fiddly in practise.
+Systems rarely need to be so modular that new ones can be
+composed from arbitrary subsets.
+
+In practise each deployment unit has its own source tree.
+The code would be clearer if the relevant fragment of each Domain Object was
+clearly identified in each deployment unit.
+Jobmon is probably one component in its own right, as is
+QPID, UGE, and the organizational component described below.
 
 
 Components in Guppy
 ===================
 
 The Python packages are currently organized according to the deployment architecture,
-not by the major noun, although there is strong correlation.
+not by the major noun, although each deployment unit specializes in certain Domain Objects.
 
 Perhaps components make sense within a deployment unit,
 and this section should be repeated within each of the three deployment groups.
@@ -277,7 +297,7 @@ UML diagrams to represent process view include the sequence diagram, communicati
 The Python Client Path
 ======================
 TO DO Trace the call from the User's Python code:
-1. through jobmons Python library,
+1. Through Jobmon's Python library,
 #. HTTP to Kubernetees
 # Metal-lb
 # UWSGI
@@ -287,7 +307,7 @@ TO DO Trace the call from the User's Python code:
 
 The QSUB Path
 =============
-The whole execution_warpper process, with Popen and exception catches
+The whole execution_wrapper process, with Popen and exception catches
 
 Resource Retries
 ================
