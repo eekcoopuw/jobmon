@@ -37,7 +37,6 @@ pipeline {
     QLOGIN_ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
     INFRA_PUB_REG_URL="docker-infrapub.artifactory.ihme.washington.edu"
-
   }
   stages {
     stage ('Get TARGET_IP address') {
@@ -49,31 +48,17 @@ pipeline {
             checkout scm
             // create .jobmon.ini
             sh '''#!/bin/bash
-              # pull kubectl container
-              KUBECTL_CONTAINER="${INFRA_PUB_REG_URL}/kubectl:latest"
-              docker pull $KUBECTL_CONTAINER
-
-              # get metallb configmap
-              . ${WORKSPACE}/ci/deploy.sh || (echo Failed to import deploy.sh; exit 1)
-              docker run -t \
-                --rm \
-                -v ${KUBECONFIG}:/root/.kube/config \
-                --mount type=bind,source="${WORKSPACE}",target=/data \
-                $KUBECTL_CONTAINER  \
-                  -n metallb-system \
-                  get configmap config \
-                  -o "jsonpath={.data.config}" > metallb.cfg
-            '''
+                  . ${WORKSPACE}/ci/deploy_utils.sh
+                  get_metallb_cfg "${INFRA_PUB_REG_URL}/kubectl:latest" ${WORKSPACE}
+               '''
           }
           script {
             // TODO: more robust parsing script
             env.TARGET_IP = sh (
               script: '''#!/bin/bash
-                # 4th line after entry is VIP.
-                grep -A 4 "${METALLB_IP_POOL}" ${WORKSPACE}/metallb.cfg | \
-                grep "\\- [0-9].*/[0-9]*" | \
-                sed -e "s/  - \\(.*\\)\\/32/\\1/"
-              ''',
+                         . ${WORKSPACE}/ci/deploy_utils.sh
+                         get_metallb_ip "${METALLB_IP_POOL}" ${WORKSPACE}
+                      ''',
               returnStdout: true
             ).trim()
           }
