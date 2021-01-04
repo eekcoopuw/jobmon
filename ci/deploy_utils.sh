@@ -37,7 +37,7 @@ upload_python_dist () {
     REG_PASSWORD=$4
     ACTIVATE=$5
 
-    INI=$WORKSPACE/jobmon/.jobmon.ini
+    INI=$WORKSPACE/src/jobmon/.jobmon.ini
     rm $INI
     echo -e "[client]\nweb_service_fqdn=$TARGET_IP\nweb_service_port=80" > $INI
     $ACTIVATE && nox --session distribute
