@@ -5,7 +5,7 @@ import nox
 from nox.sessions import Session
 
 
-src_locations = ["jobmon"]
+src_locations = ["src/jobmon"]
 test_locations = ["tests"]
 
 python = "3.8"
@@ -81,7 +81,7 @@ def typecheck(session: Session) -> None:
 def docs(session: Session) -> None:
     """Build the documentation."""
     session.install("-e", ".[docs]")
-    session.run('sphinx-apidoc', '-o', 'docsource', 'jobmon')
+    session.run('sphinx-apidoc', '-o', 'docsource', 'src/jobmon')
     session.run("sphinx-build", "docsource", "docsource/_build")
 
 
@@ -107,23 +107,3 @@ def freeze(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def distribute(session: Session) -> None:
     session.run("python", "setup.py", "sdist", "bdist_wheel")
-
-
-@nox.session(python=python, venv_backend="conda")
-def release(session: Session) -> None:
-    """Release the distribution."""
-    # check if overwrite is an arg
-    args = session.posargs
-    if "--overwrite" in args:
-        cmd: tuple = ("release", "--project_name", "jobmon", "--overwrite")
-    else:
-        cmd = ("release", "--project_name", "jobmon")
-
-    session.install(
-        "deploytools",
-        "--extra-index-url",
-        "https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple",
-        "--trusted-host",
-        "artifactory.ihme.washington.edu")
-    session.install(".")
-    session.run(*cmd)
