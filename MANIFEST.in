@@ -1,5 +1,4 @@
 include README.md
-include versioneer.py
 include jobmon/_version.py
 include jobmon/.jobmon.ini
 include jobmon/client/execution/strategies/sge/*.sh

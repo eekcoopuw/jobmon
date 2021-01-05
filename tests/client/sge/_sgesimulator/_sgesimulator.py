@@ -1,11 +1,11 @@
 from typing import List, Tuple, Dict, Optional
+import structlog as logging
 
-from jobmon.client import ClientLogging as logging
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.models.task_instance_status import TaskInstanceStatus
+from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor, TaskInstanceSGEInfo
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("jobmon.client.execution")
 
 """ The following classes are create for system testing purpose.
 They mimic the sge executor without actually running SGE.

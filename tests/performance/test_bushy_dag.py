@@ -5,14 +5,14 @@ import copy
 import time
 from typing import List
 
-from jobmon.client import ClientLogging as logging
-logger = logging.getLogger(__name__)
-
+import structlog as logging
 
 # for monkey patch
 from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.models.task_status import TaskStatus
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.constants import TaskStatus, WorkflowRunStatus
+
+
+logger = logging.getLogger(__name__)
 
 
 def mock_all_upstreams_done(self):

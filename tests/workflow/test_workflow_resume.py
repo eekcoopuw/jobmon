@@ -9,7 +9,7 @@ from mock import patch
 
 from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowNotResumable,
                                ResumeSet)
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus
 
 
 this_file = os.path.dirname(__file__)
@@ -134,6 +134,7 @@ def test_cold_resume(db_cfg, client_env):
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
     from jobmon.client.swarm.workflow_run import WorkflowRun
+    from jobmon.requester import Requester
 
     # set up tool and task template
     unknown_tool = Tool()
@@ -156,8 +157,9 @@ def test_cold_resume(db_cfg, client_env):
     # create an in memory scheduler and start up the first 3 jobs
     workflow1._bind()
     wfr1 = workflow1._create_workflow_run()
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow1.workflow_id, wfr1.workflow_run_id,
-                                      workflow1._executor, requester_url=client_env)
+                                      workflow1._executor, requester=requester)
     with pytest.raises(RuntimeError):
         wfr1.execute_interruptible(MockSchedulerProc(),
                                    seconds_until_timeout=1)
@@ -238,7 +240,6 @@ def run_hot_resumable_workflow():
     workflow.run()
 
 
-@pytest.mark.jenkins_skip
 def test_hot_resume(db_cfg, client_env):
     from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
     p1 = Process(target=run_hot_resumable_workflow)

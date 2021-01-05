@@ -90,7 +90,7 @@ def test_bash_task_bind(db_cfg, client_env):
     """test that all task information gets propagated appropriately into the db
     """
     from jobmon.client.templates.bash_task import BashTask
-    from jobmon.models.task import Task
+    from jobmon.server.web.models.task import Task
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -146,9 +146,9 @@ def test_python_task_command_parsing(db_cfg, client_env):
     from jobmon.client.api import PythonTask, UnknownWorkflow
     wf = UnknownWorkflow(name="test_python_task_parsing", executor_class="DummyExecutor")
     py_a = PythonTask(name="task_a", script='~/runme.py --blah 3 --bop 2 --hop 5',
-                   node_args={'blah': 3}, task_args={'bop': 2}, args=['baz', '4'])
+                      node_args={'blah': 3}, task_args={'bop': 2}, args=['baz', '4'])
     py_b = PythonTask(name="task_a", script='~/runme.py --blah 4 --bop 6 --hop 5',
-                   node_args={'blah': 4}, task_args={'bop': 6}, args=['baz', '4'])
+                      node_args={'blah': 4}, task_args={'bop': 6}, args=['baz', '4'])
     wf.add_tasks([py_a, py_b])
     wf._bind()
     wf._create_workflow_run()
@@ -177,7 +177,7 @@ def test_python_task_args(db_cfg, client_env):
     """test that env_variables and other arguments are handled appropriately
     by python task"""
     from jobmon.client.templates.python_task import PythonTask
-    from jobmon.models.task import Task
+    from jobmon.server.web.models.task import Task
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     import sys
 
@@ -214,8 +214,8 @@ def test_task_attribute(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.api import PythonTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.models.task_attribute import TaskAttribute
-    from jobmon.models.task_attribute_type import TaskAttributeType
+    from jobmon.server.web.models.task_attribute import TaskAttribute
+    from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 
     workflow1 = UnknownWorkflow(name="test_task_attribute",
                                 executor_class="SequentialExecutor")

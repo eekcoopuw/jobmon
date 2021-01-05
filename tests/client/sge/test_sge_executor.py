@@ -3,14 +3,13 @@ import pytest
 from unittest.mock import patch
 
 from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
-from jobmon.constants import QsubAttribute
+from jobmon.constants import QsubAttribute, TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
-from jobmon.models.task_instance_status import TaskInstanceStatus
 
 path_to_file = os.path.dirname(__file__)
 
 
-def mock_do_nothing():
+def mock_do_nothing(d):
     """This is an empty method used for mock"""
     pass
 
@@ -91,7 +90,8 @@ def test_build_qsub_command():
             "ihme_general   -w e  -V") in r
     assert "\"date\"" in r
     # dir
-    with patch("cluster_utils.io.makedirs_safely") as m_makedirs_safely:
+    with patch("jobmon.client.execution.strategies.sge.sge_executor.makedirs_safely") as\
+            m_makedirs_safely:
         m_makedirs_safely.side_effect = mock_do_nothing
         r = SGEExecutor()._build_qsub_command(base_cmd="date",
                                               name="test",
@@ -109,7 +109,8 @@ def test_build_qsub_command():
                 "-l h_rt=10000 -P proj_test -e ~ -o ~ -w e  -V") in r
         assert "\"date\"" in r
         # context_args
-        with patch("cluster_utils.io.makedirs_safely") as m_makedirs_safely:
+        with patch("jobmon.client.execution.strategies.sge.sge_executor.makedirs_safely") as \
+                m_makedirs_safely:
             m_makedirs_safely.side_effect = mock_do_nothing
             r = SGEExecutor()._build_qsub_command(base_cmd="date",
                                                   name="test",
@@ -135,7 +136,7 @@ class MockSchedulerProc:
 
 @pytest.mark.systemtest
 @pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
-def test_instantiation(db_cfg, client_env):
+def test_instantiation(db_cfg, requester_no_retries):
     from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
                                                                        Workflow)
     from jobmon.client.api import BashTask
@@ -148,7 +149,7 @@ def test_instantiation(db_cfg, client_env):
     workflow._bind()
     wfr = workflow._create_workflow_run()
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester_no_retries)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=1)
@@ -208,6 +209,7 @@ def test_workflow(db_cfg, client_env):
 
 @pytest.mark.smoketest
 @pytest.mark.systemtest
+@pytest.mark.skip(reason="need executor plugin api to use _sgesimulator")
 def test_workflow_timeout(db_cfg, client_env):
     from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
                                                                        Workflow)

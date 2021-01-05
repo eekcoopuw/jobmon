@@ -17,6 +17,7 @@ def test_heartbeat(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
+    from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
     workflow = UnknownWorkflow("my_beating_heart",
@@ -25,8 +26,9 @@ def test_heartbeat(db_cfg, client_env):
     workflow.add_tasks([t1])
     workflow._bind()
     wfr = workflow._create_workflow_run()
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     scheduler.heartbeat()
 
     # check the job finished
@@ -49,6 +51,7 @@ def test_heartbeat_raises_error(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
+    from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
     workflow = UnknownWorkflow("my_heartbeat_error",
@@ -57,8 +60,9 @@ def test_heartbeat_raises_error(db_cfg, client_env):
     workflow.add_tasks([t1])
     workflow._bind()
     wfr = workflow._create_workflow_run()
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     # check the job finished
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -82,6 +86,7 @@ def test_heartbeat_propagate_error(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
+    from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
     workflow = UnknownWorkflow("heartbeat_propagate_error",
@@ -90,8 +95,9 @@ def test_heartbeat_propagate_error(db_cfg, client_env):
     workflow.add_tasks([t1])
     workflow._bind()
     wfr = workflow._create_workflow_run()
+    requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester_url=client_env)
+                                      workflow._executor, requester=requester)
     # check the job finished
     app = db_cfg["app"]
     DB = db_cfg["DB"]

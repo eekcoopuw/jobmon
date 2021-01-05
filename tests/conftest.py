@@ -48,11 +48,10 @@ def boot_db() -> dict:
 
     # load schema
     here = os.path.dirname(__file__)
-    create_dir = os.path.join(here, "..", "jobmon/server/deployment/container/db")
-    updates_dir = os.path.join(here, "..", "jobmon/server/deployment/container/db/upgrade")
+    create_dir = os.path.join(here, "..", "deployment/config/db")
+    updates_dir = os.path.join(here, "..", "deployment/config/db/upgrade")
 
     create_files = glob.glob(os.path.join(create_dir, "*.sql"))
-    create_files.extend(glob.glob(os.path.join(updates_dir, "upgrade001-Guppyette.sql")))
 
     for file in sorted(create_files):
         edb.execute_sql_script(file)
@@ -93,7 +92,7 @@ def ephemera(tmp_path_factory, worker_id):
 
 
 @pytest.fixture(scope='session')
-def real_jsm_jqs(ephemera):
+def web_server_process(ephemera):
     """This starts the flask dev server in separate processes"""
     import multiprocessing as mp
     import signal
@@ -159,13 +158,14 @@ def real_jsm_jqs(ephemera):
 
     # interrupt and join for coverage
     p1.terminate()
+    p1.join()
 
 
 @pytest.fixture(scope='session')
 def db_cfg(ephemera):
     """This run at the beginning of every function to tear down the db
     of the previous test and restart it fresh"""
-    from jobmon.models import DB
+    from jobmon.server.web.models import DB
     from jobmon.server.web.api import WebConfig, create_app
 
     # The create_app call sets up database connections
@@ -181,13 +181,19 @@ def db_cfg(ephemera):
 
 
 @pytest.fixture(scope='function')
-def client_env(real_jsm_jqs, monkeypatch):
+def client_env(web_server_process, monkeypatch):
     from jobmon.client.client_config import ClientConfig
-    monkeypatch.setenv("WEB_SERVICE_FQDN", real_jsm_jqs["JOBMON_HOST"])
-    monkeypatch.setenv("WEB_SERVICE_PORT", real_jsm_jqs["JOBMON_PORT"])
+    monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
+    monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
 
-    cc = ClientConfig(real_jsm_jqs["JOBMON_HOST"],  real_jsm_jqs["JOBMON_PORT"])
+    cc = ClientConfig(web_server_process["JOBMON_HOST"],  web_server_process["JOBMON_PORT"])
     yield cc.url
+
+
+@pytest.fixture(scope='function')
+def requester_no_retry(client_env):
+    from jobmon.requester import Requester
+    return Requester(client_env, max_retries=0)
 
 
 @pytest.fixture(scope='module')
@@ -197,4 +203,3 @@ def tmp_out_dir():
     output_root = f'/ihme/scratch/users/{user}/tests/jobmon/{uuid.uuid4()}'
     yield output_root
     shutil.rmtree(output_root, ignore_errors=True)
-
