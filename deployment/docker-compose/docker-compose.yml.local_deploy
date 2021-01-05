@@ -1,0 +1,101 @@
+version: '3.2'
+
+services:
+  flask:
+    build:
+      context: ../../.
+      dockerfile: ./deployment/docker-compose/local.Dockerfile
+    restart: unless-stopped
+    image: jobmon
+    container_name: flask
+    volumes:
+        - ../config/app/uwsgi.ini:/app/uwsgi.ini
+    ports:
+        - "${WEB_SERVICE_PORT}:80"
+    entrypoint:
+      - ./wait-for-tables.sh
+      - db
+    command: ["jobmon_server", "web_service", "start_uwsgi"]
+    environment:
+        - DB_HOST=db
+        - DB_PORT=3306
+        - DB_USER=service_user
+        - DB_PASS=${JOBMON_PASS_SERVICE_USER}
+        - WEB_SERVICE_PORT=${WEB_SERVICE_PORT}
+    links:
+        - db
+    logging:
+        options:
+            max-size: "100m"
+            max-file: "10"
+  reaper:
+    restart: unless-stopped
+    image: jobmon
+    container_name: reaper
+    entrypoint:
+      - ./wait-for-tables.sh
+      - db
+    depends_on:
+        - flask
+    environment:
+        - WEB_SERVICE_PORT=80
+        - WEB_SERVICE_FQDN=flask
+        - DB_HOST=db
+        - DB_PORT=3306
+        - DB_USER=service_user
+        - DB_PASS=${JOBMON_PASS_SERVICE_USER}
+    command: ["jobmon_server", "workflow_reaper", "start"]
+    links:
+        - db
+        - flask
+    logging:
+        options:
+            max-size: "100m"
+            max-file: "10"
+  client:
+    restart: unless-stopped
+    image: jobmon
+    container_name: client
+    entrypoint:
+      - ./setup-client-container.sh
+    depends_on:
+      - flask
+    environment:
+      - WEB_SERVICE_PORT=80
+      - WEB_SERVICE_FQDN=flask
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_USER=service_user
+      - DB_PASS=${JOBMON_PASS_SERVICE_USER}
+    links:
+      - flask
+    volumes:
+      - type: bind
+        source: "${LOCAL_PATH}"
+        target: /run
+    logging:
+      options:
+        max-size: "100m"
+        max-file: "10"
+  db:
+    restart: unless-stopped
+    image: mariadb:10.4
+    container_name: db
+    ports:
+        - "${EXTERNAL_DB_PORT}:3306"
+    environment:
+        - MYSQL_ROOT_PASSWORD=${JOBMON_PASS_ROOT}
+        - MYSQL_DATABASE=docker
+        - JOBMON_PASS_ROOT=${JOBMON_PASS_ROOT}
+        - JOBMON_PASS_TABLE_CREATOR=${JOBMON_PASS_TABLE_CREATOR}
+        - JOBMON_PASS_SERVICE_USER=${JOBMON_PASS_SERVICE_USER}
+        - JOBMON_PASS_READ_ONLY=${JOBMON_PASS_READ_ONLY}
+    volumes:
+      - mariadb-jobmon-localhost:/var/lib/mysql
+      - ../config/db/:/docker-entrypoint-initdb.d/
+
+
+    command: mysqld --innodb_autoinc_lock_mode=1 --innodb_flush_method=O_DIRECT --innodb_buffer_pool_instances=2 --character_set_server=utf8mb4 --collation_server=utf8mb4_general_ci
+
+volumes:
+    mariadb-jobmon-localhost: {}

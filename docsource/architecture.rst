@@ -263,8 +263,7 @@ Organize the source tree by the are of responsibility, it makes it easier for a 
 
 FYI CRUD = Create, Read, Update, Delete.
 
-*In hindsight I think the following is a little Hyper-modern: abstractly appealing,
-but too fiddly in practise.
+*In hindsight I think the following is a little Hyper-modern: abstractly appealing, but too fiddly in practise.*
 Systems rarely need to be so modular that new ones can be
 composed from arbitrary subsets.
 
@@ -721,7 +720,7 @@ Each pod is instantiated with 3 containers, each with a preset CPU/memory resour
 
 The traefik router will try to equitably distribute incoming data between the associated containers.
 For example, an incoming series of /client/* routes will be routed between each of the initial 3 client pods.
-However, the load handled by the Jobmon service is not always equal. In the event of a very large workflow, or a series of concurrent workflows, the client side pods can get overwhelmed with incoming requests, leading to timeouts or lost jobs. Jobmon utilizes the Kubernetes `horizontal autoscaling algorithm <https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/>`_ when it detects heavy load in the containers. As of 11/3/2020, "heavy load" is set `here <https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/browse/k8s/31_deployment_jobmon_client.yaml.j2#52-77>`_. Namely, when either CPU or memory is at 80% or more utilization, we can spin up more containers up to a limit of 10. The traefik router will then divert some incoming routes to the newly created containers in order to allow heavily-utilized containers to finish processes off. When the usage spike is over, and container usage dips below some minimum threshhold, the newly spawned containers will then be killed until we only have the three initial containers remaining.
+However, the load handled by the Jobmon service is not always equal. In the event of a very large workflow, or a series of concurrent workflows, the client side pods can get overwhelmed with incoming requests, leading to timeouts or lost jobs. Jobmon utilizes the Kubernetes `horizontal autoscaling algorithm <https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/>`_ when it detects heavy load in the containers. As of 11/3/2020, "heavy load" is set `here <https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/browse/k8s/31_deployment_jobmon_client.yaml.j2#52-77>`__. Namely, when either CPU or memory is at 80% or more utilization, we can spin up more containers up to a limit of 10. The traefik router will then divert some incoming routes to the newly created containers in order to allow heavily-utilized containers to finish processes off. When the usage spike is over, and container usage dips below some minimum threshhold, the newly spawned containers will then be killed until we only have the three initial containers remaining.
 
 All of the Kubernetes scaling behavior is configurable, per pod, in the associated .yaml files.
 
@@ -733,9 +732,11 @@ In our architecture, uWSGI runs inside each of the docker containers created by 
 uWSGI consists of a main process that manages a series of worker processes.
 
 
-Like the Kubernetes deployment, each container starts with a minimum number of workers as specified `here <https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/browse/jobmon/server/deployment/container/uwsgi.ini#35>`_. If a specific container falls under heavy load, uWSGI can utilize a cheaper algorithm to spawn more workers and process the additional incoming requests. There are a variety of cheaper algorithms that can determine when to scale up/down worker processes - Jobmon uses the `busyness algorithm <https://uwsgi-docs.readthedocs.io/en/latest/Cheaper.html#busyness-cheaper-algorithm>`_. Under this specification, busyness is set by average utilization over a given time period. Configurations can be set in the same uwsgi.ini file linked above.
+Like the Kubernetes deployment, each container starts with a minimum number of workers
+as specified `here <https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/browse/jobmon/server/deployment/container/uwsgi.ini#35>`_. If a specific container falls under heavy load, uWSGI can utilize a cheaper algorithm to spawn more workers and process the additional incoming requests. There are a variety of cheaper algorithms that can determine when to scale up/down worker processes - Jobmon uses the `busyness algorithm <https://uwsgi-docs.readthedocs.io/en/latest/Cheaper.html#busyness-cheaper-algorithm>`__. Under this specification, busyness is set by average utilization over a given time period. Configurations can be set in the same uwsgi.ini file linked above.
 
-Similarly to the Kubernetes pod autoscaler, the busyness algorithm will create workers to handle a usage spike and spin down workers when usage is low. This is important for two reasons:
+Similarly to the Kubernetes pod autoscaler, the busyness algorithm will create workers to
+handle a usage spike and spin down workers when usage is low. This is important for two reasons:
 
 1. A container can efficiently process incoming requests with more workers. If there are no free workers to handle a request, it will sit in the queue until a worker frees up. If requests are incoming more quickly than the workers can execute, this can potentially result in long queue wait times and request timeouts.
 2. Without worker autoscaling behavior the resource threshholds needed for Kubernetes horizontal autoscaling will not be reached. Remember that Kubernetes defines busyness by container CPU and memory usage. Adding workers directly adds to the CPU usage, and indirectly adds to memory usage by allowing more concurrent data flow. If the additional threads in the container cannot be allocated work due to lack of autoscaling, then the requisite busyness needed in each container won't be reached. Kubernetes does not track the length of the request queue as a busyness parameter.
@@ -750,7 +751,7 @@ Take a simple Jobmon request: we want to manually set the state of a workflow ru
 
 1. The update_status function constructs the **/swarm/workflow_run/<workflow_run_id>/update_status** route, which is processed by flask on the client side.
 2. Flask sends the request to the Kubernetes service
-3. The traefik controller routes the request to the swarm pod, then to a "free" container within the pod
+3. The traefik controller routes the request to the swarm pod, then to a "free" container within the pod.
   - If all containers are at high capacity, a new container is created.
 4. uWSGI, running inside the container, assigns resources to handle the request.
   - The main process either assigns a worker to the request, or instantiates a new worker process to handle the request.

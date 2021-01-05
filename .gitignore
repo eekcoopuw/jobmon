@@ -7,22 +7,27 @@
 # log files
 *.log
 
-# Setuptools distribution folder.
-__pycache__
-
 # Python egg metadata, regenerated from source files by setuptools.
-/*.egg-info
-/*.egg
+# and other build artifacts
+src/jobmon.egg-info/*
+src/jobmon/_version.py
 /build
 /dist
+requirements.txt
+.eggs/
+
+# Ignore coverage reports
+.coverage
+.coverage.*
+jobmon_coverage_html_report
+test_report.xml
 
 # ignore cache directories
+__pycache__
 .pytest_cache
 .mypy_cache
 
 # Ignore build artifacts
-/out
-
 .idea
 
 # Ignore coverage reports
@@ -45,3 +50,5 @@ htmlcov
 # ignore auto generated docs
 docsource/jobmon.*
 docsource/modules.rst
+/out
+

@@ -5,7 +5,7 @@ import nox
 from nox.sessions import Session
 
 
-src_locations = ["jobmon"]
+src_locations = ["src/jobmon"]
 test_locations = ["tests"]
 
 python = "3.8"
@@ -80,31 +80,31 @@ def typecheck(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
+    session.run('python', 'setup.py', 'build')
     session.install("-e", ".[docs]")
-    session.run('sphinx-apidoc', '-o', 'docsource', 'jobmon')
+    session.run('sphinx-apidoc', '-o', 'docsource', 'src/jobmon')
     session.run("sphinx-build", "docsource", "out/_html")
 
 
 @nox.session(python=python, venv_backend="conda")
-def build(session: Session) -> None:
-    session.run("python", "setup.py", "sdist")
+def freeze(session: Session) -> None:
+    # build source and export env to build location
+    args = session.posargs
+    session.install(".", *args)
+    jobmon_version = session.run(
+        "python", "-c", "from jobmon import __version__; print(__version__)", silent=True
+    )
+    requirements = session.run("pip", "freeze", silent=True)
+    with open("requirements.txt", "w") as req_file:
+        for line in requirements.split("\n"):
+            if not line:
+                continue
+            if "jobmon" not in line:
+                req_file.write(line + "\n")
+            else:
+                req_file.write(f"jobmon=={jobmon_version}")
 
 
 @nox.session(python=python, venv_backend="conda")
-def release(session: Session) -> None:
-    """Release the distribution."""
-    # check if overwrite is an arg
-    args = session.posargs
-    if "--overwrite" in args:
-        cmd: tuple = ("release", "--project_name", "jobmon", "--overwrite")
-    else:
-        cmd = ("release", "--project_name", "jobmon")
-
-    session.install(
-        "deploytools",
-        "--extra-index-url",
-        "https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple",
-        "--trusted-host",
-        "artifactory.ihme.washington.edu")
-    session.install(".")
-    session.run(*cmd)
+def distribute(session: Session) -> None:
+    session.run("python", "setup.py", "sdist", "bdist_wheel")

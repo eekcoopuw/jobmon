@@ -1,7 +1,11 @@
-import versioneer
-from setuptools import setup
+from glob import glob
+from os.path import basename
+from os.path import splitext
 
-install_requires = [
+from setuptools import setup
+from setuptools import find_packages
+
+INSTALL_REQUIRES = [
     'configargparse',
     'flask',
     'flask_cors',
@@ -19,15 +23,8 @@ install_requires = [
     'tblib',
 ]
 
-# pip install -e .[docs]
-docs_requires = [
-    'sphinx',
-    'sphinx-autodoc-typehints',
-    'sphinx_rtd_theme',
-]
-
 # pip install -e .[test]
-test_requires = [
+TEST_REQUIRES = [
     "pytest",
     "pytest-xdist",
     "pytest-cov",
@@ -36,38 +33,54 @@ test_requires = [
     'cluster_utils',
 ]
 
+# pip install -e .[docs]
+DOCS_REQUIRES = [
+    'sphinx',
+    'sphinx-autodoc-typehints',
+    'sphinx_rtd_theme',
+]
 
+
+def local_scheme(version):
+    """Skip the local version (eg. +xyz of 0.6.1.dev4+gdf99fe2)
+    to be able to upload to Test PyPI"""
+    return ""
+
+
+# TODO: consider splitting into 3 builds: jobmon_server, jobmon_client, jobmon.
+# Subclass install to accept parameters https://stackoverflow.com/questions/18725137/how-to-obtain-arguments-passed-to-setup-py-from-pip-with-install-option
 setup(
-    version=versioneer.get_version(),
     name='jobmon',
-    description='A logging and dependency management utility for batch computation',
-    url='https://stash.ihme.washington.edu/projects/CC/repos/jobmon',
-    author='IHME SciComp',
-    author_email=('gphipps@uw.edu, mlsandar@uw.edu, mm7148@uw.edu, limingxu@uw.edu, everdyke@uw.edu, dhs2018@uw.edu'),
-    install_requires=install_requires,
+    maintainer='IHME SciComp',
+    maintainer_email='gphipps@uw.edu',
+    url='https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon',
+    description='A dependency management utility for batch computation.',
+    long_description=open("README.md").read(),
+    long_description_content_type="text/markdown",
+
+    classifiers="""
+        Programming Language :: Python :: 3.7
+        Programming Language :: Python :: 3.8
+        """,
+
+    python_requires='>=3.7',
+    install_requires=INSTALL_REQUIRES,
     extras_require={
-        'test': test_requires,
-        'docs': docs_requires,
+        'test': TEST_REQUIRES,
+        'docs': DOCS_REQUIRES,
     },
-    packages=['jobmon',
-              'jobmon.client',
-              'jobmon.client.execution',
-              'jobmon.client.execution.scheduler',
-              'jobmon.client.execution.strategies',
-              'jobmon.client.execution.strategies.sge',
-              'jobmon.client.execution.worker_node',
-              'jobmon.client.swarm',
-              'jobmon.client.templates',
-              'jobmon.server',
-              'jobmon.server.deployment',
-              'jobmon.server.workflow_reaper',
-              'jobmon.server.web.jobmon_client',
-              'jobmon.server.web.jobmon_scheduler',
-              'jobmon.server.web.jobmon_swarm',
-              'jobmon.server.web.jobmon_worker',
-              'jobmon.server.web.models',
-              'jobmon.server.web.visualization_server'],
+
+    packages=find_packages('src'),
+    package_dir={'': 'src'},
+    py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
     include_package_data=True,
+    zip_safe=False,
+
+    setup_requires=["setuptools_scm"],
+    use_scm_version={'local_scheme': local_scheme,
+                     'write_to': 'src/jobmon/_version.py',
+                     'fallback_version': '0.0.0'},
+
     entry_points={
         'console_scripts': [
             'jobmon=jobmon.client.cli:main',

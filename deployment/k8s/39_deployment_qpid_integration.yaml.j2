@@ -1,0 +1,51 @@
+---
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: jobmon-qpid-integration
+  namespace: {{namespace}}
+  labels:
+    app: jobmon-qpid-integration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jobmon-qpid-integration
+  template:
+    metadata:
+      labels:
+        app: jobmon-qpid-integration
+        name: jobmon-qpid-integration
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: {{jobmon_container_uri}}
+        name: jobmon-qpid-integration
+        command: ["jobmon_server"]
+        args: ["qpid_integration", "start"]
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              key: DB_HOST
+              name: {{rancher_db_secret}}
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              key: DB_PORT
+              name: {{rancher_db_secret}}
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              key: DB_USER
+              name: {{rancher_db_secret}}
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              key: DB_PASS
+              name: {{rancher_db_secret}}
+        - name: QPID_URI
+          valueFrom:
+            secretKeyRef:
+              key: QPID_URI
+              name: {{rancher_qpid_secret}}

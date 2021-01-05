@@ -31,7 +31,7 @@ Using mysqldump to copy a database
 
 On the cluster, run a command like the following:
 ::
-  mysqldump -h jobmon-p01.ihme.washington.edu --port 3305 -u docker -p docker --database docker > dbs_3305_dump.sql
+mysqldump -h jobmon-p01.ihme.washington.edu --port 3305 -u docker -p docker --database docker > dbs_3305_dump.sql
 
 
 Spinning down a database
