@@ -429,8 +429,9 @@ The containers are organized according to the load they carry, so that they scal
 | Container/Package | Description and Comments                            | Domain Objects    |
 +===================+=====================================================+===================+
 | jobmon-client     | Handles requests from the the Python client inside  | Tool, Workflow    |
-|                   | the application code.Therefore it creates workflows | Task, Attributes  |
-|                   | and tasks. Basically a CRUD service.                | TaskTemplate      |
+|                   | the application code, at bind time.                 | Task, Attributes  |
+|                   | Therefore it creates workflows                      | TaskTemplate      |
+|                   | and tasks. Basically a CRUD service.                |                   |
 +-------------------+-----------------------------------------------------+-------------------+
 | jobmon-scheduler  | Owns the routes from the executor. The scheduler    | TaskInstance      |
 |                   | (which is part of the executor) reports UGE job ids | Executor          |
