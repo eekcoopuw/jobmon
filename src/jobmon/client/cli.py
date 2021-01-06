@@ -19,7 +19,7 @@ class ClientCLI(CLI):
         self._add_workflow_status_subparser()
         self._add_workflow_tasks_subparser()
         self._add_task_status_subparser()
-        self._add_rate_limit_subparser()
+        self._add_concurrency_limit_subparser()
 
     def workflow_status(self, args: configargparse.Namespace) -> None:
         from tabulate import tabulate
@@ -55,11 +55,11 @@ class ClientCLI(CLI):
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
-    def rate_limit(self, args: configargparse.Namespace) -> None:
-        from jobmon.client.status_commands import rate_limit as rate_limit_cmd
+    def concurrency_limit(self, args: configargparse.Namespace) -> None:
+        from jobmon.client.status_commands import concurrency_limit as concurrency_limit_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        response = rate_limit_cmd(args.workflow_id, args.max_tasks, cc.url)
+        response = concurrency_limit_cmd(args.workflow_id, args.max_tasks, cc.url)
         print(response)
 
     def _add_workflow_status_subparser(self) -> None:
@@ -111,9 +111,9 @@ class ClientCLI(CLI):
         ParserDefaults.web_service_fqdn(task_status_parser)
         ParserDefaults.web_service_port(task_status_parser)
 
-    def _add_rate_limit_subparser(self) -> None:
-        rate_limit_parser = self._subparsers.add_parser("rate_limit", **PARSER_KWARGS)
-        rate_limit_parser.add_argument(
+    def _add_concurrency_limit_subparser(self) -> None:
+        concurrency_limit_parser = self._subparsers.add_parser("concurrency_limit", **PARSER_KWARGS)
+        concurrency_limit_parser.add_argument(
             "-w", "--workflow_id",
             required=True,
             type=int,
@@ -129,13 +129,13 @@ class ClientCLI(CLI):
                 raise ArgumentError("Max concurrent tasks must be at least 0")
             return x
 
-        rate_limit_parser.add_argument(
+        concurrency_limit_parser.add_argument(
             "-m", "--max_tasks",
             required=True,
             type=_validate_ntasks,
             help="Number of concurrent tasks to allow. Must be at least 1.")
-        ParserDefaults.web_service_fqdn(rate_limit_parser)
-        ParserDefaults.web_service_port(rate_limit_parser)
+        ParserDefaults.web_service_fqdn(concurrency_limit_parser)
+        ParserDefaults.web_service_port(concurrency_limit_parser)
 
 
 def main(argstr: Optional[str] = None) -> None:

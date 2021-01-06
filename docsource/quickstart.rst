@@ -442,10 +442,10 @@ Jobmon 2.1.0 will introduce a suite of additional commands to not only visualize
 
 There are two supported:
 
-**rate_limit**
-    Entering ``jobmon rate_limit`` will allow the user to change the maximum running task instances allowed in their workflow. When a workflow is instantiated, the user can specify a maximum limit to the number of concurrent tasks in case a very wide workflow threatens to resource-throttle the cluster. While running, the user can use this command to change the maximum allowed concurrency as needed if cluster busyness starts to wax or wane.
+**concurrency_limit**
+    Entering ``jobmon concurrency_limit`` will allow the user to change the maximum running task instances allowed in their workflow. When a workflow is instantiated, the user can specify a maximum limit to the number of concurrent tasks in case a very wide workflow threatens to resource-throttle the cluster. While running, the user can use this command to change the maximum allowed concurrency as needed if cluster busyness starts to wax or wane.
 
-    As an example, if we plan on running 100,000 tasks at once and don't specify a default, Jobmon will ensure only 10,000 tasks at once will be queued and run. If the cluster is particularly free, the user can use ``jobmon rate_limit -w <workflow_id> -n 100000`` to run all 100,000 tasks simultaneously without interrupting the current workflow execution. If cluster usage starts to pick back up and we need to make space for others, we can use ``jobmon rate_limit -w <workflow_id> -n 100`` to ensure that only 100 tasks at once will be queued and that we can make space for others.
+    As an example, if we plan on running 100,000 tasks at once and don't specify a default, Jobmon will ensure only 10,000 tasks at once will be queued and run. If the cluster is particularly free, the user can use ``jobmon concurrency_limit -w <workflow_id> -n 100000`` to run all 100,000 tasks simultaneously without interrupting the current workflow execution. If cluster usage starts to pick back up and we need to make space for others, we can use ``jobmon concurrency_limit -w <workflow_id> -n 100`` to ensure that only 100 tasks at once will be queued and that we can make space for others.
 
 
 Restart Tasks and Resume Workflows

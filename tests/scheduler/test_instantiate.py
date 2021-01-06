@@ -138,7 +138,7 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
     assert res[0] == "W"
 
 
-def test_rate_limiting(db_cfg, client_env):
+def test_concurrency_limiting(db_cfg, client_env):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
@@ -152,7 +152,7 @@ def test_rate_limiting(db_cfg, client_env):
         task = BashTask(command=f"sleep {i}", num_cores=1)
         tasks.append(task)
     unknown_tool = Tool()
-    workflow = unknown_tool.create_workflow(name="test_rate_limiting",
+    workflow = unknown_tool.create_workflow(name="test_concurrency_limiting",
                                             max_concurrently_running=2)
     workflow.set_executor(MultiprocessExecutor(parallelism=3))
     workflow.add_tasks(tasks)
@@ -187,13 +187,13 @@ def test_rate_limiting(db_cfg, client_env):
     scheduler.executor.stop()
 
 
-def test_dynamic_rate_limiting(db_cfg, client_env):
+def test_dynamic_concurrency_limiting(db_cfg, client_env):
     """ tests that the CLI functionality to update concurrent jobs behaves as expected"""
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
     from jobmon.client.api import Tool, BashTask
     from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
-    from jobmon.client.status_commands import rate_limit
+    from jobmon.client.status_commands import concurrency_limit
     from jobmon.constants import WorkflowRunStatus
     from jobmon.requester import Requester
 
@@ -202,7 +202,7 @@ def test_dynamic_rate_limiting(db_cfg, client_env):
         task = BashTask(command=f"sleep {i}", num_cores=1)
         tasks.append(task)
     unknown_tool = Tool()
-    workflow = unknown_tool.create_workflow(name="dynamic_rate_limiting",
+    workflow = unknown_tool.create_workflow(name="dynamic_concurrency_limiting",
                                             max_concurrently_running=2)
     workflow.set_executor(MultiprocessExecutor(parallelism=3))
     workflow.add_tasks(tasks)
@@ -216,7 +216,7 @@ def test_dynamic_rate_limiting(db_cfg, client_env):
     wfr.update_status(WorkflowRunStatus.ERROR)
 
     # Started with a default of 2. Adjust up to 5 and try again
-    _ = rate_limit(workflow.workflow_id, 5)
+    _ = concurrency_limit(workflow.workflow_id, 5)
 
     wfr2 = workflow._create_workflow_run(resume=True)
     requester = Requester(client_env)

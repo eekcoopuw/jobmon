@@ -116,7 +116,7 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
         return pd.read_json(res["task_instance_status"])
 
 
-def rate_limit(workflow_id: int, max_tasks: int, requester_url: Optional[str] = None) -> str:
+def concurrency_limit(workflow_id: int, max_tasks: int, requester_url: Optional[str] = None) -> str:
     """ Update a workflow's max_running_instances field in the database
 
     Used to dynamically adjust the allowed number of jobs concurrently running.
