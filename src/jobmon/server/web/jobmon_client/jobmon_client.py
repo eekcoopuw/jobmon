@@ -524,10 +524,10 @@ def add_nodes():
     Args:
         nodes: a list of
             node_args_hash: unique identifier of all NodeArgs associated with a
-                            node.
-            task_template_version_id: version id of the task_template a node
-                                      belongs to.
-            node_args: key-value pairs of arg_id and a value.
+            node.
+        task_template_version_id: version id of the task_template a node
+            belongs to.
+        node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
     try:

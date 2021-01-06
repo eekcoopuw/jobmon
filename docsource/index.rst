@@ -29,6 +29,7 @@ Table of Contents
     architecture
     databases
     kubernetes_deployment
+    docker_deployment
     tests
     API Reference <modules>
     experimental_azure_kubernetes_deployment
