@@ -208,6 +208,78 @@ def test_cold_resume(db_cfg, client_env):
     assert wfr2.completed_report[0] > 0  # number of newly completed tasks
 
 
+@pytest.mark.integration_sge
+def test_cold_resume_from_failures(db_cfg, client_env):
+    from jobmon.client.api import Tool, ExecutorParameters
+    from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
+    from jobmon.client.execution.scheduler.task_instance_scheduler import \
+        TaskInstanceScheduler
+    from jobmon.client.swarm.workflow_run import WorkflowRun
+    from jobmon.exceptions import SchedulerNotAlive
+
+    # set up tool and task template
+    unknown_tool = Tool()
+    tt_a = unknown_tool.get_task_template(
+        template_name="foo",
+        command_template="sleep {time}",
+        node_args=["time"])
+    tt_b = unknown_tool.get_task_template(
+        template_name="bar",
+        command_template="sleep {time}",
+        node_args=["time"])
+    tt_c = unknown_tool.get_task_template(
+        template_name="baz",
+        command_template="sleep {time}",
+        node_args=["time"])
+
+    # prepare first workflow
+    tasks = []
+    for i in range(3):
+        t = tt_a.create_task(executor_parameters=ExecutorParameters(
+            max_runtime_seconds=1),
+            time=2+i)
+        tasks.append(t)
+    for i in range(2):
+        t = tt_b.create_task(executor_parameters=ExecutorParameters(
+                max_runtime_seconds=30), time=5+i)
+        tasks.append(t)
+    for i in range(2):
+        t = tt_c.create_task(executor_parameters=ExecutorParameters(
+                max_runtime_seconds=30), time=8 + i)
+        t.add_upstream(tasks[i])
+        t.add_upstream(tasks[i+1])
+        t.add_upstream(tasks[i+2])
+        tasks.append(t)
+    workflow1 = unknown_tool.create_workflow(name="cold_resume_fail")
+    workflow1.add_tasks(tasks)
+    wfr_1 = workflow1.run()
+
+    tasks = []
+    for i in range(3):
+        t = tt_a.create_task(executor_parameters=ExecutorParameters(
+            max_runtime_seconds=10),
+            time=2 + i)
+        tasks.append(t)
+    for i in range(2):
+        t = tt_b.create_task(executor_parameters=ExecutorParameters(
+                max_runtime_seconds=30), time=5 + i)
+        tasks.append(t)
+    for i in range(2):
+        t = tt_c.create_task(executor_parameters=ExecutorParameters(
+                max_runtime_seconds=30), time=8 + i)
+        t.add_upstream(tasks[i])
+        t.add_upstream(tasks[i + 1])
+        t.add_upstream(tasks[i + 2])
+        tasks.append(t)
+    workflow2 = unknown_tool.create_workflow(name="cold_resume_fail",
+                                             workflow_args=workflow1.workflow_args)
+    workflow2.add_tasks(tasks)
+    wfr_2 = workflow2.run(resume=True)
+    assert wfr_2.status == WorkflowRunStatus.DONE
+    for task in wfr_2.swarm_tasks:
+        assert wfr_2.swarm_tasks[task].status == 'D'
+
+
 def hot_resumable_workflow():
     from jobmon.client.api import Tool, ExecutorParameters
     from jobmon.client.execution.strategies.sequential import \
