@@ -32,14 +32,14 @@ def create_app(web_config: Optional[WebConfig] = None):
     from jobmon.server.web.jobmon_scheduler.jobmon_scheduler import jobmon_scheduler
     from jobmon.server.web.jobmon_swarm.jobmon_swarm import jobmon_swarm
     from jobmon.server.web.jobmon_worker.jobmon_worker import jobmon_worker
-    from jobmon.server.web.visualization_server.visualization_server import jvs
+    from jobmon.server.web.jobmon_cli.jobmon_cli import jcli
 
     app.register_blueprint(jobmon_client, url_prefix='/')  # default traffic goes to jobmon_client
     app.register_blueprint(jobmon_client, url_prefix='/client')
     app.register_blueprint(jobmon_scheduler, url_prefix='/scheduler')
     app.register_blueprint(jobmon_swarm, url_prefix='/swarm')
     app.register_blueprint(jobmon_worker, url_prefix='/worker')
-    app.register_blueprint(jvs, url_prefix='/viz')
+    app.register_blueprint(jcli, url_prefix='/jobmon_cli')
 
     # register app with flask-sqlalchemy DB
     from jobmon.server.web.models import DB

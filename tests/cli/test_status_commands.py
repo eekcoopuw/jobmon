@@ -172,6 +172,146 @@ def test_task_status(db_cfg, client_env):
     assert len(df_all) == 3
 
 
+def test_task_reset(db_cfg, client_env):
+    from jobmon.client.api import BashTask
+    from jobmon.client.api import UnknownWorkflow
+    from jobmon.client.status_commands import update_task_status, validate_username
+
+    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
+    t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t2 = BashTask("sleep 4", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+
+    workflow.add_tasks([t1, t2])
+    workflow.run()
+
+    # Check that this user is allowed to update
+    command_str = f"update_task_status -t {t1.task_id} {t2.task_id} -w {workflow.workflow_id} -s F"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    update_task_status(args.task_ids, args.workflow_id, args.new_status)
+
+    # Validation with a different user raises an error
+    with pytest.raises(AssertionError):
+        from jobmon.requester import Requester
+        requester = Requester(client_env)
+        validate_username(workflow.workflow_id, 'notarealuser', requester)
+
+
+def test_task_reset_wf_validation(db_cfg, client_env):
+    from jobmon.client.api import BashTask
+    from jobmon.client.api import UnknownWorkflow
+    from jobmon.client.status_commands import update_task_status, validate_username
+
+    workflow1 = UnknownWorkflow(executor_class="SequentialExecutor")
+    workflow2 = UnknownWorkflow(executor_class="SequentialExecutor")
+    t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t2 = BashTask("sleep 4", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+
+    workflow1.add_tasks([t1])
+    workflow1.run()
+    workflow2.add_tasks([t2])
+    workflow2.run()
+
+    # Check that this user is allowed to update
+    command_str = f"update_task_status -t {t1.task_id} {t2.task_id} -w {workflow1.workflow_id} -s F"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+
+    # Validation with a task not in the workflow raises an error
+    with pytest.raises(AssertionError):
+        update_task_status([t1.task_id, t2.task_id], args.workflow_id, args.new_status)
+
+
+def test_sub_dag(db_cfg, client_env):
+    from jobmon.client.api import BashTask
+    from jobmon.client.api import UnknownWorkflow
+    from jobmon.client.status_commands import get_sub_task_tree
+
+    """
+    Dag:
+                t1             t2             t3
+            /    |     \                     /
+           /     |      \                   /
+          /      |       \                 /
+         /       |        \               /
+        t1_1   t1_2            t13_1
+         \       |              /
+          \      |             /
+           \     |            /
+              t1_11_213_1_1
+    """
+    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
+    t1 = BashTask("echo 1", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t1_1 = BashTask("echo 11", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t1_2 = BashTask("echo 12", executor_class="SequentialExecutor",
+                    max_runtime_seconds=10, resource_scales={})
+    t1_11_213_1_1 = BashTask("echo 121", executor_class="SequentialExecutor",
+                    max_runtime_seconds=10, resource_scales={})
+    t2 = BashTask("echo 2", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t3 = BashTask("echo 3", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t13_1 = BashTask("echo 131", executor_class="SequentialExecutor",
+                  max_runtime_seconds=10, resource_scales={})
+    t1_11_213_1_1.add_upstream(t1_1)
+    t1_11_213_1_1.add_upstream(t1_2)
+    t1_11_213_1_1.add_upstream((t13_1))
+    t1_2.add_upstream(t1)
+    t1_1.add_upstream(t1)
+    t13_1.add_upstream(t1)
+    t13_1.add_upstream(t3)
+    workflow.add_tasks([t1, t1_1, t1_2, t1_11_213_1_1, t2, t3, t13_1])
+    workflow._bind()
+    workflow._bind_tasks()
+
+    # test node with no sub nodes
+    tree = get_sub_task_tree([t2.task_id])
+    assert len(tree.items()) == 1
+    assert str(t2.task_id) in tree.keys()
+
+    # test node with two upstream
+    tree = get_sub_task_tree([t3.task_id])
+    assert len(tree.items()) == 3
+    assert str(t3.task_id) in tree.keys()
+    assert str(t13_1.task_id) in tree.keys()
+
+    # test sub tree
+    tree = get_sub_task_tree([t1.task_id])
+    assert len(tree.items()) == 5
+    assert str(t1.task_id) in tree.keys()
+    assert str(t1_1.task_id) in tree.keys()
+    assert str(t1_2.task_id) in tree.keys()
+    assert str(t1_11_213_1_1.task_id) in tree.keys()
+    assert str(t13_1.task_id) in tree.keys()
+
+    # test sub tree with status G
+    tree = get_sub_task_tree([t1.task_id], task_status=["G"])
+    assert len(tree.items()) == 5
+    assert str(t1.task_id) in tree.keys()
+    assert str(t1_1.task_id) in tree.keys()
+    assert str(t1_2.task_id) in tree.keys()
+    assert str(t1_11_213_1_1.task_id) in tree.keys()
+    assert str(t13_1.task_id) in tree.keys()
+
+    # test no status match returns 0 nodes
+    tree = get_sub_task_tree([t1.task_id], task_status=["F"])
+    assert len(tree.items()) == 0
+
+    # test >1 task id list
+    # test node with two upstream
+    tree = get_sub_task_tree([t3.task_id, t2.task_id])
+    assert len(tree.items()) == 4
+    assert str(t3.task_id) in tree.keys()
+    assert str(t13_1.task_id) in tree.keys()
+    assert str(t2.task_id) in tree.keys()
+
+
 def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
     """ The server-side logic is checked in scheduler/test_instantiate.
 

@@ -203,7 +203,7 @@ class Executor:
             val = shutil.which("jobmon_command")
         if val is None:
             raise ValueError("jobmon_command cannot be None. Must be path to "
-                             "jobmon worker node cli")
+                             "jobmon worker node jobmon_cli")
         self._jobmon_command = val
 
     def execute(self, command: str, name: str,
