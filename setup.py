@@ -84,8 +84,8 @@ setup(
     entry_points={
         'console_scripts': [
             'jobmon=jobmon.client.jobmon_cli:main',
-            'jobmon_scheduler=jobmon.client.execution.jobmon_cli:main',
-            'jobmon_server=jobmon.server.jobmon_cli:main',
+            'jobmon_scheduler=jobmon.client.execution.cli:main',
+            'jobmon_server=jobmon.server.web.jobmon_cli:main',
             'jobmon_command=jobmon.client.execution.worker_node.execution_wrapper:main'
         ]
     }
