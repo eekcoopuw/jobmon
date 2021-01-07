@@ -6,7 +6,7 @@
 #     return time
 
 
-# @jcli.route('/job_status', methods=['GET'])
+# @jobmon_cli.route('/job_status', methods=['GET'])
 # def get_job_statuses():
 #     """get job status metadata"""
 #     job_statuses = DB.session.query(JobStatus).all()
@@ -30,7 +30,7 @@
 #     return resp
 
 
-# @jcli.route('/workflow', methods=['GET'])
+# @jobmon_cli.route('/workflow', methods=['GET'])
 # def get_workflows_by_status():
 #     """get all workflows with a given status
 
@@ -52,7 +52,7 @@
 #     return resp
 
 
-# @jcli.route('/workflow/<workflow_id>/job_display_details', methods=['GET'])
+# @jobmon_cli.route('/workflow/<workflow_id>/job_display_details', methods=['GET'])
 # def get_job_display_details_by_workflow(workflow_id):
 #     """Get the jobs that have changed status since a given time for a workflow.
 

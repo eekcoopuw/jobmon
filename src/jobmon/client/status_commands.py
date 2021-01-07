@@ -38,7 +38,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/jobmon_cli/workflow_status",
+        app_route="/cli/workflow_status",
         message=msg,
         request_type="get",
         logger=logger
@@ -71,7 +71,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route=f"/jobmon_cli/workflow/{workflow_id}/workflow_tasks",
+        app_route=f"/cli/workflow/{workflow_id}/workflow_tasks",
         message=msg,
         request_type="get",
         logger=logger
@@ -105,7 +105,7 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/jobmon_cli/task_status",
+        app_route="/cli/task_status",
         message=msg,
         request_type="get",
         logger=logger
@@ -136,7 +136,7 @@ def concurrency_limit(workflow_id: int, max_tasks: int, requester_url: Optional[
     requester = Requester(requester_url)
 
     _, resp = requester.send_request(
-        app_route=f"/jobmon_cli/workflow/{workflow_id}/update_max_running",
+        app_route=f"/cli/workflow/{workflow_id}/update_max_running",
         message=msg,
         request_type="put")
 
@@ -175,7 +175,7 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
 
     # Validate that the user is approved to make these changes
     rc, res = requester.send_request(
-        app_route=f"/jobmon_cli/workflow/{workflow_id}/usernames",
+        app_route=f"/cli/workflow/{workflow_id}/usernames",
         message={},
         request_type="get")
 
@@ -188,7 +188,7 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
 
 def validate_workflow(task_ids: List[int], requester: Requester) -> None:
     rc, res = requester.send_request(
-        app_route="/jobmon_cli/workflow_validation",
+        app_route="/cli/workflow_validation",
         message={'task_ids': task_ids},
         request_type="get")
 
@@ -203,7 +203,7 @@ def get_sub_task_tree(task_ids: list, task_status: list = None, requester: Reque
         requester = Requester(ClientConfig.from_defaults().url)
     # Valid input
     rc, res = requester.send_request(
-        app_route=f"/jobmon_cli/task/subdag",
+        app_route=f"/cli/task/subdag",
         message={'task_ids': task_ids,
             'task_status': task_status},
         request_type="get")

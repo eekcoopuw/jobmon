@@ -9,7 +9,7 @@ from jobmon.server.web.models import DB
 from jobmon.constants import WorkflowStatus as Statuses
 
 
-jcli = Blueprint("jobmon_cli", __name__)
+jobmon_cli = Blueprint("jobmon_cli", __name__)
 
 
 logger = LocalProxy(lambda: app.logger)
@@ -51,7 +51,7 @@ _reversed_task_instance_label_mapping = {
 _cli_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 
-@jcli.route("/health", methods=['GET'])
+@jobmon_cli.route("/health", methods=['GET'])
 def health():
     """
     Test connectivity to the database, return 200 if everything is ok
@@ -67,7 +67,7 @@ def health():
     return resp
 
 
-@jcli.route("/workflow_validation", methods=['GET'])
+@jobmon_cli.route("/workflow_validation", methods=['GET'])
 def get_workflow_validation_status():
     # initial params
     task_ids = request.args.getlist('task_ids')
@@ -101,7 +101,7 @@ def get_workflow_validation_status():
     return resp
 
 
-@jcli.route('/workflow_status', methods=['GET'])
+@jobmon_cli.route('/workflow_status', methods=['GET'])
 def get_workflow_status():
     # initial params
     params = {}
@@ -206,7 +206,7 @@ def get_workflow_status():
     return resp
 
 
-@jcli.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
+@jobmon_cli.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
 def get_workflow_tasks(workflow_id):
     params = {"workflow_id": workflow_id}
     where_clause = "WHERE workflow.id = :workflow_id"
@@ -249,7 +249,7 @@ def get_workflow_tasks(workflow_id):
     return resp
 
 
-@jcli.route('/task_status', methods=['GET'])
+@jobmon_cli.route('/task_status', methods=['GET'])
 def get_task_status():
 
     task_ids = request.args.getlist('task_ids')
@@ -306,7 +306,7 @@ def get_task_status():
     return resp
 
 
-@jcli.route('/workflow/<workflow_id>/usernames', methods=['GET'])
+@jobmon_cli.route('/workflow/<workflow_id>/usernames', methods=['GET'])
 def get_workflow_users(workflow_id: int):
     """
     Return all usernames associated with a given workflow_id's workflow runs.
@@ -397,7 +397,7 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> di
     return task_dict
 
 
-@jcli.route('/task/subdag', methods=['GET'])
+@jobmon_cli.route('/task/subdag', methods=['GET'])
 def get_task_subdag():
     """
     Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a list of sub nodes.
@@ -440,7 +440,7 @@ def get_task_subdag():
     return resp
 
 
-@jcli.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
+@jobmon_cli.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
 def update_max_running(workflow_id):
 
     data = request.get_json()
