@@ -35,7 +35,7 @@ TEST_REQUIRES = [
 
 # pip install -e .[docs]
 DOCS_REQUIRES = [
-    'sphinx',
+    'sphinx==3.3.1',
     'sphinx-autodoc-typehints',
     'sphinx_rtd_theme',
 ]

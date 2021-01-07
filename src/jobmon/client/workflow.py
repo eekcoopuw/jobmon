@@ -232,6 +232,7 @@ class Workflow(object):
             scheduler_config: Optional[SchedulerConfig] = None) -> WorkflowRun:
         """Run the workflow by traversing the dag and submitting new tasks when
         their tasks have completed successfully.
+
         Args:
             fail_fast: whether or not to break out of execution on
                 first failure

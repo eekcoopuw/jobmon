@@ -32,6 +32,12 @@ def set_mac_to_fork():
 
 
 def boot_db() -> dict:
+    """
+    Boots a test ephemera database
+
+    Returns:
+      a dictionary with connection parameters
+    """
     edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
     edb.db_name = "docker"
     conn_str = edb.start()
@@ -72,23 +78,30 @@ def boot_db() -> dict:
 
 
 @pytest.fixture(scope="session")
-def ephemera(tmp_path_factory, worker_id):
+def ephemera(tmp_path_factory, worker_id) -> dict:
+    """
+    Boots exactly one instance of the test ephemera database
+
+    Returns:
+      a dictionary with connection parameters
+    """
     if worker_id == "master":
-        # not executing in with multiple workers, just produce the data and let
+        # not executing with multiple workers, just produce the data and let
         # pytest's fixture caching do its job
         return boot_db()
 
     # get the temp directory shared by all workers
     root_tmp_dir = tmp_path_factory.getbasetemp().parent
 
+    # Only want one instance of the database
     fn = root_tmp_dir / "data.json"
     with FileLock(str(fn) + ".lock"):
         if fn.is_file():
-            data = json.loads(fn.read_text())
+            connection_information = json.loads(fn.read_text())
         else:
-            data = boot_db()
-            fn.write_text(json.dumps(data))
-    return data
+            connection_information = boot_db()
+            fn.write_text(json.dumps(connection_information))
+    return connection_information
 
 
 @pytest.fixture(scope='session')
@@ -151,7 +164,7 @@ def web_server_process(ephemera):
 
     if count >= max_tries:
         raise TimeoutError(
-            f"Out-of-process jsm and jqs services did not answer after "
+            f"Out-of-process jobmon services did not answer after "
             f"{count} attempts, probably failed to start.")
 
     yield {"JOBMON_HOST": web_host, "JOBMON_PORT": web_port}
@@ -162,9 +175,19 @@ def web_server_process(ephemera):
 
 
 @pytest.fixture(scope='session')
-def db_cfg(ephemera):
-    """This run at the beginning of every function to tear down the db
-    of the previous test and restart it fresh"""
+def db_cfg(ephemera) -> dict:
+    """
+    This is run at the beginning of every test function to:
+      1. tear down the db of the previous test and restart it fresh, and
+      2. plus it starts all the services in this process
+
+      HOWEVER, this flask application is ignored, we are forced to start it to get the
+      database connection. This fixture is used to start the database, the services are
+      ignored.
+
+      Returns:
+          A dictionary with the database connection parameters
+      """
     from jobmon.server.web.models import DB
     from jobmon.server.web.api import WebConfig, create_app
 

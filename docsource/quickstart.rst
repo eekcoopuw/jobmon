@@ -1,8 +1,9 @@
 
-
 Quickstart
 ##########
 
+Jobmon’s Vision is to make it as easy as possible for everyone at IHME to run any kind of code
+on any compute platform, reliably, and efficiently.
 
 Install
 *******
@@ -58,14 +59,14 @@ depends on Task A, it would form a `directed-acyclic graph (DAG) <https://en.wik
 A Workflow is further uniquely identified by a set of WorkflowArgs which are
 required if the Workflow is to be resumable.
 
-For more about the objects go to the :doc:`Workflow and Task Reference <jobmon.client.swarm.workflow>`
-or :doc:`Executor Parameter Reference <jobmon.client.swarm.executors>`
+For more about the objects go to the :doc:`Workflow and Task Reference <jobmon.client>`
+or :doc:`Executor Parameter Reference <jobmon.client.execution>`
 
 .. note::
     The following example is the easiest way to create a Workflow that is backwards compatible
     with previous versions of Jobmon. It is not the recommended way since it does not take full
     advantage of all of the metadata. To see more information on the recommended way, check
-    out the Tool and TaskTemplate example further down. :ref:`Nodes, TaskTemplates and Tools`
+    out the Tool and TaskTemplate example further down. :ref:`Nodes, TaskTemplates, and Tools`
 
 Constructing a Workflow and adding a few Tasks is simple::
 
@@ -207,8 +208,8 @@ task's ExecutorParameters::
     Errors with a return code of 199 indicate an issue occurring within Jobmon
     itself. Errors with a return code of 137 or 247 indicate resource errors.
 
-Nodes, TaskTemplates and Tools
-=======================================
+Nodes, TaskTemplates, and Tools
+===============================
 Nodes are the object representing a Task within a DAG. It simply keeps track of where a
 Task is and what attributes make the task unique within the DAG. Tasks
 will often be created from a TaskTemplate and they will vary somewhat e.g. by location, this
@@ -389,7 +390,7 @@ For example::
 
 Jobmon Commands
 =======================================
-Jobmon status commands are available as of version 1.1.0. The Jobmon status
+The Jobmon status
 commands allow you to check that status of your Workflows and Tasks from the
 command line.
 
@@ -448,8 +449,153 @@ There are two supported:
     As an example, if we plan on running 100,000 tasks at once and don't specify a default, Jobmon will ensure only 10,000 tasks at once will be queued and run. If the cluster is particularly free, the user can use ``jobmon concurrency_limit -w <workflow_id> -n 100000`` to run all 100,000 tasks simultaneously without interrupting the current workflow execution. If cluster usage starts to pick back up and we need to make space for others, we can use ``jobmon concurrency_limit -w <workflow_id> -n 100`` to ensure that only 100 tasks at once will be queued and that we can make space for others.
 
 
-Restart Tasks and Resume Workflows
-=======================================
+A Workflow that retries Tasks if they fail
+******************************************
+
+By default a Task will be retried up to three times if it fails. This helps to
+reduce the chance that random events on the cluster or landing on a bad node
+will cause your entire Task and Workflow to fail.
+
+In order to configure the number of times a Task can be retried, configure the
+max_attempts parameter in the Task that you create. If you are still debugging
+your code, please set the number of retries to zero so that it does not retry
+code with a bug multiple times. When the code is debugged, and you are ready
+to run in production, set the retries to a non-zero value.
+
+The following example shows a configuration in which the user wants their Task
+to be retried 4 times and it will fail up until the fourth time.::
+
+    import getpass
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    from jobmon.client.templates.python_task import PythonTask
+    from jobmon.client.api import ExecutorParameters
+    from jobmon.client.execution.strategies.sge import sge_utils
+
+    user = getpass.getuser()
+
+    wf = Workflow(
+        workflow_args="workflow_with_many_retries",
+        project="proj_scicomp")
+
+    params = ExecutorParameters(
+        num_cores=1,
+        m_mem_free="1G",
+        max_runtime_seconds=100,  # set max runtime to be shorter than task runtime
+        queue="all.q",
+        executor_class="SGEExecutor",
+        resource_scales={'m_mem_free': 0.5, 'max_runtime_seconds': 0.5})
+
+    name = "retry_task"
+    output_file_name = f"/ihme/scratch/users/{user}/retry_output"
+    retry_task = PythonTask(
+        script=sge_utils.true_path("tests/remote_sleep_and_write.py"),
+        args=["--sleep_secs", "4",
+              "--output_file_path", output_file_name,
+              "--fail_count", 3,
+              "--name", name],
+        name=name, max_attempts=4, executor_parameters = params)
+
+    wf.add_task(retry_task)
+
+    # 3 TaskInstances will fail before ultimately succeeding
+    wf.run()
+
+Dynamically Configure Resources for a Given Task
+************************************************
+It is possible to dynamically configure the resources needed to run a
+given task. For example, if an upstream Task may better inform the resources
+that a downstream Task needs, the resources will not be checked and bound until
+the downstream is about to run and all of it's upstream dependencies
+have completed. To do this, the user can provide a function that will be called
+at runtime and return an ExecutorParameter object with the resources needed.
+
+
+For example ::
+
+    from jobmon.client.api import ExecutorParameters
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    from jobmon.client.templates.bash_task import BashTask
+
+    def assign_resources(*args, **kwargs):
+        """ Callable to be evaluated when the task is ready to be scheduled
+        to run"""
+        fp = '/ihme/scratch/users/svcscicompci/tests/jobmon/resources.txt'
+        with open(fp, "r") as file:
+            resources = file.read()
+            resource_dict = ast.literal_eval(resources)
+        m_mem_free = resource_dict['m_mem_free']
+        max_runtime_seconds = int(resource_dict['max_runtime_seconds'])
+        num_cores = int(resource_dict['num_cores'])
+        queue = resource_dict['queue']
+
+        exec_params = ExecutorParameters(m_mem_free=m_mem_free,
+                                         max_runtime_seconds=max_runtime_seconds,
+                                         num_cores=num_cores, queue=queue)
+        return exec_params
+
+    # task with static resources that assigns the resources for the 2nd task
+    # when it runs
+    task1 = PythonTask(name='task_to_assign_resources',
+                       script="/assign_resources.py", max_attempts = 1,
+                       max_runtime_seconds=200, num_cores=1,
+                       queue='all.q', m_mem_free='1G')
+
+    task2 = BashTask(name='dynamic_resource_task', command='sleep 1',
+                    max_attempts=2, executor_parameters=assign_resources)
+    task2.add_upstream(task1) # make task2 dependent on task 1
+
+    wf = Workflow(workflow_args='dynamic_resource_wf')
+    wf.add_task(task1)
+    wf.run()
+
+
+A Workflow that adjusts the resources of a Task
+===============================================
+
+Sometimes a user may not be able to accurately predict the runtime or memory usage
+of a task. Jobmon will detect when the task fails due to resource constraints and
+retry that task with with more resources. The default resource scaling factor is 50%
+for m_mem_free and max_runtime_sec unless otherwise specified. For example if your
+max_runtime for a task was set to 100 seconds and fails, Jobmon will automatically
+retry the Task with a max runtime set to 150 seconds.
+
+For example::
+
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    from jobmon.client.templates.bash_task import BashTask
+    from jobmon.client.api import ExecutorParameters
+
+    my_wf = Workflow(
+        workflow_args="resource_starved_workflow",
+        project="proj_scicomp")
+
+
+    # specify SGE specific parameters
+    sleepy_params = ExecutorParameters(
+        num_cores=1,
+        m_mem_free="1G",
+        max_runtime_seconds=100,  # set max runtime to be shorter than task runtime
+        queue="all.q",
+        executor_class="SGEExecutor",
+        resource_scales={'m_mem_free': 0.6, 'max_runtime_seconds': 0.6})
+    sleepy_task = BashTask(
+        # set sleep to be longer than max runtime, forcing a retry
+        "sleep 120",
+        # job should succeed on second try. The runtime will 160 seconds on the retry
+        max_attempts=2,
+        executor_parameters=sleepy_params)
+    my_wf.add_task(sleepy_task)
+
+    # The Task will time out and get killed by the cluster. After a few minutes Jobmon
+    # will notice that it has disappeared and ask SGE for exit status. SGE will
+    # show a resource kill. Jobmon will scale the memory and runtime by 60% and retry the
+    # job at which point it will succeed.
+    my_wf.run()
+
+
+
+Resume an Entire Workflow
+*************************
 
 A Workflow allows for sophisticated tracking of how many times a DAG gets
 executed, who ran them and when.
@@ -461,6 +607,11 @@ With a Workflow you can:
 #. Re-attempt a set of Tasks that may have ERROR'd out in the middle (assuming you
    identified and fixed the source of the error)
 #. Set stderr, stdout, working_dir, and project qsub arguments from the top level
+
+When a workflow is resumed, Jobmon examines  it from the beginning and skips over
+any tasks that are already Done. It will restart jobs that were in Error (maybe you fixed
+that bug!) or are Registered. As always it only starts a job when all its upstreams are Done.
+In other words, it starts from first failure, creating a new workflow run for an existing workflow.
 
 To resume a Workflow, make sure that your previous workflow
 run process is dead (kill it using the pid from the workflow run table)::
@@ -561,57 +712,9 @@ Tasks that may have been made in previous Workflows will be ignored.
     Figure out how we want to give users visibility into the Workflows
     they've created over time.
 
-Dynamically Configure Resources for a Given Task
-================================================
-It is possible to dynamically configure the resources needed to run a
-given task. For example, if an upstream Task may better inform the resources
-that a downstream Task needs, the resources will not be checked and bound until
-the downstream is about to run and all of it's upstream dependencies
-have completed. To do this, the user can provide a function that will be called
-at runtime and return an ExecutorParameter object with the resources needed.
 
-
-For example ::
-
-    from jobmon.client.api import ExecutorParameters
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-    from jobmon.client.templates.bash_task import BashTask
-
-    def assign_resources(*args, **kwargs):
-        """ Callable to be evaluated when the task is ready to be scheduled
-        to run"""
-        fp = '/ihme/scratch/users/svcscicompci/tests/jobmon/resources.txt'
-        with open(fp, "r") as file:
-            resources = file.read()
-            resource_dict = ast.literal_eval(resources)
-        m_mem_free = resource_dict['m_mem_free']
-        max_runtime_seconds = int(resource_dict['max_runtime_seconds'])
-        num_cores = int(resource_dict['num_cores'])
-        queue = resource_dict['queue']
-
-        exec_params = ExecutorParameters(m_mem_free=m_mem_free,
-                                         max_runtime_seconds=max_runtime_seconds,
-                                         num_cores=num_cores, queue=queue)
-        return exec_params
-
-    # task with static resources that assigns the resources for the 2nd task
-    # when it runs
-    task1 = PythonTask(name='task_to_assign_resources',
-                       script="/assign_resources.py", max_attempts = 1,
-                       max_runtime_seconds=200, num_cores=1,
-                       queue='all.q', m_mem_free='1G')
-
-    task2 = BashTask(name='dynamic_resource_task', command='sleep 1',
-                    max_attempts=2, executor_parameters=assign_resources)
-    task2.add_upstream(task1) # make task2 dependent on task 1
-
-    wf = Workflow(workflow_args='dynamic_resource_wf')
-    wf.add_task(task1)
-    wf.run()
-
-
-Making Workflow Fail On First Failure
-=======================================
+Making a Workflow Fail On First Failure
+***************************************
 
 On occasion, a user might want to see how far a workflow can get before it fails,
 or want to immediately see where problem spots are. To do this, the user can just
@@ -627,106 +730,11 @@ For example::
     wf.run()
 
 
-A Workflow that adjusts the resources of a Task
-===============================================
-
-Sometimes a user may not be able to accurately predict the runtime or memory usage
-of a task. Jobmon will detect when the task fails due to resource constraints and
-retry that task with with more resources. The default resource scaling factor is 50%
-for m_mem_free and max_runtime_sec unless otherwise specified. For example if your
-max_runtime for a task was set to 100 seconds and fails, Jobmon will automatically
-retry the Task with a max runtime set to 150 seconds.
-
-For example::
-
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-    from jobmon.client.templates.bash_task import BashTask
-    from jobmon.client.api import ExecutorParameters
-
-    my_wf = Workflow(
-        workflow_args="resource_starved_workflow",
-        project="proj_scicomp")
-
-
-    # specify SGE specific parameters
-    sleepy_params = ExecutorParameters(
-        num_cores=1,
-        m_mem_free="1G",
-        max_runtime_seconds=100,  # set max runtime to be shorter than task runtime
-        queue="all.q",
-        executor_class="SGEExecutor",
-        resource_scales={'m_mem_free': 0.6, 'max_runtime_seconds': 0.6})
-    sleepy_task = BashTask(
-        # set sleep to be longer than max runtime, forcing a retry
-        "sleep 120",
-        # job should succeed on second try. The runtime will 160 seconds on the retry
-        max_attempts=2,
-        executor_parameters=sleepy_params)
-    my_wf.add_task(sleepy_task)
-
-    # The Task will time out and get killed by the cluster. After a few minutes Jobmon
-    # will notice that it has disappeared and ask SGE for exit status. SGE will
-    # show a resource kill. Jobmon will scale the memory and runtime by 60% and retry the
-    # job at which point it will succeed.
-    my_wf.run()
-
-
-
-
-A Workflow that retries Tasks if they fail
-*****************************************
-
-By default a Task will be retried up to three times if it fails. This helps to
-reduce the chance that random events on the cluster or landing on a bad node
-will cause your entire Task and Workflow to fail.
-
-In order to configure the number of times a Task can be retried, configure the
-max_attempts parameter in the Task that you create. If you are still debugging
-your code, please set the number of retries to zero so that it does not retry
-code with a bug multiple times. When the code is debugged, and you are ready
-to run in production, set the retries to a non-zero value.
-
-The following example shows a configuration in which the user wants their Task
-to be retried 4 times and it will fail up until the fourth time.::
-
-    import getpass
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-    from jobmon.client.templates.python_task import PythonTask
-    from jobmon.client.api import ExecutorParameters
-    from jobmon.client.execution.strategies.sge import sge_utils
-
-    user = getpass.getuser()
-
-    wf = Workflow(
-        workflow_args="workflow_with_many_retries",
-        project="proj_scicomp")
-
-    params = ExecutorParameters(
-        num_cores=1,
-        m_mem_free="1G",
-        max_runtime_seconds=100,  # set max runtime to be shorter than task runtime
-        queue="all.q",
-        executor_class="SGEExecutor",
-        resource_scales={'m_mem_free': 0.5, 'max_runtime_seconds': 0.5})
-
-    name = "retry_task"
-    output_file_name = f"/ihme/scratch/users/{user}/retry_output"
-    retry_task = PythonTask(
-        script=sge_utils.true_path("tests/remote_sleep_and_write.py"),
-        args=["--sleep_secs", "4",
-              "--output_file_path", output_file_name,
-              "--fail_count", 3,
-              "--name", name],
-        name=name, max_attempts=4, executor_parameters = params)
-
-    wf.add_task(retry_task)
-
-    # 3 TaskInstances will fail before ultimately succeeding
-    wf.run()
-
 Jobmon Database
 ***************
 
+If the command line status commands do not provide the information you need,
+you can look in the jobmon database.
 By default, your Workflow talks to our centrally-hosted Jobmon server
 (scicomp-maria-db-p01.db.ihme.washington.edu). You can access the
 Jobmon database from your favorite DB browser (e.g. Sequel Pro) using the credentials::
@@ -963,5 +971,5 @@ To raise a Scientific Computing help desk request:
     - `SciComp Help Desk <https://help.ihme.washington.edu/servicedesk/customer/portal/16>`_.
 
 When requesting help try to provide the team with as much information as you have about your
-problem. Please include your Workflow id, the Jobmon version that you're using, and any
-TaskInstance error logs that you have.
+problem. *Please include your Workflow id, the Jobmon version that you're using, and any
+TaskInstance error logs that you have.*
