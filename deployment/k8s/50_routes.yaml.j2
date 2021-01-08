@@ -80,7 +80,7 @@ spec:
 apiVersion: traefik.containo.us/v1alpha1
 kind: IngressRoute
 metadata:
-  name: jobmon-vizualization-server-routes
+  name: jobmon-cli-routes
   namespace: {{namespace}}
 spec:
   entryPoints:
@@ -90,7 +90,7 @@ spec:
   - match: PathPrefix(`/viz`)
     kind: Rule
     services:
-    - name: jobmon-vizualization-server
+    - name: jobmon-cli
       port: 80
 
 # Grafana routes

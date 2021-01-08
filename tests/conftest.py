@@ -121,7 +121,7 @@ def web_server_process(ephemera):
         web_host = socket.getfqdn()
     web_port = str(10_000 + os.getpid() % 30_000)
 
-    # cli string
+    # jobmon_cli string
     argstr = (
         'web_service test '
         f'--db_host {ephemera["DB_HOST"]} '

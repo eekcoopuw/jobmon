@@ -5,17 +5,17 @@
 
 # from jobmon.client import shared_requester as req
 # from jobmon.server.job_visualization_server.job_visualization_server import (
-#     _viz_label_mapping)
+#     _cli_label_mapping)
 
 
 # def test_job_status(env_var, db_cfg):
 #     rc, resp = req.send_request(
-#         app_route='/viz/job_status',
+#         app_route='/jobmon_cli/job_status',
 #         message={},
 #         request_type='get')
 #     assert len(resp["job_statuses_dict"]) > 0
 #     for job_status in resp["job_statuses_dict"]:
-#         assert job_status["label"] in _viz_label_mapping.values()
+#         assert job_status["label"] in _cli_label_mapping.values()
 
 
 # def test_foo(env_var, db_cfg):
