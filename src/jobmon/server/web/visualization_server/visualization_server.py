@@ -1,9 +1,11 @@
 from http import HTTPStatus as StatusCodes
 from flask import jsonify, request, Blueprint
+import json
 
 import pandas as pd
 
 from jobmon.server.web.models import DB
+from jobmon.constants import TaskStatus, TaskInstanceStatus, WorkflowStatus as Statuses
 
 
 jvs = Blueprint("visualization_server", __name__)
@@ -87,10 +89,11 @@ def get_workflow_validation_status():
     res = DB.session.execute(q).fetchall()
     # Validate if all tasks are in the same workflow and the workflow status is dead
     if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED, Statuses.SUSPENDED):
-        resp = jsonify(validation=True)
+        validation = True
     else:
-        resp = jsonify(validation=False)
+        validation = False
 
+    resp = jsonify(validation=validation, workflow_status=res[0][1])
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -430,6 +433,52 @@ def get_task_subdag():
     sub_task_tree = _get_tasks_from_nodes(workflow_id, sub_dag_tree, task_status)
     resp = jsonify(workflow_id=workflow_id, sub_task=sub_task_tree)
 
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jvs.route('/task/update_statuses', methods=['PUT'])
+def update_task_statuses():
+
+    data = request.get_json()
+    task_ids = data['task_ids']
+    new_status = data['new_status']
+    workflow_status = data['workflow_status']
+    workflow_id = data['workflow_id']
+
+    task_ids_str = '(' + ','.join([str(i) for i in task_ids]) + ')'
+
+    task_q = """
+        UPDATE task
+        SET status = '{new_status}'
+        WHERE id IN {task_ids}
+    """.format(new_status=new_status, task_ids=task_ids_str)
+
+    task_res = DB.session.execute(task_q)
+
+    # If job is supposed to be rerun, set task instances to "K"
+    if new_status == TaskStatus.REGISTERED:
+
+        task_instance_q = """
+            UPDATE task_instance
+            SET status = '{k_code}'
+            WHERE task_id in {task_ids}
+        """.format(k_code=TaskInstanceStatus.KILL_SELF, task_ids=task_ids_str)
+        DB.session.execute(task_instance_q)
+
+        # If workflow is done, need to set it to an error state before resume
+        if workflow_status == Statuses.DONE:
+            workflow_q = """
+                UPDATE workflow
+                SET status = '{status}'
+                WHERE id = {workflow_id}
+            """.format(status=Statuses.FAILED, workflow_id=workflow_id)
+            DB.session.execute(workflow_q)
+
+    DB.session.commit()
+
+    message = f"{task_res.rowcount} rows updated to status {new_status}"
+    resp = jsonify(message)
     resp.status_code = StatusCodes.OK
     return resp
 

@@ -65,11 +65,11 @@ class SwarmTask(object):
     @property
     def all_upstreams_done(self) -> bool:
         """Return a bool of if upstreams are done or not"""
-        if (self.num_upstreams_done >= len(self.upstream_tasks)):
-            logger.debug(f"task id: {self.task_id} is checking all upstream tasks")
-            return all([u.is_done for u in self.upstream_tasks])
-        else:
-            return False
+        # if (self.num_upstreams_done >= len(self.upstream_tasks)):
+        #     logger.debug(f"task id: {self.task_id} is checking all upstream tasks")
+        return all([u.is_done for u in self.upstream_tasks])
+        # else:
+        #     return False
 
     @property
     def is_done(self) -> bool:
