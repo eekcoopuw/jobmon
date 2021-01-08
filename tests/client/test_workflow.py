@@ -128,3 +128,26 @@ def test_add_same_node_args_twice(client_env):
     workflow.add_task(a)
     with pytest.raises(DuplicateNodeArgsError):
         workflow.add_task(b)
+
+
+def test_numpy_array_node_args(client_env, db_cfg):
+    """Test passing an object (set) that is not JSON serializable to node and task args."""
+    tool = Tool.create_tool(name="numpy_test_tool")
+    workflow = tool.create_workflow(name="numpy_test_wf")
+    workflow.set_executor(executor_class="SequentialExecutor")
+    template = tool.get_task_template(
+        template_name="numpy_test_template",
+        command_template="echo {node_arg} {task_arg}",
+        node_args=["node_arg"],
+        task_args=["task_arg"]
+    )
+    executor_parameters = ExecutorParameters(executor_class="SequentialExecutor",
+                                             max_runtime_seconds=30)
+    task = template.create_task(
+        executor_parameters=executor_parameters,
+        node_arg={1, 2},
+        task_arg={3, 4}
+    )
+    workflow.add_tasks([task])
+    workflow_run = workflow.run()
+    assert workflow_run.status == WorkflowRunStatus.DONE

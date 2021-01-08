@@ -35,7 +35,7 @@ TEST_REQUIRES = [
 
 # pip install -e .[docs]
 DOCS_REQUIRES = [
-    'sphinx',
+    'sphinx==3.3.1',
     'sphinx-autodoc-typehints',
     'sphinx_rtd_theme',
 ]
@@ -83,7 +83,7 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'jobmon=jobmon.client.cli:main',
+            'jobmon=jobmon.client.jobmon_cli:main',
             'jobmon_scheduler=jobmon.client.execution.cli:main',
             'jobmon_server=jobmon.server.cli:main',
             'jobmon_command=jobmon.client.execution.worker_node.execution_wrapper:main'

@@ -90,12 +90,12 @@ spec:
 
 # Viz Server cluster IP. Used for communication between k8s deployments.
 # Eg traefik -> viz server
-# Allows hostname "jobmon-vizualization-server" to resolve inside k8s containers
+# Allows hostname "jobmon-cli" to resolve inside k8s containers
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: jobmon-vizualization-server
+  name: jobmon-cli
 spec:
   type: ClusterIP
   ports:
@@ -103,7 +103,7 @@ spec:
       name: web
       port: 80
   selector:
-    app: jobmon-vizualization-server
+    app: jobmon-cli
 
 # Influxdb cluster IP. Used for communication between k8s deployments.
 # Eg traefik -> influxdb and grafana -> influxdb

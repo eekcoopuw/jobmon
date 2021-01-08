@@ -80,9 +80,10 @@ def typecheck(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
+    session.run('python', 'setup.py', 'build')
     session.install("-e", ".[docs]")
     session.run('sphinx-apidoc', '-o', 'docsource', 'src/jobmon')
-    session.run("sphinx-build", "docsource", "docsource/_build")
+    session.run("sphinx-build", "docsource", "out/_html")
 
 
 @nox.session(python=python, venv_backend="conda")

@@ -370,8 +370,13 @@ class WorkflowRun(object):
     def _compute_fringe(self) -> List[SwarmTask]:
         current_fringe: List[SwarmTask] = []
         for swarm_task in self.swarm_tasks.values():
-            unfinished_upstreams = [u for u in swarm_task.upstream_swarm_tasks
-                                    if u.status != TaskStatus.DONE]
+            unfinished_upstreams = []
+            for u in swarm_task.upstream_swarm_tasks:
+                if u.status != TaskStatus.DONE:
+                    unfinished_upstreams.append(u)
+                else:
+                    # if re-establishing fringe, make sure to re-establish upstream count
+                    swarm_task.num_upstreams_done += 1
 
             # top fringe is defined by:
             # not any unfinished upstream tasks and current task is registered

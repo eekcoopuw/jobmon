@@ -145,7 +145,7 @@ class Node:
         """Add a list of nodes as this node's downstream nodes
         Args:
             downstream_nodes (List[Node]): Nodes that will be dependent on this
-                node.
+            node.
         """
         for node in downstream_nodes:
             self.add_downstream_node(node)

@@ -4,6 +4,8 @@ Glossary of terms
 For users
 *********
 
+.. glossary::
+
     Tool
         The project (like CODem, DisMod, etc.) to associate your Workflow and Task Templates
         with. You may overhaul your Workflows and Tasks/TaskTemplates over time, but the
