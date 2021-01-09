@@ -61,7 +61,7 @@ class ClientCLI(CLI):
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
         response = update_task_status(args.task_ids, args.workflow_id, args.new_status, cc.url)
-        print(response)
+        print(f"Response is: {response}")
 
     def rate_limit(self, args: configargparse.Namespace) -> None:
         from jobmon.client.status_commands import rate_limit as rate_limit_cmd

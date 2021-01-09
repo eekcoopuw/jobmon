@@ -231,19 +231,19 @@ def test_sub_dag(db_cfg, client_env):
     from jobmon.client.api import UnknownWorkflow
     from jobmon.client.status_commands import get_sub_task_tree
 
-    # """
-    # Dag:
-    #             t1             t2             t3
-    #         /    |     \                     /
-    #        /     |      \                   /
-    #       /      |       \                 /
-    #      /       |        \               /
-    #     t1_1   t1_2            t13_1
-    #      \       |              /
-    #       \      |             /
-    #        \     |            /
-    #           t1_11_213_1_1
-    # """
+    """
+    Dag:
+                t1             t2             t3
+            /    |     \                     /
+           /     |      \                   /
+          /      |       \                 /
+         /       |        \               /
+        t1_1   t1_2            t13_1
+         \       |              /
+          \      |             /
+           \     |            /
+              t1_11_213_1_1
+    """
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("echo 1", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={})
