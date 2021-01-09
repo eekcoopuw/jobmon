@@ -51,7 +51,7 @@ def performance(session: Session) -> None:
     session.conda_install("mysqlclient", "openssl")
     session.install("-e", ".[test]")
 
-    extra_args = ["-m", "integration_tests"]
+    extra_args = ["-m", "performance_tests",]
     session.run("pytest", *args, *extra_args)
 
 
