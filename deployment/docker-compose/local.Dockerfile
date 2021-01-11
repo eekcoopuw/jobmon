@@ -5,7 +5,7 @@ ENV NGINX_WORKER_PROCESSES auto
 ENV UWSGI_INI /app/uwsgi.ini
 
 # jobmon packaging
-COPY ./jobmon /app/jobmon
+COPY ./src/jobmon /app/src/jobmon
 COPY ./setup.cfg /app/setup.cfg
 COPY ./setup.py /app/setup.py
 COPY ./README.md /app/README.md
