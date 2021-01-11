@@ -2,7 +2,7 @@ import time
 
 import pytest
 
-from jobmon.constants import WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
 
 
 def hot_resumable_workflow():
@@ -18,14 +18,14 @@ def hot_resumable_workflow():
     )
 
     # prepare first workflow
-    executor_parameters = ExecutorParameters(
-        max_runtime_seconds=10,
-        num_cores=1,
-        queue='all.q',
-        executor_class="SGEExecutor"
-    )
     tasks = []
     for i in range(2):
+        executor_parameters = ExecutorParameters(
+            max_runtime_seconds=10,
+            num_cores=1,
+            queue='all.q',
+            executor_class="SGEExecutor"
+        )
         t = tt.create_task(executor_parameters=executor_parameters, time=15 + i)
         tasks.append(t)
     workflow = unknown_tool.create_workflow(name="hot_resume", workflow_args="foo")
@@ -67,7 +67,18 @@ def test_hot_resume_with_adjusting_resource(db_cfg, client_env):
     while not scheduler._to_reconcile:
         time.sleep(5)
         scheduler._get_lost_task_instances()
-    [task_instance.log_error() for task_instance in scheduler._to_reconcile]
+
+    for ti in scheduler._to_reconcile:
+        app_route = f"/scheduler/task_instance/{ti.task_instance_id}/log_error_reconciler"
+        return_code, response = ti.requester.send_request(
+            app_route=app_route,
+            message={
+                "error_message": "foo",
+                "error_state": TaskInstanceStatus.RESOURCE_ERROR,
+                "executor_id": ti.executor_id
+            },
+            request_type='post',
+        )
 
     swarm_tasks = wfr._task_status_updates()
     _, _, adjusting = wfr._parse_adjusting_done_and_errors(swarm_tasks)
