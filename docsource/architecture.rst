@@ -189,8 +189,7 @@ On IHME's cluster Jobmon should plan for 20% annual growth in all dimensions.
 | June 2021 |	1 million           |                           |                           |
 +-----------+-----------------------+---------------------------+---------------------------+
 
-Performacne numbers need to more carefully reocrded.
-
+Performance numbers need to more carefully recorded.
 
 Security
 ========
@@ -405,16 +404,19 @@ Worker-node
 ===========
 The worker_node code is inside the Client package, it should move into its own package.
 
-If Jobmon was only on a UGE then move it to a new top-level package, named worker-node.
-However, UGE and Slurm can probably share the same execution_wrapper because they both run on Linux.
+If Jobmon was only supporting UGE then the worker-node code could be moved
+to a new top-level package, named worker-node.
+However, Jobmon will control jobs on UGE, Azure, and SLURM in the near future, so it will
+need a package structure.
+UGE and Slurm can probably share the same execution_wrapper because they both run on Linux.
 Azure needs a different execution wrapper.
 What matters is the worker node operating environment (Linux vs docker), not the cluster OS.
 Therefore this package will be moved as part of the port to Azure.
 
-Server
-======
+Server & Services
+=================
 
-The server package contains the kubernetes service, plus the model objects for communicating
+The server package contains the kubernetes services, plus the model objects for communicating
 to the mysql database.
 
 As of 2.0 (Guppy) the Jobmon production server is deployed as a series of Kubernetes containers.
@@ -422,7 +424,7 @@ Prior to 1.0.3 Jobmon, services were deployed using docker. That docker capabili
 in 2.2 as the "Bootable on a Laptop" feature.
 
 Each container is responsible for the routes from one external system or client.
-The containers are organized according to the load they carry, so that they scale independently:
+The containers are organized according to the load they carry, so that they can scale independently:
 
 +-------------------+-----------------------------------------------------+-------------------+
 | Container/Package | Description and Comments                            | Domain Objects    |
@@ -449,297 +451,78 @@ The containers are organized according to the load they carry, so that they scal
 | workflow-reaper   | Continually check for lost & dead workflows         |    WorkflowRun    |
 +-------------------+-----------------------------------------------------+-------------------+
 
-
-.. Requires graphviz binaries on doc build host
-.. mac: brew install graphviz
-.. graphviz::
-
-  digraph G {
-    label="Jobmon Guppy Architecture"
-    rankdir=LR; // Left to right direction
-    compound=true;
-    labelloc="t";
-
-    subgraph "cluster_external" {
-        graph[style=solid; color=red];
-        label="External Services"
-        "slack" [shape="oval"]
-    }
-
-    subgraph "cluster_grid_engine" {
-        graph[style=solid; color=red];
-        label="Grid Engine Cluster";
-        subgraph "cluster_qsub" {
-            graph [color="blue"]
-          label="Processes running in qsub"
-          "jobmon clients" ["shape"="tripleoctagon"]
-          "jobmon tasks" ["shape"="tripleoctagon"]
-        }
-      "grid engine scheduler" [shape="oval"]
-      "jobmon clients" -> "grid engine scheduler"
-
-    }
-    subgraph cluster_qpid_db {
-      graph[style=solid; color=red];
-      label="QPID DB Host"
-      "qpid database" [shape="cylinder"]
-    }
-    subgraph "cluster_docker-host" {
-      graph[style=solid; color=red];
-      label="Docker Host Containers";
-      "jobmon database" [shape="cylinder"]
-      subgraph "cluster_jobmon-container" {
-        graph[style=solid; color=blue];
-        label="Jobmon Docker Container";
-        subgraph "cluster_supervisord" {
-          label="supervisord processes";
-          graph[style=solid; color=brown];
-          "nginx" [shape="octagon"]
-          "uwsgi" [shape="octagon"]
-          "flask" [shape="octagon"]
-          "Jobmon State Manager" [shape="tripleoctagon"]
-          "Jobmon Query Service" [shape="tripleoctagon"]
-          "Job visualization server" [shape="tripleoctagon"]
-          {rank=same; "Jobmon State Manager"; "Jobmon Query Service"}
-        }
-      }
-      "qpid integration" [shape="octagon"]
-      "nginx" -> "uwsgi" [label="reverse proxies on unix socket"]
-      "uwsgi" -> "flask" [label="runs flask child processes"]
-      "flask" -> "Jobmon State Manager"
-      "flask" -> "Jobmon Query Service"
-      "flask" -> "Job visualization server"
-      "jobmon clients" -> "nginx"
-      "jobmon tasks" -> "nginx"
-      "Jobmon State Manager" -> "jobmon database" [label="Read-Write"]
-      "Jobmon Query Service" -> "jobmon database" [label="Read-Only"]
-      "Job visualization server" -> "jobmon database" [label="Read-Only"]
-      "workflow reaper" -> "nginx"
-
-      "Jobmon State Manager" -> "jobmon clients"
-    }
+.. The architecture diagrams are SVG, stored in separate files.
+.. SVG is renderable in browsers, and can be edited in inkscape or on draw.io
+.. image:: diagrams/deployment_and_message_flow.svg
 
 
-    "workflow reaper" -> "slack"
-    "qpid integration" -> "qpid database"
-    "qpid integration" -> "jobmon database"  [label="ETL Max-RSS Values"]
-  }
 
-
-Kubernetes Deployment Architecture
-==================================
-
-.. graphviz::
-
-  digraph G {
-    label="Jobmon Guppy Architecture"
-    node [shape=box]
-    rankdir=LR; // Left to right direction
-    // compound=true;
-    newrank=true;
-    labelloc="t";
-
-    subgraph cluster_external {
-      graph[style=solid; color=red];
-      clusterrank=global
-      label="External Services"
-      "slack" [shape="oval"]
-    }
-
-    subgraph cluster_grid_engine {
-      graph[style=solid; color=red];
-      label="Grid Engine Cluster";
-      clusterrank=global
-      subgraph cluster_qsub {
-        graph [color="blue"]
-        label="Processes running in qsub"
-        "jobmon_clients" ["shape"="tripleoctagon", label="Jobmon Clients"]
-        "jobmon_tasks" ["shape"="tripleoctagon", label="Jobmon Tasks"]
-      }
-      "grid_engine_scheduler" [shape="oval", label="Grid Enginer Scheduler"]
-      "grid_engine_scheduler" -> "jobmon_tasks"
-      "jobmon_clients" -> "grid_engine_scheduler"
-    }
-
-    subgraph cluster_qpid_db {
-      graph[style=solid; color=red];
-      clusterrank=global
-      label="QPID DB Host"
-      "qpid_database" [shape="cylinder", label="QPID DB"]
-    }
-
-    subgraph cluster_telemetry_db {
-      graph[style=solid; color=red];
-      clusterrank=global
-      label="Telemetry DB"
-      "telemetry_db" [shape="cylinder", label="Telemetry DB (InfluxDB)"]
-    }
-
-    subgraph cluster_jobmon_db {
-      graph[style=solid; color=red];
-      clusterrank=global
-      label="Jobmon DB Host"
-      "jobmon_database" [shape="cylinder", label="Jobmon Database"]
-    }
-
-    subgraph cluster_kubernetes_cluster {
-      graph[style=solid; color=red];
-      label="Kubernetes Cluster Hosts";
-
-      subgraph cluster_qpid_integration_pod {
-        graph[style=solid; color=blue];
-        label="QPID Integration Pod";
-        subgraph cluster_qpid_integration_container {
-          label="QPID Integration Container (one)";
-          graph[style=solid; color=brown;];
-          "qpid_integration" [shape="octagon", label="QPID Integration Service"]
-        }
-      }
-
-      subgraph cluster_workflow_reaper_pod {
-        graph[style=solid; color=blue];
-        label="Workflow Reaper Pod";
-        subgraph cluster_workflow_reaper_container {
-          label="Workflow Reaper Container (one)";
-          graph[style=solid; color=brown;];
-          "workflow_reaper" [shape="octagon", label="Workflow Reaper"]
-        }
-      }
-
-      subgraph cluster_metal_lb_service {
-        graph[style=solid; color=blue];
-        label="MetalLB Service";
-        "metal_lb_service" [shape="oval", label="MetalLB Service (K8s Entrypoint)"]
-      }
-
-      subgraph cluster_lb_pod {
-        graph[style=solid; color=blue];
-        label="Load Balancer Pod";
-        subgraph cluster_lb_container {
-          label="Load Balancer Containers (many)";
-          graph[style=solid; color=brown;];
-          "traefik_reverse_proxy" [shape="tripleoctagon", label="Traefik Reverse Proxies"]
-        }
-      }
-
-      subgraph cluster_jobmon_query_pod {
-        graph[style=solid; color=blue];
-        subgraph cluster_query_container {
-        label="Query Service Containers (many)";
-        graph[style=solid; color=brown;];
-          label="Job Query Service Pod";
-          subgraph cluster_query_supervisord {
-            label="supervisord processes";
-            graph[style=solid; color=cyan];
-            "query_nginx" [shape="octagon", label="Query Service NGINX"]
-            "query_uwsgi" [shape="octagon", label="Query Service uWSGI"]
-            "query_flask" [shape="octagon", label="Query Service Flask"]
-            "query_app" [shape="tripleoctagon", label="Jobmon Query Service"]
-            "query_nginx" -> "query_uwsgi" [label="reverse proxies on unix socket"]
-            "query_uwsgi" -> "query_flask" [label="runs flask child processes"]
-            "query_flask" -> "query_app"
-          }
-        }
-      }
-
-      subgraph cluster_jobmon_state_manager_pod {
-        graph[style=solid; color=blue];
-        label="Jobmon State Manager Pod";
-        subgraph cluster_state_manager_container {
-        label="State Manager Containers (many)";
-        graph[style=solid; color=brown;];
-          subgraph cluster_state_manager_supervisord {
-            label="supervisord processes";
-            graph[style=solid; color=cyan];
-            "state_manager_nginx" [shape="octagon", label="State Manager NGINX"]
-            "state_manager_uwsgi" [shape="octagon", label="State Manager uWSGI"]
-            "state_manager_flask" [shape="octagon", label="State Manager Flask"]
-            "state_manager_app" [shape="tripleoctagon", label="Job State Manager"]
-            "state_manager_nginx" -> "state_manager_uwsgi" [label="reverse proxies on unix socket"]
-            "state_manager_uwsgi" -> "state_manager_flask" [label="runs flask child processes"]
-            "state_manager_flask" -> "state_manager_app"
-          }
-        }
-      }
-
-      subgraph cluster_jobmon_viz_server_pod {
-        graph[style=solid; color=blue];
-        label="Jobmon Vizualization Server Pod";
-        subgraph cluster_viz_container {
-          label="Vizualization Containers (many)";
-          graph[style=solid; color=brown;];
-          subgraph cluster_viz_supervisord {
-            label="supervisord processes";
-            graph[style=solid; color=cyan];
-            "viz_nginx" [shape="octagon", label="Vizualization NGINX"]
-            "viz_uwsgi" [shape="octagon", label="Vizualization uWSGI"]
-            "viz_flask" [shape="octagon", label="Vizualization Flask"]
-            "viz_app" [shape="tripleoctagon", label="Job visualization server"]
-            "viz_nginx" -> "viz_uwsgi" [label="reverse proxies on unix socket"]
-            "viz_uwsgi" -> "viz_flask" [label="runs flask child processes"]
-            "viz_flask" -> "viz_app"
-          }
-        }
-      }
-  }
-  {rank=same; qpid_integration; workflow_reaper; traefik_reverse_proxy}
-  {rank=same; jobmon_database; qpid_database; telemetry_db; slack}
-  "qpid_integration" -> "qpid_database"
-  "qpid_integration" -> "jobmon_database"  [label="ETL Max-RSS"]
-  "state_manager_app" -> "jobmon_database" [label="Read-Write"]
-  "jobmon_clients" -> "metal_lb_service"
-  "metal_lb_service" -> "traefik_reverse_proxy"
-  "traefik_reverse_proxy" -> "query_nginx" [label="Proxy HTTP Requests"]
-  "traefik_reverse_proxy" -> "state_manager_nginx" [label="Proxy HTTP Requests"]
-  "traefik_reverse_proxy" -> "viz_nginx" [label="Proxy HTTP Requests"]
-  "traefik_reverse_proxy" -> "telemetry_db" [label="NGINX Writes Telemetry"]
-
-  "workflow_reaper" -> "state_manager_nginx"
-  "workflow_reaper" -> "slack"
-
-  "viz_app" -> "jobmon_database" [label="Read-Only"]
-  "query_app" -> "jobmon_database"
-  "state_manager_app" -> "grid_engine_scheduler"
-  }
-
-
-Autoscaling Behavior
-====================
-
-Jobmon mainly relies on two infrastructure services in order to stay performant under heavy load, namely uWSGI and Kubernetes.
 
 Kubernetes
 ==========
 
-The main functionality of Kubernetes (k8s) is container orchestration.
+Kubernetes (k8s) provides container orchestration.
 The first step in deploying Jobmon is to build a Docker image for the Jobmon server code.
 That image is then used to build a series of Docker containers, which are grouped into **pods**.
 Each pod represents a subset of the server routes, see the above table.
 For example, all /client/* routes are sent to the jobmon-client pod on Kubernetes.
 Each pod is instantiated with 3 containers, each with a preset CPU/memory resource allocation.
 
-The traefik router will try to equitably distribute incoming data between the associated containers.
-For example, an incoming series of /client/* routes will be routed between each of the initial 3 client pods.
-However, the load handled by the Jobmon service is not always equal. In the event of a very large workflow, or a series of concurrent workflows, the client side pods can get overwhelmed with incoming requests, leading to timeouts or lost jobs. Jobmon utilizes the Kubernetes `horizontal autoscaling algorithm <https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/>`_ when it detects heavy load in the containers. As of 11/3/2020, "heavy load" is set `here <https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/browse/k8s/31_deployment_jobmon_client.yaml.j2#52-77>`__. Namely, when either CPU or memory is at 80% or more utilization, we can spin up more containers up to a limit of 10. The traefik router will then divert some incoming routes to the newly created containers in order to allow heavily-utilized containers to finish processes off. When the usage spike is over, and container usage dips below some minimum threshhold, the newly spawned containers will then be killed until we only have the three initial containers remaining.
+Metallb
+-------
 
-All of the Kubernetes scaling behavior is configurable, per pod, in the associated .yaml files.
+Metallb is the load balancer that comes packaged with Kubernetes.
+It is only used to provide the Virtual IP (VIP) to the clients; it does not actually do any
+load balancing.
+
+Traefik
+-------
+Traefik (pronounced *tray-fick*) is an open-source edge router, which means that it parses the
+incoming URL and routes the message to the appropriate back-end service.
+It also loads balances across the set of kubernetes instances for a service.
+For example, an incoming series of /client/* routes will be routed between each of the initial 3 client pods.
+However, the load handled by the Jobmon service is not always equal.
+In the event of a very large workflow, or a series of concurrent workflows,
+the client-side pods can get overwhelmed with incoming requests, leading to timeouts or lost jobs.
+Jobmon utilizes the Kubernetes
+`horizontal autoscaling algorithm <https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/>`_
+when it detects heavy memory or CPU load in the containers.
+As of 11/3/2020, "heavy load" is set in `31_deployment_jobmon_client.yaml.j2 <https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/browse/k8s/31_deployment_jobmon_client.yaml.j2#52-77>`__.
+Namely, when either CPU or memory is at 80% or more utilization,
+we can spin up more containers up to a limit of 10
+The Traefik router will then divert some incoming routes to the newly created containers in order
+to allow heavily-utilized containers to finish processes off. When the usage spike is over,
+and container usage dips below some minimum threshold,
+the newly spawned containers will then be killed until we only have the
+three initial containers remaining.
+
+
+Autoscaling Behavior
+--------------------
+
+Jobmon mainly relies uWSGI and Kubernetes to autoscale so as to remain performant under
+heavy load. The database is also tuned to use all threads on its VM, and
+80% of the available memory for its buffers.
 
 uWSGI
-=====
+-----
 
 uWSGI is a web service used to communicate between the client side application and the server code.
 In our architecture, uWSGI runs inside each of the docker containers created by Kubernetes [#f1]_ .
-uWSGI consists of a main process that manages a series of worker processes.
-
+uWSGI consists of a main process that manages a series of flask worker processes.
 
 Like the Kubernetes deployment, each container starts with a minimum number of workers
 as specified `here <https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/browse/jobmon/server/deployment/container/uwsgi.ini#35>`_. If a specific container falls under heavy load, uWSGI can utilize a cheaper algorithm to spawn more workers and process the additional incoming requests. There are a variety of cheaper algorithms that can determine when to scale up/down worker processes - Jobmon uses the `busyness algorithm <https://uwsgi-docs.readthedocs.io/en/latest/Cheaper.html#busyness-cheaper-algorithm>`__. Under this specification, busyness is set by average utilization over a given time period. Configurations can be set in the same uwsgi.ini file linked above.
+See the configuration in ``deployment/config/app/uwsgi.ini``
 
 Similarly to the Kubernetes pod autoscaler, the busyness algorithm will create workers to
 handle a usage spike and spin down workers when usage is low. This is important for two reasons:
 
 1. A container can efficiently process incoming requests with more workers. If there are no free workers to handle a request, it will sit in the queue until a worker frees up. If requests are incoming more quickly than the workers can execute, this can potentially result in long queue wait times and request timeouts.
-2. Without worker autoscaling behavior the resource threshholds needed for Kubernetes horizontal autoscaling will not be reached. Remember that Kubernetes defines busyness by container CPU and memory usage. Adding workers directly adds to the CPU usage, and indirectly adds to memory usage by allowing more concurrent data flow. If the additional threads in the container cannot be allocated work due to lack of autoscaling, then the requisite busyness needed in each container won't be reached. Kubernetes does not track the length of the request queue as a busyness parameter.
+2. Without worker autoscaling behavior the resource thresholds needed for Kubernetes horizontal autoscaling will not be reached. Remember that Kubernetes defines busyness by container CPU and memory usage. Adding workers directly adds to the CPU usage, and indirectly adds to memory usage by allowing more concurrent data flow. If the additional threads in the container cannot be allocated work due to lack of autoscaling, then the requisite busyness needed in each container won't be reached. Kubernetes does not track the length of the request queue as a busyness parameter.
+
+UWSGI is configured to restart workers after a certain number of requests or seconds have
+passed. This guards against memory leaks.
 
 
 Full stack demo
@@ -764,7 +547,7 @@ Performance Monitoring
 
 The Kubernetes cluster workload metrics can be tracked on `Rancher <https://k8s.ihme.washington.edu/c/c-99499/monitoring>`_. Regarding autoscaling, the important information to track is the per-pod container workload metrics. The container-specific workloads can be seen by navigating to the jobmon cluster -> namespace (dev or prod) -> pod (client, swarm, visualization, etc.).
 
-The **Workload Metrics** tab displays a variety of time series plots, notably CPU Utilization and Memory Utilization, broken down by container. This allows tracking of what resources are running in each container. When evaluating perforamance during heavy load, it's important to check the utilization metrics to ensure containers are using the right amount of resources. Low utilization means container resources are not being used efficiently, and high utilization means the autoscaler is not behaving properly.
+The **Workload Metrics** tab displays a variety of time series plots, notably CPU Utilization and Memory Utilization, broken down by container. This allows tracking of what resources are running in each container. When evaluating performance during heavy load, it's important to check the utilization metrics to ensure containers are using the right amount of resources. Low utilization means container resources are not being used efficiently, and high utilization means the autoscaler is not behaving properly.
 
 The **Events** tab will track notifications of when pods are created or spun down based on the horizontal autoscaler. During periods of heavy load, it's important to check that containers are indeed being instantiated correctly, and no containers are getting killed when there is still work to be allocated.
 
