@@ -21,7 +21,7 @@ class WebConfig(object):
 
     @classmethod
     def from_defaults(cls) -> WebConfig:
-        # defaults hierarchy is available from configargparse cli
+        # defaults hierarchy is available from configargparse jobmon_cli
         cli = CLI()
         ParserDefaults.db_host(cli.parser)
         ParserDefaults.db_port(cli.parser)

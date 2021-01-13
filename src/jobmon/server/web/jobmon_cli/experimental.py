@@ -6,22 +6,22 @@
 #     return time
 
 
-# @jvs.route('/job_status', methods=['GET'])
+# @jobmon_cli.route('/job_status', methods=['GET'])
 # def get_job_statuses():
 #     """get job status metadata"""
 #     job_statuses = DB.session.query(JobStatus).all()
 #     DB.session.commit()
 
-#     # remap to viz names
+#     # remap to jobmon_cli names
 #     job_status_set = set()
 #     job_status_wire = []
 #     for job_status_db in job_statuses:
-#         label = _viz_label_mapping[job_status_db.id]
+#         label = _cli_label_mapping[job_status_db.id]
 #         if label not in job_status_set:
 #             job_status_set.add(label)
 #             job_status = {}
 #             job_status["label"] = label
-#             job_status["order"] = _viz_order.index(label)
+#             job_status["order"] = _cli_order.index(label)
 #             job_status_wire.append(job_status)
 
 #     # send to client
@@ -30,7 +30,7 @@
 #     return resp
 
 
-# @jvs.route('/workflow', methods=['GET'])
+# @jobmon_cli.route('/workflow', methods=['GET'])
 # def get_workflows_by_status():
 #     """get all workflows with a given status
 
@@ -52,7 +52,7 @@
 #     return resp
 
 
-# @jvs.route('/workflow/<workflow_id>/job_display_details', methods=['GET'])
+# @jobmon_cli.route('/workflow/<workflow_id>/job_display_details', methods=['GET'])
 # def get_job_display_details_by_workflow(workflow_id):
 #     """Get the jobs that have changed status since a given time for a workflow.
 
@@ -92,7 +92,7 @@
 #         jobs = [tuple(res[0].keys())]
 #         for row_proxy in res:
 #             row_dict = dict(row_proxy)
-#             row_dict["status"] = _viz_label_mapping[row_dict["status"]]
+#             row_dict["status"] = _cli_label_mapping[row_dict["status"]]
 #             jobs.append(tuple(row_dict.values()))
 #     else:
 #         jobs = []

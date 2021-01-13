@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: jobmon
+Version: 0.post0.dev2769
+Summary: A logging and dependency management utility for batch computation
+Home-page: https://stash.ihme.washington.edu/projects/CC/repos/jobmon
+Author: IHME SciComp
+Author-email: gphipps@uw.edu, mlsandar@uw.edu, cpinho@uw.edu, tomflem@uw.edu
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Provides-Extra: test
+Provides-Extra: docs

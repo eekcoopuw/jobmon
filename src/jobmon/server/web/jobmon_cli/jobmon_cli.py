@@ -1,5 +1,7 @@
 from http import HTTPStatus as StatusCodes
-from flask import jsonify, request, Blueprint
+from flask import jsonify, request, Blueprint, current_app as app
+from werkzeug.local import LocalProxy
+
 import json
 
 import pandas as pd
@@ -8,10 +10,13 @@ from jobmon.server.web.models import DB
 from jobmon.constants import TaskStatus, TaskInstanceStatus, WorkflowStatus as Statuses
 
 
-jvs = Blueprint("visualization_server", __name__)
+jobmon_cli = Blueprint("jobmon_cli", __name__)
 
 
-_viz_label_mapping = {
+logger = LocalProxy(lambda: app.logger)
+
+
+_cli_label_mapping = {
     "A": "PENDING",
     "G": "PENDING",
     "Q": "PENDING",
@@ -21,7 +26,7 @@ _viz_label_mapping = {
     "F": "FATAL",
     "D": "DONE"
 }
-_reversed_viz_label_mapping = {
+_reversed_cli_label_mapping = {
     "PENDING": ["A", "G", "Q", "I", "E"],
     "RUNNING": ["R"],
     "FATAL": ["F"],
@@ -44,10 +49,10 @@ _reversed_task_instance_label_mapping = {
     "FATAL": ["E", "Z", "W", "U", "K"],
     "DONE": ["D"]
 }
-_viz_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
+_cli_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 
-@jvs.route("/health", methods=['GET'])
+@jobmon_cli.route("/health", methods=['GET'])
 def health():
     """
     Test connectivity to the database, return 200 if everything is ok
@@ -63,7 +68,7 @@ def health():
     return resp
 
 
-@jvs.route("/workflow_validation", methods=['GET'])
+@jobmon_cli.route("/workflow_validation", methods=['GET'])
 def get_workflow_validation_status():
     # initial params
     task_ids = request.args.getlist('task_ids')
@@ -98,7 +103,7 @@ def get_workflow_validation_status():
     return resp
 
 
-@jvs.route('/workflow_status', methods=['GET'])
+@jobmon_cli.route('/workflow_status', methods=['GET'])
 def get_workflow_status():
     # initial params
     params = {}
@@ -152,8 +157,8 @@ def get_workflow_status():
         # assign to dataframe for aggregation
         df = pd.DataFrame(res, columns=res[0].keys())
 
-        # remap to viz statuses
-        df.STATUS.replace(to_replace=_viz_label_mapping, inplace=True)
+        # remap to jobmon_cli statuses
+        df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
 
         # aggregate totals by workflow and status
         df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS"]
@@ -165,10 +170,10 @@ def get_workflow_status():
             index=["WF_ID", "WF_NAME", "WF_STATUS"],
             columns="STATUS",
             fill_value=0)
-        for col in _viz_order:
+        for col in _cli_order:
             if col not in tasks.columns:
                 tasks[col] = 0
-        tasks = tasks[_viz_order]
+        tasks = tasks[_cli_order]
 
         # aggregate again without status to get the totals by workflow
         retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]
@@ -178,7 +183,7 @@ def get_workflow_status():
         df = pd.concat([tasks, retries], axis=1)
 
         # compute pcts and format
-        for col in _viz_order:
+        for col in _cli_order:
             df[col + "_pct"] = (
                 df[col].astype(float) / df["TASKS"].astype(float)) * 100
             df[col + "_pct"] = df[[col + "_pct"]].round(1)
@@ -188,7 +193,7 @@ def get_workflow_status():
 
         # df.replace(to_replace={"0 (0.0%)": "NA"}, inplace=True)
         # final order
-        df = df[["TASKS"] + _viz_order + ["RETRIES"]]
+        df = df[["TASKS"] + _cli_order + ["RETRIES"]]
         df = df.reset_index()
         df = df.to_json()
         resp = jsonify(workflows=df)
@@ -203,7 +208,7 @@ def get_workflow_status():
     return resp
 
 
-@jvs.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
+@jobmon_cli.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
 def get_workflow_tasks(workflow_id):
     params = {"workflow_id": workflow_id}
     where_clause = "WHERE workflow.id = :workflow_id"
@@ -211,7 +216,7 @@ def get_workflow_tasks(workflow_id):
 
     if status_request:
         params["status"] = [i for arg in status_request
-                            for i in _reversed_viz_label_mapping[arg]]
+                            for i in _reversed_cli_label_mapping[arg]]
         where_clause += " AND task.status in :status"
 
     q = """
@@ -233,8 +238,8 @@ def get_workflow_tasks(workflow_id):
         # assign to dataframe for serialization
         df = pd.DataFrame(res, columns=res[0].keys())
 
-        # remap to viz statuses
-        df.STATUS.replace(to_replace=_viz_label_mapping, inplace=True)
+        # remap to jobmon_cli statuses
+        df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
         df = df.to_json()
         resp = jsonify(workflow_tasks=df)
     else:
@@ -246,7 +251,7 @@ def get_workflow_tasks(workflow_id):
     return resp
 
 
-@jvs.route('/task_status', methods=['GET'])
+@jobmon_cli.route('/task_status', methods=['GET'])
 def get_task_status():
 
     task_ids = request.args.getlist('task_ids')
@@ -287,7 +292,7 @@ def get_task_status():
         # assign to dataframe for serialization
         df = pd.DataFrame(res, columns=res[0].keys())
 
-        # remap to viz statuses
+        # remap to jobmon_cli statuses
         df.STATUS.replace(to_replace=_task_instance_label_mapping, inplace=True)
         df = df[["TASK_INSTANCE_ID", "EXECUTOR_ID", "STATUS", "RESOURCE_USAGE",
                  "ERROR_TRACE"]]
@@ -303,7 +308,7 @@ def get_task_status():
     return resp
 
 
-@jvs.route('/workflow/<workflow_id>/usernames', methods=['GET'])
+@jobmon_cli.route('/workflow/<workflow_id>/usernames', methods=['GET'])
 def get_workflow_users(workflow_id: int):
     """
     Return all usernames associated with a given workflow_id's workflow runs.
@@ -364,7 +369,7 @@ def _get_subdag(node_ids: list, dag_id: int) -> list:
     return list(node_set)
 
 
-def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> dict:
+def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> dict:
     """
     Get task ids of the given node ids
     :param workflow_id:
@@ -373,7 +378,7 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> di
     """
     if nodes is None or len(nodes) == 0:
         return {}
-    node_str =str((tuple(nodes))).replace(",)", ")")
+    node_str = str((tuple(nodes))).replace(",)", ")")
 
     q = f"""
         SELECT id, status
@@ -394,7 +399,7 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> di
     return task_dict
 
 
-@jvs.route('/task/subdag', methods=['GET'])
+@jobmon_cli.route('/task/subdag', methods=['GET'])
 def get_task_subdag():
     """
     Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a list of sub nodes.
@@ -422,8 +427,8 @@ def get_task_subdag():
         resp.status_code = StatusCodes.OK
         return resp
 
-    #Since we have validated all the tasks belong to the same wf in status_command before this call,
-    #assume they all belong to the same wf.
+    # Since we have validated all the tasks belong to the same wf in status_command before this call,
+    # assume they all belong to the same wf.
     workflow_id = result[0]['workflow_id']
     dag_id = result[0]['dag_id']
     node_ids = []
@@ -437,7 +442,7 @@ def get_task_subdag():
     return resp
 
 
-@jvs.route('/task/update_statuses', methods=['PUT'])
+@jobmon_cli.route('/task/update_statuses', methods=['PUT'])
 def update_task_statuses():
 
     data = request.get_json()
@@ -483,7 +488,7 @@ def update_task_statuses():
     return resp
 
 
-@jvs.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
+@jobmon_cli.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
 def update_max_running(workflow_id):
 
     data = request.get_json()

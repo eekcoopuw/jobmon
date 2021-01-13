@@ -312,7 +312,7 @@ def test_sub_dag(db_cfg, client_env):
     assert str(t2.task_id) in tree.keys()
 
 
-def test_dynamic_rate_limiting_cli(db_cfg, client_env):
+def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
     """ The server-side logic is checked in scheduler/test_instantiate.
 
     This test checks the logic of the CLI only
@@ -320,14 +320,14 @@ def test_dynamic_rate_limiting_cli(db_cfg, client_env):
 
     # Check that a valid ask returns error free
     cli = CLI()
-    good_command = "rate_limit -w 5 -m 10"
+    good_command = "concurrency_limit -w 5 -m 10"
     args = cli.parse_args(good_command)
 
     assert args.workflow_id == 5
     assert args.max_tasks == 10
 
     # Check that an invalid ask will be rejected
-    bad_command = "rate_limit -w 5 -m {}"
+    bad_command = "concurrency_limit -w 5 -m {}"
     with pytest.raises(SystemExit):
         args = cli.parse_args(bad_command.format('foo'))
 
@@ -397,3 +397,4 @@ def test_update_task_status(db_cfg, client_env):
 
     assert wfr3.status == "D"
     assert all([st.status == "D" for st in wfr3.swarm_tasks.values()])
+

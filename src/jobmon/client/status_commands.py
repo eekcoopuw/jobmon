@@ -39,7 +39,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/viz/workflow_status",
+        app_route="/cli/workflow_status",
         message=msg,
         request_type="get",
         logger=logger
@@ -72,7 +72,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route=f"/viz/workflow/{workflow_id}/workflow_tasks",
+        app_route=f"/cli/workflow/{workflow_id}/workflow_tasks",
         message=msg,
         request_type="get",
         logger=logger
@@ -106,7 +106,7 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/viz/task_status",
+        app_route="/cli/task_status",
         message=msg,
         request_type="get",
         logger=logger
@@ -117,7 +117,7 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
         return pd.read_json(res["task_instance_status"])
 
 
-def rate_limit(workflow_id: int, max_tasks: int, requester_url: Optional[str] = None) -> str:
+def concurrency_limit(workflow_id: int, max_tasks: int, requester_url: Optional[str] = None) -> str:
     """ Update a workflow's max_running_instances field in the database
 
     Used to dynamically adjust the allowed number of jobs concurrently running.
@@ -137,7 +137,7 @@ def rate_limit(workflow_id: int, max_tasks: int, requester_url: Optional[str] = 
     requester = Requester(requester_url)
 
     _, resp = requester.send_request(
-        app_route=f"/viz/workflow/{workflow_id}/update_max_running",
+        app_route=f"/cli/workflow/{workflow_id}/update_max_running",
         message=msg,
         request_type="put")
 
@@ -177,7 +177,7 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
         task_ids = task_ids + [*subdag_tasks]
 
     _, resp = requester.send_request(
-        app_route='/viz/task/update_statuses',
+        app_route='/cli/task/update_statuses',
         message={'task_ids': task_ids,
                  'new_status': new_status,
                  'workflow_status': workflow_status,
@@ -191,7 +191,7 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
 
     # Validate that the user is approved to make these changes
     rc, res = requester.send_request(
-        app_route=f"/viz/workflow/{workflow_id}/usernames",
+        app_route=f"/cli/workflow/{workflow_id}/usernames",
         message={},
         request_type="get")
 
@@ -204,7 +204,7 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
 
 def validate_workflow(task_ids: List[int], requester: Requester) -> None:
     rc, res = requester.send_request(
-        app_route="/viz/workflow_validation",
+        app_route="/cli/workflow_validation",
         message={'task_ids': task_ids},
         request_type="get")
 
@@ -219,7 +219,7 @@ def get_sub_task_tree(task_ids: list, task_status: list = None, requester: Reque
         requester = Requester(ClientConfig.from_defaults().url)
     # Valid input
     rc, res = requester.send_request(
-        app_route=f"/viz/task/subdag",
+        app_route=f"/cli/task/subdag",
         message={'task_ids': task_ids,
             'task_status': task_status},
         request_type="get")

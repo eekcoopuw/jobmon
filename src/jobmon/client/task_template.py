@@ -134,11 +134,10 @@ class TaskTemplate:
         command = self.task_template_version.command_template.format(**kwargs)
 
         # arg id name mappings
-        node_args = {self.task_template_version.id_name_map[k]: v
+        node_args = {self.task_template_version.id_name_map[k]: str(v)
                      for k, v in kwargs.items() if k in self.task_template_version.node_args}
-        task_args = {self.task_template_version.id_name_map[k]: v
+        task_args = {self.task_template_version.id_name_map[k]: str(v)
                      for k, v in kwargs.items() if k in self.task_template_version.task_args}
-
         # build task
         task = Task(
             command=command,

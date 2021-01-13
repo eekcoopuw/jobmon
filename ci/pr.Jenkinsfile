@@ -60,7 +60,7 @@ pipeline {
     }
     stage('Tests') {
       steps {
-        sh "${ACTIVATE} && nox --session tests -- ./tests/client/test_task.py"
+        sh "${ACTIVATE} && nox --session tests"
       }
       post {
         always {

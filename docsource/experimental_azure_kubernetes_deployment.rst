@@ -4,9 +4,22 @@ Deploying on Azure Kubernetes Service (AKS)
 Intro
 ----------------------
 
-This is a commentary on the following tutorials, that will walk you through the intricacies of those tutorials within our ecosystem: https://docs.microsoft.com/en-us/azure/aks/, https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-macos?view=azure-cli-latest, https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-prepare-app,
-https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-prepare-acr,
-https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-aks
+This documentation describes an experimental deployment of Jobmon on AKS in July 2018.
+This is not production code; the Guppy version of Jobmon is now deployed using Kubernetes
+so many of the ideas in this document are probably obsolete. However, the document
+will stay here until Jobmon is ported to Azure.
+
+This describes deploying Jobmon on AKS, it is not Jobmon controlling jobs on Azure Batch.
+Most of the work in the upcoming port of Jobmon to Azure will be creating an Azure Batch
+executor.
+
+This is a commentary on the following tutorials, that will walk you through the intricacies of
+those tutorials within our ecosystem:
+- https://docs.microsoft.com/en-us/azure/aks/,
+- https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-macos?view=azure-cli-latest
+- https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-prepare-app,
+- https://docs.microsoft.com/en-us/azure/aks/tutorial-kubernetes-prepare-acr,
+- https://docs.microsoft.com/en-us/azure/container-registry/container-registry-auth-aks
 
 
 "Hello World" on AKS
@@ -57,8 +70,8 @@ but I noticed some obvious typos in the Azure Portal instructions.
 On MacOS you will need to install Azure-Cli via homebrew; see
 https://docs.microsoft.com/en-us/cli/azure/install-azure-cli-macos?view=azure-cli-latest
 If you haven’t set up a subscription you will be blocked at this step.
-All az commands in the tutorial should run perfectly fine locally in a bash shell, because the ``az`` commands have the azure portal address
-backed-in.
+All az commands in the tutorial should run perfectly fine locally in a bash shell,
+because the ``az`` commands have the azure portal address baked-in.
 
 Now follow the tutorial to create a resource group and an AKS cluster. There are a few issues, so see the gotchas section. Most importantly, however:
 
