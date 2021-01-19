@@ -1,12 +1,13 @@
 from http import HTTPStatus as StatusCodes
 from flask import jsonify, request, Blueprint, current_app as app
 from werkzeug.local import LocalProxy
+
 import json
 
 import pandas as pd
 
 from jobmon.server.web.models import DB
-from jobmon.constants import WorkflowStatus as Statuses
+from jobmon.constants import TaskStatus, TaskInstanceStatus, WorkflowStatus as Statuses
 
 
 jobmon_cli = Blueprint("jobmon_cli", __name__)
@@ -93,10 +94,11 @@ def get_workflow_validation_status():
     res = DB.session.execute(q).fetchall()
     # Validate if all tasks are in the same workflow and the workflow status is dead
     if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED, Statuses.SUSPENDED):
-        resp = jsonify(validation=True)
+        validation = True
     else:
-        resp = jsonify(validation=False)
+        validation = False
 
+    resp = jsonify(validation=validation, workflow_status=res[0][1])
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -367,7 +369,7 @@ def _get_subdag(node_ids: list, dag_id: int) -> list:
     return list(node_set)
 
 
-def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> dict:
+def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> dict:
     """
     Get task ids of the given node ids
     :param workflow_id:
@@ -376,7 +378,7 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list)-> di
     """
     if nodes is None or len(nodes) == 0:
         return {}
-    node_str =str((tuple(nodes))).replace(",)", ")")
+    node_str = str((tuple(nodes))).replace(",)", ")")
 
     q = f"""
         SELECT id, status
@@ -425,8 +427,8 @@ def get_task_subdag():
         resp.status_code = StatusCodes.OK
         return resp
 
-    #Since we have validated all the tasks belong to the same wf in status_command before this call,
-    #assume they all belong to the same wf.
+    # Since we have validated all the tasks belong to the same wf in status_command before this call,
+    # assume they all belong to the same wf.
     workflow_id = result[0]['workflow_id']
     dag_id = result[0]['dag_id']
     node_ids = []
@@ -436,6 +438,52 @@ def get_task_subdag():
     sub_task_tree = _get_tasks_from_nodes(workflow_id, sub_dag_tree, task_status)
     resp = jsonify(workflow_id=workflow_id, sub_task=sub_task_tree)
 
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/task/update_statuses', methods=['PUT'])
+def update_task_statuses():
+
+    data = request.get_json()
+    task_ids = data['task_ids']
+    new_status = data['new_status']
+    workflow_status = data['workflow_status']
+    workflow_id = data['workflow_id']
+
+    task_ids_str = '(' + ','.join([str(i) for i in task_ids]) + ')'
+
+    task_q = """
+        UPDATE task
+        SET status = '{new_status}'
+        WHERE id IN {task_ids}
+    """.format(new_status=new_status, task_ids=task_ids_str)
+
+    task_res = DB.session.execute(task_q)
+
+    # If job is supposed to be rerun, set task instances to "K"
+    if new_status == TaskStatus.REGISTERED:
+
+        task_instance_q = """
+            UPDATE task_instance
+            SET status = '{k_code}'
+            WHERE task_id in {task_ids}
+        """.format(k_code=TaskInstanceStatus.KILL_SELF, task_ids=task_ids_str)
+        DB.session.execute(task_instance_q)
+
+        # If workflow is done, need to set it to an error state before resume
+        if workflow_status == Statuses.DONE:
+            workflow_q = """
+                UPDATE workflow
+                SET status = '{status}'
+                WHERE id = {workflow_id}
+            """.format(status=Statuses.FAILED, workflow_id=workflow_id)
+            DB.session.execute(workflow_q)
+
+    DB.session.commit()
+
+    message = f"{task_res.rowcount} rows updated to status {new_status}"
+    resp = jsonify(message)
     resp.status_code = StatusCodes.OK
     return resp
 
