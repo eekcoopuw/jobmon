@@ -53,7 +53,7 @@ def test_bulk_request_too_large(db_cfg, client_env):
                 " --stu ajsfdngiwerudhietuowefuidew --tuv fhwueehuiewfuwieawefjaeeuwioreoiur" \
                 " --uvw hwueifhgbeirfiwbeifeafawerfredr --vwx fjdaskfsjdfasdfewrkasdfadsfdas" \
                 " --xyz fjkdsalfjsdafjdskfadsfkads --yza jfaksdlfjdaslfdsajfdsjfkadsfafdewfg" \
-                " --zab fhdsjkfjdsklfadsjkfasdjfjdskl"
+                " --zab fhdsjkfjdsklfadsjkfasdjfjdskl"  # 2808 characters
 
     tasks = []
     for i in range(num_tasks):
