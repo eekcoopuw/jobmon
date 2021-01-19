@@ -50,9 +50,9 @@ pipeline {
             allowMissing: true,
             alwaysLinkToLastBuild: false,
             keepAll: true,
-            reportDir: 'docsource/_build',
-            reportFiles: '*',
-            reportName: 'documentation',
+            reportDir: 'out/_html',
+            reportFiles: 'index.html',
+            reportName: 'Documentation',
             reportTitles: ''
           ])
         }
@@ -70,7 +70,7 @@ pipeline {
             alwaysLinkToLastBuild: false,
             keepAll: true,
             reportDir: 'jobmon_coverage_html_report',
-            reportFiles: '*',
+            reportFiles: 'index.html',
             reportName: 'Coverage Report',
             reportTitles: ''
           ])
