@@ -100,8 +100,8 @@ def test_exceed_mem_task(db_cfg, client_env):
         task_instance = task.task_instances[0]
         assert task_instance.status == 'Z'
         assert task.status == 'F'
-        task_instance_error = DB.session.query(TaskInstanceErrorLog).filter_by\
-            (task_instance_id=task_instance.id).first()
+        task_instance_error = DB.session.query(TaskInstanceErrorLog).filter_by(
+            task_instance_id=task_instance.id).first()
         assert "Insufficient resources requested. Found exit code: -9." in \
                task_instance_error.description
 

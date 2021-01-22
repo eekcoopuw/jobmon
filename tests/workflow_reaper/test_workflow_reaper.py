@@ -2,9 +2,6 @@ import time
 from typing import Dict
 
 
-from jobmon.requester import Requester
-
-
 def get_workflow_status(db_cfg, workflow_id):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -218,8 +215,9 @@ def test_aborted_state(db_cfg, requester_no_retry):
             FROM workflow_run
             WHERE workflow_run.id = :workflow_run_id
         """
-        workflow_run_res = DB.session.execute \
-            (workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}).fetchone()
+        workflow_run_res = DB.session.execute(
+            workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}
+        ).fetchone()
         DB.session.commit()
 
     workflow_status = get_workflow_status(db_cfg, workflow.workflow_id)
@@ -256,8 +254,9 @@ def test_aborted_state_null_case(db_cfg, requester_no_retry):
             FROM workflow_run
             WHERE workflow_run.id = :workflow_run_id
         """
-        workflow_run_res = DB.session.execute \
-            (workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}).fetchone()
+        workflow_run_res = DB.session.execute(
+            workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}
+        ).fetchone()
         DB.session.commit()
     workflow_status = get_workflow_status(db_cfg, workflow.workflow_id)
     assert workflow_status == "A"

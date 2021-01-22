@@ -96,7 +96,7 @@ def test_one_by_one(db_cfg, client_env):
         task["task_attributes"] = None
         tasks.append(task)
         rc, _ = requester.send_request(
-            app_route=f'/task',
+            app_route='/task',
             message={'tasks': tasks},
             request_type='post')
         assert rc == 200
@@ -118,7 +118,7 @@ def test_bulk(db_cfg, client_env):
         task["task_attributes"] = None
         tasks.append(task)
     rc, _ = requester.send_request(
-        app_route=f'/task',
+        app_route='/task',
         message={'tasks': tasks},
         request_type='post')
     assert rc == 200

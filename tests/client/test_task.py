@@ -122,7 +122,7 @@ def test_bash_task_bind(db_cfg, client_env):
 def test_bash_task_command_parsing(db_cfg, client_env):
     from jobmon.client.api import BashTask, UnknownWorkflow
     bash_wf = UnknownWorkflow(name="test_bash_task_parsing", executor_class="DummyExecutor")
-    bash_a = BashTask('OP_NUM_THREADS 1 echo hello && sleep 3', task_args={'echo_str': 'hello'},
+    bash_a = BashTask('OP_NUM_THREADS 1 echo hi && sleep 3', task_args={'echo_str': 'hi'},
                       node_args={'sleep': 3})
     bash_b = BashTask('OP_NUM_THREADS 1 echo boo && sleep 5', task_args={'echo_str': 'boo'},
                       node_args={'sleep': 5})
@@ -137,7 +137,7 @@ def test_bash_task_command_parsing(db_cfg, client_env):
     bound_c = bash_wf.tasks[hash(bash_c)]
     assert bound_a.task_id != bound_b.task_id
     assert bound_a.node.task_template_version_id == bound_b.node.task_template_version_id
-    assert list(bound_a.task_args.values())[0] == 'hello'
+    assert list(bound_a.task_args.values())[0] == 'hi'
     assert list(bound_b.task_args.values())[0] == 'boo'
     assert bound_c.command == 'OP_NUM_THREADS=1 echo blah && sleep 6'
 
