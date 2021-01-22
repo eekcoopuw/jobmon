@@ -33,6 +33,7 @@ Table of Contents
     tests
     API Reference <modules>
     experimental_azure_kubernetes_deployment
+    design/finite_state_machine
 
 
 Indices and tables
