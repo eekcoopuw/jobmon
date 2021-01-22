@@ -56,12 +56,12 @@ class ClientCLI(CLI):
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
-
     def update_task_status(self, args: configargparse.Namespace) -> None:
         from jobmon.client.status_commands import update_task_status
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        update_task_status(args.task_ids, args.workflow_id, args.new_status, cc.url)
+        response = update_task_status(args.task_ids, args.workflow_id, args.new_status, cc.url)
+        print(f"Response is: {response}")
 
 
     def concurrency_limit(self, args: configargparse.Namespace) -> None:
@@ -120,7 +120,6 @@ class ClientCLI(CLI):
         ParserDefaults.web_service_fqdn(task_status_parser)
         ParserDefaults.web_service_port(task_status_parser)
 
-
     def _add_update_task_status_subparser(self) -> None:
         update_task_parser = self._subparsers.add_parser("update_task_status", **PARSER_KWARGS)
         update_task_parser.add_argument(
@@ -131,7 +130,7 @@ class ClientCLI(CLI):
             required=True, type=int)
         update_task_parser.add_argument(
             "-s", "--new_status", help="status to set to",
-            choices=["D", "F"], type=str)
+            choices=["D", "G"], type=str)
         ParserDefaults.web_service_fqdn(update_task_parser)
         ParserDefaults.web_service_port(update_task_parser)
 

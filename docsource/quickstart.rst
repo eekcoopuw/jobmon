@@ -2,7 +2,12 @@
 Quickstart
 ##########
 
-Jobmon’s Vision is to make it as easy as possible for everyone at IHME to run any kind of code
+Jobmon is a job-control system used for automating scientific workflows and running them on
+distributed computing systems. It manages complex job and resource dependencies and manages
+computing environment instability to execute dependably and assist in troubleshooting when
+needed. It is developed and maintained by IHME's Scientific Computing team.
+
+Jobmon’s vision is to make it as easy as possible for everyone at IHME to run any kind of code
 on any compute platform, reliably, and efficiently.
 
 Install
@@ -39,6 +44,10 @@ upcoming trainings.
 
 Getting Started
 ***************
+Currently, the Jobmon controller script (i.e. the code defining the workflow) has to be
+written in Python. The modeling code can be in Python, R, Stata, C++, or in fact any language.
+SciComp is actively developing an R controller and expects to release it by May 2021.
+
 Users will primarily interact with Jobmon by creating a :term:`Workflow` and iteratively
 adding :term:`Task` to it. Each Workflow is uniquely defined by its
 :term:`WorkflowArgs` and the set of Tasks attached to it. A Workflow can only

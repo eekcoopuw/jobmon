@@ -72,6 +72,7 @@ def test_error_handling(web_server_in_memory, log_config, monkeypatch):
     from jobmon.server.web.jobmon_client import jobmon_client
 
     msg = "bad luck buddy"
+
     def raise_error():
         raise RuntimeError(msg)
     monkeypatch.setattr(jobmon_client, "_get_time", raise_error)

@@ -170,6 +170,3 @@ class SwarmTask(object):
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
-
-    def __hash__(self):
-        return self.task_id

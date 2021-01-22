@@ -128,7 +128,7 @@ def test_bushy_dag(db_cfg, client_env, monkeypatch):
     )
 
     # declaring app to enforce loading db config
-    app = db_cfg["app"]
+    app = db_cfg["app"]  # noqa
     n_jobs = 1000
     wfid = uuid.uuid4()
     user = getpass.getuser()
@@ -195,12 +195,12 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     )
 
     # declaring app to enforce loading db config
-    app = db_cfg["app"]
+    app = db_cfg["app"]  # noqa
     n_jobs = 1000
     wfid = uuid.uuid4()
     user = getpass.getuser()
     wf = Workflow(f"bushy_dag_{wfid}", "bushy_dag_test",
-                  executor_class = 'SGEExecutor',
+                  executor_class='SGEExecutor',
                   stderr=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   stdout=f"/ihme/scratch/users/{user}/tests/bushy_dag_test/{wfid}",
                   project="proj_scicomp")

@@ -20,7 +20,8 @@ def test_memory_transformed_correctly(mem_input, expected):
 
 
 @pytest.mark.unittest
-@pytest.mark.parametrize("mem_input,expected,q", [('1.5TB', 1010, 'all.q'), ('1040G', 1010, 'long.q'),
+@pytest.mark.parametrize("mem_input,expected,q", [('1.5TB', 1010, 'all.q'),
+                                                  ('1040G', 1010, 'long.q'),
                                                   ('120MB', 0.128, 'all.q'), ('0B', 1, 'i.q'),
                                                   ('751G', 751, 'geospatial.q')])
 def test_memory_resource_validate(mem_input, expected, q):
@@ -74,11 +75,14 @@ def test_hard_limit_false():
 
 
 @pytest.mark.unittest
-@pytest.mark.parametrize("input, expect", [({'max_runtime_seconds': 0.5}, 0.5), ({'max_runtime_seconds': 0}, 0),
-                                           ({'max_runtime_seconds': 1}, 1), ({'max_runtime_seconds': -1}, 0.5),
-                                           ({'max_runtime_seconds': 0.3}, 0.3), ({'max_runtime_seconds': 1.2}, 0.5)])
+@pytest.mark.parametrize("input, expect", [({'max_runtime_seconds': 0.5}, 0.5),
+                                           ({'max_runtime_seconds': 0}, 0),
+                                           ({'max_runtime_seconds': 1}, 1),
+                                           ({'max_runtime_seconds': -1}, 0.5),
+                                           ({'max_runtime_seconds': 0.3}, 0.3),
+                                           ({'max_runtime_seconds': 1.2}, 0.5)])
 def test_resource_scale(input, expect):
-    resource = SGEParameters(m_mem_free="1G", queue='all.q', j_resource= True,
+    resource = SGEParameters(m_mem_free="1G", queue='all.q', j_resource=True,
                              max_runtime_seconds=120, resource_scales=input)
     resource.validate()
     assert resource.resource_scales["max_runtime_seconds"] == expect

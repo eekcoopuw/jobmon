@@ -6,6 +6,7 @@ import pandas as pd
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
+from jobmon.constants import TaskStatus
 
 
 logger = logging.getLogger(__name__)
@@ -163,12 +164,27 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
     user = getpass.getuser()
 
     validate_username(workflow_id, user, requester)
-    validate_workflow(task_ids, requester)
+    workflow_status = validate_workflow(task_ids, requester)
 
-    subdag_tasks = get_sub_task_tree(task_ids, ["G"], requester).keys()
+    # Validate the allowed statuses. For now, only "D" and "G" allowed.
+    allowed_statuses = [TaskStatus.REGISTERED, TaskStatus.DONE]
+    assert new_status in allowed_statuses, f"Only {allowed_statuses} allowed to be set via CLI"
 
-    pass  # Not in scope of GBDSCI-3001.
-    # TODO: Confirm with the client about the subdag and continue modify status
+    # Conditional logic: If the new status is "D", only need to set task to "D"
+    # Else: All downstreams must also be set to "G", and task instances set to "K"
+    if new_status == TaskStatus.REGISTERED:
+        subdag_tasks = get_sub_task_tree(task_ids).keys()
+        task_ids = task_ids + [*subdag_tasks]
+
+    _, resp = requester.send_request(
+        app_route='/cli/task/update_statuses',
+        message={'task_ids': task_ids,
+                 'new_status': new_status,
+                 'workflow_status': workflow_status,
+                 'workflow_id': workflow_id},
+        request_type='put')
+
+    return resp
 
 
 def validate_username(workflow_id: int, username: str, requester: Requester) -> None:
@@ -194,7 +210,7 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> None:
 
     if not bool(res["validation"]):
         raise AssertionError("The give task ids belong to multiple workflow.")
-    return
+    return res['workflow_status']
 
 
 def get_sub_task_tree(task_ids: list, task_status: list = None, requester: Requester = None) -> dict:

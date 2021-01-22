@@ -50,9 +50,9 @@ pipeline {
             allowMissing: true,
             alwaysLinkToLastBuild: false,
             keepAll: true,
-            reportDir: 'docsource/_build',
-            reportFiles: '*',
-            reportName: 'documentation',
+            reportDir: 'out/_html',
+            reportFiles: 'index.html',
+            reportName: 'Documentation',
             reportTitles: ''
           ])
         }
@@ -60,7 +60,7 @@ pipeline {
     }
     stage('Tests') {
       steps {
-        sh "${ACTIVATE} && nox --session tests -- ./tests/client/test_task.py"
+        sh "${ACTIVATE} && nox --session tests"
       }
       post {
         always {
@@ -70,7 +70,7 @@ pipeline {
             alwaysLinkToLastBuild: false,
             keepAll: true,
             reportDir: 'jobmon_coverage_html_report',
-            reportFiles: '*',
+            reportFiles: 'index.html',
             reportName: 'Coverage Report',
             reportTitles: ''
           ])
