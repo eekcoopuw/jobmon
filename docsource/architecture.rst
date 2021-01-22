@@ -535,9 +535,13 @@ Take a simple Jobmon request: we want to manually set the state of a workflow ru
 1. The update_status function constructs the **/swarm/workflow_run/<workflow_run_id>/update_status** route, which is processed by flask on the client side.
 2. Flask sends the request to the Kubernetes service
 3. The traefik controller routes the request to the swarm pod, then to a "free" container within the pod.
-  - If all containers are at high capacity, a new container is created.
+
+  a. If all containers are at high capacity, a new container is created.
+
 4. uWSGI, running inside the container, assigns resources to handle the request.
-  - The main process either assigns a worker to the request, or instantiates a new worker process to handle the request.
+
+  a. The main process either assigns a worker to the request, or instantiates a new worker process to handle the request.
+
 5. The requested Python/SQL logic is executed within the worker process, and the returned data is sent back to the main process.
 6. The main process sends the returned data back to the client application.
 
