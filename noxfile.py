@@ -1,5 +1,6 @@
 """Nox Configuration for jobmon."""
 import os
+import shutil
 
 import nox
 from nox.sessions import Session
@@ -51,7 +52,7 @@ def performance(session: Session) -> None:
     session.conda_install("mysqlclient", "openssl")
     session.install("-e", ".[test]")
 
-    extra_args = ["-m", "performance_tests",]
+    extra_args = ["-m", "performance_tests"]
     session.run("pytest", *args, *extra_args)
 
 
@@ -80,29 +81,20 @@ def typecheck(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
-    session.run('python', 'setup.py', 'build')
     session.install("-e", ".[docs]")
-    session.run('sphinx-apidoc', '-o', 'docsource', 'src/jobmon')
-    session.run("sphinx-build", "docsource", "out/_html")
-
-
-@nox.session(python=python, venv_backend="conda")
-def freeze(session: Session) -> None:
-    # build source and export env to build location
-    args = session.posargs
-    session.install(".", *args)
-    jobmon_version = session.run(
-        "python", "-c", "from jobmon import __version__; print(__version__)", silent=True
+    autodoc_output = 'docsource/api'
+    shutil.rmtree(autodoc_output)
+    session.run(
+        'sphinx-apidoc',
+        # output dir
+        '-o', autodoc_output,
+        # source dir
+        'src/jobmon',
+        # exclude from autodoc
+        'src/jobmon/server/qpid_integration',
+        'src/jobmon/server/web/main.py'
     )
-    requirements = session.run("pip", "freeze", silent=True)
-    with open("requirements.txt", "w") as req_file:
-        for line in requirements.split("\n"):
-            if not line:
-                continue
-            if "jobmon" not in line:
-                req_file.write(line + "\n")
-            else:
-                req_file.write(f"jobmon=={jobmon_version}")
+    session.run("sphinx-build", "docsource", "out/_html")
 
 
 @nox.session(python=python, venv_backend="conda")

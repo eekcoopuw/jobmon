@@ -68,8 +68,8 @@ depends on Task A, it would form a `directed-acyclic graph (DAG) <https://en.wik
 A Workflow is further uniquely identified by a set of WorkflowArgs which are
 required if the Workflow is to be resumable.
 
-For more about the objects go to the :doc:`Workflow and Task Reference <jobmon.client>`
-or :doc:`Executor Parameter Reference <jobmon.client.execution>`
+For more about the objects go to the :doc:`Workflow and Task Reference <api/jobmon.client>`
+or :doc:`Executor Parameter Reference <api/jobmon.client.execution>`
 
 .. note::
     The following example is the easiest way to create a Workflow that is backwards compatible

@@ -248,8 +248,8 @@ class Workflow(object):
             scheduler_config: a scheduler config object
 
         Returns:
-            WorkflowRun: object of WorkflowRun, can be checked to make sure all
-                jobs ran to completion, checked for status, etc.
+            object of WorkflowRun, can be checked to make sure all jobs ran to completion,
+                checked for status, etc.
         """
         if not hasattr(self, "_executor"):
             logger.warning("using default project: ihme_general")

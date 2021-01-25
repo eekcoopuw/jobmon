@@ -18,8 +18,9 @@ class Node:
 
     def __init__(self, task_template_version_id: int, node_args: Dict,
                  requester: Optional[Requester] = None):
-        """A node represents an individual task within a Dag. This includes its
-        relationship to other nodes that it is dependent upon or nodes that
+        """A node represents an individual task within a Dag.
+
+        This includes its relationship to other nodes that it is dependent upon or nodes that
         depend upon it. A node stores node arguments (arguments relating to the
         actual shape of the dag and number of tasks created for a given
         stage/task template) and can register itself with the database via the
@@ -116,8 +117,9 @@ class Node:
 
     def add_upstream_node(self, upstream_node: 'Node') -> None:
         """Add a single node to this one's upstream Nodes.
+
         Args:
-            upstream_node (Node): node to add a dependency on
+            upstream_node: node to add a dependency on
         """
         self.upstream_nodes.add(upstream_node)
         # Add this node to the upstream nodes' downstream
@@ -127,15 +129,16 @@ class Node:
         """Add many nodes to this one's upstream Nodes.
 
         Args:
-            upstream_nodes (List[Node]): list of nodes to add dependencies on
+            upstream_nodes: list of nodes to add dependencies on
         """
         for node in upstream_nodes:
             self.add_upstream_node(node)
 
     def add_downstream_node(self, downstream_node: 'Node') -> None:
         """Add a node to this one's downstream Nodes.
+
         Args:
-            downstream_node (Node): Node that will be dependent on this node
+            downstream_node: Node that will be dependent on this node
         """
         self.downstream_nodes.add(downstream_node)
         # avoid endless recursion, set directly
@@ -145,7 +148,7 @@ class Node:
         """Add a list of nodes as this node's downstream nodes
 
         Args:
-            downstream_nodes (List[Node]): Nodes that will be dependent on this node.
+            downstream_nodes: Nodes that will be dependent on this node.
 
         """
 

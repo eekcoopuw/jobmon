@@ -103,7 +103,7 @@ Things to check
  4) CHeck that the kubernetes pods scale under load
  5) Run uwsgitop inside the jobmon service to make sure that work is evenly distributed across workers. Also check that requests per second is a reasonable value (suggested: 150rps as of 0.9.3). To launch uwsgitop, log into the the VM and run ``docker exec -it jobmon{v}_jobmon_1 bash``. Once you are inside the jobmon service container, pip install uswgitop if it isn't already installed. To launch uwsgitop run ``uwsgitop /tmp/statsock``
  6) Analyze the server logs using the scripts found in '/homes/svcscicompci/scripts' to confirm that no queries are taking longer than ~.1 seconds or returning a payload that is too large (need a number here).
- 47) Cluster configuration can affect job failure rate and we want to know when the cluster configuration has changed. Check the db to make sure that jobs aren't mysteriously, periodically failing.
+ 7) Cluster configuration can affect job failure rate and we want to know when the cluster configuration has changed. Check the db to make sure that jobs aren't mysteriously, periodically failing.
 
 The main load test is three_phase_load_test.py.
 

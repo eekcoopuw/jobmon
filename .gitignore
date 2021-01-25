@@ -48,7 +48,5 @@ htmlcov
 .coverage.*
 
 # ignore auto generated docs
-docsource/jobmon.*
-docsource/modules.rst
+docsource/api
 /out
-
