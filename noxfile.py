@@ -81,9 +81,12 @@ def typecheck(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
+    session.conda_install("graphviz")
+
     session.install("-e", ".[docs]")
     autodoc_output = 'docsource/api'
-    shutil.rmtree(autodoc_output)
+    if os.path.exists(autodoc_output):
+        shutil.rmtree(autodoc_output)
     session.run(
         'sphinx-apidoc',
         # output dir
@@ -100,3 +103,17 @@ def docs(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def distribute(session: Session) -> None:
     session.run("python", "setup.py", "sdist", "bdist_wheel")
+
+
+@nox.session(python=python, venv_backend="conda")
+def clean(session: Session) -> None:
+    dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', '.eggs',
+                      '.pytest_cache', 'docsource/api']
+    for path in dirs_to_remove:
+        if os.path.exists(path):
+            shutil.rmtree(path)
+
+    files_to_remove = ['test_report.xml', '.coverage']
+    for file in files_to_remove:
+        if os.path.exists(file):
+            os.remove(file)
