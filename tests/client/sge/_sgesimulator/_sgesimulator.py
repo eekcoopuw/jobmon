@@ -81,7 +81,6 @@ class _SimulatorSGEExecutor(SGEExecutor):
             _SimulatorSGEExecutor._autoincrease_counter += 1
         return _SimulatorSGEExecutor._autoincrease_counter
 
-
     def get_actual_submitted_or_running(self) -> List[int]:
         return []
 
