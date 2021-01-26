@@ -26,7 +26,7 @@ manually, following a dev or prod deployment.
 The goal is that the pytest unit tests should have sufficient coverage that it
 is safe to release if they are all green.
 
-Thee unit tests use the ephemera in memory database, so that they each have a clean database.
+The unit tests use the ephemera in memory database, so that they each have a clean database.
 
 Unit Tests
 **********
@@ -100,7 +100,7 @@ Things to check
  1) Run htop on the jobmon database VM to confirm that cpu utilization stays below 70% over all cores while the load test is running
  2) Check the client logs to see that no 500's are returned
  3) Use grafana on the traefik logs to watch the latency. TP95 latency should be 2 seconds or less
- 4) CHeck that the kubernetes pods scale under load
+ 4) Check that the kubernetes pods scale under load
  5) Run uwsgitop inside the jobmon service to make sure that work is evenly distributed across workers. Also check that requests per second is a reasonable value (suggested: 150rps as of 0.9.3). To launch uwsgitop, log into the the VM and run ``docker exec -it jobmon{v}_jobmon_1 bash``. Once you are inside the jobmon service container, pip install uswgitop if it isn't already installed. To launch uwsgitop run ``uwsgitop /tmp/statsock``
  6) Analyze the server logs using the scripts found in '/homes/svcscicompci/scripts' to confirm that no queries are taking longer than ~.1 seconds or returning a payload that is too large (need a number here).
  7) Cluster configuration can affect job failure rate and we want to know when the cluster configuration has changed. Check the db to make sure that jobs aren't mysteriously, periodically failing.
