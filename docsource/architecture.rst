@@ -295,13 +295,17 @@ UML diagrams to represent process view include the sequence diagram, communicati
 The Python Client Path
 ======================
 #TO DO Trace the call from the User's Python code:#
-1. Through Jobmon's Python library,
-#. HTTP to Kubernetes
-# Metal-lb
-# UWSGI
-# Flask
-# Kubernetes service
-# database
+
+The path is shown in the diagram in the `Server & Services`_ section, but the details
+of the calls need to be added there.
+
+1. Through Jobmon's Python library:
+  #. HTTP to Kubernetes
+  #. Metal-lb
+  #. UWSGI
+  #. Flask
+  #. Kubernetes service
+  #. database
 
 The QSUB Path
 =============
