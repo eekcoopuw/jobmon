@@ -59,7 +59,8 @@ def _get_completed_task_instance(starttime: float, session: Session):
 
 
 def maxpss_forever():
-    """A never stop method running in a thread to constantly query the maxpss value from qpid for completed jobmon jobs.
+    """A never stop method running in a thread to constantly query the maxpss value from qpid
+       for completed jobmon jobs.
        If the maxpss is not found in qpid, put the execution id back to the queue.
     """
     eng = create_engine(config.conn_str, pool_recycle=200)
