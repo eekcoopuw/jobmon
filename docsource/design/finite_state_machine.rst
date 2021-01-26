@@ -63,10 +63,10 @@ The deployment unit FSM can be generalized into a universal FSM for progression 
 - QUEUED (Q) = client has added all necessary metadata, signal to scheduler to instantiate
 - ABORTED (A) = client failed to do all necessary work, scheduler cannot begin instantiation. Fatal
 - INSTANTIATING (I) = scheduler is instantiating an instance on the executor
-- LUANCHED (L) = instantiation complete. executor control for tasks or waiting for first scheduling loop for workflows
+- LAUNCHED (L) = instantiation complete. executor control for tasks or waiting for first scheduling loop for workflows
 - RUNNING (R) = actively executing
 - DONE (D) = all work has finished successfully
-- Triaging (T) = encountered an error. Figure out which agent gets control
+- TRIAGING (T) = encountered an error. Figure out which agent gets control
 - ERROR_FATAL (F) = encountered a fatal error or have hit num tries
 - HALTED (H) = execution stopped mid run
 
