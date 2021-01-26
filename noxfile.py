@@ -73,7 +73,8 @@ def lint(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def typecheck(session: Session) -> None:
     """Type check code."""
-    args = session.posargs or src_locations + test_locations
+    args = session.posargs or src_locations
+    session.install("-e", ".")
     session.install("mypy")
     session.run("mypy", *args)
 
@@ -108,7 +109,7 @@ def distribute(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def clean(session: Session) -> None:
     dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', '.eggs',
-                      '.pytest_cache', 'docsource/api']
+                      '.pytest_cache', 'docsource/api', '.mypy_cache']
     for path in dirs_to_remove:
         if os.path.exists(path):
             shutil.rmtree(path)
