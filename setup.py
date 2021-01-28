@@ -38,6 +38,7 @@ DOCS_REQUIRES = [
     'sphinx==3.3.1',
     'sphinx-autodoc-typehints',
     'sphinx_rtd_theme',
+    'graphviz',
 ]
 
 

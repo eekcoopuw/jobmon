@@ -44,17 +44,17 @@ class Requester(object):
 
         Args:
             app_route:
-              The specific end point with which you want to
-              interact. The app_route must always start with a slash ('/') and
-              must match one of the function decorations of @jsm.route or
-              @jqs.route on the server side.
+                The specific end point with which you want to
+                interact. The app_route must always start with a slash ('/') and
+                must match one of the function decorations of @jsm.route or
+                @jqs.route on the server side.
 
             message: The message dict to be sent to the server.
-              Must contain any arguments the JSM/JQS route needs to operate.
-              If the request is a 'GET', the value of the message dict will
-              likely be parsed into the url. If the request is a 'POST' or 'PUT',
-              the message dict will get stored in a dictionary that is parsed on
-              the server side and passed into the work done by that route.
+                Must contain any arguments the JSM/JQS route needs to operate.
+                If the request is a 'GET', the value of the message dict will
+                likely be parsed into the url. If the request is a 'POST' or 'PUT',
+                the message dict will get stored in a dictionary that is parsed on
+                the server side and passed into the work done by that route.
                 For example, a valid message for a request to add a task_dag
                 to the JSM might be:
 
@@ -62,8 +62,7 @@ class Requester(object):
                      'user': 'my_user',
                      'dag_hash': 'my_dag_hash'}
 
-            request_type: The type of request desired, either 'get',
-              'post, or 'put'
+            request_type: The type of request desired, either 'get', 'post, or 'put'
 
             logger: which logging context to use for message and response logging
 

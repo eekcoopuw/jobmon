@@ -23,7 +23,7 @@ class ReaperWorkflowRun(object):
             workflow_run_id: id of workflow run object from db
             workflow_id: id of associated workflow
             heartbeat_date: the last time a workflow_run logged that it was alive in date
-                format
+            format
         """
         self.workflow_run_id = workflow_run_id
         self.workflow_id = workflow_id
