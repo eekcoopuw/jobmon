@@ -226,9 +226,9 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         # If the last task was more than 2 minutes ago, transition wfr to A state
-        # Also check WorkflowRun status_date to avoid possible race condition where reaper checks
-        # tasks from a different WorkflowRun with the same workflow id. Avoid setting while
-        # waiting for a resume (when workflow is in suspended state)
+        # Also check WorkflowRun status_date to avoid possible race condition where reaper
+        # checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
+        # while waiting for a resume (when workflow is in suspended state)
         query = """
             SELECT
                 workflow_run.*,

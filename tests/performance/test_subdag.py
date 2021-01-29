@@ -12,7 +12,7 @@ def large_dag():
     task_count = 1
     task_stack = []
     t = BashTask(f"echo {task_count}", executor_class="SequentialExecutor",
-             max_runtime_seconds=10, resource_scales={})
+                 max_runtime_seconds=10, resource_scales={})
     task_stack.append(t)
 
     while len(task_stack) > 0:
@@ -35,7 +35,6 @@ def large_dag():
 @pytest.mark.performance_tests
 def test_subdag(db_cfg, client_env):
     from jobmon.client.status_commands import get_sub_task_tree
-    t1 = time.time()
     base_id = large_dag()
     t2 = time.time()
     r = get_sub_task_tree([int(base_id)])

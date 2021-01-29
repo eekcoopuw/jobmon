@@ -7,7 +7,7 @@ from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
 
 def hot_resumable_workflow():
     from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.execution.strategies import sge
+    from jobmon.client.execution.strategies import sge  # noqa: F401
 
     # set up tool and task template
     unknown_tool = Tool()

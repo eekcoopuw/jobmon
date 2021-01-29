@@ -50,13 +50,14 @@ class SGEExecutor(Executor):
         self.working_dir = working_dir
         super().__init__(*args, **kwargs)
 
-    def _execute_sge(self, qsub_cmd) -> int:
+    def _execute_sge(self, qsub_cmd, executor_ids) -> Tuple[int, Dict[int, int]]:
         try:
             logger.debug(f"Qsub command is: {qsub_cmd}")
             resp = check_output(qsub_cmd, shell=True, universal_newlines=True)
             if 'Your job' in resp:
                 idx = resp.split().index('job')
                 sge_jid = int(resp.split()[idx + 1])
+                executor_ids[sge_jid] = 0  # add exec_id and set timeout counter to 0
             elif 'no suitable queue' in resp:
                 logger.error(f"The job could not be submitted as requested. Got SGE error "
                              f"{resp}. Tried submitting {qsub_cmd}")
@@ -66,7 +67,7 @@ class SGEExecutor(Executor):
                              f"job id could not be parsed from the response: "
                              f"{resp}")
                 sge_jid = QsubAttribute.UNPARSABLE
-            return sge_jid
+            return sge_jid, executor_ids
 
         except Exception as e:
             logger.error(
@@ -74,10 +75,11 @@ class SGEExecutor(Executor):
                 f"\n{e}")
             if isinstance(e, ValueError):
                 raise e
-            return QsubAttribute.NO_EXEC_ID
+            return QsubAttribute.NO_EXEC_ID, executor_ids
 
     def execute(self, command: str, name: str,
-                executor_parameters: ExecutorParameters) -> int:
+                executor_parameters: ExecutorParameters, executor_ids={}) -> \
+            Tuple[int, Dict[int, int]]:
         logger.debug(f"PARAMS: {executor_parameters.m_mem_free}, "
                      f"{executor_parameters.num_cores}, "
                      f"{executor_parameters.queue},"
@@ -98,12 +100,13 @@ class SGEExecutor(Executor):
             project=self.project,
             working_dir=self.working_dir)
         logger.info(qsub_command)
-        return self._execute_sge(qsub_command)
+        return self._execute_sge(qsub_command, executor_ids)
 
-    def get_errored_jobs(self):
+    def get_errored_jobs(self, executor_ids) -> Dict[int, str]:
         """Get all jobs that are in EQW and return their executor ids and error messages.
         Also, qdel the jobs."""
-        qstat_dict = sge_utils.qstat()
+        logger.debug(f"SGE_JIDS for error: {list(executor_ids.keys())}")
+        qstat_dict = sge_utils.qstat(jids=list(executor_ids.keys()))
         # qdel Eqw jobs so they get restarted naturally
         exec_ids = {}
         for job_id, info in qstat_dict.items():
@@ -115,10 +118,42 @@ class SGEExecutor(Executor):
             sge_utils.qdel(list(exec_ids.keys()))
         return exec_ids
 
-    def get_actual_submitted_or_running(self) -> List[int]:
-        qstat_dict = sge_utils.qstat()
-        executor_ids = list(qstat_dict.keys())
-        executor_ids = [int(eid) for eid in executor_ids]
+    def get_actual_submitted_or_running(self, executor_ids, report_by_buffer) -> \
+            Tuple[List[int], Dict[int, int]]:
+        logger.debug(f"SGE_JIDS for active: {list(executor_ids.keys())}")
+        if executor_ids:
+            qstat_dict = sge_utils.qstat(jids=list(executor_ids.keys()))
+        else:
+            return [], executor_ids  # nothing in qstat, nothing in exec_ids
+        sge_ids = list(qstat_dict.keys())
+        sge_ids = [int(eid) for eid in sge_ids]
+        executor_ids = self._update_track_executor_ids(sge_ids=sge_ids,
+                                                       report_by_buffer=report_by_buffer,
+                                                       executor_ids=executor_ids)
+        logger.info(f"qstat: {sge_ids}, exec_ids: {executor_ids}")
+        return sge_ids, executor_ids
+
+    def _update_track_executor_ids(self, sge_ids, report_by_buffer, executor_ids) -> \
+            Dict[int, int]:
+        """Using the latest executor ids available in qstat, update the list of sge job ids to
+        be tracked. Checks missing sge jids a few times to ensure they are fully gone before
+        removing them (sometimes exec ids disappear and come back).
+        """
+        for key in list(executor_ids.keys()):
+            if int(key) not in sge_ids:
+                logger.info(f"{int(key)} not found in sge_ids: {sge_ids}")
+                val = executor_ids[key]
+                if val > (report_by_buffer+1):
+                    # if the jid has been polled for longer than its timeout period
+                    logger.info(f"LOST: {key}")
+                    res, _ = sge_utils.qacct_exit_status(key)
+                    if res != sge_utils.SGE_UNKNOWN_ERROR:
+                        logger.info("RESPONSE: {res}")
+                        del(executor_ids[key])
+                else:
+                    executor_ids[key] = val+1
+            else:
+                executor_ids[key] = 0  # reset to 0 in case it is back
         return executor_ids
 
     def terminate_task_instances(self, executor_ids: List[int]) -> None:
@@ -295,6 +330,3 @@ class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
             return TaskInstanceStatus.UNKNOWN_ERROR, msg
         else:
             return TaskInstanceStatus.ERROR, error_msg
-
-
-

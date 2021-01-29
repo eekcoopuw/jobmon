@@ -49,7 +49,8 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
     cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user, args.json)
-    assert df == f'{{"WF_ID":{{"0":{workflow.workflow_id}}},"WF_NAME":{{"0":""}},"WF_STATUS":{{"0":' \
+    assert df == f'{{"WF_ID":{{"0":{workflow.workflow_id}}},"WF_NAME":{{"0":""}},' \
+                 f'"WF_STATUS":{{"0":' \
                  '"BOUND"},"TASKS":{"0":2},"PENDING":{"0":"2 (100.0%)"},' \
                  '"RUNNING":{"0":"0 (0.0%)"},"DONE":{"0":"0 (0.0%)"},"FATAL"' \
                  ':{"0":"0 (0.0%)"},"RETRIES":{"0":0.0}}'
@@ -161,12 +162,12 @@ def test_task_status(db_cfg, client_env):
     assert len(df.query("STATUS=='DONE'")) == 1
 
     # Test filters
-    finished_cmd = command_str + f" -s done "
+    finished_cmd = command_str + " -s done "
     done_args = cli.parse_args(finished_cmd)
     df_fin = task_status(done_args.task_ids, done_args.status)
     assert len(df_fin) == 1
 
-    all_cmd = command_str + f" -s done fatal"
+    all_cmd = command_str + " -s done fatal"
     all_args = cli.parse_args(all_cmd)
     df_all = task_status(all_args.task_ids, all_args.status)
     assert len(df_all) == 3
@@ -176,10 +177,9 @@ def test_task_reset(db_cfg, client_env, monkeypatch):
     from jobmon.client.api import BashTask
     from jobmon.client.api import UnknownWorkflow
     from jobmon.requester import Requester
-    from jobmon.client.status_commands import update_task_status, validate_username
+    from jobmon.client.status_commands import validate_username
 
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
-    user = getpass.getuser()
 
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
@@ -202,7 +202,7 @@ def test_task_reset(db_cfg, client_env, monkeypatch):
 def test_task_reset_wf_validation(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.api import UnknownWorkflow
-    from jobmon.client.status_commands import update_task_status, validate_username
+    from jobmon.client.status_commands import update_task_status
 
     workflow1 = UnknownWorkflow(executor_class="SequentialExecutor")
     workflow2 = UnknownWorkflow(executor_class="SequentialExecutor")
@@ -217,7 +217,8 @@ def test_task_reset_wf_validation(db_cfg, client_env):
     workflow2.run()
 
     # Check that this user is allowed to update
-    command_str = f"update_task_status -t {t1.task_id} {t2.task_id} -w {workflow1.workflow_id} -s G"
+    command_str = f"update_task_status -t {t1.task_id} {t2.task_id} " \
+                  f"-w {workflow1.workflow_id} -s G"
     cli = CLI()
     args = cli.parse_args(command_str)
 
@@ -243,22 +244,22 @@ def test_sub_dag(db_cfg, client_env):
           \      |             /
            \     |            /
               t1_11_213_1_1
-    """
+    """ # noqa W605
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("echo 1", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={})
     t1_1 = BashTask("echo 11", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
+                    max_runtime_seconds=10, resource_scales={})
     t1_2 = BashTask("echo 12", executor_class="SequentialExecutor",
                     max_runtime_seconds=10, resource_scales={})
     t1_11_213_1_1 = BashTask("echo 121", executor_class="SequentialExecutor",
-                    max_runtime_seconds=10, resource_scales={})
+                             max_runtime_seconds=10, resource_scales={})
     t2 = BashTask("echo 2", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={})
     t3 = BashTask("echo 3", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={})
     t13_1 = BashTask("echo 131", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
+                     max_runtime_seconds=10, resource_scales={})
     t1_11_213_1_1.add_upstream(t1_1)
     t1_11_213_1_1.add_upstream(t1_2)
     t1_11_213_1_1.add_upstream((t13_1))
@@ -346,6 +347,7 @@ def test_update_task_status(db_cfg, client_env):
     def generate_workflow_and_tasks(tool):
 
         wf = tool.create_workflow(workflow_args='test_cli_update_workflow')
+        wf.set_executor(executor_class="SequentialExecutor")
         tasks = []
         echo_str = 'echo {}'
         for i in range(5):
@@ -371,7 +373,8 @@ def test_update_task_status(db_cfg, client_env):
     cli = CLI()
     update_str = f'update_task_status -w {wf1.workflow_id} -t {wf1_tasks[2].task_id} -s D'
     args = cli.parse_args(update_str)
-    update_task_status(task_ids=args.task_ids, workflow_id=args.workflow_id, new_status=args.new_status)
+    update_task_status(task_ids=args.task_ids, workflow_id=args.workflow_id,
+                       new_status=args.new_status)
 
     # Resume the workflow
     wf2, wf2_tasks = generate_workflow_and_tasks(tool)
@@ -382,7 +385,8 @@ def test_update_task_status(db_cfg, client_env):
     assert all([st.status == "D" for st in wfr2.swarm_tasks.values()])
 
     # Try a reset of a "done" workflow to "G"
-    update_task_status(task_ids=[wf2_tasks[3].task_id], workflow_id=wf2.workflow_id, new_status="G")
+    update_task_status(task_ids=[wf2_tasks[3].task_id], workflow_id=wf2.workflow_id,
+                       new_status="G")
     wf3, wf3_tasks = generate_workflow_and_tasks(tool)
     wf3.set_executor(executor_class="SequentialExecutor")
     wf3._bind(True)
@@ -397,4 +401,3 @@ def test_update_task_status(db_cfg, client_env):
 
     assert wfr3.status == "D"
     assert all([st.status == "D" for st in wfr3.swarm_tasks.values()])
-

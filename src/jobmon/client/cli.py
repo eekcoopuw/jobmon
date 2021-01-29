@@ -63,7 +63,6 @@ class ClientCLI(CLI):
         response = update_task_status(args.task_ids, args.workflow_id, args.new_status, cc.url)
         print(f"Response is: {response}")
 
-
     def concurrency_limit(self, args: configargparse.Namespace) -> None:
         from jobmon.client.status_commands import concurrency_limit as concurrency_limit_cmd
 
@@ -135,7 +134,8 @@ class ClientCLI(CLI):
         ParserDefaults.web_service_port(update_task_parser)
 
     def _add_concurrency_limit_subparser(self) -> None:
-        concurrency_limit_parser = self._subparsers.add_parser("concurrency_limit", **PARSER_KWARGS)
+        concurrency_limit_parser = self._subparsers.add_parser("concurrency_limit",
+                                                               **PARSER_KWARGS)
         concurrency_limit_parser.add_argument(
             "-w", "--workflow_id",
             required=True,

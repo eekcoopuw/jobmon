@@ -21,9 +21,9 @@ def _get_pulling_interval():
 
 def _update_maxpss_in_db(ex_id: int, pss: int, session: Session):
     try:
-        # Doing single update instead of batch because if a banch update failed it's harder to tell
-        # which task_instance has been updated
-        sql = "UPDATE task_instance SET maxpss={maxpss} WHERE executor_id={id}".format(maxpss=pss, id=ex_id)
+        # Doing single update instead of batch because if a banch update failed it's harder to
+        # tell which task_instance has been updated
+        sql = f"UPDATE task_instance SET maxpss={pss} WHERE executor_id={ex_id}"
         session.execute(sql)
         session.commit()
         session.close()
@@ -38,7 +38,7 @@ def _get_qpid_response(ex_id: int):
     logger.info(qpid_api_url)
     resp = requests.get(qpid_api_url)
     if resp.status_code != 200:
-        logger.info("The maxpss of {} is not available. Put it back to the queue.".format(ex_id))
+        logger.info(f"The maxpss of {ex_id} is not available. Put it back to the queue.")
         return (resp, None)
     else:
         maxpss = resp.json()["max_pss"]
@@ -60,8 +60,8 @@ def _get_completed_task_instance(starttime: float, session: Session):
 
 def maxpss_forever():
     """A never stop method running in a thread to constantly query the maxpss value from qpid
-       for completed jobmon jobs.
-       If the maxpss is not found in qpid, put the execution id back to the queue.
+    for completed jobmon jobs. If the maxpss is not found in qpid, put the execution id back
+    to the queue.
     """
     eng = create_engine(config.conn_str, pool_recycle=200)
     Session = sessionmaker(bind=eng)

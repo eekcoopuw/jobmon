@@ -1,5 +1,5 @@
 from jobmon.server.web.models import DB
-from jobmon.server.web.models import executor_parameter_set_type
+from jobmon.server.web.models import executor_parameter_set_type  # noqa F401
 
 
 class ExecutorParameterSet(DB.Model):

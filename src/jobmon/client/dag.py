@@ -81,12 +81,14 @@ class Dag(object):
             # Make sure no task contains up/down stream tasks that are not in the workflow
             for n in node.upstream_nodes:
                 if n not in nodes_in_dag:
-                    raise NodeDependencyNotExistError("Upstream node, {hash(n)}, for node, {hash(node)},"
-                                                      "does not exist in the dag.")
+                    raise NodeDependencyNotExistError("Upstream node, {hash(n)}, for node, "
+                                                      "{hash(node)}, does not exist in the "
+                                                      "dag.")
             for n in node.downstream_nodes:
                 if n not in nodes_in_dag:
-                    raise NodeDependencyNotExistError("Downstream node, {hash(n)}, for node, {hash(node)},"
-                                                      "does not exist in the dag.")
+                    raise NodeDependencyNotExistError("Downstream node, {hash(n)}, for node, "
+                                                      "{hash(node)}, does not exist in the "
+                                                      "dag.")
 
     def _get_dag_id(self) -> Optional[int]:
         dag_hash = hash(self)
@@ -137,8 +139,8 @@ class Dag(object):
             return response['dag_id']
         else:
             raise ValueError(f'Unexpected status code {return_code} from POST request through '
-                             f'route /client/dag/{dag_hash}. Expected code 200. Response content: '
-                             f'{response}')
+                             f'route /client/dag/{dag_hash}. Expected code 200. Response '
+                             f'content: {response}')
 
     def __hash__(self) -> int:
         """Determined by hashing all sorted node hashes and their downstream"""

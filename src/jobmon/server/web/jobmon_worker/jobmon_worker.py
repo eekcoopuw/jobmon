@@ -250,7 +250,8 @@ def log_done(task_instance_id: int):
                           status_code=500) from e
 
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/log_error_worker_node', methods=['POST'])
+@jobmon_worker.route('/task_instance/<task_instance_id>/log_error_worker_node',
+                     methods=['POST'])
 def log_error_worker_node(task_instance_id: int):
     """Log a task_instance as errored
     Args:

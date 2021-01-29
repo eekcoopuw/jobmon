@@ -28,8 +28,8 @@ class SwarmTask(object):
             task_id: id of task object from bound db object
             status: status of task object
             task_args_hash: hash of unique task arguments
-            executor_parameters: callable to be executed when Task is ready to
-                be run and resources can be assigned
+            executor_parameters: callable to be executed when Task is ready to be run and
+            resources can be assigned
             max_attempts: maximum number of task_instances before failure
             requester_url (str): url to communicate with the flask services.
         """

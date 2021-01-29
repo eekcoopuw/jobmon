@@ -71,9 +71,13 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
         DB.session.commit()
 
     # wait till it dies
-    while scheduler.executor.get_actual_submitted_or_running():
+    actual, _ = scheduler.executor.get_actual_submitted_or_running(
+        scheduler.executor_ids, scheduler._report_by_buffer)
+    while actual:
         time.sleep(1)
-    scheduler.executor.stop()
+        actual, _ = scheduler.executor.get_actual_submitted_or_running(
+            scheduler.executor_ids, scheduler._report_by_buffer)
+    scheduler.executor.stop(scheduler.executor_ids, scheduler._report_by_buffer)
 
     # make sure no more heartbeats were registered
     with app.app_context():
@@ -90,7 +94,7 @@ def test_ti_error_state(db_cfg, client_env):
 
     # setup workflow
     tool = Tool()
-    workflow = tool.create_workflow(name=f"test_ti_error_state")
+    workflow = tool.create_workflow(name="test_ti_error_state")
     executor = SequentialExecutor()
     workflow.set_executor(executor)
     task_a = BashTask("exit -9", executor_class="SequentialExecutor",
@@ -112,9 +116,9 @@ def test_ti_error_state(db_cfg, client_env):
         assert ti.status == TaskInstanceStatus.ERROR
 
 
-def mock_execute(command, name, executor_parameters):
+def mock_execute(command, name, executor_parameters, executor_ids):
     # redirecting the normal route of going to B state with W state
-    return -33333
+    return -33333, executor_ids
 
 
 def test_ti_w_state(db_cfg, client_env):
@@ -128,7 +132,7 @@ def test_ti_w_state(db_cfg, client_env):
 
     # setup workflow
     tool = Tool()
-    workflow = tool.create_workflow(name=f"test_ti_error_state")
+    workflow = tool.create_workflow(name="test_ti_error_state")
     executor = SequentialExecutor()
     workflow.set_executor(executor)
     task_a = BashTask("exit -9", executor_class="SequentialExecutor",
@@ -175,7 +179,7 @@ def test_reset_attempts_on_resume(db_cfg, client_env):
 
     # setup workflow 1
     tool = Tool()
-    workflow1 = tool.create_workflow(name=f"test_reset_attempts_on_resume")
+    workflow1 = tool.create_workflow(name="test_reset_attempts_on_resume")
     executor = SequentialExecutor()
     workflow1.set_executor(executor)
     task_a = BashTask("sleep 5", executor_class="SequentialExecutor",
@@ -204,7 +208,7 @@ def test_reset_attempts_on_resume(db_cfg, client_env):
         DB.session.commit()
 
     # create a second workflow and actually run it
-    workflow2 = tool.create_workflow(name=f"test_reset_attempts_on_resume",
+    workflow2 = tool.create_workflow(name="test_reset_attempts_on_resume",
                                      workflow_args=workflow1.workflow_args)
     executor = SequentialExecutor()
     workflow2.set_executor(executor)
@@ -245,7 +249,7 @@ def test_task_instance_error_fatal(db_cfg, client_env):
 
     # setup workflow 1
     tool = Tool()
-    workflow1 = tool.create_workflow(name=f"test_task_instance_error_fatal")
+    workflow1 = tool.create_workflow(name="test_task_instance_error_fatal")
     executor = SequentialExecutor()
     workflow1.set_executor(executor)
     task_a = BashTask("sleep 5", executor_class="SequentialExecutor",
