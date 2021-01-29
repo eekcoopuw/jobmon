@@ -165,7 +165,8 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
                           status_code=500) from e
 
 
-@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances', methods=['GET'])
+@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
+                        methods=['GET'])
 def get_suspicious_task_instances(workflow_run_id: int):
     # query all job instances that are submitted to executor or running which
     # haven't reported as alive in the allocated time.
@@ -197,7 +198,8 @@ def get_suspicious_task_instances(workflow_run_id: int):
                           status_code=500) from e
 
 
-@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate', methods=['GET'])
+@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
+                        methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int):
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
@@ -261,7 +263,8 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
                           status_code=500) from e
 
 
-@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_executor_report_by', methods=['POST'])
+@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_executor_report_by',
+                        methods=['POST'])
 def log_executor_report_by(workflow_run_id: int):
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
@@ -374,14 +377,15 @@ def add_task_instance():
                           status_code=500) from e
 
 
-@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_no_executor_id', methods=['POST'])
+@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_no_executor_id',
+                        methods=['POST'])
 def log_no_executor_id(task_instance_id: int):
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     try:
         data = request.get_json()
         app.logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."
                          f"Data {data['executor_id']}")
-        app.logger.debug(f"Add TI for task ")
+        app.logger.debug("Add TI for task ")
 
         if data['executor_id'] == QsubAttribute.NO_EXEC_ID:
             app.logger.info("Qsub was unsuccessful and caused an exception")
@@ -432,7 +436,8 @@ def log_executor_id(task_instance_id: int):
                           status_code=500) from e
 
 
-@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_error_reconciler', methods=['POST'])
+@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_error_reconciler',
+                        methods=['POST'])
 def log_error_reconciler(task_instance_id: int):
     """Log a task_instance as errored
     Args:

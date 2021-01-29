@@ -23,7 +23,7 @@ def create_node(requester_url, starter=0):
         node = {'task_template_version_id': 2, 'node_args_hash': i+starter, 'node_args': {}}
         nodes.append(node)
     rc, r = requester.send_request(
-        app_route=f'/nodes',
+        app_route='/nodes',
         message={'nodes': nodes},
         request_type='post')
     assert rc == 200

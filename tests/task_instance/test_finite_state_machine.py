@@ -94,7 +94,7 @@ def test_ti_error_state(db_cfg, client_env):
 
     # setup workflow
     tool = Tool()
-    workflow = tool.create_workflow(name=f"test_ti_error_state")
+    workflow = tool.create_workflow(name="test_ti_error_state")
     executor = SequentialExecutor()
     workflow.set_executor(executor)
     task_a = BashTask("exit -9", executor_class="SequentialExecutor",
@@ -132,7 +132,7 @@ def test_ti_w_state(db_cfg, client_env):
 
     # setup workflow
     tool = Tool()
-    workflow = tool.create_workflow(name=f"test_ti_error_state")
+    workflow = tool.create_workflow(name="test_ti_error_state")
     executor = SequentialExecutor()
     workflow.set_executor(executor)
     task_a = BashTask("exit -9", executor_class="SequentialExecutor",
@@ -179,7 +179,7 @@ def test_reset_attempts_on_resume(db_cfg, client_env):
 
     # setup workflow 1
     tool = Tool()
-    workflow1 = tool.create_workflow(name=f"test_reset_attempts_on_resume")
+    workflow1 = tool.create_workflow(name="test_reset_attempts_on_resume")
     executor = SequentialExecutor()
     workflow1.set_executor(executor)
     task_a = BashTask("sleep 5", executor_class="SequentialExecutor",
@@ -208,7 +208,7 @@ def test_reset_attempts_on_resume(db_cfg, client_env):
         DB.session.commit()
 
     # create a second workflow and actually run it
-    workflow2 = tool.create_workflow(name=f"test_reset_attempts_on_resume",
+    workflow2 = tool.create_workflow(name="test_reset_attempts_on_resume",
                                      workflow_args=workflow1.workflow_args)
     executor = SequentialExecutor()
     workflow2.set_executor(executor)
@@ -249,7 +249,7 @@ def test_task_instance_error_fatal(db_cfg, client_env):
 
     # setup workflow 1
     tool = Tool()
-    workflow1 = tool.create_workflow(name=f"test_task_instance_error_fatal")
+    workflow1 = tool.create_workflow(name="test_task_instance_error_fatal")
     executor = SequentialExecutor()
     workflow1.set_executor(executor)
     task_a = BashTask("sleep 5", executor_class="SequentialExecutor",

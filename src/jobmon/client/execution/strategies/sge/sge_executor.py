@@ -330,6 +330,3 @@ class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
             return TaskInstanceStatus.UNKNOWN_ERROR, msg
         else:
             return TaskInstanceStatus.ERROR, error_msg
-
-
-

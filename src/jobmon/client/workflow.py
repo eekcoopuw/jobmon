@@ -372,10 +372,9 @@ class Workflow(object):
                 n._node_id = int(nodes_received[k])
             else:
                 raise InvalidResponse(
-                    f"Fail to find node_id in HTTP response for node_args_hash {n.node_args_hash} "
-                    f"and task_template_version_id {n.task_template_version_id} "
-                    f"HTTP Response:\n {response}"
-                    )
+                    "Fail to find node_id in HTTP response for node_args_hash "
+                    f"{n.node_args_hash} and task_template_version_id "
+                    f"{n.task_template_version_id} HTTP Response:\n {response}")
 
     def _bind(self, resume: bool = ResumeStatus.DONT_RESUME):
         """Bind objects to the database if they haven't already been"""
@@ -477,8 +476,9 @@ class Workflow(object):
             for i in range(chunk_boarder[0], chunk_boarder[1] + 1):
                 k = list_task_key[i]
                 tasks[k] = [self.tasks[k].node.node_id, self.tasks[k].task_args_hash,
-                            self.tasks[k].name, self.tasks[k].command, self.tasks[k].max_attempts,
-                            reset_if_running, self.tasks[k].task_args, self.tasks[k].task_attributes]
+                            self.tasks[k].name, self.tasks[k].command,
+                            self.tasks[k].max_attempts, reset_if_running,
+                            self.tasks[k].task_args, self.tasks[k].task_attributes]
             parameters = {"workflow_id": self.workflow_id, "tasks": tasks}
             return_code, response = self.requester.send_request(
                 app_route=app_route,

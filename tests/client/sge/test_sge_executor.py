@@ -33,9 +33,11 @@ def mock_qacct_exit_status(id):
     """mock jobmon.client.execution.strategies.sge.sge_utils.qacct_exit_status to
     return some fixed code and msg according to id"""
     if id == 100:
-        return QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES[0], "over runtime"
+        return QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES[0], \
+               "over runtime"
     if id == 200:
-        return QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES[1], "I run out of ideas of fake msgs"
+        return QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES[1], \
+               "I run out of ideas of fake msgs"
     if id == 300:
         return ReturnCodes.WORKER_NODE_ENV_FAILURE, "I run out of ideas of fake msgs again"
     if id == 400:
@@ -48,7 +50,7 @@ def test_get_actual_submitted_or_running():
     with patch("jobmon.client.execution.strategies.sge.sge_utils.qstat") as m_qstat:
         m_qstat.side_effect = mock_qstat
         sge = SGEExecutor()
-        result, _ = sge.get_actual_submitted_or_running(executor_ids={66666 : 0},
+        result, _ = sge.get_actual_submitted_or_running(executor_ids={66666: 0},
                                                         report_by_buffer=2)
         assert type(result) is list
         assert len(result) == 1
@@ -520,10 +522,10 @@ def test_non_jobmon_jobs_eqw(db_cfg, client_env):
     eqw state, we want to make sure that Jobmon does not try to register them in the jobmon db
     """
     bad_dir = "/ihme/scratch/users/svcscicompci/unwriteable_test_dir/"
-    qsub_bad = f"qsub -N not_jobmon -q all.q -l fthread=1 -l m_mem_free=1.0G -l h_rt=60 -P " \
-           f"proj_scicomp -e {bad_dir} -o {bad_dir} -b yes 'echo blah'"
-    qsub_good = f"qsub -N not_jobmon_sleep -q all.q -l fthread=1 -l m_mem_free=1.0G " \
-                f"-l h_rt=00:10:00 -P proj_scicomp -b yes 'sleep 60'"
+    qsub_bad = "qsub -N not_jobmon -q all.q -l fthread=1 -l m_mem_free=1.0G -l h_rt=60 -P " \
+               f"proj_scicomp -e {bad_dir} -o {bad_dir} -b yes 'echo blah'"
+    qsub_good = "qsub -N not_jobmon_sleep -q all.q -l fthread=1 -l m_mem_free=1.0G " \
+                "-l h_rt=00:10:00 -P proj_scicomp -b yes 'sleep 60'"
     res_bad = check_output(qsub_bad, shell=True, universal_newlines=True)
     res_good = check_output(qsub_good, shell=True, universal_newlines=True)
 
@@ -577,7 +579,7 @@ def test_non_jobmon_jobs_eqw(db_cfg, client_env):
                          universal_newlines=True)
             pytest.skip("Cluster running too slow to register jobs")
     active, _ = scheduler.executor.get_actual_submitted_or_running(scheduler.executor_ids,
-                                                                scheduler._report_by_buffer)  # make sure separate valid is not included
+                                                                   scheduler._report_by_buffer)
     assert len(active) == 2
     errored = scheduler.executor.get_errored_jobs(scheduler.executor_ids)
     assert len(errored) == 1  # if this fails, check your qstat to make sure there aren't other
@@ -585,7 +587,5 @@ def test_non_jobmon_jobs_eqw(db_cfg, client_env):
     assert len(list(scheduler.executor_ids.keys())) == 2
 
     # use res_bad and res_good to qdel those jobs
-    check_output(f"qdel {res_bad.split()[2]} {res_good.split()[2]}", shell=True, universal_newlines=True)
-
-
-
+    check_output(f"qdel {res_bad.split()[2]} {res_good.split()[2]}", shell=True,
+                 universal_newlines=True)

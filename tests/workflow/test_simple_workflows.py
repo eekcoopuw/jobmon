@@ -445,7 +445,7 @@ def test_workflow_attribute(db_cfg, client_env):
     from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
 
     wf1 = UnknownWorkflow("test_wf_attributes", executor_class="SequentialExecutor",
-                          workflow_attributes = {'location_id': 5, 'year': 2019, 'sex': 1})
+                          workflow_attributes={'location_id': 5, 'year': 2019, 'sex': 1})
 
     t1 = BashTask("exit -0", executor_class="SequentialExecutor",
                   max_runtime_seconds=10, resource_scales={}, max_attempts=1)
@@ -457,7 +457,8 @@ def test_workflow_attribute(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
-            join(WorkflowAttribute, WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
+            join(WorkflowAttribute,
+                 WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
             filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
     assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '1')])
 
@@ -466,9 +467,11 @@ def test_workflow_attribute(db_cfg, client_env):
 
     with app.app_context():
         wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
-            join(WorkflowAttribute, WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
+            join(WorkflowAttribute,
+                 WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
             filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
-    assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '2'), ('age_group_id', '1')])
+    assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '2'),
+                                      ('age_group_id', '1')])
 
     # Test workflow w/o attributes
     wf2 = UnknownWorkflow("test_empty_wf_attributes", executor_class="SequentialExecutor")
@@ -476,7 +479,8 @@ def test_workflow_attribute(db_cfg, client_env):
     wf2.run()
 
     with app.app_context():
-        wf_attributes = DB.session.query(WorkflowAttribute).filter_by(workflow_id=wf2.workflow_id).all()
+        wf_attributes = DB.session.query(WorkflowAttribute).filter_by(
+            workflow_id=wf2.workflow_id).all()
 
     assert wf_attributes == []
 

@@ -31,7 +31,7 @@ pipeline {
     }
     stage("Lint") {
       steps {
-        sh "${ACTIVATE} && nox --session lint || true"
+        sh "${ACTIVATE} && nox --session lint"
       }
     }
     stage("Typecheck") {
