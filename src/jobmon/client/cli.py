@@ -1,5 +1,5 @@
 import configargparse
-from argparse import ArgumentError
+import argparse
 
 from typing import Optional
 
@@ -8,13 +8,27 @@ from jobmon.config import PARSER_KWARGS, ParserDefaults, CLI
 from jobmon.client.client_config import ClientConfig
 
 
+class _HelpAction(argparse._HelpAction):
+    def __call__(self, parser, namespace, values, option_string=None):
+        print(parser.format_help())
+        subparsers_actions = [action for action in parser._actions if
+                              isinstance(action, argparse._SubParsersAction)]
+        print("Jobmon Usage Options:")
+        for sub_action in subparsers_actions:
+            for choice, subparser in sub_action.choices.items():
+                print(f"{choice.upper()} (for more information specify 'jobmon {choice} "
+                      f"--help'):")
+                print(subparser.format_usage())
+        parser.exit()
+
+
 class ClientCLI(CLI):
 
     def __init__(self) -> None:
-        self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
+        self.parser = configargparse.ArgumentParser(add_help=False, **PARSER_KWARGS)
+        self.parser.add_argument('--help', action=_HelpAction, help="Help if you need Help")
         self._subparsers = self.parser.add_subparsers(
-            dest='sub_command', parser_class=configargparse.ArgumentParser
-        )
+            dest='sub_command', parser_class=configargparse.ArgumentParser)
 
         self._add_workflow_status_subparser()
         self._add_workflow_tasks_subparser()
@@ -147,9 +161,9 @@ class ClientCLI(CLI):
             try:
                 x = int(x)
             except ValueError:
-                raise ArgumentError(f"{x} is not coercible to an integer.")
+                raise argparse.ArgumentError(f"{x} is not coercible to an integer.")
             if x < 0:
-                raise ArgumentError("Max concurrent tasks must be at least 0")
+                raise argparse.ArgumentError("Max concurrent tasks must be at least 0")
             return x
 
         concurrency_limit_parser.add_argument(
