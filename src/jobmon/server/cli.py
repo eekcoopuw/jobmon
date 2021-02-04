@@ -108,6 +108,8 @@ class ServerCLI(CLI):
         ParserDefaults.slack_api_url(reaper_parser)
         ParserDefaults.slack_token(reaper_parser)
         ParserDefaults.slack_channel_default(reaper_parser)
+        ParserDefaults.workflow_run_heartbeat_interval(reaper_parser)
+        ParserDefaults.task_instance_report_by_buffer(reaper_parser)
 
     def _add_qpid_integration_subparser(self) -> None:
         qpid_parser = self._subparsers.add_parser('qpid_integration', **PARSER_KWARGS)
