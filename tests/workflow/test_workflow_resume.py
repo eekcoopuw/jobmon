@@ -190,6 +190,8 @@ def test_cold_resume(db_cfg, client_env):
     completed, _ = wfr1._block_until_any_done_or_error()
     assert len(completed) > 0
 
+    wfr1.terminate_workflow_run()
+
     # now resume it till done
     # prepare first workflow
     tasks = []

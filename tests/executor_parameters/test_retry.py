@@ -41,6 +41,7 @@ class MockSchedulerProc:
 
 
 @pytest.mark.integration_sge
+@pytest.mark.skip()
 def test_hot_resume_with_adjusting_resource(db_cfg, client_env):
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
