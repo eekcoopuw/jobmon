@@ -8,22 +8,24 @@ from pythonjsonlogger import jsonlogger
 from jobmon import __version__
 
 
-def get_rsyslog_handler_config(rsyslog_host: str, rsyslog_port: str, rsyslog_protocol: str,
-                               rsyslog_log_level: str = "DEBUG"):
+def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash_protocol: str,
+                                logstash_log_level: str = "DEBUG") -> Dict:
     # setup syslog handler config to use json
-    if rsyslog_protocol == "TCP":
+    if logstash_protocol == "TCP":
         p = socket.SOCK_STREAM
     else:
         p = socket.SOCK_DGRAM
-    handler_name = "structured"
+
+    handler_name = "logstash"
     handler_config = {
-        handler_name:
-        {
-            "level": rsyslog_log_level.upper(),
-            "class": "logging.handlers.SysLogHandler",
-            "address": f"{rsyslog_host}:{rsyslog_port}",
-            "socktype": p,
+        handler_name: {
+            "level": logstash_log_level.upper(),
+            "class": "logstash_async.handler.AsynchronousLogstashHandler",
             "formatter": "json",
+            "transport": "logstash_async.transport.TcpTransport",
+            "host": "localhost",
+            "port": 5000,
+            "database_path": None
         }
     }
     return handler_config

@@ -27,7 +27,9 @@ class ServerCLI(CLI):
 
         web_config = WebConfig(
             db_host=args.db_host, db_port=args.db_port, db_user=args.db_user,
-            db_pass=args.db_pass, db_name=args.db_name)
+            db_pass=args.db_pass, db_name=args.db_name, logstash_host=args.logstash_host,
+            logstash_port=args.logstash_port, logstash_protocol=args.logstash_protocol,
+            use_logstash=args.use_logstash)
         app = create_app(web_config)
 
         if args.command == 'start':
@@ -88,6 +90,10 @@ class ServerCLI(CLI):
         ParserDefaults.db_pass(web_service_parser)
         ParserDefaults.db_name(web_service_parser)
         ParserDefaults.web_service_port(web_service_parser)
+        ParserDefaults.logstash_host(web_service_parser)
+        ParserDefaults.logstash_port(web_service_parser)
+        ParserDefaults.logstash_protocol(web_service_parser)
+        ParserDefaults.use_logstash(web_service_parser)
 
     def _add_workflow_reaper_subparser(self) -> None:
         reaper_parser = self._subparsers.add_parser('workflow_reaper', **PARSER_KWARGS)
