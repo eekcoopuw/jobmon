@@ -15,7 +15,7 @@ class DummyExecutor(Executor):
             Tuple[int, Dict[int, int]]:
         # in a real executor, this is where qsub would happen.
         # here, since it's a dummy executor, we just get a random num
-        logger.warning("This is the Dummy Executor")
+        logger.info("This is the Dummy Executor")
         executor_id = random.randint(1, int(1e7))
         executor_ids[executor_id] = 0
         return executor_id, executor_ids

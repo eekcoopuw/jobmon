@@ -252,7 +252,7 @@ class Workflow(object):
                 checked for status, etc.
         """
         if not hasattr(self, "_executor"):
-            logger.warning("using default project: ihme_general")
+            logger.debug("using default project: ihme_general")
             self.set_executor(project="ihme_general")
         logger.debug("executor: {}".format(self._executor))
 

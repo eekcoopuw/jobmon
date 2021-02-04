@@ -57,8 +57,8 @@ class SGEParameters:
         if isinstance(m_mem_free, str):
             m_mem_free = self._transform_mem_to_gb(m_mem_free)
             if isinstance(m_mem_free, str):
-                logger.warning("This is not a memory measure that can be processed, "
-                               "setting to 1G")
+                logger.info("This is not a memory measure that can be processed, "
+                            "setting to 1G")
                 m_mem_free = 1
         self.m_mem_free = m_mem_free
         self.hard_limits = hard_limits
