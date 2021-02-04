@@ -30,13 +30,13 @@ class WorkflowReaperConfig:
                    slack_api_url=args.slack_api_url,
                    slack_token=args.slack_token,
                    slack_channel_default=args.slack_channel_default,
-                   workflow_run_heartbeat=args.workflow_run_heartbeat_interval,
+                   workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
                    task_instance_report_by_buffer=args.task_instance_report_by_buffer)
 
     def __init__(self, poll_interval_minutes: int, loss_threshold: int, host: str, port: str,
                  slack_api_url: Optional[str], slack_token: Optional[str],
-                 slack_channel_default: Optional[str], workflow_run_heartbeat,
-                 task_instance_report_by_buffer) -> None:
+                 slack_channel_default: Optional[str], workflow_run_heartbeat_interval: int,
+                 task_instance_report_by_buffer: float) -> None:
         self.poll_interval_minutes = poll_interval_minutes
         self.loss_threshold = loss_threshold
         self.host = host
@@ -44,7 +44,7 @@ class WorkflowReaperConfig:
         self.slack_api_url = slack_api_url
         self.slack_token = slack_token
         self.slack_channel_default = slack_channel_default
-        self.workflow_run_heartbeat = workflow_run_heartbeat
+        self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self.task_instance_report_by_buffer = task_instance_report_by_buffer
 
     @property

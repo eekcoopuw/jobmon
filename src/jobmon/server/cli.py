@@ -54,7 +54,9 @@ class ServerCLI(CLI):
             port=args.web_service_port,
             slack_api_url=args.slack_api_url,
             slack_token=args.slack_token,
-            slack_channel_default=args.slack_channel_default
+            slack_channel_default=args.slack_channel_default,
+            workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
+            task_instance_report_by_buffer=args.task_instance_report_by_buffer
         )
         if args.command == 'start':
             start_workflow_reaper(reaper_config)

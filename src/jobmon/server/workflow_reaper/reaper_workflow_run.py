@@ -74,7 +74,7 @@ class ReaperWorkflowRun(object):
 
     def transition_to_suspended(self) -> str:
         cfg = WorkflowReaperConfig.from_defaults()
-        time_out = cfg.workflow_run_heartbeat * cfg.task_instance_report_by_buffer
+        time_out = cfg.workflow_run_heartbeat_interval * cfg.task_instance_report_by_buffer
 
         app_route = f'/swarm/workflow_run/{self.workflow_run_id}/suspend/{time_out}'
         return_code, result = self._requester.send_request(

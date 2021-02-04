@@ -125,7 +125,7 @@ def test_suspended_state(db_cfg, requester_no_retry):
     # The reaper will only move workflows to suspended that have a heartbeat rate greater than
     # (heatbeat_interval * report_by_buffer). Sleep, so the wf is eligible to be reaped.
     cfg = WorkflowReaperConfig.from_defaults()
-    time_out = cfg.workflow_run_heartbeat * cfg.task_instance_report_by_buffer
+    time_out = cfg.workflow_run_heartbeat_interval * cfg.task_instance_report_by_buffer
     time.sleep(time_out * 1.2)
 
     # Call workflow reaper suspended state
