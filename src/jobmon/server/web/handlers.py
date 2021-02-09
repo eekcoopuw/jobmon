@@ -22,6 +22,19 @@ def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
         sqlalchemy_logger = logging.getLogger('sqlalchemy')
         sqlalchemy_logger.setLevel(logging.WARNING)
 
+    @app.errorhandler(Exception)
+    def handle_anything(error):
+        try:
+            status_code = error.status_code
+        except AttributeError:
+            status_code = 500
+        response_dict = {"type": str(type(error)), "exception_message": str(error)}
+        app.logger.exception(response_dict, status_code=status_code)
+        response = jsonify(error=response_dict)
+        response.content_type = "application/json"
+        response.status_code = status_code
+        return response
+
     # handle 404 at the application level not the blueprint level
     @app.errorhandler(404)
     def page_not_found(e):

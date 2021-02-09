@@ -36,17 +36,13 @@ def _is_alive():
 
 @jobmon_worker.route("/time", methods=['GET'])
 def get_pst_now():
-    try:
-        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-        time = time['time']
-        time = time.strftime("%Y-%m-%d %H:%M:%S")
-        DB.session.commit()
-        resp = jsonify(time=time)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+    time = time['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    DB.session.commit()
+    resp = jsonify(time=time)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_worker.route("/health", methods=['GET'])
@@ -55,17 +51,13 @@ def health():
     Test connectivity to the database, return 200 if everything is ok
     Defined in each module with a different route, so it can be checked individually
     """
-    try:
-        time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-        time = time['time']
-        time = time.strftime("%Y-%m-%d %H:%M:%S")
-        DB.session.commit()
-        resp = jsonify(status='OK')
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+    time = time['time']
+    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    DB.session.commit()
+    resp = jsonify(status='OK')
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
@@ -74,29 +66,25 @@ def kill_self(task_instance_id: int):
     (state W, or L)"""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     kill_statuses = TaskInstance.kill_self_states
-    try:
-        query = """
-            SELECT
-                task_instance.id
-            FROM
-                task_instance
-            WHERE
-                task_instance.id = :task_instance_id
-                AND task_instance.status in :statuses
-        """
-        should_kill = DB.session.query(TaskInstance).from_statement(text(query)).params(
-            task_instance_id=task_instance_id,
-            statuses=kill_statuses
-        ).one_or_none()
-        if should_kill is not None:
-            resp = jsonify(should_kill=True)
-        else:
-            resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    query = """
+        SELECT
+            task_instance.id
+        FROM
+            task_instance
+        WHERE
+            task_instance.id = :task_instance_id
+            AND task_instance.status in :statuses
+    """
+    should_kill = DB.session.query(TaskInstance).from_statement(text(query)).params(
+        task_instance_id=task_instance_id,
+        statuses=kill_statuses
+    ).one_or_none()
+    if should_kill is not None:
+        resp = jsonify(should_kill=True)
+    else:
+        resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
@@ -107,25 +95,21 @@ def log_running(task_instance_id: int):
         task_instance_id: id of the task_instance to log as running
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    try:
-        data = request.get_json()
-        ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-        msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
-        if data.get('executor_id', None) is not None:
-            ti.executor_id = data['executor_id']
-        if data.get('nodename', None) is not None:
-            ti.nodename = data['nodename']
-        ti.process_group_id = data['process_group_id']
-        ti.report_by_date = func.ADDTIME(
-            func.now(), func.SEC_TO_TIME(data['next_report_increment']))
-        DB.session.commit()
+    data = request.get_json()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
+    if data.get('executor_id', None) is not None:
+        ti.executor_id = data['executor_id']
+    if data.get('nodename', None) is not None:
+        ti.nodename = data['nodename']
+    ti.process_group_id = data['process_group_id']
+    ti.report_by_date = func.ADDTIME(
+        func.now(), func.SEC_TO_TIME(data['next_report_increment']))
+    DB.session.commit()
 
-        resp = jsonify(message=msg)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_report_by', methods=['POST'])
@@ -140,37 +124,33 @@ def log_ti_report_by(task_instance_id: int):
         task_instance_id: id of the task_instance to log
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    try:
-        data = request.get_json()
-        app.logger.debug(f"Log report_by for TI {task_instance_id}. Data={data}")
+    data = request.get_json()
+    app.logger.debug(f"Log report_by for TI {task_instance_id}. Data={data}")
 
-        executor_id = data.get('executor_id', None)
-        params = {}
-        params["next_report_increment"] = data["next_report_increment"]
-        params["task_instance_id"] = task_instance_id
-        if executor_id is not None:
-            params["executor_id"] = executor_id
-            query = """
-                    UPDATE task_instance
-                    SET report_by_date = ADDTIME(
-                        CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
-                        executor_id = :executor_id
-                    WHERE task_instance.id = :task_instance_id"""
-        else:
-            query = """
+    executor_id = data.get('executor_id', None)
+    params = {}
+    params["next_report_increment"] = data["next_report_increment"]
+    params["task_instance_id"] = task_instance_id
+    if executor_id is not None:
+        params["executor_id"] = executor_id
+        query = """
                 UPDATE task_instance
                 SET report_by_date = ADDTIME(
-                    CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+                    CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
+                    executor_id = :executor_id
                 WHERE task_instance.id = :task_instance_id"""
+    else:
+        query = """
+            UPDATE task_instance
+            SET report_by_date = ADDTIME(
+                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE task_instance.id = :task_instance_id"""
 
-        DB.session.execute(query, params)
-        DB.session.commit()
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    DB.session.execute(query, params)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_usage', methods=['POST'])
@@ -187,39 +167,35 @@ def log_usage(task_instance_id: int):
         io (str, optional): io used
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    try:
-        data = request.get_json()
-        if data.get('maxrss', None) is None:
-            data['maxrss'] = '-1'
+    data = request.get_json()
+    if data.get('maxrss', None) is None:
+        data['maxrss'] = '-1'
 
-        app.logger.debug(f"usage_str is {data.get('usage_str', None)}, "
-                         f"wallclock is {data.get('wallclock', None)}, "
-                         f"maxrss is {data.get('maxrss', None)}, "
-                         f"maxpss is {data.get('maxpss', None)}, "
-                         f"cpu is {data.get('cpu', None)}, "
-                         f" io is {data.get('io', None)}")
+    app.logger.debug(f"usage_str is {data.get('usage_str', None)}, "
+                     f"wallclock is {data.get('wallclock', None)}, "
+                     f"maxrss is {data.get('maxrss', None)}, "
+                     f"maxpss is {data.get('maxpss', None)}, "
+                     f"cpu is {data.get('cpu', None)}, "
+                     f" io is {data.get('io', None)}")
 
-        ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-        if data.get('usage_str', None) is not None:
-            ti.usage_str = data['usage_str']
-        if data.get('wallclock', None) is not None:
-            ti.wallclock = data['wallclock']
-        if data.get('maxrss', None) is not None:
-            ti.maxrss = data['maxrss']
-        if data.get('maxpss', None) is not None:
-            ti.maxpss = data['maxpss']
-        if data.get('cpu', None) is not None:
-            ti.cpu = data['cpu']
-        if data.get('io', None) is not None:
-            ti.io = data['io']
-        DB.session.commit()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    if data.get('usage_str', None) is not None:
+        ti.usage_str = data['usage_str']
+    if data.get('wallclock', None) is not None:
+        ti.wallclock = data['wallclock']
+    if data.get('maxrss', None) is not None:
+        ti.maxrss = data['maxrss']
+    if data.get('maxpss', None) is not None:
+        ti.maxpss = data['maxpss']
+    if data.get('cpu', None) is not None:
+        ti.cpu = data['cpu']
+    if data.get('io', None) is not None:
+        ti.io = data['io']
+    DB.session.commit()
 
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_done', methods=['POST'])
@@ -230,24 +206,20 @@ def log_done(task_instance_id: int):
         task_instance_id: id of the task_instance to log done
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    try:
-        data = request.get_json()
-        app.logger.debug(f"Log DONE for TI {task_instance_id}. Data: {data}")
+    data = request.get_json()
+    app.logger.debug(f"Log DONE for TI {task_instance_id}. Data: {data}")
 
-        ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-        if data.get('executor_id', None) is not None:
-            ti.executor_id = data['executor_id']
-        if data.get('nodename', None) is not None:
-            ti.nodename = data['nodename']
-        msg = _update_task_instance_state(ti, TaskInstanceStatus.DONE)
-        DB.session.commit()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    if data.get('executor_id', None) is not None:
+        ti.executor_id = data['executor_id']
+    if data.get('nodename', None) is not None:
+        ti.nodename = data['nodename']
+    msg = _update_task_instance_state(ti, TaskInstanceStatus.DONE)
+    DB.session.commit()
 
-        resp = jsonify(message=msg)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_error_worker_node',
@@ -260,18 +232,14 @@ def log_error_worker_node(task_instance_id: int):
         error_message (str): message to log as error
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    try:
-        data = request.get_json()
-        error_state = data['error_state']
-        error_message = data['error_message']
-        executor_id = data.get('executor_id', None)
-        nodename = data.get('nodename', None)
-        app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
+    data = request.get_json()
+    error_state = data['error_state']
+    error_message = data['error_message']
+    executor_id = data.get('executor_id', None)
+    nodename = data.get('nodename', None)
+    app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
 
-        ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
 
     try:
         resp = _log_error(ti, error_state, error_message, executor_id,
@@ -282,9 +250,6 @@ def log_error_worker_node(task_instance_id: int):
         new_msg = error_message.encode("latin1", "replace").decode("utf-8")
         resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
         return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
 
 
 @jobmon_worker.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])
@@ -295,33 +260,29 @@ def get_most_recent_ji_error(task_id: int):
     :return: error message
     """
     app.logger = app.logger.bind(task_id=task_id)
-    try:
-        query = """
-            SELECT
-                tiel.*
-            FROM
-                task_instance ti
-            JOIN
-                task_instance_error_log tiel
-                ON ti.id = tiel.task_instance_id
-            WHERE
-                ti.task_id = :task_id
-            ORDER BY
-                ti.id desc, tiel.id desc
-            LIMIT 1"""
-        ti_error = DB.session.query(TaskInstanceErrorLog).from_statement(text(query)).params(
-            task_id=task_id
-        ).one_or_none()
-        DB.session.commit()
-        if ti_error is not None:
-            resp = jsonify({"error_description": ti_error.description})
-        else:
-            resp = jsonify({"error_description": ""})
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    query = """
+        SELECT
+            tiel.*
+        FROM
+            task_instance ti
+        JOIN
+            task_instance_error_log tiel
+            ON ti.id = tiel.task_instance_id
+        WHERE
+            ti.task_id = :task_id
+        ORDER BY
+            ti.id desc, tiel.id desc
+        LIMIT 1"""
+    ti_error = DB.session.query(TaskInstanceErrorLog).from_statement(text(query)).params(
+        task_id=task_id
+    ).one_or_none()
+    DB.session.commit()
+    if ti_error is not None:
+        resp = jsonify({"error_description": ti_error.description})
+    else:
+        resp = jsonify({"error_description": ""})
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 # ############################ HELPER FUNCTIONS ###############################
