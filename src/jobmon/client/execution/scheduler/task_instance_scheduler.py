@@ -44,6 +44,7 @@ class TaskInstanceScheduler:
 
         # executor interface
         self.executor = executor
+        self.executor_ids = {}
 
         # operational args
         self._jobmon_command = jobmon_command
@@ -122,7 +123,8 @@ class TaskInstanceScheduler:
 
         finally:
             # stop executor
-            self.executor.stop()
+            self.executor.stop(executor_ids=self.executor_ids,
+                               report_by_buffer=self._report_by_buffer)
 
             if status_queue is not None:
                 status_queue.put("SHUTDOWN")
@@ -196,7 +198,9 @@ class TaskInstanceScheduler:
         next_report_increment = self._task_heartbeat_interval * self._report_by_buffer
 
         try:
-            errored_jobs = self.executor.get_errored_jobs()
+            logger.info(f"checking for errored_jobs with exec_ids: {self.executor_ids}")
+            errored_jobs = self.executor.get_errored_jobs(executor_ids=self.executor_ids)
+            logger.info(f"errored_jobs: {errored_jobs}")
         except NotImplementedError:
             logger.warning(f"{self.executor.__class__.__name__} does not implement "
                            f"errored_jobs methods.")
@@ -218,7 +222,11 @@ class TaskInstanceScheduler:
                 )
 
         try:
-            actual = self.executor.get_actual_submitted_or_running()
+            logger.info(f"checking for active jobs with exec_ids: {self.executor_ids}")
+            actual, executor_ids = self.executor.get_actual_submitted_or_running(
+                executor_ids=self.executor_ids, report_by_buffer=self._report_by_buffer)
+            self.executor_ids = executor_ids
+            logger.info(f"Updated executor_ids: {self.executor_ids}")
         except NotImplementedError:
             logger.warning(
                 f"{self.executor.__class__.__name__} does not implement "
@@ -322,11 +330,14 @@ class TaskInstanceScheduler:
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
         logger.debug(f"Using the following parameters in execution {task.executor_parameters}")
-        executor_id = task_instance.executor.execute(
+        executor_id, executor_ids = task_instance.executor.execute(
             command=command,
             name=task.name,
-            executor_parameters=task.executor_parameters
+            executor_parameters=task.executor_parameters,
+            executor_ids=self.executor_ids
         )
+        self.executor_ids = executor_ids
+        logger.info(f"JOB_IDS = {self.executor_ids}")
         if executor_id == QsubAttribute.NO_EXEC_ID:
             logger.debug(f"Received {executor_id} meaning the task did not qsub properly, "
                          "moving to 'W' state")
@@ -366,6 +377,7 @@ class TaskInstanceScheduler:
             for ti in response["task_instances"]
         ]
         self._to_reconcile = lost_task_instances
+        logger.info(f"Jobs to be reconciled: {self._to_reconcile}")
 
     def _terminate_active_task_instances(self) -> None:
         app_route = (

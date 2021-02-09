@@ -12,6 +12,7 @@ from jobmon.server.web.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
+from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.server_side_exception import ServerError
 
 jobmon_swarm = Blueprint("jobmon_swarm", __name__)
@@ -143,19 +144,51 @@ def get_task_by_status_only(workflow_id: int):
                           status_code=500) from e
 
 
-@jobmon_swarm.route('/workflow/<workflow_id>/suspend', methods=['POST'])
-def suspend_workflow(workflow_id: int):
-    app.logger = app.logger.bind(workflow_id=workflow_id)
+@jobmon_swarm.route('/workflow_run/<workflow_run_id>/suspend/<time_out>', methods=['PUT'])
+def suspend_workflow(workflow_run_id: int, time_out: int):
+    """
+    If applicable, moves the workflow run to "T" state, moves the associated workflow to "S".
+
+    Checks if workflow runs that are in "C" or "H" state haven't registered a heartbeat in more
+    than the timeout value. If they haven't, the route transitions the workflow and workflow
+    run.
+
+    Args:
+        workflow_run_id (int): the id of the workflow run to query for
+        time_out (int): heatbeat_interval * report_by_buffer, the time to compare the workflow
+            runs heartbeat_time against
+
+    Returns:
+        resp (Any): whether or not the workflow run was reaped and the response status code
+    """
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         query = """
-            UPDATE workflow
-            SET status = "S"
-            WHERE workflow.id = :workflow_id
+            SELECT
+                workflow_run.*,
+                TIMESTAMPDIFF(
+                    SECOND, workflow_run.heartbeat_date, CURRENT_TIMESTAMP
+                ) AS heartbeat_diff
+            FROM workflow_run
+            WHERE
+                workflow_run.id = :workflow_run_id
+            HAVING
+                (
+                    heartbeat_diff > :time_out
+                )
         """
-        DB.session.execute(query, {"workflow_id": workflow_id})
+        wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+            workflow_run_id=workflow_run_id, time_out=time_out
+        ).one_or_none()
         DB.session.commit()
 
-        resp = jsonify()
+        suspended = False
+        if wfr is not None:
+            wfr.transition(WorkflowRunStatus.TERMINATED)
+            DB.session.commit()
+            suspended = True
+
+        resp = jsonify(was_suspended=suspended)
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
@@ -226,9 +259,9 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         # If the last task was more than 2 minutes ago, transition wfr to A state
-        # Also check WorkflowRun status_date to avoid possible race condition where reaper checks
-        # tasks from a different WorkflowRun with the same workflow id. Avoid setting while
-        # waiting for a resume (when workflow is in suspended state)
+        # Also check WorkflowRun status_date to avoid possible race condition where reaper
+        # checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
+        # while waiting for a resume (when workflow is in suspended state)
         query = """
             SELECT
                 workflow_run.*,
@@ -257,7 +290,7 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
         DB.session.commit()
 
         if wfr is not None:
-            wfr.transition("A")
+            wfr.transition(WorkflowRunStatus.ABORTED)
             DB.session.commit()
             aborted = True
         else:

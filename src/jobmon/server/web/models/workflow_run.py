@@ -90,7 +90,6 @@ class WorkflowRun(DB.Model):
     def transition(self, new_state):
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
-            old_state = self.status
             self.status = new_state
             self.status_date = func.now()
             if new_state == WorkflowRunStatus.BOUND:
@@ -101,17 +100,8 @@ class WorkflowRun(DB.Model):
                 self.workflow.transition(WorkflowStatus.RUNNING)
             elif new_state == WorkflowRunStatus.DONE:
                 self.workflow.transition(WorkflowStatus.DONE)
-            elif new_state == WorkflowRunStatus.COLD_RESUME:
-                self.workflow.transition(WorkflowStatus.SUSPENDED)
-            elif new_state == WorkflowRunStatus.HOT_RESUME:
-                self.workflow.transition(WorkflowStatus.SUSPENDED)
             elif new_state == WorkflowRunStatus.TERMINATED:
-                # if hot resume move to registered on term
-                if old_state == WorkflowRunStatus.COLD_RESUME:
-                    self.workflow.transition(WorkflowStatus.FAILED)
-                elif old_state == WorkflowRunStatus.HOT_RESUME:
-                    self.workflow.transition(WorkflowStatus.REGISTERED)
-
+                self.workflow.transition(WorkflowStatus.SUSPENDED)
             elif new_state in self.bound_error_states:
                 self.workflow.transition(WorkflowStatus.FAILED)
 

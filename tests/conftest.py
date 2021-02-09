@@ -55,7 +55,6 @@ def boot_db() -> dict:
     # load schema
     here = os.path.dirname(__file__)
     create_dir = os.path.join(here, "..", "deployment/config/db")
-    updates_dir = os.path.join(here, "..", "deployment/config/db/upgrade")
 
     create_files = glob.glob(os.path.join(create_dir, "*.sql"))
 

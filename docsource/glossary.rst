@@ -118,11 +118,11 @@ For users
         F   ERROR_FATAL                 Task has errored out and has used all of the attempts. It cannot be retried
         D   DONE                        Task ran to completion
         === =========================== =======================================================================================
-        
+
     TaskInstance
         The actual instance of execution of a Task command. The equivalent of a single qsub on
         an SGE Cluster. Jobmon will create TaskInstances from the Tasks that you define.
-    
+
     TaskInstanceStatus
         === =========================== ==============================================================================
         ID  Label                       Description
@@ -148,4 +148,4 @@ For users
 For developers
 **************
 
-You'll want to study to the :doc:`API Reference <modules>`.
+You'll want to study to the :doc:`API Reference <api/modules>`.

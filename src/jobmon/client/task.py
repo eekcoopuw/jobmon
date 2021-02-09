@@ -134,7 +134,7 @@ class Task:
             # itself upon evalutaion
             is_valid, msg = executor_parameters.is_valid()
             if not is_valid:
-                logger.warning(msg)
+                logger.info(msg)
             static_func = (lambda executor_parameters, *args: executor_parameters)
             self.executor_parameters = partial(static_func, executor_parameters)
         else:

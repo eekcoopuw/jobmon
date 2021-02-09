@@ -190,6 +190,8 @@ def test_cold_resume(db_cfg, client_env):
     completed, _ = wfr1._block_until_any_done_or_error()
     assert len(completed) > 0
 
+    wfr1.terminate_workflow_run()
+
     # now resume it till done
     # prepare first workflow
     tasks = []
@@ -211,11 +213,7 @@ def test_cold_resume(db_cfg, client_env):
 @pytest.mark.integration_sge
 def test_cold_resume_from_failures(db_cfg, client_env):
     from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
-    from jobmon.client.swarm.workflow_run import WorkflowRun
-    from jobmon.exceptions import SchedulerNotAlive
+    from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor  # noqa F401
 
     # set up tool and task template
     unknown_tool = Tool()
@@ -252,7 +250,7 @@ def test_cold_resume_from_failures(db_cfg, client_env):
         tasks.append(t)
     workflow1 = unknown_tool.create_workflow(name="cold_resume_fail")
     workflow1.add_tasks(tasks)
-    wfr_1 = workflow1.run()
+    workflow1.run()
 
     tasks = []
     for i in range(3):

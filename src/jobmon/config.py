@@ -165,7 +165,8 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def reaper_loss_threshold(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+    def reaper_loss_threshold(parser: configargparse.ArgumentParser) -> \
+            configargparse.ArgumentParser:
         parser.add_argument(
             '--reaper_loss_threshold',
             type=int,

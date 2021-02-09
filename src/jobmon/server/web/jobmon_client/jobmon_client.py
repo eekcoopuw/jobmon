@@ -574,10 +574,9 @@ def add_nodes():
             node_id = node_id_dict[node_id_tuple]
 
             for arg_id, val in arg.items():
-                app.logger.debug(
-                    f'Adding node_arg with node_id: {node_id}, arg_id: {arg_id}, and val: {val}',
-                    node_id=node_id
-                )
+                app.logger.debug(f'Adding node_arg with node_id: {node_id}, arg_id: {arg_id}, '
+                                 f'and val: {val}',
+                                 node_id=node_id)
                 node_args_list.append({
                     'node_id': node_id,
                     'arg_id': arg_id,
@@ -591,7 +590,8 @@ def add_nodes():
             DB.session.commit()
 
         # return result
-        return_nodes = {':'.join(str(i) for i in key): val for key, val in node_id_dict.items()}
+        return_nodes = {':'.join(str(i) for i in key): val for key, val in
+                        node_id_dict.items()}
         resp = jsonify(nodes=return_nodes)
         resp.status_code = StatusCodes.OK
         return resp
@@ -844,8 +844,8 @@ def bind_tasks():
         tasks = all_data["tasks"]
         workflow_id = int(all_data["workflow_id"])
         # receive from client the tasks in a format of:
-        # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5), reset_if_running(6),
-        # task_args(7),task_attributes(8)]}
+        # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
+        # reset_if_running(6), task_args(7),task_attributes(8)]}
 
         # Retrieve existing task_ids
         task_query = """
@@ -869,7 +869,7 @@ def bind_tasks():
             for task in prebound_tasks
         }  # Dictionary mapping existing Tasks to the supplied arguments
 
-        arg_attr_mapping = {}  # Dictionary mapping input tasks to the corresponding args/attributes
+        arg_attr_mapping = {}  # Dict mapping input tasks to the corresponding args/attributes
         task_hash_lookup = {}  # Reverse dictionary of inputs, maps hash back to values
 
         for hashval, items in tasks.items():
@@ -878,8 +878,8 @@ def bind_tasks():
 
             id_tuple = (node_id, int(arg_hash))
 
-            # Conditional logic: Has task already been bound to the DB? If yes, reset the task status and
-            # update the args/attributes
+            # Conditional logic: Has task already been bound to the DB? If yes, reset the
+            # task status and update the args/attributes
             if id_tuple in present_tasks.keys():
                 task = present_tasks[id_tuple]
                 task.reset(name=name,
@@ -974,8 +974,8 @@ def bind_tasks():
                 val=text("VALUES(val)"))
             DB.session.execute(arg_insert_stmt)
         if attrs_to_add:
-            attr_insert_stmt = insert(TaskAttribute).values(attrs_to_add).on_duplicate_key_update(
-                value=text("VALUES(value)"))
+            attr_insert_stmt = insert(TaskAttribute).values(attrs_to_add).\
+                on_duplicate_key_update(value=text("VALUES(value)"))
             DB.session.execute(attr_insert_stmt)
         DB.session.commit()
 

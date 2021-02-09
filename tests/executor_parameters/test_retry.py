@@ -7,7 +7,7 @@ from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
 
 def hot_resumable_workflow():
     from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.execution.strategies import sge
+    from jobmon.client.execution.strategies import sge  # noqa: F401
 
     # set up tool and task template
     unknown_tool = Tool()
@@ -41,6 +41,7 @@ class MockSchedulerProc:
 
 
 @pytest.mark.integration_sge
+@pytest.mark.skip()
 def test_hot_resume_with_adjusting_resource(db_cfg, client_env):
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler

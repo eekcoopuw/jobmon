@@ -56,7 +56,9 @@ class ServerCLI(CLI):
             port=args.web_service_port,
             slack_api_url=args.slack_api_url,
             slack_token=args.slack_token,
-            slack_channel_default=args.slack_channel_default
+            slack_channel_default=args.slack_channel_default,
+            workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
+            task_instance_report_by_buffer=args.task_instance_report_by_buffer
         )
         if args.command == 'start':
             start_workflow_reaper(reaper_config)
@@ -112,6 +114,8 @@ class ServerCLI(CLI):
         ParserDefaults.slack_api_url(reaper_parser)
         ParserDefaults.slack_token(reaper_parser)
         ParserDefaults.slack_channel_default(reaper_parser)
+        ParserDefaults.workflow_run_heartbeat_interval(reaper_parser)
+        ParserDefaults.task_instance_report_by_buffer(reaper_parser)
 
     def _add_qpid_integration_subparser(self) -> None:
         qpid_parser = self._subparsers.add_parser('qpid_integration', **PARSER_KWARGS)

@@ -41,7 +41,7 @@ class UnknownWorkflow(Workflow):
         using Workflow.add_task(). In order to resume a Workflow, all the same
         tasks must be added with the same dependencies between tasks.
     """
-    _tool = Tool()
+    _tool: Optional[Tool] = None
 
     def __init__(self,
                  workflow_args: str = "",
@@ -128,7 +128,9 @@ class UnknownWorkflow(Workflow):
             requester = Requester(requester_url)
         self.requester = requester
 
-        # pass
+        if self._tool is None:
+            unknown_tool = Tool("unknown")
+            self._set_tool(unknown_tool)
         super().__init__(
             tool_version_id=self._tool.active_tool_version_id,
             workflow_args=workflow_args,
@@ -139,6 +141,10 @@ class UnknownWorkflow(Workflow):
             max_concurrently_running=max_concurrently_running,
             chunk_size=chunk_size
         )
+
+    @classmethod
+    def _set_tool(cls, tool: Tool) -> None:
+        cls._tool = tool
 
     def _set_executor(self, executor_class: str, *args, **kwargs) -> None:
         """Set which executor and parameters associated with that executor to

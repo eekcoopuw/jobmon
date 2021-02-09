@@ -31,7 +31,7 @@ Table of Contents
     kubernetes_deployment
     docker_deployment
     tests
-    API Reference <modules>
+    API Reference <api/modules>
     experimental_azure_kubernetes_deployment
     design/finite_state_machine
 

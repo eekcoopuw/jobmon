@@ -117,7 +117,8 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
         return pd.read_json(res["task_instance_status"])
 
 
-def concurrency_limit(workflow_id: int, max_tasks: int, requester_url: Optional[str] = None) -> str:
+def concurrency_limit(workflow_id: int, max_tasks: int,
+                      requester_url: Optional[str] = None) -> str:
     """ Update a workflow's max_running_instances field in the database
 
     Used to dynamically adjust the allowed number of jobs concurrently running.
@@ -197,7 +198,8 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
 
     if username not in res['usernames']:
         raise AssertionError(f"User {username} is not allowed to reset this workflow.",
-                             f"Only the following users have permission: {', '.join(res['usernames'])}")
+                             "Only the following users have permission: "
+                             f"{', '.join(res['usernames'])}")
 
     return
 
@@ -213,15 +215,16 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> None:
     return res['workflow_status']
 
 
-def get_sub_task_tree(task_ids: list, task_status: list = None, requester: Requester = None) -> dict:
+def get_sub_task_tree(task_ids: list, task_status: list = None,
+                      requester: Requester = None) -> dict:
     # This is to make the test case happy. Otherwise, requester should not be None.
     if requester is None:
         requester = Requester(ClientConfig.from_defaults().url)
     # Valid input
     rc, res = requester.send_request(
-        app_route=f"/cli/task/subdag",
+        app_route="/cli/task/subdag",
         message={'task_ids': task_ids,
-            'task_status': task_status},
+                 'task_status': task_status},
         request_type="get")
     if rc != 200:
         raise AssertionError(f"Server return HTTP error code: {rc}")

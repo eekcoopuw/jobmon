@@ -93,7 +93,8 @@ def get_workflow_validation_status():
     """
     res = DB.session.execute(q).fetchall()
     # Validate if all tasks are in the same workflow and the workflow status is dead
-    if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED, Statuses.SUSPENDED):
+    if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED,
+                                       Statuses.SUSPENDED):
         validation = True
     else:
         validation = False
@@ -357,8 +358,9 @@ def _get_node_downstream(nodes: set, dag_id: int) -> set:
 
 def _get_subdag(node_ids: list, dag_id: int) -> list:
     """
-    Get all descendants of a given nodes. It only queries the primary keys on the edge table without join.
-    :param node_id:
+    Get all descendants of a given nodes. It only queries the primary keys on the edge table
+    without join.
+    :param node_ids:
     :return: a list of node_id
     """
     node_set = set(node_ids)
@@ -402,8 +404,8 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> d
 @jobmon_cli.route('/task/subdag', methods=['GET'])
 def get_task_subdag():
     """
-    Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a list of sub nodes.
-    :param task_id:
+    Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a
+    list of sub nodes.
     :return:
     """
     # Only return sub tasks in the following status. If empty or None, return all
@@ -427,8 +429,8 @@ def get_task_subdag():
         resp.status_code = StatusCodes.OK
         return resp
 
-    # Since we have validated all the tasks belong to the same wf in status_command before this call,
-    # assume they all belong to the same wf.
+    # Since we have validated all the tasks belong to the same wf in status_command before
+    # this call, assume they all belong to the same wf.
     workflow_id = result[0]['workflow_id']
     dag_id = result[0]['dag_id']
     node_ids = []
@@ -504,7 +506,8 @@ def update_max_running(workflow_id):
     DB.session.commit()
 
     if res.rowcount == 0:  # Return a warning message if no update was performed
-        message = f"No update performed for workflow ID {workflow_id}, max_concurrency is {new_limit}"
+        message = f"No update performed for workflow ID {workflow_id}, max_concurrency is " \
+                  f"{new_limit}"
     else:
         message = f"Workflow ID {workflow_id} max concurrency updated to {new_limit}"
 

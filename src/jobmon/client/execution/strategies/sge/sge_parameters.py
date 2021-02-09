@@ -57,8 +57,8 @@ class SGEParameters:
         if isinstance(m_mem_free, str):
             m_mem_free = self._transform_mem_to_gb(m_mem_free)
             if isinstance(m_mem_free, str):
-                logger.warning(f"This is not a memory measure that can be "
-                               f"processed, setting to 1G")
+                logger.info("This is not a memory measure that can be processed, "
+                            "setting to 1G")
                 m_mem_free = 1
         self.m_mem_free = m_mem_free
         self.hard_limits = hard_limits
@@ -268,12 +268,12 @@ class SGEParameters:
                    f"setting to 24 hours", (24 * 60 * 60)
         # make sure the time is below the cap if they provided a queue
         if self.max_runtime_seconds > SGE_LONG_Q.max_runtime_seconds and 'long' in self.queue:
-            return f"Runtime exceeded maximum for long.q, setting to 16 days", \
+            return "Runtime exceeded maximum for long.q, setting to 16 days", \
                 SGE_LONG_Q.max_runtime_seconds
         elif self.max_runtime_seconds > SGE_ALL_Q.max_runtime_seconds and self.hard_limits:
-            return f"Runtime exceeded maximum for all.q and the user has set " \
-                f"hard_limits to be enforced, therefore max_runtime is being " \
-                f"capped at the all.q maximum", SGE_ALL_Q.max_runtime_seconds
+            return "Runtime exceeded maximum for all.q and the user has set hard_limits to " \
+                   "be enforced, therefore max_runtime is being capped at the all.q maximum", \
+                   SGE_ALL_Q.max_runtime_seconds
         return "", self.max_runtime_seconds
 
     def _validate_j_resource(self) -> Tuple[str, bool]:
@@ -287,15 +287,13 @@ class SGEParameters:
             if self.max_runtime_seconds > SGE_ALL_Q.max_runtime_seconds and not \
                     self.hard_limits:
                 if self.queue is None or 'long' not in self.queue:
-                    return f"\n Queue: queue provided has insufficient " \
-                           f"max runtime, moved to long.q", 'long.q'
+                    return "\n Queue: queue provided has insufficient max runtime, moved to " \
+                           "long.q", 'long.q'
             elif self.queue is None and "el7" in self._cluster:
-                return f"\n Queue: no queue was provided, setting to all.q", \
-                       'all.q'
+                return "\n Queue: no queue was provided, setting to all.q", 'all.q'
 
         elif self.queue is None and "el7" in self._cluster:
-            return f"\n Queue: no queue was provided, setting to all.q", \
-                   'all.q'
+            return "\n Queue: no queue was provided, setting to all.q", 'all.q'
         return "", self.queue
 
     def _validate_resource_scales(self) -> Tuple[str, dict]:

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import logging
 
 from jobmon import __version__
+from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 from jobmon.exceptions import InvalidResponse
 from jobmon.constants import WorkflowRunStatus
 from jobmon.requester import Requester, http_request_ok
@@ -23,7 +24,7 @@ class ReaperWorkflowRun(object):
             workflow_run_id: id of workflow run object from db
             workflow_id: id of associated workflow
             heartbeat_date: the last time a workflow_run logged that it was alive in date
-                format
+            format
         """
         self.workflow_run_id = workflow_run_id
         self.workflow_id = workflow_id
@@ -72,21 +73,28 @@ class ReaperWorkflowRun(object):
         return message
 
     def transition_to_suspended(self) -> str:
-        app_route = f'/swarm/workflow/{self.workflow_id}/suspend'
-        return_code, response = self._requester.send_request(
+        cfg = WorkflowReaperConfig.from_defaults()
+        time_out = cfg.workflow_run_heartbeat_interval * cfg.task_instance_report_by_buffer
+
+        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/suspend/{time_out}'
+        return_code, result = self._requester.send_request(
             app_route=app_route,
             message={},
-            request_type='post',
+            request_type='put',
             logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                                   f'request through route {app_route}. Expected '
-                                  f'code 200. Response content: {response}')
-        # Notify Slack about the workflow transition
-        message = f"{__version__} Workflow Reaper transitioned " \
-                  f"Workflow #{self.workflow_id} to SUSPENDED state"
-        logger.info(message)
+                                  f'code 200. Response content: {result}')
+        if result["was_suspended"]:
+            # Notify Slack about the workflow transition
+            message = f"{__version__} Workflow Reaper transitioned " \
+                      f"Workflow #{self.workflow_id} to SUSPENDED state"
+            logger.info(message)
+        else:
+            message = ""
+
         return message
 
     def transition_to_aborted(self, aborted_seconds: int = (60 * 2)) -> str:

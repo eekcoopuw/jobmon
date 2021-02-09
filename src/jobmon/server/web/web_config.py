@@ -2,11 +2,11 @@ from __future__ import annotations
 
 try:
     # default to mysqldb if installed. ~10x faster than pymysql
-    import MySQLdb
+    import MySQLdb  # noqa F401
     driver = "mysqldb"
 except (ImportError, ModuleNotFoundError):
     # otherwise use pymysql since it is pip installable
-    import pymysql
+    import pymysql  # noqa F401
     driver = "pymysql"
 
 
