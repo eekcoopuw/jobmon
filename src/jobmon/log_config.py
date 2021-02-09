@@ -1,6 +1,5 @@
 import logging.config
 import structlog
-import socket
 from typing import Optional, Dict
 
 from pythonjsonlogger import jsonlogger
@@ -10,11 +9,16 @@ from jobmon import __version__
 
 def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash_protocol: str,
                                 logstash_log_level: str = "DEBUG") -> Dict:
-    # setup syslog handler config to use json
-    if logstash_protocol == "TCP":
-        p = socket.SOCK_STREAM
-    else:
-        p = socket.SOCK_DGRAM
+
+    # Define the transport mechanism
+    transport_protocol_map = {
+        'TCP': 'logstash_async.transport.TcpTransport',
+        'UDP': 'logstash_async.transport.UdpTransport',
+        'Beats': 'logstash_async.transport.BeatsTransport',
+        'HTTP': 'logstash_async.transport.HttpTransport'
+    }
+
+    transport_protocol = transport_protocol_map[logstash_protocol]
 
     handler_name = "logstash"
     handler_config = {
@@ -22,9 +26,9 @@ def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash
             "level": logstash_log_level.upper(),
             "class": "logstash_async.handler.AsynchronousLogstashHandler",
             "formatter": "json",
-            "transport": "logstash_async.transport.TcpTransport",
-            "host": "localhost",
-            "port": 5000,
+            "transport": transport_protocol,
+            "host": logstash_host,
+            "port": logstash_port,
             "database_path": None
         }
     }

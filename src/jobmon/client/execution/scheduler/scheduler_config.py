@@ -44,7 +44,8 @@ class SchedulerConfig:
                  report_by_buffer: float, n_queued: int, scheduler_poll_interval: int,
                  web_service_fqdn: str, web_service_port: str,
                  jobmon_command: Optional[str] = None, use_logstash: bool = False,
-                 logstash_host: str = "", logstash_port: str = "", logstash_protocol: str = ""):
+                 logstash_host: str = "", logstash_port: str = "",
+                 logstash_protocol: str = ""):
         self.jobmon_command = jobmon_command
         self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self.task_heartbeat_interval = task_heartbeat_interval
