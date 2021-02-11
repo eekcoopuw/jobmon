@@ -183,7 +183,7 @@ pipeline {
     always {
       node('docker') {
         // Delete the workspace directory.
-        deleteDir()
+        // deleteDir()
       }
       node('qlogin') {
         // Delete the workspace directory.
