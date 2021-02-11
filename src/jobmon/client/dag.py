@@ -1,12 +1,11 @@
 import hashlib
-from http import HTTPStatus as StatusCodes
-from typing import Optional, Set, Dict, List
+from typing import Optional, Set, Dict, List, Union
 
 import structlog as logging
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
-from jobmon.requester import Requester
+from jobmon.requester import Requester, http_request_ok
 from jobmon.exceptions import NodeDependencyNotExistError, DuplicateNodeArgsError
 
 
@@ -62,18 +61,25 @@ class Dag(object):
             raise RuntimeError('No nodes were found in the dag. An empty dag '
                                'cannot be bound.')
 
-        dag_id = self._get_dag_id()
         dag_hash = hash(self)
-        if dag_id is None:
-            logger.info(f'dag_id for dag with hash: {dag_hash} not found, '
-                        f'creating a new entry and binding the dag.')
-            self._dag_id = self._insert_dag()
-        else:
-            self._dag_id = dag_id
-            logger.info(f'Found dag_id: {self.dag_id} for dag with hash: '
-                        f'{dag_hash}')
-        logger.debug(f'dag_id is: {self.dag_id}')
-        return self.dag_id
+
+        return_code, response = self.requester.send_request(
+            app_route='/client/dag',
+            message={"dag_hash": dag_hash},
+            request_type='post',
+            logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise ValueError(f'Unexpected status code {return_code} from POST request through '
+                             f'route /client/dag/{dag_hash}. Expected code 200. Response '
+                             f'content: {response}')
+        dag_id = response["dag_id"]
+
+        # no created date means bind edges
+        if response['created_date'] is None:
+            self._bulk_insert_edges(dag_id)
+        self._dag_id = dag_id
+        return dag_id
 
     def validate(self):
         nodes_in_dag = self.nodes
@@ -90,57 +96,42 @@ class Dag(object):
                                                       "{hash(node)}, does not exist in the "
                                                       "dag.")
 
-    def _get_dag_id(self) -> Optional[int]:
-        dag_hash = hash(self)
-        logger.info(f'Querying for dag with hash: {dag_hash}')
-        return_code, response = self.requester.send_request(
-            app_route='/client/dag',
-            message={"dag_hash": dag_hash},
-            request_type='get',
-            logger=logger
-        )
-        if return_code == StatusCodes.OK:
-            return response['dag_id']
-        else:
-            raise ValueError(f'Unexpected status code {return_code} from GET '
-                             f'request through route /client/dag/{dag_hash} . '
-                             f'Expected code 200. Response content: '
-                             f'{response}')
-
-    def _insert_dag(self) -> int:
-
-        # convert the set into a dictionary that can be dumped and sent over
-        # as json
-        dag_hash = hash(self)
-        nodes_and_edges: Dict[int, Dict[str, List]] = {}
-
+    def _bulk_insert_edges(self, dag_id: int, chunk_size: int = 500) -> None:
+        # compile full list of edges
+        all_edges: List[Dict[str, Union[List, int]]] = []
         for node in self.nodes:
             # get the node ids for all upstream and downstream nodes
             upstream_nodes = [upstream_node.node_id
                               for upstream_node in node.upstream_nodes]
             downstream_nodes = [downstream_node.node_id
                                 for downstream_node in node.downstream_nodes]
+            all_edges.append({'node_id': node.node_id,
+                              'upstream_node_ids': upstream_nodes,
+                              'downstream_node_ids': downstream_nodes})
+        logger.debug(f'message included in edge post request: {all_edges}')
 
-            nodes_and_edges[node.node_id] = {
-                'upstream_nodes': upstream_nodes,
-                'downstream_nodes': downstream_nodes
-            }
+        while all_edges:
+            # split off first chunk elements from queue.
+            edge_chunk, all_edges = all_edges[:chunk_size], all_edges[chunk_size:]
 
-        logger.debug(f'message included in edge post request: {nodes_and_edges}')
+            message = {"edges_to_add": edge_chunk}
+            # more edges to add. don't mark it created
+            if all_edges:
+                message["mark_created"] = False
+            else:
+                message["mark_created"] = True
 
-        return_code, response = self.requester.send_request(
-            app_route='/client/dag',
-            message={"dag_hash": hash(self),
-                     "nodes_and_edges": nodes_and_edges},
-            request_type='post',
-            logger=logger
-        )
-        if return_code == StatusCodes.OK:
-            return response['dag_id']
-        else:
-            raise ValueError(f'Unexpected status code {return_code} from POST request through '
-                             f'route /client/dag/{dag_hash}. Expected code 200. Response '
-                             f'content: {response}')
+            app_route = f'/client/dag/{dag_id}/edges'
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message=message,
+                request_type='post',
+                logger=logger
+            )
+            if http_request_ok(return_code) is False:
+                raise ValueError(f'Unexpected status code {return_code} from POST request '
+                                 f'through route {app_route}. Expected code 200. Response '
+                                 f'content: {response}')
 
     def __hash__(self) -> int:
         """Determined by hashing all sorted node hashes and their downstream"""

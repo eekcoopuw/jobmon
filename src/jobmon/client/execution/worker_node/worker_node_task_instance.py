@@ -47,7 +47,7 @@ class WorkerNodeTaskInstance:
     def executor_id(self) -> Optional[int]:
         if self._executor_id is None and self.executor.executor_id is not None:
             self._executor_id = self.executor.executor_id
-        logger.info("executor_id: " + str(self._executor_id))
+        logger.debug("executor_id: " + str(self._executor_id))
         return self._executor_id
 
     @property
@@ -64,11 +64,13 @@ class WorkerNodeTaskInstance:
 
     def log_done(self) -> int:
         """Tell the JobStateManager that this task_instance is done"""
+        logger.info(f"Logging done for task_instance {self.task_instance_id}")
+
         message = {'nodename': self.nodename}
         if self.executor_id is not None:
             message['executor_id'] = str(self.executor_id)
         else:
-            logger.info("No Task ID was found in the qsub env at this time")
+            logger.debug("No executor id was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/log_done',
             message=message,
@@ -79,6 +81,7 @@ class WorkerNodeTaskInstance:
 
     def log_error(self, error_message: str, exit_status: int) -> int:
         """Tell the JobStateManager that this task_instance has errored"""
+        logger.info(f"Logging error for task_instance {self.task_instance_id}")
 
         # clip at 10k to avoid mysql has gone away errors when posting long
         # messages
@@ -98,7 +101,7 @@ class WorkerNodeTaskInstance:
         if self.executor_id is not None:
             message['executor_id'] = str(self.executor_id)
         else:
-            logger.info("No Task ID was found in the qsub env at this time")
+            logger.debug("No executor_id was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/log_error_worker_node',
             message=message,
@@ -111,8 +114,9 @@ class WorkerNodeTaskInstance:
         """Tell the JobStateManager all the applicable task_stats for this
         task_instance
         """
+        logger.info(f"Logging usage for task_instance {self.task_instance_id}")
+
         try:
-            logger.info("Log usage for tid {}".format(self.task_instance_id))
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxrss', 'maxpss', 'cpu',
                        'io']
@@ -123,9 +127,8 @@ class WorkerNodeTaskInstance:
                 request_type='post',
                 logger=logger
             )
-            return rc
         except NotImplementedError:
-            logger.warning("Usage stats not available for "
+            logger.warning(f"Usage stats not available for "
                            f"{self.executor.__class__.__name__} executors")
         except Exception as e:
             # subprocess.CalledProcessError is raised if qstat fails.
@@ -133,15 +136,15 @@ class WorkerNodeTaskInstance:
             logger.error(f"Usage stats not available due to exception {e}")
             logger.error(f"Traceback {traceback.format_exc()}")
 
-    def log_running(self, next_report_increment: Union[int, float]
-                    ) -> Tuple[int, str]:
+    def log_running(self, next_report_increment: Union[int, float]) -> Tuple[int, str]:
         """Tell the JobStateManager that this task_instance is running, and
         update the report_by_date to be further in the future in case it gets
         reconciled immediately"""
+        logger.info(f'Log running for task_instance {self.task_instance_id}')
+
         message = {'nodename': self.nodename,
                    'process_group_id': str(self.process_group_id),
                    'next_report_increment': next_report_increment}
-        logger.info(f'Log running for executor_id {self.executor_id}')
         if self.executor_id is not None:
             message['executor_id'] = str(self.executor_id)
         else:
@@ -157,12 +160,12 @@ class WorkerNodeTaskInstance:
 
     def log_report_by(self, next_report_increment: Union[int, float]) -> int:
         """Log the heartbeat to show that the task instance is still alive"""
-        logger.info("log_report_by for exec id {}".format(self.executor_id))
+        logger.debug(f"Logging heartbeat for task_instance {self.task_instance_id}")
         message: Dict = {"next_report_increment": next_report_increment}
         if self.executor_id is not None:
             message['executor_id'] = str(self.executor_id)
         else:
-            logger.info("No Task ID was found in the qsub env at this time")
+            logger.debug("No executor_id was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/log_report_by',
             message=message,
@@ -172,7 +175,7 @@ class WorkerNodeTaskInstance:
         return rc
 
     def in_kill_self_state(self) -> bool:
-        logger.info("kill_self for tid {}".format(self.task_instance_id))
+        logger.debug(f"checking kill_self for task_instance {self.task_instance_id}")
         rc, resp = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/kill_self',
             message={},

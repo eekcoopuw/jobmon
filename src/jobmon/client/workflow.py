@@ -257,10 +257,14 @@ class Workflow(object):
         logger.debug("executor: {}".format(self._executor))
 
         # bind to database
+        logger.info("Adding Workflow metadata to database")
         self._bind(resume)
+        logger.info(f"Workflow ID {self.workflow_id} assigned")
 
         # create workflow_run
+        logger.info("Adding WorkflowRun metadata to database")
         wfr = self._create_workflow_run(resume, reset_running_jobs)
+        logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
         # testing parameter
         if hasattr(self, "_val_fail_after_n_executions"):
@@ -273,15 +277,12 @@ class Workflow(object):
             )
             # execute the workflow run
             wfr.execute_interruptible(scheduler_proc, fail_fast, seconds_until_timeout)
-            logger.info(f"Scheduler started up successfully and the workflow "
-                        f"run finished executing. Workflow Run status is: "
-                        f"{wfr.status}")
+            logger.info(f"WorkflowRun run finished executing. Status is: {wfr.status}")
             return wfr
 
         except KeyboardInterrupt:
             wfr.update_status(WorkflowRunStatus.STOPPED)
-            logger.warning("Keyboard interrupt raised and Workflow Run set to "
-                           "Stopped")
+            logger.warning("Keyboard interrupt raised and Workflow Run set to Stopped")
             return wfr
 
         except SchedulerNotAlive:
@@ -320,6 +321,7 @@ class Workflow(object):
 
         finally:
             # deal with task instance scheduler process if it was started
+            logger.info("Terminating scheduling process. This could take a few minutes.")
             if self._scheduler_proc is not None:
                 self._scheduler_stop_event.set()
                 try:
@@ -548,6 +550,7 @@ class Workflow(object):
         if scheduler_config is None:
             scheduler_config = SchedulerConfig.from_defaults()
 
+        logger.info("Instantiating Scheduler Process")
         # instantiate scheduler and launch in separate proc. use event to
         # signal back when scheduler is started
         scheduler = TaskInstanceScheduler(

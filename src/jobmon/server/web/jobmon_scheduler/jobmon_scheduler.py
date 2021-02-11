@@ -112,7 +112,6 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
         concurrency_limit = DB.session.execute(
             queue_limit_query, {'workflow_id': int(workflow_id)}
         ).fetchone()[0]
-        print(concurrency_limit)
 
         # query if we aren't at the concurrency_limit
         if concurrency_limit > 0:

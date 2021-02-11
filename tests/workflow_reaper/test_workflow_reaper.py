@@ -3,6 +3,7 @@ from typing import Dict
 
 from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 
+
 def get_workflow_status(db_cfg, workflow_id):
     app = db_cfg["app"]
     DB = db_cfg["DB"]

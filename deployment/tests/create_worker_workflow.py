@@ -1,12 +1,11 @@
 import getpass
 import os
 import sys
-import numpy as np
 
 from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
 from jobmon.client.templates.bash_task import BashTask
 
-from jobmon.models.workflow_run_status import WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
@@ -24,7 +23,7 @@ def create_worker_workflow(num, wfid, num_tasks=3) -> None:
     for n in range(1, num_tasks+1):
         task = BashTask(f"{command} {n}", num_cores=1)
         worker_wf.add_task(task)
-        
+
     wfr = worker_wf.run()
     if wfr.status != WorkflowRunStatus.DONE:
         raise ValueError(f"workflow run: {wfr.workflow_run_id} did not finish successfully. "
@@ -34,7 +33,7 @@ def create_worker_workflow(num, wfid, num_tasks=3) -> None:
 if __name__ == "__main__":
     num = int(sys.argv[1])
     wfid = sys.argv[2]
-    
+
     try:
         num_tasks = int(sys.argv[3])
     except IndexError:
