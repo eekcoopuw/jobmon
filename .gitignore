@@ -15,6 +15,7 @@ src/jobmon/_version.py
 /dist
 requirements.txt
 .eggs/
+.jobmon.ini
 
 # Ignore coverage reports
 .coverage
