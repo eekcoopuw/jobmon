@@ -1,6 +1,5 @@
-from jobmon.server.web.models import DB
-
 from jobmon.serializers import SerializeClientTaskTemplateVersion
+from jobmon.server.web.models import DB
 
 
 class TaskTemplateVersion(DB.Model):

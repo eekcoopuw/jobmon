@@ -1,18 +1,18 @@
 import copy
 import getpass
-from multiprocessing import Process
 import time
 from datetime import datetime
-from typing import Dict, Set, List, Tuple, Optional
-
-import structlog as logging
+from multiprocessing import Process
+from typing import Dict, List, Optional, Set, Tuple
 
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
-from jobmon.requester import Requester, http_request_ok
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunStatus
-from jobmon.exceptions import InvalidResponse, WorkflowNotResumable, SchedulerNotAlive
+from jobmon.exceptions import InvalidResponse, SchedulerNotAlive, WorkflowNotResumable
+from jobmon.requester import Requester, http_request_ok
+
+import structlog as logging
 
 logger = logging.getLogger(__name__)
 

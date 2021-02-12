@@ -1,10 +1,12 @@
-from typing import List, Tuple, Dict, Optional
-import structlog as logging
+from typing import Dict, List, Optional, Tuple
 
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor, \
     TaskInstanceSGEInfo
+from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
+
+import structlog as logging
+
 
 logger = logging.getLogger("jobmon.client.execution")
 

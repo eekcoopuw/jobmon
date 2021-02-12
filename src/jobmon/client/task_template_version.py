@@ -3,14 +3,14 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 from string import Formatter
-from typing import Optional, Dict
-
-import structlog as logging
+from typing import Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.requester import Requester
 from jobmon.exceptions import InvalidResponse
+from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTaskTemplateVersion
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)

@@ -1,12 +1,14 @@
-from time import sleep, time
 import logging
+from time import sleep, time
+
+from jobmon.server.qpid_integration.maxpss_queue import MaxpssQ
+from jobmon.server.qpid_integration.qpid_config import QPIDConfig
+
 import requests
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session, sessionmaker
 
-from jobmon.server.qpid_integration.qpid_config import QPIDConfig
-from jobmon.server.qpid_integration.maxpss_queue import MaxpssQ
 
 logger = logging.getLogger(__name__)
 

@@ -1,11 +1,11 @@
-from datetime import datetime
 import logging
+from datetime import datetime
 from time import sleep
 from typing import List
 
 from jobmon import __version__
-from jobmon.requester import Requester, http_request_ok
 from jobmon.exceptions import InvalidResponse
+from jobmon.requester import Requester, http_request_ok
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
 
 logger = logging.getLogger(__file__)

@@ -1,9 +1,10 @@
-from typing import Tuple, Union, Dict, Optional
+from typing import Dict, Optional, Tuple, Union
+
+
+from jobmon.client.execution.strategies.sge.sge_queue import SGE_ALL_Q, SGE_D_Q, \
+    SGE_GEOSPATIAL_Q, SGE_I_Q, SGE_LONG_Q
 
 import structlog as logging
-
-from jobmon.client.execution.strategies.sge.sge_queue import SGE_ALL_Q, \
-    SGE_GEOSPATIAL_Q, SGE_I_Q, SGE_LONG_Q, SGE_D_Q
 
 logger = logging.getLogger(__name__)
 

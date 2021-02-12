@@ -1,24 +1,25 @@
 import argparse
-from functools import partial
-from io import TextIOBase
 import os
-import pkg_resources
-from queue import Queue
 import shlex
 import signal
 import subprocess
 import sys
+import traceback
+from functools import partial
+from io import TextIOBase
+from queue import Queue
 from threading import Thread
 from time import sleep, time
-import traceback
 from typing import Optional
 
-import structlog as logging
-
-from jobmon.exceptions import ReturnCodes
 from jobmon.client.execution.strategies.api import get_task_instance_executor_by_name
 from jobmon.client.execution.worker_node.worker_node_task_instance import (
     WorkerNodeTaskInstance)
+from jobmon.exceptions import ReturnCodes
+
+import pkg_resources
+
+import structlog as logging
 
 logger = logging.getLogger(__name__)
 

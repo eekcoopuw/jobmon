@@ -1,11 +1,12 @@
 import logging.config
-import structlog
 import socket
-from typing import Optional, Dict
+from typing import Dict, Optional
+
+from jobmon import __version__
 
 from pythonjsonlogger import jsonlogger
 
-from jobmon import __version__
+import structlog
 
 
 def get_rsyslog_handler_config(rsyslog_host: str, rsyslog_port: str, rsyslog_protocol: str,

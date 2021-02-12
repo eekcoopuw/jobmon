@@ -1,14 +1,16 @@
-from http import HTTPStatus as StatusCodes
-from flask import jsonify, request, Blueprint, current_app as app
-from werkzeug.local import LocalProxy
-
 import json
+from http import HTTPStatus as StatusCodes
+
+from flask import Blueprint, current_app as app, jsonify, request
+
+from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
+from jobmon.server.web.models import DB
+from jobmon.server.web.server_side_exception import InvalidUsage
 
 import pandas as pd
 
-from jobmon.constants import TaskStatus, TaskInstanceStatus, WorkflowStatus as Statuses
-from jobmon.server.web.models import DB
-from jobmon.server.web.server_side_exception import InvalidUsage
+from werkzeug.local import LocalProxy
+
 
 jobmon_cli = Blueprint("jobmon_cli", __name__)
 

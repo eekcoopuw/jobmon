@@ -1,14 +1,15 @@
 from __future__ import annotations
+
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-import structlog as logging
-
-from jobmon.requester import Requester, http_request_ok
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.constants import TaskInstanceStatus
-from jobmon.exceptions import RemoteExitInfoNotAvailable, InvalidResponse
+from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable
+from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeExecutorTaskInstance
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)

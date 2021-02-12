@@ -1,9 +1,10 @@
 from functools import partial
-import pytest
 from time import sleep
 
-from jobmon.client.execution.strategies.sge import sge_utils
 from jobmon.client import ClientLogging as logging
+from jobmon.client.execution.strategies.sge import sge_utils
+
+import pytest
 
 logger = logging.getLogger(__name__)
 

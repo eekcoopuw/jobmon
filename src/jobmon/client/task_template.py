@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import hashlib
 from http import HTTPStatus as StatusCodes
-from typing import Optional, List, Callable, Union
-
-import structlog as logging
+from typing import Callable, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
-from jobmon.requester import Requester
-from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.exceptions import InvalidResponse
+from jobmon.requester import Requester
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)
