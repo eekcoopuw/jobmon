@@ -1,20 +1,21 @@
 from __future__ import annotations
+
 import multiprocessing as mp
 import sys
 import threading
 import time
-from typing import Optional, List
+from typing import List, Optional
 
-import structlog as logging
-import tblib.pickling_support
-
-from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
+from jobmon.client.execution.strategies.base import Executor
+from jobmon.constants import QsubAttribute, WorkflowRunStatus
+from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
-from jobmon.constants import WorkflowRunStatus, QsubAttribute
-from jobmon.exceptions import InvalidResponse, WorkflowRunStateError, ResumeSet
 
+import structlog as logging
+
+import tblib.pickling_support
 
 logger = logging.getLogger(__name__)
 tblib.pickling_support.install()

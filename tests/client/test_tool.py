@@ -1,6 +1,6 @@
-import pytest
+from jobmon.client.tool import InvalidToolVersionError, Tool
 
-from jobmon.client.tool import Tool, InvalidToolVersionError
+import pytest
 
 
 def test_create_tool(db_cfg, client_env):

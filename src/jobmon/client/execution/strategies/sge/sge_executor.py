@@ -1,15 +1,16 @@
 import errno
 import os
 from subprocess import check_output
-from typing import List, Tuple, Dict, Optional
+from typing import Dict, List, Optional, Tuple
+
+from jobmon.client.execution.strategies.base import (
+    Executor, ExecutorParameters, TaskInstanceExecutorInfo)
+from jobmon.client.execution.strategies.sge import sge_utils
+from jobmon.constants import QsubAttribute, TaskInstanceStatus
+from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 
 import structlog as logging
 
-from jobmon.client.execution.strategies.base import (
-    Executor, TaskInstanceExecutorInfo, ExecutorParameters)
-from jobmon.client.execution.strategies.sge import sge_utils
-from jobmon.constants import TaskInstanceStatus, QsubAttribute
-from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 
 logger = logging.getLogger(__name__)
 

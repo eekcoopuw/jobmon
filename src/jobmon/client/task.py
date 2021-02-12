@@ -1,18 +1,19 @@
 from __future__ import annotations
 
-from functools import partial
 import hashlib
+from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Optional, List, Callable, Union, Tuple, Dict
-
-import structlog as logging
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.node import Node
-from jobmon.requester import Requester
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
+from jobmon.requester import Requester
+
+import structlog as logging
+
 
 logger = logging.getLogger(__name__)
 

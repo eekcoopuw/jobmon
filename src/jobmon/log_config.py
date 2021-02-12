@@ -1,10 +1,11 @@
 import logging.config
-import structlog
-from typing import Optional, Dict
+from typing import Dict, Optional
+
+from jobmon import __version__
 
 from pythonjsonlogger import jsonlogger
 
-from jobmon import __version__
+import structlog
 
 
 def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash_protocol: str,

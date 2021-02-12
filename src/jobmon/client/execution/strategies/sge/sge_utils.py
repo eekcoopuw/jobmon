@@ -1,13 +1,14 @@
 """Interface to the dynamic resource manager (DRM), aka the scheduler."""
 
-from datetime import datetime
 import itertools
 import os
 import re
 import subprocess
-from typing import List, Dict, Tuple
+from datetime import datetime
+from typing import Dict, List, Tuple
 
 import numpy as np
+
 import structlog as logging
 
 

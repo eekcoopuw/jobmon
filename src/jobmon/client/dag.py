@@ -1,13 +1,13 @@
 import hashlib
 from http import HTTPStatus as StatusCodes
-from typing import Optional, Set, Dict, List
-
-import structlog as logging
+from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
+from jobmon.exceptions import DuplicateNodeArgsError, NodeDependencyNotExistError
 from jobmon.requester import Requester
-from jobmon.exceptions import NodeDependencyNotExistError, DuplicateNodeArgsError
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)

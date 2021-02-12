@@ -1,27 +1,27 @@
 import hashlib
-from multiprocessing import Process, Event, Queue
+import uuid
+from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
-from typing import Optional, Sequence, Dict, Union, List
-import uuid
-
-import structlog as logging
+from typing import Dict, List, Optional, Sequence, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.dag import Dag
 from jobmon.client.execution.scheduler.api import SchedulerConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
-    TaskInstanceScheduler, ExceptionWrapper
+    ExceptionWrapper, TaskInstanceScheduler
 from jobmon.client.execution.strategies.api import get_scheduling_executor_by_name
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
-from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowAlreadyComplete,
-                               InvalidResponse, SchedulerStartupTimeout,
-                               SchedulerNotAlive, ResumeSet, DuplicateNodeArgsError)
-from jobmon.constants import WorkflowStatus, WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus, WorkflowStatus
+from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSet,
+                               SchedulerNotAlive, SchedulerStartupTimeout,
+                               WorkflowAlreadyComplete, WorkflowAlreadyExists)
 from jobmon.requester import Requester, http_request_ok
+
+import structlog as logging
 
 logger = logging.getLogger(__name__)
 

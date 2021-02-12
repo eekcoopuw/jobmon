@@ -3,10 +3,10 @@ import sys
 from typing import Optional
 
 
-from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
-from jobmon.server.workflow_reaper.notifiers import SlackNotifier
-from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 from jobmon.requester import Requester
+from jobmon.server.workflow_reaper.notifiers import SlackNotifier
+from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
+from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
 
 def start_workflow_reaper(workflow_reaper_config: Optional[WorkflowReaperConfig] = None

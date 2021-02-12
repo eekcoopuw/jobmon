@@ -1,12 +1,12 @@
 import json
 import logging
-import requests
-from typing import Tuple, Any, Dict
-
-import tenacity
+from typing import Any, Dict, Tuple
 
 from jobmon import log_config
 
+import requests
+
+import tenacity
 
 default_logger = log_config.configure_logger(__name__)
 

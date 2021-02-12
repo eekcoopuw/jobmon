@@ -1,10 +1,8 @@
-from http import HTTPStatus as StatusCodes
 import os
+from http import HTTPStatus as StatusCodes
 from typing import Any
 
-from flask import jsonify, request, Blueprint, current_app as app
-from sqlalchemy.sql import text
-
+from flask import Blueprint, current_app as app, jsonify, request
 
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
@@ -13,6 +11,8 @@ from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
+
+from sqlalchemy.sql import text
 
 
 jobmon_swarm = Blueprint("jobmon_swarm", __name__)

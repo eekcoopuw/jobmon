@@ -1,11 +1,10 @@
-import configargparse
 import argparse
-
 from typing import Optional
 
+import configargparse
 
-from jobmon.config import PARSER_KWARGS, ParserDefaults, CLI
 from jobmon.client.client_config import ClientConfig
+from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
 
 class _HelpAction(argparse._HelpAction):

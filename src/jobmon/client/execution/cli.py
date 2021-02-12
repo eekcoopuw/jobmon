@@ -1,9 +1,8 @@
-import configargparse
-
 from typing import Optional
 
+import configargparse
 
-from jobmon.config import PARSER_KWARGS, ParserDefaults, CLI
+from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
 
 class ExecutorCLI(CLI):

@@ -1,7 +1,8 @@
 import os
-import pytest
 
 from jobmon.client.execution.strategies.sge.sge_parameters import SGEParameters
+
+import pytest
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))

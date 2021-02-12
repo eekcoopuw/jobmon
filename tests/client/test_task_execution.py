@@ -1,7 +1,8 @@
 import os
-import pytest
-from time import sleep
 from subprocess import check_output
+from time import sleep
+
+import pytest
 
 
 def match_name_to_sge_name(jid):

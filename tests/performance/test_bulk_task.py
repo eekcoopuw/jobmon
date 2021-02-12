@@ -1,7 +1,8 @@
 import logging
-import pytest
 
 from jobmon.requester import Requester
+
+import pytest
 
 logger = logging.getLogger(__name__)
 

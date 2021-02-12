@@ -1,8 +1,8 @@
-from sqlalchemy.sql import func
-
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_status import WorkflowStatus
+
+from sqlalchemy.sql import func
 
 
 class Workflow(DB.Model):

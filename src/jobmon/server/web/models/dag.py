@@ -1,5 +1,6 @@
-from sqlalchemy.sql import func
 from jobmon.server.web.models import DB
+
+from sqlalchemy.sql import func
 
 
 class Dag(DB.Model):
