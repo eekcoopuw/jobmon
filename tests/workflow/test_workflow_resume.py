@@ -1,15 +1,15 @@
-from multiprocessing import Process
-import os
-import time
-import sys
 import collections
+import os
+import sys
+import time
+from multiprocessing import Process
 
-import pytest
+from jobmon.constants import WorkflowRunStatus
+from jobmon.exceptions import (ResumeSet, WorkflowAlreadyExists, WorkflowNotResumable)
+
 from mock import patch
 
-from jobmon.exceptions import (WorkflowAlreadyExists, WorkflowNotResumable,
-                               ResumeSet)
-from jobmon.constants import WorkflowRunStatus
+import pytest
 
 
 this_file = os.path.dirname(__file__)

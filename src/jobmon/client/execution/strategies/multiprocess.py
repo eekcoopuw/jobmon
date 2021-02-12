@@ -1,16 +1,16 @@
-from multiprocessing import JoinableQueue, Process, Queue
 import os
-import psutil
-import subprocess
-from typing import List, Optional, Dict, Tuple
 import queue
+import subprocess
+from multiprocessing import JoinableQueue, Process, Queue
+from typing import Dict, List, Optional, Tuple
+
+from jobmon.client.execution.strategies.base import (Executor, ExecutorParameters,
+                                                     TaskInstanceExecutorInfo)
+from jobmon.constants import TaskInstanceStatus
+
+import psutil
 
 import structlog as logging
-
-from jobmon.client.execution.strategies.base import (Executor,
-                                                     TaskInstanceExecutorInfo,
-                                                     ExecutorParameters)
-from jobmon.constants import TaskInstanceStatus
 
 logger = logging.getLogger(__name__)
 

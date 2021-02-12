@@ -1,4 +1,5 @@
 import logging
+
 from jobmon.requester import Requester
 
 """This is the test the HTTP 400 errors.

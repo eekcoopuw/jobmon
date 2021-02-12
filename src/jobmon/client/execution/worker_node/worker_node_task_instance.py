@@ -1,13 +1,13 @@
 import os
 import socket
 import traceback
-from typing import Optional, Union, Tuple, Dict
-
-import structlog as logging
+from typing import Dict, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
 from jobmon.requester import Requester
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)

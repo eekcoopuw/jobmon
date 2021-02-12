@@ -1,9 +1,9 @@
 import random
-
-import structlog as logging
-from typing import Tuple, Dict
+from typing import Dict, Tuple
 
 from jobmon.client.execution.strategies.base import Executor, ExecutorParameters
+
+import structlog as logging
 
 logger = logging.getLogger(__name__)
 

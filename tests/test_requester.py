@@ -1,9 +1,10 @@
 from unittest import mock
 
-import pytest
-from tenacity import stop_after_attempt
-
 from jobmon.requester import Requester
+
+import pytest
+
+from tenacity import stop_after_attempt
 
 
 def test_server_502(client_env):

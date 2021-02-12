@@ -1,10 +1,10 @@
-import pytest
 from threading import Thread
 from time import sleep
 from unittest import mock
 
 from jobmon.requester import Requester
 
+import pytest
 
 """
 # comment out for now; modify later

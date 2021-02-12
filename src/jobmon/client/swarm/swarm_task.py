@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from http import HTTPStatus as StatusCodes
-from typing import Callable, Set, Dict, Optional, List
-
-import structlog as logging
+from typing import Callable, Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.requester import Requester, http_request_ok
 from jobmon.constants import ExecutorParameterSetType, TaskStatus
-from jobmon.exceptions import InvalidResponse, CallableReturnedInvalidObject
+from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
+from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeSwarmTask
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)

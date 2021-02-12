@@ -1,14 +1,15 @@
-from unittest.mock import patch
-import pytest
 import subprocess
+from unittest.mock import patch
 
+from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.execution.strategies.sge import TaskInstanceSGEInfo
+from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
 from jobmon.client.execution.worker_node.worker_node_task_instance import \
     WorkerNodeTaskInstance
-from jobmon.exceptions import ReturnCodes
-from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
 from jobmon.constants import TaskInstanceStatus
-from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.exceptions import ReturnCodes
+
+import pytest
 
 error_raised = False
 

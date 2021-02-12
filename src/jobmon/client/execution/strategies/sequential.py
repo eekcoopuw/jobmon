@@ -1,16 +1,15 @@
-from collections import OrderedDict
 import os
-from typing import Optional, List, Tuple, Dict
+from collections import OrderedDict
+from typing import Dict, List, Optional, Tuple
+
+from jobmon.client.execution.strategies.base import (Executor, ExecutorParameters,
+                                                     TaskInstanceExecutorInfo)
+from jobmon.client.execution.worker_node.execution_wrapper import (
+    parse_arguments, unwrap)
+from jobmon.constants import TaskInstanceStatus
+from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 import structlog as logging
-
-from jobmon.client.execution.strategies.base import (Executor,
-                                                     TaskInstanceExecutorInfo,
-                                                     ExecutorParameters)
-from jobmon.client.execution.worker_node.execution_wrapper import (
-    unwrap, parse_arguments)
-from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.constants import TaskInstanceStatus
 
 
 logger = logging.getLogger(__name__)

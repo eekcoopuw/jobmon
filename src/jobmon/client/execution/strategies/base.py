@@ -1,11 +1,12 @@
 import os
-import pkg_resources
 import shutil
-from typing import List, Tuple, Dict, Optional, Type, Union
-
-import structlog as logging
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 from jobmon.exceptions import RemoteExitInfoNotAvailable
+
+import pkg_resources
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)

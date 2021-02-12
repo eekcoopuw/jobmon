@@ -1,10 +1,11 @@
-import pytest
 import logging
 import time
 
-from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.requester import Requester
+from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_status import TaskStatus
+
+import pytest
 
 logger = logging.getLogger(__name__)
 
