@@ -44,13 +44,15 @@ def test_exceed_runtime_task(db_cfg, client_env):
     name = "over_run_time_task"
     workflow = UnknownWorkflow(workflow_args="over_run_time_task_args",
                                executor_class="SGEExecutor")
-    executor_parameters = ExecutorParameters(m_mem_free='1G', max_runtime_seconds=5,
+    executor_parameters = ExecutorParameters(m_mem_free='1G', max_runtime_seconds=8,
                                              num_cores=1, queue='all.q',
-                                             executor_class="SGEExecutor")
+                                             executor_class="SGEExecutor",
+                                             resource_scales={'max_runtime_seconds': 1.0,
+                                                              'm_mem_free': 1.0})
     task = BashTask(command="sleep 10", name=name, executor_parameters=executor_parameters,
-                    executor_class="SGEExecutor", max_attempts=1)
+                    executor_class="SGEExecutor", max_attempts=2)
     workflow.add_tasks([task])
-    workflow.run()
+    workflow.run(fail_fast=True)
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -65,6 +67,10 @@ def test_exceed_runtime_task(db_cfg, client_env):
 
     sge_jobname = match_name_to_sge_name(tid)
     assert sge_jobname == name
+
+    # Resume and check that only runtime was scaled up
+    wfr2 = workflow.run(resume=True)
+    breakpoint()
 
 
 @pytest.mark.integration_sge
