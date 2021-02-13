@@ -1,25 +1,25 @@
 import getpass
 import uuid
-from jobmon import Workflow, PythonTask
-from jobmon.client.swarm.executors.base import ExecutorParameters
-from jobmon.client.swarm.executors import sge_utils
+import os
+
+from jobmon.client.api import Tool, ExecutorParameters, PythonTask
 
 """
 Instructions:
-    This workflow contains one job that will fail three times before ultimately 
-    succeeding. This is to imitate a scenario in which a job might die randomly 
+    This workflow contains one job that will fail three times before ultimately
+    succeeding. This is to imitate a scenario in which a job might die randomly
     from cluster events, not because it contains a bug.
-    
+
 To Run:
-    with jobmon installed in your conda environment from the root of the repo 
+    with jobmon installed in your conda environment from the root of the repo
     run:
     $ python training_scripts/retry_tutorial.py
-    Check the database for the workflow called workflow_with_many_retries and 
-    check the jobs and job instances to observe the expected behavior 
-    
+    Check the database for the workflow called workflow_with_many_retries and
+    check the jobs and job instances to observe the expected behavior
+
 Expected Behavior:
-    One workflow will be created with one job that has 4 job instances, 
-    3 that fail and the last one succeeds. The workflow should therefore 
+    One workflow will be created with one job that has 4 job instances,
+    3 that fail and the last one succeeds. The workflow should therefore
     succeed
 """
 
@@ -29,10 +29,12 @@ def jobs_that_retry():
     uid = uuid.uuid4()
 
     # create workflow
-    wf = Workflow(
+    retry_tool = Tool.create_tool('retry_tool')
+    wf = retry_tool.create_workflow(
         name="workflow_with_many_retries",
-        workflow_args=f"workflow_with_many_retries_{uid}",
-        project="proj_tools")
+        workflow_args=f"workflow_with_many_retries_{uid}")
+
+    wf.set_executor(executor_class="SGEExecutor", project="ihme_general")
 
     params = ExecutorParameters(
         num_cores=1,
@@ -44,6 +46,7 @@ def jobs_that_retry():
 
     name = "retry_task"
     output_file_name = f"/ihme/scratch/users/{user}/retry_output"
+    script_path = os.path.join()
     retry_task = PythonTask(
         script=sge_utils.true_path("tests/remote_sleep_and_write.py"),
         args=["--sleep_secs", "4",
