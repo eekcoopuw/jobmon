@@ -44,15 +44,15 @@ def test_exceed_runtime_task(db_cfg, client_env):
     name = "over_run_time_task"
     workflow = UnknownWorkflow(workflow_args="over_run_time_task_args",
                                executor_class="SGEExecutor")
-    executor_parameters = ExecutorParameters(m_mem_free='1G', max_runtime_seconds=8,
+    executor_parameters = ExecutorParameters(m_mem_free='1G', max_runtime_seconds=5,
                                              num_cores=1, queue='all.q',
                                              executor_class="SGEExecutor",
                                              resource_scales={'max_runtime_seconds': 1.0,
                                                               'm_mem_free': 1.0})
-    task = BashTask(command="sleep 10", name=name, executor_parameters=executor_parameters,
-                    executor_class="SGEExecutor", max_attempts=2)
+    task = BashTask(command="sleep 8", name=name, executor_parameters=executor_parameters,
+                    executor_class="SGEExecutor", max_attempts=1)
     workflow.add_tasks([task])
-    workflow.run(fail_fast=True)
+    workflow.run()
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -69,8 +69,19 @@ def test_exceed_runtime_task(db_cfg, client_env):
     assert sge_jobname == name
 
     # Resume and check that only runtime was scaled up
-    wfr2 = workflow.run(resume=True)
-    breakpoint()
+    workflow2 = UnknownWorkflow(workflow_args='over_runtime_rescaling', executor_class="SGEExecutor")
+    rerun_task = BashTask(command='sleep 10', name=name, executor_parameters=executor_parameters,
+                          executor_class="SGEExecutor", max_attempts=2)
+
+    workflow2.add_task(rerun_task)
+    wfr2 = workflow2.run()
+
+    # Check resources
+    swarm_task = wfr2.swarm_tasks[rerun_task.task_id]
+    adjusted_params = swarm_task.get_executor_parameters()
+
+    assert adjusted_params.m_mem_free == 1.0  # Memory was not scaled up
+    assert adjusted_params.max_runtime_seconds > 5  # Runtime increased
 
 
 @pytest.mark.integration_sge
