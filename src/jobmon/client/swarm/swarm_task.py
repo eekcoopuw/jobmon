@@ -131,7 +131,8 @@ class SwarmTask(object):
         # check if we are only scaling runtime.
         # TODO: this logic should be in ExecutorParameters.adjust since it is
         # SGE specific
-        if ('max_runtime' in response['error_description'] and 'max_runtime_seconds' in only_scale):
+        if ('max_runtime' in response['error_description']
+                and 'max_runtime_seconds' in only_scale):
             only_scale = ['max_runtime_seconds']
         logger.debug(
             f"Only going to scale the following resources: {only_scale}")

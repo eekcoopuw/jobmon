@@ -69,8 +69,10 @@ def test_exceed_runtime_task(db_cfg, client_env):
     assert sge_jobname == name
 
     # Resume and check that only runtime was scaled up
-    workflow2 = UnknownWorkflow(workflow_args='over_runtime_rescaling', executor_class="SGEExecutor")
-    rerun_task = BashTask(command='sleep 10', name=name, executor_parameters=executor_parameters,
+    workflow2 = UnknownWorkflow(workflow_args='over_runtime_rescaling',
+                                executor_class="SGEExecutor")
+    rerun_task = BashTask(command='sleep 10', name=name,
+                          executor_parameters=executor_parameters,
                           executor_class="SGEExecutor", max_attempts=2)
 
     workflow2.add_task(rerun_task)
