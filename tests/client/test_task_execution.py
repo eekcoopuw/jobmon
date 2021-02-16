@@ -68,6 +68,7 @@ def test_exceed_runtime_task(db_cfg, client_env):
 
 
 @pytest.mark.integration_sge
+@pytest.mark.skip()
 def test_exceed_mem_task(db_cfg, client_env):
     """Tests that when a task exceeds the requested amount of memory on SGE, it
     successfully gets killed"""
