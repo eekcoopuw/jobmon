@@ -8,15 +8,18 @@ import re
 import shutil
 import socket
 import sys
-from time import sleep
 import uuid
+from time import sleep
+
+from cluster_utils.ephemerdb import MARIADB, create_ephemerdb
 
 from filelock import FileLock
-import pytest
-import requests
-from sqlalchemy import create_engine
 
-from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
+import pytest
+
+import requests
+
+from sqlalchemy import create_engine
 
 
 logger = logging.getLogger(__name__)

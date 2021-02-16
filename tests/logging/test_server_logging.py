@@ -1,9 +1,9 @@
-import pytest
-
 import json
 
 from jobmon.log_config import configure_logger
 from jobmon.requester import Requester
+
+import pytest
 
 
 @pytest.fixture(scope="function")

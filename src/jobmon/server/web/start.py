@@ -1,6 +1,7 @@
 from typing import Optional
 
 from flask import Flask
+
 from flask_cors import CORS
 
 from jobmon.log_config import get_rsyslog_handler_config

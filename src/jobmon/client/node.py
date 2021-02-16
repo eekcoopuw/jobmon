@@ -3,12 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 from http import HTTPStatus as StatusCodes
-from typing import Dict, List, Set, Optional
-
-import structlog as logging
+from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)

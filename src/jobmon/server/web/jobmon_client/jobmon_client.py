@@ -1,21 +1,13 @@
-from http import HTTPStatus as StatusCodes
-import os
 import json
-from typing import Dict, Union, List, Set
+import os
+from http import HTTPStatus as StatusCodes
+from typing import Dict, List, Set, Union
 
-from flask import jsonify, request, Blueprint, current_app as app
-from sqlalchemy.sql import text
-from sqlalchemy.dialects.mysql import insert
-import sqlalchemy
+from flask import Blueprint, current_app as app, jsonify, request
 
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.arg_type import ArgType
-from jobmon.server.web.models.task_attribute import TaskAttribute
-from jobmon.server.web.models.task_attribute_type import TaskAttributeType
-from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
-from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.server.web.models.template_arg_map import TemplateArgMap
 from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.edge import Edge
 from jobmon.server.web.models.exceptions import InvalidStateTransition
@@ -23,17 +15,27 @@ from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.node_arg import NodeArg
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
+from jobmon.server.web.models.task_attribute import TaskAttribute
+from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 from jobmon.server.web.models.task_instance import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
+from jobmon.server.web.models.template_arg_map import TemplateArgMap
 from jobmon.server.web.models.tool import Tool
 from jobmon.server.web.models.tool_version import ToolVersion
 from jobmon.server.web.models.workflow import Workflow
-from jobmon.server.web.models.workflow_status import WorkflowStatus
+from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
+from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.web.server_side_exception import (ServerError, InvalidUsage)
+from jobmon.server.web.models.workflow_status import WorkflowStatus
+from jobmon.server.web.server_side_exception import (InvalidUsage, ServerError)
+
+import sqlalchemy
+from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.sql import text
+
 
 jobmon_client = Blueprint("jobmon_client", __name__)
 

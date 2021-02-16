@@ -1,10 +1,10 @@
-from sqlalchemy.sql import func
-
+from jobmon.serializers import SerializeWorkflowRun
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
-from jobmon.serializers import SerializeWorkflowRun
+
+from sqlalchemy.sql import func
 
 
 class WorkflowRun(DB.Model):

@@ -1,10 +1,12 @@
 import os
-import pytest
 from unittest.mock import patch
 
 from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
 from jobmon.constants import QsubAttribute, TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
+
+import pytest
+
 
 path_to_file = os.path.dirname(__file__)
 

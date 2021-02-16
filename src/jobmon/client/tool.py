@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-from typing import List, Union, Optional, Dict
-
-import structlog as logging
+from typing import Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
-from jobmon.requester import Requester
 from jobmon.client.workflow import Workflow
+from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTool, SerializeClientToolVersion
+
+import structlog as logging
 
 logger = logging.getLogger(__name__)
 

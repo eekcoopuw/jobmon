@@ -1,10 +1,9 @@
 import getpass
 import logging
 
-import pytest
-
 from jobmon.client.cli import ClientCLI as CLI
 
+import pytest
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
+import logging
 import queue
 
-import logging
 
 logger = logging.getLogger(__name__)
 

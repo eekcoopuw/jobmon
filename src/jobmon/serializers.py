@@ -1,6 +1,6 @@
-from typing import Union
-from datetime import datetime
 import ast
+from datetime import datetime
+from typing import Union
 
 
 class SerializeExecutorTask:

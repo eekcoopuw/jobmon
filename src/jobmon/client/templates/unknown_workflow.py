@@ -1,6 +1,4 @@
-from typing import Optional, Union, List
-
-import structlog as logging
+from typing import List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
@@ -8,6 +6,8 @@ from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
 from jobmon.requester import Requester
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)
