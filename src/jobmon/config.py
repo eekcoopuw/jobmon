@@ -29,48 +29,49 @@ def derive_jobmon_command_from_env() -> Optional[str]:
 class ParserDefaults:
 
     @staticmethod
-    def rsyslog_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+    def logstash_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
         parser.add_argument(
-            '--rsyslog_host',
+            '--logstash_host',
             type=str,
-            help='rsyslog host to use',
+            help='logstash host to use',
             default='',
-            env_var='RSYSLOG_HOST'
+            env_var='LOGSTASH_HOST'
         )
         return parser
 
     @staticmethod
-    def rsyslog_port(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+    def logstash_port(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
         parser.add_argument(
-            '--rsyslog_port',
+            '--logstash_port',
             type=str,
-            help='rsyslog port to use',
+            help='logstash port to use',
             default='',
-            env_var='RSYSLOG_PORT'
+            env_var='LOGSTASH_PORT'
         )
         return parser
 
     @staticmethod
-    def rsyslog_protocol(
+    def logstash_protocol(
             parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
         parser.add_argument(
-            '--rsyslog_protocol',
+            '--logstash_protocol',
             type=str,
-            help='rsyslog protocol to use',
-            default='',
-            env_var='RSYSLOG_PROTOCOL'
+            help='logstash protocol to use',
+            default='TCP',
+            choices=['TCP', 'HTTP', 'Beats', 'UDP'],
+            env_var='LOGSTASH_PROTOCOL'
         )
         return parser
 
     @staticmethod
-    def use_rsyslog(
+    def use_logstash(
             parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
         parser.add_argument(
-            '--use_rsyslog',
+            '--use_logstash',
             type=bool,
-            help='whether to use rsyslog',
+            help='whether to use logstash',
             default=False,
-            env_var='USE_RSYSLOG'
+            env_var='USE_LOGSTASH'
         )
         return parser
 

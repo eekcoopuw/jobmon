@@ -4,7 +4,7 @@ from flask import Flask
 
 from flask_cors import CORS
 
-from jobmon.log_config import get_rsyslog_handler_config
+from jobmon.log_config import get_logstash_handler_config
 from jobmon.server.web.handlers import add_hooks_and_handlers
 from jobmon.server.web.web_config import WebConfig
 
@@ -15,14 +15,14 @@ def create_app(web_config: Optional[WebConfig] = None):
 
     if web_config is None:
         web_config = WebConfig.from_defaults()
-    if web_config.use_rsyslog:
-        syslog_handler_config = get_rsyslog_handler_config(
-            rsyslog_host=web_config.rsyslog_host,
-            rsyslog_port=web_config.rsyslog_port,
-            rsyslog_protocol=web_config.rsyslog_protocol
+    if web_config.use_logstash:
+        logstash_handler_config = get_logstash_handler_config(
+            logstash_host=web_config.logstash_host,
+            logstash_port=web_config.logstash_port,
+            logstash_protocol=web_config.logstash_protocol
         )
     else:
-        syslog_handler_config = None
+        logstash_handler_config = None
 
     app.config['SQLALCHEMY_DATABASE_URI'] = web_config.conn_str
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -50,6 +50,6 @@ def create_app(web_config: Optional[WebConfig] = None):
     CORS(app)
 
     # add request logging hooks
-    add_hooks_and_handlers(app, syslog_handler_config)
+    add_hooks_and_handlers(app, logstash_handler_config)
 
     return app
