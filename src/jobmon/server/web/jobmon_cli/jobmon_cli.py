@@ -332,14 +332,14 @@ def get_workflow_users(workflow_id: int):
     return resp
 
 
-@jobmon_cli.route('/workflow/<workflow_id>/validate_usernames', methods=['GET'])
+@jobmon_cli.route('/workflow/<workflow_id>/validate_username', methods=['GET'])
 def get_workflow_user_validation(workflow_id: int):
     """
     Return all usernames associated with a given workflow_id's workflow runs.
 
     Used to validate permissions for a self-service request.
     """
-    user = request.get_json()['username']
+    user = request.args.get('username')
     query = """
         SELECT DISTINCT user
         FROM workflow_run
@@ -349,7 +349,8 @@ def get_workflow_user_validation(workflow_id: int):
     result = DB.session.execute(query)
 
     usernames = [row.user for row in result]
-    resp = jsonify(validation=user in usernames, usernames=usernames)
+
+    resp = jsonify(validation=user in usernames)
 
     resp.status_code = StatusCodes.OK
     return resp
