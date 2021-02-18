@@ -46,19 +46,28 @@ def jobs_that_retry():
 
     name = "retry_task"
     output_file_name = f"/ihme/scratch/users/{user}/retry_output"
-    script_path = os.path.join()
+    current_path = os.path.abspath(__file__)
+    script_path = os.path.join(os.path.dirname(current_path), '../../tests/_scripts')
+    assert os.path.isdir(script_path)
     retry_task = PythonTask(
-        script=sge_utils.true_path("tests/remote_sleep_and_write.py"),
+        script=os.path.join(script_path, "remote_sleep_and_write.py"),
         args=["--sleep_secs", "4",
               "--output_file_path", output_file_name,
               "--fail_count", 3,
               "--name", name],
-        name=name, max_attempts=4, executor_parameters = params)
+        name=name,
+        max_attempts=4,
+        executor_parameters=params)
 
     wf.add_task(retry_task)
 
     # 3 job instances will fail before ultimately succeeding
-    wf.run()
+    wfr = wf.run()
+
+    if wfr.status != "D":
+        raise RuntimeError(
+            "The workflow failed to run, look for errors ",
+            f"associated with task_id {retry_task.task_id}")
 
 
 if __name__ == '__main__':
