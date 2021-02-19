@@ -332,6 +332,30 @@ def get_workflow_users(workflow_id: int):
     return resp
 
 
+@jobmon_cli.route('/workflow/<workflow_id>/validate_username', methods=['GET'])
+def get_workflow_user_validation(workflow_id: int):
+    """
+    Return all usernames associated with a given workflow_id's workflow runs.
+
+    Used to validate permissions for a self-service request.
+    """
+    user = request.args.get('username')
+    query = """
+        SELECT DISTINCT user
+        FROM workflow_run
+        WHERE workflow_run.workflow_id = {workflow_id}
+    """.format(workflow_id=workflow_id)
+
+    result = DB.session.execute(query)
+
+    usernames = [row.user for row in result]
+
+    resp = jsonify(validation=user in usernames)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 def _get_node_downstream(nodes: set, dag_id: int) -> set:
     """
     Get all downstream nodes of a node

@@ -193,15 +193,12 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
 
     # Validate that the user is approved to make these changes
     rc, res = requester.send_request(
-        app_route=f"/cli/workflow/{workflow_id}/usernames",
-        message={},
-        request_type="get")
-
-    if username not in res['usernames']:
-        raise AssertionError(f"User {username} is not allowed to reset this workflow.",
-                             "Only the following users have permission: "
-                             f"{', '.join(res['usernames'])}")
-
+        app_route=f"/cli/workflow/{workflow_id}/validate_username",
+        message={'username': username},
+        request_type="get",
+        logger=logger)
+    if not res['validation']:
+        raise AssertionError(f"User {username} is not allowed to reset this workflow.")
     return
 
 
