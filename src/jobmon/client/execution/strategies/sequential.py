@@ -1,3 +1,4 @@
+"""Sequential executor runs one task at a time."""
 import os
 from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
@@ -16,12 +17,15 @@ logger = logging.getLogger(__name__)
 
 
 class LimitedSizeDict(OrderedDict):
+    """Dictionary for exit info."""
+
     def __init__(self, *args, **kwds):
         self.size_limit = kwds.pop("size_limit", None)
         OrderedDict.__init__(self, *args, **kwds)
         self._check_size_limit()
 
     def __setitem__(self, key, value):
+        """Set item in dict."""
         OrderedDict.__setitem__(self, key, value)
         self._check_size_limit()
 
@@ -32,6 +36,7 @@ class LimitedSizeDict(OrderedDict):
 
 
 class SequentialExecutor(Executor):
+    """Executor to run tasks one at a time."""
 
     def __init__(self, exit_info_queue_size: int = 1000, *args, **kwargs):
         """
@@ -43,6 +48,7 @@ class SequentialExecutor(Executor):
         self._exit_info = LimitedSizeDict(size_limit=exit_info_queue_size)
 
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
+        """Get exit info from task instances that have run."""
         try:
             exit_code = self._exit_info[executor_id]
             if exit_code == 199:
@@ -55,6 +61,7 @@ class SequentialExecutor(Executor):
 
     def get_actual_submitted_or_running(self, executor_ids, report_by_buffer) -> \
             Tuple[List[int], Dict[int, int]]:
+        """Check status of running task."""
         running = os.environ.get("JOB_ID")
         if running:
             return [int(running)], executor_ids
@@ -63,6 +70,7 @@ class SequentialExecutor(Executor):
 
     def execute(self, command: str, name: str, executor_parameters: ExecutorParameters,
                 executor_ids) -> Tuple[int, Dict[int, int]]:
+        """Execute sequentially."""
         logger.debug(command)
 
         # add an executor id to the environment
@@ -84,12 +92,14 @@ class SequentialExecutor(Executor):
 
 
 class TaskInstanceSequentialInfo(TaskInstanceExecutorInfo):
+    """Get Executor Info for a Task Instance."""
 
     def __init__(self) -> None:
         self._executor_id: Optional[int] = None
 
     @property
     def executor_id(self) -> Optional[int]:
+        """Executor id of the task."""
         if self._executor_id is None:
             jid = os.environ.get('JOB_ID')
             if jid:
@@ -97,4 +107,5 @@ class TaskInstanceSequentialInfo(TaskInstanceExecutorInfo):
         return self._executor_id
 
     def get_exit_info(self, exit_code: int, error_msg: str):
+        """Exit info, error message."""
         return TaskInstanceStatus.ERROR, error_msg

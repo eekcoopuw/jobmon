@@ -1,3 +1,4 @@
+"""Parse configuration options and set them to be used throughout the Jobmon Architecture."""
 import os
 import shlex
 from typing import List, Optional
@@ -20,6 +21,7 @@ PARSER_KWARGS = {
 
 
 def derive_jobmon_command_from_env() -> Optional[str]:
+    """If a singularity path is provided, use it when running the worker node."""
     singularity_img_path = os.environ.get('IMGPATH', None)
     if singularity_img_path:
         return f'singularity run --app jobmon_command {singularity_img_path}'
@@ -27,9 +29,11 @@ def derive_jobmon_command_from_env() -> Optional[str]:
 
 
 class ParserDefaults:
+    """Default config setup if not set by user."""
 
     @staticmethod
     def logstash_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Set the logstash host to use if using it."""
         parser.add_argument(
             '--logstash_host',
             type=str,
@@ -41,6 +45,7 @@ class ParserDefaults:
 
     @staticmethod
     def logstash_port(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Set the logstash port to use if using logstash."""
         parser.add_argument(
             '--logstash_port',
             type=str,
@@ -53,6 +58,7 @@ class ParserDefaults:
     @staticmethod
     def logstash_protocol(
             parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Set the protocol to communicate with the logstash server if using logstash."""
         parser.add_argument(
             '--logstash_protocol',
             type=str,
@@ -66,6 +72,7 @@ class ParserDefaults:
     @staticmethod
     def use_logstash(
             parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Boolean to use logstash or not."""
         parser.add_argument(
             '--use_logstash',
             type=bool,
@@ -77,6 +84,7 @@ class ParserDefaults:
 
     @staticmethod
     def db_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Host running the Jobmon DB."""
         parser.add_argument(
             '--db_host',
             type=str,
@@ -88,6 +96,7 @@ class ParserDefaults:
 
     @staticmethod
     def db_port(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Port to connect to the Jobmon DB on."""
         parser.add_argument(
             '--db_port',
             type=str,
@@ -99,6 +108,7 @@ class ParserDefaults:
 
     @staticmethod
     def db_user(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """DB username to use to connect to the Jobmon DB."""
         parser.add_argument(
             '--db_user',
             type=str,
@@ -110,6 +120,7 @@ class ParserDefaults:
 
     @staticmethod
     def db_pass(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Password to use to connect to the Jobmon DB."""
         parser.add_argument(
             '--db_pass',
             type=str,
@@ -121,6 +132,7 @@ class ParserDefaults:
 
     @staticmethod
     def db_name(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Name of the Jobmon DB you want to connect to."""
         parser.add_argument(
             '--db_name',
             type=str,
@@ -133,6 +145,7 @@ class ParserDefaults:
     @staticmethod
     def web_service_fqdn(parser: configargparse.ArgumentParser
                          ) -> configargparse.ArgumentParser:
+        """Fully qualified domain name of the Jobmon web service."""
         parser.add_argument(
             '--web_service_fqdn',
             type=str,
@@ -145,6 +158,7 @@ class ParserDefaults:
     @staticmethod
     def web_service_port(parser: configargparse.ArgumentParser,
                          ) -> configargparse.ArgumentParser:
+        """Port that Jobmon flask web service is available on."""
         parser.add_argument(
             '--web_service_port',
             type=str,
@@ -157,6 +171,7 @@ class ParserDefaults:
     @staticmethod
     def reaper_poll_interval_minutes(parser: configargparse.ArgumentParser,
                                      ) -> configargparse.ArgumentParser:
+        """Duration in minutes to sleep between reaper loops."""
         parser.add_argument(
             '--reaper_poll_interval_minutes',
             type=int,
@@ -169,6 +184,7 @@ class ParserDefaults:
     @staticmethod
     def reaper_loss_threshold(parser: configargparse.ArgumentParser) -> \
             configargparse.ArgumentParser:
+        """Time to wait before reaping a workflow."""
         parser.add_argument(
             '--reaper_loss_threshold',
             type=int,
@@ -180,6 +196,7 @@ class ParserDefaults:
 
     @staticmethod
     def slack_api_url(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """URL to post notifications to if using Slack."""
         parser.add_argument(
             '--slack_api_url',
             type=str,
@@ -191,6 +208,7 @@ class ParserDefaults:
 
     @staticmethod
     def slack_token(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Authentication token for posting updates to slack."""
         parser.add_argument(
             '--slack_token',
             type=str,
@@ -203,6 +221,7 @@ class ParserDefaults:
     @staticmethod
     def slack_channel_default(parser: configargparse.ArgumentParser
                               ) -> configargparse.ArgumentParser:
+        """Default slack channel to post updates to."""
         parser.add_argument(
             '--slack_channel_default',
             type=str,
@@ -215,6 +234,7 @@ class ParserDefaults:
     @staticmethod
     def qpid_polling_interval(parser: configargparse.ArgumentParser
                               ) -> configargparse.ArgumentParser:
+        """Interval between qpid polling cycles if connecting qpid service."""
         parser.add_argument(
             '--qpid_polling_interval',
             type=int,
@@ -227,6 +247,7 @@ class ParserDefaults:
     @staticmethod
     def qpid_max_update_per_second(parser: configargparse.ArgumentParser
                                    ) -> configargparse.ArgumentParser:
+        """Number of maxpss updates per second."""
         parser.add_argument(
             '--qpid_max_update_per_second',
             type=int,
@@ -238,6 +259,7 @@ class ParserDefaults:
 
     @staticmethod
     def qpid_cluster(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Cluster to pull maxpss data from. Default is fair."""
         parser.add_argument(
             '--qpid_cluster',
             type=str,
@@ -249,6 +271,7 @@ class ParserDefaults:
 
     @staticmethod
     def qpid_uri(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """URI for qpid service if using qpid service."""
         parser.add_argument(
             '--qpid_uri',
             type=str,
@@ -261,6 +284,7 @@ class ParserDefaults:
     @staticmethod
     def worker_node_entry_point(parser: configargparse.ArgumentParser
                                 ) -> configargparse.ArgumentParser:
+        """Entry point to execute on worker node to run a task instance."""
         parser.add_argument(
             '--worker_node_entry_point',
             type=str,
@@ -273,6 +297,7 @@ class ParserDefaults:
     @staticmethod
     def workflow_run_heartbeat_interval(parser: configargparse.ArgumentParser
                                         ) -> configargparse.ArgumentParser:
+        """Interval at which workflow run logs a heartbeat."""
         parser.add_argument(
             '--workflow_run_heartbeat_interval',
             type=int,
@@ -285,6 +310,7 @@ class ParserDefaults:
     @staticmethod
     def task_instance_heartbeat_interval(parser: configargparse.ArgumentParser
                                          ) -> configargparse.ArgumentParser:
+        """Entry point to execute on worker node to run a task instance."""
         parser.add_argument(
             '--task_instance_heartbeat_interval',
             type=int,
@@ -297,6 +323,7 @@ class ParserDefaults:
     @staticmethod
     def task_instance_report_by_buffer(parser: configargparse.ArgumentParser
                                        ) -> configargparse.ArgumentParser:
+        """Multiplier for heartbeat interval that can be missed before job is lost."""
         parser.add_argument(
             '--task_instance_report_by_buffer',
             type=float,
@@ -309,6 +336,7 @@ class ParserDefaults:
     @staticmethod
     def scheduler_n_queued(parser: configargparse.ArgumentParser
                            ) -> configargparse.ArgumentParser:
+        """How many jobs to schedule in one scheduler loop."""
         parser.add_argument(
             '--scheduler_n_queued',
             type=int,
@@ -321,6 +349,7 @@ class ParserDefaults:
     @staticmethod
     def scheduler_poll_interval(parser: configargparse.ArgumentParser
                                 ) -> configargparse.ArgumentParser:
+        """How long to sleep between scheduler loops."""
         parser.add_argument(
             '--scheduler_poll_interval',
             type=int,
@@ -332,20 +361,22 @@ class ParserDefaults:
 
 
 class CLI:
+    """Base CLI."""
 
     def __init__(self) -> None:
+        """Initialize the CLI."""
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
 
     def main(self, argstr: Optional[str] = None) -> None:
+        """Parse args."""
         args = self.parse_args(argstr)
         args.func(args)
 
     def parse_args(self, argstr: Optional[str] = None) -> configargparse.Namespace:
-        '''Construct a parser, parse either sys.argv (default) or the provided
-        argstr, returns a Namespace. The Namespace should have a 'func'
-        attribute which can be used to dispatch to the appropriate downstream
-        function
-        '''
+        """Construct a parser, parse either sys.argv (default) or the provided argstr, returns
+        a Namespace. The Namespace should have a 'func' attribute which can be used to dispatch
+         to the appropriate downstream function.
+        """
         arglist: Optional[List[str]] = None
         if argstr is not None:
             arglist = shlex.split(argstr)

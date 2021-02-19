@@ -1,3 +1,4 @@
+"""Start up scheduling process."""
 from typing import Optional
 
 from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
@@ -13,6 +14,7 @@ def get_scheduler(workflow_id: int, workflow_run_id: int,
                   executor: Optional[Executor] = None,
                   executor_class: Optional[str] = 'SGEExecutor',
                   *args, **kwargs) -> TaskInstanceScheduler:
+    """Set up and return Scheduler object."""
     if scheduler_config is None:
         scheduler_config = SchedulerConfig.from_defaults()
     if scheduler_config.use_logstash:

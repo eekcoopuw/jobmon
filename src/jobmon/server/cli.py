@@ -1,3 +1,4 @@
+"""Set up server specific CLI config."""
 import logging
 from typing import Optional
 
@@ -9,8 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class ServerCLI(CLI):
+    """CLI for Server only."""
 
     def __init__(self) -> None:
+        """Initialize ServerCLI with subcommands."""
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
         self._subparsers = self.parser.add_subparsers(
             dest='sub_command', parser_class=configargparse.ArgumentParser
@@ -22,7 +25,7 @@ class ServerCLI(CLI):
         self._add_qpid_integration_subparser()
 
     def web_service(self, args: configargparse.Namespace) -> None:
-        '''web service entrypoint logic'''
+        """Web service entrypoint logic."""
         from jobmon.server.web.api import create_app, WebConfig
 
         web_config = WebConfig(
@@ -46,7 +49,7 @@ class ServerCLI(CLI):
                              f'start_uwsgi), got ({args.command})')
 
     def workflow_reaper(self, args: configargparse.Namespace) -> None:
-        '''workflow reaper entrypoint logic'''
+        """Workflow reaper entrypoint logic."""
         from jobmon.server.workflow_reaper.api import (WorkflowReaperConfig,
                                                        start_workflow_reaper)
         reaper_config = WorkflowReaperConfig(
@@ -67,6 +70,7 @@ class ServerCLI(CLI):
                              f'({args.command})')
 
     def qpid_integration(self, args: configargparse.Namespace) -> None:
+        """QPID integration service entrypoint logic."""
         from jobmon.server.qpid_integration.api import start_qpid_integration
         # TODO: need dependency injection into qpid integration
         if args.command == 'start':
@@ -130,5 +134,6 @@ class ServerCLI(CLI):
 
 
 def main(argstr: Optional[str] = None) -> None:
+    """Create CLI."""
     cli = ServerCLI()
     cli.main(argstr)

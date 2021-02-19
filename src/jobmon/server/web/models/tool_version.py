@@ -1,12 +1,15 @@
+"""Tool version db table."""
 from jobmon.serializers import SerializeClientToolVersion
 from jobmon.server.web.models import DB
 
 
 class ToolVersion(DB.Model):
+    """Tool version db table."""
 
     __tablename__ = 'tool_version'
 
     def to_wire_as_client_tool_version(self) -> tuple:
+        """Serialize tool version object."""
         serialized = SerializeClientToolVersion.to_wire(
             id=self.id,
             tool_id=self.tool_id)

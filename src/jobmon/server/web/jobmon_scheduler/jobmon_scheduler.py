@@ -1,3 +1,4 @@
+"""Routes for Scheduler component of client architecture."""
 import os
 import sys
 from http import HTTPStatus as StatusCodes
@@ -26,14 +27,15 @@ jobmon_scheduler = Blueprint("jobmon_scheduler", __name__)
 
 @jobmon_scheduler.before_request
 def log_request_info():
+    """Add blueprint to logger."""
     app.logger = app.logger.bind(blueprint=jobmon_scheduler.name)
     app.logger.debug("starting route execution")
 
 
 @jobmon_scheduler.route('/', methods=['GET'])
 def _is_alive():
-    """A simple 'action' that sends a response to the requester indicating
-    that this responder is in fact listening
+    """A simple 'action' that sends a response to the requester indicating that this responder
+    is in fact listening.
     """
     app.logger.info(f"{os.getpid()}: {__name__} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
@@ -43,6 +45,7 @@ def _is_alive():
 
 @jobmon_scheduler.route("/time", methods=['GET'])
 def get_pst_now():
+    """Get the current time according to the database."""
     time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
     time = time['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -159,8 +162,9 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
                         methods=['GET'])
 def get_suspicious_task_instances(workflow_run_id: int):
-    # query all job instances that are submitted to executor or running which
-    # haven't reported as alive in the allocated time.
+    """Query all task instances that are submitted to executor or running which haven't
+    reported as alive in the allocated time.
+    """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     query = """
         SELECT
@@ -188,6 +192,7 @@ def get_suspicious_task_instances(workflow_run_id: int):
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
                         methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int):
+    """Get the task instances for a given workflow run that need to be terminated."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id
@@ -222,6 +227,9 @@ def get_task_instances_to_terminate(workflow_run_id: int):
 
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def log_workflow_run_heartbeat(workflow_run_id: int):
+    """Log a heartbeat on behalf of the workflow run to show that the client side is still
+    alive.
+    """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
     app.logger.debug(f"Heartbeat data: {data}")
@@ -245,6 +253,7 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_executor_report_by',
                         methods=['POST'])
 def log_executor_report_by(workflow_run_id: int):
+    """Log the next report by date and time."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
     params = {"workflow_run_id": int(workflow_run_id)}
@@ -270,6 +279,7 @@ def log_executor_report_by(workflow_run_id: int):
 
 @jobmon_scheduler.route('/log_executor_error', methods=['POST'])
 def state_and_log_by_executor_id():
+    """Executor ids that have errored out."""
     data = request.get_json()
     ids_and_errors = data["executor_ids"]
     for key in ids_and_errors:
@@ -348,6 +358,7 @@ def add_task_instance():
 @jobmon_scheduler.route('/task_instance/<task_instance_id>/log_no_executor_id',
                         methods=['POST'])
 def log_no_executor_id(task_instance_id: int):
+    """Log a task_instance_id that did not get an executor_id upon submission."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     data = request.get_json()
     app.logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."

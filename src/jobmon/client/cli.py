@@ -1,3 +1,4 @@
+"""Client command line interface for workflow/task status and concurrency limiting."""
 import argparse
 from typing import Optional
 
@@ -8,7 +9,10 @@ from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
 
 class _HelpAction(argparse._HelpAction):
+    """To show help for all subparsers in one place."""
+
     def __call__(self, parser, namespace, values, option_string=None):
+        """Add subparsers' help info when jobmon --help is called."""
         print(parser.format_help())
         subparsers_actions = [action for action in parser._actions if
                               isinstance(action, argparse._SubParsersAction)]
@@ -22,6 +26,7 @@ class _HelpAction(argparse._HelpAction):
 
 
 class ClientCLI(CLI):
+    """Client command line interface for workflow/task status and concurrency limiting."""
 
     def __init__(self) -> None:
         self.parser = configargparse.ArgumentParser(add_help=False, **PARSER_KWARGS)
@@ -36,6 +41,7 @@ class ClientCLI(CLI):
         self._add_concurrency_limit_subparser()
 
     def workflow_status(self, args: configargparse.Namespace) -> None:
+        """Workflow status checking options."""
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
@@ -47,6 +53,7 @@ class ClientCLI(CLI):
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     def workflow_tasks(self, args: configargparse.Namespace) -> None:
+        """Check the tasks for a given workflow."""
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
 
@@ -58,6 +65,7 @@ class ClientCLI(CLI):
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     def task_status(self, args: configargparse.Namespace) -> None:
+        """Check task status."""
         from tabulate import tabulate
         from jobmon.client.status_commands import task_status as task_status_cmd
 
@@ -70,6 +78,7 @@ class ClientCLI(CLI):
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     def update_task_status(self, args: configargparse.Namespace) -> None:
+        """Manually update task status for resumes, reruns, etc."""
         from jobmon.client.status_commands import update_task_status
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
@@ -77,6 +86,7 @@ class ClientCLI(CLI):
         print(f"Response is: {response}")
 
     def concurrency_limit(self, args: configargparse.Namespace) -> None:
+        """Set a limit for the number of tasks that can run concurrently."""
         from jobmon.client.status_commands import concurrency_limit as concurrency_limit_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
@@ -175,5 +185,6 @@ class ClientCLI(CLI):
 
 
 def main(argstr: Optional[str] = None) -> None:
+    """Create CLI."""
     cli = ClientCLI()
     cli.main(argstr)

@@ -1,12 +1,15 @@
+"""Configuration specific to scheduler."""
 from typing import Optional
 
 from jobmon.config import CLI, ParserDefaults
 
 
 class SchedulerConfig:
+    """Configuration specific to scheduler."""
 
     @classmethod
     def from_defaults(cls):
+        """If no special config set up, use defaults to set config."""
         cli = CLI()
 
         ParserDefaults.worker_node_entry_point(cli.parser)
@@ -61,4 +64,5 @@ class SchedulerConfig:
 
     @property
     def url(self):
+        """URL to connect to the jobmon flask web services."""
         return f"http://{self._web_service_fqdn}:{self._web_service_port}"

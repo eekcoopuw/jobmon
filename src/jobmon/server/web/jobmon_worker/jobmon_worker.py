@@ -1,3 +1,4 @@
+"""Routes used by task instances on worker nodes."""
 import os
 from http import HTTPStatus as StatusCodes
 from typing import Optional
@@ -19,6 +20,7 @@ jobmon_worker = Blueprint("jobmon_worker", __name__)
 
 @jobmon_worker.before_request  # try before_first_request so its quicker
 def log_request_info():
+    """Add blueprint to logger."""
     app.logger = app.logger.bind(blueprint=jobmon_worker.name)
     app.logger.debug("starting route execution")
 
@@ -26,7 +28,7 @@ def log_request_info():
 @jobmon_worker.route('/', methods=['GET'])
 def _is_alive():
     """A simple 'action' that sends a response to the requester indicating
-    that this responder is in fact listening
+    that this responder is in fact listening.
     """
     app.logger.info(f"{os.getpid()}: {jobmon_worker.__class__.__name__} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
@@ -36,6 +38,7 @@ def _is_alive():
 
 @jobmon_worker.route("/time", methods=['GET'])
 def get_pst_now():
+    """Get the current time from the database."""
     time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
     time = time['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -62,8 +65,7 @@ def health():
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
 def kill_self(task_instance_id: int):
-    """Check a task instance's status to see if it needs to kill itself
-    (state W, or L)"""
+    """Check a task instance's status to see if it needs to kill itself (state W, or L)."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     kill_statuses = TaskInstance.kill_self_states
     query = """
@@ -89,9 +91,8 @@ def kill_self(task_instance_id: int):
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
 def log_running(task_instance_id: int):
-    """Log a task_instance as running
+    """Log a task_instance as running.
     Args:
-
         task_instance_id: id of the task_instance to log as running
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
@@ -114,13 +115,11 @@ def log_running(task_instance_id: int):
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_report_by', methods=['POST'])
 def log_ti_report_by(task_instance_id: int):
-    """Log a task_instance as being responsive with a new report_by_date, this
-    is done at the worker node heartbeat_interval rate, so it may not happen at
-    the same rate that the reconciler updates batch submitted report_by_dates
-    (also because it causes a lot of traffic if all workers are logging report
-    _by_dates often compared to if the reconciler runs often)
+    """Log a task_instance as being responsive with a new report_by_date, this is done at the
+    worker node heartbeat_interval rate, so it may not happen at the same rate that the
+    reconciler updates batch submitted report_by_dates (also because it causes a lot of traffic
+    if all workers are logging report by_dates often compared to if the reconciler runs often).
     Args:
-
         task_instance_id: id of the task_instance to log
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)

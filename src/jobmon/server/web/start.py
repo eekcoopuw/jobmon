@@ -1,3 +1,4 @@
+"""Start up the flask services."""
 from typing import Optional
 
 from flask import Flask
@@ -10,7 +11,7 @@ from jobmon.server.web.web_config import WebConfig
 
 
 def create_app(web_config: Optional[WebConfig] = None):
-    """Create a Flask app"""
+    """Create a Flask app."""
     app = Flask(__name__)
 
     if web_config is None:

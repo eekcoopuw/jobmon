@@ -1,3 +1,6 @@
+"""Jobmon wrapper to manage communication with jobmon services and run the task instance's
+command.
+"""
 import argparse
 import os
 import shlex
@@ -25,15 +28,13 @@ logger = logging.getLogger(__name__)
 
 
 def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
-    """eagerly print 100 byte blocks to stderr so pipe doesn't fill up and
-    deadlock. Also collect blocks for reporting to db by putting them in a
-    queue to main thread
+    """Eagerly print 100 byte blocks to stderr so pipe doesn't fill up and deadlock.
+    Also collect blocks for reporting to db by putting them in a queue to main thread.
 
     Args:
         stderr: stderr pipe
         queue: queue to communicate between listener thread and main thread
     """
-
     # read 100 bytes at a time so the pipe never deadlocks even if someone
     # tries to print a dataframe into stderr
     logger.info("enqueue_stderr")
@@ -50,8 +51,9 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
 
 
 def kill_self(child_process: subprocess.Popen = None) -> None:
-    """If the worker has received a signal to kill itself, kill the child
-    processes and then self, will show up as an exit code 299 in qacct"""
+    """If the worker has received a signal to kill itself, kill the child processes and then
+    self, will show up as an exit code 299 in qacct.
+    """
     logger.info("kill self message received")
     if child_process:
         child_process.kill()
@@ -59,7 +61,7 @@ def kill_self(child_process: subprocess.Popen = None) -> None:
 
 
 def parse_arguments(argstr: Optional[str] = None) -> dict:
-
+    """Parse out the components of the command sent to the node."""
     # parse arguments
     logger.info("parsing arguments")
     parser = argparse.ArgumentParser()
@@ -83,7 +85,7 @@ def parse_arguments(argstr: Optional[str] = None) -> dict:
 def _run_in_sub_process(command: str, temp_dir: Optional[str], heartbeat_interval: float,
                         worker_node_task_instance: WorkerNodeTaskInstance,
                         report_by_buffer: float):
-    """Move out of unwrap for easy mock"""
+    """Move out of unwrap for easy mock."""
     proc = subprocess.Popen(
         command,
         cwd=temp_dir,
@@ -121,11 +123,10 @@ def _run_in_sub_process(command: str, temp_dir: Optional[str], heartbeat_interva
 def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
            executor_class: str, temp_dir: Optional[str] = None,
            heartbeat_interval: float = 90, report_by_buffer: float = 3.1):
-
-    # This script executes on the target node and wraps the target application.
-    # Could be in any language, anything that can execute on linux.
-    # Similar to a stub or a container
-    # set ENV variables in case tasks need to access them
+    """This script executes on the target node and wraps the target application. Could be in
+    any language, anything that can execute on linux.Similar to a stub or a container set ENV
+    variables in case tasks need to access them.
+    """
     os.environ["JOBMON_JOB_INSTANCE_ID"] = str(task_instance_id)
     ti_executor_info = get_task_instance_executor_by_name(executor_class)
     version = pkg_resources.get_distribution("jobmon").version
@@ -175,6 +176,7 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
 
 
 def main():
+    """Entrypoint to unwrap."""
     kwargs = parse_arguments()
     returncode = unwrap(**kwargs)
 

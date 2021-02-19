@@ -1,3 +1,4 @@
+"""Routes used by the swarm."""
 import os
 from http import HTTPStatus as StatusCodes
 from typing import Any
@@ -20,14 +21,15 @@ jobmon_swarm = Blueprint("jobmon_swarm", __name__)
 
 @jobmon_swarm.before_request  # try before_first_request so its quicker
 def log_request_info():
+    """Add blueprint to logger."""
     app.logger = app.logger.bind(blueprint=jobmon_swarm.name)
     app.logger.debug("starting route execution")
 
 
 @jobmon_swarm.route('/', methods=['GET'])
 def _is_alive():
-    """A simple 'action' that sends a response to the requester indicating
-    that this responder is in fact listening
+    """A simple 'action' that sends a response to the requester indicating that this responder
+    is in fact listening.
     """
     app.logger.info(f"{os.getpid()}: {jobmon_swarm.__class__.__name__} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
@@ -37,6 +39,7 @@ def _is_alive():
 
 @jobmon_swarm.route("/time", methods=['GET'])
 def get_pst_now():
+    """Get the current time from the database."""
     time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
     time = time['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -209,6 +212,7 @@ def queue_job(task_id: int):
 
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
 def log_workflow_run_status_update(workflow_run_id: int):
+    """Update the status of the workflow run."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
     app.logger.debug(f"Log status update for workflow_run_id:{workflow_run_id}."
@@ -225,6 +229,7 @@ def log_workflow_run_status_update(workflow_run_id: int):
 
 
 def get_time(session):
+    """Get the time from the database."""
     time = session.execute("select CURRENT_TIMESTAMP as time").fetchone()['time']
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     return time
@@ -233,11 +238,13 @@ def get_time(session):
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>',
                     methods=['PUT'])
 def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
+    """If the last task was more than 2 minutes ago, transition wfr to A state
+    Also check WorkflowRun status_date to avoid possible race condition where reaper
+    checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
+    while waiting for a resume (when workflow is in suspended state).
+    """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    # If the last task was more than 2 minutes ago, transition wfr to A state
-    # Also check WorkflowRun status_date to avoid possible race condition where reaper
-    # checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
-    # while waiting for a resume (when workflow is in suspended state)
+
     query = """
         SELECT
             workflow_run.*,
@@ -327,7 +334,7 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
 
 @jobmon_swarm.route('/task/<task_id>/update_resources', methods=['POST'])
 def update_task_resources(task_id: int):
-    """ Change the resources set for a given task
+    """Change the resources set for a given task
 
     Args:
         task_id (int): id of the task for which resources will be changed

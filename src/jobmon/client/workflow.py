@@ -1,3 +1,4 @@
+"""The overarching framework to create tasks and dependencies within."""
 import hashlib
 import uuid
 from multiprocessing import Event, Process, Queue
@@ -129,6 +130,7 @@ class Workflow(object):
 
     @property
     def is_bound(self):
+        """If the workflow has been bound to the db."""
         if not hasattr(self, "_workflow_id"):
             return False
         else:
@@ -136,18 +138,21 @@ class Workflow(object):
 
     @property
     def workflow_id(self) -> int:
+        """If the workflow is bound then it will have been given an id."""
         if not self.is_bound:
             raise AttributeError("workflow_id cannot be accessed before workflow is bound")
         return self._workflow_id
 
     @property
     def dag_id(self) -> int:
+        """If it has been bound, it will have an associated dag_id."""
         if not self.is_bound:
             raise AttributeError("dag_id cannot be accessed before workflow is bound")
         return self._dag.dag_id
 
     @property
     def task_hash(self):
+        """Hash of all of the tasks."""
         hash_value = hashlib.sha1()
         tasks = sorted(self.tasks.values())
         if len(tasks) > 0:  # if there are no tasks, we want to skip this
@@ -156,14 +161,13 @@ class Workflow(object):
         return int(hash_value.hexdigest(), 16)
 
     def add_attributes(self, workflow_attributes: dict) -> None:
-        """Function that users can call either to update values of existing
-        attributes or add new attributes
+        """Function that users can call either to update values of existing attributes or add
+        new attributes.
 
         Args:
             workflow_attributes: attributes to be bound to the db that describe
                 this workflow.
         """
-
         app_route = f'/client/workflow/{self.workflow_id}/workflow_attributes'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -178,13 +182,12 @@ class Workflow(object):
                 f'200. Response content: {response}')
 
     def add_task(self, task: Task) -> Task:
-        """Add a task to the workflow to be executed.
-           Set semantics - add tasks once only, based on hash name. Also
-           creates the job. If is_no has no task_id the creates task_id and
-           writes it onto object.
+        """Add a task to the workflow to be executed. Set semantics - add tasks once only,
+        based on hash name. Also creates the job. If is_no has no task_id the creates task_id
+        and writes it onto object.
 
-           Args:
-               task: single task to add
+        Args:
+            task: single task to add
         """
         logger.debug(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
@@ -205,22 +208,20 @@ class Workflow(object):
         return task
 
     def add_tasks(self, tasks: Sequence[Task]):
-        """Add a list of task to the workflow to be executed"""
+        """Add a list of task to the workflow to be executed."""
         for task in tasks:
             # add the task
             self.add_task(task)
 
     def set_executor(self, executor: Executor = None,
                      executor_class: Optional[str] = 'SGEExecutor', *args, **kwargs):
-        """Set the executor and any arguments specific to that executor that
-        will be applied to the entire workflow (ex. specify project here for
-        SGEExecutor class).
+        """Set the executor and any arguments specific to that executor that will be applied
+        to the entire workflow (ex. specify project here for SGEExecutor class).
 
         Args:
             executor: if an executor object has already been created, use it
             executor_class: which executor to run your tasks on
         """
-
         if executor is not None:
             self._executor = executor
         else:
@@ -230,8 +231,8 @@ class Workflow(object):
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
             scheduler_response_wait_timeout: int = 180,
             scheduler_config: Optional[SchedulerConfig] = None) -> WorkflowRun:
-        """Run the workflow by traversing the dag and submitting new tasks when
-        their tasks have completed successfully.
+        """Run the workflow by traversing the dag and submitting new tasks when their tasks
+        have completed successfully.
 
         Args:
             fail_fast: whether or not to break out of execution on
@@ -440,8 +441,9 @@ class Workflow(object):
         return workflow_id
 
     def _matching_wf_args_diff_hash(self):
-        """Check that an existing workflow with the same workflow_args does not
-         have a different hash indicating that it contains different tasks."""
+        """Check that an existing workflow with the same workflow_args does not have a
+        different hash indicating that it contains different tasks.
+        """
         rc, response = self.requester.send_request(
             app_route=f'/client/workflow/{str(self.workflow_args_hash)}',
             message={},
@@ -450,8 +452,8 @@ class Workflow(object):
         )
         bound_workflow_hashes = response['matching_workflows']
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
-            match = (self.task_hash == task_hash and self.tool_version_id and
-                     hash(self.dag) == dag_hash)
+            match = (self.task_hash == task_hash and self.tool_version_id and hash(
+                self.dag) == dag_hash)
             if match:
                 raise WorkflowAlreadyExists(
                     "The unique workflow_args already belong to a workflow "
@@ -595,6 +597,7 @@ class Workflow(object):
         self._val_fail_after_n_executions = n
 
     def __hash__(self):
+        """Hash to encompass tool version id, workflow args, tasks and dag."""
         hash_value = hashlib.sha1()
         hash_value.update(str(hash(self.tool_version_id)).encode('utf-8'))
         hash_value.update(str(self.workflow_args_hash).encode('utf-8'))

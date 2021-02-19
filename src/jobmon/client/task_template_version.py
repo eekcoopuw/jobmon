@@ -1,3 +1,4 @@
+"""Task Templates are versioned to recognize changes to args and command templates."""
 from __future__ import annotations
 
 import hashlib
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class TaskTemplateVersion:
+    """Task Templates are versioned to recognize changes to args and command templates."""
 
     def __init__(self,
                  task_template_id: int,
@@ -44,19 +46,21 @@ class TaskTemplateVersion:
 
     @property
     def template_args(self) -> set:
-        """The argument names in the command template"""
+        """The argument names in the command template."""
         return set([i[1] for i in Formatter().parse(self.command_template)
                     if i[1] is not None])
 
     @property
     def node_args(self) -> set:
-        """any named arguments in command_template that make the command unique
-        within this template for a given workflow run. Generally these are
-        arguments that can be parallelized over."""
+        """Any named arguments in command_template that make the command unique within this
+        template for a given workflow run. Generally these are arguments that can be
+        parallelized over.
+        """
         return self._node_args
 
     @node_args.setter
     def node_args(self, val: set):
+        """Set the node args."""
         if self.is_bound:
             raise AttributeError("Cannot set node_args. node_args must be declared during "
                                  "instantiation")
@@ -71,13 +75,15 @@ class TaskTemplateVersion:
 
     @property
     def task_args(self) -> set:
-        """any named arguments in command_template that make the command unique
+        """Any named arguments in command_template that make the command unique
         across workflows if the node args are the same as a previous workflow.
-        Generally these are arguments about data moving though the task."""
+        Generally these are arguments about data moving though the task.
+        """
         return self._task_args
 
     @task_args.setter
     def task_args(self, val: set):
+        """Set the task args."""
         if self.is_bound:
             raise AttributeError("Cannot set task_args. task_args must be declared during "
                                  "instantiation")
@@ -92,13 +98,15 @@ class TaskTemplateVersion:
 
     @property
     def op_args(self) -> set:
-        """any named arguments in command_template that can change without
-        changing the identity of the task. Generally these are things like the
-        task executable location or the verbosity of the script."""
+        """Any named arguments in command_template that can change without changing the
+        identity of the task. Generally these are things like the task executable location or
+        the verbosity of the script.
+        """
         return self._op_args
 
     @op_args.setter
     def op_args(self, val: set):
+        """Setting op args."""
         if self.is_bound:
             raise AttributeError("Cannot set op_args. op_args must be declared during "
                                  "instantiation")
@@ -113,27 +121,32 @@ class TaskTemplateVersion:
 
     @property
     def arg_mapping_hash(self) -> int:
-        hashable = "".join(sorted(self.node_args) + sorted(self.task_args) +
-                           sorted(self.op_args))
+        """Hash args to identify unique task_template."""
+        hashable = "".join(sorted(self.node_args) + sorted(self.task_args) + sorted(
+            self.op_args))
         return int(hashlib.sha1(hashable.encode('utf-8')).hexdigest(), 16)
 
     @property
     def is_bound(self) -> bool:
+        """If the task template version has been bound to the database."""
         return hasattr(self, "_task_template_version_id")
 
     @property
     def id(self) -> int:
+        """The unique ID of the task template version if it has been bound."""
         if not self.is_bound:
             raise AttributeError("id cannot be accessed before workflow is bound")
         return self._task_template_version_id
 
     @property
     def id_name_map(self) -> Dict[str, int]:
+        """Map of arg ids to arg names if bound to the db."""
         if not self.is_bound:
             raise AttributeError("arg_id_name_map cannot be accessed before workflow is bound")
         return self._id_name_map
 
     def bind(self) -> None:
+        """Bind task template version to the DB."""
         response = self._get_task_template_version_info()
         if response is not None:
             response_dict = SerializeClientTaskTemplateVersion.kwargs_from_wire(response)

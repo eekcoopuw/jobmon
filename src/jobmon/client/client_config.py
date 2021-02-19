@@ -1,3 +1,4 @@
+"""Configuration setting for client-side only."""
 from __future__ import annotations
 
 from typing import Optional
@@ -6,13 +7,11 @@ from jobmon.config import CLI, ParserDefaults
 
 
 class ClientConfig(object):
-    """
-    This is intended to be a singleton. Any other usage should be done with
-    CAUTION.
-    """
+    """This is intended to be a singleton. Any other usage should be done with CAUTION."""
 
     @classmethod
     def from_defaults(cls) -> ClientConfig:
+        """If no special config, set to defaults."""
         cli = CLI()
         ParserDefaults.web_service_fqdn(cli.parser)
         ParserDefaults.web_service_port(cli.parser)
@@ -40,4 +39,5 @@ class ClientConfig(object):
 
     @property
     def url(self):
+        """URL to connect to Jobmon."""
         return f"http://{self.host}:{self.port}"

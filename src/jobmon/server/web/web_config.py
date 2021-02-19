@@ -1,3 +1,4 @@
+"""Config specific to web services."""
 from __future__ import annotations
 
 try:
@@ -14,14 +15,11 @@ from jobmon.config import CLI, ParserDefaults
 
 
 class WebConfig(object):
-    """
-    This is intended to be a singleton. If using in any other way, proceed
-    with CAUTION.
-    """
+    """This is intended to be a singleton. If using in another way, proceed with CAUTION."""
 
     @classmethod
     def from_defaults(cls) -> WebConfig:
-        # defaults hierarchy is available from configargparse jobmon_cli
+        """Defaults hierarchy is available from configargparse jobmon_cli."""
         cli = CLI()
         ParserDefaults.db_host(cli.parser)
         ParserDefaults.db_port(cli.parser)
@@ -43,6 +41,7 @@ class WebConfig(object):
     def __init__(self, db_host: str, db_port: str, db_user: str, db_pass: str,
                  db_name: str, use_logstash: bool = False, logstash_host: str = "",
                  logstash_port: str = "", logstash_protocol: str = ""):
+        """Initialize config for server."""
         self.db_host = db_host
         self.db_port = db_port
         self.db_user = db_user
@@ -55,6 +54,7 @@ class WebConfig(object):
 
     @property
     def conn_str(self) -> str:
+        """Database connection string."""
         conn_str = "mysql+{driver}://{user}:{pw}@{host}:{port}/{db}".format(
             driver=driver, user=self.db_user, pw=self.db_pass, host=self.db_host,
             port=self.db_port, db=self.db_name
