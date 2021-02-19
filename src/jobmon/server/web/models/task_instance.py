@@ -1,3 +1,4 @@
+"""Task Instance Database Table."""
 from jobmon.serializers import SerializeExecutorTaskInstance
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
@@ -12,10 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class TaskInstance(DB.Model):
+    """Task Instance Database Table."""
 
     __tablename__ = "task_instance"
 
     def to_wire_as_executor_task_instance(self):
+        """Serialize task instance object."""
         return SerializeExecutorTaskInstance.to_wire(self.id,
                                                      self.workflow_run_id,
                                                      self.executor_id)
@@ -177,7 +180,7 @@ class TaskInstance(DB.Model):
                     TaskInstanceStatus.KILL_SELF]
 
     def transition(self, new_state):
-        """Transition the TaskInstance status"""
+        """Transition the TaskInstance status."""
         # if the transition is timely, move to new state. Otherwise do nothing
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
@@ -195,7 +198,7 @@ class TaskInstance(DB.Model):
                 self.task.transition(TaskStatus.ERROR_FATAL)
 
     def _validate_transition(self, new_state):
-        """Ensure the TaskInstance status transition is valid"""
+        """Ensure the TaskInstance status transition is valid."""
         if self.status in self.kill_self_states and \
                 new_state is TaskInstanceStatus.RUNNING:
             raise KillSelfTransition('TaskInstance', self.id, self.status,
@@ -205,8 +208,7 @@ class TaskInstance(DB.Model):
                                          new_state)
 
     def _is_timely_transition(self, new_state):
-        """Check if the transition is invalid due to a race condition"""
-
+        """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.__class__.untimely_transitions:
             msg = str(InvalidStateTransition(
                 'TaskInstance', self.id, self.status, new_state))

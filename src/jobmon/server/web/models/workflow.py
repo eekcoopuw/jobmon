@@ -1,3 +1,4 @@
+"""Workflow Database Table."""
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_status import WorkflowStatus
@@ -6,6 +7,7 @@ from sqlalchemy.sql import func
 
 
 class Workflow(DB.Model):
+    """Workflow Database Table."""
 
     __tablename__ = 'workflow'
 
@@ -72,20 +74,22 @@ class Workflow(DB.Model):
         # workflow run was set to a hot resume state and successfully shut down.
         # moved to registered
         (WorkflowStatus.SUSPENDED, WorkflowStatus.REGISTERED)
-        ]
+    ]
 
     def transition(self, new_state):
+        """Transition the state of the workflow."""
         self._validate_transition(new_state)
         self.status = new_state
         self.status_date = func.now()
 
     def _validate_transition(self, new_state):
-        """Ensure the Job state transition is valid"""
+        """Ensure the Job state transition is valid."""
         if (self.status, new_state) not in self.valid_transitions:
             raise InvalidStateTransition('Workflow', self.id, self.status,
                                          new_state)
 
     def resume(self, reset_running_jobs):
+        """Resume a workflow."""
         resumed_wfr = []
         for workflow_run in self.workflow_runs:
             if workflow_run.is_active():

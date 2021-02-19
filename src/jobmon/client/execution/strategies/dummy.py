@@ -1,3 +1,4 @@
+"""Dummy Executor fakes execution for testing purposes."""
 import random
 from typing import Dict, Tuple
 
@@ -9,10 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 class DummyExecutor(Executor):
+    """The Dummy Executor fakes the execution of a Task and acts as though it succeeded."""
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters, executor_ids) -> \
             Tuple[int, Dict[int, int]]:
+        """Run a fake execution of the task."""
         # in a real executor, this is where qsub would happen.
         # here, since it's a dummy executor, we just get a random num
         logger.info("This is the Dummy Executor")

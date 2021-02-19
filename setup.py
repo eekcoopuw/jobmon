@@ -15,6 +15,7 @@ INSTALL_REQUIRES = [
     'psutil',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python_json_logger',
+    'python-logstash-async',
     'requests',
     'sqlalchemy',
     'structlog',

@@ -1,7 +1,9 @@
+"""Node arg db table."""
 from jobmon.server.web.models import DB
 
 
 class NodeArg(DB.Model):
+    """Node arg db table."""
 
     __tablename__ = 'node_arg'
 

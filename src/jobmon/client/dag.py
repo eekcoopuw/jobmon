@@ -1,3 +1,4 @@
+"""The DAG captures the interconnected graph of tasks and their dependencies."""
 import hashlib
 from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Optional, Set
@@ -14,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class Dag(object):
+    """The DAG captures the interconnected graph of tasks and their dependencies."""
 
     def __init__(self, requester: Optional[Requester] = None):
         """The DAG (Directed Acyclic Graph) captures the tasks (nodes) as they are
@@ -25,7 +27,6 @@ class Dag(object):
         Args:
             requester_url (str): url to communicate with the flask services.
         """
-
         self.nodes: Set[Node] = set()
 
         if requester is None:
@@ -35,7 +36,7 @@ class Dag(object):
 
     @property
     def dag_id(self) -> int:
-        """Database unique ID of this DAG"""
+        """Database unique ID of this DAG."""
         if not hasattr(self, "_dag_id"):
             raise AttributeError("_dag_id cannot be accessed before dag is bound")
         return self._dag_id
@@ -55,9 +56,9 @@ class Dag(object):
         self.nodes.add(node)
 
     def bind(self) -> int:
-        """Retrieve an id for a matching dag from the server. If it doesn't
-        exist, first create one, including its edges."""
-
+        """Retrieve an id for a matching dag from the server. If it doesn't exist, first
+        create one, including its edges.
+        """
         if len(self.nodes) == 0:
             raise RuntimeError('No nodes were found in the dag. An empty dag '
                                'cannot be bound.')
@@ -76,6 +77,7 @@ class Dag(object):
         return self.dag_id
 
     def validate(self):
+        """Validate the nodes and their dependencies."""
         nodes_in_dag = self.nodes
         for node in nodes_in_dag:
             # Make sure no task contains up/down stream tasks that are not in the workflow
@@ -143,7 +145,7 @@ class Dag(object):
                              f'content: {response}')
 
     def __hash__(self) -> int:
-        """Determined by hashing all sorted node hashes and their downstream"""
+        """Determined by hashing all sorted node hashes and their downstream."""
         hash_value = hashlib.sha1()
         if len(self.nodes) > 0:  # if the dag is empty, we want to skip this
             for node in sorted(self.nodes):

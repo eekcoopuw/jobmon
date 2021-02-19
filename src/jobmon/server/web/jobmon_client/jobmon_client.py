@@ -1,3 +1,4 @@
+"""Routes used by the main jobmon client."""
 import json
 import os
 from http import HTTPStatus as StatusCodes
@@ -42,14 +43,15 @@ jobmon_client = Blueprint("jobmon_client", __name__)
 
 @jobmon_client.before_request  # try before_first_request so its quicker
 def log_request_info():
+    """Add blueprint to logger."""
     app.logger = app.logger.bind(blueprint=jobmon_client.name)
     app.logger.debug("starting route execution")
 
 
 @jobmon_client.route('/', methods=['GET'])
 def _is_alive():
-    """A simple 'action' that sends a response to the requester indicating
-    that this responder is in fact listening
+    """A simple 'action' that sends a response to the requester indicating that this responder
+    is in fact listening.
     """
     app.logger.info(f"{os.getpid()}: {app.name} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
@@ -67,6 +69,7 @@ def _get_time():
 
 @jobmon_client.route("/time", methods=['GET'])
 def get_pst_now():
+    """Get the time from the database."""
     time = _get_time()
     resp = jsonify(time=time)
     resp.status_code = StatusCodes.OK
@@ -118,6 +121,7 @@ def add_tool():
 
 @jobmon_client.route('/tool/<tool_name>', methods=['GET'])
 def get_tool(tool_name: str):
+    """Get the Tool object from the database."""
     # get data from db
     app.logger = app.logger.bind(tool_name=tool_name)
     app.logger.info("Getting tool by name")
@@ -148,6 +152,7 @@ def get_tool(tool_name: str):
 
 @jobmon_client.route('/tool/<tool_id>/tool_versions', methods=['GET'])
 def get_tool_versions(tool_id: int):
+    """Get the Tool Version."""
     # check input variable
     app.logger = app.logger.bind(tool_id=tool_id)
     app.logger.info("Getting available tool versions")
@@ -179,6 +184,7 @@ def get_tool_versions(tool_id: int):
 
 @jobmon_client.route('/tool_version', methods=['POST'])
 def add_tool_version():
+    """Add a new version for a Tool."""
     # check input variable
     data = request.get_json()
     try:
@@ -198,6 +204,7 @@ def add_tool_version():
 
 @jobmon_client.route('/task_template', methods=['GET'])
 def get_task_template():
+    """Get a task template from the database."""
     # parse args
     try:
         tool_version_id = int(request.args.get("tool_version_id"))
@@ -230,7 +237,7 @@ def get_task_template():
 
 @jobmon_client.route('/task_template', methods=['POST'])
 def add_task_template():
-    """Add a task template for a given tool to the database"""
+    """Add a task template for a given tool to the database."""
     # check input variable
     data = request.get_json()
     try:
@@ -266,6 +273,7 @@ def add_task_template():
 
 @jobmon_client.route('/task_template/<task_template_id>/version', methods=['GET'])
 def get_task_template_version(task_template_id: int):
+    """Get the task_template_version."""
     # get task template version object
     app.logger = app.logger.bind(task_template_id=task_template_id)
     app.logger.info(f"Getting task template version for task template: {task_template_id}")
@@ -316,7 +324,7 @@ def _add_or_get_arg(name: str) -> Arg:
 
 @jobmon_client.route('/task_template/<task_template_id>/add_version', methods=['POST'])
 def add_task_template_version(task_template_id: int):
-    """Add a tool to the database"""
+    """Add a tool to the database."""
     # check input variables
     app.logger = app.logger.bind(task_template_id=task_template_id)
     data = request.get_json()
@@ -392,8 +400,7 @@ def get_node_id():
 
     Args:
         node_args_hash: unique identifier of all NodeArgs associated with a node
-        task_template_version_id: version id of the task_template a node
-                                  belongs to.
+        task_template_version_id: version id of the task_template a node belongs to.
     """
     query = """
         SELECT node.id
@@ -419,10 +426,8 @@ def add_node():
     """Add a new node to the database.
 
     Args:
-        node_args_hash: unique identifier of all NodeArgs associated with a
-                        node.
-        task_template_version_id: version id of the task_template a node
-                                  belongs to.
+        node_args_hash: unique identifier of all NodeArgs associated with a node.
+        task_template_version_id: version id of the task_template a node belongs to.
         node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
@@ -480,10 +485,8 @@ def add_nodes():
 
     Args:
         nodes: a list of
-            node_args_hash: unique identifier of all NodeArgs associated with a
-            node.
-        task_template_version_id: version id of the task_template a node
-            belongs to.
+            node_args_hash: unique identifier of all NodeArgs associated with a node.
+        task_template_version_id: version id of the task_template a node belongs to.
         node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
@@ -641,6 +644,7 @@ def add_dag():
 
 @jobmon_client.route('/task', methods=['GET'])
 def get_task_id_and_status():
+    """Get the status and id of a Task."""
     try:
         wid = request.args['workflow_id']
         int(wid)
@@ -677,7 +681,7 @@ def get_task_id_and_status():
 
 @jobmon_client.route('/task', methods=['POST'])
 def add_task():
-    """Add a job to the database
+    """Add a task to the database.
 
     Args:
         a list of:
@@ -750,6 +754,7 @@ def add_task():
 
 @jobmon_client.route('/task/<task_id>/update_parameters', methods=['PUT'])
 def update_task_parameters(task_id: int):
+    """Update the parameters for a given task."""
     app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
     try:
@@ -777,6 +782,7 @@ def update_task_parameters(task_id: int):
 
 @jobmon_client.route('/task/bind_tasks', methods=['PUT'])
 def bind_tasks():
+    """Bind the task objects to the database."""
     all_data = request.get_json()
     tasks = all_data["tasks"]
     workflow_id = int(all_data["workflow_id"])
@@ -950,7 +956,7 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
 
 @jobmon_client.route('/task/<task_id>/task_attributes', methods=['PUT'])
 def update_task_attribute(task_id: int):
-    """Add or update attributes for a task"""
+    """Add or update attributes for a task."""
     app.logger = app.logger.bind(task_id=task_id)
     try:
         int(task_id)
@@ -983,6 +989,7 @@ def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, st
 
 @jobmon_client.route('/workflow', methods=['POST'])
 def bind_workflow():
+    """Bind a workflow to the database."""
     data = request.get_json()
     try:
         tv_id = int(data['tool_version_id'])
@@ -1055,10 +1062,7 @@ def bind_workflow():
 
 @jobmon_client.route('/workflow/<workflow_args_hash>', methods=['GET'])
 def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
-    """
-    Return any dag hashes that are assigned to workflows with identical
-    workflow args
-    """
+    """Return any dag hashes that are assigned to workflows with identical workflow args."""
     try:
         int(workflow_args_hash)
         app.logger = app.logger.bind(workflow_args_hash=workflow_args_hash)
@@ -1087,6 +1091,7 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/is_resumable', methods=['GET'])
 def workflow_run_is_terminated(workflow_run_id: int):
+    """Reset a workflow run if it is terminated or has exceeded the heartbeat timeout."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
@@ -1111,8 +1116,8 @@ def workflow_run_is_terminated(workflow_run_id: int):
     DB.session.commit()
 
     if res is not None:
-        # try to transition the workflow. Send back any competing
-        # workflow_run_id and its status
+        # try to transition the workflow. Send back any competing workflow_run_id and its
+        # status
         try:
             res.workflow.transition(WorkflowStatus.CREATED)
             DB.session.commit()
@@ -1163,6 +1168,7 @@ def _upsert_wf_attribute(workflow_id: int, name: str, value: str):
 
 @jobmon_client.route('/workflow/<workflow_id>/workflow_attributes', methods=['PUT'])
 def update_workflow_attribute(workflow_id: int):
+    """Update the attributes for a given workflow."""
     app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         int(workflow_id)
@@ -1182,6 +1188,7 @@ def update_workflow_attribute(workflow_id: int):
 
 @jobmon_client.route('/workflow_run', methods=['POST'])
 def add_workflow_run():
+    """Add a workflow run to the db."""
     try:
         data = request.get_json()
         wid = data["workflow_id"]
@@ -1254,6 +1261,7 @@ def add_workflow_run():
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
 def terminate_workflow_run(workflow_run_id: int):
+    """Terminate a workflow run and get its tasks in order."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
@@ -1320,6 +1328,7 @@ def terminate_workflow_run(workflow_run_id: int):
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/delete', methods=['PUT'])
 def delete_workflow_run(workflow_run_id: int):
+    """Delete a workflow run from the database."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
@@ -1360,4 +1369,5 @@ def get_active_workflow_runs():
 # ############################ TESTING ROUTES ################################################
 @jobmon_client.route('/test_bad', methods=['GET'])
 def test_bad_route():
+    """Test route to force a 500 error."""
     DB.session.execute('SELECT * FROM blip_bloop_table').all()

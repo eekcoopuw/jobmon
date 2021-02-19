@@ -1,3 +1,4 @@
+"""Schedules and monitors state of Task Instances."""
 from __future__ import annotations
 
 import multiprocessing as mp
@@ -22,23 +23,27 @@ tblib.pickling_support.install()
 
 
 class ExceptionWrapper(object):
+    """Handle exceptions."""
 
     def __init__(self, ee):
         self.ee = ee
-        __,  __, self.tb = sys.exc_info()
+        __, __, self.tb = sys.exc_info()
 
     def re_raise(self):
+        """Raise errors and add their traceback."""
         raise self.ee.with_traceback(self.tb)
 
 
 class TaskInstanceScheduler:
+    """Schedules Task Instances when they are ready and monitors the status of active
+    task_instances.
+    """
 
     def __init__(self, workflow_id: int, workflow_run_id: int, executor: Executor,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
                  task_heartbeat_interval: int = 90, report_by_buffer: float = 3.1,
                  n_queued: int = 100, scheduler_poll_interval: int = 10,
                  jobmon_command: Optional[str] = None):
-
         # which workflow to schedule for
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
@@ -68,6 +73,7 @@ class TaskInstanceScheduler:
 
     def run_scheduler(self, stop_event: Optional[mp.synchronize.Event] = None,
                       status_queue: Optional[mp.Queue] = None):
+        """Start up the scheduler."""
         try:
             # start up the worker thread and executor
             if not self.executor.started:
@@ -131,6 +137,9 @@ class TaskInstanceScheduler:
                 status_queue.put("SHUTDOWN")
 
     def heartbeat(self) -> None:
+        """Log heartbeats to notify that scheduler, and therefore workflow run are still
+        alive.
+        """
         # log heartbeats for tasks queued for batch execution and for the
         # workflow run
         logger.info("scheduler: logging heartbeat")
@@ -138,6 +147,7 @@ class TaskInstanceScheduler:
         self._log_workflow_run_heartbeat()
 
     def schedule(self, thread_stop_event: Optional[threading.Event] = None) -> None:
+        """Schedule and reconcile on an interval."""
         logger.info("scheduler: scheduling work. reconciling errors.")
         # get work if there isn't any in the queues
         if not self._to_instantiate and not self._to_reconcile:

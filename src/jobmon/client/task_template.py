@@ -1,3 +1,6 @@
+"""A Task Template defines a framework that many tasks have in common while varying by a
+declared set of arguments.
+"""
 from __future__ import annotations
 
 import hashlib
@@ -18,6 +21,9 @@ logger = logging.getLogger(__name__)
 
 
 class TaskTemplate:
+    """A Task Template defines a framework that many tasks have in common while varying by a
+    declared set of arguments.
+    """
 
     def __init__(self, tool_version_id: int, template_name: str,
                  requester: Optional[Requester] = None) -> None:
@@ -29,7 +35,6 @@ class TaskTemplate:
             template_name: the name of this task template.
             requester_url (str): url to communicate with the flask services.
         """
-
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
@@ -43,18 +48,21 @@ class TaskTemplate:
 
     @property
     def task_template_id(self) -> int:
+        """Unique id from db if task_template has been bound."""
         if not hasattr(self, "_task_template_id"):
             raise AttributeError("Cannot access task_template_id until TaskTemplate is bound")
         return self._task_template_id
 
     @property
     def task_template_version(self) -> TaskTemplateVersion:
+        """Version of task template if it has been bound."""
         if not hasattr(self, "_task_template_version"):
             raise AttributeError(
                 "Cannot access task_template_version until TaskTemplateVersion is bound")
         return self._task_template_version
 
     def bind(self, task_template_id=None):
+        """Bind task template to the db."""
         if task_template_id is None:
             task_template_id = self._get_task_template_id()
             if task_template_id is None:
@@ -65,6 +73,7 @@ class TaskTemplate:
                                    task_args: List[str] = [], op_args: List[str] = []):
         """Bind a task template version instance to the db.
 
+        Args:
             command_template: an abstract command representing a task, where the arguments to
                 the command have defined names but the values are not assigned.
                 eg: '{python} {script} --data {data} --para {para} {verbose}'
@@ -191,7 +200,8 @@ class TaskTemplate:
 
     def __hash__(self):
         """A task_template_hash is a hash of the TaskTemplate name and tool version
-        concatenated together."""
+        concatenated together.
+        """
         hash_value = int(hashlib.sha1(
             ''.join(self.template_name + str(self.tool_version_id)).encode(
                 'utf-8')).hexdigest(), 16)

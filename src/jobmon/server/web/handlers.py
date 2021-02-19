@@ -1,3 +1,4 @@
+"""Add handlers to deal with server-side exceptions and logging."""
 import logging
 from typing import Dict, Optional
 
@@ -8,6 +9,7 @@ from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
 
 
 def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
+    """Add logging hooks and exception handlers."""
 
     @app.before_first_request
     def setup_logging():

@@ -1,3 +1,4 @@
+"""Routes for CLI requests."""
 import json
 from http import HTTPStatus as StatusCodes
 
@@ -72,6 +73,7 @@ def health():
 
 @jobmon_cli.route("/workflow_validation", methods=['GET'])
 def get_workflow_validation_status():
+    """Check if workflow is valid."""
     # initial params
     task_ids = request.args.getlist('task_ids')
 
@@ -108,6 +110,7 @@ def get_workflow_validation_status():
 
 @jobmon_cli.route('/workflow_status', methods=['GET'])
 def get_workflow_status():
+    """Get the status of the workflow."""
     # initial params
     params = {}
     user_request = request.args.getlist('user')
@@ -190,9 +193,8 @@ def get_workflow_status():
             df[col + "_pct"] = (
                 df[col].astype(float) / df["TASKS"].astype(float)) * 100
             df[col + "_pct"] = df[[col + "_pct"]].round(1)
-            df[col] = (
-                df[col].astype(int).astype(str) +
-                " (" + df[col + "_pct"].astype(str) + "%)")
+            df[col] = (df[col].astype(int).astype(str) + " (" + df[col + "_pct"].astype(
+                str) + "%)")
 
         # df.replace(to_replace={"0 (0.0%)": "NA"}, inplace=True)
         # final order
@@ -213,6 +215,7 @@ def get_workflow_status():
 
 @jobmon_cli.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
 def get_workflow_tasks(workflow_id):
+    """Get the tasks for a given workflow."""
     params = {"workflow_id": workflow_id}
     where_clause = "WHERE workflow.id = :workflow_id"
     status_request = request.args.getlist('status', None)
@@ -255,6 +258,7 @@ def get_workflow_tasks(workflow_id):
 
 @jobmon_cli.route('/task_status', methods=['GET'])
 def get_task_status():
+    """Get the status of a task."""
     task_ids = request.args.getlist('task_ids')
     if len(task_ids) == 0:
         raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
@@ -327,6 +331,30 @@ def get_workflow_users(workflow_id: int):
 
     usernames = [row.user for row in result]
     resp = jsonify(usernames=usernames)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/workflow/<workflow_id>/validate_username', methods=['GET'])
+def get_workflow_user_validation(workflow_id: int):
+    """
+    Return all usernames associated with a given workflow_id's workflow runs.
+
+    Used to validate permissions for a self-service request.
+    """
+    user = request.args.get('username')
+    query = """
+        SELECT DISTINCT user
+        FROM workflow_run
+        WHERE workflow_run.workflow_id = {workflow_id}
+    """.format(workflow_id=workflow_id)
+
+    result = DB.session.execute(query)
+
+    usernames = [row.user for row in result]
+
+    resp = jsonify(validation=user in usernames)
 
     resp.status_code = StatusCodes.OK
     return resp
@@ -450,7 +478,7 @@ def get_task_subdag():
 
 @jobmon_cli.route('/task/update_statuses', methods=['PUT'])
 def update_task_statuses():
-
+    """Update the status of the tasks."""
     data = request.get_json()
     try:
         task_ids = data['task_ids']
@@ -504,7 +532,7 @@ def update_task_statuses():
 
 @jobmon_cli.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
 def update_max_running(workflow_id):
-
+    """Update the number of tasks that can be running concurrently for a given workflow."""
     data = request.get_json()
     try:
         new_limit = data['max_tasks']

@@ -1,12 +1,15 @@
+"""Tool DB Table."""
 from jobmon.serializers import SerializeClientTool
 from jobmon.server.web.models import DB
 
 
 class Tool(DB.Model):
+    """Tool DB Table."""
 
     __tablename__ = 'tool'
 
     def to_wire_as_client_tool(self) -> tuple:
+        """Serialize tool object."""
         serialized = SerializeClientTool.to_wire(id=self.id, name=self.name)
         return serialized
 

@@ -1,9 +1,10 @@
+"""Queue of jobs to submit to the SGE Executor."""
 from typing import Dict
 
 
 class SGEQueue:
-    """Each object in this class is the configuration of a queue on the
-    cluster. It has the queue parameters that Jobmon is interested in.
+    """Each object in this class is the configuration of a queue on the cluster. It has the
+    queue parameters that Jobmon is interested in.
 
     Used by SGEExecutor.
 

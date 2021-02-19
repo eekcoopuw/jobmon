@@ -1,3 +1,4 @@
+"""Commands to check for workflow and task status (from CLI)."""
 import getpass
 from typing import List, Optional, Tuple
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
                     json: bool = False, requester_url: Optional[str] = None) -> pd.DataFrame:
-    """Get metadata about workflow progress
+    """Get metadata about workflow progress.
 
     Args:
         workflow_id: workflow_id/s to retrieve info for. If not specified will pull all
@@ -53,7 +54,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
 
 def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = False,
                    requester_url: Optional[str] = None) -> pd.DataFrame:
-    """Get metadata about task state for a given workflow
+    """Get metadata about task state for a given workflow.
 
     Args:
         workflow_id: workflow_id/s to retrieve info for
@@ -120,7 +121,7 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
 
 def concurrency_limit(workflow_id: int, max_tasks: int,
                       requester_url: Optional[str] = None) -> str:
-    """ Update a workflow's max_running_instances field in the database
+    """Update a workflow's max_running_instances field in the database.
 
     Used to dynamically adjust the allowed number of jobs concurrently running.
 
@@ -130,7 +131,6 @@ def concurrency_limit(workflow_id: int, max_tasks: int,
 
     Returns: string displaying success or failure of the update.
     """
-
     msg = {}
     msg["max_tasks"] = max_tasks
 
@@ -148,8 +148,7 @@ def concurrency_limit(workflow_id: int, max_tasks: int,
 
 def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
                        requester_url: Optional[str] = None) -> None:
-    """
-    Set the specified task IDs to the new status, pending validation.
+    """Set the specified task IDs to the new status, pending validation.
 
     Args:
         task_ids: List of task IDs to reset in the database
@@ -157,7 +156,6 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
             1 workflow at a time for the moment.
         new_status: the status to set tasks to
     """
-
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
     requester = Requester(requester_url)
@@ -190,22 +188,19 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
 
 
 def validate_username(workflow_id: int, username: str, requester: Requester) -> None:
-
-    # Validate that the user is approved to make these changes
+    """Validate that the user is approved to make these changes."""
     rc, res = requester.send_request(
-        app_route=f"/cli/workflow/{workflow_id}/usernames",
-        message={},
-        request_type="get")
-
-    if username not in res['usernames']:
-        raise AssertionError(f"User {username} is not allowed to reset this workflow.",
-                             "Only the following users have permission: "
-                             f"{', '.join(res['usernames'])}")
-
+        app_route=f"/cli/workflow/{workflow_id}/validate_username",
+        message={'username': username},
+        request_type="get",
+        logger=logger)
+    if not res['validation']:
+        raise AssertionError(f"User {username} is not allowed to reset this workflow.")
     return
 
 
 def validate_workflow(task_ids: List[int], requester: Requester) -> None:
+    """Validate that the task_ids provided belong to the expected workflow."""
     rc, res = requester.send_request(
         app_route="/cli/workflow_validation",
         message={'task_ids': task_ids},
@@ -218,6 +213,7 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> None:
 
 def get_sub_task_tree(task_ids: list, task_status: list = None,
                       requester: Requester = None) -> dict:
+    """Get the sub_tree from tasks to ensure that they end up in the right states."""
     # This is to make the test case happy. Otherwise, requester should not be None.
     if requester is None:
         requester = Requester(ClientConfig.from_defaults().url)

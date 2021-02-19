@@ -1,9 +1,10 @@
+"""Task Instance Status Database table."""
 from jobmon.constants import TaskStatus as Statuses
 from jobmon.server.web.models import DB
 
 
 class TaskStatus(DB.Model):
-    """The table in the database that holds on the possible statuses for Job"""
+    """The table in the database that holds on the possible statuses for a Task."""
 
     __tablename__ = 'task_status'
 

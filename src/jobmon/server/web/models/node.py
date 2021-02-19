@@ -1,7 +1,9 @@
+"""Node Table in the Database."""
 from jobmon.server.web.models import DB
 
 
 class Node(DB.Model):
+    """Node Table in the Database."""
 
     __tablename__ = 'node'
 

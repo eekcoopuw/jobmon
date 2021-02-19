@@ -1,5 +1,5 @@
+"""Configure Logging for structlogs, syslog, etc."""
 import logging.config
-import socket
 from typing import Dict, Optional
 
 from jobmon import __version__
@@ -9,22 +9,29 @@ from pythonjsonlogger import jsonlogger
 import structlog
 
 
-def get_rsyslog_handler_config(rsyslog_host: str, rsyslog_port: str, rsyslog_protocol: str,
-                               rsyslog_log_level: str = "DEBUG"):
-    # setup syslog handler config to use json
-    if rsyslog_protocol == "TCP":
-        p = socket.SOCK_STREAM
-    else:
-        p = socket.SOCK_DGRAM
-    handler_name = "structured"
+def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash_protocol: str,
+                                logstash_log_level: str = "DEBUG") -> Dict:
+    """If using logstash, get the right config."""
+    # Define the transport mechanism
+    transport_protocol_map = {
+        'TCP': 'logstash_async.transport.TcpTransport',
+        'UDP': 'logstash_async.transport.UdpTransport',
+        'Beats': 'logstash_async.transport.BeatsTransport',
+        'HTTP': 'logstash_async.transport.HttpTransport'
+    }
+
+    transport_protocol = transport_protocol_map[logstash_protocol]
+
+    handler_name = "logstash"
     handler_config = {
-        handler_name:
-        {
-            "level": rsyslog_log_level.upper(),
-            "class": "logging.handlers.SysLogHandler",
-            "address": f"{rsyslog_host}:{rsyslog_port}",
-            "socktype": p,
+        handler_name: {
+            "level": logstash_log_level.upper(),
+            "class": "logstash_async.handler.AsynchronousLogstashHandler",
             "formatter": "json",
+            "transport": transport_protocol,
+            "host": logstash_host,
+            "port": logstash_port,
+            "database_path": None
         }
     }
     return handler_config
@@ -37,6 +44,7 @@ def _processor_add_version(logger, log_method, event_dict):
 
 def configure_logger(name, add_handlers: Optional[Dict] = None,
                      json_formatter_prefix: str = "") -> logging.Logger:
+    """Configure logging format, handlers, etc."""
     dict_config = {
         "version": 1,
         "disable_existing_loggers": False,

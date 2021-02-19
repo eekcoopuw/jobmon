@@ -1,3 +1,4 @@
+"""Set up server specific CLI config."""
 import logging
 from typing import Optional
 
@@ -9,8 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class ServerCLI(CLI):
+    """CLI for Server only."""
 
     def __init__(self) -> None:
+        """Initialize ServerCLI with subcommands."""
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
         self._subparsers = self.parser.add_subparsers(
             dest='sub_command', parser_class=configargparse.ArgumentParser
@@ -22,12 +25,14 @@ class ServerCLI(CLI):
         self._add_qpid_integration_subparser()
 
     def web_service(self, args: configargparse.Namespace) -> None:
-        '''web service entrypoint logic'''
+        """Web service entrypoint logic."""
         from jobmon.server.web.api import create_app, WebConfig
 
         web_config = WebConfig(
             db_host=args.db_host, db_port=args.db_port, db_user=args.db_user,
-            db_pass=args.db_pass, db_name=args.db_name)
+            db_pass=args.db_pass, db_name=args.db_name, logstash_host=args.logstash_host,
+            logstash_port=args.logstash_port, logstash_protocol=args.logstash_protocol,
+            use_logstash=args.use_logstash)
         app = create_app(web_config)
 
         if args.command == 'start':
@@ -44,7 +49,7 @@ class ServerCLI(CLI):
                              f'start_uwsgi), got ({args.command})')
 
     def workflow_reaper(self, args: configargparse.Namespace) -> None:
-        '''workflow reaper entrypoint logic'''
+        """Workflow reaper entrypoint logic."""
         from jobmon.server.workflow_reaper.api import (WorkflowReaperConfig,
                                                        start_workflow_reaper)
         reaper_config = WorkflowReaperConfig(
@@ -65,6 +70,7 @@ class ServerCLI(CLI):
                              f'({args.command})')
 
     def qpid_integration(self, args: configargparse.Namespace) -> None:
+        """QPID integration service entrypoint logic."""
         from jobmon.server.qpid_integration.api import start_qpid_integration
         # TODO: need dependency injection into qpid integration
         if args.command == 'start':
@@ -90,6 +96,10 @@ class ServerCLI(CLI):
         ParserDefaults.db_pass(web_service_parser)
         ParserDefaults.db_name(web_service_parser)
         ParserDefaults.web_service_port(web_service_parser)
+        ParserDefaults.logstash_host(web_service_parser)
+        ParserDefaults.logstash_port(web_service_parser)
+        ParserDefaults.logstash_protocol(web_service_parser)
+        ParserDefaults.use_logstash(web_service_parser)
 
     def _add_workflow_reaper_subparser(self) -> None:
         reaper_parser = self._subparsers.add_parser('workflow_reaper', **PARSER_KWARGS)
@@ -124,5 +134,6 @@ class ServerCLI(CLI):
 
 
 def main(argstr: Optional[str] = None) -> None:
+    """Create CLI."""
     cli = ServerCLI()
     cli.main(argstr)

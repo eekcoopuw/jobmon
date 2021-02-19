@@ -1,3 +1,4 @@
+"""The QPID service functionality."""
 import logging
 from time import sleep, time
 

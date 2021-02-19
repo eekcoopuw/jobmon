@@ -1,3 +1,4 @@
+"""A node represents an individual task within a Dag."""
 from __future__ import annotations
 
 import hashlib
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class Node:
+    """A node represents an individual task within a Dag."""
 
     def __init__(self, task_template_version_id: int, node_args: Dict,
                  requester: Optional[Requester] = None):
@@ -44,6 +46,7 @@ class Node:
 
     @property
     def node_id(self) -> int:
+        """Unique id for each node."""
         if not hasattr(self, "_node_id"):
             raise AttributeError(
                 "node_id cannot be accessed before node is bound")
@@ -51,7 +54,8 @@ class Node:
 
     def bind(self) -> int:
         """Retrieve an id for a matching node from the server. If it doesn't
-        exist, first create one."""
+        exist, first create one.
+        """
         node_id = self._get_node_id()
         if node_id is None:
             logger.info(f'node_id for node: {self} not found, creating a new'
@@ -64,17 +68,17 @@ class Node:
         return self.node_id
 
     def _hash_node(self) -> int:
-        """a node_hash is a hash of the encoded result of the args and values concatenated
-        together and concatenated with the task_template_version_id"""
+        """A node_hash is a hash of the encoded result of the args and values concatenated
+        together and concatenated with the task_template_version_id.
+        """
         arg_ids = list(self.node_args.keys())
         arg_ids.sort()
 
         arg_values = [str(self.node_args[key]) for key in arg_ids]
         arg_ids = [str(arg) for arg in arg_ids]
 
-        hash_value = int(hashlib.sha1(''.join(arg_ids + arg_values +
-                                              [str(self.task_template_version_id)]).encode(
-            'utf-8')).hexdigest(), 16)
+        hash_value = int(hashlib.sha1(''.join(arg_ids + arg_values + [str(
+            self.task_template_version_id)]).encode('utf-8')).hexdigest(), 16)
         return hash_value
 
     def _get_node_id(self) -> int:
@@ -149,24 +153,26 @@ class Node:
 
         Args:
             downstream_nodes: Nodes that will be dependent on this node.
-
         """
-
         for node in downstream_nodes:
             self.add_downstream_node(node)
 
     def __str__(self) -> str:
+        """Stringify the node attributes."""
         return (f'task_template_version_id: {self.task_template_version_id}, '
                 f'node_args: {self.node_args}, '
                 f'node_args_hash: {self.node_args_hash}')
 
     def __eq__(self, other: 'Node') -> bool:
+        """Check if two nodes have equal hashes."""
         return hash(self) == hash(other)
 
     def __lt__(self, other: 'Node') -> bool:
+        """Check if this hash is less than anothers."""
         return hash(self) < hash(other)
 
     def __hash__(self) -> int:
+        """Create a hash that will be a unique identifier for the node."""
         hash_value = hashlib.sha1()
         hash_value.update(bytes(str(self.node_args_hash).encode('utf-8')))
         hash_value.update(bytes(str(self.task_template_version_id).encode('utf-8')))

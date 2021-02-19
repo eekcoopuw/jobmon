@@ -52,8 +52,7 @@ def true_path(file_or_dir=None, executable=None):
 
 def qstat(status: str = None, pattern: str = None, user: str = None,
           jids: List[int] = None) -> Dict:
-    """parse sge qstat information into a Dictionary keyed by executor_id
-    (sge job id)
+    """Parse sge qstat information into a Dictionary keyed by executor_id (sge job id).
 
     Args:
         status (string, optional): status filter to use when running qstat
@@ -164,7 +163,7 @@ def qstat(status: str = None, pattern: str = None, user: str = None,
 
 
 def qstat_details(jids: List[int]):
-    """get more detailed qstat information
+    """Get more detailed qstat information.
 
     Args:
         jids (list): list of jobs to get detailed qstat information from
@@ -215,19 +214,20 @@ def qstat_details(jids: List[int]):
 
 
 def convert_wallclock_to_seconds(wallclock_str):
+    """Convert wallclock elapsed time to seconds."""
     wc_list = wallclock_str.split(':')
     wallclock = (float(wc_list[-1]) + int(wc_list[-2]) * 60 +
                  int(wc_list[-3]) * 3600)  # seconds.milliseconds, minutes, hrs
     if len(wc_list) == 4:
         wallclock += (int(wc_list[-4]) * 86400)  # days
     elif len(wc_list) > 4:
-        raise ValueError("Cant parse wallclock for logging. Contains more info"
-                         " than days, hours, minutes, seconds, milliseconds")
+        raise ValueError("Cant parse wallclock for logging. Contains more info than days, "
+                         "hours, minutes, seconds, milliseconds")
     return wallclock
 
 
 def qstat_usage(jids):
-    """get usage details for list of jobs
+    """Get usage details for list of jobs.
 
     Args:
         jids (list): list of jobs to get usage details for
@@ -251,6 +251,7 @@ def qstat_usage(jids):
 
 
 def qdel(job_ids):
+    """Delete a job from SGE."""
     jids = [str(int(jid)) for jid in np.atleast_1d(job_ids)]
     stdout = subprocess.check_output(['qdel'] + jids)
     logger.debug(f"stdout from qdel: {stdout}")
@@ -258,6 +259,7 @@ def qdel(job_ids):
 
 
 def qacct_exit_status(jid: int) -> Tuple[int, str]:
+    """Run qacct to gather the exit information about a task instance that has run."""
     failed_reason = ""
     cmd1 = f"qacct -j {jid}"
     logger.debug("*** qacct command: " + cmd1)
@@ -285,6 +287,7 @@ def qacct_exit_status(jid: int) -> Tuple[int, str]:
 
 
 def qacct_hostname(jid: int) -> str:
+    """Run qacct to gather the hostname info for the given job."""
     if jid is None:
         return None
     # For strange reason f string or format does not work
@@ -301,6 +304,7 @@ def qacct_hostname(jid: int) -> str:
 
 
 def qstat_hostname(jid: int) -> str:
+    """Run qstat to gather hostname information."""
     if jid is None:
         return None
     # For strange reason f string or format does not work
