@@ -131,6 +131,7 @@ def test_exceed_mem_task(db_cfg, client_env):
 
 
 @pytest.mark.integration_sge
+@pytest.mark.skip()
 def test_under_request_memory_then_scale(db_cfg, client_env):
     """test that when a task gets killed due to under requested memory, it
     tries again with additional memory added"""
