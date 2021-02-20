@@ -23,7 +23,7 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
                                executor_class="SequentialExecutor",
                                seconds_until_timeout=1)
     workflow.add_tasks([t1])
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -67,7 +67,7 @@ def test_n_queued(db_cfg, client_env):
                                executor_class="DummyExecutor")
     workflow.set_executor(executor_class="DummyExecutor")
     workflow.add_tasks(tasks)
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -109,7 +109,7 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
                                executor_class="DummyExecutor",
                                seconds_until_timeout=1)
     workflow.add_task(t1)
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -157,7 +157,7 @@ def test_concurrency_limiting(db_cfg, client_env):
     workflow.set_executor(MultiprocessExecutor(parallelism=3))
     workflow.add_tasks(tasks)
 
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -207,7 +207,7 @@ def test_dynamic_concurrency_limiting(db_cfg, client_env):
     workflow.set_executor(MultiprocessExecutor(parallelism=3))
     workflow.add_tasks(tasks)
 
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     with pytest.raises(RuntimeError):

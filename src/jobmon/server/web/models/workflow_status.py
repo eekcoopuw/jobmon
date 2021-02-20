@@ -5,12 +5,11 @@ from jobmon.server.web.models import DB
 class WorkflowStatus(DB.Model):
     __tablename__ = 'workflow_status'
 
-    REGISTERED = Statuses.REGISTERED
-    BOUND = Statuses.BOUND
+    REGISTERING = Statuses.REGISTERING
+    QUEUED = Statuses.QUEUED
     ABORTED = Statuses.ABORTED
-    CREATED = Statuses.CREATED
     RUNNING = Statuses.RUNNING
-    SUSPENDED = Statuses.SUSPENDED
+    HALTED = Statuses.HALTED
     FAILED = Statuses.FAILED
     DONE = Statuses.DONE
 

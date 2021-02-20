@@ -104,7 +104,7 @@ def test_multiple_active_race_condition(db_cfg, client_env):
     workflow1 = unknown_tool.create_workflow(name="created_race_condition")
     workflow1.set_executor(SequentialExecutor())
     workflow1.add_tasks([t1])
-    workflow1._bind()
+    workflow1.bind()
     workflow1._create_workflow_run()
 
     # create identical workflow
@@ -115,9 +115,9 @@ def test_multiple_active_race_condition(db_cfg, client_env):
         name=workflow1.name, workflow_args=workflow1.workflow_args)
     workflow2.set_executor(SequentialExecutor())
     workflow2.add_tasks([t2])
-    workflow2._bind(resume=True)
+    workflow2.bind()
     with pytest.raises(WorkflowNotResumable):
-        workflow2._create_workflow_run()
+        workflow2._create_workflow_run(resume=True)
 
 
 class MockSchedulerProc:
@@ -133,7 +133,6 @@ def test_cold_resume(db_cfg, client_env):
         MultiprocessExecutor
     from jobmon.client.execution.scheduler.task_instance_scheduler import \
         TaskInstanceScheduler
-    from jobmon.client.swarm.workflow_run import WorkflowRun
     from jobmon.requester import Requester
 
     # set up tool and task template
@@ -155,40 +154,42 @@ def test_cold_resume(db_cfg, client_env):
     workflow1.add_tasks(tasks)
 
     # create an in memory scheduler and start up the first 3 jobs
-    workflow1._bind()
+    workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow1.workflow_id, wfr1.workflow_run_id,
                                       workflow1._executor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr1.execute_interruptible(MockSchedulerProc(),
-                                   seconds_until_timeout=1)
+        wfr1.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
     scheduler.executor.start()
     scheduler.heartbeat()
     scheduler._get_tasks_queued_for_instantiation()
     scheduler.schedule()
 
     time.sleep(6)
+    # import pdb; pdb.set_trace()
 
     # create new workflow run, causing the old one to reset. resume timeout is
     # 1 second meaning this workflow run will not actually be created
     with pytest.raises(WorkflowNotResumable):
-        WorkflowRun(
-            workflow_id=workflow1.workflow_id,
-            executor_class=workflow1._executor.__class__.__name__,
-            resume=True,
-            reset_running_jobs=True,
-            resume_timeout=1
+        workflow2 = unknown_tool.create_workflow(
+            name="cold_resume", workflow_args=workflow1.workflow_args
         )
+        workflow2.set_executor(MultiprocessExecutor(parallelism=3))
+        workflow2.add_tasks(tasks)
+        workflow2.bind()
+        workflow2._create_workflow_run(resume=True, resume_timeout=1)
 
     # test if resume signal is received
     with pytest.raises(ResumeSet):
         scheduler.run_scheduler()
     assert scheduler.executor.started is False
-
     # get internal state of workflow run. at least 1 task should have finished
     completed, _ = wfr1._block_until_any_done_or_error()
     assert len(completed) > 0
+
+    # set workflow run to terminated
+    wfr1.terminate_workflow_run()
 
     # now resume it till done
     # prepare first workflow
@@ -198,14 +199,14 @@ def test_cold_resume(db_cfg, client_env):
                                executor_class="MultiprocessExecutor"),
                            time=5 + i)
         tasks.append(t)
-    workflow2 = unknown_tool.create_workflow(
+    workflow3 = unknown_tool.create_workflow(
         name=workflow1.name, workflow_args=workflow1.workflow_args)
-    workflow2.set_executor(MultiprocessExecutor(parallelism=3))
-    workflow2.add_tasks(tasks)
-    wfr2 = workflow2.run(resume=True)
+    workflow3.set_executor(MultiprocessExecutor(parallelism=3))
+    workflow3.add_tasks(tasks)
+    wfr3 = workflow3.run(resume=True)
 
-    assert wfr2.status == WorkflowRunStatus.DONE
-    assert wfr2.completed_report[0] > 0  # number of newly completed tasks
+    assert wfr3.status == WorkflowRunStatus.DONE
+    assert wfr3.completed_report[0] > 0  # number of newly completed tasks
 
 
 @pytest.mark.integration_sge
@@ -317,13 +318,6 @@ def test_hot_resume(db_cfg, client_env):
     p1 = Process(target=run_hot_resumable_workflow)
     p1.start()
 
-    # avoid race condition
-    time.sleep(5)
-
-    workflow = hot_resumable_workflow()
-    workflow.set_executor(MultiprocessExecutor(parallelism=3))
-    workflow._bind(resume=True)
-
     # poll until we determine that the workflow is running
     session = db_cfg["DB"].session
     with db_cfg["app"].app_context():
@@ -331,24 +325,29 @@ def test_hot_resume(db_cfg, client_env):
         max_sleep = 180  # 3 min max till test fails
         slept = 0
 
-        while status not in ["R"] and slept <= max_sleep:
+        while status != "R" and slept <= max_sleep:
+            time.sleep(5)
+            slept += 5
+
             q = """
                 SELECT
                     workflow.status
                 FROM
                     workflow
                 WHERE
-                    workflow.id = {}
-            """.format(workflow.workflow_id)
-            status = session.execute(q).fetchone()[0]
-            time.sleep(5)
-            slept += 5
+                    workflow.name = 'hot_resume'
+            """
+            status = session.execute(q).fetchone()
+            if status is not None:
+                status = status[0]
 
     if status != "R":
         raise Exception("Workflow never started. Test failed")
 
     # we need to time out early because the original job will never finish
     with pytest.raises(RuntimeError):
+        workflow = hot_resumable_workflow()
+        workflow.set_executor(MultiprocessExecutor(parallelism=3))
         workflow.run(resume=True, reset_running_jobs=False, seconds_until_timeout=200)
 
     session = db_cfg["DB"].session
@@ -383,8 +382,7 @@ def test_stopped_resume(db_cfg, client_env):
     unknown_tool = Tool()
     workflow1 = unknown_tool.create_workflow(name="stopped_resume")
     t1 = BashTask("echo t1", executor_class="SequentialExecutor")
-    t2 = BashTask("echo t2", executor_class="SequentialExecutor",
-                  upstream_tasks=[t1])
+    t2 = BashTask("echo t2", executor_class="SequentialExecutor", upstream_tasks=[t1])
     workflow1.add_tasks([t1, t2])
     workflow1.set_executor(SequentialExecutor())
 

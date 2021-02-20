@@ -93,7 +93,8 @@ def get_workflow_validation_status():
     """
     res = DB.session.execute(q).fetchall()
     # Validate if all tasks are in the same workflow and the workflow status is dead
-    if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED, Statuses.SUSPENDED):
+    if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED,
+                                       Statuses.HALTED):
         validation = True
     else:
         validation = False

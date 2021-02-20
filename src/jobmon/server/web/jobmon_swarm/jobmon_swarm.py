@@ -201,8 +201,7 @@ def log_workflow_run_status_update(workflow_run_id: int):
         app.logger.debug(f"Log status update for workflow_run_id:{workflow_run_id}."
                          f"Data: {data}")
 
-        workflow_run = DB.session.query(WorkflowRun).filter_by(
-            id=workflow_run_id).one()
+        workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
         workflow_run.transition(data["status"])
         DB.session.commit()
 

@@ -42,13 +42,10 @@ class WorkflowRun(object):
     this is not enforced via any database constraints.
     """
 
-    def __init__(self, workflow_id: int, executor_class: str,
-                 slack_channel: str = 'jobmon-alerts', resume: bool = False,
-                 reset_running_jobs: bool = True, resume_timeout: int = 300,
-                 requester: Optional[Requester] = None):
+    def __init__(self, workflow_id: int, workflow_run_id: int,
+                 swarm_tasks: Dict[int, SwarmTask], requester: Optional[Requester] = None):
         self.workflow_id = workflow_id
-        self.executor_class = executor_class
-        self.user = getpass.getuser()
+        self.workflow_run_id = workflow_run_id
 
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
@@ -56,68 +53,11 @@ class WorkflowRun(object):
         self.requester = requester
 
         # state tracking
-        self.swarm_tasks: Dict[int, SwarmTask] = {}
+        self.swarm_tasks = swarm_tasks
         self.all_done: Set[SwarmTask] = set()
         self.all_error: Set[SwarmTask] = set()
         self.last_sync = '2010-01-01 00:00:00'
-
-        # bind to database
-        app_route = "/client/workflow_run"
-        rc, response = self.requester.send_request(
-            app_route=app_route,
-            message={'workflow_id': self.workflow_id,
-                     'user': self.user,
-                     'executor_class': self.executor_class,
-                     'jobmon_version': __version__,
-                     'resume': resume,
-                     'reset_running_jobs': reset_running_jobs},
-            request_type='post',
-            logger=logger
-        )
-        if http_request_ok(rc) is False:
-            raise InvalidResponse(f"Invalid Response to {app_route}: {rc}")
-
-        # check if we can continue
-        self.workflow_run_id = response['workflow_run_id']
-        current_status = response['status']
-        previous_wfr = response['previous_wfr']
-        if previous_wfr:
-
-            # we can't continue if any of the following are true:
-            # 1) there are existing workflow runs and resume is not set
-            # 2) current status was returned as error. that indicates a race
-            #    condition with another workflow run where they both set the
-            #    workflow to created nearly at the same time.
-            prev_wfr_id, prev_status = previous_wfr[0]
-            if not resume or current_status == WorkflowRunStatus.ERROR:
-                raise WorkflowNotResumable(
-                    "There are multple active workflow runs already for "
-                    f"workflow_id ({self.workflow_id}). Found previous "
-                    f"workflow_run_id/status: {prev_wfr_id}/{prev_status}")
-            prev_status = self._wait_till_resumable(prev_wfr_id, resume_timeout)
-
-            # workflow wasn't terminated
-            hot_resume = prev_status == WorkflowRunStatus.HOT_RESUME and not reset_running_jobs
-            if prev_status != WorkflowRunStatus.TERMINATED and not hot_resume:
-                app_route = f'/client/workflow_run/{self.workflow_run_id}/delete'
-                return_code, response = self.requester.send_request(
-                    app_route=app_route,
-                    message={},
-                    request_type='put',
-                    logger=logger
-                )
-                if http_request_ok(return_code) is False:
-                    raise InvalidResponse(
-                        f'Unexpected status code {return_code} from PUT '
-                        f'request through route {app_route}. Expected '
-                        f'code 200. Response content: {response}')
-                raise WorkflowNotResumable(
-                    "Workflow cannot be created because a previous workflow "
-                    "run exists and hasn't terminated. Found previous "
-                    f"workflow_run_id/status: {prev_wfr_id}/{prev_status}")
-
-        # workflow was created successfully
-        self._status = WorkflowRunStatus.REGISTERED
+        self._status = WorkflowRunStatus.BOUND
 
         # test parameter to force failure
         self._val_fail_after_n_executions = None
@@ -166,8 +106,7 @@ class WorkflowRun(object):
                 f'code 200. Response content: {response}')
         self._status = status
 
-    def execute_interruptible(self, scheduler_proc: Process,
-                              fail_fast: bool = False,
+    def execute_interruptible(self, scheduler_proc: Process, fail_fast: bool = False,
                               seconds_until_timeout: int = 36000):
         # _block_until_any_done_or_error continually checks to make sure this
         # process is alive
@@ -198,40 +137,6 @@ class WorkflowRun(object):
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
-
-    def _wait_till_resumable(self, wfr_id: int, resume_timeout: int = 300) -> str:
-        wait_start = time.time()
-        wait_for_resume = True
-        while wait_for_resume:
-            logger.info(
-                f"Waiting for resume. Timeout in {resume_timeout - (time.time() - wait_start)}"
-            )
-            app_route = f'/client/workflow_run/{wfr_id}/is_resumable'
-            return_code, response = self.requester.send_request(
-                app_route=app_route,
-                message={},
-                request_type='get',
-                logger=logger
-            )
-            if http_request_ok(return_code) is False:
-                raise InvalidResponse(
-                    f'Unexpected status code {return_code} from POST '
-                    f'request through route {app_route}. Expected '
-                    f'code 200. Response content: {response}')
-
-            if response.get("workflow_run_status") is not None:
-                wait_for_resume = False
-                status = response["workflow_run_status"]
-            else:
-                if (time.time() - wait_start) > resume_timeout:
-                    raise WorkflowNotResumable(
-                        "workflow_run timed out waiting for previous "
-                        "workflow_run to exit. Try again in a few minutes.")
-                else:
-                    sleep_time = float(resume_timeout) / 10.
-                    time.sleep(sleep_time)
-
-        return status
 
     def _set_fail_after_n_executions(self, n: int) -> None:
         """

@@ -844,8 +844,8 @@ def bind_tasks():
         tasks = all_data["tasks"]
         workflow_id = int(all_data["workflow_id"])
         # receive from client the tasks in a format of:
-        # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5), reset_if_running(6),
-        # task_args(7),task_attributes(8)]}
+        # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
+        # reset_if_running(6), task_args(7),task_attributes(8)]}
 
         # Retrieve existing task_ids
         task_query = """
@@ -878,8 +878,8 @@ def bind_tasks():
 
             id_tuple = (node_id, int(arg_hash))
 
-            # Conditional logic: Has task already been bound to the DB? If yes, reset the task status and
-            # update the args/attributes
+            # Conditional logic: Has task already been bound to the DB? If yes, reset the task
+            # status and update the args/attributes
             if id_tuple in present_tasks.keys():
                 task = present_tasks[id_tuple]
                 task.reset(name=name,
@@ -1053,8 +1053,8 @@ def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, st
 
 @jobmon_client.route('/workflow', methods=['POST'])
 def bind_workflow():
-    data = request.get_json()
     try:
+        data = request.get_json()
         tv_id = int(data['tool_version_id'])
         dag_id = int(data['dag_id'])
         whash = int(data['workflow_args_hash'])
@@ -1063,7 +1063,6 @@ def bind_workflow():
         name = data["name"]
         workflow_args = data["workflow_args"]
         max_concurrently_running = data['max_concurrently_running']
-        resume = bool(data["resume"])
         workflow_attributes = data["workflow_attributes"]
         app.logger = app.logger.bind(dag_id=dag_id, tool_version_id=tv_id,
                                      workflow_args_hash=whash, task_hash=thash)
@@ -1071,14 +1070,14 @@ def bind_workflow():
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     try:
         query = """
-                    SELECT workflow.*
-                    FROM workflow
-                    WHERE
-                        tool_version_id = :tool_version_id
-                        AND dag_id = :dag_id
-                        AND workflow_args_hash = :workflow_args_hash
-                        AND task_hash = :task_hash
-                """
+            SELECT workflow.*
+            FROM workflow
+            WHERE
+                tool_version_id = :tool_version_id
+                AND dag_id = :dag_id
+                AND workflow_args_hash = :workflow_args_hash
+                AND task_hash = :task_hash
+        """
         workflow = DB.session.query(Workflow).from_statement(text(query)).params(
             tool_version_id=tv_id,
             dag_id=dag_id,
@@ -1105,18 +1104,7 @@ def bind_workflow():
 
             newly_created = True
         else:
-            # if workflow isn't already done and resume is set modify fields
-            if workflow.status != WorkflowStatus.DONE and resume:
-                workflow.description = description
-                workflow.name = name
-                workflow.workflow_args = workflow_args
-                workflow.max_concurrently_running = max_concurrently_running
-                DB.session.commit()
 
-                # update attributes
-                if workflow_attributes:
-                    _add_workflow_attributes(workflow.id, workflow_attributes)
-                    DB.session.commit()
             newly_created = False
         resp = jsonify({'workflow_id': workflow.id, 'status': workflow.status,
                         'newly_created': newly_created})
@@ -1154,50 +1142,6 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
         DB.session.commit()
         res = [(row.task_hash, row.tool_version_id, row.hash) for row in res]
         resp = jsonify(matching_workflows=res)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
-
-
-@jobmon_client.route('/workflow_run/<workflow_run_id>/is_resumable', methods=['GET'])
-def workflow_run_is_terminated(workflow_run_id: int):
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    try:
-        int(workflow_run_id)
-    except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        query = """
-            SELECT
-                workflow_run.*
-            FROM
-                workflow_run
-            WHERE
-                workflow_run.id = :workflow_run_id
-                AND (
-                    workflow_run.status = 'T'
-                    OR workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
-                )
-        """
-        res = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-            workflow_run_id=workflow_run_id
-        ).one_or_none()
-        DB.session.commit()
-
-        if res is not None:
-            # try to transition the workflow. Send back any competing
-            # workflow_run_id and its status
-            try:
-                res.workflow.transition(WorkflowStatus.CREATED)
-                DB.session.commit()
-            except InvalidStateTransition:
-                DB.session.rollback()
-                raise
-
-            resp = jsonify(workflow_run_status=res.status)
-        else:
-            resp = jsonify()
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
@@ -1260,6 +1204,78 @@ def update_workflow_attribute(workflow_id: int):
         raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
+@jobmon_client.route('/workflow/<workflow_id>/set_resume', methods=['POST'])
+def set_resume(workflow_id: int):
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    try:
+        data = request.get_json()
+        reset_running_jobs = bool(data['reset_running_jobs'])
+        description = str(data['description'])
+        name = str(data["name"])
+        max_concurrently_running = int(data['max_concurrently_running'])
+        workflow_attributes = data["workflow_attributes"]
+    except Exception as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+    try:
+        query = """
+            SELECT
+                workflow.*
+            FROM
+                workflow
+            WHERE
+                workflow.id = :workflow_id
+        """
+        workflow = DB.session.query(Workflow).from_statement(text(query)).params(
+            workflow_id=workflow_id
+        ).one()
+
+        # set mutible attribute
+        workflow.description = description
+        workflow.name = name
+        workflow.max_concurrently_running = max_concurrently_running
+        DB.session.commit()
+
+        # trigger resume on active workflow run
+        workflow.resume(reset_running_jobs)
+        DB.session.commit()
+
+        # update attributes
+        if workflow_attributes:
+            _add_workflow_attributes(workflow.id, workflow_attributes)
+            DB.session.commit()
+
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
+        return resp
+
+    except Exception as e:
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+
+
+@jobmon_client.route('/workflow/<workflow_id>/is_resumable', methods=['GET'])
+def workflow_is_resumable(workflow_id: int):
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    try:
+        query = """
+            SELECT
+                workflow.*
+            FROM
+                workflow
+            WHERE
+                workflow.id = :workflow_id
+        """
+        workflow = DB.session.query(Workflow).from_statement(text(query)).params(
+            workflow_id=workflow_id
+        ).one()
+        DB.session.commit()
+
+        resp = jsonify(workflow_is_resumable=workflow.is_resumable)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+
+
 @jobmon_client.route('/workflow_run', methods=['POST'])
 def add_workflow_run():
     try:
@@ -1275,59 +1291,41 @@ def add_workflow_run():
             user=data["user"],
             executor_class=data["executor_class"],
             jobmon_version=data["jobmon_version"],
-            status=WorkflowRunStatus.REGISTERED)
+            status=WorkflowRunStatus.REGISTERED
+        )
         DB.session.add(workflow_run)
         DB.session.commit()
-
-        # refresh in case of race condition
-        workflow = workflow_run.workflow
-        DB.session.refresh(workflow, with_for_update=True)
-        # try to transition the workflow. Send back any competing workflow_run_id
-        # and its status
-
-        workflow.transition(WorkflowStatus.CREATED)
-        DB.session.commit()
-        previous_wfr = []
-        resp = jsonify(workflow_run_id=workflow_run.id,
-                       status=workflow_run.status,
-                       previous_wfr=previous_wfr)
+        resp = jsonify(workflow_run_id=workflow_run.id)
         resp.status_code = StatusCodes.OK
         return resp
-    except InvalidStateTransition:
-        created_states = [WorkflowStatus.CREATED]
-        active_states = [WorkflowStatus.BOUND, WorkflowStatus.RUNNING]
+    except Exception as e:
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
-        # a workflow is already in created state. thats a race condition. set
-        # workflow run status to error. leave workflow alone
-        if workflow.status in created_states:
-            workflow_run.status = WorkflowRunStatus.ERROR
-            DB.session.add(workflow_run)
-            DB.session.commit()
-            previous_wfr = [
-                (wfr.id, wfr.status) for wfr in workflow.workflow_runs
-                if wfr.status in created_states]
 
-        # a workflow is running or about to start
-        elif workflow.status in active_states:
+@jobmon_client.route('/workflow_run/<workflow_run_id>/link', methods=['POST'])
+def link_workflow_run(workflow_run_id: int):
+    try:
+        query = """
+            SELECT
+                workflow_run.*
+            FROM
+                workflow_run
+            WHERE
+                workflow_run.id = :workflow_run_id
+        """
+        workflow_run = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+            workflow_run_id=workflow_run_id
+        ).one()
 
-            # if resume is set return the workflow that was set to hot or cold
-            # resume
-            if data["resume"]:
-                resumed_wfr = workflow.resume(data["reset_running_jobs"])
-                DB.session.commit()
-                previous_wfr = [(wfr.id, wfr.status) for wfr in resumed_wfr]
+        # refresh with lock in case other workflow run is trying to progress
+        workflow = workflow_run.workflow
+        DB.session.refresh(workflow, with_for_update=True)
 
-            # otherwise return the workflow that is in an active state
-            else:
-                previous_wfr = [
-                    (wfr.id, wfr.status) for wfr in workflow.workflow_runs
-                    if wfr.status in active_states]
-
-        else:
-            app.logger.error("how did I get here? all other transitions are valid")
-        resp = jsonify(workflow_run_id=workflow_run.id,
-                       status=workflow_run.status,
-                       previous_wfr=previous_wfr)
+        # check if any workflow run is in linked state.
+        # if not any linked, proceed.
+        current_wfr = workflow.link_workflow_run(workflow_run)
+        DB.session.commit()  # release lock
+        resp = jsonify(current_wfr=current_wfr)
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
@@ -1393,26 +1391,6 @@ def terminate_workflow_run(workflow_run_id: int):
 
         # transition to terminated
         workflow_run.transition(WorkflowRunStatus.TERMINATED)
-        DB.session.commit()
-
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
-
-
-@jobmon_client.route('/workflow_run/<workflow_run_id>/delete', methods=['PUT'])
-def delete_workflow_run(workflow_run_id: int):
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    try:
-        int(workflow_run_id)
-    except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        query = "DELETE FROM workflow_run where workflow_run.id = :workflow_run_id"
-        DB.session.execute(query,
-                           {"workflow_run_id": workflow_run_id})
         DB.session.commit()
 
         resp = jsonify()

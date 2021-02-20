@@ -3,6 +3,8 @@ from sqlalchemy.sql import func
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_status import WorkflowStatus
+from jobmon.server.web.models.workflow_run import WorkflowRun
+from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 
 
 class Workflow(DB.Model):
@@ -20,82 +22,96 @@ class Workflow(DB.Model):
     max_concurrently_running = DB.Column(DB.Integer)
     status = DB.Column(DB.String(1),
                        DB.ForeignKey('workflow_status.id'),
-                       default=WorkflowStatus.REGISTERED)
+                       default=WorkflowStatus.REGISTERING)
     created_date = DB.Column(DB.DateTime, default=func.now())
     status_date = DB.Column(DB.DateTime, default=func.now())
 
     dag = DB.relationship("Dag", back_populates="workflow", lazy=True)
-    workflow_runs = DB.relationship("WorkflowRun", back_populates="workflow",
-                                    lazy=True)
+    workflow_runs = DB.relationship("WorkflowRun", back_populates="workflow", lazy=True)
 
     valid_transitions = [
-        # normal progression from registered to a workflow run has been created
-        (WorkflowStatus.REGISTERED, WorkflowStatus.CREATED),
+        # normal progression from registered to a workflow run has been fully bound
+        (WorkflowStatus.REGISTERING, WorkflowStatus.QUEUED),
 
         # workflow encountered an error before a workflow run was created.
-        (WorkflowStatus.REGISTERED, WorkflowStatus.ABORTED),
+        (WorkflowStatus.REGISTERING, WorkflowStatus.ABORTED),
 
         # a workflow aborted during task creation. new workflow launched, found
         # existing workflow id and is creating a new workflow run
-        (WorkflowStatus.ABORTED, WorkflowStatus.CREATED),
+        (WorkflowStatus.ABORTED, WorkflowStatus.REGISTERING),
 
         # new workflow run created that resumes old failed workflow run
-        (WorkflowStatus.FAILED, WorkflowStatus.CREATED),
+        (WorkflowStatus.FAILED, WorkflowStatus.REGISTERING),
 
         # new workflow run created that resumes old suspended workflow run
-        (WorkflowStatus.SUSPENDED, WorkflowStatus.CREATED),
-
-        # Workflow run has been created then all tasks are bound. normal
-        # happy path
-        (WorkflowStatus.CREATED, WorkflowStatus.BOUND),
-
-        # Workflow run was created but workflow didn't add all tasks
-        # successfully or otherwise errored out before workflow was usable
-        (WorkflowStatus.CREATED, WorkflowStatus.ABORTED),
+        (WorkflowStatus.HALTED, WorkflowStatus.REGISTERING),
 
         # Workflow was bound but didn't start running. eventually moved
         # to failed.
-        (WorkflowStatus.BOUND, WorkflowStatus.FAILED),
+        (WorkflowStatus.QUEUED, WorkflowStatus.FAILED),
 
         # workflow run was bound then started running. normal happy path
-        (WorkflowStatus.BOUND, WorkflowStatus.RUNNING),
+        (WorkflowStatus.QUEUED, WorkflowStatus.RUNNING),
 
         # workflow run was running and then got moved to a resume state
-        (WorkflowStatus.RUNNING, WorkflowStatus.SUSPENDED),
+        (WorkflowStatus.RUNNING, WorkflowStatus.HALTED),
 
         # workflow run was running and then completed successfully
         (WorkflowStatus.RUNNING, WorkflowStatus.DONE),
 
         # workflow run was running and then failed with an error
         (WorkflowStatus.RUNNING, WorkflowStatus.FAILED),
+    ]
 
-        # workflow run was set to a cold resume state and successfully shut down.
-        # moved to failed
-        (WorkflowStatus.SUSPENDED, WorkflowStatus.FAILED),
+    untimely_transitions = [
+        (WorkflowStatus.REGISTERING, WorkflowStatus.REGISTERING)
+    ]
 
-        # workflow run was set to a hot resume state and successfully shut down.
-        # moved to registered
-        (WorkflowStatus.SUSPENDED, WorkflowStatus.REGISTERED)
-        ]
+    def transition(self, new_state: str):
+        if self._is_timely_transition(new_state):
+            self._validate_transition(new_state)
+            self.status = new_state
+            self.status_date = func.now()
 
-    def transition(self, new_state):
-        self._validate_transition(new_state)
-        self.status = new_state
-        self.status_date = func.now()
-
-    def _validate_transition(self, new_state):
+    def _validate_transition(self, new_state: str):
         """Ensure the Job state transition is valid"""
         if (self.status, new_state) not in self.valid_transitions:
-            raise InvalidStateTransition('Workflow', self.id, self.status,
-                                         new_state)
+            raise InvalidStateTransition('Workflow', self.id, self.status, new_state)
 
-    def resume(self, reset_running_jobs):
-        resumed_wfr = []
+    def _is_timely_transition(self, new_state):
+        """Check if the transition is invalid due to a race condition"""
+        if (self.status, new_state) in self.untimely_transitions:
+            return False
+        else:
+            return True
+
+    def link_workflow_run(self, workflow_run: WorkflowRun):
+        linked_wfr = [wfr.status == WorkflowRunStatus.LINKING for wfr in self.workflow_runs]
+        if not any(linked_wfr) and self.ready_to_link:
+            workflow_run.transition(WorkflowRunStatus.LINKING)
+            current_wfr = [(workflow_run.id, workflow_run.status)]
+        # active workflow run, don't bind.
+        elif not any(linked_wfr) and not self.ready_to_link:
+            # return currently alive workflow instead
+            current_wfr = [(wfr.id, wfr.status) for wfr in self.workflow_runs if wfr.is_alive]
+        # currently linked workflow run
+        else:
+            current_wfr = [(wfr.id, wfr.status) for wfr in linked_wfr]
+        return current_wfr[0]
+
+    def resume(self, reset_running_jobs: bool) -> None:
         for workflow_run in self.workflow_runs:
-            if workflow_run.is_active():
+            if workflow_run.is_active:
                 if reset_running_jobs:
                     workflow_run.cold_reset()
                 else:
                     workflow_run.hot_reset()
-                resumed_wfr.append(workflow_run)
-        return resumed_wfr
+
+    @property
+    def ready_to_link(self):
+        return self.status not in [WorkflowStatus.QUEUED, WorkflowStatus.RUNNING,
+                                   WorkflowStatus.DONE]
+
+    @property
+    def is_resumable(self):
+        return not any([wfr.is_alive for wfr in self.workflow_runs])

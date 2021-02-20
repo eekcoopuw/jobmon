@@ -167,16 +167,6 @@ def test_get_matching_workflows_by_workflow_args(db_cfg, client_env):
     assert rc == 400
 
 
-def test_workflow_run_is_terminated(db_cfg, client_env):
-    # @jobmon_client.route('/workflow_run/<workflow_run_id>/is_resumable', methods=['GET'])
-    requester = Requester(client_env, logger)
-    rc, response = requester.send_request(
-        app_route='/workflow_run/abc/is_resumable',
-        message={},
-        request_type='get')
-    assert rc == 400
-
-
 def test_workflow_attributes(db_cfg, client_env):
     # @jobmon_client.route('/workflow/<workflow_id>/workflow_attributes', methods=['PUT'])
     requester = Requester(client_env, logger)

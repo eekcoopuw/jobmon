@@ -27,7 +27,7 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
     t2 = BashTask("sleep 5", upstream_tasks=[t1],
                   executor_class="SequentialExecutor")
     workflow.add_tasks([t1, t2])
-    workflow._bind()
+    workflow.bind()
     workflow._create_workflow_run()
 
     # we should have the column headers plus 2 tasks in pending
@@ -50,7 +50,7 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user, args.json)
     assert df == f'{{"WF_ID":{{"0":{workflow.workflow_id}}},"WF_NAME":{{"0":""}},"WF_STATUS":{{"0":' \
-                 '"BOUND"},"TASKS":{"0":2},"PENDING":{"0":"2 (100.0%)"},' \
+                 '"QUEUED"},"TASKS":{"0":2},"PENDING":{"0":"2 (100.0%)"},' \
                  '"RUNNING":{"0":"0 (0.0%)"},"DONE":{"0":"0 (0.0%)"},"FATAL"' \
                  ':{"0":"0 (0.0%)"},"RETRIES":{"0":0.0}}'
 
@@ -60,7 +60,7 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
                   executor_class="SequentialExecutor")
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     workflow.add_tasks([t1, t2])
-    workflow._bind()
+    workflow.bind()
     workflow._create_workflow_run()
 
     # check that we get 2 rows now
@@ -100,7 +100,7 @@ def test_workflow_tasks(db_cfg, client_env):
                   max_runtime_seconds=10, resource_scales={})
 
     workflow.add_tasks([t1, t2])
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     # we should get 2 tasks back in pending state
@@ -267,8 +267,8 @@ def test_sub_dag(db_cfg, client_env):
     t13_1.add_upstream(t1)
     t13_1.add_upstream(t3)
     workflow.add_tasks([t1, t1_1, t1_2, t1_11_213_1_1, t2, t3, t13_1])
-    workflow._bind()
-    workflow._bind_tasks()
+    workflow.bind()
+    workflow._create_workflow_run()
 
     # test node with no sub nodes
     tree = get_sub_task_tree([t2.task_id])
@@ -346,6 +346,7 @@ def test_update_task_status(db_cfg, client_env):
     def generate_workflow_and_tasks(tool):
 
         wf = tool.create_workflow(workflow_args='test_cli_update_workflow')
+        wf.set_executor(executor_class="SequentialExecutor")
         tasks = []
         echo_str = 'echo {}'
         for i in range(5):
@@ -371,7 +372,8 @@ def test_update_task_status(db_cfg, client_env):
     cli = CLI()
     update_str = f'update_task_status -w {wf1.workflow_id} -t {wf1_tasks[2].task_id} -s D'
     args = cli.parse_args(update_str)
-    update_task_status(task_ids=args.task_ids, workflow_id=args.workflow_id, new_status=args.new_status)
+    update_task_status(task_ids=args.task_ids, workflow_id=args.workflow_id,
+                       new_status=args.new_status)
 
     # Resume the workflow
     wf2, wf2_tasks = generate_workflow_and_tasks(tool)
@@ -382,19 +384,20 @@ def test_update_task_status(db_cfg, client_env):
     assert all([st.status == "D" for st in wfr2.swarm_tasks.values()])
 
     # Try a reset of a "done" workflow to "G"
-    update_task_status(task_ids=[wf2_tasks[3].task_id], workflow_id=wf2.workflow_id, new_status="G")
+    update_task_status(task_ids=[wf2_tasks[3].task_id], workflow_id=wf2.workflow_id,
+                       new_status="G")
     wf3, wf3_tasks = generate_workflow_and_tasks(tool)
     wf3.set_executor(executor_class="SequentialExecutor")
-    wf3._bind(True)
-    wfr3 = wf3._create_workflow_run(True, True)
+    wf3.bind()
+    wf3._workflow_is_resumable()
+    wfr3 = wf3._create_workflow_run(resume=True)
     assert len(wfr3._compute_fringe()) == 1
     assert [t.status for t in wfr3.swarm_tasks.values()] == ["D", "D", "D", "G", "G"]
 
     # Run the workflow
-    scheduler_proc = wf3._start_task_instance_scheduler(
-        wfr3.workflow_run_id, 180)
+    scheduler_proc = wf3._start_task_instance_scheduler(wfr3.workflow_run_id, 180)
     wfr3.execute_interruptible(scheduler_proc, False, 360)
+    scheduler_proc.terminate()
 
     assert wfr3.status == "D"
     assert all([st.status == "D" for st in wfr3.swarm_tasks.values()])
-

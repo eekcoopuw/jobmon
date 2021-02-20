@@ -15,12 +15,12 @@ def test_add_tasks_dependencynotexist(db_cfg, client_env):
     with pytest.raises(NodeDependencyNotExistError) as excinfo:
         wf = UnknownWorkflow("wf1", name="TestWF1")
         wf.add_tasks([t1, t2])
-        wf._bind()
+        wf.bind()
     assert "Downstream" in str(excinfo.value)
     with pytest.raises(NodeDependencyNotExistError) as excinfo:
         wf = UnknownWorkflow("wf2", name="TestWF2")
         wf.add_tasks([t1, t3])
-        wf._bind()
+        wf.bind()
     assert "Upstream" in str(excinfo.value)
     wf = UnknownWorkflow("wf3", name="TestWF3")
     wf.add_tasks([t1, t2, t3])
@@ -30,5 +30,5 @@ def test_add_tasks_dependencynotexist(db_cfg, client_env):
     wf.add_tasks([t1])
     wf.add_tasks([t2])
     wf.add_tasks([t3])
-    wf._bind()
+    wf.bind()
     assert len(wf.tasks) == 3

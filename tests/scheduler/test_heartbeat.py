@@ -24,7 +24,7 @@ def test_heartbeat(db_cfg, client_env):
                                executor_class="SequentialExecutor",
                                seconds_until_timeout=1)
     workflow.add_tasks([t1])
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -58,7 +58,7 @@ def test_heartbeat_raises_error(db_cfg, client_env):
                                executor_class="SequentialExecutor",
                                seconds_until_timeout=1)
     workflow.add_tasks([t1])
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -93,7 +93,7 @@ def test_heartbeat_propagate_error(db_cfg, client_env):
                                executor_class="SequentialExecutor",
                                seconds_until_timeout=1)
     workflow.add_tasks([t1])
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
