@@ -47,8 +47,8 @@ def jobs_that_retry():
     name = "retry_task"
     output_file_name = f"/ihme/scratch/users/{user}/retry_output"
     current_path = os.path.abspath(__file__)
-    script_path = os.path.join(os.path.dirname(current_path), '../../tests/_scripts')
-    assert os.path.isdir(script_path)
+    script_path = os.path.join(os.path.dirname(current_path), '../tests/_scripts')
+
     retry_task = PythonTask(
         script=os.path.join(script_path, "remote_sleep_and_write.py"),
         args=["--sleep_secs", "4",
