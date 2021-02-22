@@ -71,15 +71,14 @@ class WorkflowReaper(object):
             logger.info(f"Found workflow runs: {workflow_runs}")
         return workflow_runs
 
-    def _suspended_state(self) -> None:
-        """Check if a workflow_run is in H or C state, if it is transition
-        the associated workflow to SUSPENDED state"""
+    def _terminated_state(self) -> None:
+        """Check if a workflow_run needs to be transitioned to terminated state."""
         # Get workflow_runs in H and C state
         workflow_runs = self._check_by_given_status(["C", "H"])
 
         # Transition workflows to SUSPENDED
         for wfr in workflow_runs:
-            message = wfr.transition_to_suspended()
+            message = wfr.transition_to_terminated()
             if self._wf_notification_sink:
                 self._wf_notification_sink(msg=message)
 

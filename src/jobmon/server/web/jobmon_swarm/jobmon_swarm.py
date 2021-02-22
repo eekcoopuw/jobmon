@@ -12,6 +12,7 @@ from jobmon.server.web.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
+from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.server_side_exception import ServerError
 
 jobmon_swarm = Blueprint("jobmon_swarm", __name__)
@@ -143,19 +144,30 @@ def get_task_by_status_only(workflow_id: int):
                           status_code=500) from e
 
 
-@jobmon_swarm.route('/workflow/<workflow_id>/suspend', methods=['POST'])
-def suspend_workflow(workflow_id: int):
-    app.logger = app.logger.bind(workflow_id=workflow_id)
+@jobmon_swarm.route('/workflow_run/<workflow_run_id>/terminate', methods=['POST'])
+def terminate_workflow_run(workflow_run_id: int):
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         query = """
-            UPDATE workflow
-            SET status = "S"
-            WHERE workflow.id = :workflow_id
+            SELECT *
+            FROM workflow_run
+            WHERE
+                workflow_run.id = :workflow_run_id
+                and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
         """
-        DB.session.execute(query, {"workflow_id": workflow_id})
-        DB.session.commit()
+        wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+            workflow_run_id=workflow_run_id
+        ).one_or_none()
 
-        resp = jsonify()
+        try:
+            wfr.transition(WorkflowRunStatus.TERMINATED)
+            DB.session.commit()
+            transitioned = True
+        except (InvalidStateTransition, AttributeError):
+            # this branch handles race condition or case where no wfr was returned
+            transitioned = False
+
+        resp = jsonify(transitioned=transitioned)
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
@@ -256,7 +268,7 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
         DB.session.commit()
 
         if wfr is not None:
-            wfr.transition("A")
+            wfr.transition(WorkflowRunStatus.ABORTED)
             DB.session.commit()
             aborted = True
         else:

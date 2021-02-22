@@ -1,4 +1,5 @@
 import getpass
+import time
 from typing import List, Tuple, Optional, Dict
 
 import structlog as logging
@@ -56,6 +57,9 @@ class WorkflowRun(object):
                 f"{current_wfr_id}/{current_wfr_status}"
             )
         self._status = WorkflowRunStatus.LINKING
+        # last heartbeat
+        self._last_heartbeat: float = time.time()
+
         try:
             tasks = self._bind_tasks(tasks, reset_if_running, chunk_size)
         except Exception:
@@ -114,13 +118,20 @@ class WorkflowRun(object):
             )
         return response['current_wfr']
 
+    def _log_heartbeat(self):
+        pass
+
     def _bind_tasks(self, tasks: Dict[int, Task], reset_if_running: bool = True,
-                    chunk_size: int = 500) -> Dict[int, Task]:
+                    chunk_size: int = 500, heartbeat_interval: int = 90) -> Dict[int, Task]:
         app_route = '/client/task/bind_tasks'
         parameters = {}
         remaining_task_hashes = list(tasks.keys())
 
         while remaining_task_hashes:
+
+            if (self._last_heartbeat - time.time()) > heartbeat_interval:
+                self._log_heartbeat()
+
             # split off first chunk elements from queue.
             task_hashes_chunk = remaining_task_hashes[:chunk_size]
             remaining_task_hashes = remaining_task_hashes[chunk_size:]
@@ -137,7 +148,10 @@ class WorkflowRun(object):
                     tasks[task_hash].max_attempts, reset_if_running,
                     tasks[task_hash].task_args, tasks[task_hash].task_attributes
                 ]
-            parameters = {"workflow_id": self.workflow_id, "tasks": task_metadata}
+            parameters = {
+                "workflow_id": self.workflow_id,
+                "tasks": task_metadata,
+            }
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message=parameters,

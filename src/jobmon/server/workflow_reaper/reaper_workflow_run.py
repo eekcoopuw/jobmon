@@ -71,8 +71,8 @@ class ReaperWorkflowRun(object):
         logger.info(message)
         return message
 
-    def transition_to_suspended(self) -> str:
-        app_route = f'/swarm/workflow/{self.workflow_id}/suspend'
+    def transition_to_terminated(self) -> str:
+        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/terminate'
         return_code, response = self._requester.send_request(
             app_route=app_route,
             message={},
@@ -85,7 +85,8 @@ class ReaperWorkflowRun(object):
                                   f'code 200. Response content: {response}')
         # Notify Slack about the workflow transition
         message = f"{__version__} Workflow Reaper transitioned " \
-                  f"Workflow #{self.workflow_id} to SUSPENDED state"
+                  f"Workflow #{self.workflow_id} to HALTED state" \
+                  f"Workflow Run #{self.workflow_run_id} transitioned to TERMINATED state"
         logger.info(message)
         return message
 
