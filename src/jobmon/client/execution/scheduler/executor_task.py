@@ -62,7 +62,7 @@ class ExecutorTask:
         kwargs = SerializeExecutorTask.kwargs_from_wire(wire_tuple)
 
         # instantiate job
-        logger.info("Instantiate task tid {}".format(kwargs["task_id"]))
+        logger.debug("Instantiate task tid {}".format(kwargs["task_id"]))
         executor_task = cls(
             task_id=kwargs["task_id"],
             workflow_id=kwargs["workflow_id"],

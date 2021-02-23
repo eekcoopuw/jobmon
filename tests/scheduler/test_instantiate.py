@@ -119,7 +119,7 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
                                   seconds_until_timeout=1)
 
     def mock_execute(*args, **kwargs):
-        return sge
+        return sge, {sge: 0}
     monkeypatch.setattr(scheduler.executor, "execute", mock_execute)
 
     scheduler._get_tasks_queued_for_instantiation()
@@ -184,7 +184,7 @@ def test_concurrency_limiting(db_cfg, client_env):
     select_tasks = scheduler._get_tasks_queued_for_instantiation()
     assert len(select_tasks) == 0
 
-    scheduler.executor.stop()
+    scheduler.executor.stop(scheduler.executor_ids, scheduler._report_by_buffer)
 
 
 def test_dynamic_concurrency_limiting(db_cfg, client_env):

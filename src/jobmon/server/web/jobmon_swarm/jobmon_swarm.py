@@ -144,8 +144,23 @@ def get_task_by_status_only(workflow_id: int):
                           status_code=500) from e
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/terminate', methods=['POST'])
+@jobmon_swarm.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
 def terminate_workflow_run(workflow_run_id: int):
+    """
+    If applicable, moves the workflow run to "T" state, moves the associated workflow to "S".
+
+    Checks if workflow runs that are in "C" or "H" state haven't registered a heartbeat in more
+    than the timeout value. If they haven't, the route transitions the workflow and workflow
+    run.
+
+    Args:
+        workflow_run_id (int): the id of the workflow run to query for
+        time_out (int): heatbeat_interval * report_by_buffer, the time to compare the workflow
+            runs heartbeat_time against
+
+    Returns:
+        resp (Any): whether or not the workflow run was reaped and the response status code
+    """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         query = """
@@ -237,9 +252,9 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         # If the last task was more than 2 minutes ago, transition wfr to A state
-        # Also check WorkflowRun status_date to avoid possible race condition where reaper checks
-        # tasks from a different WorkflowRun with the same workflow id. Avoid setting while
-        # waiting for a resume (when workflow is in suspended state)
+        # Also check WorkflowRun status_date to avoid possible race condition where reaper
+        # checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
+        # while waiting for a resume (when workflow is in suspended state)
         query = """
             SELECT
                 workflow_run.*,

@@ -1,6 +1,6 @@
 from collections import OrderedDict
 import os
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 
 import structlog as logging
 
@@ -54,14 +54,16 @@ class SequentialExecutor(Executor):
         except KeyError:
             raise RemoteExitInfoNotAvailable
 
-    def get_actual_submitted_or_running(self) -> List[int]:
+    def get_actual_submitted_or_running(self, executor_ids, report_by_buffer) -> \
+            Tuple[List[int], Dict[int, int]]:
         running = os.environ.get("JOB_ID")
         if running:
-            return [int(running)]
+            return [int(running)], executor_ids
         else:
-            return []
+            return [], executor_ids
 
-    def execute(self, command: str, name: str, executor_parameters: ExecutorParameters) -> int:
+    def execute(self, command: str, name: str, executor_parameters: ExecutorParameters,
+                executor_ids) -> Tuple[int, Dict[int, int]]:
         logger.debug(command)
 
         # add an executor id to the environment
@@ -79,7 +81,7 @@ class SequentialExecutor(Executor):
                 raise
 
         self._exit_info[executor_id] = exit_code
-        return executor_id
+        return executor_id, executor_ids
 
 
 class TaskInstanceSequentialInfo(TaskInstanceExecutorInfo):

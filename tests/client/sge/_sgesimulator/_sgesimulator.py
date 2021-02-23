@@ -3,7 +3,8 @@ import structlog as logging
 
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
-from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor, TaskInstanceSGEInfo
+from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor, \
+    TaskInstanceSGEInfo
 
 logger = logging.getLogger("jobmon.client.execution")
 
@@ -26,9 +27,11 @@ class _SimulatorTaskInstanceSGEInfo(TaskInstanceSGEInfo):
         return self._executor_id
 
     def get_usage_state(self) -> Dict:
-        return {self._executor_id: {'usage_str': 'wallclock=03:30:11, cpu=00:00:00, mem=0.00000 GBs, io=0.00000 GB, '
+        return {self._executor_id: {'usage_str': 'wallclock=03:30:11, cpu=00:00:00, '
+                                                 'mem=0.00000 GBs, io=0.00000 GB, '
                                                  'iow=0.000 s, ioops=0, vmem=N/A, maxvmem=N/A',
-                                    'nodename': 'int-uge-archive-p003.cluster.ihme.washington.edu:1',
+                                    'nodename': 'int-uge-archive-p003.cluster.ihme.washington'
+                                                '.edu:1',
                                     'wallclock': 12611.0, 'cpu': '00:00:00',
                                     'mem': '0.00000 GBs',
                                     'io': '0.00000 GB',
@@ -40,6 +43,7 @@ class _SimulatorTaskInstanceSGEInfo(TaskInstanceSGEInfo):
 
 class _SimulatorSGEExecutor(SGEExecutor):
     _autoincrease_counter = 0
+
     def __init__(self,
                  stderr: Optional[str] = None,
                  stdout: Optional[str] = None,
@@ -60,15 +64,23 @@ class _SimulatorSGEExecutor(SGEExecutor):
         from queue import Queue
         from unittest.mock import patch
         from time import sleep
-        with patch("jobmon.client.execution.worker_node.execution_wrapper._get_executor_class") as m_get_executor_c, \
-             patch("jobmon.client.execution.worker_node.execution_wrapper._run_in_sub_process") as m_run_in_sub_p:
-            m_get_executor_c.return_value = "_SimulatorSGEExecutor", _SimulatorTaskInstanceSGEInfo()
+        with patch(
+                "jobmon.client.execution.worker_node.execution_wrapper._get_executor_class") \
+                as m_get_executor_c, \
+             patch(
+                 "jobmon.client.execution.worker_node.execution_wrapper._run_in_sub_process")\
+                as m_run_in_sub_p:
+            m_get_executor_c.return_value = "_SimulatorSGEExecutor", \
+                                            _SimulatorTaskInstanceSGEInfo()
+
             # sleep for one minute to test timeout
             def _immediate_return(*args):
                 return Queue(), 0
+
             def _delay_return(*args):
                 sleep(60)
                 return Queue(), 0
+
             def _error_return137(*args):
                 return Queue().put("137"), 137
             if "sleep" in command:
@@ -80,7 +92,6 @@ class _SimulatorSGEExecutor(SGEExecutor):
             unwrap(**parse_arguments(command))
             _SimulatorSGEExecutor._autoincrease_counter += 1
         return _SimulatorSGEExecutor._autoincrease_counter
-
 
     def get_actual_submitted_or_running(self) -> List[int]:
         return []

@@ -49,8 +49,8 @@ def true_path(file_or_dir=None, executable=None):
     return f.strip(' \t\r\n')
 
 
-def qstat(status: str=None, pattern: str=None, user: str=None,
-          jids: List[int]=None) -> Dict:
+def qstat(status: str = None, pattern: str = None, user: str = None,
+          jids: List[int] = None) -> Dict:
     """parse sge qstat information into a Dictionary keyed by executor_id
     (sge job id)
 

@@ -1,5 +1,4 @@
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 
 
 class TaskAttribute(DB.Model):

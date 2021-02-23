@@ -294,18 +294,49 @@ UML diagrams to represent process view include the sequence diagram, communicati
 
 The Python Client Path
 ======================
-TO DO Trace the call from the User's Python code:
-1. Through Jobmon's Python library,
-#. HTTP to Kubernetees
-# Metal-lb
-# UWSGI
-# Flask
-# kubernetes service
-# database
+#TO DO Trace the call from the User's Python code:#
+
+The path is shown in the diagram in the `Server & Services`_ section, but the details
+of the calls need to be added there.
+
+1. Through Jobmon's Python library:
+  #. HTTP to Kubernetes
+  #. Metal-lb
+  #. UWSGI
+  #. Flask
+  #. Kubernetes service
+  #. database
 
 The QSUB Path
 =============
-The whole execution_wrapper process, with Popen and exception catches
+
+#TO DO The whole execution_wrapper process, with Popen and exception catches.#
+
+QPID Integration
+================
+
+UGE does not accurately record memory usage, specifically Resident Set Size (RSS) or
+Proportional Set Size (PSS) from Linux. Qpid (see these
+`linked repos <https://stash.ihme.washington.edu/projects/QPID>`_)
+was developed to fill the gap.
+In brief, QPID has a central database to record accurate runtimes and PSS for every job run on
+the cluster, not just those under Jobmon control.
+For details see the documentation in the qpid repos.
+Jobmon historically relied on
+runtime and memory usage reports from ``qstat``, which are inaccurate.
+
+The Jobmon side of the code is jobmon.server.qpid_integration.
+This is deployed on Kubernetes as a Deployment. Essentially it is while-forever loop
+that queries qpid on the ``jobmaxpss`` route to get the maxpss for each completed jobmon job.
+It only queries for taks-instances that have recently completed and for which Jobmon does not
+yet have QPID resource usage. There are certain corner cases where the usage data will not
+be returned,
+see https://jira.ihme.washington.edu/browse/GBDSCI-2269
+.
+
+Theory: If Jobmon is unable to get usage data from QPID for some time then the list of job
+ids in memory will grow without bound, and the qpid_integration server could run out of memory.
+
 
 Resource Retries
 ================

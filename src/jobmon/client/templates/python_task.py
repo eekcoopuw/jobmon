@@ -123,7 +123,7 @@ class PythonTask(Task):
             if tool is None:
                 tool = Tool("unknown")
             task_template = tool.get_task_template(
-                template_name=f'python_task',
+                template_name='python_task',
                 command_template=command_template,
                 node_args=list(node_args.keys()),
                 task_args=list(task_args.keys()),

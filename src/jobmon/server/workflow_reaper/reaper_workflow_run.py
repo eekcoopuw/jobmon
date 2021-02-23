@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import logging
 
 from jobmon import __version__
+from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 from jobmon.exceptions import InvalidResponse
 from jobmon.constants import WorkflowRunStatus
 from jobmon.requester import Requester, http_request_ok
@@ -76,18 +77,22 @@ class ReaperWorkflowRun(object):
         return_code, response = self._requester.send_request(
             app_route=app_route,
             message={},
-            request_type='post',
+            request_type='put',
             logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                                   f'request through route {app_route}. Expected '
                                   f'code 200. Response content: {response}')
-        # Notify Slack about the workflow transition
-        message = f"{__version__} Workflow Reaper transitioned " \
-                  f"Workflow #{self.workflow_id} to HALTED state" \
-                  f"Workflow Run #{self.workflow_run_id} transitioned to TERMINATED state"
-        logger.info(message)
+
+        if bool(response["transitioned"]):
+            # Notify Slack about the workflow transition
+            message = f"{__version__} Workflow Reaper transitioned " \
+                      f"Workflow #{self.workflow_id} to HALTED state" \
+                      f"Workflow Run #{self.workflow_run_id} transitioned to TERMINATED state"
+            logger.info(message)
+        else:
+            message = ""
         return message
 
     def transition_to_aborted(self, aborted_seconds: int = (60 * 2)) -> str:

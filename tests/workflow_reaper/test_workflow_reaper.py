@@ -2,6 +2,7 @@ import time
 from typing import Dict
 
 import pytest
+from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 
 
 def get_workflow_status(db_cfg, workflow_id):
@@ -9,6 +10,15 @@ def get_workflow_status(db_cfg, workflow_id):
     DB = db_cfg["DB"]
     with app.app_context():
         query = f"SELECT status FROM workflow WHERE id = {workflow_id}"
+        resp = DB.session.execute(query).fetchone()[0]
+    return resp
+
+
+def get_workflow_run_status(db_cfg, wfr_id):
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = f"SELECT status FROM workflow_run WHERE id = {wfr_id}"
         resp = DB.session.execute(query).fetchone()[0]
     return resp
 
@@ -64,20 +74,9 @@ def test_error_state(db_cfg, requester_no_retry):
     assert workflow1_status == "F"
     assert workflow2_status == "D"
 
-    # Check that the  workflow run was also moved to the E state
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        workflow_run_query = """
-            SELECT workflow_run.status
-            FROM workflow_run
-            WHERE workflow_run.id = :workflow_run_id
-        """
-        workflow_run_res = DB.session.execute(
-            workflow_run_query, {"workflow_run_id": wfr1.workflow_run_id}
-        ).fetchone()
-        DB.session.commit()
-    assert workflow_run_res[0] == "E"
+    # # Check that the  workflow run was also moved to the E state
+    wfr_status = get_workflow_run_status(db_cfg, wfr1.workflow_run_id)
+    assert wfr_status == "E"
 
 
 def test_suspended_state(db_cfg, requester_no_retry):
@@ -120,22 +119,31 @@ def test_suspended_state(db_cfg, requester_no_retry):
     wfr3.update_status("R")
     wfr3.update_status("H")
 
+    # The reaper will only move workflows to suspended that have a heartbeat rate greater than
+    # (heatbeat_interval * report_by_buffer). Sleep, so the wf is eligible to be reaped.
+    cfg = WorkflowReaperConfig.from_defaults()
+    time_out = cfg.workflow_run_heartbeat_interval * cfg.task_instance_report_by_buffer
+    time.sleep(time_out * 1.2)
+
     # Call workflow reaper suspended state
     reaper = WorkflowReaper(5, 5, requester=requester_no_retry)
     reaper._terminated_state()
 
-    # Check that the workflow runs are in the same state (1 R, 1 C, 1 H)
+    # Check that the workflow runs are in the same state (1 R, 2 T)
     # and that there are two workflows in S state and one still in R state
-    assert wfr1.status == "R"
-    assert wfr2.status == "C"
-    assert wfr3.status == "H"
+    wfr1_status = get_workflow_run_status(db_cfg, wfr1.workflow_run_id)
+    wfr2_status = get_workflow_run_status(db_cfg, wfr2.workflow_run_id)
+    wfr3_status = get_workflow_run_status(db_cfg, wfr3.workflow_run_id)
+    assert wfr1_status == "R"
+    assert wfr2_status == "T"
+    assert wfr3_status == "T"
 
     workflow1_status = get_workflow_status(db_cfg, workflow1.workflow_id)
     workflow2_status = get_workflow_status(db_cfg, workflow2.workflow_id)
     workflow3_status = get_workflow_status(db_cfg, workflow3.workflow_id)
-    assert workflow1_status[0] == "R"
-    assert workflow2_status[0] == "H"
-    assert workflow3_status[0] == "H"
+    assert workflow1_status == "R"
+    assert workflow2_status == "H"
+    assert workflow3_status == "H"
 
 
 @pytest.mark.skip(reason="need to implement heartbeat")
@@ -207,20 +215,10 @@ def test_aborted_state(db_cfg, requester_no_retry):
 
     # Check that the workflow_run and workflow have both been moved to the
     # "A" state.
-    with app.app_context():
-        workflow_run_query = """
-            SELECT workflow_run.status
-            FROM workflow_run
-            WHERE workflow_run.id = :workflow_run_id
-        """
-        workflow_run_res = DB.session.execute(
-            workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}
-        ).fetchone()
-        DB.session.commit()
-
     workflow_status = get_workflow_status(db_cfg, workflow.workflow_id)
+    workflow_run_status = get_workflow_run_status(db_cfg, wfr.workflow_run_id)
     assert workflow_status == "A"
-    assert workflow_run_res[0] == "A"
+    assert workflow_run_status == "A"
 
 
 @pytest.mark.skip(reason="need to implement heartbeat")
@@ -244,18 +242,7 @@ def test_aborted_state_null_case(db_cfg, requester_no_retry):
 
     # Check that the workflow_run and workflow have both been moved to the
     # "A" state.
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        workflow_run_query = """
-            SELECT workflow_run.status
-            FROM workflow_run
-            WHERE workflow_run.id = :workflow_run_id
-        """
-        workflow_run_res = DB.session.execute(
-            workflow_run_query, {"workflow_run_id": wfr.workflow_run_id}
-        ).fetchone()
-        DB.session.commit()
     workflow_status = get_workflow_status(db_cfg, workflow.workflow_id)
+    workflow_run_status = get_workflow_run_status(db_cfg, wfr.workflow_run_id)
     assert workflow_status == "A"
-    assert workflow_run_res[0] == "A"
+    assert workflow_run_status == "A"

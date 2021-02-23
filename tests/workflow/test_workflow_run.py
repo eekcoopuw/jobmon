@@ -100,7 +100,7 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
         DB = db_cfg["DB"]
 
         def execute(self, command: str, name: str, executor_parameters) -> int:
-            logger.warning("Now entering MockDummy execute")
+            logger.info("Now entering MockDummy execute")
             kwargs = parse_arguments(command)
 
             # need to get task id from task instance here to compare to wedged

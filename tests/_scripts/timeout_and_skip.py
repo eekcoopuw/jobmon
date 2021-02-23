@@ -54,7 +54,7 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
             jid = None
             job_status = None
             for id in qstat_out.keys():
-                logger.debug("@@@@@@@@@@{v1}@@@@@@@@@@{v2}@@@@@@@@@@@@".format(v1=qstat_out[id]['name'], v2=job_name))
+                logger.debug(f"@@@@@@@@{qstat_out[id]['name']}@@@@@@@@{job_name}@@@@@@@@@@")
                 if qstat_out[id]['name'] == job_name:
                     jid = id
                     job_status = qstat_out[id]['status']

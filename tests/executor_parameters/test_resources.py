@@ -13,7 +13,7 @@ resource_file = os.path.join(this_dir, 'resources.txt')
 
 def test_callable_returns_exec_params(db_cfg, client_env):
     """Test when the provided callable returns the correct parameters"""
-    from jobmon.client.execution.strategies import sge
+    from jobmon.client.execution.strategies import sge  # noqa: F401
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 

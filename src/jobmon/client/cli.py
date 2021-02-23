@@ -1,5 +1,5 @@
 import configargparse
-from argparse import ArgumentError
+import argparse
 
 from typing import Optional
 
@@ -8,13 +8,27 @@ from jobmon.config import PARSER_KWARGS, ParserDefaults, CLI
 from jobmon.client.client_config import ClientConfig
 
 
+class _HelpAction(argparse._HelpAction):
+    def __call__(self, parser, namespace, values, option_string=None):
+        print(parser.format_help())
+        subparsers_actions = [action for action in parser._actions if
+                              isinstance(action, argparse._SubParsersAction)]
+        print("Jobmon Usage Options:")
+        for sub_action in subparsers_actions:
+            for choice, subparser in sub_action.choices.items():
+                print(f"{choice.upper()} (for more information specify 'jobmon {choice} "
+                      f"--help'):")
+                print(subparser.format_usage())
+        parser.exit()
+
+
 class ClientCLI(CLI):
 
     def __init__(self) -> None:
-        self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
+        self.parser = configargparse.ArgumentParser(add_help=False, **PARSER_KWARGS)
+        self.parser.add_argument('--help', action=_HelpAction, help="Help if you need Help")
         self._subparsers = self.parser.add_subparsers(
-            dest='sub_command', parser_class=configargparse.ArgumentParser
-        )
+            dest='sub_command', parser_class=configargparse.ArgumentParser)
 
         self._add_workflow_status_subparser()
         self._add_workflow_tasks_subparser()
@@ -62,7 +76,6 @@ class ClientCLI(CLI):
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
         response = update_task_status(args.task_ids, args.workflow_id, args.new_status, cc.url)
         print(f"Response is: {response}")
-
 
     def concurrency_limit(self, args: configargparse.Namespace) -> None:
         from jobmon.client.status_commands import concurrency_limit as concurrency_limit_cmd
@@ -122,6 +135,7 @@ class ClientCLI(CLI):
 
     def _add_update_task_status_subparser(self) -> None:
         update_task_parser = self._subparsers.add_parser("update_task_status", **PARSER_KWARGS)
+        update_task_parser.set_defaults(func=self.update_task_status)
         update_task_parser.add_argument(
             "-t", "--task_ids", nargs="+", help="task_ids to reset",
             required=True, type=int)
@@ -135,7 +149,9 @@ class ClientCLI(CLI):
         ParserDefaults.web_service_port(update_task_parser)
 
     def _add_concurrency_limit_subparser(self) -> None:
-        concurrency_limit_parser = self._subparsers.add_parser("concurrency_limit", **PARSER_KWARGS)
+        concurrency_limit_parser = self._subparsers.add_parser("concurrency_limit",
+                                                               **PARSER_KWARGS)
+        concurrency_limit_parser.set_defaults(func=self.concurrency_limit)
         concurrency_limit_parser.add_argument(
             "-w", "--workflow_id",
             required=True,
@@ -147,9 +163,9 @@ class ClientCLI(CLI):
             try:
                 x = int(x)
             except ValueError:
-                raise ArgumentError(f"{x} is not coercible to an integer.")
+                raise argparse.ArgumentError(f"{x} is not coercible to an integer.")
             if x < 0:
-                raise ArgumentError("Max concurrent tasks must be at least 0")
+                raise argparse.ArgumentError("Max concurrent tasks must be at least 0")
             return x
 
         concurrency_limit_parser.add_argument(

@@ -1,14 +1,9 @@
 import pytest
 from threading import Thread
-from time import sleep, time
+from time import sleep
 from unittest import mock
-# from flask_sqlalchemy import SQLAlchemy
 
 from jobmon.requester import Requester
-# from jobmon.client.execution.strategies.sge import SGEExecutor
-# from jobmon.client.swarm.swarm_task import SwarmTask as BashTask
-# from jobmon.client.swarm.workflow_run import WorkflowRunExecutionStatus as DagExecutionStatus
-# from jobmon.models.task_status import TaskStatus
 
 
 """
@@ -19,9 +14,12 @@ def test_integration_with_mock(db_cfg, dag_factory):
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
 
-    with mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_qpid_response') as m_restful, \
-        mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_current_app') as m_app, \
-        mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_pulling_interval') as m_interval:
+    with mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_qpid_response') as \
+            m_restful, \
+        mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_current_app') as \
+                m_app, \
+        mock.patch('jobmon.server.integration.qpid.qpid_integrator._get_pulling_interval') as \
+                m_interval:
 
         m_restful.return_value = (200, 500)
         m_app.return_value = app
@@ -127,8 +125,10 @@ def test_worker_with_mock_200(qpidcfg):
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._update_maxpss_in_db') as m_db, \
-         mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') as m_restful:
+    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._update_maxpss_in_db') as\
+            m_db, \
+         mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') \
+            as m_restful:
         m_db.return_value = True
         m_restful.return_value = (200, 500)
         MaxpssQ().put(1)
@@ -152,7 +152,8 @@ def test_worker_with_mock_404(qpidcfg):
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') as m_restful:
+    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') as \
+            m_restful:
         m_restful.return_value = (404, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
@@ -172,13 +173,15 @@ def test_worker_with_mock_404(qpidcfg):
 
 @pytest.mark.unittest
 def test_worker_with_mock_500(qpidcfg):
-    """This is to test the job will be put back to the Q with age increated when QPID is down."""
+    """This is to test the job will be put back to the Q with age increated when QPID is
+    down."""
     from jobmon.server.qpid_integration.qpid_integrator import MaxpssQ, maxpss_forever
 
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') as m_restful:
+    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') as \
+            m_restful:
         m_restful.return_value = (500, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
@@ -239,5 +242,3 @@ def test_get_completed_task_instance(db_cfg, dag_factory):
         _get_completed_task_instance(t, SQLAlchemy(app).session)
         assert MaxpssQ().get_size() == 1
 """
-
-

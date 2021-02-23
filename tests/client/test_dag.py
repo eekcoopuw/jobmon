@@ -29,7 +29,7 @@ def test_dag(client_env, db_cfg):
     assert dag_1_id is not None
 
     # test that you can add a dag twice without getting an error
-    dag_1_id_redo = dag_1._insert_dag()
+    dag_1_id_redo = dag_1.bind()
     assert dag_1_id == dag_1_id_redo
 
     # test that adding the same node twice raises an error
