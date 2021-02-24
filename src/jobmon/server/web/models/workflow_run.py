@@ -1,17 +1,20 @@
-from sqlalchemy.sql import func
-
+"""Workflow run database table."""
+from jobmon.serializers import SerializeWorkflowRun
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
-from jobmon.serializers import SerializeWorkflowRun
+
+from sqlalchemy.sql import func
 
 
 class WorkflowRun(DB.Model):
+    """Database table for recording Workflow Runs."""
 
     __tablename__ = 'workflow_run'
 
     def to_wire_as_reaper_workflow_run(self) -> tuple:
+        """Serialize workflow run."""
         serialized = SerializeWorkflowRun.to_wire(
             id=self.id,
             workflow_id=self.workflow_id,
@@ -89,20 +92,24 @@ class WorkflowRun(DB.Model):
     ]
 
     @property
-    def is_alive(self):
+    def is_alive(self) -> bool:
+        """Workflow run is in a state that should be registering heartbeats."""
         return self.status in [WorkflowRunStatus.LINKING, WorkflowRunStatus.BOUND,
                                WorkflowRunStatus.RUNNING, WorkflowRunStatus.COLD_RESUME,
                                WorkflowRunStatus.HOT_RESUME]
 
     @property
-    def is_active(self):
+    def is_active(self) -> bool:
+        """Statuses where Workflow Run is active (bound or running)."""
         return self.status in [WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING]
 
-    def heartbeat(self, next_report_increment):
+    def heartbeat(self, next_report_increment: int):
+        """Register a heartbeat for the Workflow Run to show it is still alive."""
         self.transition(WorkflowRunStatus.RUNNING)
         self.heartbeat_date = func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report_increment))
 
     def transition(self, new_state):
+        """Transition the Workflow Run's state."""
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
 
@@ -123,19 +130,21 @@ class WorkflowRun(DB.Model):
             elif new_state in self.bound_error_states:
                 self.workflow.transition(WorkflowStatus.FAILED)
 
-    def hot_reset(self):
+    def hot_reset(self) -> None:
+        """Set Workflow Run to Hot Resume."""
         self.transition(WorkflowRunStatus.HOT_RESUME)
 
-    def cold_reset(self):
+    def cold_reset(self) -> None:
+        """Set Workflow Run to Cold Resume."""
         self.transition(WorkflowRunStatus.COLD_RESUME)
 
-    def _validate_transition(self, new_state):
-        """Ensure the Job state transition is valid"""
+    def _validate_transition(self, new_state: str) -> None:
+        """Ensure the Job state transition is valid."""
         if (self.status, new_state) not in self.valid_transitions:
             raise InvalidStateTransition('WorkflowRun', self.id, self.status, new_state)
 
-    def _is_timely_transition(self, new_state):
-        """Check if the transition is invalid due to a race condition"""
+    def _is_timely_transition(self, new_state: str) -> bool:
+        """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.untimely_transitions:
             return False
         else:

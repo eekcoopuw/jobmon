@@ -1,16 +1,16 @@
-import getpass
-import pytest
-import uuid
 import copy
+import getpass
 import time
+import uuid
 from typing import List
-
-import structlog as logging
 
 # for monkey patch
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import TaskStatus, WorkflowRunStatus
 
+import pytest
+
+import structlog as logging
 
 logger = logging.getLogger(__name__)
 

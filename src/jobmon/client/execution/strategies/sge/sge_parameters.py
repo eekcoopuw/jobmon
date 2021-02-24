@@ -1,18 +1,19 @@
-from typing import Tuple, Union, Dict, Optional
+"""SGE specific parameter validation for resources needed to run a Task."""
+from typing import Dict, Optional, Tuple, Union
+
+
+from jobmon.client.execution.strategies.sge.sge_queue import SGE_ALL_Q, SGE_D_Q, \
+    SGE_GEOSPATIAL_Q, SGE_I_Q, SGE_LONG_Q
 
 import structlog as logging
-
-from jobmon.client.execution.strategies.sge.sge_queue import SGE_ALL_Q, \
-    SGE_GEOSPATIAL_Q, SGE_I_Q, SGE_LONG_Q, SGE_D_Q
 
 logger = logging.getLogger(__name__)
 
 
 class SGEParameters:
-    """Manages the SGE specific parameters requested for a given job, it will
-    create an entry for what was requested if they are valid values
-    It will then determine if that will run on the requested cluster and adjust
-    accordingly
+    """Manages the SGE specific parameters requested for a given job, it will create an entry
+    for what was requested if they are valid values. It will then determine if that will run on
+    the requested cluster and adjust accordingly.
     """
 
     def __init__(self,
@@ -72,6 +73,7 @@ class SGEParameters:
 
     @classmethod
     def set_executor_parameters_strategy(cls, executor_parameters):
+        """Set the SGE strategy as the one to be used for validating resources."""
         # first create an instance of the specific strategy
         instance = cls(
             num_cores=executor_parameters.num_cores,
@@ -96,10 +98,7 @@ class SGEParameters:
         executor_parameters._resource_scales = instance.resource_scales
 
     def validation_msg(self) -> str:
-        """
-        If the object is valid, return an empty string, otherwise return an
-        error message
-        """
+        """If the object is valid, return an empty string, otherwise return error message."""
         q_msg, queue = self._validate_queue()
         self._set_max_limits(queue)
         cores_msg, _ = self._validate_num_cores()
@@ -117,6 +116,7 @@ class SGEParameters:
         return msg
 
     def validate(self) -> None:
+        """Validate the different resource types to make sure they will work on SGE."""
         _, q = self._validate_queue()
         self.queue = q
         self._set_max_limits(q)
@@ -133,20 +133,17 @@ class SGEParameters:
         self.resource_scales = resource_scales
 
     def adjust(self, **kwargs) -> None:
-        """
-            If only one specific parameter needs to be scaled, then scale that
-            parameter, otherwise scale each parameter for which a scaling
-            factor is available (default scale mem and runtime by 0.5)
+        """If only one specific parameter needs to be scaled, then scale that parameter,
+        otherwise scale each parameter for which a scaling factor is available (default scale
+        mem and runtime by 0.5).
         """
         only_scaled_resources = kwargs.get('only_scale', [])
         scale_all_by = kwargs.get('all_resource_scale_val', None)
         if scale_all_by is not None:
-            logger.info("You have configured the resource adjustment value "
-                        "in your workflow, this will override any resource "
-                        "specific scaling you have configured. If you would "
-                        "like to scale your resources differently, configure "
-                        "them only at the task level with the resource scales"
-                        " parameter")
+            logger.info("You have configured the resource adjustment value in your workflow, "
+                        "this will override any resource specific scaling you have configured."
+                        " If you would like to scale your resources differently, configure "
+                        "them only at the task level with the resource scales parameter")
         for resource in only_scaled_resources:
             if scale_all_by is not None:
                 self.resource_scales[resource] = scale_all_by
@@ -239,8 +236,9 @@ class SGEParameters:
         return mem
 
     def _validate_memory(self) -> Tuple[str, float]:
-        """Ensure memory requested isn't more than available on any node, and
-         tranform it into a float in gigabyte form"""
+        """Ensure memory requested isn't more than available on any node, and tranform it into
+        a float in gigabyte form.
+        """
         mem = self.m_mem_free
         if mem is None:
             mem = 1  # set to 1G

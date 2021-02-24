@@ -1,11 +1,12 @@
+"""Reaper Behavior for a given Workflow Run."""
 from __future__ import annotations
-from datetime import datetime, timedelta
+
 import logging
+from datetime import datetime, timedelta
 
 from jobmon import __version__
-from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
-from jobmon.exceptions import InvalidResponse
 from jobmon.constants import WorkflowRunStatus
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeWorkflowRun
 
@@ -14,6 +15,7 @@ logger = logging.getLogger(__file__)
 
 
 class ReaperWorkflowRun(object):
+    """Reaper Behavior for a given Workflow Run."""
 
     def __init__(self, workflow_run_id: int, workflow_id: int, heartbeat_date: datetime,
                  requester: Requester):
@@ -33,6 +35,7 @@ class ReaperWorkflowRun(object):
 
     @classmethod
     def from_wire(cls, wire_tuple: tuple, requester: Requester) -> ReaperWorkflowRun:
+        """Create Reaper Workflow Run object."""
         kwargs = SerializeWorkflowRun.kwargs_from_wire(wire_tuple)
         return cls(workflow_run_id=kwargs["id"],
                    workflow_id=kwargs["workflow_id"],
@@ -41,17 +44,18 @@ class ReaperWorkflowRun(object):
                    requester=requester)
 
     def to_wire(self) -> tuple:
+        """Serialize Reaper Workflow Run attributes."""
         return SerializeWorkflowRun.to_wire(self.workflow_run_id,
                                             self.workflow_id,
                                             self.heartbeat_date)
 
     def has_lost_workflow_run(self, query_time: datetime, loss_threshold: int) -> bool:
-        """Return a bool if the workflow_run is lost"""
+        """Return a bool if the workflow_run is lost."""
         time_since_last_heartbeat = (query_time - self.heartbeat_date)
         return time_since_last_heartbeat > timedelta(minutes=loss_threshold)
 
     def transition_to_error(self) -> str:
-        # Transition workflow run to E
+        """Transition workflow run to error."""
         app_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
         return_code, response = self._requester.send_request(
             app_route=app_route,
@@ -73,6 +77,7 @@ class ReaperWorkflowRun(object):
         return message
 
     def transition_to_terminated(self) -> str:
+        """Transition workflow run to terminated."""
         app_route = f'/swarm/workflow_run/{self.workflow_run_id}/terminate'
         return_code, response = self._requester.send_request(
             app_route=app_route,
@@ -101,7 +106,8 @@ class ReaperWorkflowRun(object):
         Args:
             aborted_seconds: how long to wait for new bind activity (adding tasks) before
                 declaring the workflow aborted.
-        task."""
+        task.
+        """
         # TODO: move aborted time into config file
         # Get workflow_runs current state and the status_date of it's newest task
         app_route = f'/swarm/workflow_run/{self.workflow_run_id}/aborted/{aborted_seconds}'
@@ -126,5 +132,6 @@ class ReaperWorkflowRun(object):
         return message
 
     def __repr__(self):
+        """Return formatted reaper workflow run data."""
         return (f"ReaperWorkflowRun(workflow_run_id={self.workflow_run_id}, "
                 f"workflow_id={self.workflow_id}, heartbeat_date={self.heartbeat_date}")

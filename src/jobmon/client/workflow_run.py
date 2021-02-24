@@ -1,15 +1,17 @@
+"""The workflow run is an instance of a workflow"""
 import getpass
 import time
-from typing import List, Tuple, Optional, Dict
-
-import structlog as logging
+from typing import Dict, List, Optional, Tuple
 
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
-from jobmon.requester import Requester, http_request_ok
 from jobmon.client.task import Task
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
+from jobmon.requester import Requester, http_request_ok
+
+import structlog as logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +48,7 @@ class WorkflowRun(object):
 
     def bind(self, tasks: Dict[int, Task], reset_if_running: bool = True,
              chunk_size: int = 500) -> Dict[int, Task]:
-
+        """Link this workflow run with the workflow and add all tasks."""
         current_wfr_id, current_wfr_status = self._link_to_workflow()
         # we did not successfully link. returned workflow_run_id is not the same as this ID
         if self.workflow_run_id != current_wfr_id:
@@ -138,7 +140,8 @@ class WorkflowRun(object):
 
             # send to server in a format of:
             # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3),
-            # command(4), max_attempts(5)], reset_if_running(6), task_args(7), task_attributes(8)}
+            # command(4), max_attempts(5)], reset_if_running(6), task_args(7),
+            # task_attributes(8)}
             # flat the data structure so that the server won't depend on the client
             task_metadata: Dict[int, List] = {}
             for task_hash in task_hashes_chunk:

@@ -1,13 +1,16 @@
-from http import HTTPStatus as StatusCodes
-from flask import jsonify, request, Blueprint, current_app as app
-from werkzeug.local import LocalProxy
-
+"""Routes for CLI requests."""
 import json
+from http import HTTPStatus as StatusCodes
+
+from flask import Blueprint, current_app as app, jsonify, request
+
+from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
+from jobmon.server.web.models import DB
+from jobmon.server.web.server_side_exception import InvalidUsage
 
 import pandas as pd
 
-from jobmon.server.web.models import DB
-from jobmon.constants import TaskStatus, TaskInstanceStatus, WorkflowStatus as Statuses
+from werkzeug.local import LocalProxy
 
 
 jobmon_cli = Blueprint("jobmon_cli", __name__)
@@ -70,6 +73,7 @@ def health():
 
 @jobmon_cli.route("/workflow_validation", methods=['GET'])
 def get_workflow_validation_status():
+    """Check if workflow is valid."""
     # initial params
     task_ids = request.args.getlist('task_ids')
 
@@ -106,6 +110,7 @@ def get_workflow_validation_status():
 
 @jobmon_cli.route('/workflow_status', methods=['GET'])
 def get_workflow_status():
+    """Get the status of the workflow."""
     # initial params
     params = {}
     user_request = request.args.getlist('user')
@@ -188,9 +193,8 @@ def get_workflow_status():
             df[col + "_pct"] = (
                 df[col].astype(float) / df["TASKS"].astype(float)) * 100
             df[col + "_pct"] = df[[col + "_pct"]].round(1)
-            df[col] = (
-                df[col].astype(int).astype(str) +
-                " (" + df[col + "_pct"].astype(str) + "%)")
+            df[col] = (df[col].astype(int).astype(str) + " (" + df[col + "_pct"].astype(
+                str) + "%)")
 
         # df.replace(to_replace={"0 (0.0%)": "NA"}, inplace=True)
         # final order
@@ -211,6 +215,7 @@ def get_workflow_status():
 
 @jobmon_cli.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
 def get_workflow_tasks(workflow_id):
+    """Get the tasks for a given workflow."""
     params = {"workflow_id": workflow_id}
     where_clause = "WHERE workflow.id = :workflow_id"
     status_request = request.args.getlist('status', None)
@@ -219,7 +224,6 @@ def get_workflow_tasks(workflow_id):
         params["status"] = [i for arg in status_request
                             for i in _reversed_cli_label_mapping[arg]]
         where_clause += " AND task.status in :status"
-
     q = """
         SELECT
             task.id AS TASK_ID,
@@ -254,8 +258,10 @@ def get_workflow_tasks(workflow_id):
 
 @jobmon_cli.route('/task_status', methods=['GET'])
 def get_task_status():
-
+    """Get the status of a task."""
     task_ids = request.args.getlist('task_ids')
+    if len(task_ids) == 0:
+        raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
     params = {'task_ids': task_ids}
     where_clause = "task.id IN :task_ids"
 
@@ -266,7 +272,6 @@ def get_task_status():
                         for i in _reversed_task_instance_label_mapping[arg]]
         params['status'] = status_codes
         where_clause += " AND task_instance.status IN :status"
-
     q = """
         SELECT
             task.id AS TASK_ID,
@@ -316,7 +321,6 @@ def get_workflow_users(workflow_id: int):
 
     Used to validate permissions for a self-service request.
     """
-
     query = """
         SELECT DISTINCT user
         FROM workflow_run
@@ -327,6 +331,30 @@ def get_workflow_users(workflow_id: int):
 
     usernames = [row.user for row in result]
     resp = jsonify(usernames=usernames)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/workflow/<workflow_id>/validate_username', methods=['GET'])
+def get_workflow_user_validation(workflow_id: int):
+    """
+    Return all usernames associated with a given workflow_id's workflow runs.
+
+    Used to validate permissions for a self-service request.
+    """
+    user = request.args.get('username')
+    query = """
+        SELECT DISTINCT user
+        FROM workflow_run
+        WHERE workflow_run.workflow_id = {workflow_id}
+    """.format(workflow_id=workflow_id)
+
+    result = DB.session.execute(query)
+
+    usernames = [row.user for row in result]
+
+    resp = jsonify(validation=user in usernames)
 
     resp.status_code = StatusCodes.OK
     return resp
@@ -346,6 +374,7 @@ def _get_node_downstream(nodes: set, dag_id: int) -> set:
         AND node_id in {nodes_str}
     """
     result = DB.session.execute(q).fetchall()
+
     if result is None or len(result) == 0:
         return []
     node_ids = set()
@@ -411,6 +440,8 @@ def get_task_subdag():
     # Only return sub tasks in the following status. If empty or None, return all
     task_ids = request.args.getlist('task_ids')
     task_status = request.args.getlist('task_status')
+    if len(task_ids) == 0:
+        raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
     task_ids_str = "("
     for t in task_ids:
         task_ids_str += str(t) + ","
@@ -423,6 +454,7 @@ def get_task_subdag():
         WHERE task.id in {task_ids_str} and task.workflow_id = workflow.id
     """
     result = DB.session.execute(q).fetchall()
+
     if result is None:
         # return empty values when task_id does not exist or db out of consistency
         resp = jsonify(workflow_id=None, sub_task=None)
@@ -446,43 +478,51 @@ def get_task_subdag():
 
 @jobmon_cli.route('/task/update_statuses', methods=['PUT'])
 def update_task_statuses():
-
+    """Update the status of the tasks."""
     data = request.get_json()
-    task_ids = data['task_ids']
-    new_status = data['new_status']
-    workflow_status = data['workflow_status']
-    workflow_id = data['workflow_id']
+    try:
+        task_ids = data['task_ids']
+        new_status = data['new_status']
+        workflow_status = data['workflow_status']
+        workflow_id = data['workflow_id']
+    except KeyError as e:
+        raise InvalidUsage(f"problem with {str(e)} in request to {request.path}",
+                           status_code=400) from e
 
     task_ids_str = '(' + ','.join([str(i) for i in task_ids]) + ')'
+    try:
+        task_q = """
+            UPDATE task
+            SET status = '{new_status}'
+            WHERE id IN {task_ids}
+        """.format(new_status=new_status, task_ids=task_ids_str)
 
-    task_q = """
-        UPDATE task
-        SET status = '{new_status}'
-        WHERE id IN {task_ids}
-    """.format(new_status=new_status, task_ids=task_ids_str)
+        task_res = DB.session.execute(task_q)
+    except KeyError as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
-    task_res = DB.session.execute(task_q)
+    try:
+        # If job is supposed to be rerun, set task instances to "K"
+        if new_status == TaskStatus.REGISTERED:
+            task_instance_q = """
+                UPDATE task_instance
+                SET status = '{k_code}'
+                WHERE task_id in {task_ids}
+            """.format(k_code=TaskInstanceStatus.KILL_SELF, task_ids=task_ids_str)
+            DB.session.execute(task_instance_q)
 
-    # If job is supposed to be rerun, set task instances to "K"
-    if new_status == TaskStatus.REGISTERED:
+            # If workflow is done, need to set it to an error state before resume
+            if workflow_status == Statuses.DONE:
+                workflow_q = """
+                    UPDATE workflow
+                    SET status = '{status}'
+                    WHERE id = {workflow_id}
+                """.format(status=Statuses.FAILED, workflow_id=workflow_id)
+                DB.session.execute(workflow_q)
 
-        task_instance_q = """
-            UPDATE task_instance
-            SET status = '{k_code}'
-            WHERE task_id in {task_ids}
-        """.format(k_code=TaskInstanceStatus.KILL_SELF, task_ids=task_ids_str)
-        DB.session.execute(task_instance_q)
-
-        # If workflow is done, need to set it to an error state before resume
-        if workflow_status == Statuses.DONE:
-            workflow_q = """
-                UPDATE workflow
-                SET status = '{status}'
-                WHERE id = {workflow_id}
-            """.format(status=Statuses.FAILED, workflow_id=workflow_id)
-            DB.session.execute(workflow_q)
-
-    DB.session.commit()
+        DB.session.commit()
+    except KeyError as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     message = f"{task_res.rowcount} rows updated to status {new_status}"
     resp = jsonify(message)
@@ -492,9 +532,12 @@ def update_task_statuses():
 
 @jobmon_cli.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
 def update_max_running(workflow_id):
-
+    """Update the number of tasks that can be running concurrently for a given workflow."""
     data = request.get_json()
-    new_limit = data['max_tasks']
+    try:
+        new_limit = data['max_tasks']
+    except KeyError as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     q = """
         UPDATE workflow

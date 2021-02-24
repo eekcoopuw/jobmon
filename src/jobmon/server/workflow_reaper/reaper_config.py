@@ -1,3 +1,4 @@
+"""Configuration specific to reaper."""
 from __future__ import annotations
 
 from typing import Optional
@@ -6,9 +7,11 @@ from jobmon.config import CLI, ParserDefaults
 
 
 class WorkflowReaperConfig:
+    """Configuration specific to reaper."""
 
     @classmethod
     def from_defaults(cls) -> WorkflowReaperConfig:
+        """If nothing specified by user, set up with defaults."""
         cli = CLI()
         ParserDefaults.reaper_poll_interval_minutes(cli.parser)
         ParserDefaults.reaper_loss_threshold(cli.parser)
@@ -49,4 +52,5 @@ class WorkflowReaperConfig:
 
     @property
     def url(self):
+        """URL to connect to the jobmon flask web services."""
         return f"http://{self.host}:{self.port}"

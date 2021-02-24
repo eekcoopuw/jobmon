@@ -1,11 +1,14 @@
+"""Task Template database table."""
 from jobmon.server.web.models import DB
 
 
 class TaskTemplate(DB.Model):
+    """Task Template database table."""
 
     __tablename__ = 'task_template'
 
     def to_wire_as_client_task_template(self) -> tuple:
+        """Serialize Task Template."""
         # serialized = SerializeClientTool.to_wire(id=self.id, name=self.name)
         # return serialized
         pass

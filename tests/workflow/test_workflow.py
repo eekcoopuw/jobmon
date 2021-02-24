@@ -1,6 +1,6 @@
-import pytest
-
 from jobmon.exceptions import NodeDependencyNotExistError
+
+import pytest
 
 
 def test_add_tasks_dependencynotexist(db_cfg, client_env):

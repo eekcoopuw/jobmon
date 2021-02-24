@@ -1,9 +1,8 @@
-import pytest
-
-from jobmon.exceptions import WorkflowAlreadyComplete
-from jobmon.constants import WorkflowRunStatus
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.exceptions import DuplicateNodeArgsError
+from jobmon.constants import WorkflowRunStatus
+from jobmon.exceptions import WorkflowAlreadyComplete, DuplicateNodeArgsError
+
+import pytest
 
 
 def test_wfargs_update(client_env, db_cfg):

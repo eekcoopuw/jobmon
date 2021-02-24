@@ -1,6 +1,6 @@
+"""Add handlers to deal with server-side exceptions and logging."""
 import logging
-import traceback
-from typing import Optional, Dict
+from typing import Dict, Optional
 
 from flask import jsonify, request
 
@@ -9,6 +9,7 @@ from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
 
 
 def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
+    """Add logging hooks and exception handlers."""
 
     @app.before_first_request
     def setup_logging():
@@ -22,6 +23,19 @@ def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
         # sqlalchemy logger
         sqlalchemy_logger = logging.getLogger('sqlalchemy')
         sqlalchemy_logger.setLevel(logging.WARNING)
+
+    @app.errorhandler(Exception)
+    def handle_anything(error):
+        try:
+            status_code = error.status_code
+        except AttributeError:
+            status_code = 500
+        response_dict = {"type": str(type(error)), "exception_message": str(error)}
+        app.logger.exception(response_dict, status_code=status_code)
+        response = jsonify(error=response_dict)
+        response.content_type = "application/json"
+        response.status_code = status_code
+        return response
 
     # handle 404 at the application level not the blueprint level
     @app.errorhandler(404)
@@ -43,10 +57,6 @@ def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
     # error handling
     @app.errorhandler(ServerError)
     def handle_5xx(error):
-        print("foo")
-        tb = error.__traceback__
-        stack_trace = traceback.format_list(traceback.extract_tb(tb))
-        print(stack_trace)
         response_dict = {"type": str(type(error)), "exception_message": str(error)}
         app.logger.exception(response_dict, status_code=error.status_code)
         response = jsonify(error=response_dict)

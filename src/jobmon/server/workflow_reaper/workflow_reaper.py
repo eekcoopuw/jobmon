@@ -1,17 +1,19 @@
-from datetime import datetime
+"""Service to monitor and reap dead workflows."""
 import logging
+from datetime import datetime
 from time import sleep
 from typing import List
 
 from jobmon import __version__
-from jobmon.requester import Requester, http_request_ok
 from jobmon.exceptions import InvalidResponse
+from jobmon.requester import Requester, http_request_ok
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
 
 logger = logging.getLogger(__file__)
 
 
 class WorkflowReaper(object):
+    """Monitoring and reaping dead workflows."""
 
     def __init__(self, poll_interval_minutes: int, loss_threshold: int, requester: Requester,
                  wf_notification_sink=None):
@@ -33,15 +35,16 @@ class WorkflowReaper(object):
                 f"loss threshold ({self._loss_threshold} min)")
 
     def monitor_forever(self) -> None:
-        """The main part of the Worklow Reaper. Check if workflow runs should
-        be in ABORTED, SUSPENDED, or ERROR state. Wait and do it again."""
+        """The main part of the Worklow Reaper. Check if workflow runs should be in ABORTED,
+        SUSPENDED, or ERROR state. Wait and do it again.
+        """
         logger.info("Monitoring forever...")
 
         if self._wf_notification_sink is not None:
             self._wf_notification_sink(msg=f"Workflow Reaper v{__version__} is alive")
         try:
             while True:
-                self._suspended_state()
+                self._terminated_state()
                 self._aborted_state()
                 self._error_state()
                 sleep(self._poll_interval_minutes * 60)
@@ -49,7 +52,7 @@ class WorkflowReaper(object):
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
 
     def _check_by_given_status(self, status: List[str]) -> List[ReaperWorkflowRun]:
-        """Return all workflows that are in a specific state"""
+        """Return all workflows that are in a specific state."""
         logger.info(f"Checking the database for workflow runs of status: {status}")
 
         app_route = "/client/workflow_run_status"
@@ -109,8 +112,7 @@ class WorkflowReaper(object):
         return lost_wfrs
 
     def _error_state(self) -> None:
-        """Get lost workflows and register them as error"""
-
+        """Get lost workflows and register them as error."""
         lost_wfrs = self._get_lost_workflow_runs()
 
         # Transitions workflow to FAILED state and workflow run to ERROR
@@ -123,9 +125,7 @@ class WorkflowReaper(object):
 
     def _aborted_state(self, workflow_run_id: int = None, aborted_seconds: int = (60 * 2)
                        ) -> None:
-        """Get all workflow runs in G state and validate if they should be in
-        A state"""
-
+        """Get all workflow runs in G state and validate if they should be in A state."""
         # Get all wfrs in G state
         workflow_runs = self._check_by_given_status(["G"])
 

@@ -1,7 +1,8 @@
 import time
-import pytest
 
 from jobmon.requester import Requester
+
+import pytest
 
 
 class MockSchedulerProc:

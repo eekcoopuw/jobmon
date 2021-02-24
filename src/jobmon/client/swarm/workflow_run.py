@@ -1,18 +1,17 @@
+"""Workflow Run is an execution instance of a declared workflow."""
 import copy
-import getpass
-from multiprocessing import Process
 import time
 from datetime import datetime
-from typing import Dict, Set, List, Tuple, Optional
+from multiprocessing import Process
+from typing import Dict, List, Optional, Set, Tuple
 
-import structlog as logging
-
-from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
-from jobmon.requester import Requester, http_request_ok
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunStatus
-from jobmon.exceptions import InvalidResponse, WorkflowNotResumable, SchedulerNotAlive
+from jobmon.exceptions import InvalidResponse, SchedulerNotAlive
+from jobmon.requester import Requester, http_request_ok
+
+import structlog as logging
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +23,7 @@ ValueError = ValueError
 
 class WorkflowRunExecutionStatus(object):
     """Enumerate possible exit statuses for WorkflowRun._execute()"""
+
     SUCCEEDED = 0
     FAILED = 1
     STOPPED_BY_USER = 2
@@ -64,11 +64,12 @@ class WorkflowRun(object):
 
     @property
     def status(self) -> str:
+        """Status of the workflow run."""
         return self._status
 
     @property
     def active_tasks(self) -> List[SwarmTask]:
-        """List of tasks that are listed as Registered, Done or Error_Fatal"""
+        """List of tasks that are listed as Registered, Done or Error_Fatal."""
         terminal_status = [
             TaskStatus.REGISTERED, TaskStatus.DONE, TaskStatus.ERROR_FATAL]
         return [task for task in self.swarm_tasks.values()
@@ -76,6 +77,7 @@ class WorkflowRun(object):
 
     @property
     def scheduler_alive(self) -> bool:
+        """If the scheduler process is still active."""
         if not hasattr(self, "_scheduler_proc"):
             return False
         else:
@@ -84,14 +86,13 @@ class WorkflowRun(object):
 
     @property
     def completed_report(self) -> Tuple:
+        """After workflow run has run through, report on success and status."""
         if not hasattr(self, "_completed_report"):
             raise AttributeError("Must executor workflow run before first")
         return self._completed_report
 
     def update_status(self, status: str) -> None:
-        """Update the status of the workflow_run with whatever status is
-        passed
-        """
+        """Update the status of the workflow_run with whatever status is passed."""
         app_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -108,6 +109,7 @@ class WorkflowRun(object):
 
     def execute_interruptible(self, scheduler_proc: Process, fail_fast: bool = False,
                               seconds_until_timeout: int = 36000):
+        """Execute the workflow run."""
         # _block_until_any_done_or_error continually checks to make sure this
         # process is alive
         self._scheduler_proc = scheduler_proc
@@ -125,6 +127,7 @@ class WorkflowRun(object):
                     logger.info("Continuing jobmon execution...")
 
     def terminate_workflow_run(self) -> None:
+        """Terminate the workflow run."""
         app_route = f'/client/workflow_run/{self.workflow_run_id}/terminate'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -367,8 +370,9 @@ class WorkflowRun(object):
             time_since_last_wedge_sync += poll_interval
 
     def _task_status_updates(self, swarm_tasks: List[SwarmTask] = []) -> List[SwarmTask]:
-        """update internal state of tasks to match the database. if no tasks
-        are specified, get"""
+        """Update internal state of tasks to match the database. If no tasks are specified,
+        get all.
+        """
         swarm_tasks_tuples = [t.to_wire() for t in swarm_tasks]
         app_route = f'/swarm/workflow/{self.workflow_id}/task_status_updates'
         return_code, response = self.requester.send_request(
@@ -390,7 +394,7 @@ class WorkflowRun(object):
 
     def _parse_adjusting_done_and_errors(self, swarm_tasks: List[SwarmTask]) \
             -> Tuple[Set[SwarmTask], Set[SwarmTask], Set[SwarmTask]]:
-        """Separate out the done jobs from the errored ones
+        """Separate out the done jobs from the errored ones.
         Args:
             tasks (list): list of objects of type models:Task
         """
@@ -414,9 +418,8 @@ class WorkflowRun(object):
         return completed_tasks, failed_tasks, adjusting_tasks
 
     def _propagate_results(self, swarm_task: SwarmTask) -> List[SwarmTask]:
-        """
-        For all its downstream tasks, is that task now ready to run?
-        Also mark this Task as DONE
+        """For all its downstream tasks, is that task now ready to run? Also mark this Task as
+        DONE.
 
         :param task: The task that just completed
         :return: Tasks to be added to the fringe

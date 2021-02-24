@@ -1,7 +1,8 @@
 import time
-import pytest
 
 from jobmon.constants import QsubAttribute
+
+import pytest
 
 
 class MockSchedulerProc:

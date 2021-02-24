@@ -1,9 +1,9 @@
-import pytest
-
 import json
 
 from jobmon.log_config import configure_logger
 from jobmon.requester import Requester
+
+import pytest
 
 
 @pytest.fixture(scope="function")
@@ -41,7 +41,7 @@ def test_server_logging_format(web_server_in_memory, log_config):
             "workflow_args_hash": wf.workflow_args_hash,
             "task_hash": wf.task_hash
         },
-        request_type='get'
+        request_type='post'
     )
 
     with open(log_config, "r") as server_log_file:
@@ -89,3 +89,14 @@ def test_error_handling(web_server_in_memory, log_config, monkeypatch):
                 captured_exception = True
 
     assert captured_exception
+
+
+def test_server_500(web_server_in_memory):
+    test_requester = Requester('')
+    rc, resp = test_requester._send_request(
+        app_route='/client/test_bad',
+        message={},
+        request_type='get'
+    )
+    assert rc == 500
+    assert 'MySQLdb._exceptions.ProgrammingError' in resp['error']['exception_message']

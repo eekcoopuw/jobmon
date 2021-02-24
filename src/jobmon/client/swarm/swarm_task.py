@@ -1,28 +1,29 @@
+"""Swarm side task object."""
 from __future__ import annotations
 
 from http import HTTPStatus as StatusCodes
-from typing import Callable, Set, Dict, Optional, List
-
-import structlog as logging
+from typing import Callable, Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.requester import Requester, http_request_ok
 from jobmon.constants import ExecutorParameterSetType, TaskStatus
-from jobmon.exceptions import InvalidResponse, CallableReturnedInvalidObject
+from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
+from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeSwarmTask
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)
 
 
 class SwarmTask(object):
+    """Swarm side task object."""
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  executor_parameters: Optional[Callable] = None,
                  max_attempts: int = 3, requester: Optional[Requester] = None) -> None:
-        """
-        Implementing swarm behavior of tasks
+        """Implementing swarm behavior of tasks
 
         Args
             task_id: id of task object from bound db object
@@ -55,16 +56,18 @@ class SwarmTask(object):
 
     @staticmethod
     def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]) -> SwarmTask:
+        """Return dict of swarm_task attrributes from db."""
         kwargs = SerializeSwarmTask.kwargs_from_wire(wire_tuple)
         swarm_tasks_dict[kwargs["task_id"]].status = kwargs["status"]
         return swarm_tasks_dict[kwargs["task_id"]]
 
     def to_wire(self) -> tuple:
+        """Send attributes to db."""
         return SerializeSwarmTask.to_wire(self.task_id, self.status)
 
     @property
     def all_upstreams_done(self) -> bool:
-        """Return a bool of if upstreams are done or not"""
+        """Return a bool of if upstreams are done or not."""
         if (self.num_upstreams_done >= len(self.upstream_tasks)):
             logger.debug(f"task id: {self.task_id} is checking all upstream tasks")
             return all([u.is_done for u in self.upstream_tasks])
@@ -73,26 +76,25 @@ class SwarmTask(object):
 
     @property
     def is_done(self) -> bool:
-        """Return a book of if this task is done or now"""
+        """Return a book of if this task is done or now."""
         return self.status == TaskStatus.DONE
 
     @property
     def downstream_tasks(self) -> List[SwarmTask]:
-        """Return list of downstream tasks"""
+        """Return list of downstream tasks."""
         return list(self.downstream_swarm_tasks)
 
     @property
     def upstream_tasks(self) -> List[SwarmTask]:
-        """Return a list of upstream tasks"""
+        """Return a list of upstream tasks."""
         return list(self.upstream_swarm_tasks)
 
     def get_executor_parameters(self):
-        """return an instance of executor parameters"""
+        """Return an instance of executor parameters."""
         return self.executor_parameters_callable(self)
 
     def queue_task(self) -> int:
-        """Transition a task to the Queued for Instantiation status in the db
-        """
+        """Transition a task to the Queued for Instantiation status in the db."""
         rc, _ = self.requester.send_request(
             app_route=f'/swarm/task/{self.task_id}/queue',
             message={},
@@ -106,9 +108,9 @@ class SwarmTask(object):
 
     @staticmethod
     def adjust_resources(self) -> ExecutorParameters:
-        """Function from Job Instance Factory that adjusts resources and then
-           queues them, this should also incorporate resource binding if they
-           have not yet been bound"""
+        """Function from Job Instance Factory that adjusts resources and then queues them,
+        this should also incorporate resource binding if they have not yet been bound.
+        """
         logger.debug("Job in A state, adjusting resources before queueing")
 
         # get the most recent parameter set
@@ -140,8 +142,7 @@ class SwarmTask(object):
         return exec_param_set
 
     def bind_executor_parameters(self, executor_parameter_set_type: str) -> None:
-        """bind executor parameters to db"""
-
+        """Bind executor parameters to db."""
         # evaluate callable and validate it is the right type of object
         executor_parameters = self.get_executor_parameters()
         if not isinstance(executor_parameters, ExecutorParameters):

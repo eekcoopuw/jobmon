@@ -1,5 +1,6 @@
-import pytest
 import time
+
+import pytest
 
 DAG_SIZE = 100000
 

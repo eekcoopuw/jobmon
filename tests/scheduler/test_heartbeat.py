@@ -1,8 +1,8 @@
 from multiprocessing import Queue
 
-import pytest
-
 from jobmon.exceptions import ResumeSet
+
+import pytest
 
 
 class MockSchedulerProc:

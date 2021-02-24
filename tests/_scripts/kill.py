@@ -1,4 +1,4 @@
-import sys
 import signal
+import sys
 
 sys.exit(signal.SIGKILL)

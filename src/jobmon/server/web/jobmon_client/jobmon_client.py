@@ -1,53 +1,56 @@
-from http import HTTPStatus as StatusCodes
-import os
+"""Routes used by the main jobmon client."""
 import json
-from typing import Dict, Union, List, Set
+import os
+from http import HTTPStatus as StatusCodes
+from typing import Dict, List, Set, Union
 
-from flask import jsonify, request, Blueprint, current_app as app
-from sqlalchemy.sql import text, func
-from sqlalchemy.dialects.mysql import insert
-import sqlalchemy
+
+from flask import Blueprint, current_app as app, jsonify, request
 
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.arg_type import ArgType
-from jobmon.server.web.models.task_attribute import TaskAttribute
-from jobmon.server.web.models.task_attribute_type import TaskAttributeType
-from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
-from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.server.web.models.template_arg_map import TemplateArgMap
 from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.edge import Edge
-from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.node_arg import NodeArg
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
+from jobmon.server.web.models.task_attribute import TaskAttribute
+from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 from jobmon.server.web.models.task_instance import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
+from jobmon.server.web.models.template_arg_map import TemplateArgMap
 from jobmon.server.web.models.tool import Tool
 from jobmon.server.web.models.tool_version import ToolVersion
 from jobmon.server.web.models.workflow import Workflow
-from jobmon.server.web.models.workflow_status import WorkflowStatus
+from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
+from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.web.server_side_exception import (ServerError, InvalidUsage)
+from jobmon.server.web.server_side_exception import (InvalidUsage, ServerError)
+
+import sqlalchemy
+from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.sql import func, text
+
 
 jobmon_client = Blueprint("jobmon_client", __name__)
 
 
 @jobmon_client.before_request  # try before_first_request so its quicker
 def log_request_info():
+    """Add blueprint to logger."""
     app.logger = app.logger.bind(blueprint=jobmon_client.name)
     app.logger.debug("starting route execution")
 
 
 @jobmon_client.route('/', methods=['GET'])
 def _is_alive():
-    """A simple 'action' that sends a response to the requester indicating
-    that this responder is in fact listening
+    """A simple 'action' that sends a response to the requester indicating that this responder
+    is in fact listening.
     """
     app.logger.info(f"{os.getpid()}: {app.name} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
@@ -65,14 +68,11 @@ def _get_time():
 
 @jobmon_client.route("/time", methods=['GET'])
 def get_pst_now():
-    try:
-        time = _get_time()
-        resp = jsonify(time=time)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    """Get the time from the database."""
+    time = _get_time()
+    resp = jsonify(time=time)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route("/health", methods=['GET'])
@@ -81,16 +81,12 @@ def health():
     Test connectivity to the database, return 200 if everything is ok
     Defined in each module with a different route, so it can be checked individually
     """
-    try:
-        app.logger.info(DB.session.bind.pool.status())
-        _get_time()
-        # Assume that if we got this far without throwing an exception, we should be online
-        resp = jsonify(status='OK')
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    app.logger.info(DB.session.bind.pool.status())
+    _get_time()
+    # Assume that if we got this far without throwing an exception, we should be online
+    resp = jsonify(status='OK')
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/tool', methods=['POST'])
@@ -104,9 +100,6 @@ def add_tool():
     except KeyError as e:
         raise InvalidUsage(f"Parameter name is missing in path {request.path}",
                            status_code=400) from e
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
 
     # add tool to db
     try:
@@ -123,31 +116,25 @@ def add_tool():
         resp = jsonify(tool=tool)
         resp.status_code = StatusCodes.OK
         return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
 
 
 @jobmon_client.route('/tool/<tool_name>', methods=['GET'])
 def get_tool(tool_name: str):
+    """Get the Tool object from the database."""
     # get data from db
     app.logger = app.logger.bind(tool_name=tool_name)
     app.logger.info("Getting tool by name")
-    try:
-        query = """
-            SELECT
-                tool.*
-            FROM
-                tool
-            WHERE
-                name = :tool_name"""
-        tool = DB.session.query(Tool).from_statement(text(query)).params(
-            tool_name=tool_name
-        ).one_or_none()
-        DB.session.commit()
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    query = """
+        SELECT
+            tool.*
+        FROM
+            tool
+        WHERE
+            name = :tool_name"""
+    tool = DB.session.query(Tool).from_statement(text(query)).params(
+        tool_name=tool_name
+    ).one_or_none()
+    DB.session.commit()
     if tool:
         try:
             tool = tool.to_wire_as_client_tool()
@@ -164,6 +151,7 @@ def get_tool(tool_name: str):
 
 @jobmon_client.route('/tool/<tool_id>/tool_versions', methods=['GET'])
 def get_tool_versions(tool_id: int):
+    """Get the Tool Version."""
     # check input variable
     app.logger = app.logger.bind(tool_id=tool_id)
     app.logger.info("Getting available tool versions")
@@ -176,29 +164,26 @@ def get_tool_versions(tool_id: int):
                            status_code=400) from e
 
     # get data from db
-    try:
-        query = """
-            SELECT
-                tool_version.*
-            FROM
-                tool_version
-            WHERE
-                tool_id = :tool_id"""
-        tool_versions = DB.session.query(ToolVersion).from_statement(text(query)).params(
-            tool_id=tool_id
-        ).all()
-        DB.session.commit()
-        tool_versions = [t.to_wire_as_client_tool_version() for t in tool_versions]
-        resp = jsonify(tool_versions=tool_versions)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    query = """
+        SELECT
+            tool_version.*
+        FROM
+            tool_version
+        WHERE
+            tool_id = :tool_id"""
+    tool_versions = DB.session.query(ToolVersion).from_statement(text(query)).params(
+        tool_id=tool_id
+    ).all()
+    DB.session.commit()
+    tool_versions = [t.to_wire_as_client_tool_version() for t in tool_versions]
+    resp = jsonify(tool_versions=tool_versions)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/tool_version', methods=['POST'])
 def add_tool_version():
+    """Add a new version for a Tool."""
     # check input variable
     data = request.get_json()
     try:
@@ -207,21 +192,18 @@ def add_tool_version():
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
-    try:
-        tool_version = ToolVersion(tool_id=tool_id)
-        DB.session.add(tool_version)
-        DB.session.commit()
-        tool_version = tool_version.to_wire_as_client_tool_version()
-        resp = jsonify(tool_version=tool_version)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    tool_version = ToolVersion(tool_id=tool_id)
+    DB.session.add(tool_version)
+    DB.session.commit()
+    tool_version = tool_version.to_wire_as_client_tool_version()
+    resp = jsonify(tool_version=tool_version)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/task_template', methods=['GET'])
 def get_task_template():
+    """Get a task template from the database."""
     # parse args
     try:
         tool_version_id = int(request.args.get("tool_version_id"))
@@ -229,36 +211,32 @@ def get_task_template():
         app.logger = app.logger.bind(tool_version_id=tool_version_id, task_template_name=name)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        # get data from db
-        query = """
-            SELECT
-                task_template.*
-            FROM task_template
-            WHERE
-                tool_version_id = :tool_version_id
-                AND name = :name
-        """
-        tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
-            tool_version_id=tool_version_id,
-            name=name
-        ).one_or_none()
-        if tt is not None:
-            task_template_id = tt.id
-        else:
-            task_template_id = None
+    # get data from db
+    query = """
+        SELECT
+            task_template.*
+        FROM task_template
+        WHERE
+            tool_version_id = :tool_version_id
+            AND name = :name
+    """
+    tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
+        tool_version_id=tool_version_id,
+        name=name
+    ).one_or_none()
+    if tt is not None:
+        task_template_id = tt.id
+    else:
+        task_template_id = None
 
-        resp = jsonify(task_template_id=task_template_id)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
+    resp = jsonify(task_template_id=task_template_id)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/task_template', methods=['POST'])
 def add_task_template():
-    """Add a task template for a given tool to the database"""
+    """Add a task template for a given tool to the database."""
     # check input variable
     data = request.get_json()
     try:
@@ -287,9 +265,6 @@ def add_task_template():
             name=data["task_template_name"]
         ).one()
         DB.session.commit()
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
     resp = jsonify(task_template_id=tt.id)
     resp.status_code = StatusCodes.OK
     return resp
@@ -297,38 +272,36 @@ def add_task_template():
 
 @jobmon_client.route('/task_template/<task_template_id>/version', methods=['GET'])
 def get_task_template_version(task_template_id: int):
+    """Get the task_template_version."""
     # get task template version object
     app.logger = app.logger.bind(task_template_id=task_template_id)
     app.logger.info(f"Getting task template version for task template: {task_template_id}")
-    try:
-        # parse args
-        command_template = request.args.get("command_template")
-        arg_mapping_hash = request.args.get("arg_mapping_hash")
-        query = """
-            SELECT
-                task_template_version.*
-            FROM task_template_version
-            WHERE
-                task_template_id = :task_template_id
-                AND arg_mapping_hash = :arg_mapping_hash
-                AND command_template = :command_template
-        """
-        ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
-            task_template_id=task_template_id,
-            command_template=command_template,
-            arg_mapping_hash=arg_mapping_hash
-        ).one_or_none()
+    # parse args
+    command_template = request.args.get("command_template")
+    arg_mapping_hash = request.args.get("arg_mapping_hash")
+    query = """
+        SELECT
+            task_template_version.*
+        FROM task_template_version
+        WHERE
+            task_template_id = :task_template_id
+            AND arg_mapping_hash = :arg_mapping_hash
+            AND command_template = :command_template
+    """
+    ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
+        task_template_id=task_template_id,
+        command_template=command_template,
+        arg_mapping_hash=arg_mapping_hash
+    ).one_or_none()
 
-        if ttv is not None:
-            wire_obj = ttv.to_wire_as_client_task_template_version()
-        else:
-            wire_obj = None
+    if ttv is not None:
+        wire_obj = ttv.to_wire_as_client_task_template_version()
+    else:
+        wire_obj = None
 
-        resp = jsonify(task_template_version=wire_obj)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    resp = jsonify(task_template_version=wire_obj)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 def _add_or_get_arg(name: str) -> Arg:
@@ -350,7 +323,7 @@ def _add_or_get_arg(name: str) -> Arg:
 
 @jobmon_client.route('/task_template/<task_template_id>/add_version', methods=['POST'])
 def add_task_template_version(task_template_id: int):
-    """Add a tool to the database"""
+    """Add a tool to the database."""
     # check input variables
     app.logger = app.logger.bind(task_template_id=task_template_id)
     data = request.get_json()
@@ -418,9 +391,6 @@ def add_task_template_version(task_template_id: int):
         )
         resp.status_code = StatusCodes.OK
         return resp
-    except Exception as e:
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                          status_code=500) from e
 
 
 @jobmon_client.route('/node', methods=['GET'])
@@ -429,29 +399,25 @@ def get_node_id():
 
     Args:
         node_args_hash: unique identifier of all NodeArgs associated with a node
-        task_template_version_id: version id of the task_template a node
-                                  belongs to.
+        task_template_version_id: version id of the task_template a node belongs to.
     """
-    try:
-        query = """
-            SELECT node.id
-            FROM node
-            WHERE
-                node_args_hash = :node_args_hash
-                AND task_template_version_id = :task_template_version_id"""
-        result = DB.session.query(Node).from_statement(text(query)).params(
-            node_args_hash=request.args['node_args_hash'],
-            task_template_version_id=request.args['task_template_version_id']
-        ).one_or_none()
+    query = """
+        SELECT node.id
+        FROM node
+        WHERE
+            node_args_hash = :node_args_hash
+            AND task_template_version_id = :task_template_version_id"""
+    result = DB.session.query(Node).from_statement(text(query)).params(
+        node_args_hash=request.args['node_args_hash'],
+        task_template_version_id=request.args['task_template_version_id']
+    ).one_or_none()
 
-        if result is None:
-            resp = jsonify({'node_id': None})
-        else:
-            resp = jsonify({'node_id': result.id})
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    if result is None:
+        resp = jsonify({'node_id': None})
+    else:
+        resp = jsonify({'node_id': result.id})
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/node', methods=['POST'])
@@ -459,10 +425,8 @@ def add_node():
     """Add a new node to the database.
 
     Args:
-        node_args_hash: unique identifier of all NodeArgs associated with a
-                        node.
-        task_template_version_id: version id of the task_template a node
-                                  belongs to.
+        node_args_hash: unique identifier of all NodeArgs associated with a node.
+        task_template_version_id: version id of the task_template a node belongs to.
         node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
@@ -512,9 +476,6 @@ def add_node():
         resp = jsonify(node_id=node.id)
         resp.status_code = StatusCodes.OK
         return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}",
-                          status_code=500) from e
 
 
 @jobmon_client.route('/nodes', methods=['POST'])
@@ -523,80 +484,74 @@ def add_nodes():
 
     Args:
         nodes: a list of
-            node_args_hash: unique identifier of all NodeArgs associated with a
-            node.
-        task_template_version_id: version id of the task_template a node
-            belongs to.
+            node_args_hash: unique identifier of all NodeArgs associated with a node.
+        task_template_version_id: version id of the task_template a node belongs to.
         node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
-    try:
+    # Extract node and node_args
+    nodes = [(n['task_template_version_id'], n['node_args_hash']) for n in data['nodes']]
 
-        # Extract node and node_args
-        nodes = [(n['task_template_version_id'], n['node_args_hash']) for n in data['nodes']]
+    # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
+    # keys
+    nodes_to_add = [
+        {'task_template_version_id': ttv, 'node_args_hash': arghash}
+        for ttv, arghash in nodes
+    ]
+    node_insert_stmt = insert(Node).prefix_with("IGNORE")
+    DB.session.execute(node_insert_stmt, nodes_to_add)
+    DB.session.commit()
 
-        # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
-        # keys
-        nodes_to_add = [
-            {'task_template_version_id': ttv, 'node_args_hash': arghash}
-            for ttv, arghash in nodes
-        ]
-        node_insert_stmt = insert(Node).prefix_with("IGNORE")
-        DB.session.execute(node_insert_stmt, nodes_to_add)
+    # Retrieve the node IDs
+    ttvids, node_arg_hashes = zip(*nodes)
+    node_ids_query = """
+        SELECT *
+        FROM node
+        WHERE
+            task_template_version_id IN :task_template_version_id
+            AND node_args_hash IN :node_args_hash
+    """
+    node_ids = DB.session.query(Node).from_statement(text(node_ids_query)).params(
+        task_template_version_id=ttvids,
+        node_args_hash=node_arg_hashes
+    ).all()
+
+    node_id_dict = {
+        (n.task_template_version_id, str(n.node_args_hash)): n.id
+        for n in node_ids
+    }
+
+    # Add node args. Cast hash to string to match DB schema
+    node_args = {(n['task_template_version_id'], str(n['node_args_hash'])): n['node_args']
+                 for n in data['nodes']}
+
+    node_args_list = []
+    for node_id_tuple, arg in node_args.items():
+
+        node_id = node_id_dict[node_id_tuple]
+
+        for arg_id, val in arg.items():
+            app.logger.debug(f'Adding node_arg with node_id: {node_id}, arg_id: {arg_id}, '
+                             f'and val: {val}',
+                             node_id=node_id)
+            node_args_list.append({
+                'node_id': node_id,
+                'arg_id': arg_id,
+                'val': val
+            })
+
+    # Bulk insert again with raw SQL
+    if node_args_list:
+        node_arg_insert_stmt = insert(NodeArg).prefix_with("IGNORE")
+        DB.session.execute(node_arg_insert_stmt, node_args_list)
         DB.session.commit()
 
-        # Retrieve the node IDs
-        ttvids, node_arg_hashes = zip(*nodes)
-        node_ids_query = """
-            SELECT *
-            FROM node
-            WHERE
-                task_template_version_id IN :task_template_version_id
-                AND node_args_hash IN :node_args_hash
-        """
-        node_ids = DB.session.query(Node).from_statement(text(node_ids_query)).params(
-            task_template_version_id=ttvids,
-            node_args_hash=node_arg_hashes
-        ).all()
-
-        node_id_dict = {
-            (n.task_template_version_id, str(n.node_args_hash)): n.id
-            for n in node_ids
-        }
-
-        # Add node args. Cast hash to string to match DB schema
-        node_args = {(n['task_template_version_id'], str(n['node_args_hash'])): n['node_args']
-                     for n in data['nodes']}
-
-        node_args_list = []
-        for node_id_tuple, arg in node_args.items():
-
-            node_id = node_id_dict[node_id_tuple]
-
-            for arg_id, val in arg.items():
-                app.logger.debug(f'Adding node_arg with node_id: {node_id}, arg_id: {arg_id}, '
-                                 f'and val: {val}',
-                                 node_id=node_id)
-                node_args_list.append({
-                    'node_id': node_id,
-                    'arg_id': arg_id,
-                    'val': val
-                })
-
-        # Bulk insert again with raw SQL
-        if node_args_list:
-            node_arg_insert_stmt = insert(NodeArg).prefix_with("IGNORE")
-            DB.session.execute(node_arg_insert_stmt, node_args_list)
-            DB.session.commit()
-
-        # return result
-        return_nodes = {':'.join(str(i) for i in key): val for key, val in
-                        node_id_dict.items()}
-        resp = jsonify(nodes=return_nodes)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    # return result
+    return_nodes = {':'.join(str(i) for i in key): val for key, val in
+                    node_id_dict.items()}
+    resp = jsonify(nodes=return_nodes)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/dag', methods=['POST'])
@@ -636,63 +591,58 @@ def add_dag():
         resp.status_code = StatusCodes.OK
 
         return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}",
-                          status_code=500) from e
 
 
 @jobmon_client.route('/dag/<dag_id>/edges', methods=['POST'])
 def add_edges(dag_id):
+    """Add edges to the edge table."""
     try:
         data = request.get_json()
         edges_to_add = data.pop("edges_to_add")
         mark_created = bool(data.pop("mark_created"))
     except KeyError as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
 
-        # add dag and cast types
-        for edges in edges_to_add:
-            edges["dag_id"] = dag_id
-            if len(edges['upstream_node_ids']) == 0:
-                edges['upstream_node_ids'] = None
-            else:
-                edges['upstream_node_ids'] = str(edges['upstream_node_ids'])
+    # add dag and cast types
+    for edges in edges_to_add:
+        edges["dag_id"] = dag_id
+        if len(edges['upstream_node_ids']) == 0:
+            edges['upstream_node_ids'] = None
+        else:
+            edges['upstream_node_ids'] = str(edges['upstream_node_ids'])
 
-            if len(edges['downstream_node_ids']) == 0:
-                edges['downstream_node_ids'] = None
-            else:
-                edges['downstream_node_ids'] = str(edges['downstream_node_ids'])
+        if len(edges['downstream_node_ids']) == 0:
+            edges['downstream_node_ids'] = None
+        else:
+            edges['downstream_node_ids'] = str(edges['downstream_node_ids'])
 
-        app.logger.debug(f'Edges: {edges}')
+    app.logger.debug(f'Edges: {edges}')
 
-        # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
-        # keys
-        edge_insert_stmt = insert(Edge).prefix_with("IGNORE")
-        DB.session.execute(edge_insert_stmt, edges_to_add)
+    # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
+    # keys
+    edge_insert_stmt = insert(Edge).prefix_with("IGNORE")
+    DB.session.execute(edge_insert_stmt, edges_to_add)
+    DB.session.commit()
+
+    if mark_created:
+        query = """
+            SELECT *
+            FROM dag
+            WHERE id = :dag_id
+        """
+        dag = DB.session.query(Dag).from_statement(text(query)).params(dag_id=dag_id).one()
+        dag.created_date = func.now()
         DB.session.commit()
 
-        if mark_created:
-            query = """
-                SELECT *
-                FROM dag
-                WHERE id = :dag_id
-            """
-            dag = DB.session.query(Dag).from_statement(text(query)).params(dag_id=dag_id).one()
-            dag.created_date = func.now()
-            DB.session.commit()
-
-        # return result
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
-
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500)
+    # return result
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/task', methods=['GET'])
 def get_task_id_and_status():
+    """Get the status and id of a Task."""
     try:
         wid = request.args['workflow_id']
         int(wid)
@@ -703,36 +653,33 @@ def get_task_id_and_status():
         app.logger = app.logger.bind(workflow_id=wid, node_id=nid, task_args_hash=h)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        query = """
-            SELECT task.id, task.status
-            FROM task
-            WHERE
-                workflow_id = :workflow_id
-                AND node_id = :node_id
-                AND task_args_hash = :task_args_hash
-        """
-        result = DB.session.query(Task).from_statement(text(query)).params(
-            workflow_id=wid,
-            node_id=nid,
-            task_args_hash=h
-        ).one_or_none()
 
-        # send back json
-        if result is None:
-            resp = jsonify({'task_id': None, 'task_status': None})
-        else:
-            resp = jsonify({'task_id': result.id, 'task_status': result.status})
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}",
-                          status_code=500) from e
+    query = """
+        SELECT task.id, task.status
+        FROM task
+        WHERE
+            workflow_id = :workflow_id
+            AND node_id = :node_id
+            AND task_args_hash = :task_args_hash
+    """
+    result = DB.session.query(Task).from_statement(text(query)).params(
+        workflow_id=wid,
+        node_id=nid,
+        task_args_hash=h
+    ).one_or_none()
+
+    # send back json
+    if result is None:
+        resp = jsonify({'task_id': None, 'task_status': None})
+    else:
+        resp = jsonify({'task_id': result.id, 'task_status': result.status})
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/task', methods=['POST'])
 def add_task():
-    """Add a job to the database
+    """Add a task to the database.
 
     Args:
         a list of:
@@ -801,12 +748,11 @@ def add_task():
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     except TypeError as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
 @jobmon_client.route('/task/<task_id>/update_parameters', methods=['PUT'])
 def update_task_parameters(task_id: int):
+    """Update the parameters for a given task."""
     app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
     try:
@@ -814,189 +760,181 @@ def update_task_parameters(task_id: int):
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
-    try:
-        query = """SELECT task.* FROM task WHERE task.id = :task_id"""
-        task = DB.session.query(Task).from_statement(text(query)).params(
-            task_id=task_id).one()
-        task.reset(name=data["name"], command=data["command"],
-                   max_attempts=data["max_attempts"],
-                   reset_if_running=data["reset_if_running"])
+    query = """SELECT task.* FROM task WHERE task.id = :task_id"""
+    task = DB.session.query(Task).from_statement(text(query)).params(
+        task_id=task_id).one()
+    task.reset(name=data["name"], command=data["command"],
+               max_attempts=data["max_attempts"],
+               reset_if_running=data["reset_if_running"])
 
-        for name, val in data["task_attributes"].items():
-            _add_or_update_attribute(task_id, name, val)
-            DB.session.flush()
+    for name, val in data["task_attributes"].items():
+        _add_or_update_attribute(task_id, name, val)
+        DB.session.flush()
 
-        DB.session.commit()
+    DB.session.commit()
 
-        resp = jsonify(task_status=task.status)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    resp = jsonify(task_status=task.status)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/task/bind_tasks', methods=['PUT'])
 def bind_tasks():
-    try:
-        all_data = request.get_json()
-        tasks = all_data["tasks"]
-        workflow_id = int(all_data["workflow_id"])
-        # receive from client the tasks in a format of:
-        # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
-        # reset_if_running(6), task_args(7),task_attributes(8)]}
+    """Bind the task objects to the database."""
+    all_data = request.get_json()
+    tasks = all_data["tasks"]
+    workflow_id = int(all_data["workflow_id"])
+    # receive from client the tasks in a format of:
+    # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
+    # reset_if_running(6), task_args(7),task_attributes(8)]}
 
-        # Retrieve existing task_ids
-        task_query = """
-            SELECT task.id, task.node_id, task.task_args_hash, task.status
-            FROM task
-            WHERE workflow_id = {workflow_id}
-            AND (task.node_id, task.task_args_hash) IN ({tuples})
-        """
+    # Retrieve existing task_ids
+    task_query = """
+        SELECT task.id, task.node_id, task.task_args_hash, task.status
+        FROM task
+        WHERE workflow_id = {workflow_id}
+        AND (task.node_id, task.task_args_hash) IN ({tuples})
+    """
 
-        task_query_params = ','.join([f"({task[0]},{task[1]})" for task in tasks.values()])
+    task_query_params = ','.join([f"({task[0]},{task[1]})" for task in tasks.values()])
 
-        prebound_task_query = task_query.format(workflow_id=workflow_id,
-                                                tuples=task_query_params)
-        prebound_tasks = DB.session.query(Task).from_statement(text(prebound_task_query)).all()
+    prebound_task_query = task_query.format(workflow_id=workflow_id,
+                                            tuples=task_query_params)
+    prebound_tasks = DB.session.query(Task).from_statement(text(prebound_task_query)).all()
 
-        # Bind tasks not present in DB
-        tasks_to_add: List[Dict] = []  # Container for tasks not yet bound to the database
-        tasks_to_update = 0
-        present_tasks = {
-            (task.node_id, int(task.task_args_hash)): task
-            for task in prebound_tasks
-        }  # Dictionary mapping existing Tasks to the supplied arguments
+    # Bind tasks not present in DB
+    tasks_to_add: List[Dict] = []  # Container for tasks not yet bound to the database
+    tasks_to_update = 0
+    present_tasks = {
+        (task.node_id, int(task.task_args_hash)): task
+        for task in prebound_tasks
+    }  # Dictionary mapping existing Tasks to the supplied arguments
 
-        arg_attr_mapping = {}  # Dict mapping input tasks to the corresponding args/attributes
-        task_hash_lookup = {}  # Reverse dictionary of inputs, maps hash back to values
+    arg_attr_mapping = {}  # Dict mapping input tasks to the corresponding args/attributes
+    task_hash_lookup = {}  # Reverse dictionary of inputs, maps hash back to values
 
-        for hashval, items in tasks.items():
+    for hashval, items in tasks.items():
 
-            node_id, arg_hash, name, command, max_att, reset, args, attrs = items
+        node_id, arg_hash, name, command, max_att, reset, args, attrs = items
 
-            id_tuple = (node_id, int(arg_hash))
+        id_tuple = (node_id, int(arg_hash))
 
-            # Conditional logic: Has task already been bound to the DB? If yes, reset the task
-            # status and update the args/attributes
-            if id_tuple in present_tasks.keys():
-                task = present_tasks[id_tuple]
-                task.reset(name=name,
-                           command=command,
-                           max_attempts=max_att,
-                           reset_if_running=reset)
-                tasks_to_update += 1
+        # Conditional logic: Has task already been bound to the DB? If yes, reset the
+        # task status and update the args/attributes
+        if id_tuple in present_tasks.keys():
+            task = present_tasks[id_tuple]
+            task.reset(name=name,
+                       command=command,
+                       max_attempts=max_att,
+                       reset_if_running=reset)
+            tasks_to_update += 1
 
-            # If not, add the task
-            else:
-                task = {
-                    'workflow_id': workflow_id,
-                    'node_id': node_id,
-                    'task_args_hash': arg_hash,
-                    'name': name,
-                    'command': command,
-                    'max_attempts': max_att,
-                    'status': TaskStatus.REGISTERED
-                }
-                tasks_to_add.append(task)
-
-            arg_attr_mapping[hashval] = (args, attrs)
-            task_hash_lookup[id_tuple] = hashval
-
-        # Update existing tasks
-        if tasks_to_update > 0:
-
-            # ORM task objects already updated in task.reset, flush the changes
-            DB.session.flush()
-
-        # Bind new tasks with raw SQL
-        if len(tasks_to_add):
-
-            DB.session.execute(insert(Task), tasks_to_add)
-            DB.session.flush()
-
-            # Fetch newly bound task ids
-            new_task_params = ','.join(
-                [f"({task['node_id']},{task['task_args_hash']})" for task in tasks_to_add]
-            )
-            new_task_query = task_query.format(workflow_id=workflow_id, tuples=new_task_params)
-
-            new_tasks = DB.session.query(Task).from_statement(text(new_task_query)).all()
-
+        # If not, add the task
         else:
-            # Empty task list
-            new_tasks = []
+            task = {
+                'workflow_id': workflow_id,
+                'node_id': node_id,
+                'task_args_hash': arg_hash,
+                'name': name,
+                'command': command,
+                'max_attempts': max_att,
+                'status': TaskStatus.REGISTERED
+            }
+            tasks_to_add.append(task)
 
-        # Create the response dict of tasks {<hash>: [id, status]}
-        # Done here to prevent modifying tasks, and necessitating a refresh.
-        return_tasks = {}
+        arg_attr_mapping[hashval] = (args, attrs)
+        task_hash_lookup[id_tuple] = hashval
 
-        for task in prebound_tasks + new_tasks:
-            id_tuple = (task.node_id, int(task.task_args_hash))
-            hashval = task_hash_lookup[id_tuple]
-            return_tasks[hashval] = [task.id, task.status]
+    # Update existing tasks
+    if tasks_to_update > 0:
 
-        # Add new task attribute types
-        attr_names = set([name for x in arg_attr_mapping.values() for name in x[1]])
-        if attr_names:
-            task_attributes_types = _add_or_get_attribute_type(attr_names)
+        # ORM task objects already updated in task.reset, flush the changes
+        DB.session.flush()
 
-            # Map name to ID from resultant list
-            task_attr_type_mapping = {ta.name: ta.id for ta in task_attributes_types}
-        else:
-            task_attr_type_mapping = {}
+    # Bind new tasks with raw SQL
+    if len(tasks_to_add):
 
-        # Add task_args and attributes to the DB
+        DB.session.execute(insert(Task), tasks_to_add)
+        DB.session.flush()
 
-        args_to_add = []
-        attrs_to_add = []
+        # Fetch newly bound task ids
+        new_task_params = ','.join(
+            [f"({task['node_id']},{task['task_args_hash']})" for task in tasks_to_add]
+        )
+        new_task_query = task_query.format(workflow_id=workflow_id, tuples=new_task_params)
 
-        for hashval, task in return_tasks.items():
+        new_tasks = DB.session.query(Task).from_statement(text(new_task_query)).all()
 
-            task_id = task[0]
-            args, attrs = arg_attr_mapping[hashval]
+    else:
+        # Empty task list
+        new_tasks = []
 
-            for key, val in args.items():
-                task_arg = {'task_id': task_id, 'arg_id': key, 'val': val}
-                args_to_add.append(task_arg)
+    # Create the response dict of tasks {<hash>: [id, status]}
+    # Done here to prevent modifying tasks, and necessitating a refresh.
+    return_tasks = {}
 
-            for name, val in attrs.items():
-                attr_type_id = task_attr_type_mapping[name]
-                insert_vals = {
-                    'task_id': task_id,
-                    'task_attribute_type_id': attr_type_id,
-                    'value': val}
-                attrs_to_add.append(insert_vals)
+    for task in prebound_tasks + new_tasks:
+        id_tuple = (task.node_id, int(task.task_args_hash))
+        hashval = task_hash_lookup[id_tuple]
+        return_tasks[hashval] = [task.id, task.status]
 
-        if args_to_add:
-            arg_insert_stmt = insert(TaskArg).values(args_to_add).on_duplicate_key_update(
-                val=text("VALUES(val)"))
-            DB.session.execute(arg_insert_stmt)
-        if attrs_to_add:
-            attr_insert_stmt = insert(TaskAttribute).values(attrs_to_add).\
-                on_duplicate_key_update(value=text("VALUES(value)"))
-            DB.session.execute(attr_insert_stmt)
-        DB.session.commit()
+    # Add new task attribute types
+    attr_names = set([name for x in arg_attr_mapping.values() for name in x[1]])
+    if attr_names:
+        task_attributes_types = _add_or_get_attribute_type(attr_names)
 
-        resp = jsonify(tasks=return_tasks)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+        # Map name to ID from resultant list
+        task_attr_type_mapping = {ta.name: ta.id for ta in task_attributes_types}
+    else:
+        task_attr_type_mapping = {}
+
+    # Add task_args and attributes to the DB
+
+    args_to_add = []
+    attrs_to_add = []
+
+    for hashval, task in return_tasks.items():
+
+        task_id = task[0]
+        args, attrs = arg_attr_mapping[hashval]
+
+        for key, val in args.items():
+            task_arg = {'task_id': task_id, 'arg_id': key, 'val': val}
+            args_to_add.append(task_arg)
+
+        for name, val in attrs.items():
+            attr_type_id = task_attr_type_mapping[name]
+            insert_vals = {
+                'task_id': task_id,
+                'task_attribute_type_id': attr_type_id,
+                'value': val}
+            attrs_to_add.append(insert_vals)
+
+    if args_to_add:
+        arg_insert_stmt = insert(TaskArg).values(args_to_add).on_duplicate_key_update(
+            val=text("VALUES(val)"))
+        DB.session.execute(arg_insert_stmt)
+    if attrs_to_add:
+        attr_insert_stmt = insert(TaskAttribute).values(attrs_to_add).\
+            on_duplicate_key_update(value=text("VALUES(value)"))
+        DB.session.execute(attr_insert_stmt)
+    DB.session.commit()
+
+    resp = jsonify(tasks=return_tasks)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 def _add_or_get_attribute_type(names: Union[List[str], Set[str]]) -> List[TaskAttributeType]:
-    try:
-        attribute_types = [{'name': name} for name in names]
-        insert_stmt = insert(TaskAttributeType).prefix_with("IGNORE")
-        DB.session.execute(insert_stmt, attribute_types)
-        DB.session.commit()
+    attribute_types = [{'name': name} for name in names]
+    insert_stmt = insert(TaskAttributeType).prefix_with("IGNORE")
+    DB.session.execute(insert_stmt, attribute_types)
+    DB.session.commit()
 
-        # Query the IDs
-        attribute_type_ids = DB.session.query(TaskAttributeType).filter(
-            TaskAttributeType.name.in_(names)).all()
-        return attribute_type_ids
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    # Query the IDs
+    attribute_type_ids = DB.session.query(TaskAttributeType).filter(
+        TaskAttributeType.name.in_(names)).all()
+    return attribute_type_ids
 
 
 def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
@@ -1016,24 +954,22 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
 
 @jobmon_client.route('/task/<task_id>/task_attributes', methods=['PUT'])
 def update_task_attribute(task_id: int):
-    """Add or update attributes for a task"""
+    """Add or update attributes for a task."""
     app.logger = app.logger.bind(task_id=task_id)
     try:
         int(task_id)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        data = request.get_json()
-        attributes = data["task_attributes"]
-        # update existing attributes with their values
-        for name, val in attributes.items():
-            _add_or_update_attribute(task_id, name, val)
-        # Flask requires that a response is returned, no values need to be passed back
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+
+    data = request.get_json()
+    attributes = data["task_attributes"]
+    # update existing attributes with their values
+    for name, val in attributes.items():
+        _add_or_update_attribute(task_id, name, val)
+    # Flask requires that a response is returned, no values need to be passed back
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, str]):
@@ -1051,6 +987,8 @@ def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, st
 
 @jobmon_client.route('/workflow', methods=['POST'])
 def bind_workflow():
+    """Bind a workflow to the database."""
+    data = request.get_json()
     try:
         data = request.get_json()
         tv_id = int(data['tool_version_id'])
@@ -1066,84 +1004,76 @@ def bind_workflow():
                                      workflow_args_hash=whash, task_hash=thash)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        query = """
-            SELECT workflow.*
-            FROM workflow
-            WHERE
-                tool_version_id = :tool_version_id
-                AND dag_id = :dag_id
-                AND workflow_args_hash = :workflow_args_hash
-                AND task_hash = :task_hash
-        """
-        workflow = DB.session.query(Workflow).from_statement(text(query)).params(
-            tool_version_id=tv_id,
-            dag_id=dag_id,
-            workflow_args_hash=whash,
-            task_hash=thash
-        ).one_or_none()
-        if workflow is None:
-            # create a new workflow
-            workflow = Workflow(tool_version_id=tv_id,
-                                dag_id=dag_id,
-                                workflow_args_hash=whash,
-                                task_hash=thash,
-                                description=description,
-                                name=name,
-                                workflow_args=workflow_args,
-                                max_concurrently_running=max_concurrently_running)
-            DB.session.add(workflow)
+    query = """
+        SELECT workflow.*
+        FROM workflow
+        WHERE
+            tool_version_id = :tool_version_id
+            AND dag_id = :dag_id
+            AND workflow_args_hash = :workflow_args_hash
+            AND task_hash = :task_hash
+    """
+    workflow = DB.session.query(Workflow).from_statement(text(query)).params(
+        tool_version_id=tv_id,
+        dag_id=dag_id,
+        workflow_args_hash=whash,
+        task_hash=thash
+    ).one_or_none()
+    if workflow is None:
+        # create a new workflow
+        workflow = Workflow(tool_version_id=tv_id,
+                            dag_id=dag_id,
+                            workflow_args_hash=whash,
+                            task_hash=thash,
+                            description=description,
+                            name=name,
+                            workflow_args=workflow_args,
+                            max_concurrently_running=max_concurrently_running)
+        DB.session.add(workflow)
+        DB.session.commit()
+
+        # update attributes
+        if workflow_attributes:
+            _add_workflow_attributes(workflow.id, workflow_attributes)
             DB.session.commit()
 
-            # add attributes
-            if workflow_attributes:
-                _add_workflow_attributes(workflow.id, workflow_attributes)
-                DB.session.commit()
+        newly_created = True
+    else:
+        newly_created = False
 
-            newly_created = True
-        else:
-
-            newly_created = False
-        resp = jsonify({'workflow_id': workflow.id, 'status': workflow.status,
-                        'newly_created': newly_created})
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    resp = jsonify({'workflow_id': workflow.id, 'status': workflow.status,
+                    'newly_created': newly_created})
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/workflow/<workflow_args_hash>', methods=['GET'])
 def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
-    """
-    Return any dag hashes that are assigned to workflows with identical
-    workflow args
-    """
+    """Return any dag hashes that are assigned to workflows with identical workflow args."""
     try:
         int(workflow_args_hash)
         app.logger = app.logger.bind(workflow_args_hash=workflow_args_hash)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        query = """
-            SELECT workflow.task_hash, workflow.tool_version_id, dag.hash
-            FROM workflow
-            JOIN dag
-                ON workflow.dag_id = dag.id
-            WHERE
-                workflow.workflow_args_hash = :workflow_args_hash
-        """
 
-        res = DB.session.query(Workflow.task_hash, Workflow.tool_version_id,
-                               Dag.hash).from_statement(text(query)).params(
-            workflow_args_hash=workflow_args_hash
-        ).all()
-        DB.session.commit()
-        res = [(row.task_hash, row.tool_version_id, row.hash) for row in res]
-        resp = jsonify(matching_workflows=res)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    query = """
+        SELECT workflow.task_hash, workflow.tool_version_id, dag.hash
+        FROM workflow
+        JOIN dag
+            ON workflow.dag_id = dag.id
+        WHERE
+            workflow.workflow_args_hash = :workflow_args_hash
+    """
+
+    res = DB.session.query(Workflow.task_hash, Workflow.tool_version_id,
+                           Dag.hash).from_statement(text(query)).params(
+        workflow_args_hash=workflow_args_hash
+    ).all()
+    DB.session.commit()
+    res = [(row.task_hash, row.tool_version_id, row.hash) for row in res]
+    resp = jsonify(matching_workflows=res)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 def _add_or_get_wf_attribute_type(name: str) -> int:
@@ -1182,28 +1112,27 @@ def _upsert_wf_attribute(workflow_id: int, name: str, value: str):
 
 @jobmon_client.route('/workflow/<workflow_id>/workflow_attributes', methods=['PUT'])
 def update_workflow_attribute(workflow_id: int):
+    """Update the attributes for a given workflow."""
     app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         int(workflow_id)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     """ Add/update attributes for a workflow """
-    try:
-        data = request.get_json()
-        attributes = data["workflow_attributes"]
-        if attributes:
-            for name, val in attributes.items():
-                _upsert_wf_attribute(workflow_id, name, val)
+    data = request.get_json()
+    attributes = data["workflow_attributes"]
+    if attributes:
+        for name, val in attributes.items():
+            _upsert_wf_attribute(workflow_id, name, val)
 
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/workflow/<workflow_id>/set_resume', methods=['POST'])
 def set_resume(workflow_id: int):
+    """Set resume on a workflow"""
     app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         data = request.get_json()
@@ -1214,68 +1143,63 @@ def set_resume(workflow_id: int):
         workflow_attributes = data["workflow_attributes"]
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        query = """
-            SELECT
-                workflow.*
-            FROM
-                workflow
-            WHERE
-                workflow.id = :workflow_id
-        """
-        workflow = DB.session.query(Workflow).from_statement(text(query)).params(
-            workflow_id=workflow_id
-        ).one()
+    query = """
+        SELECT
+            workflow.*
+        FROM
+            workflow
+        WHERE
+            workflow.id = :workflow_id
+    """
+    workflow = DB.session.query(Workflow).from_statement(text(query)).params(
+        workflow_id=workflow_id
+    ).one()
 
-        # set mutible attribute
-        workflow.description = description
-        workflow.name = name
-        workflow.max_concurrently_running = max_concurrently_running
+    # set mutible attribute
+    workflow.description = description
+    workflow.name = name
+    workflow.max_concurrently_running = max_concurrently_running
+    DB.session.commit()
+
+    # trigger resume on active workflow run
+    workflow.resume(reset_running_jobs)
+    DB.session.commit()
+
+    # update attributes
+    if workflow_attributes:
+        _add_workflow_attributes(workflow.id, workflow_attributes)
         DB.session.commit()
 
-        # trigger resume on active workflow run
-        workflow.resume(reset_running_jobs)
-        DB.session.commit()
-
-        # update attributes
-        if workflow_attributes:
-            _add_workflow_attributes(workflow.id, workflow_attributes)
-            DB.session.commit()
-
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
-
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/workflow/<workflow_id>/is_resumable', methods=['GET'])
 def workflow_is_resumable(workflow_id: int):
+    """Check if a workflow is in a resumable state"""
     app.logger = app.logger.bind(workflow_id=workflow_id)
-    try:
-        query = """
-            SELECT
-                workflow.*
-            FROM
-                workflow
-            WHERE
-                workflow.id = :workflow_id
-        """
-        workflow = DB.session.query(Workflow).from_statement(text(query)).params(
-            workflow_id=workflow_id
-        ).one()
-        DB.session.commit()
+    query = """
+        SELECT
+            workflow.*
+        FROM
+            workflow
+        WHERE
+            workflow.id = :workflow_id
+    """
+    workflow = DB.session.query(Workflow).from_statement(text(query)).params(
+        workflow_id=workflow_id
+    ).one()
+    DB.session.commit()
 
-        resp = jsonify(workflow_is_resumable=workflow.is_resumable)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    resp = jsonify(workflow_is_resumable=workflow.is_resumable)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/workflow_run', methods=['POST'])
 def add_workflow_run():
+    """Add a workflow run to the db."""
     try:
         data = request.get_json()
         wid = data["workflow_id"]
@@ -1283,140 +1207,138 @@ def add_workflow_run():
         app.logger = app.logger.bind(workflow_id=wid)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        workflow_run = WorkflowRun(
-            workflow_id=wid,
-            user=data["user"],
-            executor_class=data["executor_class"],
-            jobmon_version=data["jobmon_version"],
-            status=WorkflowRunStatus.REGISTERED
-        )
-        DB.session.add(workflow_run)
-        DB.session.commit()
-        resp = jsonify(workflow_run_id=workflow_run.id)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    workflow_run = WorkflowRun(
+        workflow_id=wid,
+        user=data["user"],
+        executor_class=data["executor_class"],
+        jobmon_version=data["jobmon_version"],
+        status=WorkflowRunStatus.REGISTERED
+    )
+    DB.session.add(workflow_run)
+    DB.session.commit()
+    resp = jsonify(workflow_run_id=workflow_run.id)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/link', methods=['POST'])
 def link_workflow_run(workflow_run_id: int):
-    try:
-        query = """
-            SELECT
-                workflow_run.*
-            FROM
-                workflow_run
-            WHERE
-                workflow_run.id = :workflow_run_id
-        """
-        workflow_run = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-            workflow_run_id=workflow_run_id
-        ).one()
+    """Link this workflow run to a workflow."""
+    query = """
+        SELECT
+            workflow_run.*
+        FROM
+            workflow_run
+        WHERE
+            workflow_run.id = :workflow_run_id
+    """
+    workflow_run = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+        workflow_run_id=workflow_run_id
+    ).one()
 
-        # refresh with lock in case other workflow run is trying to progress
-        workflow = workflow_run.workflow
-        DB.session.refresh(workflow, with_for_update=True)
+    # refresh with lock in case other workflow run is trying to progress
+    workflow = workflow_run.workflow
+    DB.session.refresh(workflow, with_for_update=True)
 
-        # check if any workflow run is in linked state.
-        # if not any linked, proceed.
-        current_wfr = workflow.link_workflow_run(workflow_run)
-        DB.session.commit()  # release lock
-        resp = jsonify(current_wfr=current_wfr)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    # check if any workflow run is in linked state.
+    # if not any linked, proceed.
+    current_wfr = workflow.link_workflow_run(workflow_run)
+    DB.session.commit()  # release lock
+    resp = jsonify(current_wfr=current_wfr)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
 def terminate_workflow_run(workflow_run_id: int):
+    """Terminate a workflow run and get its tasks in order."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     try:
         int(workflow_run_id)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    try:
-        workflow_run = DB.session.query(WorkflowRun).filter_by(
-            id=workflow_run_id).one()
 
-        if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
-            states = [TaskStatus.INSTANTIATED]
-        elif workflow_run.status == WorkflowRunStatus.COLD_RESUME:
-            states = [TaskStatus.INSTANTIATED, TaskInstanceStatus.RUNNING]
+    workflow_run = DB.session.query(WorkflowRun).filter_by(
+        id=workflow_run_id).one()
 
-        # add error logs
-        log_errors = """
-            INSERT INTO task_instance_error_log
-                (task_instance_id, description, error_time)
-            SELECT
-                task_instance.id,
-                CONCAT(
-                    'Workflow resume requested. Setting to K from status of: ',
-                    task_instance.status
-                ) as description,
-                CURRENT_TIMESTAMP as error_time
-            FROM task_instance
-            JOIN task
-                ON task_instance.task_id = task.id
-            WHERE
-                task_instance.workflow_run_id = :workflow_run_id
-                AND task.status IN :states
-        """
-        DB.session.execute(log_errors,
-                           {"workflow_run_id": int(workflow_run_id),
-                            "states": states})
-        DB.session.flush()
+    if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
+        states = [TaskStatus.INSTANTIATED]
+    elif workflow_run.status == WorkflowRunStatus.COLD_RESUME:
+        states = [TaskStatus.INSTANTIATED, TaskInstanceStatus.RUNNING]
 
-        # update job instance states
-        update_task_instance = """
-            UPDATE
-                task_instance
-            JOIN task
-                ON task_instance.task_id = task.id
-            SET
-                task_instance.status = 'K',
-                task_instance.status_date = CURRENT_TIMESTAMP
-            WHERE
-                task_instance.workflow_run_id = :workflow_run_id
-                AND task.status IN :states
-        """
-        DB.session.execute(update_task_instance,
-                           {"workflow_run_id": workflow_run_id,
-                            "states": states})
-        DB.session.flush()
+    # add error logs
+    log_errors = """
+        INSERT INTO task_instance_error_log
+            (task_instance_id, description, error_time)
+        SELECT
+            task_instance.id,
+            CONCAT(
+                'Workflow resume requested. Setting to K from status of: ',
+                task_instance.status
+            ) as description,
+            CURRENT_TIMESTAMP as error_time
+        FROM task_instance
+        JOIN task
+            ON task_instance.task_id = task.id
+        WHERE
+            task_instance.workflow_run_id = :workflow_run_id
+            AND task.status IN :states
+    """
+    DB.session.execute(log_errors,
+                       {"workflow_run_id": int(workflow_run_id),
+                        "states": states})
+    DB.session.flush()
 
-        # transition to terminated
-        workflow_run.transition(WorkflowRunStatus.TERMINATED)
-        DB.session.commit()
+    # update job instance states
+    update_task_instance = """
+        UPDATE
+            task_instance
+        JOIN task
+            ON task_instance.task_id = task.id
+        SET
+            task_instance.status = 'K',
+            task_instance.status_date = CURRENT_TIMESTAMP
+        WHERE
+            task_instance.workflow_run_id = :workflow_run_id
+            AND task.status IN :states
+    """
+    DB.session.execute(update_task_instance,
+                       {"workflow_run_id": workflow_run_id,
+                        "states": states})
+    DB.session.flush()
 
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    # transition to terminated
+    workflow_run.transition(WorkflowRunStatus.TERMINATED)
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @jobmon_client.route('/workflow_run_status', methods=['GET'])
 def get_active_workflow_runs():
     """Return all workflow runs that are currently in the specified state."""
-    try:
-        query = """
-            SELECT
-                workflow_run.*
-            FROM
-                workflow_run
-            WHERE
-                workflow_run.status in :workflow_run_status
-        """
-        workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-            workflow_run_status=request.args.getlist('status')
-        ).all()
-        DB.session.commit()
-        workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
-        resp = jsonify(workflow_runs=workflow_runs)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
+    query = """
+        SELECT
+            workflow_run.*
+        FROM
+            workflow_run
+        WHERE
+            workflow_run.status in :workflow_run_status
+    """
+    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+        workflow_run_status=request.args.getlist('status')
+    ).all()
+    DB.session.commit()
+    workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
+    resp = jsonify(workflow_runs=workflow_runs)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+# ############################ TESTING ROUTES ################################################
+@jobmon_client.route('/test_bad', methods=['GET'])
+def test_bad_route():
+    """Test route to force a 500 error."""
+    DB.session.execute('SELECT * FROM blip_bloop_table').all()

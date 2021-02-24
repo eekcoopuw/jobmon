@@ -1,7 +1,9 @@
+"""DAG Database Table"""
 from jobmon.server.web.models import DB
 
 
 class Dag(DB.Model):
+    """DAG Database Table."""
 
     __tablename__ = 'dag'
 

@@ -1,9 +1,11 @@
-import pytest
 import os
 
-from jobmon.client.tool import Tool
-from jobmon.client.task import Task
 from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
+
+import pytest
+
 from sqlalchemy.sql import text
 
 

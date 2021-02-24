@@ -1,43 +1,43 @@
+"""Configuration setting for client-side only."""
 from __future__ import annotations
-from typing import Optional
 
+from typing import Optional
 
 from jobmon.config import CLI, ParserDefaults
 
 
 class ClientConfig(object):
-    """
-    This is intended to be a singleton. Any other usage should be done with
-    CAUTION.
-    """
+    """This is intended to be a singleton. Any other usage should be done with CAUTION."""
 
     @classmethod
     def from_defaults(cls) -> ClientConfig:
+        """If no special config, set to defaults."""
         cli = CLI()
         ParserDefaults.web_service_fqdn(cli.parser)
         ParserDefaults.web_service_port(cli.parser)
-        ParserDefaults.use_rsyslog(cli.parser)
-        ParserDefaults.rsyslog_host(cli.parser)
-        ParserDefaults.rsyslog_port(cli.parser)
-        ParserDefaults.rsyslog_protocol(cli.parser)
+        ParserDefaults.use_logstash(cli.parser)
+        ParserDefaults.logstash_host(cli.parser)
+        ParserDefaults.logstash_port(cli.parser)
+        ParserDefaults.logstash_protocol(cli.parser)
 
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
 
         return cls(host=args.web_service_fqdn, port=args.web_service_port,
-                   use_rsyslog=args.use_rsyslog, rsyslog_host=args.rsyslog_host,
-                   rsyslog_port=args.rsyslog_port, rsyslog_protocol=args.rsyslog_protocol)
+                   use_logstash=args.use_logstash, logstash_host=args.logstash_host,
+                   logstash_port=args.logstash_port, logstash_protocol=args.logstash_protocol)
 
-    def __init__(self, host: str, port: int, use_rsyslog: bool = False,
-                 rsyslog_host: Optional[str] = None, rsyslog_port: Optional[str] = None,
-                 rsyslog_protocol: Optional[str] = None):
+    def __init__(self, host: str, port: int, use_logstash: bool = False,
+                 logstash_host: Optional[str] = None, logstash_port: Optional[str] = None,
+                 logstash_protocol: Optional[str] = None):
         self.host = host
         self.port = port
-        self.use_rsyslog = use_rsyslog
-        self.rsyslog_host = rsyslog_host
-        self.rsyslog_port = rsyslog_port
-        self.rsyslog_protocol = rsyslog_protocol
+        self.use_logstash = use_logstash
+        self.logstash_host = logstash_host
+        self.logstash_port = logstash_port
+        self.logstash_protocol = logstash_protocol
 
     @property
     def url(self):
+        """URL to connect to Jobmon."""
         return f"http://{self.host}:{self.port}"

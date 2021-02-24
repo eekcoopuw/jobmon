@@ -1,19 +1,22 @@
+"""Base Executor for which all Executors are built off of."""
 import os
-import pkg_resources
 import shutil
-from typing import List, Tuple, Dict, Optional, Type, Union
-
-import structlog as logging
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 from jobmon.exceptions import RemoteExitInfoNotAvailable
+
+import pkg_resources
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)
 
 
 class ExecutorParameters:
-    """Base parameter class for executors, each executor has specific '
-    parameters and must validate them accordingly"""
+    """Base parameter class for executors, each executor has specific ' parameters and must
+    validate them accordingly.
+    """
 
     _strategies: dict = {}
 
@@ -27,7 +30,8 @@ class ExecutorParameters:
                  hard_limits: Optional[bool] = False,
                  executor_class: str = 'SGEExecutor',
                  resource_scales: Dict = None):
-        """
+        """Initialize the Executor Parameter object for your given Executor class.
+
         Args:
             num_cores: number of cores fair cluster terminology
             queue: queue to be requested for the given task depending on
@@ -45,7 +49,6 @@ class ExecutorParameters:
             executor_class: name of the executor class so that params can
                 be parsed accordingly
         """
-
         # initialize
         self._num_cores = num_cores
         logger.debug("num_cores: " + str(num_cores))
@@ -86,11 +89,13 @@ class ExecutorParameters:
 
     @classmethod
     def add_strategy(cls, StrategyCls, executor_class: str):
+        """Add an executor strategy."""
         cls._strategies[executor_class] = StrategyCls
 
     def _attribute_proxy(self, attr_name: str):
-        """checks whether executor specific class has implemented given
-        paremeter and returns it, or else returns base implemenetation"""
+        """Checks whether executor specific class has implemented given parameter and returns
+        it, or else returns base implementation.
+        """
         if self._strategy is not None and hasattr(self._strategy, attr_name):
             return getattr(self._strategy, attr_name)
         else:
@@ -98,37 +103,46 @@ class ExecutorParameters:
 
     @property
     def num_cores(self):
+        """Number of cores if strategy has those resources specified."""
         return self._attribute_proxy("num_cores")
 
     @property
     def queue(self):
+        """Queue to request resources from if executor has queues."""
         return self._attribute_proxy("queue")
 
     @property
     def max_runtime_seconds(self):
+        """Max runtime a task can run if that is limited in the executor."""
         return self._attribute_proxy("max_runtime_seconds")
 
     @property
     def j_resource(self):
+        """Access to the j-drive if executor can access that."""
         return self._attribute_proxy("j_resource")
 
     @property
     def m_mem_free(self):
+        """Memory request if using an executor with memory limits."""
         return self._attribute_proxy("m_mem_free")
 
     @property
     def context_args(self):
+        """Extra context_args to pass to the executor."""
         return self._attribute_proxy("context_args")
 
     @property
     def resource_scales(self):
+        """How to scale the resources if the task is resource killed."""
         return self._attribute_proxy("resource_scales")
 
     @property
     def hard_limits(self):
+        """If the resources can scale beyond the limits of the given queue."""
         return self._attribute_proxy("hard_limits")
 
     def is_valid(self) -> Tuple[bool, Optional[str]]:
+        """If the resources are valid."""
         if self._strategy is not None:
             msg = self._strategy.validation_msg()
             if msg:
@@ -136,26 +150,24 @@ class ExecutorParameters:
         return True, None
 
     def adjust(self, **kwargs) -> None:
-        """adjust executor specific values when resource error is encountered
-        """
+        """Adjust executor specific values when resource error is encountered."""
         if self._strategy is not None:
             self._strategy.adjust(**kwargs)
 
     def validate(self):
-        """convert invalid parameters to valid ones for a given executor"""
+        """Convert invalid parameters to valid ones for a given executor."""
         if self._strategy is not None:
             self._strategy.validate()
 
     def is_valid_throw(self):
-        """
-        Calls validate and converts a False result into an exception
-        """
+        """Calls validate and converts a False result into an exception"""
         if self._strategy is not None:
             msg = self._strategy.validation_msg()
             if msg:
                 raise ValueError(msg)
 
     def to_wire(self):
+        """Resources to dictionary."""
         return {
             'max_runtime_seconds': self.max_runtime_seconds,
             'context_args': self.context_args,
@@ -187,18 +199,22 @@ class Executor:
         logger.info("Initializing {}".format(self.__class__.__name__))
 
     def start(self, jobmon_command=None) -> None:
+        """Start the executor."""
         self.jobmon_command = jobmon_command
         self.started = True
 
     def stop(self, executor_ids, report_by_buffer) -> None:
+        """Stop the executor."""
         self.started = False
 
     @property
     def jobmon_command(self) -> str:
+        """Jobmon command to wrap around task instance."""
         return self._jobmon_command
 
     @jobmon_command.setter
     def jobmon_command(self, val: str) -> None:
+        """Find the jobmon command installed in the active environment."""
         if val is None:
             val = shutil.which("jobmon_command")
         if val is None:
@@ -231,18 +247,21 @@ class Executor:
         raise NotImplementedError
 
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
+        """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
     def get_errored_jobs(self, executor_ids: Dict):
+        """Get the task instances that have errored out."""
         raise NotImplementedError
 
     def get_actual_submitted_or_running(self, executor_ids: Dict, report_by_buffer) -> \
             Tuple[List[int], Dict[int, int]]:
+        """Check which task instances are active."""
         raise NotImplementedError
 
     def terminate_task_instances(self, executor_ids: List[int]) -> None:
-        """If implemented, return a list of (task_instance_id, hostname) tuples
-        for any task_instances that are terminated
+        """If implemented, return a list of (task_instance_id, hostname) tuples for any
+        task_instances that are terminated.
         """
         logger.warning("terminate_task_instances not implemented by executor: "
                        f"{self.__class__.__name__}")
@@ -250,16 +269,14 @@ class Executor:
     def build_wrapped_command(self, command: str, task_instance_id: int,
                               heartbeat_interval: int, report_by_buffer: float
                               ) -> str:
-        """Build a command that can be executed by the shell and can be
-        unwrapped by jobmon itself to setup proper communication channels to
-        the monitor server.
+        """Build a command that can be executed by the shell and can be unwrapped by jobmon
+        itself to setup proper communication channels to the monitor server.
         Args:
             command: command to run the desired job
             task_instance_id: id for the given instance of this task
 
         Returns:
             (str) unwrappable command
-
         """
         wrapped_cmd = [
             "--command", f"'{command}'",
@@ -277,6 +294,7 @@ class Executor:
         return str_cmd
 
     def set_temp_dir(self, temp_dir: str) -> None:
+        """Set a temporary directory."""
         self.temp_dir = temp_dir
         os.environ["JOBMON_TEMP_DIR"] = self.temp_dir
 
@@ -294,12 +312,15 @@ class TaskInstanceExecutorInfo:
 
     @property
     def executor_id(self) -> Optional[int]:
+        """Executor specific id assigned to a task instance."""
         raise NotImplementedError
 
     def get_usage_stats(self) -> Dict:
+        """Usage information specific to the exector."""
         raise NotImplementedError
 
     def get_exit_info(self, exit_code, error_msg) -> Tuple[str, str]:
+        """Error and exit code info from the executor."""
         raise NotImplementedError
 
 

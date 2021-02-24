@@ -1,21 +1,23 @@
+"""Task Instance object from the scheduler's perspective."""
 from __future__ import annotations
+
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-import structlog as logging
-
-from jobmon.requester import Requester, http_request_ok
 from jobmon.client.execution.strategies.base import Executor
 from jobmon.constants import TaskInstanceStatus
-from jobmon.exceptions import RemoteExitInfoNotAvailable, InvalidResponse
+from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable
+from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeExecutorTaskInstance
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)
 
 
 class ExecutorTaskInstance:
-    """Object used for communicating with JSM from the executor node
+    """Object used for communicating with JSM from the executor node.
 
     Args:
         task_instance_id (int): a task_instance_id
@@ -42,7 +44,7 @@ class ExecutorTaskInstance:
     @classmethod
     def from_wire(cls, wire_tuple: tuple, executor: Executor, requester: Requester
                   ) -> ExecutorTaskInstance:
-        """create an instance from json that the JQS returns
+        """Create an instance from json that the JQS returns.
 
         Args:
             wire_tuple: tuple representing the wire format for this
@@ -64,14 +66,13 @@ class ExecutorTaskInstance:
     @classmethod
     def register_task_instance(cls, task_id: int, workflow_run_id: int, executor: Executor,
                                requester: Requester) -> ExecutorTaskInstance:
-        """register a new task instance for an existing task_id
+        """Register a new task instance for an existing task_id.
 
         Args:
             task_id (int): the task_id to register this instance with
             executor (Executor): which executor to schedule this task on
             requester: requester for communicating with central services
         """
-
         app_route = '/scheduler/task_instance'
         return_code, response = requester.send_request(
             app_route=app_route,
@@ -90,7 +91,7 @@ class ExecutorTaskInstance:
         return cls.from_wire(response['task_instance'], executor=executor, requester=requester)
 
     def register_no_executor_id(self, executor_id: int) -> None:
-        """register that submission failed with the central service
+        """Register that submission failed with the central service
 
         Args:
             executor_id: placeholder executor id. generall -9999
@@ -113,7 +114,7 @@ class ExecutorTaskInstance:
 
     def register_submission_to_batch_executor(self, executor_id: int,
                                               next_report_increment: float) -> None:
-        """register the submission of a new task instance to batch execution
+        """Register the submission of a new task instance to batch execution.
 
         Args:
             executor_id (int): executor id created by executor for this task
@@ -138,7 +139,7 @@ class ExecutorTaskInstance:
                 f'code 200. Response content: {response}')
 
     def log_error(self) -> None:
-        """Log an error from the executor loops"""
+        """Log an error from the executor loops."""
         if self.executor_id is None:
             raise ValueError("executor_id cannot be None during log_error")
         executor_id: int = self.executor_id
@@ -186,7 +187,8 @@ class ExecutorTaskInstance:
         """For all instances other than the DummyExecutor, the worker node task instance should
         be the one logging the done status. Since the DummyExecutor doesn't actually run
         anything, the task_instance_scheduler needs to mark it done so that execution can
-        proceed through the DAG"""
+        proceed through the DAG.
+        """
         if self.executor.__class__.__name__ != "DummyExecutor":
             logger.error("Cannot directly log a task instance done unless using the Dummy "
                          "Executor")

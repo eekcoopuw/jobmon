@@ -1,8 +1,8 @@
 import time
 
-import pytest
+from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 
-from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
+import pytest
 
 
 def hot_resumable_workflow():

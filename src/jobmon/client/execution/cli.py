@@ -1,12 +1,13 @@
-import configargparse
-
+"""Command line interface for Execution."""
 from typing import Optional
 
+import configargparse
 
-from jobmon.config import PARSER_KWARGS, ParserDefaults, CLI
+from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
 
 class ExecutorCLI(CLI):
+    """Command line interface for Execution."""
 
     def __init__(self) -> None:
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
@@ -15,6 +16,7 @@ class ExecutorCLI(CLI):
         )
 
     def scheduler(self, args: configargparse.Namespace) -> None:
+        """Configuration for the jobmon scheduler."""
         from jobmon.client.execution.scheduler.api import get_scheduler, SchedulerConfig
 
         scheduler_config = SchedulerConfig(
@@ -70,5 +72,6 @@ class ExecutorCLI(CLI):
 
 
 def main(argstr: Optional[str] = None) -> None:
+    """Entrypoint to create Executor CLI."""
     cli = ExecutorCLI()
     cli.main(argstr)

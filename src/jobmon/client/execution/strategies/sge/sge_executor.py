@@ -1,23 +1,25 @@
+"""SGE specific executor implementation for SGE cluster compatibility."""
 import errno
 import os
 from subprocess import check_output
-from typing import List, Tuple, Dict, Optional
+from typing import Dict, List, Optional, Tuple
+
+from jobmon.client.execution.strategies.base import (
+    Executor, ExecutorParameters, TaskInstanceExecutorInfo)
+from jobmon.client.execution.strategies.sge import sge_utils
+from jobmon.constants import QsubAttribute, TaskInstanceStatus
+from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 
 import structlog as logging
 
-from jobmon.client.execution.strategies.base import (
-    Executor, TaskInstanceExecutorInfo, ExecutorParameters)
-from jobmon.client.execution.strategies.sge import sge_utils
-from jobmon.constants import TaskInstanceStatus, QsubAttribute
-from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 
 logger = logging.getLogger(__name__)
 
 
 def makedirs_safely(d):
-    """Safe across multiple processes. First: it will only do it if it does not
-        exist. Second, if there is a race between two processes on that 'if'
-        then it still will not crash"""
+    """Safe across multiple processes. First: it will only do it if it does not exist. Second,
+    if there is a race between two processes on that 'if' then it still will not crash.
+    """
     try:
         if not os.path.exists(d):
             os.makedirs(d)
@@ -27,17 +29,16 @@ def makedirs_safely(d):
             # FYI errno.EEXIST == 17
             # Race condition - two processes try to create the same directory
             # at almost the same time!
-            logger.info(f"Process could not create directory {d} because it "
-                        "already existed, probably due to race condition, "
-                        "no error, continuing")
-            pass
+            logger.info("Process could not create directory {} because it already existed, "
+                        "probably due to race condition, no error, continuing".format(d))
         else:
-            logger.error("Process could not create directory {}, "
-                         "re-raising".format(d))
+            logger.error("Process could not create directory {}, re-raising".format(d))
             raise
 
 
 class SGEExecutor(Executor):
+    """SGE specific executor to submit jobs to the SGE cluster."""
+
     def __init__(self,
                  stderr: Optional[str] = None,
                  stdout: Optional[str] = None,
@@ -80,6 +81,7 @@ class SGEExecutor(Executor):
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters, executor_ids={}) -> \
             Tuple[int, Dict[int, int]]:
+        """Submit a task after formatting it according to SGE standards."""
         logger.debug(f"PARAMS: {executor_parameters.m_mem_free}, "
                      f"{executor_parameters.num_cores}, "
                      f"{executor_parameters.queue},"
@@ -104,7 +106,8 @@ class SGEExecutor(Executor):
 
     def get_errored_jobs(self, executor_ids) -> Dict[int, str]:
         """Get all jobs that are in EQW and return their executor ids and error messages.
-        Also, qdel the jobs."""
+        Also, qdel the jobs.
+        """
         logger.debug(f"SGE_JIDS for error: {list(executor_ids.keys())}")
         qstat_dict = sge_utils.qstat(jids=list(executor_ids.keys()))
         # qdel Eqw jobs so they get restarted naturally
@@ -120,6 +123,7 @@ class SGEExecutor(Executor):
 
     def get_actual_submitted_or_running(self, executor_ids, report_by_buffer) -> \
             Tuple[List[int], Dict[int, int]]:
+        """Check which tasks are active."""
         logger.debug(f"SGE_JIDS for active: {list(executor_ids.keys())}")
         if executor_ids:
             qstat_dict = sge_utils.qstat(jids=list(executor_ids.keys()))
@@ -151,20 +155,20 @@ class SGEExecutor(Executor):
                         logger.debug(f"RESPONSE: {res}")
                         del(executor_ids[key])
                 else:
-                    executor_ids[key] = val+1
+                    executor_ids[key] = val + 1
             else:
                 executor_ids[key] = 0  # reset to 0 in case it is back
         return executor_ids
 
     def terminate_task_instances(self, executor_ids: List[int]) -> None:
-        """Only terminate the task instances that are running, not going to
-        kill the jobs that are actually still in a waiting or a transitioning
-        state"""
+        """Only terminate the task instances that are running, not going to kill the jobs that
+        are actually still in a waiting or a transitioning state.
+        """
         logger.debug(f"Going to terminate: {executor_ids}")
         sge_utils.qdel(executor_ids)
 
     def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
-        """return the exit state associated with a given exit code"""
+        """Return the exit state associated with a given exit code."""
         exit_code, reason = sge_utils.qacct_exit_status(executor_id)
         logger.debug(f"exit_status info: {exit_code}")
         if exit_code in QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
@@ -207,10 +211,9 @@ class SGEExecutor(Executor):
                             project: Optional[str] = None,
                             working_dir: Optional[str] = None
                             ) -> str:
-        """Process the Task's context_args, which are assumed to be
-        a json-serialized dictionary
+        """Process the Task's context_args, which are assumed to be a json-serialized
+        dictionary.
         """
-
         sge_add_args = ""
         if context_args:
             if 'sge_add_args' in context_args:
@@ -292,12 +295,14 @@ class SGEExecutor(Executor):
 
 
 class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
+    """Format info from SGE about a given Task Instance."""
 
     def __init__(self) -> None:
         self._executor_id: Optional[int] = None
 
     @property
     def executor_id(self) -> Optional[int]:
+        """Get SGE assigned executor id."""
         if self._executor_id is None:
             sge_jid = os.environ.get('JOB_ID')
             if sge_jid:
@@ -306,9 +311,11 @@ class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
         return self._executor_id
 
     def get_usage_stats(self) -> Dict:
+        """Collect the SGE reported resource usage for a given task instance."""
         return sge_utils.qstat_usage([self.executor_id])[self.executor_id]
 
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
+        """Get the exit code and message from SGE."""
         if exit_code in QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES:
             msg = (f"Insufficient resources requested. Found exit code: "
                    f"{exit_code}. Application returned error message:\n" +

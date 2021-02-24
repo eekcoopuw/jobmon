@@ -1,7 +1,9 @@
+"""Arg table in the database."""
 from jobmon.server.web.models import DB
 
 
 class Arg(DB.Model):
+    """Arg table in the database."""
 
     __tablename__ = 'arg'
 

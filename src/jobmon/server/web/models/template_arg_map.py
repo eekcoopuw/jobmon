@@ -1,7 +1,9 @@
+"""Template arg map table."""
 from jobmon.server.web.models import DB
 
 
 class TemplateArgMap(DB.Model):
+    """Template Arg Map table."""
 
     __tablename__ = 'template_arg_map'
 

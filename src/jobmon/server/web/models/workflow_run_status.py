@@ -1,8 +1,11 @@
+"""Workflow Run Status Database Table."""
 from jobmon.constants import WorkflowRunStatus as Statuses
 from jobmon.server.web.models import DB
 
 
 class WorkflowRunStatus(DB.Model):
+    """Workflow Run Status Database Table."""
+
     __tablename__ = 'workflow_run_status'
 
     REGISTERED = Statuses.REGISTERED

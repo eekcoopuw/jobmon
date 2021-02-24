@@ -1,8 +1,11 @@
 import getpass
+import logging
+
+from jobmon.client.cli import ClientCLI as CLI
 
 import pytest
 
-from jobmon.client.cli import ClientCLI as CLI
+logger = logging.getLogger(__name__)
 
 
 class MockSchedulerProc:
@@ -402,3 +405,27 @@ def test_update_task_status(db_cfg, client_env):
 
     assert wfr3.status == "D"
     assert all([st.status == "D" for st in wfr3.swarm_tasks.values()])
+
+
+def test_400_cli_route(db_cfg, client_env):
+    from jobmon.requester import Requester
+    requester = Requester(client_env, logger)
+    rc, resp = requester.send_request(
+        app_route="/cli/task_status",
+        message={},
+        request_type='get',
+        logger=logger
+    )
+    assert rc == 400
+
+
+def test_bad_put_route(db_cfg, client_env):
+    from jobmon.requester import Requester
+    requester = Requester(client_env, logger)
+    rc, resp = requester.send_request(
+        app_route="/cli/task/update_statuses",
+        message={},
+        request_type='put',
+        logger=logger
+    )
+    assert rc == 400

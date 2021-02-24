@@ -1,13 +1,15 @@
-from sqlalchemy.sql import func
-
+"""Workflow Database Table."""
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
-from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
+from jobmon.server.web.models.workflow_status import WorkflowStatus
+
+from sqlalchemy.sql import func
 
 
 class Workflow(DB.Model):
+    """Workflow Database Table."""
 
     __tablename__ = 'workflow'
 
@@ -68,24 +70,26 @@ class Workflow(DB.Model):
     ]
 
     def transition(self, new_state: str):
+        """Transition the state of the workflow."""
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             self.status = new_state
             self.status_date = func.now()
 
     def _validate_transition(self, new_state: str):
-        """Ensure the Job state transition is valid"""
+        """Ensure the Job state transition is valid."""
         if (self.status, new_state) not in self.valid_transitions:
             raise InvalidStateTransition('Workflow', self.id, self.status, new_state)
 
     def _is_timely_transition(self, new_state):
-        """Check if the transition is invalid due to a race condition"""
+        """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.untimely_transitions:
             return False
         else:
             return True
 
     def link_workflow_run(self, workflow_run: WorkflowRun):
+        """Link a workflow run to this workflow."""
         linked_wfr = [wfr.status == WorkflowRunStatus.LINKING for wfr in self.workflow_runs]
         if not any(linked_wfr) and self.ready_to_link:
             workflow_run.transition(WorkflowRunStatus.LINKING)
@@ -100,6 +104,7 @@ class Workflow(DB.Model):
         return current_wfr[0]
 
     def resume(self, reset_running_jobs: bool) -> None:
+        """Resume a workflow."""
         for workflow_run in self.workflow_runs:
             if workflow_run.is_active:
                 if reset_running_jobs:
@@ -109,9 +114,11 @@ class Workflow(DB.Model):
 
     @property
     def ready_to_link(self):
+        """Is this workflow able to link a new workflow run."""
         return self.status not in [WorkflowStatus.QUEUED, WorkflowStatus.RUNNING,
                                    WorkflowStatus.DONE]
 
     @property
     def is_resumable(self):
+        """Is this workflow resumable."""
         return not any([wfr.is_alive for wfr in self.workflow_runs])

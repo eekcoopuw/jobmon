@@ -1,6 +1,7 @@
-from getpass import getuser
 import os
+from getpass import getuser
 from time import sleep
+
 import pytest
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))

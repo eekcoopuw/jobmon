@@ -1,21 +1,23 @@
-from multiprocessing import JoinableQueue, Process, Queue
+"""Multiprocess executes tasks in parallel if multiple threads are available."""
 import os
-import psutil
-import subprocess
-from typing import List, Optional, Dict, Tuple
 import queue
+import subprocess
+from multiprocessing import JoinableQueue, Process, Queue
+from typing import Dict, List, Optional, Tuple
+
+from jobmon.client.execution.strategies.base import (Executor, ExecutorParameters,
+                                                     TaskInstanceExecutorInfo)
+from jobmon.constants import TaskInstanceStatus
+
+import psutil
 
 import structlog as logging
-
-from jobmon.client.execution.strategies.base import (Executor,
-                                                     TaskInstanceExecutorInfo,
-                                                     ExecutorParameters)
-from jobmon.constants import TaskInstanceStatus
 
 logger = logging.getLogger(__name__)
 
 
 class Consumer(Process):
+    """Consumes the tasks to be run."""
 
     def __init__(self, task_queue: JoinableQueue, response_queue: Queue):
         """Consume work sent from LocalExecutor through multiprocessing queue.
@@ -28,7 +30,6 @@ class Consumer(Process):
                 created by LocalExecutor used to retrieve work from the
                 executor
         """
-
         super().__init__()
 
         # consumer communication
@@ -36,7 +37,7 @@ class Consumer(Process):
         self.response_queue = response_queue
 
     def run(self) -> None:
-        """wait for work, the execute it"""
+        """Wait for work, the execute it."""
         logger.info(f"consumer alive. pid={os.getpid()}")
 
         while True:
@@ -73,7 +74,7 @@ class Consumer(Process):
 
 
 class PickableTask:
-    """Object passed between processes"""
+    """Object passed between processes."""
 
     def __init__(self, executor_id: int, command: str):
         self.executor_id = executor_id
@@ -81,10 +82,8 @@ class PickableTask:
 
 
 class MultiprocessExecutor(Executor):
-    """
-    LocalExecutor executes tasks locally in parallel. It uses the
-    multiprocessing Python library and queues to parallelize the execution
-    of tasks.
+    """LocalExecutor executes tasks locally in parallel. It uses the multiprocessing Python
+    library and queues to parallelize the execution of tasks.
 
     The subprocessing pattern looks like this.
         LocalExec
@@ -114,8 +113,9 @@ class MultiprocessExecutor(Executor):
         self.response_queue: Queue = Queue()
 
     def start(self, jobmon_command: Optional[str] = None) -> None:
-        """fire up N task consuming processes using Multiprocessing. number of
-        consumers is controlled by parallelism."""
+        """Fire up N task consuming processes using Multiprocessing. number of consumers is
+        controlled by parallelism.
+        """
         # set jobmon command if provided
         self.consumers = [
             Consumer(task_queue=self.task_queue,
@@ -127,7 +127,7 @@ class MultiprocessExecutor(Executor):
         super().start(jobmon_command=jobmon_command)
 
     def stop(self, executor_ids, report_by_buffer) -> None:
-        """terminate consumers and call sync 1 final time."""
+        """Terminate consumers and call sync 1 final time."""
         actual, _ = self.get_actual_submitted_or_running(
             executor_ids=executor_ids, report_by_buffer=report_by_buffer)
         self.terminate_task_instances(actual)
@@ -149,9 +149,9 @@ class MultiprocessExecutor(Executor):
                 self._running_or_submitted.pop(executor_id)
 
     def terminate_task_instances(self, executor_ids: List[int]) -> None:
-        """Only terminate the task instances that are running, not going to
-        kill the jobs that are actually still in a waiting or a transitioning
-        state"""
+        """Only terminate the task instances that are running, not going to kill the jobs that
+        are actually still in a waiting or a transitioning state.
+        """
         logger.debug(f"Going to terminate: {executor_ids}")
 
         # first drain the work queue so there are no race conditions with the
@@ -200,12 +200,14 @@ class MultiprocessExecutor(Executor):
 
     def get_actual_submitted_or_running(self, executor_ids, report_by_buffer) -> \
             Tuple[List[int], Dict[int, int]]:
+        """Get tasks that are active."""
         self._update_internal_states()
         return list(self._running_or_submitted.keys()), executor_ids
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters, executor_ids) -> \
             Tuple[int, Dict[int, int]]:
+        """Execute a task instance."""
         executor_id = self._next_executor_id
         self._next_executor_id += 1
         task = PickableTask(executor_id, self.jobmon_command + " " + command)
@@ -215,12 +217,14 @@ class MultiprocessExecutor(Executor):
 
 
 class TaskInstanceMultiprocessInfo(TaskInstanceExecutorInfo):
+    """Task instance info for an instance run with the Multiprocessing executor."""
 
     def __init__(self) -> None:
         self._executor_id: Optional[int] = None
 
     @property
     def executor_id(self) -> Optional[int]:
+        """The id from the executor."""
         if self._executor_id is None:
             jid = os.environ.get('JOB_ID')
             if jid:
@@ -228,5 +232,6 @@ class TaskInstanceMultiprocessInfo(TaskInstanceExecutorInfo):
         return self._executor_id
 
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
+        """Exit code and message."""
         msg = f"Got exit_code: {exit_code}. Error message was: {error_msg}"
         return TaskInstanceStatus.ERROR, msg
