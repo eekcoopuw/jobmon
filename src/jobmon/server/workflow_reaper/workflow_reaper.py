@@ -1,7 +1,7 @@
 from datetime import datetime
 import logging
 from time import sleep
-from typing import List
+from typing import List, Optional
 
 from jobmon import __version__
 from jobmon.requester import Requester, http_request_ok
@@ -122,13 +122,14 @@ class WorkflowReaper(object):
             if self._wf_notification_sink:
                 self._wf_notification_sink(msg=message)
 
-    def _aborted_state(self, workflow_run_id: int = None, aborted_seconds: int = (60 * 2)
-                       ) -> None:
-        """Get all workflow runs in G state and validate if they should be in
-        A state"""
-
+    def _aborted_state(self, workflow_run_id: Optional[int] = None,
+                       aborted_seconds: Optional[int] = None) -> None:
+        """Get all workflow runs in G state and validate if they should be in A state."""
         # Get all wfrs in G state
         workflow_runs = self._check_by_given_status(["G"])
+
+        if aborted_seconds is None:
+            aborted_seconds = self._loss_threshold * 60
 
         # Call method to validate/register if workflow run should be in A state
         for wfr in workflow_runs:
