@@ -1,22 +1,8 @@
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.client.tool import Tool
-from jobmon.client.workflow import Workflow
 from jobmon.constants import WorkflowRunStatus
-from jobmon.exceptions import DuplicateNodeArgsError
-from jobmon.exceptions import WorkflowAlreadyComplete
-from jobmon.requester import Requester
+from jobmon.exceptions import WorkflowAlreadyComplete, DuplicateNodeArgsError
 
 import pytest
-
-
-def test_get_chunk(client_env):
-    requester = Requester(client_env)
-    wf = Workflow(tool_version_id=1, chunk_size=10, requester=requester)
-    assert wf._get_chunk(10, 2) is None
-    assert wf._get_chunk(10, 1) == (0, 9)
-    assert wf._get_chunk(20, 2) == (10, 19)
-    assert wf._get_chunk(19, 2) == (10, 18)
-    assert wf._get_chunk(8, 1) == (0, 7)
 
 
 def test_wfargs_update(client_env, db_cfg):
@@ -37,12 +23,12 @@ def test_wfargs_update(client_env, db_cfg):
     wfa1 = "v1"
     wf1 = UnknownWorkflow(wfa1)
     wf1.add_tasks([t1, t2, t3])
-    wf1._bind(False)
+    wf1.bind()
 
     wfa2 = "v2"
     wf2 = UnknownWorkflow(wfa2)
     wf2.add_tasks([t4, t5, t6])
-    wf2._bind(False)
+    wf2.bind()
 
     # Make sure the second Workflow has a distinct Workflow ID & WorkflowRun ID
     assert wf1.workflow_id != wf2.workflow_id
@@ -73,7 +59,7 @@ def test_attempt_resume_on_complete_workflow(client_env, db_cfg):
     workflow1.add_tasks([t1, t2])
 
     # bind workflow to db and move to done state
-    workflow1._bind()
+    workflow1.bind()
     wfr = workflow1._create_workflow_run()
     wfr.update_status(WorkflowRunStatus.RUNNING)
     wfr.update_status(WorkflowRunStatus.DONE)
@@ -101,7 +87,7 @@ def test_workflow_identical_args(client_env, db_cfg):
     wf1 = UnknownWorkflow(workflow_args="same")
     task = BashTask("sleep 2")
     wf1.add_task(task)
-    wf1._bind(False)
+    wf1.bind()
 
     # tries to create an identical workflow without the restart flag
     wf2 = UnknownWorkflow(workflow_args="same")
@@ -112,6 +98,7 @@ def test_workflow_identical_args(client_env, db_cfg):
 
 
 def test_add_same_node_args_twice(client_env):
+    from jobmon.client.tool import Tool
     tool = Tool.create_tool(name="unknown")
     tt = tool.get_task_template(
         template_name="my_template",
@@ -132,6 +119,7 @@ def test_add_same_node_args_twice(client_env):
 
 def test_numpy_array_node_args(client_env, db_cfg):
     """Test passing an object (set) that is not JSON serializable to node and task args."""
+    from jobmon.client.tool import Tool
     tool = Tool.create_tool(name="numpy_test_tool")
     workflow = tool.create_workflow(name="numpy_test_wf")
     workflow.set_executor(executor_class="SequentialExecutor")

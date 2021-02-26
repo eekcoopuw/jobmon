@@ -135,8 +135,8 @@ def get_task_by_status_only(workflow_id: int):
     return resp
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/suspend/<time_out>', methods=['PUT'])
-def suspend_workflow(workflow_run_id: int, time_out: int):
+@jobmon_swarm.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
+def terminate_workflow_run(workflow_run_id: int):
     """
     If applicable, moves the workflow run to "T" state, moves the associated workflow to "S".
 
@@ -153,33 +153,26 @@ def suspend_workflow(workflow_run_id: int, time_out: int):
         resp (Any): whether or not the workflow run was reaped and the response status code
     """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-
     query = """
-        SELECT
-            workflow_run.*,
-            TIMESTAMPDIFF(
-                SECOND, workflow_run.heartbeat_date, CURRENT_TIMESTAMP
-            ) AS heartbeat_diff
+        SELECT *
         FROM workflow_run
         WHERE
             workflow_run.id = :workflow_run_id
-        HAVING
-            (
-                heartbeat_diff > :time_out
-            )
+            and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
     """
     wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_id=workflow_run_id, time_out=time_out
+        workflow_run_id=workflow_run_id
     ).one_or_none()
-    DB.session.commit()
 
-    suspended = False
-    if wfr is not None:
+    try:
         wfr.transition(WorkflowRunStatus.TERMINATED)
         DB.session.commit()
-        suspended = True
+        transitioned = True
+    except (InvalidStateTransition, AttributeError):
+        # this branch handles race condition or case where no wfr was returned
+        transitioned = False
 
-    resp = jsonify(was_suspended=suspended)
+    resp = jsonify(transitioned=transitioned)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -218,8 +211,7 @@ def log_workflow_run_status_update(workflow_run_id: int):
     app.logger.debug(f"Log status update for workflow_run_id:{workflow_run_id}."
                      f"Data: {data}")
 
-    workflow_run = DB.session.query(WorkflowRun).filter_by(
-        id=workflow_run_id).one()
+    workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
     workflow_run.transition(data["status"])
     DB.session.commit()
 

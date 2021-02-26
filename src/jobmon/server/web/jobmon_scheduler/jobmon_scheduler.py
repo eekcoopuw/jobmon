@@ -146,6 +146,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
                 AND task.status = "Q"
             LIMIT :concurrency_limit
         """
+
         tasks = DB.session.query(Task).from_statement(text(task_query)).params(
             workflow_id=workflow_id,
             concurrency_limit=concurrency_limit

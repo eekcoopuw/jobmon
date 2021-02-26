@@ -151,7 +151,7 @@ def test_instantiation(db_cfg, requester_no_retries):
     workflow = Workflow(executor_class="_SimulatorSGEExecutor",
                         seconds_until_timeout=30)
     workflow.add_tasks([t1])
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester_no_retries)
@@ -548,7 +548,7 @@ def test_non_jobmon_jobs_eqw(db_cfg, client_env):
                      context_args={"sge_add_args": f"-e {bad_dir} -o {bad_dir}"})
     workflow.add_tasks([task1, task2])
 
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     fringe = wfr._compute_fringe()
     for task in fringe:

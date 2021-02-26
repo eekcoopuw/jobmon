@@ -1,12 +1,13 @@
 """The DAG captures the interconnected graph of tasks and their dependencies."""
 import hashlib
 from http import HTTPStatus as StatusCodes
-from typing import Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
-from jobmon.exceptions import DuplicateNodeArgsError, NodeDependencyNotExistError
-from jobmon.requester import Requester
+from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse,
+                               NodeDependencyNotExistError)
+from jobmon.requester import Requester, http_request_ok
 
 import structlog as logging
 
@@ -55,7 +56,7 @@ class Dag(object):
         # wf.add_task should call ClientNode.add_node() + pass the tasks' node
         self.nodes.add(node)
 
-    def bind(self) -> int:
+    def bind(self, chunk_size: int = 500) -> int:
         """Retrieve an id for a matching dag from the server. If it doesn't exist, first
         create one, including its edges.
         """
@@ -63,18 +64,26 @@ class Dag(object):
             raise RuntimeError('No nodes were found in the dag. An empty dag '
                                'cannot be bound.')
 
-        dag_id = self._get_dag_id()
+        self._bulk_bind_nodes(chunk_size)
+
         dag_hash = hash(self)
-        if dag_id is None:
-            logger.info(f'dag_id for dag with hash: {dag_hash} not found, '
-                        f'creating a new entry and binding the dag.')
-            self._dag_id = self._insert_dag()
-        else:
-            self._dag_id = dag_id
-            logger.info(f'Found dag_id: {self.dag_id} for dag with hash: '
-                        f'{dag_hash}')
-        logger.debug(f'dag_id is: {self.dag_id}')
-        return self.dag_id
+        return_code, response = self.requester.send_request(
+            app_route='/client/dag',
+            message={"dag_hash": dag_hash},
+            request_type='post',
+            logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise ValueError(f'Unexpected status code {return_code} from POST request through '
+                             f'route /client/dag/{dag_hash}. Expected code 200. Response '
+                             f'content: {response}')
+        dag_id = response["dag_id"]
+
+        # no created date means bind edges
+        if response['created_date'] is None:
+            self._bulk_insert_edges(dag_id)
+        self._dag_id = dag_id
+        return dag_id
 
     def validate(self):
         """Validate the nodes and their dependencies."""
@@ -83,14 +92,65 @@ class Dag(object):
             # Make sure no task contains up/down stream tasks that are not in the workflow
             for n in node.upstream_nodes:
                 if n not in nodes_in_dag:
-                    raise NodeDependencyNotExistError("Upstream node, {hash(n)}, for node, "
-                                                      "{hash(node)}, does not exist in the "
-                                                      "dag.")
+                    raise NodeDependencyNotExistError(
+                        f"Upstream node, {hash(n)}, for node, {hash(node)},"
+                        "does not exist in the dag."
+                    )
             for n in node.downstream_nodes:
                 if n not in nodes_in_dag:
-                    raise NodeDependencyNotExistError("Downstream node, {hash(n)}, for node, "
-                                                      "{hash(node)}, does not exist in the "
-                                                      "dag.")
+                    raise NodeDependencyNotExistError(
+                        f"Downstream node, {hash(n)}, for node, {hash(node)},"
+                        "does not exist in the dag."
+                    )
+
+    def _bulk_bind_nodes(self, chunk_size: int) -> None:
+
+        def get_chunk(total_nodes: int, chunk_number: int) -> Optional[Tuple[int, int]]:
+            # This function is created for unit testing
+            if (chunk_number - 1) * chunk_size >= total_nodes:
+                return None
+            return ((chunk_number - 1) * chunk_size,
+                    min(total_nodes - 1, chunk_number * chunk_size - 1))
+
+        nodes_in_dag = list(self.nodes)
+        nodes_received = {}
+        total_nodes = len(self.nodes)
+        chunk_number = 1
+        chunk_boarder = get_chunk(total_nodes, chunk_number)
+        while chunk_boarder is not None:
+            # do something to bind
+            nodes_to_send = []
+            for i in range(chunk_boarder[0], chunk_boarder[1] + 1):
+                node = nodes_in_dag[i]
+                n = {"task_template_version_id": node.task_template_version_id,
+                     "node_args_hash": node.node_args_hash,
+                     "node_args": node.node_args}
+                nodes_to_send.append(n)
+            rc, response = self.requester.send_request(
+                app_route='/client/nodes',
+                message={'nodes': nodes_to_send},
+                request_type='post',
+                logger=logger
+            )
+            if http_request_ok(rc) is False:
+                raise InvalidResponse(
+                    f'Unexpected status code {rc} from GET '
+                    f'request through route /client/workflow. Expected code '
+                    f'200. Response content: {response}')
+            else:
+                nodes_received.update(response['nodes'])
+            chunk_number += 1
+            chunk_boarder = get_chunk(total_nodes, chunk_number)
+
+        for node in nodes_in_dag:
+            k = f"{node.task_template_version_id}:{node.node_args_hash}"
+            if k in nodes_received.keys():
+                node._node_id = int(nodes_received[k])
+            else:
+                raise InvalidResponse(
+                    f"Fail to find node_id in HTTP response for node_args_hash "
+                    f"{node.node_args_hash} and task_template_version_id "
+                    f"{node.task_template_version_id} HTTP Response:\n {response}")
 
     def _get_dag_id(self) -> Optional[int]:
         dag_hash = hash(self)
@@ -109,40 +169,42 @@ class Dag(object):
                              f'Expected code 200. Response content: '
                              f'{response}')
 
-    def _insert_dag(self) -> int:
-
-        # convert the set into a dictionary that can be dumped and sent over
-        # as json
-        dag_hash = hash(self)
-        nodes_and_edges: Dict[int, Dict[str, List]] = {}
-
+    def _bulk_insert_edges(self, dag_id: int, chunk_size: int = 500) -> None:
+        # compile full list of edges
+        all_edges: List[Dict[str, Union[List, int]]] = []
         for node in self.nodes:
             # get the node ids for all upstream and downstream nodes
             upstream_nodes = [upstream_node.node_id
                               for upstream_node in node.upstream_nodes]
             downstream_nodes = [downstream_node.node_id
                                 for downstream_node in node.downstream_nodes]
+            all_edges.append({'node_id': node.node_id,
+                              'upstream_node_ids': upstream_nodes,
+                              'downstream_node_ids': downstream_nodes})
+        logger.debug(f'message included in edge post request: {all_edges}')
 
-            nodes_and_edges[node.node_id] = {
-                'upstream_nodes': upstream_nodes,
-                'downstream_nodes': downstream_nodes
-            }
+        while all_edges:
+            # split off first chunk elements from queue.
+            edge_chunk, all_edges = all_edges[:chunk_size], all_edges[chunk_size:]
 
-        logger.debug(f'message included in edge post request: {nodes_and_edges}')
+            message = {"edges_to_add": edge_chunk}
+            # more edges to add. don't mark it created
+            if all_edges:
+                message["mark_created"] = False
+            else:
+                message["mark_created"] = True
 
-        return_code, response = self.requester.send_request(
-            app_route='/client/dag',
-            message={"dag_hash": hash(self),
-                     "nodes_and_edges": nodes_and_edges},
-            request_type='post',
-            logger=logger
-        )
-        if return_code == StatusCodes.OK:
-            return response['dag_id']
-        else:
-            raise ValueError(f'Unexpected status code {return_code} from POST request through '
-                             f'route /client/dag/{dag_hash}. Expected code 200. Response '
-                             f'content: {response}')
+            app_route = f'/client/dag/{dag_id}/edges'
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message=message,
+                request_type='post',
+                logger=logger
+            )
+            if http_request_ok(return_code) is False:
+                raise ValueError(f'Unexpected status code {return_code} from POST request '
+                                 f'through route {app_route}. Expected code 200. Response '
+                                 f'content: {response}')
 
     def __hash__(self) -> int:
         """Determined by hashing all sorted node hashes and their downstream."""

@@ -32,7 +32,7 @@ def test_server_logging_format(web_server_in_memory, log_config):
     wf = UnknownWorkflow("test_server")
     task_a = BashTask("echo r", executor_class="SequentialExecutor")
     wf.add_task(task_a)
-    wf._bind()
+    wf.bind()
     wf.requester.send_request(
         app_route='/client/workflow',
         message={

@@ -103,7 +103,7 @@ def test_bash_task_bind(db_cfg, client_env):
     task1 = BashTask(command="echo 'Hello Jobmon'", max_attempts=1,
                      executor_class="DummyExecutor")
     workflow1.add_tasks([task1])
-    workflow1._bind()
+    workflow1.bind()
     workflow1._create_workflow_run()
     bound_task = workflow1.tasks[hash(task1)]
 
@@ -131,7 +131,7 @@ def test_bash_task_command_parsing(db_cfg, client_env):
     bash_c = BashTask('echo blah && sleep 6', task_args={'echo_str': 'blah'},
                       node_args={'sleep': 6}, env_variables={'OP_NUM_THREADS': '1'})
     bash_wf.add_tasks([bash_a, bash_b, bash_c])
-    bash_wf._bind()
+    bash_wf.bind()
     bash_wf._create_workflow_run()
 
     bound_a = bash_wf.tasks[hash(bash_a)]
@@ -152,7 +152,7 @@ def test_python_task_command_parsing(db_cfg, client_env):
     py_b = PythonTask(name="task_a", script='~/runme.py --blah 4 --bop 6 --hop 5',
                       node_args={'blah': 4}, task_args={'bop': 6}, args=['baz', '4'])
     wf.add_tasks([py_a, py_b])
-    wf._bind()
+    wf.bind()
     wf._create_workflow_run()
     bound_a = wf.tasks[hash(py_a)]
     bound_b = wf.tasks[hash(py_b)]
@@ -192,7 +192,7 @@ def test_python_task_args(db_cfg, client_env):
     task1 = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
                        num_cores=1, m_mem_free='2G', max_attempts=1)
     workflow1.add_tasks([task1])
-    workflow1._bind()
+    workflow1.bind()
     workflow1._create_workflow_run()
     bound_task = workflow1.tasks[hash(task1)]
 

@@ -1,0 +1,176 @@
+"""The workflow run is an instance of a workflow"""
+import getpass
+import time
+from typing import Dict, List, Optional, Tuple
+
+from jobmon import __version__
+from jobmon.client.client_config import ClientConfig
+from jobmon.client.task import Task
+from jobmon.constants import WorkflowRunStatus
+from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
+from jobmon.requester import Requester, http_request_ok
+
+import structlog as logging
+
+
+logger = logging.getLogger(__name__)
+
+
+class WorkflowRun(object):
+    """
+    WorkflowRun enables tracking for multiple runs of a single Workflow. A
+    Workflow may be started/paused/ and resumed multiple times. Each start or
+    resume represents a new WorkflowRun.
+
+    In order for a Workflow can be deemed to be DONE (successfully), it
+    must have 1 or more WorkflowRuns. In the current implementation, a Workflow
+    Job may belong to one or more WorkflowRuns, but once the Job reaches a DONE
+    state, it will no longer be added to a subsequent WorkflowRun. However,
+    this is not enforced via any database constraints.
+    """
+
+    def __init__(self, workflow_id: int, executor_class: str,
+                 slack_channel: str = 'jobmon-alerts', requester: Optional[Requester] = None):
+        self.workflow_id = workflow_id
+        self.executor_class = executor_class
+        self.user = getpass.getuser()
+
+        if requester is None:
+            requester_url = ClientConfig.from_defaults().url
+            requester = Requester(requester_url)
+        self.requester = requester
+
+        # get an id for this workflow run
+        self.workflow_run_id = self._register_workflow_run()
+
+        # workflow was created successfully
+        self.status = WorkflowRunStatus.REGISTERED
+
+    def bind(self, tasks: Dict[int, Task], reset_if_running: bool = True,
+             chunk_size: int = 500) -> Dict[int, Task]:
+        """Link this workflow run with the workflow and add all tasks."""
+        current_wfr_id, current_wfr_status = self._link_to_workflow()
+        # we did not successfully link. returned workflow_run_id is not the same as this ID
+        if self.workflow_run_id != current_wfr_id:
+
+            raise WorkflowNotResumable(
+                "There is another active workflow run already for workflow_id "
+                f"({self.workflow_id}). Found previous workflow_run_id/status: "
+                f"{current_wfr_id}/{current_wfr_status}"
+            )
+        self._status = WorkflowRunStatus.LINKING
+        # last heartbeat
+        self._last_heartbeat: float = time.time()
+
+        try:
+            tasks = self._bind_tasks(tasks, reset_if_running, chunk_size)
+        except Exception:
+            self._update_status(WorkflowRunStatus.ABORTED)
+        else:
+            self._update_status(WorkflowRunStatus.BOUND)
+        return tasks
+
+    def _update_status(self, status: str) -> None:
+        """Update the status of the workflow_run with whatever status is
+        passed
+        """
+        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={'status': status},
+            request_type='put',
+            logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected '
+                f'code 200. Response content: {response}')
+        self._status = status
+
+    def _register_workflow_run(self) -> int:
+        # bind to database
+        app_route = "/client/workflow_run"
+        rc, response = self.requester.send_request(
+            app_route=app_route,
+            message={'workflow_id': self.workflow_id,
+                     'user': self.user,
+                     'executor_class': self.executor_class,
+                     'jobmon_version': __version__,
+                     },
+            request_type='post',
+            logger=logger
+        )
+        if http_request_ok(rc) is False:
+            raise InvalidResponse(f"Invalid Response to {app_route}: {rc}")
+        return response['workflow_run_id']
+
+    def _link_to_workflow(self) -> Tuple[int, int]:
+        app_route = f"/client/workflow_run/{self.workflow_run_id}/link"
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type='post',
+            logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST  request through route '
+                f'{app_route}. Expected code 200. Response content: {response}'
+            )
+        return response['current_wfr']
+
+    def _log_heartbeat(self):
+        pass
+
+    def _bind_tasks(self, tasks: Dict[int, Task], reset_if_running: bool = True,
+                    chunk_size: int = 500, heartbeat_interval: int = 90) -> Dict[int, Task]:
+        app_route = '/client/task/bind_tasks'
+        parameters = {}
+        remaining_task_hashes = list(tasks.keys())
+
+        while remaining_task_hashes:
+
+            if (self._last_heartbeat - time.time()) > heartbeat_interval:
+                self._log_heartbeat()
+
+            # split off first chunk elements from queue.
+            task_hashes_chunk = remaining_task_hashes[:chunk_size]
+            remaining_task_hashes = remaining_task_hashes[chunk_size:]
+
+            # send to server in a format of:
+            # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3),
+            # command(4), max_attempts(5)], reset_if_running(6), task_args(7),
+            # task_attributes(8)}
+            # flat the data structure so that the server won't depend on the client
+            task_metadata: Dict[int, List] = {}
+            for task_hash in task_hashes_chunk:
+                task_metadata[task_hash] = [
+                    tasks[task_hash].node.node_id, tasks[task_hash].task_args_hash,
+                    tasks[task_hash].name, tasks[task_hash].command,
+                    tasks[task_hash].max_attempts, reset_if_running,
+                    tasks[task_hash].task_args, tasks[task_hash].task_attributes
+                ]
+            parameters = {
+                "workflow_id": self.workflow_id,
+                "tasks": task_metadata,
+            }
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message=parameters,
+                request_type='put',
+                logger=logger,
+            )
+            if http_request_ok(return_code) is False:
+                raise InvalidResponse(
+                    f'Unexpected status code {return_code} from PUT '
+                    f'request through route {app_route}. Expected code '
+                    f'200. Response content: {response}')
+
+            # populate returned values onto task dict
+            return_tasks = response["tasks"]
+            for k in return_tasks.keys():
+                tasks[int(k)].task_id = return_tasks[k][0]
+                tasks[int(k)].initial_status = return_tasks[k][1]
+
+        return tasks

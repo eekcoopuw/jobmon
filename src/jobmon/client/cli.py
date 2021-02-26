@@ -144,6 +144,7 @@ class ClientCLI(CLI):
 
     def _add_update_task_status_subparser(self) -> None:
         update_task_parser = self._subparsers.add_parser("update_task_status", **PARSER_KWARGS)
+        update_task_parser.set_defaults(func=self.update_task_status)
         update_task_parser.add_argument(
             "-t", "--task_ids", nargs="+", help="task_ids to reset",
             required=True, type=int)
@@ -159,6 +160,7 @@ class ClientCLI(CLI):
     def _add_concurrency_limit_subparser(self) -> None:
         concurrency_limit_parser = self._subparsers.add_parser("concurrency_limit",
                                                                **PARSER_KWARGS)
+        concurrency_limit_parser.set_defaults(func=self.concurrency_limit)
         concurrency_limit_parser.add_argument(
             "-w", "--workflow_id",
             required=True,

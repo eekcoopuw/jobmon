@@ -41,10 +41,11 @@ class WorkflowRunStatus:
     """Statuses used for Workflow Runs."""
 
     REGISTERED = 'G'
+    LINKING = 'L'
     BOUND = 'B'
+    ABORTED = 'A'
     RUNNING = 'R'
     DONE = 'D'
-    ABORTED = 'A'
     STOPPED = 'S'
     ERROR = 'E'
     COLD_RESUME = 'C'
@@ -55,12 +56,11 @@ class WorkflowRunStatus:
 class WorkflowStatus:
     """Statuses used for Workflows."""
 
-    REGISTERED = 'G'
-    BOUND = 'B'
+    REGISTERING = 'G'
+    QUEUED = 'Q'
     ABORTED = 'A'
-    CREATED = 'C'
     RUNNING = 'R'
-    SUSPENDED = 'S'
+    HALTED = 'H'
     FAILED = 'F'
     DONE = 'D'
 

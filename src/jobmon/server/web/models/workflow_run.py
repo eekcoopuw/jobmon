@@ -34,17 +34,19 @@ class WorkflowRun(DB.Model):
     status_date = DB.Column(DB.DateTime, default=func.now())
     heartbeat_date = DB.Column(DB.DateTime, default=func.now())
 
-    workflow = DB.relationship("Workflow", back_populates="workflow_runs",
-                               lazy=True)
+    workflow = DB.relationship("Workflow", back_populates="workflow_runs", lazy=True)
 
     valid_transitions = [
+        # a workflow run is created normally. claimed control of workflow
+        (WorkflowRunStatus.REGISTERED, WorkflowRunStatus.LINKING),
+
         # a workflow run is created normally. All tasks are updated in the db
         # and the workflow run can move to bound state
-        (WorkflowRunStatus.REGISTERED, WorkflowRunStatus.BOUND),
+        (WorkflowRunStatus.LINKING, WorkflowRunStatus.BOUND),
 
         # a workflow run is created normally. Something goes wrong while the
         # tasks are binding and the workflow run moves to error state
-        (WorkflowRunStatus.REGISTERED, WorkflowRunStatus.ABORTED),
+        (WorkflowRunStatus.LINKING, WorkflowRunStatus.ABORTED),
 
         # a workflow run is bound and then logs running
         (WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING),
@@ -77,29 +79,46 @@ class WorkflowRun(DB.Model):
         (WorkflowRunStatus.HOT_RESUME, WorkflowRunStatus.TERMINATED)
     ]
 
-    untimely_transitions = [(WorkflowRunStatus.RUNNING, WorkflowRunStatus.RUNNING)]
+    untimely_transitions = [
+        (WorkflowRunStatus.RUNNING, WorkflowRunStatus.RUNNING),
+        (WorkflowRunStatus.LINKING, WorkflowRunStatus.LINKING)
+    ]
 
     bound_error_states = [WorkflowRunStatus.STOPPED, WorkflowRunStatus.ERROR]
 
-    def is_active(self):
-        """Statuses where Workflow Run is active (bound or running)."""
-        return self.status in [WorkflowRunStatus.BOUND,
-                               WorkflowRunStatus.RUNNING]
+    active_states = [
+        WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING, WorkflowRunStatus.COLD_RESUME,
+        WorkflowRunStatus.HOT_RESUME
+    ]
 
-    def heartbeat(self, next_report_increment):
+    @property
+    def is_alive(self) -> bool:
+        """Workflow run is in a state that should be registering heartbeats."""
+        return self.status in [WorkflowRunStatus.LINKING, WorkflowRunStatus.BOUND,
+                               WorkflowRunStatus.RUNNING, WorkflowRunStatus.COLD_RESUME,
+                               WorkflowRunStatus.HOT_RESUME]
+
+    @property
+    def is_active(self) -> bool:
+        """Statuses where Workflow Run is active (bound or running)."""
+        return self.status in [WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING]
+
+    def heartbeat(self, next_report_increment: int):
         """Register a heartbeat for the Workflow Run to show it is still alive."""
         self.transition(WorkflowRunStatus.RUNNING)
-        self.heartbeat_date = func.ADDTIME(
-            func.now(), func.SEC_TO_TIME(next_report_increment))
+        self.heartbeat_date = func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report_increment))
 
     def transition(self, new_state):
         """Transition the Workflow Run's state."""
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
+
             self.status = new_state
             self.status_date = func.now()
-            if new_state == WorkflowRunStatus.BOUND:
-                self.workflow.transition(WorkflowStatus.BOUND)
+            if new_state == WorkflowRunStatus.LINKING:
+                self.workflow.transition(WorkflowStatus.REGISTERING)
+            elif new_state == WorkflowRunStatus.BOUND:
+                self.workflow.transition(WorkflowStatus.QUEUED)
             elif new_state == WorkflowRunStatus.ABORTED:
                 self.workflow.transition(WorkflowStatus.ABORTED)
             elif new_state == WorkflowRunStatus.RUNNING:
@@ -107,25 +126,24 @@ class WorkflowRun(DB.Model):
             elif new_state == WorkflowRunStatus.DONE:
                 self.workflow.transition(WorkflowStatus.DONE)
             elif new_state == WorkflowRunStatus.TERMINATED:
-                self.workflow.transition(WorkflowStatus.SUSPENDED)
+                self.workflow.transition(WorkflowStatus.HALTED)
             elif new_state in self.bound_error_states:
                 self.workflow.transition(WorkflowStatus.FAILED)
 
-    def hot_reset(self):
+    def hot_reset(self) -> None:
         """Set Workflow Run to Hot Resume."""
         self.transition(WorkflowRunStatus.HOT_RESUME)
 
-    def cold_reset(self):
+    def cold_reset(self) -> None:
         """Set Workflow Run to Cold Resume."""
         self.transition(WorkflowRunStatus.COLD_RESUME)
 
-    def _validate_transition(self, new_state):
+    def _validate_transition(self, new_state: str) -> None:
         """Ensure the Job state transition is valid."""
         if (self.status, new_state) not in self.valid_transitions:
-            raise InvalidStateTransition('WorkflowRun', self.id, self.status,
-                                         new_state)
+            raise InvalidStateTransition('WorkflowRun', self.id, self.status, new_state)
 
-    def _is_timely_transition(self, new_state):
+    def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.untimely_transitions:
             return False

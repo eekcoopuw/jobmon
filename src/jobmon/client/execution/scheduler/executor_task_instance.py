@@ -143,19 +143,18 @@ class ExecutorTaskInstance:
         if self.executor_id is None:
             raise ValueError("executor_id cannot be None during log_error")
         executor_id: int = self.executor_id
-        logger.info(f"log_error for executor_id {executor_id}")
+        logger.debug(f"log_error for executor_id {executor_id}")
         try:
             error_state, msg = self.executor.get_remote_exit_info(executor_id)
         except RemoteExitInfoNotAvailable:
-            msg = ("Unknown error caused task instance to be lost")
+            msg = (f"Unknown error caused task_instance_id {self.task_instance_id} to be lost")
             logger.warning(msg)
             error_state = TaskInstanceStatus.UNKNOWN_ERROR
 
         # this is the 'happy' path. The executor gives us a concrete error for
         # the lost task
         if error_state == TaskInstanceStatus.RESOURCE_ERROR:
-            logger.info(
-                f"log_error resource error for executor_id {executor_id}")
+            logger.debug(f"log_error resource error for executor_id {executor_id}")
             message = {
                 "error_message": msg,
                 "error_state": error_state,
@@ -164,9 +163,8 @@ class ExecutorTaskInstance:
         # this is the 'unhappy' path. We are giving up discovering the exit
         # state and moving the task into unknown error state
         else:
-            logger.info(f"Giving up discovering the exit state for "
-                        f"executor_id {executor_id} with error_state "
-                        f"{error_state}")
+            logger.debug(f"Giving up discovering the exit state for executor_id {executor_id} "
+                         f"with error_state {error_state}")
             message = {
                 "error_message": msg,
                 "error_state": error_state
@@ -194,8 +192,8 @@ class ExecutorTaskInstance:
         if self.executor.__class__.__name__ != "DummyExecutor":
             logger.error("Cannot directly log a task instance done unless using the Dummy "
                          "Executor")
-        logger.info("Moving the job to running, then done so that dependencies can proceed to "
-                    "mock a successful dag traversal process")
+        logger.debug("Moving the job to running, then done so that dependencies can proceed to"
+                     " mock a successful dag traversal process")
         run_app_route = f'/worker/task_instance/{self.task_instance_id}/log_running'
         run_message = {'process_group_id': '0', 'next_report_increment': 60}
         return_code, response = self.requester.send_request(

@@ -9,7 +9,6 @@ from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeWorkflowRun
-from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 
 
 logger = logging.getLogger(__file__)
@@ -77,13 +76,10 @@ class ReaperWorkflowRun(object):
         logger.info(message)
         return message
 
-    def transition_to_suspended(self) -> str:
-        """Transition workflow run to suspended."""
-        cfg = WorkflowReaperConfig.from_defaults()
-        time_out = cfg.workflow_run_heartbeat_interval * cfg.task_instance_report_by_buffer
-
-        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/suspend/{time_out}'
-        return_code, result = self._requester.send_request(
+    def transition_to_terminated(self) -> str:
+        """Transition workflow run to terminated."""
+        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/terminate'
+        return_code, response = self._requester.send_request(
             app_route=app_route,
             message={},
             request_type='put',
@@ -92,15 +88,16 @@ class ReaperWorkflowRun(object):
         if http_request_ok(return_code) is False:
             raise InvalidResponse(f'Unexpected status code {return_code} from POST '
                                   f'request through route {app_route}. Expected '
-                                  f'code 200. Response content: {result}')
-        if result["was_suspended"]:
+                                  f'code 200. Response content: {response}')
+
+        if bool(response["transitioned"]):
             # Notify Slack about the workflow transition
             message = f"{__version__} Workflow Reaper transitioned " \
-                      f"Workflow #{self.workflow_id} to SUSPENDED state"
+                      f"Workflow #{self.workflow_id} to HALTED state" \
+                      f"Workflow Run #{self.workflow_run_id} transitioned to TERMINATED state"
             logger.info(message)
         else:
             message = ""
-
         return message
 
     def transition_to_aborted(self, aborted_seconds: int = (60 * 2)) -> str:

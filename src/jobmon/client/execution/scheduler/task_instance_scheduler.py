@@ -5,7 +5,7 @@ import multiprocessing as mp
 import sys
 import threading
 import time
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
@@ -50,7 +50,7 @@ class TaskInstanceScheduler:
 
         # executor interface
         self.executor = executor
-        self.executor_ids = {}
+        self.executor_ids: Dict[int, int] = {}
 
         # operational args
         self._jobmon_command = jobmon_command
@@ -62,7 +62,7 @@ class TaskInstanceScheduler:
 
         self.requester = requester
 
-        logger.info(f"scheduler: communicating at {self.requester.url}")
+        logger.info(f"scheduler communicating at {self.requester.url}")
 
         # work to do
         self._to_instantiate: List[ExecutorTask] = []
@@ -78,7 +78,7 @@ class TaskInstanceScheduler:
             # start up the worker thread and executor
             if not self.executor.started:
                 self.executor.start(self._jobmon_command)
-            logger.info("scheduler: executor has started")
+            logger.info("Scheduler has started")
 
             # send response back to main
             if status_queue is not None:
@@ -142,7 +142,7 @@ class TaskInstanceScheduler:
         """
         # log heartbeats for tasks queued for batch execution and for the
         # workflow run
-        logger.info("scheduler: logging heartbeat")
+        logger.debug("scheduler: logging heartbeat")
         self._log_executor_report_by()
         self._log_workflow_run_heartbeat()
 
@@ -209,9 +209,9 @@ class TaskInstanceScheduler:
         next_report_increment = self._task_heartbeat_interval * self._report_by_buffer
 
         try:
-            logger.info(f"checking for errored_jobs with exec_ids: {self.executor_ids}")
+            logger.debug(f"checking for errored_jobs with exec_ids: {self.executor_ids}")
             errored_jobs = self.executor.get_errored_jobs(executor_ids=self.executor_ids)
-            logger.info(f"errored_jobs: {errored_jobs}")
+            logger.debug(f"errored_jobs: {errored_jobs}")
         except NotImplementedError:
             logger.warning(f"{self.executor.__class__.__name__} does not implement "
                            f"errored_jobs methods.")
@@ -233,11 +233,11 @@ class TaskInstanceScheduler:
                 )
 
         try:
-            logger.info(f"checking for active jobs with exec_ids: {self.executor_ids}")
+            logger.debug(f"checking for active jobs with exec_ids: {self.executor_ids}")
             actual, executor_ids = self.executor.get_actual_submitted_or_running(
                 executor_ids=self.executor_ids, report_by_buffer=self._report_by_buffer)
             self.executor_ids = executor_ids
-            logger.info(f"Updated executor_ids: {self.executor_ids}")
+            logger.debug(f"Updated executor_ids: {self.executor_ids}")
         except NotImplementedError:
             logger.warning(
                 f"{self.executor.__class__.__name__} does not implement "
@@ -348,7 +348,7 @@ class TaskInstanceScheduler:
             executor_ids=self.executor_ids
         )
         self.executor_ids = executor_ids
-        logger.info(f"JOB_IDS = {self.executor_ids}")
+        logger.debug(f"JOB_IDS = {self.executor_ids}")
         if executor_id == QsubAttribute.NO_EXEC_ID:
             logger.debug(f"Received {executor_id} meaning the task did not qsub properly, "
                          "moving to 'W' state")
@@ -388,7 +388,7 @@ class TaskInstanceScheduler:
             for ti in response["task_instances"]
         ]
         self._to_reconcile = lost_task_instances
-        logger.info(f"Jobs to be reconciled: {self._to_reconcile}")
+        logger.debug(f"Jobs to be reconciled: {self._to_reconcile}")
 
     def _terminate_active_task_instances(self) -> None:
         app_route = (

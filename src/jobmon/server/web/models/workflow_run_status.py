@@ -9,10 +9,11 @@ class WorkflowRunStatus(DB.Model):
     __tablename__ = 'workflow_run_status'
 
     REGISTERED = Statuses.REGISTERED
+    LINKING = Statuses.LINKING
     BOUND = Statuses.BOUND
+    ABORTED = Statuses.ABORTED
     RUNNING = Statuses.RUNNING
     DONE = Statuses.DONE
-    ABORTED = Statuses.ABORTED
     STOPPED = Statuses.STOPPED
     ERROR = Statuses.ERROR
     COLD_RESUME = Statuses.COLD_RESUME
