@@ -103,9 +103,9 @@ class WorkflowRun(DB.Model):
         """Statuses where Workflow Run is active (bound or running)."""
         return self.status in [WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING]
 
-    def heartbeat(self, next_report_increment: int):
+    def heartbeat(self, next_report_increment: int, transition_status: str = WorkflowRunStatus.RUNNING):
         """Register a heartbeat for the Workflow Run to show it is still alive."""
-        self.transition(WorkflowRunStatus.RUNNING)
+        self.transition(transition_status)
         self.heartbeat_date = func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report_increment))
 
     def transition(self, new_state):

@@ -120,8 +120,19 @@ class WorkflowRun(object):
             )
         return response['current_wfr']
 
-    def _log_heartbeat(self):
-        pass
+    def _log_heartbeat(self, heartbeat_interval: int = 90):
+        app_route = f"/client/workflow_run/{self.workflow_run_id}/log_heartbeat"
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={"next_report_increment": heartbeat_interval},
+            request_type='post',
+            logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST  request through route '
+                f'{app_route}. Expected code 200. Response content: {response}'
+            )
 
     def _bind_tasks(self, tasks: Dict[int, Task], reset_if_running: bool = True,
                     chunk_size: int = 500, heartbeat_interval: int = 90) -> Dict[int, Task]:
@@ -132,7 +143,7 @@ class WorkflowRun(object):
         while remaining_task_hashes:
 
             if (self._last_heartbeat - time.time()) > heartbeat_interval:
-                self._log_heartbeat()
+                self._log_heartbeat(heartbeat_interval)
 
             # split off first chunk elements from queue.
             task_hashes_chunk = remaining_task_hashes[:chunk_size]
