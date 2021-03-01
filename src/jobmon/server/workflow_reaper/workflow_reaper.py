@@ -129,7 +129,11 @@ class WorkflowReaper(object):
         workflow_runs = self._check_by_given_status(["G"])
 
         if aborted_seconds is None:
-            aborted_seconds = self._loss_threshold * 60
+            # Hotfix until a proper bugfix can be put in place. Upping the aborted threshold
+            # to 15 minutes (loss_threshold (5) * 60 * 3). Not upping the value in the reaper
+            # config because I don't want to impact the logic in the reaper error.
+            # TODO: bring the threshold back down once the bugfix is put in place
+            aborted_seconds = self._loss_threshold * 60 * 3
 
         # Call method to validate/register if workflow run should be in A state
         for wfr in workflow_runs:
