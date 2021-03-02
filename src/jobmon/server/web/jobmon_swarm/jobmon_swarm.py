@@ -241,7 +241,7 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
         SELECT
             workflow_run.*,
             TIMESTAMPDIFF(
-                SECOND, workflow_run.status_date, CURRENT_TIMESTAMP
+                SECOND, workflow_run.heartbeat_date, CURRENT_TIMESTAMP
             ) AS workflow_created,
             TIMESTAMPDIFF(
                 SECOND, max(task.status_date), CURRENT_TIMESTAMP

@@ -85,7 +85,7 @@ class WorkflowReaper(object):
             if self._wf_notification_sink:
                 self._wf_notification_sink(msg=message)
 
-    def _get_lost_workflow_runs(self) -> List[ReaperWorkflowRun]:
+    def _get_lost_workflow_runs(self, status: list = ['R']) -> List[ReaperWorkflowRun]:
         # get time from db
         app_route = "/time"
         return_code, response = self._requester.send_request(
@@ -103,7 +103,7 @@ class WorkflowReaper(object):
         query_time = datetime.strptime(response['time'], '%Y-%m-%d %H:%M:%S')
 
         # Return all workflows that have not logged a heartbeat in awhile
-        workflow_runs = self._check_by_given_status(["R"])
+        workflow_runs = self._check_by_given_status(status)
 
         # compare time
         lost_wfrs = [wfr for wfr in workflow_runs
@@ -125,7 +125,9 @@ class WorkflowReaper(object):
 
     def _aborted_state(self, workflow_run_id: int = None, aborted_seconds: int = (60 * 2)
                        ) -> None:
-        """Get all workflow runs in G state and validate if they should be in A state."""
+        """Get all workflow runs in G state and validate if they should be in A state.
+        Get all lost wfr in L state and set it to A
+        """
         # Get all wfrs in G state
         workflow_runs = self._check_by_given_status(["G"])
 
@@ -143,3 +145,14 @@ class WorkflowReaper(object):
                 # Send a message to slack about the transitions
                 if self._wf_notification_sink and message:
                     self._wf_notification_sink(msg=message)
+
+        # Get all lost wfr in L
+        lost_wfrs = self._get_lost_workflow_runs(["L"])
+
+        # Transitions workflow to A state and workflow run to ERROR
+        for wfr in lost_wfrs:
+            # Transition workflow run to A
+            message = wfr.wfr.transition_to_aborted(aborted_seconds)
+            # Send a message to slack about the transitions
+            if self._wf_notification_sink:
+                self._wf_notification_sink(msg=message)
