@@ -42,4 +42,6 @@ def test_log_heartbeat(client_env, db_cfg):
         DB.session.commit()
     new_hb = res[0]
     assert new_hb > current_hb
+    assert s == WorkflowRunStatus.LINKING
+    assert wf._status == WorkflowStatus.REGISTERING
 
