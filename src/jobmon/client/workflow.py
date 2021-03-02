@@ -499,6 +499,7 @@ class Workflow(object):
                 self.tasks[int(k)].initial_status = return_tasks[k][1]
             chunk_number += 1
             chunk_boarder = self._get_chunk(total_tasks, chunk_number)
+            logger.info(f"chunk_border: {chunk_boarder}")
 
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True) -> WorkflowRun:
@@ -514,8 +515,10 @@ class Workflow(object):
 
         try:
             self._bind_tasks(reset_running_jobs)
+            logger.info("We have now exited _bind_tasks()")
             for task in self.tasks.values():
                 # create swarmtasks
+                logger.info(f"task id={task.task_id}, status={task.initial_status}")
                 swarm_task = SwarmTask(
                     task_id=task.task_id,
                     status=task.initial_status,
@@ -531,7 +534,11 @@ class Workflow(object):
                     swarm_tasks[t.task_id] for t in task.upstream_tasks])
                 swarm_task.downstream_swarm_tasks = set([
                     swarm_tasks[t.task_id] for t in task.downstream_tasks])
+                logger.info(f"In loop to create relationships on swarm tasks for task: {task.task_id}")
+                logger.info(f"upstream swarm tasks: {len(swarm_task.upstream_swarm_tasks)}")
+                logger.info(f"downstream swarm tasks: {len(swarm_task.downstream_swarm_tasks)}")
 
+            logger.info("Finished adding relationships to swarm tasks")
             # add swarm tasks to workflow run
             wfr.swarm_tasks = swarm_tasks
         except Exception:
