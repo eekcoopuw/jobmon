@@ -1364,6 +1364,28 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
     return resp
 
 
+@jobmon_client.route('/lost_workflow_run', methods=['GET'])
+def get_lost_workflow_runs():
+    """Return all workflow runs that are currently in the specified state."""
+    query = """
+        SELECT
+            workflow_run.*
+        FROM
+            workflow_run
+        WHERE
+            workflow_run.status in :workflow_run_status
+            and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
+    """
+    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+        workflow_run_status=request.args.getlist('status')
+    ).all()
+    DB.session.commit()
+    workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
+    resp = jsonify(workflow_runs=workflow_runs)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ TESTING ROUTES ################################################
 @jobmon_client.route('/test_bad', methods=['GET'])
 def test_bad_route():
