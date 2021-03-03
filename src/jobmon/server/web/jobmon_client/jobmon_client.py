@@ -12,6 +12,7 @@ from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.arg_type import ArgType
 from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.edge import Edge
+from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.node_arg import NodeArg
 from jobmon.server.web.models.task import Task
@@ -1333,6 +1334,32 @@ def get_active_workflow_runs():
     DB.session.commit()
     workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
     resp = jsonify(workflow_runs=workflow_runs)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_client.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+def log_workflow_run_heartbeat(workflow_run_id: int):
+    """Log a heartbeat on behalf of the workflow run to show that the client side is still
+    alive.
+    """
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
+    data = request.get_json()
+    app.logger.debug(f"Heartbeat data: {data}")
+
+    workflow_run = DB.session.query(WorkflowRun).filter_by(
+        id=workflow_run_id).one()
+
+    try:
+        workflow_run.status
+        workflow_run.heartbeat(data["next_report_increment"], WorkflowRunStatus.LINKING)
+        DB.session.commit()
+        app.logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
+    except InvalidStateTransition:
+        DB.session.rollback()
+        app.logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
+
+    resp = jsonify(message=str(workflow_run.status))
     resp.status_code = StatusCodes.OK
     return resp
 

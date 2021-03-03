@@ -100,7 +100,7 @@ class Workflow(DB.Model):
             current_wfr = [(wfr.id, wfr.status) for wfr in self.workflow_runs if wfr.is_alive]
         # currently linked workflow run
         else:
-            current_wfr = [(wfr.id, wfr.status) for wfr in linked_wfr]
+            current_wfr = [(wfr.id, wfr.status) for wfr in self.workflow_runs]
         return current_wfr[0]
 
     def resume(self, reset_running_jobs: bool) -> None:
