@@ -122,24 +122,6 @@ class WorkflowReaper(object):
         """Get all workflow runs in G state and validate if they should be in A state.
         Get all lost wfr in L state and set it to A
         """
-        # Get all wfrs in G state
-        workflow_runs = self._check_by_given_status(["G"])
-
-        # Call method to validate/register if workflow run should be in A state
-        for wfr in workflow_runs:
-            if workflow_run_id:
-                if wfr.workflow_run_id == workflow_run_id:
-                    message = wfr.transition_to_aborted(aborted_seconds)
-                    # Send a message to slack about the transitions
-                    if self._wf_notification_sink and message:
-                        self._wf_notification_sink(msg=message)
-                    break
-            else:
-                message = wfr.transition_to_aborted(aborted_seconds)
-                # Send a message to slack about the transitions
-                if self._wf_notification_sink and message:
-                    self._wf_notification_sink(msg=message)
-
         # Get all lost wfr in L
         lost_wfrs = self._get_lost_workflow_runs(["L"])
 
