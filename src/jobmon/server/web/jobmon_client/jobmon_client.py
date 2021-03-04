@@ -4,7 +4,7 @@ import json
 from typing import Dict, Union, List, Set
 
 from flask import jsonify, request, Blueprint, current_app as app
-from sqlalchemy.sql import text
+from sqlalchemy.sql import text, func
 from sqlalchemy.dialects.mysql import insert
 import sqlalchemy
 
@@ -599,32 +599,6 @@ def add_nodes():
         raise ServerError(f"{str(e)} in {request.path}", status_code=500) from e
 
 
-@jobmon_client.route('/dag', methods=['GET'])
-def get_dag_id():
-    """Get a dag id: If a matching dag isn't found, return None.
-
-    Args:
-        dag_hash: unique identifier of the dag, included in route
-    """
-    try:
-        dag_hash = request.args["dag_hash"]
-        app.logger = app.logger.bind(dag_hash=dag_hash)
-        query = """SELECT dag.id FROM dag WHERE hash = :dag_hash"""
-        result = DB.session.query(Dag).from_statement(text(query)).params(
-            dag_hash=dag_hash
-        ).one_or_none()
-
-        if result is None:
-            resp = jsonify({'dag_id': None})
-        else:
-            resp = jsonify({'dag_id': result.id})
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        raise ServerError(f"{str(e)} in {request.path}",
-                          status_code=500) from e
-
-
 @jobmon_client.route('/dag', methods=['POST'])
 def add_dag():
     """Add a new dag to the database.
@@ -636,41 +610,14 @@ def add_dag():
 
     # add dag
     dag_hash = data.pop("dag_hash")
-    nodes_and_edges = data.pop("nodes_and_edges")
     app.logger = app.logger.bind(dag_hash=dag_hash)
     try:
         dag = Dag(hash=dag_hash)
         DB.session.add(dag)
         DB.session.commit()
 
-        # now get a lock to add the edges
-        DB.session.refresh(dag, with_for_update=True)
-
-        edges_to_add = []
-
-        for node_id, edges in nodes_and_edges.items():
-            app.logger.debug(f'Edges: {edges}')
-
-            if len(edges['upstream_nodes']) == 0:
-                upstream_nodes = None
-            else:
-                upstream_nodes = str(edges['upstream_nodes'])
-
-            if len(edges['downstream_nodes']) == 0:
-                downstream_nodes = None
-            else:
-                downstream_nodes = str(edges['downstream_nodes'])
-
-            edge = Edge(dag_id=dag.id,
-                        node_id=node_id,
-                        upstream_node_ids=upstream_nodes,
-                        downstream_node_ids=downstream_nodes)
-            edges_to_add.append(edge)
-
-        DB.session.bulk_save_objects(edges_to_add)
-        DB.session.commit()
         # return result
-        resp = jsonify(dag_id=dag.id)
+        resp = jsonify(dag_id=dag.id, created_date=dag.created_date)
         resp.status_code = StatusCodes.OK
 
         return resp
@@ -683,14 +630,65 @@ def add_dag():
         """
         dag = DB.session.query(Dag).from_statement(text(query)).params(dag_hash=dag_hash).one()
         DB.session.commit()
+
         # return result
-        resp = jsonify(dag_id=dag.id)
+        resp = jsonify(dag_id=dag.id, created_date=dag.created_date)
         resp.status_code = StatusCodes.OK
 
         return resp
     except Exception as e:
         raise ServerError(f"{str(e)} in {request.path}",
                           status_code=500) from e
+
+
+@jobmon_client.route('/dag/<dag_id>/edges', methods=['POST'])
+def add_edges(dag_id):
+    try:
+        data = request.get_json()
+        edges_to_add = data.pop("edges_to_add")
+        mark_created = bool(data.pop("mark_created"))
+    except KeyError as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+    try:
+
+        # add dag and cast types
+        for edges in edges_to_add:
+            edges["dag_id"] = dag_id
+            if len(edges['upstream_node_ids']) == 0:
+                edges['upstream_node_ids'] = None
+            else:
+                edges['upstream_node_ids'] = str(edges['upstream_node_ids'])
+
+            if len(edges['downstream_node_ids']) == 0:
+                edges['downstream_node_ids'] = None
+            else:
+                edges['downstream_node_ids'] = str(edges['downstream_node_ids'])
+
+        app.logger.debug(f'Edges: {edges}')
+
+        # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
+        # keys
+        edge_insert_stmt = insert(Edge).prefix_with("IGNORE")
+        DB.session.execute(edge_insert_stmt, edges_to_add)
+        DB.session.commit()
+
+        if mark_created:
+            query = """
+                SELECT *
+                FROM dag
+                WHERE id = :dag_id
+            """
+            dag = DB.session.query(Dag).from_statement(text(query)).params(dag_id=dag_id).one()
+            dag.created_date = func.now()
+            DB.session.commit()
+
+        # return result
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
+        return resp
+
+    except Exception as e:
+        raise ServerError(f"{str(e)} in {request.path}", status_code=500)
 
 
 @jobmon_client.route('/task', methods=['GET'])

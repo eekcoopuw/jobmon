@@ -35,7 +35,7 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
 
     # read 100 bytes at a time so the pipe never deadlocks even if someone
     # tries to print a dataframe into stderr
-    logger.info("enqueue_stderr")
+    logger.debug("enqueue_stderr")
     block_reader = partial(stderr.read, 100)
     for new_block in iter(block_reader, ''):
 
@@ -60,7 +60,7 @@ def kill_self(child_process: subprocess.Popen = None) -> None:
 def parse_arguments(argstr: Optional[str] = None) -> dict:
 
     # parse arguments
-    logger.info("parsing arguments")
+    logger.debug("parsing arguments")
     parser = argparse.ArgumentParser()
     parser.add_argument("--task_instance_id", required=True, type=int)
     parser.add_argument("--command", required=True)

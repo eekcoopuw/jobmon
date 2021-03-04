@@ -45,8 +45,7 @@ class Node:
     @property
     def node_id(self) -> int:
         if not hasattr(self, "_node_id"):
-            raise AttributeError(
-                "node_id cannot be accessed before node is bound")
+            raise AttributeError("node_id cannot be accessed before node is bound")
         return self._node_id
 
     def bind(self) -> int:
@@ -54,12 +53,11 @@ class Node:
         exist, first create one."""
         node_id = self._get_node_id()
         if node_id is None:
-            logger.info(f'node_id for node: {self} not found, creating a new'
-                        f'entry and binding node.')
+            logger.debug(f'node_id for node: {self} not found, creating a new'
+                         f'entry and binding node.')
             node_id = self._insert_node_and_node_args()
         else:
-            logger.info(f'Found node_id: {node_id} for node: {self}, binding '
-                        f'node.')
+            logger.debug(f'Found node_id: {node_id} for node: {self}, binding node.')
         self._node_id = node_id
         return self.node_id
 
@@ -78,7 +76,7 @@ class Node:
         return hash_value
 
     def _get_node_id(self) -> int:
-        logger.info(f'Querying for node {self}')
+        logger.debug(f'Querying for node {self}')
         return_code, response = self.requester.send_request(
             app_route='/client/node',
             message={
@@ -97,7 +95,7 @@ class Node:
                              f' {response}')
 
     def _insert_node_and_node_args(self) -> int:
-        logger.info(f'Insert node: {self}')
+        logger.debug(f'Insert node: {self}')
         return_code, response = self.requester.send_request(
             app_route='/client/node',
             message={

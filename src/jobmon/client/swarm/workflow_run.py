@@ -327,7 +327,8 @@ class WorkflowRun(object):
             # An exception is raised if the runtime exceeds the timeout limit
             completed, failed = self._block_until_any_done_or_error(
                 timeout=seconds_until_timeout,
-                wedged_workflow_sync_interval=wedged_workflow_sync_interval)
+                wedged_workflow_sync_interval=wedged_workflow_sync_interval
+            )
             for swarm_task in completed:
                 n_executions += 1
             if failed and fail_fast:
@@ -341,7 +342,7 @@ class WorkflowRun(object):
                 fringe = list(set(fringe + task_to_add))
             if (self._val_fail_after_n_executions is not None and
                     n_executions >= self._val_fail_after_n_executions):
-                raise ValueError(f"Dag asked to fail after {n_executions} "
+                raise ValueError(f"WorkflowRun asked to fail after {n_executions} "
                                  f"executions. Failing now")
 
         # END while fringe or all_active
@@ -359,11 +360,11 @@ class WorkflowRun(object):
         if all_failed:
             if fail_fast:
                 logger.info("Failing after first failure, as requested")
-            logger.info(f"DAG execute ended, failed {all_failed}")
+            logger.info(f"WorkflowRun execute ended, num failed {len(all_failed)}")
             self.update_status(WorkflowRunStatus.ERROR)
             self._completed_report = (num_new_completed, len(previously_completed))
         else:
-            logger.info(f"DAG execute finished successfully, {num_new_completed} jobs")
+            logger.info(f"WorkflowRun execute finished successfully, {num_new_completed} jobs")
             self.update_status(WorkflowRunStatus.DONE)
             self._completed_report = (num_new_completed, len(previously_completed))
 
@@ -407,25 +408,26 @@ class WorkflowRun(object):
         while True:
             # make sure we haven't timed out
             if time_since_last_update > timeout:
-                raise RuntimeError(f"Not all tasks completed within the given "
-                                   f"workflow timeout length ({timeout} "
-                                   f"seconds). Submitted tasks will still run,"
-                                   f" but the workflow will need to be "
-                                   f"restarted.")
+                raise RuntimeError(
+                    f"Not all tasks completed within the given workflow timeout length "
+                    f"({timeout} seconds). Submitted tasks will still run, but the workflow "
+                    f"will need to be restarted."
+                )
 
             # make sure scheduler is still alive or this is all for nothing
             if not self.scheduler_alive:
                 raise SchedulerNotAlive(
-                    f"Scheduler process pid=({self._scheduler_proc.pid}) "
-                    f"unexpectedly died with exit code "
-                    f"{self._scheduler_proc.exitcode}")
+                    f"Scheduler process pid=({self._scheduler_proc.pid}) unexpectedly died "
+                    f"with exit code {self._scheduler_proc.exitcode}"
+                )
 
             # check if we are doing a full sync or a date based sync
             if time_since_last_wedge_sync > wedged_workflow_sync_interval:
                 # should get statuses from every active task that has changed
                 # state or any task that has changed state since we last got
                 # task status updates
-                logger.info("syncing all active tasks")
+                logger.info(f"No state changes discovered in {time_since_last_wedge_sync}s. "
+                            f"Syncing all tasks to ensure consistency.")
                 swarm_tasks = self._task_status_updates(self.active_tasks)
                 time_since_last_wedge_sync = 0
             else:
@@ -434,20 +436,24 @@ class WorkflowRun(object):
                 swarm_tasks = self._task_status_updates()
 
             # now parse into sets
-            completed, failed, adjusting = (
-                self._parse_adjusting_done_and_errors(swarm_tasks))
+            completed, failed, adjusting = self._parse_adjusting_done_and_errors(swarm_tasks)
 
             # deal with resource errors. we don't want to exit the loop here
             # because this state change doesn't affect the fringe.
             if adjusting:
                 for swarm_task in adjusting:
                     # change callable to adjustment function.
-                    swarm_task.executor_parameters_callable = \
-                        swarm_task.adjust_resources
+                    swarm_task.executor_parameters_callable = swarm_task.adjust_resources
                     self._adjust_resources_and_queue(swarm_task)
 
             # exit if fringe is affected
             if completed or failed:
+                if completed:
+                    percent_done = round((len(self.all_done) / len(self.swarm_tasks)) * 100, 2)
+                    logger.info(f"{len(completed)} newly completed tasks. "
+                                f"{percent_done} percent done.")
+                if failed:
+                    logger.warning(f"{len(failed)} newly failed tasks.")
                 return completed, failed
 
             # sleep little baby

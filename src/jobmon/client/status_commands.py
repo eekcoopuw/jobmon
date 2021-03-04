@@ -62,7 +62,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
     Returns:
         Dataframe of tasks for a given workflow
     """
-    logger.info("workflow id: {}".format(workflow_id))
+    logger.debug("workflow id: {}".format(workflow_id))
     msg = {}
     if status:
         msg["status"] = [i.upper() for i in status]
@@ -95,7 +95,7 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
     Returns:
         Task status and task_instance metadata
     """
-    logger.info("task_status task_ids:{}".format(str(task_ids)))
+    logger.debug("task_status task_ids:{}".format(str(task_ids)))
     msg = {}
     msg["task_ids"] = task_ids
     if status:

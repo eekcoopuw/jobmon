@@ -27,9 +27,9 @@ def makedirs_safely(d):
             # FYI errno.EEXIST == 17
             # Race condition - two processes try to create the same directory
             # at almost the same time!
-            logger.info("Process could not create directory {} because it "
+            logger.info(f"Process could not create directory {d} because it "
                         "already existed, probably due to race condition, "
-                        "no error, continuing".format(d))
+                        "no error, continuing")
             pass
         else:
             logger.error("Process could not create directory {}, "
@@ -143,7 +143,7 @@ class SGEExecutor(Executor):
             if int(key) not in sge_ids:
                 logger.debug(f"{int(key)} not found in sge_ids: {sge_ids}")
                 val = executor_ids[key]
-                if val > (report_by_buffer+1):
+                if val > (report_by_buffer + 1):
                     # if the jid has been polled for longer than its timeout period
                     logger.debug(f"LOST: {key}")
                     res, _ = sge_utils.qacct_exit_status(key)
@@ -302,7 +302,7 @@ class TaskInstanceSGEInfo(TaskInstanceExecutorInfo):
             sge_jid = os.environ.get('JOB_ID')
             if sge_jid:
                 self._executor_id = int(sge_jid)
-        logger.info("executor_id: {}".format(self._executor_id))
+        logger.debug("executor_id: {}".format(self._executor_id))
         return self._executor_id
 
     def get_usage_stats(self) -> Dict:
