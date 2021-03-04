@@ -224,11 +224,7 @@ class TaskInstanceScheduler:
                 )
 
         try:
-<<<<<<< HEAD
-            logger.info(f"checking executor for active jobs")
-=======
-            logger.debug(f"checking for active jobs with exec_ids: {self.executor_ids}")
->>>>>>> 8f69fff820d61028be0329a14b629d35620efbd9
+            logger.info("checking executor for active jobs")
             actual, executor_ids = self.executor.get_actual_submitted_or_running(
                 executor_ids=self.executor_ids, report_by_buffer=self._report_by_buffer)
             self.executor_ids = executor_ids
