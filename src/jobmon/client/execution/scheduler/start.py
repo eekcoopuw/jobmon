@@ -23,7 +23,7 @@ def get_scheduler(workflow_id: int, workflow_run_id: int,
         )
     else:
         syslog_config = None
-    configure_logger("jobmon.client.execution", syslog_config)
+    # configure_logger("jobmon.client.execution", syslog_config)
 
     # TODO: make the default executor configurable
     if executor is None:

@@ -133,7 +133,10 @@ class TaskInstanceScheduler:
         # log heartbeats for tasks queued for batch execution and for the
         # workflow run
         logger.info("scheduler: logging heartbeat")
-        self._log_executor_report_by()
+        try:
+            self._log_executor_report_by()
+        except Exception as e:
+            logger.error(e)
         self._log_workflow_run_heartbeat()
 
     def schedule(self, thread_stop_event: Optional[threading.Event] = None) -> None:
@@ -198,9 +201,9 @@ class TaskInstanceScheduler:
         next_report_increment = self._task_heartbeat_interval * self._report_by_buffer
 
         try:
-            logger.info(f"checking for errored_jobs with exec_ids: {self.executor_ids}")
+            logger.debug(f"checking for errored_jobs with exec_ids: {self.executor_ids}")
             errored_jobs = self.executor.get_errored_jobs(executor_ids=self.executor_ids)
-            logger.info(f"errored_jobs: {errored_jobs}")
+            logger.debug(f"errored_jobs: {errored_jobs}")
         except NotImplementedError:
             logger.warning(f"{self.executor.__class__.__name__} does not implement "
                            f"errored_jobs methods.")
@@ -222,18 +225,19 @@ class TaskInstanceScheduler:
                 )
 
         try:
-            logger.info(f"checking for active jobs with exec_ids: {self.executor_ids}")
+            logger.info(f"checking executor for active jobs")
             actual, executor_ids = self.executor.get_actual_submitted_or_running(
                 executor_ids=self.executor_ids, report_by_buffer=self._report_by_buffer)
             self.executor_ids = executor_ids
-            logger.info(f"Updated executor_ids: {self.executor_ids}")
+            logger.debug(f"Updated executor_ids: {self.executor_ids}")
         except NotImplementedError:
             logger.warning(
                 f"{self.executor.__class__.__name__} does not implement "
                 "reconciliation methods. If a task instance does not "
                 "register a heartbeat from a worker process in "
                 f"{next_report_increment}s the task instance will be "
-                "moved to error state.")
+                "moved to error state."
+            )
             actual = []
         if actual:
             app_route = (
@@ -337,7 +341,7 @@ class TaskInstanceScheduler:
             executor_ids=self.executor_ids
         )
         self.executor_ids = executor_ids
-        logger.info(f"JOB_IDS = {self.executor_ids}")
+        logger.debug(f"JOB_IDS = {self.executor_ids}")
         if executor_id == QsubAttribute.NO_EXEC_ID:
             logger.debug(f"Received {executor_id} meaning the task did not qsub properly, "
                          "moving to 'W' state")

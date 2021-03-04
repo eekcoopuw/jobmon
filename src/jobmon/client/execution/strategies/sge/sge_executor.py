@@ -99,7 +99,7 @@ class SGEExecutor(Executor):
             stdout=self.stdout,
             project=self.project,
             working_dir=self.working_dir)
-        logger.info(qsub_command)
+        logger.debug(qsub_command)
         return self._execute_sge(qsub_command, executor_ids)
 
     def get_errored_jobs(self, executor_ids) -> Dict[int, str]:
@@ -130,7 +130,7 @@ class SGEExecutor(Executor):
         executor_ids = self._update_track_executor_ids(sge_ids=sge_ids,
                                                        report_by_buffer=report_by_buffer,
                                                        executor_ids=executor_ids)
-        logger.info(f"qstat: {sge_ids}, exec_ids: {executor_ids}")
+        logger.debug(f"qstat: {sge_ids}, exec_ids: {executor_ids}")
         return sge_ids, executor_ids
 
     def _update_track_executor_ids(self, sge_ids, report_by_buffer, executor_ids) -> \
@@ -141,14 +141,14 @@ class SGEExecutor(Executor):
         """
         for key in list(executor_ids.keys()):
             if int(key) not in sge_ids:
-                logger.info(f"{int(key)} not found in sge_ids: {sge_ids}")
+                logger.debug(f"{int(key)} not found in sge_ids: {sge_ids}")
                 val = executor_ids[key]
                 if val > (report_by_buffer+1):
                     # if the jid has been polled for longer than its timeout period
-                    logger.info(f"LOST: {key}")
+                    logger.debug(f"LOST: {key}")
                     res, _ = sge_utils.qacct_exit_status(key)
                     if res != sge_utils.SGE_UNKNOWN_ERROR:
-                        logger.info("RESPONSE: {res}")
+                        logger.debug(f"RESPONSE: {res}")
                         del(executor_ids[key])
                 else:
                     executor_ids[key] = val+1

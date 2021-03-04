@@ -60,4 +60,4 @@ class SchedulerConfig:
 
     @property
     def url(self):
-        return f"http://{self._web_service_fqdn}:{self._web_service_port}"
+        return f"http://{self.web_service_fqdn}:{self.web_service_port}"
