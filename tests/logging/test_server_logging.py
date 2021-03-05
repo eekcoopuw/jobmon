@@ -69,7 +69,7 @@ def test_add_structlog_context(web_server_in_memory, log_config):
 
 
 def test_error_handling(web_server_in_memory, log_config, monkeypatch):
-    from jobmon.server.web.jobmon_client import jobmon_client
+    from jobmon.server.web.routes import jobmon_client
 
     msg = "bad luck buddy"
 

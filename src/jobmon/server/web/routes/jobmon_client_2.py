@@ -37,8 +37,7 @@ import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import func, text
 
-
-jobmon_client = Blueprint("jobmon_client", __name__)
+from . import jobmon_client
 
 
 @jobmon_client.before_request  # try before_first_request so its quicker
