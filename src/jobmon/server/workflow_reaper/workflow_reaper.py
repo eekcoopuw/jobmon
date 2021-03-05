@@ -1,6 +1,5 @@
 """Service to monitor and reap dead workflows."""
 import logging
-from datetime import datetime
 from time import sleep
 from typing import List
 
@@ -55,7 +54,7 @@ class WorkflowReaper(object):
         """Return all workflows that are in a specific state."""
         logger.info(f"Checking the database for workflow runs of status: {status}")
 
-        app_route = "/client/workflow_run_status"
+        app_route = "/client/lost_workflow_run"
         return_code, result = self._requester.send_request(
             app_route=app_route,
             message={'status': status},
@@ -85,7 +84,7 @@ class WorkflowReaper(object):
             if self._wf_notification_sink:
                 self._wf_notification_sink(msg=message)
 
-    def _get_lost_workflow_runs(self) -> List[ReaperWorkflowRun]:
+    def _get_lost_workflow_runs(self, status: list = ['R']) -> List[ReaperWorkflowRun]:
         # get time from db
         app_route = "/time"
         return_code, response = self._requester.send_request(
@@ -100,16 +99,11 @@ class WorkflowReaper(object):
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}'
             )
-        query_time = datetime.strptime(response['time'], '%Y-%m-%d %H:%M:%S')
 
         # Return all workflows that have not logged a heartbeat in awhile
-        workflow_runs = self._check_by_given_status(["R"])
+        workflow_runs = self._check_by_given_status(status)
 
-        # compare time
-        lost_wfrs = [wfr for wfr in workflow_runs
-                     if wfr.has_lost_workflow_run(query_time=query_time,
-                                                  loss_threshold=self._loss_threshold)]
-        return lost_wfrs
+        return workflow_runs
 
     def _error_state(self) -> None:
         """Get lost workflows and register them as error."""
@@ -125,21 +119,16 @@ class WorkflowReaper(object):
 
     def _aborted_state(self, workflow_run_id: int = None, aborted_seconds: int = (60 * 2)
                        ) -> None:
-        """Get all workflow runs in G state and validate if they should be in A state."""
-        # Get all wfrs in G state
-        workflow_runs = self._check_by_given_status(["G"])
+        """Get all workflow runs in G state and validate if they should be in A state.
+        Get all lost wfr in L state and set it to A
+        """
+        # Get all lost wfr in L
+        lost_wfrs = self._get_lost_workflow_runs(["L"])
 
-        # Call method to validate/register if workflow run should be in A state
-        for wfr in workflow_runs:
-            if workflow_run_id:
-                if wfr.workflow_run_id == workflow_run_id:
-                    message = wfr.transition_to_aborted(aborted_seconds)
-                    # Send a message to slack about the transitions
-                    if self._wf_notification_sink and message:
-                        self._wf_notification_sink(msg=message)
-                    break
-            else:
-                message = wfr.transition_to_aborted(aborted_seconds)
-                # Send a message to slack about the transitions
-                if self._wf_notification_sink and message:
-                    self._wf_notification_sink(msg=message)
+        # Transitions workflow to A state and workflow run to A
+        for wfr in lost_wfrs:
+            # Transition workflow run to A
+            message = wfr.transition_to_aborted(aborted_seconds)
+            # Send a message to slack about the transitions
+            if self._wf_notification_sink:
+                self._wf_notification_sink(msg=message)

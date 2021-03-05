@@ -146,7 +146,6 @@ def test_suspended_state(db_cfg, requester_no_retry):
     assert workflow3_status == "H"
 
 
-@pytest.mark.skip(reason="need to implement heartbeat")
 def test_aborted_state(db_cfg, requester_no_retry):
     """Tests that the workflow reaper successfully checks for aborted state.
     Aborted state occurs when the workflow_run is in the G state and the last
@@ -188,6 +187,7 @@ def test_aborted_state(db_cfg, requester_no_retry):
         swarm_tasks[task.task_id] = swarm_task
 
     wfr.swarm_tasks = swarm_tasks
+    wfr._link_to_workflow()
 
     # Sleep for five seconds and update the second tasks status_date.
     # This assures that the two tasks have differing times.
@@ -217,14 +217,15 @@ def test_aborted_state(db_cfg, requester_no_retry):
     # "A" state.
     workflow_status = get_workflow_status(db_cfg, workflow.workflow_id)
     workflow_run_status = get_workflow_run_status(db_cfg, wfr.workflow_run_id)
-    assert workflow_status == "A"
     assert workflow_run_status == "A"
+    assert workflow_status == "A"
 
 
-@pytest.mark.skip(reason="need to implement heartbeat")
 def test_aborted_state_null_case(db_cfg, requester_no_retry):
     from jobmon.client.api import BashTask, UnknownWorkflow
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
+    from jobmon.client.workflow_run import WorkflowRun
+    from jobmon.client.swarm.swarm_task import SwarmTask
 
     # create a workflow without binding the tasks
     task = BashTask("foo")
@@ -232,7 +233,26 @@ def test_aborted_state_null_case(db_cfg, requester_no_retry):
     workflow = UnknownWorkflow("aborted_workflow_1", executor_class="SequentialExecutor")
     workflow.add_tasks([task, task2])
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    # Re-implement the logic of _create_workflow_run.
+    # This will allow us to keep the workflow_run in G state and not bind it
+    wfr = WorkflowRun(workflow.workflow_id, executor_class="SequentialExecutor",
+                      requester=requester_no_retry)
+
+    swarm_tasks: Dict[int, SwarmTask] = {}
+    for task in workflow.tasks.values():
+        task.workflow_id = workflow.workflow_id
+        task.bind()
+        swarm_task = SwarmTask(
+            task_id=task.task_id,
+            status=task.initial_status,
+            task_args_hash=task.task_args_hash,
+            executor_parameters=task.executor_parameters,
+            max_attempts=task.max_attempts
+        )
+        swarm_tasks[task.task_id] = swarm_task
+
+    wfr.swarm_tasks = swarm_tasks
+    wfr._link_to_workflow()
 
     time.sleep(5)
 
@@ -244,5 +264,6 @@ def test_aborted_state_null_case(db_cfg, requester_no_retry):
     # "A" state.
     workflow_status = get_workflow_status(db_cfg, workflow.workflow_id)
     workflow_run_status = get_workflow_run_status(db_cfg, wfr.workflow_run_id)
-    assert workflow_status == "A"
     assert workflow_run_status == "A"
+    assert workflow_status == "A"
+
