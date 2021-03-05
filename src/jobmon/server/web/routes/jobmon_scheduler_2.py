@@ -21,8 +21,7 @@ from jobmon.server.web.server_side_exception import ServerError
 import sqlalchemy
 from sqlalchemy.sql import func, text
 
-
-jobmon_scheduler = Blueprint("jobmon_scheduler", __name__)
+from . import jobmon_scheduler
 
 
 @jobmon_scheduler.before_request

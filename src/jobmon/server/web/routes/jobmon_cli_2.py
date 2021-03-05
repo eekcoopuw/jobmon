@@ -12,8 +12,7 @@ import pandas as pd
 
 from werkzeug.local import LocalProxy
 
-
-jobmon_cli = Blueprint("jobmon_cli", __name__)
+from . import jobmon_cli
 
 
 logger = LocalProxy(lambda: app.logger)
@@ -530,30 +529,30 @@ def update_task_statuses():
     return resp
 
 
-@jobmon_cli.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
-def update_max_running(workflow_id):
-    """Update the number of tasks that can be running concurrently for a given workflow."""
-    data = request.get_json()
-    try:
-        new_limit = data['max_tasks']
-    except KeyError as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-
-    q = """
-        UPDATE workflow
-        SET max_concurrently_running = {new_limit}
-        WHERE id = {workflow_id}
-    """.format(new_limit=new_limit, workflow_id=workflow_id)
-
-    res = DB.session.execute(q)
-    DB.session.commit()
-
-    if res.rowcount == 0:  # Return a warning message if no update was performed
-        message = f"No update performed for workflow ID {workflow_id}, max_concurrency is " \
-                  f"{new_limit}"
-    else:
-        message = f"Workflow ID {workflow_id} max concurrency updated to {new_limit}"
-
-    resp = jsonify(message=message)
-    resp.status_code = StatusCodes.OK
-    return resp
+# @jobmon_cli.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
+# def update_max_running(workflow_id):
+#     """Update the number of tasks that can be running concurrently for a given workflow."""
+#     data = request.get_json()
+#     try:
+#         new_limit = data['max_tasks']
+#     except KeyError as e:
+#         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+#
+#     q = """
+#         UPDATE workflow
+#         SET max_concurrently_running = {new_limit}
+#         WHERE id = {workflow_id}
+#     """.format(new_limit=new_limit, workflow_id=workflow_id)
+#
+#     res = DB.session.execute(q)
+#     DB.session.commit()
+#
+#     if res.rowcount == 0:  # Return a warning message if no update was performed
+#         message = f"No update performed for workflow ID {workflow_id}, max_concurrency is " \
+#                   f"{new_limit}"
+#     else:
+#         message = f"Workflow ID {workflow_id} max concurrency updated to {new_limit}"
+#
+#     resp = jsonify(message=message)
+#     resp.status_code = StatusCodes.OK
+#     return resp

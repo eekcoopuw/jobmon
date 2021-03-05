@@ -37,7 +37,7 @@ import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import func, text
 
-from . import jobmon_client
+from . import jobmon_client, jobmon_cli
 
 
 @jobmon_client.before_request  # try before_first_request so its quicker
@@ -1368,3 +1368,32 @@ def log_workflow_run_heartbeat(workflow_run_id: int):
 def test_bad_route():
     """Test route to force a 500 error."""
     DB.session.execute('SELECT * FROM blip_bloop_table').all()
+
+
+@jobmon_cli.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
+def update_max_running(workflow_id):
+    """Update the number of tasks that can be running concurrently for a given workflow."""
+    data = request.get_json()
+    try:
+        new_limit = data['max_tasks']
+    except KeyError as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+
+    q = """
+        UPDATE workflow
+        SET max_concurrently_running = {new_limit}
+        WHERE id = {workflow_id}
+    """.format(new_limit=new_limit, workflow_id=workflow_id)
+
+    res = DB.session.execute(q)
+    DB.session.commit()
+
+    if res.rowcount == 0:  # Return a warning message if no update was performed
+        message = f"No update performed for workflow ID {workflow_id}, max_concurrency is " \
+                  f"{new_limit}"
+    else:
+        message = f"Workflow ID {workflow_id} max concurrency updated to {new_limit}"
+
+    resp = jsonify(message=message)
+    resp.status_code = StatusCodes.OK
+    return resp

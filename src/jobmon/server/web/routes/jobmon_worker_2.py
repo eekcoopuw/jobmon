@@ -15,7 +15,7 @@ from jobmon.server.web.server_side_exception import ServerError
 import sqlalchemy
 from sqlalchemy.sql import func, text
 
-jobmon_worker = Blueprint("jobmon_worker", __name__)
+from . import jobmon_worker
 
 
 @jobmon_worker.before_request  # try before_first_request so its quicker

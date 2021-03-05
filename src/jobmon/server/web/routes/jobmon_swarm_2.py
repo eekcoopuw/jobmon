@@ -15,8 +15,7 @@ from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 
 from sqlalchemy.sql import text
 
-
-jobmon_swarm = Blueprint("jobmon_swarm", __name__)
+from . import jobmon_swarm
 
 
 @jobmon_swarm.before_request  # try before_first_request so its quicker
