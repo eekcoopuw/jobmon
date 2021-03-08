@@ -36,8 +36,7 @@ import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import func, text
 
-from . import jobmon_client, jobmon_cli
-
+from . import jobmon_client, jobmon_cli, jobmon_swarm
 
 
 def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, str]):
@@ -290,5 +289,75 @@ def update_max_running(workflow_id):
         message = f"Workflow ID {workflow_id} max concurrency updated to {new_limit}"
 
     resp = jsonify(message=message)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_swarm.route('/workflow/<workflow_id>/task_status_updates', methods=['POST'])
+def get_task_by_status_only(workflow_id: int):
+    """Returns all tasks in the database that have the specified status
+
+    Args:
+        status (str): status to query for
+        last_sync (datetime): time since when to get tasks
+    """
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    data = request.get_json()
+
+    last_sync = data['last_sync']
+    swarm_tasks_tuples = data.get('swarm_tasks_tuples', [])
+
+    # get time from db
+    db_time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()['t']
+    str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
+
+    if swarm_tasks_tuples:
+        # Sample swarm_tasks_tuples: [(1, 'I')]
+        swarm_task_ids = ",".join([str(task_id[0]) for task_id in swarm_tasks_tuples])
+        swarm_tasks_tuples = [(int(task_id), str(status))
+                              for task_id, status in swarm_tasks_tuples]
+
+        query_swarm_tasks_tuples = ""
+        for task_id, status in swarm_tasks_tuples:
+            query_swarm_tasks_tuples += f"({task_id},'{status}'),"
+        # get rid of trailing comma on final line
+        query_swarm_tasks_tuples = query_swarm_tasks_tuples[:-1]
+
+        query = """
+            SELECT
+                task.id, task.status
+            FROM task
+            WHERE
+                workflow_id = {workflow_id}
+                AND (
+                    (
+                        task.id IN ({swarm_task_ids})
+                        AND (task.id, status) NOT IN ({tuples})
+                    )
+                    OR status_date >= '{status_date}')
+        """.format(workflow_id=workflow_id,
+                   swarm_task_ids=swarm_task_ids,
+                   tuples=query_swarm_tasks_tuples,
+                   status_date=last_sync)
+        app.logger.debug(query)
+        rows = DB.session.query(Task).from_statement(text(query)).all()
+
+    else:
+        query = """
+            SELECT
+                task.id, task.status
+            FROM task
+            WHERE
+                workflow_id = :workflow_id
+                AND status_date >= :last_sync"""
+        rows = DB.session.query(Task).from_statement(text(query)).params(
+            workflow_id=workflow_id,
+            last_sync=str(last_sync)
+        ).all()
+
+    DB.session.commit()
+    task_dcts = [row.to_wire_as_swarm_task() for row in rows]
+    app.logger.debug("task_dcts={}".format(task_dcts))
+    resp = jsonify(task_dcts=task_dcts, time=str_time)
     resp.status_code = StatusCodes.OK
     return resp

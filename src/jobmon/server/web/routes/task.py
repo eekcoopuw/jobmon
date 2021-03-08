@@ -1,7 +1,7 @@
 import json
 import os
 from http import HTTPStatus as StatusCodes
-from typing import Dict, List, Set, Union
+from typing import Any, Dict, List, Set, Union
 
 
 from flask import Blueprint, current_app as app, jsonify, request
@@ -12,6 +12,7 @@ from jobmon.server.web.models.arg_type import ArgType
 from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.edge import Edge
 from jobmon.server.web.models.exceptions import InvalidStateTransition
+from jobmon.server.web.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.node_arg import NodeArg
 from jobmon.server.web.models.task import Task
@@ -36,7 +37,7 @@ import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import func, text
 
-from . import jobmon_client, jobmon_cli
+from . import jobmon_client, jobmon_swarm
 
 
 @jobmon_client.route('/task', methods=['GET'])
@@ -366,6 +367,111 @@ def update_task_attribute(task_id: int):
     for name, val in attributes.items():
         _add_or_update_attribute(task_id, name, val)
     # Flask requires that a response is returned, no values need to be passed back
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_swarm.route('/task/<task_id>/queue', methods=['POST'])
+def queue_job(task_id: int):
+    """Queue a job and change its status
+    Args:
+
+        job_id: id of the job to queue
+    """
+    app.logger = app.logger.bind(task_id=task_id)
+    task = DB.session.query(Task).filter_by(id=task_id).one()
+    try:
+        task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
+    except InvalidStateTransition:
+        # Handles race condition if the task has already been queued
+        if task.status == TaskStatus.QUEUED_FOR_INSTANTIATION:
+            msg = ("Caught InvalidStateTransition. Not transitioning job "
+                   f"{task_id} from Q to Q")
+            app.logger.warning(msg)
+        else:
+            raise
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+def _transform_mem_to_gb(mem_str: Any) -> float:
+    # we allow both upper and lowercase g, m, t options
+    # BUG g and G are not the same
+    if mem_str is None:
+        return 2
+    if type(mem_str) in (float, int):
+        return mem_str
+    if mem_str[-1].lower() == "m":
+        mem = float(mem_str[:-1])
+        mem /= 1000
+    elif mem_str[-2:].lower() == "mb":
+        mem = float(mem_str[:-2])
+        mem /= 1000
+    elif mem_str[-1].lower() == "t":
+        mem = float(mem_str[:-1])
+        mem *= 1000
+    elif mem_str[-2:].lower() == "tb":
+        mem = float(mem_str[:-2])
+        mem *= 1000
+    elif mem_str[-1].lower() == "g":
+        mem = float(mem_str[:-1])
+    elif mem_str[-2:].lower() == "gb":
+        mem = float(mem_str[:-2])
+    else:
+        mem = 1
+    return mem
+
+
+@jobmon_swarm.route('/task/<task_id>/update_resources', methods=['POST'])
+def update_task_resources(task_id: int):
+    """Change the resources set for a given task
+
+    Args:
+        task_id (int): id of the task for which resources will be changed
+        parameter_set_type (str): parameter set type for this task
+        max_runtime_seconds (int, optional): amount of time task is allowed to
+            run for
+        context_args (dict, optional): unstructured parameters to pass to
+            executor
+        queue (str, optional): sge queue to submit tasks to
+        num_cores (int, optional): how many cores to get from sge
+        m_mem_free ():
+        j_resource (bool, optional): whether to request access to the j drive
+        resource_scales (dict): values to scale by upon resource error
+        hard_limit (bool): whether to move queues if requester resources exceed
+            queue limits
+    """
+    app.logger = app.logger.bind(task_id=task_id)
+    data = request.get_json()
+    parameter_set_type = data["parameter_set_type"]
+
+    try:
+        task_id = int(task_id)
+    except ValueError:
+        resp = jsonify(msg="task_id {} is not a number".format(task_id))
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+        return resp
+
+    exec_params = ExecutorParameterSet(
+        task_id=task_id,
+        parameter_set_type=parameter_set_type,
+        max_runtime_seconds=data.get('max_runtime_seconds', None),
+        context_args=data.get('context_args', None),
+        queue=data.get('queue', None),
+        num_cores=data.get('num_cores', None),
+        m_mem_free=_transform_mem_to_gb(data.get("m_mem_free")),
+        j_resource=data.get('j_resource', False),
+        resource_scales=data.get('resource_scales', None),
+        hard_limits=data.get('hard_limits', False))
+    DB.session.add(exec_params)
+    DB.session.flush()  # get auto increment
+    exec_params.activate()
+    DB.session.commit()
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
