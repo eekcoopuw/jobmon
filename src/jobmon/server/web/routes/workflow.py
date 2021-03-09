@@ -6,6 +6,7 @@ from typing import Dict, List, Set, Union
 
 from flask import Blueprint, current_app as app, jsonify, request
 
+from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.arg_type import ArgType
@@ -32,11 +33,33 @@ from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.server_side_exception import (InvalidUsage, ServerError)
 
+import pandas as pd
+
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import func, text
 
 from . import jobmon_client, jobmon_cli, jobmon_swarm
+
+_cli_label_mapping = {
+    "A": "PENDING",
+    "G": "PENDING",
+    "Q": "PENDING",
+    "I": "PENDING",
+    "E": "PENDING",
+    "R": "RUNNING",
+    "F": "FATAL",
+    "D": "DONE"
+}
+
+_reversed_cli_label_mapping = {
+    "PENDING": ["A", "G", "Q", "I", "E"],
+    "RUNNING": ["R"],
+    "FATAL": ["F"],
+    "DONE": ["D"]
+}
+
+_cli_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 
 def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, str]):
@@ -359,5 +382,236 @@ def get_task_by_status_only(workflow_id: int):
     task_dcts = [row.to_wire_as_swarm_task() for row in rows]
     app.logger.debug("task_dcts={}".format(task_dcts))
     resp = jsonify(task_dcts=task_dcts, time=str_time)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route("/workflow_validation", methods=['GET'])
+def get_workflow_validation_status():
+    """Check if workflow is valid."""
+    # initial params
+    task_ids = request.args.getlist('task_ids')
+
+    # if the given list is empty, return True
+    if len(task_ids) == 0:
+        resp = jsonify(validation=True)
+        resp.status_code = StatusCodes.OK
+        return resp
+
+    task_list = ''
+    for id in task_ids:
+        task_list = task_list + str(id) + ","
+    task_list = task_list[:-1]
+
+    # execute query
+    q = f"""
+        SELECT
+            distinct workflow_id, status
+        FROM task
+        WHERE id IN ({task_list})
+    """
+    res = DB.session.execute(q).fetchall()
+    # Validate if all tasks are in the same workflow and the workflow status is dead
+    if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED,
+                                       Statuses.HALTED):
+        validation = True
+    else:
+        validation = False
+
+    resp = jsonify(validation=validation, workflow_status=res[0][1])
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/workflow_status', methods=['GET'])
+def get_workflow_status():
+    """Get the status of the workflow."""
+    # initial params
+    params = {}
+    user_request = request.args.getlist('user')
+    if user_request == "all":  # specifying all is equivalent to None
+        user_request = []
+    workflow_request = request.args.getlist('workflow_id')
+    if workflow_request == "all":  # specifying all is equivalent to None
+        workflow_request = []
+
+    where_clause = ""
+    # convert workflow request into sql filter
+    if workflow_request:
+        workflow_request = [int(w) for w in workflow_request]
+        params["workflow_id"] = workflow_request
+        where_clause = "WHERE workflow.id in :workflow_id "
+    else:  # if we don't specify workflow then we use the users
+        # convert user request into sql filter
+        if user_request:
+            params["user"] = user_request
+            where_clause = "WHERE workflow_run.user in :user "
+
+    # execute query
+    q = """
+        SELECT
+            workflow.id as WF_ID,
+            workflow.name as WF_NAME,
+            workflow_status.label as WF_STATUS,
+            count(task.status) as TASKS,
+            task.status AS STATUS,
+            sum(
+                CASE
+                    WHEN num_attempts <= 1 THEN 0
+                    ELSE num_attempts - 1
+                END
+            ) as RETRIES
+        FROM workflow
+        JOIN workflow_run
+            ON workflow.id = workflow_run.workflow_id
+        JOIN task
+            ON workflow.id = task.workflow_id
+        JOIN workflow_status
+            ON workflow_status.id = workflow.status
+        {where_clause}
+        GROUP BY workflow.id, task.status, workflow.name, workflow_status.label
+    """.format(where_clause=where_clause)
+    res = DB.session.execute(q, params).fetchall()
+
+    if res:
+
+        # assign to dataframe for aggregation
+        df = pd.DataFrame(res, columns=res[0].keys())
+
+        # remap to jobmon_cli statuses
+        df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
+
+        # aggregate totals by workflow and status
+        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS"]
+                        ).agg({'TASKS': 'sum', 'RETRIES': 'sum'})
+
+        # pivot wide by task status
+        tasks = df.pivot_table(
+            values="TASKS",
+            index=["WF_ID", "WF_NAME", "WF_STATUS"],
+            columns="STATUS",
+            fill_value=0)
+        for col in _cli_order:
+            if col not in tasks.columns:
+                tasks[col] = 0
+        tasks = tasks[_cli_order]
+
+        # aggregate again without status to get the totals by workflow
+        retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]
+                             ).agg({'TASKS': 'sum', 'RETRIES': 'sum'})
+
+        # combine datasets
+        df = pd.concat([tasks, retries], axis=1)
+
+        # compute pcts and format
+        for col in _cli_order:
+            df[col + "_pct"] = (
+                df[col].astype(float) / df["TASKS"].astype(float)) * 100
+            df[col + "_pct"] = df[[col + "_pct"]].round(1)
+            df[col] = (df[col].astype(int).astype(str) + " (" + df[col + "_pct"].astype(
+                str) + "%)")
+
+        # df.replace(to_replace={"0 (0.0%)": "NA"}, inplace=True)
+        # final order
+        df = df[["TASKS"] + _cli_order + ["RETRIES"]]
+        df = df.reset_index()
+        df = df.to_json()
+        resp = jsonify(workflows=df)
+    else:
+        df = pd.DataFrame({},
+                          columns=["WF_ID", "WF_NAME", "WF_STATUS", "TASKS",
+                                   "PENDING", "RUNNING", "DONE", "FATAL",
+                                   "RETRIES"]).to_json()
+        resp = jsonify(workflows=df)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
+def get_workflow_tasks(workflow_id):
+    """Get the tasks for a given workflow."""
+    params = {"workflow_id": workflow_id}
+    where_clause = "WHERE workflow.id = :workflow_id"
+    status_request = request.args.getlist('status', None)
+
+    if status_request:
+        params["status"] = [i for arg in status_request
+                            for i in _reversed_cli_label_mapping[arg]]
+        where_clause += " AND task.status in :status"
+    q = """
+        SELECT
+            task.id AS TASK_ID,
+            task.name AS TASK_NAME,
+            task.status AS STATUS,
+            CASE
+                WHEN num_attempts <= 1 THEN 0
+                ELSE num_attempts - 1
+            END AS RETRIES
+        FROM workflow
+        JOIN task
+            ON workflow.id = task.workflow_id
+        {where_clause}""".format(where_clause=where_clause)
+    res = DB.session.execute(q, params).fetchall()
+
+    if res:
+        # assign to dataframe for serialization
+        df = pd.DataFrame(res, columns=res[0].keys())
+
+        # remap to jobmon_cli statuses
+        df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
+        df = df.to_json()
+        resp = jsonify(workflow_tasks=df)
+    else:
+        df = pd.DataFrame(
+            {}, columns=["TASK_ID", "TASK_NAME", "STATUS", "RETRIES"])
+        resp = jsonify(workflow_tasks=df.to_json())
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/workflow/<workflow_id>/usernames', methods=['GET'])
+def get_workflow_users(workflow_id: int):
+    """
+    Return all usernames associated with a given workflow_id's workflow runs.
+
+    Used to validate permissions for a self-service request.
+    """
+    query = """
+        SELECT DISTINCT user
+        FROM workflow_run
+        WHERE workflow_run.workflow_id = {workflow_id}
+    """.format(workflow_id=workflow_id)
+
+    result = DB.session.execute(query)
+
+    usernames = [row.user for row in result]
+    resp = jsonify(usernames=usernames)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/workflow/<workflow_id>/validate_username', methods=['GET'])
+def get_workflow_user_validation(workflow_id: int):
+    """
+    Return all usernames associated with a given workflow_id's workflow runs.
+
+    Used to validate permissions for a self-service request.
+    """
+    user = request.args.get('username')
+    query = """
+        SELECT DISTINCT user
+        FROM workflow_run
+        WHERE workflow_run.workflow_id = {workflow_id}
+    """.format(workflow_id=workflow_id)
+
+    result = DB.session.execute(query)
+
+    usernames = [row.user for row in result]
+
+    resp = jsonify(validation=user in usernames)
+
     resp.status_code = StatusCodes.OK
     return resp

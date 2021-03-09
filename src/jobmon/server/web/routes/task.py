@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Set, Union
 
 from flask import Blueprint, current_app as app, jsonify, request
 
+from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.arg_type import ArgType
@@ -33,11 +34,32 @@ from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.server_side_exception import (InvalidUsage, ServerError)
 
+import pandas as pd
+
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import func, text
 
-from . import jobmon_client, jobmon_swarm
+from . import jobmon_cli, jobmon_client, jobmon_swarm
+
+_task_instance_label_mapping = {
+    "B": "PENDING",
+    "I": "PENDING",
+    "R": "RUNNING",
+    "E": "FATAL",
+    "Z": "FATAL",
+    "W": "FATAL",
+    "U": "FATAL",
+    "K": "FATAL",
+    "D": "DONE"
+}
+
+_reversed_task_instance_label_mapping = {
+    "PENDING": ["B", "I"],
+    "RUNNING": ["R"],
+    "FATAL": ["E", "Z", "W", "U", "K"],
+    "DONE": ["D"]
+}
 
 
 @jobmon_client.route('/task', methods=['GET'])
@@ -473,5 +495,233 @@ def update_task_resources(task_id: int):
     DB.session.commit()
 
     resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/task_status', methods=['GET'])
+def get_task_status():
+    """Get the status of a task."""
+    task_ids = request.args.getlist('task_ids')
+    if len(task_ids) == 0:
+        raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
+    params = {'task_ids': task_ids}
+    where_clause = "task.id IN :task_ids"
+
+    # status is an optional arg
+    status_request = request.args.getlist('status', None)
+    if len(status_request) > 0:
+        status_codes = [i for arg in status_request
+                        for i in _reversed_task_instance_label_mapping[arg]]
+        params['status'] = status_codes
+        where_clause += " AND task_instance.status IN :status"
+    q = """
+        SELECT
+            task.id AS TASK_ID,
+            task.status AS task_status,
+            task_instance.id AS TASK_INSTANCE_ID,
+            executor_id AS EXECUTOR_ID,
+            task_instance_status.label AS STATUS,
+            usage_str AS RESOURCE_USAGE,
+            description AS ERROR_TRACE
+        FROM task
+        JOIN task_instance
+            ON task.id = task_instance.task_id
+        JOIN task_instance_status
+            ON task_instance.status = task_instance_status.id
+        JOIN executor_parameter_set
+            ON task_instance.executor_parameter_set_id = executor_parameter_set.id
+        LEFT JOIN task_instance_error_log
+            ON task_instance.id = task_instance_error_log.task_instance_id
+        WHERE
+            {where_clause}""".format(where_clause=where_clause)
+    res = DB.session.execute(q, params).fetchall()
+
+    if res:
+        # assign to dataframe for serialization
+        df = pd.DataFrame(res, columns=res[0].keys())
+
+        # remap to jobmon_cli statuses
+        df.STATUS.replace(to_replace=_task_instance_label_mapping, inplace=True)
+        df = df[["TASK_INSTANCE_ID", "EXECUTOR_ID", "STATUS", "RESOURCE_USAGE",
+                 "ERROR_TRACE"]]
+        resp = jsonify(task_instance_status=df.to_json())
+    else:
+        df = pd.DataFrame(
+            {},
+            columns=["TASK_INSTANCE_ID", "EXECUTOR_ID", "STATUS",
+                     "RESOURCE_USAGE", "ERROR_TRACE"])
+        resp = jsonify(task_instance_status=df.to_json())
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+def _get_node_downstream(nodes: set, dag_id: int) -> set:
+    """
+    Get all downstream nodes of a node
+    :param node_id:
+    :return: a list of node_id
+    """
+    nodes_str = str((tuple(nodes))).replace(",)", ")")
+    q = f"""
+        SELECT downstream_node_ids
+        FROM edge
+        WHERE dag_id = {dag_id}
+        AND node_id in {nodes_str}
+    """
+    result = DB.session.execute(q).fetchall()
+
+    if result is None or len(result) == 0:
+        return []
+    node_ids = set()
+    for r in result:
+        if r['downstream_node_ids'] is not None:
+            ids = json.loads(r['downstream_node_ids'])
+            node_ids = node_ids.union(set(ids))
+    return node_ids
+
+
+def _get_subdag(node_ids: list, dag_id: int) -> list:
+    """
+    Get all descendants of a given nodes. It only queries the primary keys on the edge table
+    without join.
+    :param node_ids:
+    :return: a list of node_id
+    """
+    node_set = set(node_ids)
+    node_descendants = node_set
+    while len(node_descendants) > 0:
+        node_descendants = _get_node_downstream(node_descendants, dag_id)
+        node_set = node_set.union(node_descendants)
+    return list(node_set)
+
+
+def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> dict:
+    """
+    Get task ids of the given node ids
+    :param workflow_id:
+    :param nodes:
+    :return: a dict of {<id>: <status>}
+    """
+    if nodes is None or len(nodes) == 0:
+        return {}
+    node_str = str((tuple(nodes))).replace(",)", ")")
+
+    q = f"""
+        SELECT id, status
+        FROM task
+        WHERE workflow_id={workflow_id}
+        AND node_id in {node_str}
+    """
+    result = DB.session.execute(q).fetchall()
+    task_dict = {}
+
+    for r in result:
+        # When task_status not specified, return the full subdag
+        if len(task_status) == 0:
+            task_dict[int(r[0])] = r[1]
+        else:
+            if r[1] in task_status:
+                task_dict[int(r[0])] = r[1]
+    return task_dict
+
+
+@jobmon_cli.route('/task/subdag', methods=['GET'])
+def get_task_subdag():
+    """
+    Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a
+    list of sub nodes.
+    :return:
+    """
+    # Only return sub tasks in the following status. If empty or None, return all
+    task_ids = request.args.getlist('task_ids')
+    task_status = request.args.getlist('task_status')
+    if len(task_ids) == 0:
+        raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
+    task_ids_str = "("
+    for t in task_ids:
+        task_ids_str += str(t) + ","
+    task_ids_str = task_ids_str[:-1] + ")"
+    if task_status is None:
+        task_status = []
+    q = f"""
+        SELECT workflow.id as workflow_id, dag_id, node_id
+        FROM task, workflow
+        WHERE task.id in {task_ids_str} and task.workflow_id = workflow.id
+    """
+    result = DB.session.execute(q).fetchall()
+
+    if result is None:
+        # return empty values when task_id does not exist or db out of consistency
+        resp = jsonify(workflow_id=None, sub_task=None)
+        resp.status_code = StatusCodes.OK
+        return resp
+
+    # Since we have validated all the tasks belong to the same wf in status_command before
+    # this call, assume they all belong to the same wf.
+    workflow_id = result[0]['workflow_id']
+    dag_id = result[0]['dag_id']
+    node_ids = []
+    for r in result:
+        node_ids.append(r['node_id'])
+    sub_dag_tree = _get_subdag(node_ids, dag_id)
+    sub_task_tree = _get_tasks_from_nodes(workflow_id, sub_dag_tree, task_status)
+    resp = jsonify(workflow_id=workflow_id, sub_task=sub_task_tree)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/task/update_statuses', methods=['PUT'])
+def update_task_statuses():
+    """Update the status of the tasks."""
+    data = request.get_json()
+    try:
+        task_ids = data['task_ids']
+        new_status = data['new_status']
+        workflow_status = data['workflow_status']
+        workflow_id = data['workflow_id']
+    except KeyError as e:
+        raise InvalidUsage(f"problem with {str(e)} in request to {request.path}",
+                           status_code=400) from e
+
+    task_ids_str = '(' + ','.join([str(i) for i in task_ids]) + ')'
+    try:
+        task_q = """
+            UPDATE task
+            SET status = '{new_status}'
+            WHERE id IN {task_ids}
+        """.format(new_status=new_status, task_ids=task_ids_str)
+
+        task_res = DB.session.execute(task_q)
+    except KeyError as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+
+    try:
+        # If job is supposed to be rerun, set task instances to "K"
+        if new_status == TaskStatus.REGISTERED:
+            task_instance_q = """
+                UPDATE task_instance
+                SET status = '{k_code}'
+                WHERE task_id in {task_ids}
+            """.format(k_code=TaskInstanceStatus.KILL_SELF, task_ids=task_ids_str)
+            DB.session.execute(task_instance_q)
+
+            # If workflow is done, need to set it to an error state before resume
+            if workflow_status == Statuses.DONE:
+                workflow_q = """
+                    UPDATE workflow
+                    SET status = '{status}'
+                    WHERE id = {workflow_id}
+                """.format(status=Statuses.FAILED, workflow_id=workflow_id)
+                DB.session.execute(workflow_q)
+
+        DB.session.commit()
+    except KeyError as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+
+    message = f"{task_res.rowcount} rows updated to status {new_status}"
+    resp = jsonify(message)
     resp.status_code = StatusCodes.OK
     return resp
