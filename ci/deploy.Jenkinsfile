@@ -14,6 +14,9 @@ pipeline {
     string(defaultValue: 'jobmon-dev-db',
      description: 'name of rancher secret to use for db variables',
      name: 'RANCHER_DB_SECRET')
+    string(defaultValue: 'True',
+      description: 'Whether to forward event logs to Logstash or not',
+      name: 'USE_LOGSTASH')
     string(defaultValue: 'jobmon-slack',
      description: 'name of rancher secret to use for slack variables',
      name: 'RANCHER_SLACK_SECRET')
@@ -74,6 +77,7 @@ pipeline {
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
                                             passwordVariable: 'REG_PASSWORD')]) {
+
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
                   upload_python_dist \
@@ -158,7 +162,8 @@ pipeline {
                       ${RANCHER_SLACK_SECRET} \
                       ${RANCHER_QPID_SECRET} \
                       "${INFRA_PUB_REG_URL}/kubectl:latest" \
-                      ${KUBECONFIG}
+                      ${KUBECONFIG} \
+                      ${USE_LOGSTASH}
                '''
           }
         }

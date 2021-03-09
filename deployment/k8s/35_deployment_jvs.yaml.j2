@@ -42,6 +42,14 @@ spec:
             secretKeyRef:
               key: DB_PASS
               name: {{rancher_db_secret}}
+        - name: USE_LOGSTASH
+          value: "{{use_logstash}}"
+        - name: LOGSTASH_HOST
+          value: "logstash"
+        - name: LOGSTASH_PORT
+          value: "5000"
+        - name: LOGSTASH_PROTOCOL
+          value: "TCP"
         ports:
         - name: http
           containerPort: 80

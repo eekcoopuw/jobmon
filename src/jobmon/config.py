@@ -38,7 +38,7 @@ class ParserDefaults:
             '--logstash_host',
             type=str,
             help='logstash host to use',
-            default='',
+            default='logstash',
             env_var='LOGSTASH_HOST'
         )
         return parser
@@ -48,9 +48,9 @@ class ParserDefaults:
         """Set the logstash port to use if using logstash."""
         parser.add_argument(
             '--logstash_port',
-            type=str,
+            type=int,
             help='logstash port to use',
-            default='',
+            default=5000,
             env_var='LOGSTASH_PORT'
         )
         return parser

@@ -34,6 +34,8 @@ spec:
             - --accesslog
             - --entrypoints.web.Address=:80
             - --entrypoints.grafana.Address=:3000
+            - --entrypoints.kibana.Address=:5601
+            - --entrypoints.elasticsearch.Address=:9200
             - --providers.kubernetescrd
             # Limit CRD to only the namespace we are running in. Fixes permissions issues
             - --providers.kubernetescrd.namespaces={{namespace}}
@@ -51,3 +53,7 @@ spec:
               containerPort: 8080
             - name: grafana
               containerPort: 3000
+            - name: kibana
+              containerPort: 5601
+            - name: elasticsearch
+              containerPort: 9200

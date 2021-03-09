@@ -138,3 +138,50 @@ spec:
       port: 3000
   selector:
     app: grafana
+
+# Logstash cluster IP, endpoint for Jobmon service logs
+# Allows hostname "logstash" to resolve inside Jobmon containers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: logstash
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: logstash
+      port: 5000
+  selector:
+    app: logstash
+
+# Elasticsearch cluster IP, endpoint for logstash and source for Kibana
+# Allows hostname "elasticsearch" to resolve inside ELK containers
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: elasticsearch
+      port: 9200
+  selector:
+    app: elasticsearch
+
+# Kibana cluster IP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: kibana
+      port: 5601
+  selector:
+    app: kibana

@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logstash
+  labels:
+    name: logstash
+  namespace: {{ .Values.global.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: logstash
+  template:
+    metadata:
+      labels:
+        name: logstash
+        app: logstash
+    spec:
+      containers:
+        - image: docker.elastic.co/logstash/logstash:7.11.1
+          name: logstash
+          ports:
+          - name: input
+            containerPort: 5000
+          env:
+          - name: ELASTICSEARCH_HOSTS
+            value: http://elasticsearch:{{ .Values.ports.elasticsearch }}
+          volumeMounts:
+          - name: logstash-pipeline
+            mountPath: /usr/share/logstash/pipeline/
+          - name: logstash-config
+            mountPath: /usr/share/logstash/config/logstash.yml
+            subPath: logstash.yml
+          command:
+            - logstash
+          resources:
+            limits:
+              memory: 800Mi
+              cpu: 2
+            requests:
+              cpu: 200m
+              memory: 600Mi
+      volumes:
+        - name: logstash-pipeline
+          configMap:
+           name: logstash-pipeline
+           items:
+            - key: logstash.conf
+              path: logstash.conf
+        - name: logstash-config
+          configMap:
+            name: logstash-config
+            items:
+              - key: logstash.yml
+                path: logstash.yml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-pipeline
+  namespace: {{ .Values.global.namespace }}
+data:
+  logstash.conf: |
+{{ .Files.Get "logstash.conf" | indent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logstash-config
+  namespace: {{ .Values.global.namespace }}
+data:
+  logstash.yml: |
+{{ .Files.Get "logstash.yml" | indent 4 }}
