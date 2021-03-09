@@ -60,6 +60,10 @@ spec:
           requests:
             cpu: 300m # m = mhz
             memory: 400Mi
+        lifecycle:
+          preStop:
+            exec:
+              command: ["sleep", "15"]
 ---
 # https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 apiVersion: autoscaling/v2beta2
