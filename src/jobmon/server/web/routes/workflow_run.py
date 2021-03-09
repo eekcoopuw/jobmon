@@ -36,7 +36,7 @@ import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import func, text
 
-from . import jobmon_client, jobmon_swarm
+from . import jobmon_client, jobmon_scheduler, jobmon_swarm
 
 
 @jobmon_client.route('/workflow_run', methods=['POST'])
@@ -329,5 +329,30 @@ def log_wfr_heartbeat(workflow_run_id: int):
     DB.session.execute(query, params)
     DB.session.commit()
     resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+def log_workflow_run_heartbeat(workflow_run_id: int):
+    """Log a heartbeat on behalf of the workflow run to show that the client side is still
+    alive.
+    """
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
+    data = request.get_json()
+    app.logger.debug(f"Heartbeat data: {data}")
+
+    workflow_run = DB.session.query(WorkflowRun).filter_by(
+        id=workflow_run_id).one()
+
+    try:
+        workflow_run.heartbeat(data["next_report_increment"])
+        DB.session.commit()
+        app.logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
+    except InvalidStateTransition:
+        DB.session.rollback()
+        app.logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
+
+    resp = jsonify(message=str(workflow_run.status))
     resp.status_code = StatusCodes.OK
     return resp
