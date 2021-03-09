@@ -146,10 +146,10 @@ class SGEExecutor(Executor):
                 if val > (report_by_buffer + 1):
                     # if the jid has been polled for longer than its timeout period
                     logger.debug(f"LOST: {key}")
-                    res, _ = sge_utils.qacct_exit_status(key)
-                    if res != sge_utils.SGE_UNKNOWN_ERROR:
-                        logger.debug(f"RESPONSE: {res}")
-                        del(executor_ids[key])
+                    # res, _ = sge_utils.qacct_exit_status(key)
+                    # if res != sge_utils.SGE_UNKNOWN_ERROR:
+                    #     logger.debug(f"RESPONSE: {res}")
+                    del(executor_ids[key])
                 else:
                     executor_ids[key] = val+1
             else:

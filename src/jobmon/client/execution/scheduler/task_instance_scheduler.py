@@ -132,8 +132,11 @@ class TaskInstanceScheduler:
     def heartbeat(self) -> None:
         # log heartbeats for tasks queued for batch execution and for the
         # workflow run
-        logger.debug("scheduler: logging heartbeat")
-        self._log_executor_report_by()
+        logger.info("scheduler: logging heartbeat")
+        try:
+            self._log_executor_report_by()
+        except Exception as e:
+            logger.error(e)
         self._log_workflow_run_heartbeat()
 
     def schedule(self, thread_stop_event: Optional[threading.Event] = None) -> None:
@@ -221,7 +224,7 @@ class TaskInstanceScheduler:
                 )
 
         try:
-            logger.debug(f"checking for active jobs with exec_ids: {self.executor_ids}")
+            logger.info("checking executor for active jobs")
             actual, executor_ids = self.executor.get_actual_submitted_or_running(
                 executor_ids=self.executor_ids, report_by_buffer=self._report_by_buffer)
             self.executor_ids = executor_ids
@@ -232,7 +235,8 @@ class TaskInstanceScheduler:
                 "reconciliation methods. If a task instance does not "
                 "register a heartbeat from a worker process in "
                 f"{next_report_increment}s the task instance will be "
-                "moved to error state.")
+                "moved to error state."
+            )
             actual = []
         if actual:
             app_route = (

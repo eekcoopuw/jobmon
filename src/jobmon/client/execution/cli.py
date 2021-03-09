@@ -14,6 +14,8 @@ class ExecutorCLI(CLI):
             dest='sub_command', parser_class=configargparse.ArgumentParser
         )
 
+        self._add_scheduler_parser()
+
     def scheduler(self, args: configargparse.Namespace) -> None:
         from jobmon.client.execution.scheduler.api import get_scheduler, SchedulerConfig
 
@@ -42,19 +44,16 @@ class ExecutorCLI(CLI):
             'command',
             type=str,
             choices=['start'],
-            help=('The web_server sub-command to run: (start, test). Start is not currently '
-                  'supported. Test creates a test instance of the jobmon Flask app using the '
-                  'Flask dev server and should not be used for production'),
-            required=True
+            help=('The scheduler sub-command to run: (start)'),
         )
         scheduler_parser.add_argument(
-            'workflow_id',
+            '--workflow_id',
             type=int,
             help='workflow_id to schedule jobs for.',
             required=True
         )
         scheduler_parser.add_argument(
-            'workflow_run_id',
+            '--workflow_run_id',
             type=int,
             help='workflow_run_id to schedule jobs for.',
             required=True
