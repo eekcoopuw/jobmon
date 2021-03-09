@@ -57,3 +57,7 @@ spec:
               containerPort: 5601
             - name: elasticsearch
               containerPort: 9200
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "15"]
