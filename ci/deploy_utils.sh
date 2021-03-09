@@ -170,6 +170,7 @@ deploy_jobmon_to_k8s () {
             ${KUBECTL_CONTAINER} \
                 --namespace="$K8S_NAMESPACE" \
                 apply -f /data/${TEMPLATE}
+        sleep 5 # Rest for 5 seconds to let the pods calm down a bit
     done
 }
 
