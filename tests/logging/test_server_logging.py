@@ -69,13 +69,13 @@ def test_add_structlog_context(web_server_in_memory, log_config):
 
 
 def test_error_handling(web_server_in_memory, log_config, monkeypatch):
-    from jobmon.server.web.routes import jobmon_client
+    from jobmon.server.web.routes import jobmon_client_routes
 
     msg = "bad luck buddy"
 
     def raise_error():
         raise RuntimeError(msg)
-    monkeypatch.setattr(jobmon_client, "_get_time", raise_error)
+    monkeypatch.setattr(jobmon_client_routes, "_get_time", raise_error)
 
     requester = Requester("")
     requester.send_request("/client/health", {}, "get", tenacious=False)
