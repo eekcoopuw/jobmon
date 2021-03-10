@@ -1,6 +1,5 @@
 """Routes used by the main jobmon client."""
 import os
-
 from http import HTTPStatus as StatusCodes
 
 from flask import current_app as app, jsonify

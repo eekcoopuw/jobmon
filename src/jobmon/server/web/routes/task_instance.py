@@ -1,10 +1,9 @@
-"""Routes used by task instances on worker nodes."""
-import os
+"""Routes for TaskInstances"""
 import sys
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-from flask import Blueprint, current_app as app, jsonify, request
+from flask import current_app as app, jsonify, request
 
 from jobmon.constants import QsubAttribute
 from jobmon.server.web.models import DB

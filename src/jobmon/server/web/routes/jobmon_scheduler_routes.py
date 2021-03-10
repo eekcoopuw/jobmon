@@ -1,6 +1,5 @@
 """Routes for Scheduler component of client architecture."""
 import os
-
 from http import HTTPStatus as StatusCodes
 
 from flask import current_app as app, jsonify
