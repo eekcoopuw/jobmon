@@ -45,6 +45,31 @@ Spinning down a database
 1. SSH into the host machine, and use "docker ps" to find the container name that corresponds to the database to be spun down.
 2. Used "docker stop <container_id>" to stop the container.
 
+Enabling Slow Query Logging
+***************************
+
+This negatively affects performance, so only do it in produciton if there really is a problem.
+It should be enabled for at least some of the time during load tests prior to a release.
+You need to be logged in to mysql as the root user.
+
+.. code-block:: sql
+
+  SET GLOBAL slow_query_log = 'ON';
+  SET GLOBAL long_query_time = 2; # in seconds, default is 10
+  SET GLOBAL slow_query_log_file = '/path/filename'; # Default /var/log/mysql/mariadb-slow.log
+
+Very Important: You have to log out and in for it to have an effect. You can check by:
+
+.. code-block:: sql
+
+  SHOW VARIABLES;
+
+Turn it off when you are done:
+
+.. code-block:: sql
+
+  SET GLOBAL slow_query_log = 'OFF';
+
 
 Archiving a volume-based database
 *********************************

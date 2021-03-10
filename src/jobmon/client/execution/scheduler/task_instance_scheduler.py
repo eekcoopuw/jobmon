@@ -251,7 +251,8 @@ class TaskInstanceScheduler:
                 "reconciliation methods. If a task instance does not "
                 "register a heartbeat from a worker process in "
                 f"{next_report_increment}s the task instance will be "
-                "moved to error state.")
+                "moved to error state."
+            )
             actual = []
 
         # log heartbeat in the database and locally here in the scheduler

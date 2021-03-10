@@ -1,11 +1,11 @@
+import time
 from unittest import mock
-
-from jobmon.requester import Requester
 
 import pytest
 from tenacity import stop_after_attempt
 from requests import ConnectionError
-import time
+
+from jobmon.requester import Requester
 
 
 def test_server_502(client_env):
