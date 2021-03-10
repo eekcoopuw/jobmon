@@ -1,10 +1,9 @@
-"""Routes for Scheduler component of client architecture."""
-import os
+"""Routes for TaskInstances"""
 import sys
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-from flask import Blueprint, current_app as app, jsonify, request
+from flask import current_app as app, jsonify, request
 
 from jobmon.constants import QsubAttribute
 from jobmon.server.web.models import DB
@@ -21,52 +20,226 @@ from jobmon.server.web.server_side_exception import ServerError
 import sqlalchemy
 from sqlalchemy.sql import func, text
 
-
-jobmon_scheduler = Blueprint("jobmon_scheduler", __name__)
-
-
-@jobmon_scheduler.before_request
-def log_request_info():
-    """Add blueprint to logger."""
-    app.logger = app.logger.bind(blueprint=jobmon_scheduler.name)
-    app.logger.debug("starting route execution")
+from . import jobmon_scheduler, jobmon_worker
 
 
-@jobmon_scheduler.route('/', methods=['GET'])
-def _is_alive():
-    """A simple 'action' that sends a response to the requester indicating that this responder
-    is in fact listening.
+@jobmon_worker.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
+def kill_self(task_instance_id: int):
+    """Check a task instance's status to see if it needs to kill itself (state W, or L)."""
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    kill_statuses = TaskInstance.kill_self_states
+    query = """
+        SELECT
+            task_instance.id
+        FROM
+            task_instance
+        WHERE
+            task_instance.id = :task_instance_id
+            AND task_instance.status in :statuses
     """
-    app.logger.info(f"{os.getpid()}: {__name__} received is_alive?")
-    resp = jsonify(msg="Yes, I am alive")
+    should_kill = DB.session.query(TaskInstance).from_statement(text(query)).params(
+        task_instance_id=task_instance_id,
+        statuses=kill_statuses
+    ).one_or_none()
+    if should_kill is not None:
+        resp = jsonify(should_kill=True)
+    else:
+        resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@jobmon_scheduler.route("/time", methods=['GET'])
-def get_pst_now():
-    """Get the current time according to the database."""
-    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-    time = time['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
+@jobmon_worker.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
+def log_running(task_instance_id: int):
+    """Log a task_instance as running.
+    Args:
+        task_instance_id: id of the task_instance to log as running
+    """
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    data = request.get_json()
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
+    if data.get('executor_id', None) is not None:
+        ti.executor_id = data['executor_id']
+    if data.get('nodename', None) is not None:
+        ti.nodename = data['nodename']
+    ti.process_group_id = data['process_group_id']
+    ti.report_by_date = func.ADDTIME(
+        func.now(), func.SEC_TO_TIME(data['next_report_increment']))
     DB.session.commit()
-    resp = jsonify(time=time)
+
+    resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@jobmon_scheduler.route("/health", methods=['GET'])
-def health():
+@jobmon_worker.route('/task_instance/<task_instance_id>/log_report_by', methods=['POST'])
+def log_ti_report_by(task_instance_id: int):
+    """Log a task_instance as being responsive with a new report_by_date, this is done at the
+    worker node heartbeat_interval rate, so it may not happen at the same rate that the
+    reconciler updates batch submitted report_by_dates (also because it causes a lot of traffic
+    if all workers are logging report by_dates often compared to if the reconciler runs often).
+    Args:
+        task_instance_id: id of the task_instance to log
     """
-    Test connectivity to the database, return 200 if everything is ok
-    Defined in each module with a different route, so it can be checked individually
-    """
-    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-    time = time['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    data = request.get_json()
+    app.logger.debug(f"Log report_by for TI {task_instance_id}. Data={data}")
+
+    executor_id = data.get('executor_id', None)
+    params = {}
+    params["next_report_increment"] = data["next_report_increment"]
+    params["task_instance_id"] = task_instance_id
+    if executor_id is not None:
+        params["executor_id"] = executor_id
+        query = """
+                UPDATE task_instance
+                SET report_by_date = ADDTIME(
+                    CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
+                    executor_id = :executor_id
+                WHERE task_instance.id = :task_instance_id"""
+    else:
+        query = """
+            UPDATE task_instance
+            SET report_by_date = ADDTIME(
+                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE task_instance.id = :task_instance_id"""
+
+    DB.session.execute(query, params)
     DB.session.commit()
-    # Assume that if we got this far without throwing an exception, we should be online
-    resp = jsonify(status='OK')
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_worker.route('/task_instance/<task_instance_id>/log_usage', methods=['POST'])
+def log_usage(task_instance_id: int):
+    """Log the usage stats of a task_instance
+    Args:
+
+        task_instance_id: id of the task_instance to log done
+        usage_str (str, optional): stats such as maxrss, etc
+        wallclock (str, optional): wallclock of running job
+        maxrss (str, optional): max resident set size mem used
+        maxpss (str, optional): max proportional set size mem used
+        cpu (str, optional): cpu used
+        io (str, optional): io used
+    """
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    data = request.get_json()
+    if data.get('maxrss', None) is None:
+        data['maxrss'] = '-1'
+
+    app.logger.debug(f"usage_str is {data.get('usage_str', None)}, "
+                     f"wallclock is {data.get('wallclock', None)}, "
+                     f"maxrss is {data.get('maxrss', None)}, "
+                     f"maxpss is {data.get('maxpss', None)}, "
+                     f"cpu is {data.get('cpu', None)}, "
+                     f" io is {data.get('io', None)}")
+
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    if data.get('usage_str', None) is not None:
+        ti.usage_str = data['usage_str']
+    if data.get('wallclock', None) is not None:
+        ti.wallclock = data['wallclock']
+    if data.get('maxrss', None) is not None:
+        ti.maxrss = data['maxrss']
+    if data.get('maxpss', None) is not None:
+        ti.maxpss = data['maxpss']
+    if data.get('cpu', None) is not None:
+        ti.cpu = data['cpu']
+    if data.get('io', None) is not None:
+        ti.io = data['io']
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_worker.route('/task_instance/<task_instance_id>/log_done', methods=['POST'])
+def log_done(task_instance_id: int):
+    """Log a task_instance as done
+
+    Args:
+        task_instance_id: id of the task_instance to log done
+    """
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    data = request.get_json()
+    app.logger.debug(f"Log DONE for TI {task_instance_id}. Data: {data}")
+
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    if data.get('executor_id', None) is not None:
+        ti.executor_id = data['executor_id']
+    if data.get('nodename', None) is not None:
+        ti.nodename = data['nodename']
+    msg = _update_task_instance_state(ti, TaskInstanceStatus.DONE)
+    DB.session.commit()
+
+    resp = jsonify(message=msg)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_worker.route('/task_instance/<task_instance_id>/log_error_worker_node',
+                     methods=['POST'])
+def log_error_worker_node(task_instance_id: int):
+    """Log a task_instance as errored
+    Args:
+
+        task_instance_id (str): id of the task_instance to log done
+        error_message (str): message to log as error
+    """
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    data = request.get_json()
+    error_state = data['error_state']
+    error_message = data['error_message']
+    executor_id = data.get('executor_id', None)
+    nodename = data.get('nodename', None)
+    app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
+
+    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+
+    try:
+        resp = _log_error(ti, error_state, error_message, executor_id,
+                          nodename)
+        return resp
+    except sqlalchemy.exc.OperationalError:
+        # modify the error message and retry
+        new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+        resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
+        return resp
+
+
+@jobmon_worker.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])
+def get_most_recent_ji_error(task_id: int):
+    """
+    Route to determine the cause of the most recent task_instance's error
+    :param task_id:
+    :return: error message
+    """
+    app.logger = app.logger.bind(task_id=task_id)
+    query = """
+        SELECT
+            tiel.*
+        FROM
+            task_instance ti
+        JOIN
+            task_instance_error_log tiel
+            ON ti.id = tiel.task_instance_id
+        WHERE
+            ti.task_id = :task_id
+        ORDER BY
+            ti.id desc, tiel.id desc
+        LIMIT 1"""
+    ti_error = DB.session.query(TaskInstanceErrorLog).from_statement(text(query)).params(
+        task_id=task_id
+    ).one_or_none()
+    DB.session.commit()
+    if ti_error is not None:
+        resp = jsonify({"error_description": ti_error.description})
+    else:
+        resp = jsonify({"error_description": ""})
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -226,29 +399,27 @@ def get_task_instances_to_terminate(workflow_run_id: int):
     return resp
 
 
-@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
-def log_workflow_run_heartbeat(workflow_run_id: int):
-    """Log a heartbeat on behalf of the workflow run to show that the client side is still
-    alive.
+@jobmon_scheduler.route('/task_instance/<executor_id>/maxpss/<maxpss>', methods=['POST'])
+def set_maxpss(executor_id: int, maxpss: int):
     """
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    data = request.get_json()
-    app.logger.debug(f"Heartbeat data: {data}")
-
-    workflow_run = DB.session.query(WorkflowRun).filter_by(
-        id=workflow_run_id).one()
-
+    Route to set maxpss of a job instance
+    :param executor_id: sge execution id
+    :return:
+    """
+    app.logger = app.logger.bind(executor_id=executor_id)
     try:
-        workflow_run.heartbeat(data["next_report_increment"])
+        sql = f"UPDATE task_instance SET maxpss={maxpss} WHERE executor_id={executor_id}"
+        DB.session.execute(sql)
         DB.session.commit()
-        app.logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
-    except InvalidStateTransition:
-        DB.session.rollback()
-        app.logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
-
-    resp = jsonify(message=str(workflow_run.status))
-    resp.status_code = StatusCodes.OK
-    return resp
+        resp = jsonify(message=None)
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception as e:
+        msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id,
+                                                                             error=str(e))
+        app.logger.error(msg)
+        raise ServerError(f"Unexpected Jobmon Server Error {sys.exc_info()[0]} in "
+                          f"{request.path}", status_code=500) from e
 
 
 @jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_executor_report_by',
@@ -497,7 +668,9 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
         msg = f"General exception in _update_task_instance_state, " \
               f"jid {task_instance}, transitioning to {task_instance}. " \
               f"Not transitioning task. {e}"
-        raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
+        raise ServerError(f"General exception in _update_task_instance_state, jid "
+                          f"{task_instance}, transitioning to {task_instance}. Not "
+                          f"transitioning task. Server Error in {request.path}",
                           status_code=500) from e
 
     return response
@@ -526,26 +699,3 @@ def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
                           status_code=500) from e
 
     return resp
-
-
-@jobmon_scheduler.route('/task_instance/<executor_id>/maxpss/<maxpss>', methods=['POST'])
-def set_maxpss(executor_id: int, maxpss: int):
-    """
-    Route to set maxpss of a job instance
-    :param executor_id: sge execution id
-    :return:
-    """
-    app.logger = app.logger.bind(executor_id=executor_id)
-    try:
-        sql = f"UPDATE task_instance SET maxpss={maxpss} WHERE executor_id={executor_id}"
-        DB.session.execute(sql)
-        DB.session.commit()
-        resp = jsonify(message=None)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id,
-                                                                             error=str(e))
-        app.logger.error(msg)
-        raise ServerError(f"Unexpected Jobmon Server Error {sys.exc_info()[0]} in "
-                          f"{request.path}", status_code=500) from e
