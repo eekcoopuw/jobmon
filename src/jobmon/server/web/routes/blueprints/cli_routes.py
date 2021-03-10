@@ -1,15 +1,10 @@
 """Routes for CLI requests."""
 from http import HTTPStatus as StatusCodes
 
-from flask import current_app as app, jsonify
+from flask import jsonify
 
 from jobmon.server.web.models import DB
-
-from werkzeug.local import LocalProxy
-
-from . import jobmon_cli
-
-logger = LocalProxy(lambda: app.logger)
+from jobmon.server.web.routes import jobmon_cli
 
 
 @jobmon_cli.route("/health", methods=['GET'])

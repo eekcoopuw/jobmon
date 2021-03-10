@@ -158,7 +158,7 @@ if __name__ == "__main__":
     time_in_seconds = time_in_minutes * 60
     threads = []
     for i in range(TOTAL_THREADS):
-        t = Thread(target=loop, args=(time_in_seconds))
+        t = Thread(target=loop, args=[time_in_seconds])
         threads.append(t)
         t.start()
     for t in threads:

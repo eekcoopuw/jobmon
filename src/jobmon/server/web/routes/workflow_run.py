@@ -182,48 +182,6 @@ def client_log_workflow_run_heartbeat(workflow_run_id: int):
     return resp
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
-def swarm_terminate_workflow_run(workflow_run_id: int):
-    """
-    If applicable, moves the workflow run to "T" state, moves the associated workflow to "S".
-
-    Checks if workflow runs that are in "C" or "H" state haven't registered a heartbeat in more
-    than the timeout value. If they haven't, the route transitions the workflow and workflow
-    run.
-
-    Args:
-        workflow_run_id (int): the id of the workflow run to query for
-        time_out (int): heatbeat_interval * report_by_buffer, the time to compare the workflow
-            runs heartbeat_time against
-
-    Returns:
-        resp (Any): whether or not the workflow run was reaped and the response status code
-    """
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    query = """
-        SELECT *
-        FROM workflow_run
-        WHERE
-            workflow_run.id = :workflow_run_id
-            and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
-    """
-    wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_id=workflow_run_id
-    ).one_or_none()
-
-    try:
-        wfr.transition(WorkflowRunStatus.TERMINATED)
-        DB.session.commit()
-        transitioned = True
-    except (InvalidStateTransition, AttributeError):
-        # this branch handles race condition or case where no wfr was returned
-        transitioned = False
-
-    resp = jsonify(transitioned=transitioned)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
 def log_workflow_run_status_update(workflow_run_id: int):
     """Update the status of the workflow run."""
@@ -331,5 +289,61 @@ def scheduler_log_workflow_run_heartbeat(workflow_run_id: int):
         app.logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
 
     resp = jsonify(message=str(workflow_run.status))
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_client.route('/lost_workflow_run', methods=['GET'])
+def get_lost_workflow_runs():
+    """Return all workflow runs that are currently in the specified state."""
+    query = """
+        SELECT
+            workflow_run.*
+        FROM
+            workflow_run
+        WHERE
+            workflow_run.status in :workflow_run_status
+            and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
+    """
+    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+        workflow_run_status=request.args.getlist('status')
+    ).all()
+    DB.session.commit()
+    workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
+    resp = jsonify(workflow_runs=workflow_runs)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_swarm.route('/workflow_run/<workflow_run_id>/reap', methods=['PUT'])
+def reap_workflow_run(workflow_run_id: int):
+    """If the last task was more than 2 minutes ago, transition wfr to A state
+    Also check WorkflowRun status_date to avoid possible race condition where reaper
+    checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
+    while waiting for a resume (when workflow is in suspended state).
+    """
+    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
+
+    query = """
+        SELECT
+            workflow_run.*
+        FROM workflow_run
+        WHERE
+            workflow_run.id = :workflow_run_id
+            and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
+    """
+    wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
+        workflow_run_id=workflow_run_id
+    ).one_or_none()
+    DB.session.commit()
+
+    try:
+        wfr.reap()
+        DB.session.commit()
+        status = wfr.status
+    except (InvalidStateTransition, AttributeError):
+        # this branch handles race condition or case where no wfr was returned
+        status = ""
+    resp = jsonify(status=status)
     resp.status_code = StatusCodes.OK
     return resp

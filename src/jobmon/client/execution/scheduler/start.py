@@ -5,7 +5,6 @@ from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import TaskInstanceScheduler
 from jobmon.client.execution.strategies.api import get_scheduling_executor_by_name
 from jobmon.client.execution.strategies.base import Executor
-from jobmon.log_config import configure_logger, get_logstash_handler_config
 from jobmon.requester import Requester
 
 
@@ -17,15 +16,6 @@ def get_scheduler(workflow_id: int, workflow_run_id: int,
     """Set up and return Scheduler object."""
     if scheduler_config is None:
         scheduler_config = SchedulerConfig.from_defaults()
-    if scheduler_config.use_logstash:
-        syslog_config = get_logstash_handler_config(
-            logstash_host=scheduler_config.logstash_host,
-            logstash_port=scheduler_config.logstash_port,
-            logstash_protocol=scheduler_config.rsyslog_protocol
-        )
-    else:
-        syslog_config = None
-    configure_logger("jobmon.client.execution", syslog_config)
 
     # TODO: make the default executor configurable
     if executor is None:

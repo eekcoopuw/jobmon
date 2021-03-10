@@ -71,13 +71,15 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
         DB.session.commit()
 
     # wait till it dies
-    actual, _ = scheduler.executor.get_actual_submitted_or_running(
-        scheduler.executor_ids, scheduler._report_by_buffer)
+    actual = scheduler.executor.get_actual_submitted_or_running(
+        list(scheduler._submitted_or_running.keys())
+    )
     while actual:
         time.sleep(1)
-        actual, _ = scheduler.executor.get_actual_submitted_or_running(
-            scheduler.executor_ids, scheduler._report_by_buffer)
-    scheduler.executor.stop(scheduler.executor_ids, scheduler._report_by_buffer)
+        actual = scheduler.executor.get_actual_submitted_or_running(
+            list(scheduler._submitted_or_running.keys())
+        )
+    scheduler.executor.stop(list(scheduler._submitted_or_running.keys()))
 
     # make sure no more heartbeats were registered
     with app.app_context():
@@ -116,9 +118,9 @@ def test_ti_error_state(db_cfg, client_env):
         assert ti.status == TaskInstanceStatus.ERROR
 
 
-def mock_execute(command, name, executor_parameters, executor_ids):
+def mock_execute(command, name, executor_parameters):
     # redirecting the normal route of going to B state with W state
-    return -33333, executor_ids
+    return -33333
 
 
 def test_ti_w_state(db_cfg, client_env):

@@ -300,12 +300,13 @@ The path is shown in the diagram in the `Server & Services`_ section, but the de
 of the calls need to be added there.
 
 1. Through Jobmon's Python library:
+
   #. HTTP to Kubernetes
   #. Metal-lb
   #. UWSGI
   #. Flask
   #. Kubernetes service
-  #. database
+  #. Database
 
 The QSUB Path
 =============

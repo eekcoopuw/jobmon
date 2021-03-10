@@ -42,6 +42,13 @@ def _processor_add_version(logger, log_method, event_dict):
     return event_dict
 
 
+def _processor_remove_data_if_not_debug(logger, log_method, event_dict):
+    if "web" in logger.name and log_method != "debug":
+        if "data" in event_dict.keys():
+            event_dict.pop("data")
+    return event_dict
+
+
 def configure_logger(name, add_handlers: Optional[Dict] = None,
                      json_formatter_prefix: str = "") -> logging.Logger:
     """Configure logging format, handlers, etc."""
@@ -89,6 +96,8 @@ def configure_logger(name, add_handlers: Optional[Dict] = None,
             # This performs the initial filtering, so we don't
             # evaluate e.g. DEBUG when unnecessary
             structlog.stdlib.filter_by_level,
+            # remove 'data' key from logger if the log level isn't debug
+            _processor_remove_data_if_not_debug,
             # Adds logger=module_name (e.g __main__)
             structlog.stdlib.add_logger_name,
             # Adds level=info, debug, etc.

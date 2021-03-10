@@ -203,7 +203,7 @@ class Executor:
         self.jobmon_command = jobmon_command
         self.started = True
 
-    def stop(self, executor_ids, report_by_buffer) -> None:
+    def stop(self, executor_ids: List[int]) -> None:
         """Stop the executor."""
         self.started = False
 
@@ -223,8 +223,7 @@ class Executor:
         self._jobmon_command = val
 
     def execute(self, command: str, name: str,
-                executor_parameters: ExecutorParameters, executor_ids) -> \
-            Tuple[int, Dict[int, int]]:
+                executor_parameters: ExecutorParameters) -> int:
         """SUBCLASSES ARE REQUIRED TO IMPLEMENT THIS METHOD.
 
         It is recommended that subclasses use build_wrapped_command() to
@@ -250,12 +249,11 @@ class Executor:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
-    def get_errored_jobs(self, executor_ids: Dict):
+    def get_queueing_errors(self, executor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
-    def get_actual_submitted_or_running(self, executor_ids: Dict, report_by_buffer) -> \
-            Tuple[List[int], Dict[int, int]]:
+    def get_actual_submitted_or_running(self, executor_ids: List[int]) -> List[int]:
         """Check which task instances are active."""
         raise NotImplementedError
 

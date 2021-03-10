@@ -22,11 +22,11 @@ def test_add_tasks_dependencynotexist(db_cfg, client_env):
         wf.add_tasks([t1, t3])
         wf.bind()
     assert "Upstream" in str(excinfo.value)
-    wf = UnknownWorkflow("wf3", name="TestWF3")
+    wf = UnknownWorkflow("wf3", name="TestWF3", executor_class="SequentialExecutor")
     wf.add_tasks([t1, t2, t3])
     wf.run()
     assert len(wf.tasks) == 3
-    wf = UnknownWorkflow("wf4", name="TestWF4")
+    wf = UnknownWorkflow("wf4", name="TestWF4", executor_class="SequentialExecutor")
     wf.add_tasks([t1])
     wf.add_tasks([t2])
     wf.add_tasks([t3])

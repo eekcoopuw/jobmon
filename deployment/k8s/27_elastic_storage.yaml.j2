@@ -1,0 +1,16 @@
+# Persistent storage for elasticsearch
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elasticsearch-storage
+  namespace: {{ namespace }}
+  annotations:
+    volume.beta.kubernetes.io/storage-class: nfs-client
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      # Max size of the elastic database
+      storage: 30Gi

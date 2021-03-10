@@ -1,1 +1,0 @@
-"""Jobmon CLI routes."""

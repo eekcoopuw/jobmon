@@ -449,37 +449,6 @@ def log_executor_report_by(workflow_run_id: int):
     return resp
 
 
-@jobmon_scheduler.route('/log_executor_error', methods=['POST'])
-def state_and_log_by_executor_id():
-    """Executor ids that have errored out."""
-    data = request.get_json()
-    ids_and_errors = data["executor_ids"]
-    for key in ids_and_errors:
-        query = """
-            SELECT
-                task_instance.*
-            FROM
-                task_instance
-            WHERE
-                task_instance.executor_id = :executor_id"""
-        task_instance = DB.session.query(TaskInstance).from_statement(text(query)).params(
-            executor_id=key).one()
-        DB.session.commit()
-
-        error_message = ids_and_errors[key]
-
-        try:
-            resp = _log_error(task_instance, TaskInstanceStatus.ERROR_FATAL, error_message)
-        except sqlalchemy.exc.OperationalError:
-            # modify the error message and retry
-            new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-            resp = _log_error(task_instance, TaskInstanceStatus.ERROR_FATAL, new_msg)
-
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jobmon_scheduler.route('/task_instance', methods=['POST'])
 def add_task_instance():
     """Add a task_instance to the database
@@ -501,13 +470,13 @@ def add_task_instance():
             workflow_run_id=data["workflow_run_id"],
             executor_type=data['executor_type'],
             task_id=data['task_id'],
-            executor_parameter_set_id=task.executor_parameter_set_id)
+            executor_parameter_set_id=task.executor_parameter_set_id
+        )
         DB.session.add(task_instance)
         DB.session.commit()
         task_instance.task.transition(TaskStatus.INSTANTIATED)
         DB.session.commit()
-        resp = jsonify(
-            task_instance=task_instance.to_wire_as_executor_task_instance())
+        resp = jsonify(task_instance=task_instance.to_wire_as_executor_task_instance())
         resp.status_code = StatusCodes.OK
         return resp
     except InvalidStateTransition as e:
@@ -579,9 +548,8 @@ def log_executor_id(task_instance_id: int):
     return resp
 
 
-@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_error_reconciler',
-                        methods=['POST'])
-def log_error_reconciler(task_instance_id: int):
+@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_known_error', methods=['POST'])
+def log_known_error(task_instance_id: int):
     """Log a task_instance as errored
     Args:
         task_instance_id (int): id for task instance
@@ -603,10 +571,51 @@ def log_error_reconciler(task_instance_id: int):
             task_instance
         WHERE
             task_instance.id = :task_instance_id
+    """
+    ti = DB.session.query(TaskInstance).from_statement(text(query)).params(
+        task_instance_id=task_instance_id
+    ).one_or_none()
+
+    try:
+        resp = _log_error(ti, error_state, error_message, executor_id,
+                          nodename)
+    except sqlalchemy.exc.OperationalError:
+        # modify the error message and retry
+        new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+        resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_unknown_error',
+                        methods=['POST'])
+def log_unknown_error(task_instance_id: int):
+    """Log a task_instance as errored
+    Args:
+        task_instance_id (int): id for task instance
+    """
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    data = request.get_json()
+    error_state = data['error_state']
+    error_message = data['error_message']
+    executor_id = data.get('executor_id', None)
+    nodename = data.get('nodename', None)
+    app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
+
+    query = """
+        SELECT
+            task_instance.*
+        FROM
+            task_instance
+        WHERE
+            task_instance.id = :task_instance_id
             AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
     """
     ti = DB.session.query(TaskInstance).from_statement(text(query)).params(
-        task_instance_id=task_instance_id).one_or_none()
+        task_instance_id=task_instance_id
+    ).one_or_none()
 
     # make sure the task hasn't logged a new heartbeat since we began
     # reconciliation
@@ -618,10 +627,9 @@ def log_error_reconciler(task_instance_id: int):
             # modify the error message and retry
             new_msg = error_message.encode("latin1", "replace").decode("utf-8")
             resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
-    else:
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
 
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
     return resp
 
 

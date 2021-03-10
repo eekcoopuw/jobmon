@@ -1,4 +1,5 @@
 import os
+import time
 from unittest.mock import patch
 
 from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
@@ -52,8 +53,7 @@ def test_get_actual_submitted_or_running():
     with patch("jobmon.client.execution.strategies.sge.sge_utils.qstat") as m_qstat:
         m_qstat.side_effect = mock_qstat
         sge = SGEExecutor()
-        result, _ = sge.get_actual_submitted_or_running(executor_ids={66666: 0},
-                                                        report_by_buffer=2)
+        result = sge.get_actual_submitted_or_running(executor_ids=[66666])
         assert type(result) is list
         assert len(result) == 1
         assert result[0] == 66666
@@ -468,7 +468,10 @@ def test_eqw_restarting(db_cfg, client_env):
     """This test creates a task that will be moved in to eqw state by the cluster. It then
     checks that the task instance changes state."""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
+    from jobmon.client.execution.scheduler.task_instance_scheduler import \
+        TaskInstanceScheduler
     from jobmon.client.api import BashTask
+    from jobmon.requester import Requester
 
     # this directory exists but its perms wont let it be written to, this should cause eqw
     unwriteable_dir = "/ihme/scratch/users/svcscicompci/unwriteable_test_dir"
@@ -488,7 +491,27 @@ def test_eqw_restarting(db_cfg, client_env):
                      queue="all.q")
 
     workflow.add_tasks([task1])
-    workflow.run()
+
+    workflow.bind()
+    wfr = workflow._create_workflow_run()
+    requester = Requester(client_env)
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester=requester)
+    with pytest.raises(RuntimeError):
+        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+
+    # submit to qsub
+    scheduler.schedule()
+
+    # wait till it hits eqw
+    i = 0
+    while not scheduler._to_log_error and i < 10:
+        time.sleep(10)
+        i += 1
+        scheduler._purge_queueing_errors()
+
+    # log error
+    scheduler.schedule()
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -509,85 +532,3 @@ def test_eqw_restarting(db_cfg, client_env):
         res = DB.session.execute(query).fetchone()
         DB.session.commit()
     assert res[0] == "F"
-
-
-@pytest.mark.integration_sge
-def test_non_jobmon_jobs_eqw(db_cfg, client_env):
-    from subprocess import check_output
-    from time import sleep
-
-    from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import TaskInstanceScheduler
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    """
-    Test the case in which a user  has non-jobmon jobs submitted to the cluster, and in an
-    eqw state, we want to make sure that Jobmon does not try to register them in the jobmon db
-    """
-    bad_dir = "/ihme/scratch/users/svcscicompci/unwriteable_test_dir/"
-    qsub_bad = "qsub -N not_jobmon -q all.q -l fthread=1 -l m_mem_free=1.0G -l h_rt=60 -P " \
-               f"proj_scicomp -e {bad_dir} -o {bad_dir} -b yes 'echo blah'"
-    qsub_good = "qsub -N not_jobmon_sleep -q all.q -l fthread=1 -l m_mem_free=1.0G " \
-                "-l h_rt=00:10:00 -P proj_scicomp -b yes 'sleep 60'"
-    res_bad = check_output(qsub_bad, shell=True, universal_newlines=True)
-    res_good = check_output(qsub_good, shell=True, universal_newlines=True)
-
-    # give it a chance to show up in Eqw
-    qstat = check_output("qstat", shell=True, universal_newlines=True)
-    count = 0
-    if 'Eqw' not in qstat and count < 5:
-        sleep(5)
-        count += 1
-        qstat = check_output("qstat", shell=True, universal_newlines=True)
-
-    # need to wait until it is in eqw
-    workflow = UnknownWorkflow(name="non_jobmon_eqw", workflow_args="non_jobmon_eqw",
-                               project="proj_scicomp")
-
-    task1 = BashTask(name="standard_task", command="sleep 60", num_cores=1)
-    task2 = BashTask(name="Eqw_task", command=f"echo 'blah' > {bad_dir}", num_cores=1,
-                     context_args={"sge_add_args": f"-e {bad_dir} -o {bad_dir}"})
-    workflow.add_tasks([task1, task2])
-
-    workflow.bind()
-    wfr = workflow._create_workflow_run()
-    fringe = wfr._compute_fringe()
-    for task in fringe:
-        wfr._adjust_resources_and_queue(task)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester=workflow.requester)
-    scheduler._get_tasks_queued_for_instantiation()
-    scheduler.schedule()
-    scheduler.executor.get_errored_jobs(scheduler.executor_ids)  # make sure eqw is not in here
-    qstat = check_output("qstat", shell=True, universal_newlines=True)
-    while 'Eqw_task' not in qstat and count < 5:
-        sleep(5)
-        count += 1
-        qstat = check_output("qstat", shell=True, universal_newlines=True)
-
-    if 'Eqw_task' not in qstat:
-        check_output(f"qdel {res_bad.split()[2]} {res_good.split()[2]}", shell=True,
-                     universal_newlines=True)
-        pytest.skip("Cluster running too slow to register jobs")
-    else:
-        status = qstat.split('Eqw_task')[1].split()[1]
-        count = 0
-        while count < 5 and status != 'Eqw':
-            sleep(5)
-            count += 1
-            qstat = check_output("qstat", shell=True, universal_newlines=True)
-            status = qstat.split('Eqw_task')[1].split()[1]
-        if status != 'Eqw':
-            check_output(f"qdel {res_bad.split()[2]} {res_good.split()[2]}", shell=True,
-                         universal_newlines=True)
-            pytest.skip("Cluster running too slow to register jobs")
-    active, _ = scheduler.executor.get_actual_submitted_or_running(scheduler.executor_ids,
-                                                                   scheduler._report_by_buffer)
-    assert len(active) == 2
-    errored = scheduler.executor.get_errored_jobs(scheduler.executor_ids)
-    assert len(errored) == 1  # if this fails, check your qstat to make sure there aren't other
-    # jobs in Eqw
-    assert len(list(scheduler.executor_ids.keys())) == 2
-
-    # use res_bad and res_good to qdel those jobs
-    check_output(f"qdel {res_bad.split()[2]} {res_good.split()[2]}", shell=True,
-                 universal_newlines=True)
