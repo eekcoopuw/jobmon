@@ -53,10 +53,3 @@ def health():
     resp = jsonify(status='OK')
     resp.status_code = StatusCodes.OK
     return resp
-
-
-def get_time(session):
-    """Get the time from the database."""
-    time = session.execute("select CURRENT_TIMESTAMP as time").fetchone()['time']
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
-    return time
