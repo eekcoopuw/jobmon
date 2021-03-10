@@ -11,7 +11,6 @@ from jobmon.server.web.models.executor_parameter_set import ExecutorParameterSet
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
-from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 
 from sqlalchemy.sql import text
 
@@ -135,48 +134,6 @@ def get_task_by_status_only(workflow_id: int):
     return resp
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
-def terminate_workflow_run(workflow_run_id: int):
-    """
-    If applicable, moves the workflow run to "T" state, moves the associated workflow to "S".
-
-    Checks if workflow runs that are in "C" or "H" state haven't registered a heartbeat in more
-    than the timeout value. If they haven't, the route transitions the workflow and workflow
-    run.
-
-    Args:
-        workflow_run_id (int): the id of the workflow run to query for
-        time_out (int): heatbeat_interval * report_by_buffer, the time to compare the workflow
-            runs heartbeat_time against
-
-    Returns:
-        resp (Any): whether or not the workflow run was reaped and the response status code
-    """
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    query = """
-        SELECT *
-        FROM workflow_run
-        WHERE
-            workflow_run.id = :workflow_run_id
-            and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
-    """
-    wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_id=workflow_run_id
-    ).one_or_none()
-
-    try:
-        wfr.transition(WorkflowRunStatus.TERMINATED)
-        DB.session.commit()
-        transitioned = True
-    except (InvalidStateTransition, AttributeError):
-        # this branch handles race condition or case where no wfr was returned
-        transitioned = False
-
-    resp = jsonify(transitioned=transitioned)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jobmon_swarm.route('/task/<task_id>/queue', methods=['POST'])
 def queue_job(task_id: int):
     """Queue a job and change its status
@@ -227,9 +184,8 @@ def get_time(session):
     return time
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>',
-                    methods=['PUT'])
-def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
+@jobmon_swarm.route('/workflow_run/<workflow_run_id>/reap', methods=['PUT'])
+def reap_workflow_run(workflow_run_id: int):
     """If the last task was more than 2 minutes ago, transition wfr to A state
     Also check WorkflowRun status_date to avoid possible race condition where reaper
     checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
@@ -239,59 +195,25 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
 
     query = """
         SELECT
-            workflow_run.*,
-            TIMESTAMPDIFF(
-                SECOND, workflow_run.heartbeat_date, CURRENT_TIMESTAMP
-            ) AS workflow_created,
-            TIMESTAMPDIFF(
-                SECOND, max(task.status_date), CURRENT_TIMESTAMP
-            ) AS task_created
+            workflow_run.*
         FROM workflow_run
-        JOIN workflow ON workflow_run.workflow_id = workflow.id
-        LEFT JOIN task ON workflow_run.workflow_id = task.workflow_id
         WHERE
             workflow_run.id = :workflow_run_id
-            AND workflow.status != 'S'
-        HAVING
-            (
-                workflow_created > :aborted_seconds
-                AND task_created > :aborted_seconds
-            )
-            OR (workflow_created > :aborted_seconds and task_created is NULL)
+            and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
     """
     wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_id=workflow_run_id, aborted_seconds=aborted_seconds
+        workflow_run_id=workflow_run_id
     ).one_or_none()
     DB.session.commit()
 
-    if wfr is not None:
-        wfr.transition(WorkflowRunStatus.ABORTED)
+    try:
+        wfr.reap()
         DB.session.commit()
-        aborted = True
-    else:
-        aborted = False
-    resp = jsonify(was_aborted=aborted)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
-def log_wfr_heartbeat(workflow_run_id: int):
-    """Log a workflow_run as being responsive, with a heartbeat
-    Args:
-
-        workflow_run_id: id of the workflow_run to log
-    """
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    params = {"workflow_run_id": int(workflow_run_id)}
-    query = """
-        UPDATE workflow_run
-        SET heartbeat_date = CURRENT_TIMESTAMP()
-        WHERE id = :workflow_run_id
-    """
-    DB.session.execute(query, params)
-    DB.session.commit()
-    resp = jsonify()
+        status = wfr.status
+    except (InvalidStateTransition, AttributeError):
+        # this branch handles race condition or case where no wfr was returned
+        status = ""
+    resp = jsonify(status=status)
     resp.status_code = StatusCodes.OK
     return resp
 

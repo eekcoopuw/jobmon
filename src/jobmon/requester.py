@@ -110,7 +110,8 @@ class Requester(object):
         self._retry = tenacity.Retrying(
             stop=tenacity.stop_after_delay(self.stop_after_delay),
             wait=tenacity.wait_exponential(self.max_retries),
-            retry=tenacity.retry_if_result(is_5XX),
+            retry=(tenacity.retry_if_result(is_5XX) |
+                   tenacity.retry_if_exception_type(requests.ConnectionError)),
             retry_error_callback=raise_if_exceed_retry
         )
 

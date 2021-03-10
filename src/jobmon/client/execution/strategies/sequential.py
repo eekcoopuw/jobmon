@@ -1,7 +1,7 @@
 """Sequential executor runs one task at a time."""
 import os
 from collections import OrderedDict
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from jobmon.client.execution.strategies.base import (Executor, ExecutorParameters,
                                                      TaskInstanceExecutorInfo)
@@ -59,17 +59,15 @@ class SequentialExecutor(Executor):
         except KeyError:
             raise RemoteExitInfoNotAvailable
 
-    def get_actual_submitted_or_running(self, executor_ids, report_by_buffer) -> \
-            Tuple[List[int], Dict[int, int]]:
+    def get_actual_submitted_or_running(self, executor_ids: List[int]) -> List[int]:
         """Check status of running task."""
         running = os.environ.get("JOB_ID")
         if running:
-            return [int(running)], executor_ids
+            return [int(running)]
         else:
-            return [], executor_ids
+            return []
 
-    def execute(self, command: str, name: str, executor_parameters: ExecutorParameters,
-                executor_ids) -> Tuple[int, Dict[int, int]]:
+    def execute(self, command: str, name: str, executor_parameters: ExecutorParameters) -> int:
         """Execute sequentially."""
         logger.debug(command)
 
@@ -88,7 +86,7 @@ class SequentialExecutor(Executor):
                 raise
 
         self._exit_info[executor_id] = exit_code
-        return executor_id, executor_ids
+        return executor_id
 
 
 class TaskInstanceSequentialInfo(TaskInstanceExecutorInfo):

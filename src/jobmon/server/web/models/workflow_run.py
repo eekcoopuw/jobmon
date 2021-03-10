@@ -17,8 +17,8 @@ class WorkflowRun(DB.Model):
         """Serialize workflow run."""
         serialized = SerializeWorkflowRun.to_wire(
             id=self.id,
-            workflow_id=self.workflow_id,
-            heartbeat_date=self.heartbeat_date)
+            workflow_id=self.workflow_id
+        )
         return serialized
 
     id = DB.Column(DB.Integer, primary_key=True)
@@ -108,6 +108,15 @@ class WorkflowRun(DB.Model):
         """Register a heartbeat for the Workflow Run to show it is still alive."""
         self.transition(transition_status)
         self.heartbeat_date = func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report_increment))
+
+    def reap(self):
+        """Transition dead workflow runs to a terminal state"""
+        if self.status == WorkflowRunStatus.LINKING:
+            self.transition(WorkflowRunStatus.ABORTED)
+        if self.status in [WorkflowRunStatus.COLD_RESUME, WorkflowRunStatus.HOT_RESUME]:
+            self.transition(WorkflowRunStatus.TERMINATED)
+        if self.status == WorkflowRunStatus.RUNNING:
+            self.transition(WorkflowRunStatus.ERROR)
 
     def transition(self, new_state):
         """Transition the Workflow Run's state."""

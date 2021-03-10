@@ -1,5 +1,6 @@
 """Add handlers to deal with server-side exceptions and logging."""
 import logging
+import traceback
 from typing import Dict, Optional
 
 from flask import jsonify, request
@@ -45,8 +46,7 @@ def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
     # error handling
     @app.errorhandler(InvalidUsage)
     def handle_4xx(error):
-        # tb = error.__traceback__
-        # stack_trace = traceback.format_list(traceback.extract_tb(tb))
+        traceback.print_exc()
         response_dict = {"type": str(type(error)), "exception_message": str(error)}
         app.logger.exception(response_dict, status_code=error.status_code)
         response = jsonify(error=response_dict)
@@ -57,6 +57,7 @@ def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
     # error handling
     @app.errorhandler(ServerError)
     def handle_5xx(error):
+        traceback.print_exc()
         response_dict = {"type": str(type(error)), "exception_message": str(error)}
         app.logger.exception(response_dict, status_code=error.status_code)
         response = jsonify(error=response_dict)

@@ -112,6 +112,9 @@ class MultiprocessExecutor(Executor):
         self.task_queue: JoinableQueue = JoinableQueue()
         self.response_queue: Queue = Queue()
 
+        # workers
+        self.consumers: List[Consumer] = []
+
     def start(self, jobmon_command: Optional[str] = None) -> None:
         """Fire up N task consuming processes using Multiprocessing. number of consumers is
         controlled by parallelism.
@@ -126,10 +129,9 @@ class MultiprocessExecutor(Executor):
             w.start()
         super().start(jobmon_command=jobmon_command)
 
-    def stop(self, executor_ids, report_by_buffer) -> None:
+    def stop(self, executor_ids: List[int]) -> None:
         """Terminate consumers and call sync 1 final time."""
-        actual, _ = self.get_actual_submitted_or_running(
-            executor_ids=executor_ids, report_by_buffer=report_by_buffer)
+        actual = self.get_actual_submitted_or_running(executor_ids=executor_ids)
         self.terminate_task_instances(actual)
 
         # Sending poison pill to all worker
@@ -138,7 +140,7 @@ class MultiprocessExecutor(Executor):
 
         # Wait for commands to finish
         self.task_queue.join()
-        super().stop(executor_ids, report_by_buffer)
+        super().stop(executor_ids)
 
     def _update_internal_states(self) -> None:
         while not self.response_queue.empty():
@@ -198,22 +200,19 @@ class MultiprocessExecutor(Executor):
         for task in current_work:
             self.task_queue.put(task)
 
-    def get_actual_submitted_or_running(self, executor_ids, report_by_buffer) -> \
-            Tuple[List[int], Dict[int, int]]:
+    def get_actual_submitted_or_running(self, executor_ids: List[int]) -> List[int]:
         """Get tasks that are active."""
         self._update_internal_states()
-        return list(self._running_or_submitted.keys()), executor_ids
+        return list(self._running_or_submitted.keys())
 
-    def execute(self, command: str, name: str,
-                executor_parameters: ExecutorParameters, executor_ids) -> \
-            Tuple[int, Dict[int, int]]:
+    def execute(self, command: str, name: str, executor_parameters: ExecutorParameters) -> int:
         """Execute a task instance."""
         executor_id = self._next_executor_id
         self._next_executor_id += 1
         task = PickableTask(executor_id, self.jobmon_command + " " + command)
         self.task_queue.put(task)
         self._running_or_submitted.update({executor_id: None})
-        return executor_id, executor_ids
+        return executor_id
 
 
 class TaskInstanceMultiprocessInfo(TaskInstanceExecutorInfo):

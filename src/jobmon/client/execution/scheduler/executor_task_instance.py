@@ -1,6 +1,7 @@
 """Task Instance object from the scheduler's perspective."""
 from __future__ import annotations
 
+import time
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
@@ -36,6 +37,11 @@ class ExecutorTaskInstance:
         self.workflow_run_id = workflow_run_id
         self.executor_id = executor_id
 
+        self.report_by_date: float
+
+        self.error_state = ""
+        self.error_msg = ""
+
         # interfaces to the executor and server
         self.executor = executor
 
@@ -57,11 +63,12 @@ class ExecutorTaskInstance:
             ExecutorTaskInstance
         """
         kwargs = SerializeExecutorTaskInstance.kwargs_from_wire(wire_tuple)
-        return cls(task_instance_id=kwargs["task_instance_id"],
-                   workflow_run_id=kwargs["workflow_run_id"],
-                   executor=executor,
-                   executor_id=kwargs["executor_id"],
-                   requester=requester)
+        ti = cls(task_instance_id=kwargs["task_instance_id"],
+                 workflow_run_id=kwargs["workflow_run_id"],
+                 executor=executor,
+                 executor_id=kwargs["executor_id"],
+                 requester=requester)
+        return ti
 
     @classmethod
     def register_task_instance(cls, task_id: int, workflow_run_id: int, executor: Executor,
@@ -138,42 +145,29 @@ class ExecutorTaskInstance:
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
+        self.report_by_date = time.time() + next_report_increment
+
     def log_error(self) -> None:
         """Log an error from the executor loops."""
         if self.executor_id is None:
             raise ValueError("executor_id cannot be None during log_error")
-        executor_id: int = self.executor_id
+        executor_id = self.executor_id
         logger.debug(f"log_error for executor_id {executor_id}")
-        try:
-            error_state, msg = self.executor.get_remote_exit_info(executor_id)
-        except RemoteExitInfoNotAvailable:
-            msg = (f"Unknown error caused task_instance_id {self.task_instance_id} to be lost")
-            logger.warning(msg)
-            error_state = TaskInstanceStatus.UNKNOWN_ERROR
+        if not self.error_state:
+            raise ValueError("cannot log error if self.error_state isn't set")
 
-        # this is the 'happy' path. The executor gives us a concrete error for
-        # the lost task
-        if error_state == TaskInstanceStatus.RESOURCE_ERROR:
-            logger.debug(f"log_error resource error for executor_id {executor_id}")
-            message = {
-                "error_message": msg,
-                "error_state": error_state,
-                "executor_id": executor_id
-            }
-        # this is the 'unhappy' path. We are giving up discovering the exit
-        # state and moving the task into unknown error state
+        if self.error_state == TaskInstanceStatus.UNKNOWN_ERROR:
+            app_route = f"/scheduler/task_instance/{self.task_instance_id}/log_unknown_error"
         else:
-            logger.debug(f"Giving up discovering the exit state for executor_id {executor_id} "
-                         f"with error_state {error_state}")
-            message = {
-                "error_message": msg,
-                "error_state": error_state
-            }
+            app_route = f"/scheduler/task_instance/{self.task_instance_id}/log_known_error"
 
-        app_route = f"/scheduler/task_instance/{self.task_instance_id}/log_error_reconciler"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message=message,
+            message={
+                'error_state': self.error_state,
+                'error_message': self.error_msg,
+                'executor_id': executor_id,
+            },
             request_type='post',
             logger=logger
         )
@@ -182,6 +176,22 @@ class ExecutorTaskInstance:
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
+
+    def infer_error(self) -> None:
+        """Infer error by checking the executor remote exit info."""
+        # infer error state if we don't know it already
+        if self.executor_id is None:
+            raise ValueError("executor_id cannot be None during log_error")
+        executor_id = self.executor_id
+
+        try:
+            error_state, error_msg = self.executor.get_remote_exit_info(executor_id)
+        except RemoteExitInfoNotAvailable:
+            error_state = TaskInstanceStatus.UNKNOWN_ERROR
+            error_msg = (f"Unknown error caused task_instance_id {self.task_instance_id} "
+                         "to be lost")
+        self.error_state = error_state
+        self.error_msg = error_msg
 
     def dummy_executor_task_instance_run_and_done(self) -> None:
         """For all instances other than the DummyExecutor, the worker node task instance should

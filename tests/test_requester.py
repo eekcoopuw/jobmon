@@ -3,8 +3,9 @@ from unittest import mock
 from jobmon.requester import Requester
 
 import pytest
-
 from tenacity import stop_after_attempt
+from requests import ConnectionError
+import time
 
 
 def test_server_502(client_env):
@@ -44,3 +45,41 @@ def test_server_502(client_env):
         with pytest.raises(RuntimeError, match='Status code was 502'):
             retrier.stop = stop_after_attempt(1)
             retrier.call(test_requester._send_request, "/time", {}, "get")
+
+
+def test_connection_retry(client_env):
+    """
+    GBDSCI-3411
+
+    We should automatically retry connection errors, not fail on first failure.
+    """
+
+    class RequesterMock(Requester):
+        """
+        Mock requester class to raise ConnectionErrors on first 2 attempts, then succeed
+        """
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.time = time.time()
+
+        def _send_request(self, *args, **kwargs):
+            current_time = time.time()
+            if current_time - self.time < 5:
+                # If <5 seconds has elapsed, raise an error. Retry will catch it
+                raise ConnectionError
+            else:
+                self.time = current_time
+                return super()._send_request(*args, **kwargs)
+
+    with pytest.raises(ConnectionError):
+        # Set low backoff and max time limits, to force max retries error
+        failed_requester = RequesterMock(client_env, max_retries=1, stop_after_delay=2)
+        failed_requester.send_request('/time', {}, 'get')
+
+    # Use defaults of 10 second backoff, 2 min max wait
+    good_requester = RequesterMock(client_env)
+    rc, resp = good_requester.send_request("/time", {}, "get")  # No connectionerror raised
+    assert rc == 200
+    retrier = good_requester._retry
+    assert retrier.statistics['attempt_number'] > 1
