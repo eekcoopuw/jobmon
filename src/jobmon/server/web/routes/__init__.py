@@ -6,5 +6,5 @@ jobmon_swarm = Blueprint("jobmon_swarm", __name__)
 jobmon_worker = Blueprint("jobmon_worker", __name__)
 jobmon_cli = Blueprint("jobmon_cli", __name__)
 
-from . import jobmon_client_2, jobmon_scheduler_2, jobmon_swarm_2, jobmon_worker_2, jobmon_cli_2
+from . import jobmon_client_routes, jobmon_scheduler_routes, jobmon_swarm_routes, jobmon_worker_routes, jobmon_cli_routes
 from . import dag, node, task, task_instance, task_template, tool, workflow, workflow_run

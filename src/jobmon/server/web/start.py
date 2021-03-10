@@ -30,11 +30,8 @@ def create_app(web_config: Optional[WebConfig] = None):
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
 
     # register blueprints
-    from .routes import jobmon_client, jobmon_scheduler, jobmon_swarm, jobmon_worker, jobmon_cli
-    # from jobmon.server.web.routes.jobmon_scheduler_2 import jobmon_scheduler
-    # from jobmon.server.web.routes.jobmon_swarm_2 import jobmon_swarm
-    # from jobmon.server.web.routes.jobmon_worker_2 import jobmon_worker
-    # from jobmon.server.web.routes.jobmon_cli_2 import jobmon_cli
+    from .routes import jobmon_client, jobmon_scheduler, jobmon_swarm, jobmon_worker, \
+        jobmon_cli
 
     app.register_blueprint(jobmon_client, url_prefix='/')  # default traffic to jobmon_client
     app.register_blueprint(jobmon_client, url_prefix='/client')
