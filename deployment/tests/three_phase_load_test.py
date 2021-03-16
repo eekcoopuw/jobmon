@@ -118,10 +118,14 @@ def three_phase_load_test(n_tasks: int, wfid: str = "", n_taskargs: int = 1,
 
     tier3 = []
     # Third Tier, depend on n_edge tier 2 tasks
-    # Enforce n_edge to be less than n_tasks * 3
+    # Enforce n_edge to be less than n_tasks * 3 but bigger than 3
     if n_edges > n_tasks * 3:
         n_edges = n_tasks * 3
         logging.warning(f"Reset n_edges to {n_edges}")
+    if n_edges < 3:
+        n_edges = 3
+        logging.warning(f"Reset n_edges to {n_edges}")
+    random_edge_start_point = 0
     for i in range(n_tasks):
         counter += 1
         sleep_time = random.randint(30, 41)
@@ -131,7 +135,6 @@ def three_phase_load_test(n_tasks: int, wfid: str = "", n_taskargs: int = 1,
         for j in range(n_attr):
             attributes_t3.append(f'foo_t3_{j}')
         logging.info(f"Create task(t3) {i}")
-        random_edge_start_point = random.randint(0, n_tasks * 3 - n_edges)
         tier_3_task = tt.create_task(
             executor_parameters=ExecutorParameters(num_cores=1,
                                                    m_mem_free="1G",
@@ -147,6 +150,7 @@ def three_phase_load_test(n_tasks: int, wfid: str = "", n_taskargs: int = 1,
         )
         logging.info(f"Task {i} created")
         tier3.append(tier_3_task)
+        random_edge_start_point = (random_edge_start_point + 1) % (n_tasks * 3 - n_edges + 1)
 
     wf.add_tasks(tier1 + tier2 + tier3)
 
