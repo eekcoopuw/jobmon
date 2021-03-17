@@ -17,7 +17,7 @@ INSTALL_REQUIRES = [
     'python_json_logger',
     'python-logstash-async',
     'requests',
-    'sqlalchemy',
+    'sqlalchemy==1.3',
     'structlog',
     'tabulate',
     'tenacity',
